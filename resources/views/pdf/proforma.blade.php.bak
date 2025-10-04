@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proforma {{ $proforma->proforma_number }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'DejaVu Sans', sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.4;
+        }
+        .container {
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #6B46C1;
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            color: #6B46C1;
+            font-size: 24pt;
+            margin-bottom: 5px;
+        }
+        .header p {
+            color: #666;
+            font-size: 9pt;
+        }
+        .info-section {
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: table;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .info-col {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+            padding: 10px;
+        }
+        .info-col.left {
+            border-right: 1px solid #ddd;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #6B46C1;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table thead {
+            background-color: #6B46C1;
+            color: white;
+        }
+        table th {
+            padding: 8px;
+            text-align: left;
+            font-size: 9pt;
+            font-weight: bold;
+        }
+        table td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+            font-size: 9pt;
+        }
+        table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .totals {
+            float: right;
+            width: 40%;
+            margin-top: 20px;
+        }
+        .totals table {
+            margin: 0;
+        }
+        .totals td {
+            border: none;
+            padding: 5px 10px;
+        }
+        .totals .total-row {
+            background-color: #10B981;
+            color: white;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .footer {
+            clear: both;
+            margin-top: 40px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+        }
+        .notes {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #6B46C1;
+        }
+        .notes-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #6B46C1;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 8pt;
+            font-weight: bold;
+        }
+        .badge-draft { background-color: #e5e7eb; color: #374151; }
+        .badge-sent { background-color: #dbeafe; color: #1e40af; }
+        .badge-accepted { background-color: #d1fae5; color: #065f46; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {{-- Header --}}
+        <div class="header">
+            <h1>PROFORMA DE VENDA</h1>
+            <p>Nº {{ $proforma->proforma_number }}</p>
+        </div>
+
+        {{-- Informações --}}
+        <div class="info-row">
+            <div class="info-col left">
+                <div class="info-label">CLIENTE:</div>
+                <div class="info-value">
+                    <strong>{{ $proforma->client->name }}</strong><br>
+                    @if($proforma->client->nif)
+                        NIF: {{ $proforma->client->nif }}<br>
+                    @endif
+                    @if($proforma->client->email)
+                        Email: {{ $proforma->client->email }}<br>
+                    @endif
+                    @if($proforma->client->phone)
+                        Tel: {{ $proforma->client->phone }}<br>
+                    @endif
+                    @if($proforma->client->address)
+                        {{ $proforma->client->address }}
+                    @endif
+                </div>
+            </div>
+            <div class="info-col">
+                <div class="info-label">INFORMAÇÕES:</div>
+                <div class="info-value">
+                    <strong>Data:</strong> {{ $proforma->proforma_date->format('d/m/Y') }}<br>
+                    @if($proforma->valid_until)
+                        <strong>Válida até:</strong> {{ $proforma->valid_until->format('d/m/Y') }}<br>
+                    @endif
+                    <strong>Armazém:</strong> {{ $proforma->warehouse->name }}<br>
+                    <strong>Status:</strong> 
+                    @if($proforma->status === 'draft')
+                        <span class="badge badge-draft">RASCUNHO</span>
+                    @elseif($proforma->status === 'sent')
+                        <span class="badge badge-sent">ENVIADA</span>
+                    @elseif($proforma->status === 'accepted')
+                        <span class="badge badge-accepted">ACEITE</span>
+                    @endif
+                    @if($proforma->is_service)
+                        <br><strong>Tipo:</strong> Prestação de Serviço (IRT 6.5%)
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Produtos --}}
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th class="text-center">Qtd</th>
+                    <th class="text-right">Preço Unit.</th>
+                    <th class="text-center">Desc%</th>
+                    <th class="text-center">IVA%</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($proforma->items as $item)
+                <tr>
+                    <td>
+                        <strong>{{ $item->product_name }}</strong><br>
+                        <span style="color: #666; font-size: 8pt;">{{ $item->unit }}</span>
+                    </td>
+                    <td class="text-center">{{ $item->quantity }}</td>
+                    <td class="text-right">{{ number_format($item->unit_price, 2) }} Kz</td>
+                    <td class="text-center">{{ $item->discount_percent }}%</td>
+                    <td class="text-center">{{ $item->tax_rate }}%</td>
+                    <td class="text-right"><strong>{{ number_format($item->total, 2) }} Kz</strong></td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        {{-- Totais --}}
+        <div class="totals">
+            <table>
+                <tr>
+                    <td>Total Líquido:</td>
+                    <td class="text-right">{{ number_format($proforma->subtotal, 2) }} Kz</td>
+                </tr>
+                @if($proforma->discount_commercial > 0 || $proforma->discount_amount > 0)
+                <tr>
+                    <td>Desconto Comercial:</td>
+                    <td class="text-right">{{ number_format($proforma->discount_commercial + $proforma->discount_amount, 2) }} Kz</td>
+                </tr>
+                @endif
+                @if($proforma->discount_financial > 0)
+                <tr>
+                    <td>Desconto Financeiro:</td>
+                    <td class="text-right">{{ number_format($proforma->discount_financial, 2) }} Kz</td>
+                </tr>
+                @endif
+                <tr>
+                    <td>Total De Imposto (IVA):</td>
+                    <td class="text-right">{{ number_format($proforma->tax_amount, 2) }} Kz</td>
+                </tr>
+                @if($proforma->irt_amount > 0)
+                <tr>
+                    <td>Retenção (6,5%):</td>
+                    <td class="text-right">{{ number_format($proforma->irt_amount, 2) }} Kz</td>
+                </tr>
+                @endif
+                <tr class="total-row">
+                    <td><strong>TOTAL (AOA):</strong></td>
+                    <td class="text-right"><strong>{{ number_format($proforma->total, 2) }} Kz</strong></td>
+                </tr>
+            </table>
+        </div>
+
+        {{-- Notas --}}
+        @if($proforma->notes)
+        <div style="clear: both;">
+            <div class="notes">
+                <div class="notes-title">Observações:</div>
+                <div>{{ $proforma->notes }}</div>
+            </div>
+        </div>
+        @endif
+
+        @if($proforma->terms)
+        <div style="clear: both; margin-top: 10px;">
+            <div class="notes">
+                <div class="notes-title">Termos e Condições:</div>
+                <div>{{ $proforma->terms }}</div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Footer --}}
+        <div class="footer">
+            <p>Proforma gerada em {{ now()->format('d/m/Y H:i:s') }}</p>
+            <p>Documento conforme Decreto Presidencial 312/18 - AGT Angola</p>
+        </div>
+    </div>
+</body>
+</html>
