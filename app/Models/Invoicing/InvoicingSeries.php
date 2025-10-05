@@ -63,20 +63,34 @@ class InvoicingSeries extends Model
         return $this->formatNumber($number);
     }
 
-    // Format document number
+    // Format document number (Padrão AGT Angola)
     public function formatNumber($number)
     {
         // Formatar número com padding
         $formattedNumber = str_pad($number, $this->number_padding, '0', STR_PAD_LEFT);
         
-        // Construir formato: FT A/2025/000001 ou FT A/000001
-        $parts = [$this->prefix, $this->series_code];
+        // Formato AGT Angola: [TIPO] [SÉRIE] [ANO]/[NÚMERO]
+        // Exemplo: FT A 2025/000001
         
-        if ($this->include_year) {
-            $parts[] = $this->current_year ?? now()->year;
+        $parts = [];
+        
+        // Prefixo obrigatório (FT, FR, NC, ND, etc.)
+        if ($this->prefix) {
+            $parts[] = $this->prefix;
         }
         
-        $parts[] = $formattedNumber;
+        // Série adicional (A, B, C, etc.)
+        if ($this->series_code) {
+            $parts[] = $this->series_code;
+        }
+        
+        // Ano e número
+        if ($this->include_year) {
+            $year = $this->current_year ?? now()->year;
+            $parts[] = $year . '/' . $formattedNumber;
+        } else {
+            $parts[] = $formattedNumber;
+        }
         
         return implode(' ', $parts);
     }
@@ -90,11 +104,55 @@ class InvoicingSeries extends Model
     // Get default series for document type
     public static function getDefaultSeries($tenantId, $documentType)
     {
-        return static::where('tenant_id', $tenantId)
+        $series = static::where('tenant_id', $tenantId)
             ->where('document_type', $documentType)
             ->where('is_default', true)
             ->where('is_active', true)
             ->first();
+        
+        // Se não existe, criar série padrão AGT
+        if (!$series) {
+            $series = static::createDefaultSeries($tenantId, $documentType);
+        }
+        
+        return $series;
+    }
+    
+    // Criar série padrão AGT Angola
+    public static function createDefaultSeries($tenantId, $documentType)
+    {
+        // Mapeamento de tipos para prefixos AGT
+        $agtPrefixes = [
+            'invoice' => 'FT',      // Fatura
+            'proforma' => 'PR',     // Proforma
+            'receipt' => 'RC',      // Recibo
+            'pos' => 'FR',          // Fatura-Recibo
+            'credit_note' => 'NC',  // Nota de Crédito
+            'debit_note' => 'ND',   // Nota de Débito
+            'advance' => 'AD',      // Adiantamento
+            'purchase' => 'FC',     // Fatura de Compra
+        ];
+        
+        $prefix = $agtPrefixes[$documentType] ?? 'DOC';
+        
+        // Buscar configurações para série inicial
+        $settings = InvoicingSettings::forTenant($tenantId);
+        
+        return static::create([
+            'tenant_id' => $tenantId,
+            'document_type' => $documentType,
+            'series_code' => 'A',  // Série padrão A
+            'name' => "Série {$prefix} A",
+            'prefix' => $prefix,   // FT, FR, NC, etc. (fixo AGT)
+            'include_year' => true,
+            'next_number' => 1,
+            'number_padding' => 6,
+            'is_default' => true,
+            'is_active' => true,
+            'current_year' => now()->year,
+            'reset_yearly' => true,
+            'description' => "Série padrão AGT para {$prefix}",
+        ]);
     }
 
     // Scopes

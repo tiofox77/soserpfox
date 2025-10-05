@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name') }} - Super Admin</title>
+    <title>{{ app_name() }} - Super Admin</title>
+    @if(app_favicon())
+    <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
+    @endif
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -182,16 +185,16 @@
         <aside :class="sidebarOpen ? 'w-64' : 'w-20'" class="bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 flex flex-col shadow-2xl">
             <!-- Logo -->
             <div class="flex items-center justify-between p-4 border-b border-blue-700">
-                <div x-show="sidebarOpen" class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-                        <i class="fas fa-crown text-white text-xl"></i>
-                    </div>
-                    <div>
-                        <span class="text-lg font-bold">SOS ERP</span>
-                        <p class="text-xs text-blue-300">Super Admin</p>
-                    </div>
+                <div class="flex items-center justify-center" :class="sidebarOpen ? 'w-full' : ''">
+                    @if(app_logo())
+                        <img src="{{ app_logo() }}" alt="{{ app_name() }}" :class="sidebarOpen ? 'h-16 w-auto max-w-[200px]' : 'h-12 w-12 object-contain'">
+                    @else
+                        <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+                            <i class="fas fa-crown text-white" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
+                        </div>
+                    @endif
                 </div>
-                <button @click="sidebarOpen = !sidebarOpen" class="text-blue-300 hover:text-white transition">
+                <button @click="sidebarOpen = !sidebarOpen" class="text-blue-300 hover:text-white transition ml-2">
                     <i class="fas" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'"></i>
                 </button>
             </div>

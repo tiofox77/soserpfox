@@ -7,7 +7,11 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
+    <title>{{ app_name() }}</title>
+    
+    @if(app_favicon())
+    <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
+    @endif
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -181,16 +185,16 @@
             <aside :class="sidebarOpen ? 'w-64' : 'w-20'" class="bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 flex flex-col shadow-2xl">
                 <!-- Logo -->
                 <div class="flex items-center justify-between p-4 border-b border-blue-700">
-                    <div x-show="sidebarOpen" class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-                            <i class="fas fa-crown text-white text-xl"></i>
-                        </div>
-                        <div>
-                            <span class="text-lg font-bold">{{ config('app.name') }}</span>
-                            <p class="text-xs text-blue-300">Sistema ERP</p>
-                        </div>
+                    <div class="flex items-center justify-center" :class="sidebarOpen ? 'w-full' : ''">
+                        @if(app_logo())
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" :class="sidebarOpen ? 'h-16 w-auto max-w-[200px]' : 'h-12 w-12 object-contain'">
+                        @else
+                            <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+                                <i class="fas fa-crown text-white" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
+                            </div>
+                        @endif
                     </div>
-                    <button @click="sidebarOpen = !sidebarOpen" class="text-blue-300 hover:text-white transition">
+                    <button @click="sidebarOpen = !sidebarOpen" class="text-blue-300 hover:text-white transition ml-2">
                         <i class="fas" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'"></i>
                     </button>
                 </div>
@@ -235,6 +239,12 @@
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cash-register w-5 text-emerald-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">🛒 POS - Ponto de Venda</span>
+                                </a>
+                                
+                                <a href="{{ route('invoicing.pos.reports') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.reports') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📊 Relatórios POS</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -491,8 +501,22 @@
                         </a>
                         
                         <div class="px-3 mt-6 mb-2">
+                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Sistema</p>
+                        </div>
+                        
+                        <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                            <i class="fas fa-cloud-download-alt w-6 text-cyan-400"></i>
+                            <span x-show="sidebarOpen" class="ml-3">Atualizações do Sistema</span>
+                        </a>
+                        
+                        <div class="px-3 mt-6 mb-2">
                             <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Configurações</p>
                         </div>
+                        
+                        <a href="{{ route('superadmin.system-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                            <i class="fas fa-cog w-6 text-purple-400"></i>
+                            <span x-show="sidebarOpen" class="ml-3">Configurações do Sistema</span>
+                        </a>
                         
                         <a href="{{ route('superadmin.saft') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.saft') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-key w-6 text-orange-400"></i>

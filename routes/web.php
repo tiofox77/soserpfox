@@ -26,6 +26,8 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/modules', \App\Livewire\SuperAdmin\Modules::class)->name('modules');
     Route::get('/plans', \App\Livewire\SuperAdmin\Plans::class)->name('plans');
     Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
+    Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
+    Route::get('/system-settings', \App\Livewire\SuperAdmin\SystemSettings::class)->name('system-settings');
     Route::get('/saft-configuration', \App\Livewire\SuperAdmin\SaftConfiguration::class)->name('saft');
 });
 
@@ -137,6 +139,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // POS
     Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');
+    Route::get('/pos/reports', \App\Livewire\POS\SalesReport::class)->name('pos.reports');
 });
 
 // Treasury Module Routes

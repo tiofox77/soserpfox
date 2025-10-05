@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar Conta - SOSERP</title>
+    <title>Criar Conta - {{ app_name() }}</title>
+    @if(app_favicon())
+    <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
+    @endif
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -12,11 +15,15 @@
     <div class="w-full max-w-md">
         <!-- Logo -->
         <div class="text-center mb-8">
-            <a href="{{ route('landing.home') }}" class="inline-flex items-center mb-4">
-                <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                    <i class="fas fa-chart-line text-white text-2xl"></i>
-                </div>
-                <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">SOSERP</span>
+            <a href="{{ route('landing.home') }}" class="inline-flex items-center justify-center mb-4">
+                @if(app_logo())
+                    <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-16 w-auto">
+                @else
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-chart-line text-white text-2xl"></i>
+                    </div>
+                    <span class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{{ app_name() }}</span>
+                @endif
             </a>
         </div>
 

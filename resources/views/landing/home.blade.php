@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOSERP - Sistema de Gestão Empresarial</title>
+    <title>{{ app_name() }} - Sistema de Gestão Empresarial</title>
+    @if(app_favicon())
+    <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
+    @endif
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -13,26 +16,30 @@
     <!-- Navigation -->
     <nav class="bg-white shadow-sm fixed w-full top-0 z-50 border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
+            <div class="flex justify-between items-center" style="padding: 10px 0;">
                 <div class="flex items-center">
                     <div class="flex-shrink-0 flex items-center">
-                        <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                            <i class="fas fa-chart-line text-white text-xl"></i>
-                        </div>
-                        <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">SOSERP</span>
+                        @if(app_logo())
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 80px;" class="w-auto">
+                        @else
+                            <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-chart-line text-white text-2xl"></i>
+                            </div>
+                            <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{{ app_name() }}</span>
+                        @endif
                     </div>
                     <div class="hidden md:ml-10 md:flex md:space-x-8">
                         <a href="#features" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Recursos</a>
                         <a href="#pricing" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Planos</a>
-                        <a href="#about" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Sobre</a>
+                        <a href="#roadmap" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Roadmap</a>
                         <a href="#contact" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Contacto</a>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <a href="{{ route('login') }}" class="text-gray-700 hover:text-blue-600 px-4 py-2 text-sm font-medium transition">
+                    <a href="{{ route('login') }}" class="text-gray-700 hover:text-blue-600 text-sm font-medium transition" style="padding: 10px;">
                         <i class="fas fa-sign-in-alt mr-2"></i>Entrar
                     </a>
-                    <a href="{{ route('register') }}" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:shadow-lg transition">
+                    <a href="{{ route('register') }}" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition" style="padding: 10px 20px;">
                         <i class="fas fa-rocket mr-2"></i>Começar Grátis
                     </a>
                 </div>
@@ -41,7 +48,7 @@
     </nav>
 
     <!-- Hero Section -->
-    <section class="pt-32 pb-20 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <section class="pb-20 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50" style="padding-top: 120px;">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 <div>
@@ -279,6 +286,254 @@
         </div>
     </section>
 
+    <!-- Roadmap Section -->
+    <section id="roadmap" class="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <div class="text-center mb-16">
+                <span class="inline-block px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-bold rounded-full mb-4">
+                    <i class="fas fa-road mr-2"></i>v5.0.0
+                </span>
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                    Roadmap do Projeto
+                </h2>
+                <p class="text-xl text-gray-600">
+                    Acompanhe o desenvolvimento e as próximas funcionalidades
+                </p>
+            </div>
+
+            <!-- Timeline -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                <!-- Concluído -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-green-500">
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
+                                <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                                Concluído
+                            </h3>
+                            <span class="px-3 py-1 bg-green-500 text-white rounded-full text-sm font-bold">100%</span>
+                        </div>
+                        <p class="text-gray-600">Funcionalidades implementadas</p>
+                    </div>
+                    <div class="p-6 space-y-3 max-h-[500px] overflow-y-auto">
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Multi-Tenancy</p>
+                                <p class="text-xs text-gray-600">Sistema multi-empresa</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Faturação AGT</p>
+                                <p class="text-xs text-gray-600">Conforme normas angolanas</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Tesouraria</p>
+                                <p class="text-xs text-gray-600">Gestão de caixa e bancos</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">POS</p>
+                                <p class="text-xs text-gray-600">Ponto de venda moderno</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">SAFT-AO</p>
+                                <p class="text-xs text-gray-600">Gerador completo</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Clientes & Produtos</p>
+                                <p class="text-xs text-gray-600">Gestão completa</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Sistema de Atualizações</p>
+                                <p class="text-xs text-gray-600">GitHub integration</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Configurações</p>
+                                <p class="text-xs text-gray-600">Logo, SEO, Aparência</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Em Desenvolvimento -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-yellow-500">
+                    <div class="bg-gradient-to-br from-yellow-50 to-orange-50 p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
+                                <i class="fas fa-spinner fa-pulse text-yellow-500 mr-3"></i>
+                                Em Desenvolvimento
+                            </h3>
+                            <span class="px-3 py-1 bg-yellow-500 text-white rounded-full text-sm font-bold">60%</span>
+                        </div>
+                        <p class="text-gray-600">Funcionalidades em construção</p>
+                    </div>
+                    <div class="p-6 space-y-3 max-h-[500px] overflow-y-auto">
+                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                            <i class="fas fa-code text-yellow-600 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-900">Inventário Avançado</p>
+                                <p class="text-xs text-gray-600">Armazéns e transferências</p>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 70%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                            <i class="fas fa-code text-yellow-600 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-900">Relatórios Financeiros</p>
+                                <p class="text-xs text-gray-600">DRE, Balanço, Fluxo</p>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 50%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                            <i class="fas fa-code text-yellow-600 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-900">Integrações Bancárias</p>
+                                <p class="text-xs text-gray-600">Multicaixa, BAI, BFA</p>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 40%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                            <i class="fas fa-code text-yellow-600 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-900">Dashboard Analytics</p>
+                                <p class="text-xs text-gray-600">Gráficos e KPIs</p>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 80%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                            <i class="fas fa-code text-yellow-600 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-900">Gestão de Compras</p>
+                                <p class="text-xs text-gray-600">Fornecedores e ordens</p>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 30%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Planejado -->
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-blue-500">
+                    <div class="bg-gradient-to-br from-blue-50 to-cyan-50 p-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-2xl font-bold text-gray-900 flex items-center">
+                                <i class="fas fa-lightbulb text-blue-500 mr-3"></i>
+                                Planejado
+                            </h3>
+                            <span class="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">Q1 2025</span>
+                        </div>
+                        <p class="text-gray-600">Próximas funcionalidades</p>
+                    </div>
+                    <div class="p-6 space-y-3 max-h-[500px] overflow-y-auto">
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Recursos Humanos</p>
+                                <p class="text-xs text-gray-600">Folha de pagamento</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">CRM</p>
+                                <p class="text-xs text-gray-600">Gestão de leads</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Gestão de Projetos</p>
+                                <p class="text-xs text-gray-600">Tarefas e timesheets</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">E-commerce</p>
+                                <p class="text-xs text-gray-600">Loja online integrada</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Mobile App</p>
+                                <p class="text-xs text-gray-600">Android & iOS</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">API REST</p>
+                                <p class="text-xs text-gray-600">Integrações externas</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">BI & Dashboards</p>
+                                <p class="text-xs text-gray-600">Business Intelligence</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6 text-white text-center">
+                    <i class="fas fa-check-circle text-5xl mb-3 opacity-50"></i>
+                    <p class="text-4xl font-bold mb-1">9</p>
+                    <p class="text-sm opacity-90">Concluído</p>
+                </div>
+                <div class="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white text-center">
+                    <i class="fas fa-spinner text-5xl mb-3 opacity-50"></i>
+                    <p class="text-4xl font-bold mb-1">5</p>
+                    <p class="text-sm opacity-90">Em Desenvolvimento</p>
+                </div>
+                <div class="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6 text-white text-center">
+                    <i class="fas fa-lightbulb text-5xl mb-3 opacity-50"></i>
+                    <p class="text-4xl font-bold mb-1">8</p>
+                    <p class="text-sm opacity-90">Planejado</p>
+                </div>
+                <div class="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-6 text-white text-center">
+                    <i class="fas fa-chart-line text-5xl mb-3 opacity-50"></i>
+                    <p class="text-4xl font-bold mb-1">41%</p>
+                    <p class="text-sm opacity-90">Progresso Total</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- CTA Section -->
     <section class="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
         <div class="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
@@ -301,10 +556,14 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
                 <div>
                     <div class="flex items-center mb-4">
-                        <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                            <i class="fas fa-chart-line text-white text-xl"></i>
-                        </div>
-                        <span class="text-2xl font-bold text-white">SOSERP</span>
+                        @if(app_logo())
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-12 w-auto">
+                        @else
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-chart-line text-white text-xl"></i>
+                            </div>
+                            <span class="text-2xl font-bold text-white">{{ app_name() }}</span>
+                        @endif
                     </div>
                     <p class="text-sm">Sistema de Gestão Empresarial completo e moderno para empresas angolanas.</p>
                 </div>

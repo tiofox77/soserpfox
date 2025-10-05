@@ -33,7 +33,8 @@
         },
         "files": [
             "app/Helpers/TenantHelper.php",
-            "app/Helpers/WarehouseHelper.php"
+            "app/Helpers/WarehouseHelper.php",
+            "app/Helpers/SettingsHelper.php"
         ]
     },
     "autoload-dev": {

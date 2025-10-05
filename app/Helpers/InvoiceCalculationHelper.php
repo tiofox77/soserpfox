@@ -32,7 +32,8 @@ class InvoiceCalculationHelper
             $totalBruto += $valorBrutoLinha;
             
             // Desconto comercial da linha (aplicado PRIMEIRO)
-            $descontoPercent = $item->attributes['discount_percent'] ?? 0;
+            $attributes = is_array($item->attributes) ? $item->attributes : (array)$item->attributes;
+            $descontoPercent = $attributes['discount_percent'] ?? 0;
             $descontoLinha = $valorBrutoLinha * ($descontoPercent / 100);
             $descontoComercialLinhas += $descontoLinha;
         }
@@ -59,7 +60,8 @@ class InvoiceCalculationHelper
             $valorBrutoLinha = $item->price * $item->quantity;
             
             // Desconto comercial da linha
-            $descontoPercent = $item->attributes['discount_percent'] ?? 0;
+            $attributes = is_array($item->attributes) ? $item->attributes : (array)$item->attributes;
+            $descontoPercent = $attributes['discount_percent'] ?? 0;
             $descontoLinha = $valorBrutoLinha * ($descontoPercent / 100);
             $valorLiquidoLinha = $valorBrutoLinha - $descontoLinha;
             
@@ -76,7 +78,7 @@ class InvoiceCalculationHelper
             $baseIvaLinha = $valorLiquidoLinha - $descComercialAdicionalLinha - $descFinanceiroLinha;
             
             // IVA da linha
-            $taxRate = $item->attributes['tax_rate'] ?? 14;
+            $taxRate = $attributes['tax_rate'] ?? 14;
             $taxAmountLinha = $baseIvaLinha * ($taxRate / 100);
             $taxAmount += $taxAmountLinha;
         }
@@ -158,7 +160,8 @@ class InvoiceCalculationHelper
         
         foreach ($cartItems as $item) {
             $valorBruto = $item->price * $item->quantity;
-            $descontoPercent = $item->attributes['discount_percent'] ?? 0;
+            $attributes = is_array($item->attributes) ? $item->attributes : (array)$item->attributes;
+            $descontoPercent = $attributes['discount_percent'] ?? 0;
             $desconto = $valorBruto * ($descontoPercent / 100);
             $valorLiquido = $valorBruto - $desconto;
             

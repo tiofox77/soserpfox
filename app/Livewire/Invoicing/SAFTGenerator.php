@@ -4,9 +4,9 @@ namespace App\Livewire\Invoicing;
 
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\PurchaseInvoice;
-use App\Models\Invoicing\Client;
-use App\Models\Invoicing\Supplier;
-use App\Models\Invoicing\Product;
+use App\Models\Client;
+use App\Models\Supplier;
+use App\Models\Product;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -261,7 +261,7 @@ class SAFTGenerator extends Component
 
     public function render()
     {
-        return view('livewire.invoicing.s-a-f-t-generator');
+        return view('livewire.invoicing.saftgenerator');
     }
 }
 

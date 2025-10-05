@@ -3,6 +3,7 @@
 namespace App\Livewire\Invoicing;
 
 use App\Models\Invoicing\InvoicingSettings;
+use App\Models\Invoicing\InvoicingSeries;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Invoicing\Tax;
 use App\Models\Client;
@@ -26,12 +27,12 @@ class Settings extends Component
     public $default_exchange_rate = 1.0000;
     public $default_payment_method = 'dinheiro';
     
-    // Séries
+    // Séries (deprecated - agora usa invoicing_series table)
     public $proforma_series = 'PRF';
     public $invoice_series = 'FT';
     public $receipt_series = 'RC';
     
-    // Numeração
+    // Numeração (deprecated - agora usa invoicing_series table)
     public $proforma_next_number = 1;
     public $invoice_next_number = 1;
     public $receipt_next_number = 1;
@@ -64,6 +65,15 @@ class Settings extends Component
     // Observações
     public $default_notes;
     public $default_terms;
+    
+    // Gestão de Séries
+    public $showSeriesModal = false;
+    public $editingSeriesId = null;
+    public $seriesDocumentType = null;
+    public $seriesCode = 'A';
+    public $seriesName = '';
+    public $seriesPrefix = '';
+    public $seriesDescription = '';
     
     public function mount()
     {
@@ -129,6 +139,96 @@ class Settings extends Component
             'type' => 'success',
             'message' => 'Configurações salvas com sucesso!'
         ]);
+    }
+    
+    // Gestão de Séries
+    public function openNewSeriesModal($documentType, $prefix)
+    {
+        $this->reset(['editingSeriesId', 'seriesCode', 'seriesName', 'seriesDescription']);
+        $this->seriesDocumentType = $documentType;
+        $this->seriesPrefix = $prefix;
+        $this->showSeriesModal = true;
+    }
+    
+    public function editSeries($seriesId)
+    {
+        $series = InvoicingSeries::find($seriesId);
+        
+        if ($series && $series->tenant_id == activeTenantId()) {
+            $this->editingSeriesId = $series->id;
+            $this->seriesDocumentType = $series->document_type;
+            $this->seriesCode = $series->series_code;
+            $this->seriesName = $series->name;
+            $this->seriesPrefix = $series->prefix;
+            $this->seriesDescription = $series->description;
+            $this->showSeriesModal = true;
+        }
+    }
+    
+    public function saveSeries()
+    {
+        $this->validate([
+            'seriesCode' => 'required|max:10',
+            'seriesName' => 'nullable|max:100',
+            'seriesDescription' => 'nullable|max:500',
+        ]);
+        
+        if ($this->editingSeriesId) {
+            // Editar série existente
+            $series = InvoicingSeries::find($this->editingSeriesId);
+            $series->update([
+                'series_code' => $this->seriesCode,
+                'name' => $this->seriesName ?: "Série {$this->seriesPrefix} {$this->seriesCode}",
+                'description' => $this->seriesDescription,
+            ]);
+            
+            $message = 'Série atualizada com sucesso!';
+        } else {
+            // Criar nova série
+            InvoicingSeries::create([
+                'tenant_id' => activeTenantId(),
+                'document_type' => $this->seriesDocumentType,
+                'series_code' => $this->seriesCode,
+                'name' => $this->seriesName ?: "Série {$this->seriesPrefix} {$this->seriesCode}",
+                'prefix' => $this->seriesPrefix,
+                'include_year' => true,
+                'next_number' => 1,
+                'number_padding' => 6,
+                'is_default' => false,
+                'is_active' => true,
+                'current_year' => now()->year,
+                'reset_yearly' => true,
+                'description' => $this->seriesDescription,
+            ]);
+            
+            $message = 'Nova série criada com sucesso!';
+        }
+        
+        $this->showSeriesModal = false;
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => $message
+        ]);
+    }
+    
+    public function setDefaultSeries($seriesId)
+    {
+        $series = InvoicingSeries::find($seriesId);
+        
+        if ($series && $series->tenant_id == activeTenantId()) {
+            // Remover padrão de todas as séries do mesmo tipo
+            InvoicingSeries::where('tenant_id', activeTenantId())
+                ->where('document_type', $series->document_type)
+                ->update(['is_default' => false]);
+            
+            // Definir nova série como padrão
+            $series->update(['is_default' => true]);
+            
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'Série padrão definida com sucesso!'
+            ]);
+        }
     }
     
     public function render()
