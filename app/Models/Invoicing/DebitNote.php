@@ -150,6 +150,11 @@ class DebitNote extends Model
     }
 
     // Accessors
+    public function getHashAttribute()
+    {
+        return $this->saft_hash;
+    }
+
     public function getReasonLabelAttribute()
     {
         $reasons = [

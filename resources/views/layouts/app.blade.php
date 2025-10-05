@@ -175,6 +175,33 @@
         .gradient-shift:hover {
             background-position: right center;
         }
+        
+        /* Fox Easter Egg Animations */
+        @keyframes foxFloat {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+        
+        @keyframes foxWiggle {
+            0%, 100% {
+                transform: rotate(0deg);
+            }
+            25% {
+                transform: rotate(-5deg);
+            }
+            75% {
+                transform: rotate(5deg);
+            }
+        }
+        
+        .fox-paw {
+            animation: foxWiggle 2s ease-in-out infinite;
+            display: inline-block;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -210,10 +237,37 @@
                         <span x-show="sidebarOpen" class="ml-3">Início</span>
                     </a>
                     
-                    <a href="{{ route('users.index') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('users.*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                        <i class="fas fa-users w-6 text-purple-300"></i>
-                        <span x-show="sidebarOpen" class="ml-3">Utilizadores</span>
-                    </a>
+                    {{-- Utilizadores - Collapsible Menu (Apenas Super Admin) --}}
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasRole('Super Admin'))
+                    <div x-data="{ usersOpen: {{ request()->routeIs('users.*') ? 'true' : 'false' }} }">
+                        <button @click="usersOpen = !usersOpen" 
+                                class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                            <div class="flex items-center">
+                                <i class="fas fa-users w-6 text-purple-300"></i>
+                                <span x-show="sidebarOpen" class="ml-3">Utilizadores</span>
+                            </div>
+                            <i x-show="sidebarOpen" 
+                               :class="usersOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                               class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                        </button>
+                        
+                        <div x-show="usersOpen" 
+                             x-collapse
+                             class="bg-blue-900/30">
+                            <a href="{{ route('users.index') }}" 
+                               class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('users.index') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                <i class="fas fa-user-friends w-5 text-purple-400 text-sm"></i>
+                                <span x-show="sidebarOpen" class="ml-3 text-sm">Gestão de Utilizadores</span>
+                            </a>
+                            
+                            <a href="{{ route('users.roles-permissions') }}" 
+                               class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('users.roles-permissions') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                <i class="fas fa-shield-alt w-5 text-purple-400 text-sm"></i>
+                                <span x-show="sidebarOpen" class="ml-3 text-sm">Roles & Permissões</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
 
                     @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('invoicing'))
                         <!-- Invoicing Module - Collapsible Menu -->
@@ -235,55 +289,73 @@
                                  x-collapse
                                  class="bg-blue-900/30">
                                 
+                                @can('invoicing.dashboard.view')
+                                <a href="{{ route('invoicing.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.dashboard') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📊 Dashboard</span>
+                                </a>
+                                @endcan
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                @can('invoicing.pos.access')
                                 <a href="{{ route('invoicing.pos') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cash-register w-5 text-emerald-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">🛒 POS - Ponto de Venda</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.pos.reports')
                                 <a href="{{ route('invoicing.pos.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.reports') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-cyan-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">📊 Relatórios POS</span>
                                 </a>
+                                @endcan
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
                                 
+                                @can('invoicing.clients.view')
                                 <a href="{{ route('invoicing.clients') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.clients*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-users w-5 text-green-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Clientes</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.suppliers.view')
                                 <a href="{{ route('invoicing.suppliers') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.suppliers*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-truck w-5 text-orange-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Fornecedores</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.products.view')
                                 <a href="{{ route('invoicing.products') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.products*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-box w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Produtos</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.categories.view')
                                 <a href="{{ route('invoicing.categories') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.categories*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-folder w-5 text-cyan-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Categorias</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.brands.view')
                                 <a href="{{ route('invoicing.brands') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.brands*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tag w-5 text-pink-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Marcas</span>
                                 </a>
-                                
-                                <a href="{{ route('invoicing.invoices') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.invoices*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-file-invoice w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Faturas</span>
-                                </a>
+                                @endcan
                                 
                                 <!-- Documentos Submenu -->
                                 <div x-data="{ documentsOpen: {{ request()->routeIs('invoicing.sales.*') || request()->routeIs('invoicing.purchases.*') || request()->routeIs('invoicing.receipts.*') || request()->routeIs('invoicing.credit-notes.*') || request()->routeIs('invoicing.debit-notes.*') || request()->routeIs('invoicing.advances.*') ? 'true' : 'false' }} }" class="border-l-2 border-blue-700/30 ml-8">
@@ -302,105 +374,145 @@
                                          x-collapse
                                          class="bg-blue-900/20">
                                         
+                                        @can('invoicing.sales.proformas.view')
                                         <a href="{{ route('invoicing.sales.proformas') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.proformas*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice-dollar w-5 text-purple-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Proformas Venda</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.sales.invoices.view')
                                         <a href="{{ route('invoicing.sales.invoices') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.invoices*') ? 'bg-blue-700 border-l-4 border-indigo-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice w-5 text-indigo-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas Venda</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.purchases.proformas.view')
                                         <a href="{{ route('invoicing.purchases.proformas') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.purchases.proformas*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice w-5 text-orange-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Proformas Compra</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.purchases.invoices.view')
                                         <a href="{{ route('invoicing.purchases.invoices') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.purchases.invoices*') ? 'bg-blue-700 border-l-4 border-red-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice-dollar w-5 text-red-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas Compra</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.imports.view')
+                                        <a href="{{ route('invoicing.imports.index') }}" 
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.imports*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-ship w-5 text-cyan-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Importações</span>
+                                        </a>
+                                        @endcan
+                                        
+                                        @can('invoicing.receipts.view')
                                         <a href="{{ route('invoicing.receipts.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.receipts*') ? 'bg-blue-700 border-l-4 border-blue-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-receipt w-5 text-blue-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Recibos</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.credit-notes.view')
                                         <a href="{{ route('invoicing.credit-notes.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.credit-notes*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-circle-minus w-5 text-green-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Notas Crédito</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.debit-notes.view')
                                         <a href="{{ route('invoicing.debit-notes.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.debit-notes*') ? 'bg-blue-700 border-l-4 border-red-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-circle-plus w-5 text-red-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Notas Débito</span>
                                         </a>
+                                        @endcan
                                         
+                                        @can('invoicing.advances.view')
                                         <a href="{{ route('invoicing.advances.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.advances*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-coins w-5 text-yellow-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Adiantamentos</span>
                                         </a>
+                                        @endcan
                                     </div>
                                 </div>
                                 
+                                @can('invoicing.warehouses.view')
                                 <a href="{{ route('invoicing.warehouses') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.warehouses*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-warehouse w-5 text-indigo-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Armazéns</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.stock.view')
                                 <a href="{{ route('invoicing.stock') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.stock') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-boxes w-5 text-yellow-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Gestão Stock</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.warehouse-transfer.view')
                                 <a href="{{ route('invoicing.warehouse-transfer') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.warehouse-transfer') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-exchange-alt w-5 text-blue-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Transfer. Armazéns</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.inter-company-transfer.view')
                                 <a href="{{ route('invoicing.inter-company-transfer') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.inter-company-transfer') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-building-circle-arrow-right w-5 text-teal-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Transfer. Inter-Empresa</span>
                                 </a>
+                                @endcan
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
                                 
+                                @can('invoicing.taxes.view')
                                 <a href="{{ route('invoicing.taxes') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.taxes') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-percent w-5 text-green-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Impostos (IVA)</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.series.view')
                                 <a href="{{ route('invoicing.series') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.series') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-hashtag w-5 text-pink-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Séries de Documentos</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.saft.view')
                                 <a href="{{ route('invoicing.saft-generator') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.saft-generator') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-code w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Gerador SAFT-AO</span>
                                 </a>
+                                @endcan
                                 
+                                @can('invoicing.settings.view')
                                 <a href="{{ route('invoicing.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cogs w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
                                 </a>
+                                @endcan
                             </div>
                         </div>
                     @endif
@@ -425,47 +537,61 @@
                                  x-collapse
                                  class="bg-blue-900/30">
                                 
-                                <a href="{{ route('treasury.dashboard') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.dashboard*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-chart-line w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
-                                </a>
-                                
+                                @can('treasury.reports.view')
                                 <a href="{{ route('treasury.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.reports*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-invoice-dollar w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
                                 </a>
+                                @endcan
                                 
-                                <a href="{{ route('treasury.payment-methods') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.payment-methods*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-money-bill-wave w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Métodos de Pagamento</span>
-                                </a>
-                                
-                                <a href="{{ route('treasury.banks') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.banks*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-university w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Bancos</span>
-                                </a>
-                                
+                                @can('treasury.accounts.view')
                                 <a href="{{ route('treasury.accounts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.accounts*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-wallet w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Contas Bancárias</span>
                                 </a>
+                                @endcan
                                 
-                                <a href="{{ route('treasury.cash-registers') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.cash-registers*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-cash-register w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Caixas</span>
-                                </a>
-                                
+                                @can('treasury.transactions.view')
                                 <a href="{{ route('treasury.transactions') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.transactions*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-exchange-alt w-5 text-teal-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Transações</span>
                                 </a>
+                                @endcan
+                                
+                                @can('treasury.transfers.view')
+                                <a href="{{ route('treasury.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.dashboard*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Transferências</span>
+                                </a>
+                                @endcan
+                                
+                                @can('treasury.payment-methods.view')
+                                <a href="{{ route('treasury.payment-methods') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.payment-methods*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-money-bill-wave w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Métodos de Pagamento</span>
+                                </a>
+                                @endcan
+                                
+                                @can('treasury.banks.view')
+                                <a href="{{ route('treasury.banks') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.banks*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-university w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Bancos</span>
+                                </a>
+                                @endcan
+                                
+                                @can('treasury.cash-registers.view')
+                                <a href="{{ route('treasury.cash-registers') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.cash-registers*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cash-register w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Caixas</span>
+                                </a>
+                                @endcan
                             </div>
                         </div>
                     @endif
@@ -525,6 +651,40 @@
                     @endif
                 </nav>
 
+                <!-- Easter Egg: FOX Friendly -->
+                @php
+                    $tenant = auth()->user()->activeTenant();
+                    $subscription = $tenant ? $tenant->activeSubscription : null;
+                    $plan = $subscription ? $subscription->plan : null;
+                    $isFoxFriendly = $plan && str_contains(strtolower($plan->slug), 'fox');
+                @endphp
+                
+                @if($isFoxFriendly)
+                <div class="border-t border-blue-700 px-4 py-3">
+                    <div x-data="{ foxHover: false }" 
+                         @mouseenter="foxHover = true" 
+                         @mouseleave="foxHover = false"
+                         class="relative cursor-help">
+                        <div class="flex items-center justify-center">
+                            <div class="text-3xl transition-transform duration-300" 
+                                 :class="foxHover ? 'scale-125' : 'scale-100'"
+                                 style="animation: foxFloat 3s ease-in-out infinite;">
+                                🦊
+                            </div>
+                        </div>
+                        <div x-show="foxHover && sidebarOpen" 
+                             x-transition
+                             class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs rounded-lg shadow-lg whitespace-nowrap">
+                            <div class="font-bold">🦊 FOX Friendly Active!</div>
+                            <div class="text-xs opacity-90">6 meses grátis • Todos os módulos</div>
+                            <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                <div class="border-4 border-transparent border-t-red-500"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- User Menu -->
                 <div class="border-t border-blue-700 p-4">
                     <div x-data="{ open: false }" class="relative">
@@ -581,6 +741,27 @@
                             <!-- Tenant Switcher (se usuário tem mais de 1 empresa) -->
                             @if(auth()->check() && canSwitchTenants())
                                 <livewire:tenant-switcher />
+                            @endif
+                            
+                            <!-- Easter Egg: Fox Paw in Header (FOX Friendly Only) -->
+                            @if($isFoxFriendly ?? false)
+                                <div class="ml-3" 
+                                     x-data="{ showFoxMessage: false }"
+                                     @mouseenter="showFoxMessage = true"
+                                     @mouseleave="showFoxMessage = false"
+                                     title="FOX Friendly Active!">
+                                    <div class="relative cursor-pointer">
+                                        <span class="fox-paw text-xl">🐾</span>
+                                        <div x-show="showFoxMessage"
+                                             x-transition
+                                             class="absolute top-full right-0 mt-2 px-3 py-2 bg-orange-500 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-50">
+                                            <div class="font-bold">🦊 FOX Power!</div>
+                                            <div class="absolute bottom-full right-4 mb-[-4px]">
+                                                <div class="border-4 border-transparent border-b-orange-500"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             @endif
                             
                             <!-- Notificações -->

@@ -8,6 +8,8 @@ use App\Models\Invoicing\Warehouse;
 use App\Models\Client;
 use App\Models\Product;
 use App\Helpers\InvoiceCalculationHelper;
+use App\Helpers\DiscountHelper;
+use App\Helpers\DocumentConfigHelper;
 use Darryldecode\Cart\Facades\CartFacade as Cart;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
@@ -114,12 +116,31 @@ class InvoiceCreate extends Component
             $sessionKey = 'invoice_client_' . activeTenantId() . '_' . auth()->id();
             session([$sessionKey => $this->client_id]);
         }
+        
+        // Validar desconto comercial
+        if ($propertyName === 'discount_commercial' && $this->discount_commercial > 0) {
+            $validation = DiscountHelper::validateDiscount($this->discount_commercial, 'commercial');
+            if (!$validation['valid']) {
+                $this->dispatch('error', message: $validation['message']);
+                $this->discount_commercial = 0;
+            }
+        }
+        
+        // Validar desconto financeiro
+        if ($propertyName === 'discount_financial' && $this->discount_financial > 0) {
+            $validation = DiscountHelper::validateDiscount($this->discount_financial, 'financial');
+            if (!$validation['valid']) {
+                $this->dispatch('error', message: $validation['message']);
+                $this->discount_financial = 0;
+            }
+        }
     }
 
     public function mount($id = null)
     {
         $this->invoice_date = now()->format('Y-m-d');
-        $this->due_date = now()->addDays(30)->format('Y-m-d');
+        // Usar configuração de dias para vencimento
+        $this->due_date = DocumentConfigHelper::getInvoiceDueDate()->format('Y-m-d');
         
         // Unique cart instance per user and tenant (persiste entre reloads)
         $this->cartInstance = 'invoice_' . activeTenantId() . '_' . auth()->id();
@@ -451,6 +472,43 @@ class InvoiceCreate extends Component
             return;
         }
 
+        // Validar descontos antes de salvar
+        if ($this->discount_commercial > 0) {
+            $validation = DiscountHelper::validateDiscount($this->discount_commercial, 'commercial');
+            if (!$validation['valid']) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => $validation['message']
+                ]);
+                return;
+            }
+        }
+        
+        if ($this->discount_financial > 0) {
+            $validation = DiscountHelper::validateDiscount($this->discount_financial, 'financial');
+            if (!$validation['valid']) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => $validation['message']
+                ]);
+                return;
+            }
+        }
+        
+        // Validar descontos por linha nos itens
+        foreach ($cartItems as $item) {
+            if (isset($item->attributes->discount) && $item->attributes->discount > 0) {
+                $validation = DiscountHelper::validateDiscount($item->attributes->discount, 'line');
+                if (!$validation['valid']) {
+                    $this->dispatch('notify', [
+                        'type' => 'error',
+                        'message' => 'Item "' . $item->name . '": ' . $validation['message']
+                    ]);
+                    return;
+                }
+            }
+        }
+
         DB::beginTransaction();
         try {
             if ($this->isEdit) {
@@ -565,6 +623,14 @@ class InvoiceCreate extends Component
                 'type' => 'success',
                 'message' => 'Fatura ' . ($this->isEdit ? 'atualizada' : 'criada') . ' com sucesso!'
             ]);
+            
+            // Verificar se deve imprimir automaticamente
+            if (DocumentConfigHelper::shouldAutoPrint()) {
+                // Abrir PDF automaticamente em nova aba
+                $this->dispatch('auto-print-pdf', [
+                    'url' => route('invoicing.sales.invoice.pdf', $invoice->id)
+                ]);
+            }
             
             // Disparar evento para abrir preview em nova aba
             $this->dispatch('openInvoicePreview', ['invoiceId' => $invoice->id]);

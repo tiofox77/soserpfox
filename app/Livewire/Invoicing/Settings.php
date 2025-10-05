@@ -8,6 +8,7 @@ use App\Models\Invoicing\Warehouse;
 use App\Models\Invoicing\Tax;
 use App\Models\Client;
 use App\Models\Supplier;
+use App\Models\Treasury\PaymentMethod;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -26,6 +27,11 @@ class Settings extends Component
     public $default_currency = 'AOA';
     public $default_exchange_rate = 1.0000;
     public $default_payment_method = 'dinheiro';
+    
+    // Formato de Números
+    public $number_format = 'angola';
+    public $decimal_places = 2;
+    public $rounding_mode = 'normal';
     
     // Séries (deprecated - agora usa invoicing_series table)
     public $proforma_series = 'PRF';
@@ -65,6 +71,17 @@ class Settings extends Component
     // Observações
     public $default_notes;
     public $default_terms;
+    
+    // POS - Ponto de Venda
+    public $pos_auto_print = true;
+    public $pos_play_sounds = true;
+    public $pos_validate_stock = true;
+    public $pos_allow_negative_stock = false;
+    public $pos_show_product_images = true;
+    public $pos_products_per_page = 12;
+    public $pos_auto_complete_sale = false;
+    public $pos_require_customer = false;
+    public $pos_default_payment_method_id = null;
     
     // Gestão de Séries
     public $showSeriesModal = false;
@@ -133,6 +150,15 @@ class Settings extends Component
             'saft_version' => $this->saft_version,
             'default_notes' => $this->default_notes,
             'default_terms' => $this->default_terms,
+            'pos_auto_print' => $this->pos_auto_print,
+            'pos_play_sounds' => $this->pos_play_sounds,
+            'pos_validate_stock' => $this->pos_validate_stock,
+            'pos_allow_negative_stock' => $this->pos_allow_negative_stock,
+            'pos_show_product_images' => $this->pos_show_product_images,
+            'pos_products_per_page' => $this->pos_products_per_page,
+            'pos_auto_complete_sale' => $this->pos_auto_complete_sale,
+            'pos_require_customer' => $this->pos_require_customer,
+            'pos_default_payment_method_id' => $this->pos_default_payment_method_id,
         ]);
         
         $this->dispatch('notify', [
@@ -253,11 +279,18 @@ class Settings extends Component
             ->orderBy('name')
             ->get();
         
+        $paymentMethods = PaymentMethod::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+        
         return view('livewire.invoicing.settings', [
             'warehouses' => $warehouses,
             'clients' => $clients,
             'suppliers' => $suppliers,
             'taxes' => $taxes,
+            'paymentMethods' => $paymentMethods,
         ]);
     }
 }

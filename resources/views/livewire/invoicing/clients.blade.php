@@ -11,9 +11,11 @@
                     <p class="text-green-100 text-sm">Gerir clientes</p>
                 </div>
             </div>
+            @can('invoicing.clients.create')
             <button wire:click="create" class="bg-white text-green-600 hover:bg-green-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                 <i class="fas fa-plus mr-2"></i>Novo Cliente
             </button>
+            @endcan
         </div>
     </div>
 
@@ -55,12 +57,17 @@
                         </div>
                         
                         <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            @can('invoicing.clients.edit')
                             <button wire:click="edit({{ $client->id }})" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition">
                                 <i class="fas fa-edit mr-1"></i>Editar
                             </button>
+                            @endcan
+                            
+                            @can('invoicing.clients.delete')
                             <button wire:click="delete({{ $client->id }})" wire:confirm="Tem certeza?" class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition">
                                 <i class="fas fa-trash mr-1"></i>Excluir
                             </button>
+                            @endcan
                         </div>
                     </div>
                 </div>
@@ -152,6 +159,45 @@
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">Código Postal</label>
                                 <input wire:model="postal_code" type="text" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">País * <span class="text-xs text-gray-500">(ISO 3166-1-alpha-2)</span></label>
+                                <select wire:model="country" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                                    <option value="AO">Angola (AO)</option>
+                                    <option value="PT">Portugal (PT)</option>
+                                    <option value="MZ">Moçambique (MZ)</option>
+                                    <option value="BR">Brasil (BR)</option>
+                                    <option value="CV">Cabo Verde (CV)</option>
+                                    <option value="GW">Guiné-Bissau (GW)</option>
+                                    <option value="ST">São Tomé e Príncipe (ST)</option>
+                                </select>
+                                @error('country') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Província</label>
+                                <select wire:model="province" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                                    <option value="">Selecione...</option>
+                                    <option value="Bengo">Bengo</option>
+                                    <option value="Benguela">Benguela</option>
+                                    <option value="Bié">Bié</option>
+                                    <option value="Cabinda">Cabinda</option>
+                                    <option value="Cuando Cubango">Cuando Cubango</option>
+                                    <option value="Cuanza Norte">Cuanza Norte</option>
+                                    <option value="Cuanza Sul">Cuanza Sul</option>
+                                    <option value="Cunene">Cunene</option>
+                                    <option value="Huambo">Huambo</option>
+                                    <option value="Huíla">Huíla</option>
+                                    <option value="Luanda">Luanda</option>
+                                    <option value="Lunda Norte">Lunda Norte</option>
+                                    <option value="Lunda Sul">Lunda Sul</option>
+                                    <option value="Malanje">Malanje</option>
+                                    <option value="Moxico">Moxico</option>
+                                    <option value="Namibe">Namibe</option>
+                                    <option value="Uíge">Uíge</option>
+                                    <option value="Zaire">Zaire</option>
+                                </select>
                             </div>
                         </div>
                         

@@ -166,15 +166,18 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button wire:click="view({{ $transaction->id }})" class="text-teal-600 hover:text-teal-900 mr-3">
-                                    <i class="fas fa-eye"></i>
+                                <button wire:click="viewTransaction({{ $transaction->id }})" 
+                                        class="inline-flex items-center px-3 py-2 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg transition mr-2">
+                                    <i class="fas fa-eye mr-1"></i>
+                                    Ver
                                 </button>
-                                <button wire:click="edit({{ $transaction->id }})" class="text-blue-600 hover:text-blue-900 mr-3">
-                                    <i class="fas fa-edit"></i>
+                                @if($transaction->type === 'income' && $transaction->status === 'completed')
+                                <button wire:click="openCreditModal({{ $transaction->id }})" 
+                                        class="inline-flex items-center px-3 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg transition">
+                                    <i class="fas fa-undo mr-1"></i>
+                                    Creditar
                                 </button>
-                                <button wire:click="confirmDelete({{ $transaction->id }})" class="text-red-600 hover:text-red-900">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                @endif
                             </td>
                         </tr>
                     @empty
@@ -195,4 +198,6 @@
 
     @include('livewire.treasury.transactions.partials.form-modal')
     @include('livewire.treasury.transactions.partials.delete-modal')
+    @include('livewire.treasury.transactions.partials.view-modal')
+    @include('livewire.treasury.transactions.partials.credit-modal')
 </div>

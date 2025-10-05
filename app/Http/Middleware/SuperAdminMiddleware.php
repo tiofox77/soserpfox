@@ -19,7 +19,11 @@ class SuperAdminMiddleware
             return redirect()->route('login');
         }
 
-        if (!auth()->user()->isSuperAdmin()) {
+        // Verificar se é Super Admin (flag ou role do Spatie)
+        $user = auth()->user();
+        $isSuperAdmin = $user->isSuperAdmin() || $user->hasRole('Super Admin');
+        
+        if (!$isSuperAdmin) {
             abort(403, 'Acesso negado. Apenas Super Administradores podem acessar esta área.');
         }
 

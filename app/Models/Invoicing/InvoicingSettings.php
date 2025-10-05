@@ -24,6 +24,9 @@ class InvoicingSettings extends Model
         'default_currency',
         'default_exchange_rate',
         'default_payment_method',
+        'number_format',
+        'decimal_places',
+        'rounding_mode',
         'proforma_series',
         'invoice_series',
         'receipt_series',
@@ -47,6 +50,15 @@ class InvoicingSettings extends Model
         'saft_version',
         'default_notes',
         'default_terms',
+        'pos_auto_print',
+        'pos_play_sounds',
+        'pos_validate_stock',
+        'pos_allow_negative_stock',
+        'pos_show_product_images',
+        'pos_products_per_page',
+        'pos_auto_complete_sale',
+        'pos_require_customer',
+        'pos_default_payment_method_id',
     ];
 
     protected $casts = [
@@ -54,6 +66,7 @@ class InvoicingSettings extends Model
         'default_tax_rate' => 'decimal:2',
         'default_irt_rate' => 'decimal:2',
         'max_discount_percent' => 'decimal:2',
+        'decimal_places' => 'integer',
         'apply_irt_services' => 'boolean',
         'allow_line_discounts' => 'boolean',
         'allow_commercial_discount' => 'boolean',
@@ -65,6 +78,14 @@ class InvoicingSettings extends Model
         'receipt_next_number' => 'integer',
         'proforma_validity_days' => 'integer',
         'invoice_due_days' => 'integer',
+        'pos_auto_print' => 'boolean',
+        'pos_play_sounds' => 'boolean',
+        'pos_validate_stock' => 'boolean',
+        'pos_allow_negative_stock' => 'boolean',
+        'pos_show_product_images' => 'boolean',
+        'pos_products_per_page' => 'integer',
+        'pos_auto_complete_sale' => 'boolean',
+        'pos_require_customer' => 'boolean',
     ];
 
     // Relationships
@@ -99,14 +120,66 @@ class InvoicingSettings extends Model
         return static::firstOrCreate(
             ['tenant_id' => $tenantId],
             [
+                // Moeda e Câmbio
                 'default_currency' => 'AOA',
-                'default_tax_rate' => 14.00,
-                'default_irt_rate' => 6.50,
+                'default_exchange_rate' => 1.0000,
+                'default_payment_method' => 'dinheiro',
+                
+                // Formato de Números
+                'number_format' => 'angola',
+                'decimal_places' => 2,
+                'rounding_mode' => 'normal',
+                
+                // Séries
                 'proforma_series' => 'PRF',
                 'invoice_series' => 'FT',
                 'receipt_series' => 'RC',
+                'proforma_next_number' => 1,
+                'invoice_next_number' => 1,
+                'receipt_next_number' => 1,
+                
+                // Impostos
+                'default_tax_rate' => 14.00,
+                'default_irt_rate' => 6.50,
+                'apply_irt_services' => true,
+                
+                // Descontos
+                'allow_line_discounts' => true,
+                'allow_commercial_discount' => true,
+                'allow_financial_discount' => true,
+                'max_discount_percent' => 100.00,
+                
+                // Validade
+                'proforma_validity_days' => 30,
+                'invoice_due_days' => 30,
+                
+                // Impressão
+                'auto_print_after_save' => false,
+                'show_company_logo' => true,
+                
+                // SAFT
+                'saft_version' => '1.0.0',
+                
+                // POS - Ponto de Venda
+                'pos_auto_print' => true,
+                'pos_play_sounds' => true,
+                'pos_validate_stock' => true,
+                'pos_allow_negative_stock' => false,
+                'pos_show_product_images' => true,
+                'pos_products_per_page' => 12,
+                'pos_auto_complete_sale' => false,
+                'pos_require_customer' => false,
+                'pos_default_payment_method_id' => null, // Será configurado pelo usuário
             ]
         );
+    }
+    
+    /**
+     * Relacionamento com método de pagamento padrão do POS
+     */
+    public function posDefaultPaymentMethod()
+    {
+        return $this->belongsTo(\App\Models\Treasury\PaymentMethod::class, 'pos_default_payment_method_id');
     }
 
     public function getNextProformaNumber()

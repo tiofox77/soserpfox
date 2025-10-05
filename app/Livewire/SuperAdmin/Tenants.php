@@ -38,6 +38,18 @@ class Tenants extends Component
     public $newUserPassword = '';
     public $createNewUser = 0; // 0 = existente, 1 = novo
     
+    // Plan management
+    public $showPlanModal = false;
+    public $managingPlanTenantId = null;
+    public $selectedPlanId = null;
+    public $billingCycle = 'monthly';
+    
+    // Deactivation modal
+    public $showDeactivationModal = false;
+    public $deactivatingTenantId = null;
+    public $deactivatingTenantName = '';
+    public $deactivationReason = '';
+    
     // Form fields
     public $name, $slug, $email, $phone, $company_name, $nif;
     public $address, $city, $postal_code, $country = 'Portugal';
@@ -111,9 +123,64 @@ class Tenants extends Component
     public function toggleStatus($id)
     {
         $tenant = Tenant::findOrFail($id);
-        $tenant->update(['is_active' => !$tenant->is_active]);
-        $status = $tenant->is_active ? 'ativado' : 'desativado';
-        $this->dispatch('success', message: "Tenant {$status} com sucesso!");
+        
+        if ($tenant->is_active) {
+            // Vai desativar - abrir modal para motivo
+            $this->deactivatingTenantId = $id;
+            $this->deactivatingTenantName = $tenant->name;
+            $this->showDeactivationModal = true;
+        } else {
+            // Vai ativar - fazer direto
+            $this->activateTenant($id);
+        }
+    }
+    
+    public function confirmDeactivation()
+    {
+        $this->validate([
+            'deactivationReason' => 'required|min:10',
+        ], [
+            'deactivationReason.required' => 'Por favor, informe o motivo da desativação.',
+            'deactivationReason.min' => 'O motivo deve ter pelo menos 10 caracteres.',
+        ]);
+        
+        $tenant = Tenant::findOrFail($this->deactivatingTenantId);
+        $usersCount = $tenant->users()->count();
+        
+        $tenant->update([
+            'is_active' => false,
+            'deactivation_reason' => $this->deactivationReason,
+            'deactivated_at' => now(),
+            'deactivated_by' => auth()->id(),
+        ]);
+        
+        $this->dispatch('warning', message: 
+            "⚠️ Tenant '{$tenant->name}' desativado! {$usersCount} usuário(s) perderam acesso imediatamente."
+        );
+        
+        $this->closeDeactivationModal();
+    }
+    
+    public function activateTenant($id)
+    {
+        $tenant = Tenant::findOrFail($id);
+        
+        $tenant->update([
+            'is_active' => true,
+            'deactivation_reason' => null,
+            'deactivated_at' => null,
+            'deactivated_by' => null,
+        ]);
+        
+        $this->dispatch('success', message: "✓ Tenant '{$tenant->name}' reativado! Os usuários podem acessar normalmente.");
+    }
+    
+    public function closeDeactivationModal()
+    {
+        $this->showDeactivationModal = false;
+        $this->deactivatingTenantId = null;
+        $this->deactivatingTenantName = '';
+        $this->deactivationReason = '';
     }
 
     public function openDeleteModal($id)
@@ -220,7 +287,7 @@ class Tenants extends Component
                 'newUserName' => 'required|min:3',
                 'newUserEmail' => 'required|email|unique:users,email',
                 'newUserPassword' => 'required|min:6',
-                'selectedRoleId' => 'required|exists:roles,id',
+                'selectedRoleId' => 'required',
             ]);
             
             $user = \App\Models\User::create([
@@ -236,7 +303,7 @@ class Tenants extends Component
             // Adicionar usuário existente
             $this->validate([
                 'selectedUserId' => 'required|exists:users,id',
-                'selectedRoleId' => 'required|exists:roles,id',
+                'selectedRoleId' => 'required',
             ]);
             
             $userId = $this->selectedUserId;
@@ -268,16 +335,21 @@ class Tenants extends Component
             return;
         }
         
-        // Adicionar à tenant_user
-        \DB::table('tenant_user')->insert([
-            'tenant_id' => $this->managingTenantId,
-            'user_id' => $userId,
-            'role_id' => $this->selectedRoleId,
-            'is_active' => true,
-            'joined_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Adicionar à tenant_user (sem role_id)
+        $user = \App\Models\User::find($userId);
+        if (!$user->tenants()->where('tenants.id', $this->managingTenantId)->exists()) {
+            $user->tenants()->attach($this->managingTenantId, [
+                'is_active' => true,
+                'joined_at' => now(),
+            ]);
+        }
+        
+        // Atribuir role usando Spatie Permission
+        setPermissionsTeamId($this->managingTenantId);
+        $role = \Spatie\Permission\Models\Role::find($this->selectedRoleId);
+        if ($role) {
+            $user->assignRole($role);
+        }
         
         $this->dispatch('success', message: $message);
         $this->closeAddUserModal();
@@ -285,30 +357,138 @@ class Tenants extends Component
     
     public function removeUserFromTenant($userId)
     {
-        \DB::table('tenant_user')
-            ->where('tenant_id', $this->managingTenantId)
-            ->where('user_id', $userId)
-            ->delete();
+        $user = \App\Models\User::find($userId);
+        
+        // Remover roles do tenant
+        setPermissionsTeamId($this->managingTenantId);
+        $user->roles()->wherePivot('tenant_id', $this->managingTenantId)->detach();
+        
+        // Remover da pivot table
+        $user->tenants()->detach($this->managingTenantId);
             
         $this->dispatch('success', message: 'Usuário removido do tenant com sucesso!');
     }
     
     public function updateUserRole($userId, $roleId)
     {
-        \DB::table('tenant_user')
-            ->where('tenant_id', $this->managingTenantId)
-            ->where('user_id', $userId)
-            ->update([
-                'role_id' => $roleId,
-                'updated_at' => now(),
-            ]);
+        $user = \App\Models\User::find($userId);
+        
+        setPermissionsTeamId($this->managingTenantId);
+        
+        // Remover roles antigas do tenant
+        $user->roles()->wherePivot('tenant_id', $this->managingTenantId)->detach();
+        
+        // Atribuir nova role
+        $role = \Spatie\Permission\Models\Role::find($roleId);
+        if ($role) {
+            $user->assignRole($role);
+        }
             
         $this->dispatch('success', message: 'Role atualizada com sucesso!');
+    }
+    
+    // Plan Management
+    public function managePlan($tenantId)
+    {
+        $this->managingPlanTenantId = $tenantId;
+        $tenant = Tenant::with('activeSubscription.plan')->find($tenantId);
+        
+        if ($tenant->activeSubscription) {
+            $this->selectedPlanId = $tenant->activeSubscription->plan_id;
+            $this->billingCycle = $tenant->activeSubscription->billing_cycle ?? 'monthly';
+        }
+        
+        $this->showPlanModal = true;
+    }
+    
+    public function closePlanModal()
+    {
+        $this->showPlanModal = false;
+        $this->managingPlanTenantId = null;
+        $this->selectedPlanId = null;
+        $this->billingCycle = 'monthly';
+    }
+    
+    public function updateTenantPlan()
+    {
+        $this->validate([
+            'selectedPlanId' => 'required|exists:plans,id',
+            'billingCycle' => 'required|in:monthly,quarterly,semiannual,yearly',
+        ]);
+        
+        \DB::beginTransaction();
+        
+        try {
+            $tenant = Tenant::find($this->managingPlanTenantId);
+            $plan = \App\Models\Plan::find($this->selectedPlanId);
+            
+            // Atualizar ou criar subscription
+            $subscription = $tenant->activeSubscription;
+            
+            if ($subscription) {
+                // Atualizar subscription existente
+                $subscription->update([
+                    'plan_id' => $plan->id,
+                    'billing_cycle' => $this->billingCycle,
+                    'amount' => $plan->getPrice($this->billingCycle),
+                    'status' => 'active',
+                    'current_period_end' => now()->addMonth(),
+                ]);
+            } else {
+                // Criar nova subscription
+                $tenant->subscriptions()->create([
+                    'plan_id' => $plan->id,
+                    'billing_cycle' => $this->billingCycle,
+                    'amount' => $plan->getPrice($this->billingCycle),
+                    'status' => 'active',
+                    'current_period_start' => now(),
+                    'current_period_end' => now()->addMonth(),
+                ]);
+            }
+            
+            // Atualizar limites do tenant baseado no plano
+            $tenant->update([
+                'max_users' => $plan->max_users,
+                'max_storage_mb' => $plan->max_storage_mb,
+            ]);
+            
+            // Sincronizar módulos do plano com o tenant
+            $this->syncPlanModules($tenant, $plan);
+            
+            \DB::commit();
+            
+            $this->dispatch('success', message: "Plano alterado para {$plan->name} com sucesso! Limites e módulos sincronizados.");
+            $this->closePlanModal();
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            $this->dispatch('error', message: 'Erro ao alterar plano: ' . $e->getMessage());
+        }
+    }
+    
+    private function syncPlanModules($tenant, $plan)
+    {
+        // Remover todos os módulos antigos
+        $tenant->modules()->detach();
+        
+        // Adicionar módulos do novo plano
+        if ($plan->included_modules && is_array($plan->included_modules)) {
+            foreach ($plan->included_modules as $moduleSlug) {
+                $module = \App\Models\Module::where('slug', $moduleSlug)->first();
+                if ($module) {
+                    $tenant->modules()->attach($module->id, [
+                        'is_active' => true,
+                        'activated_at' => now(),
+                    ]);
+                }
+            }
+        }
     }
 
     public function render()
     {
-        $tenants = Tenant::where('name', 'like', '%' . $this->search . '%')
+        $tenants = Tenant::with('activeSubscription.plan')
+            ->where('name', 'like', '%' . $this->search . '%')
             ->orWhere('email', 'like', '%' . $this->search . '%')
             ->latest()
             ->paginate(10);
@@ -320,7 +500,15 @@ class Tenants extends Component
         
         if ($this->managingTenantId) {
             $tenant = \App\Models\Tenant::find($this->managingTenantId);
-            $tenantUsers = $tenant->users()->withPivot('role_id', 'is_active', 'joined_at')->get();
+            $tenantUsers = $tenant->users()->withPivot('is_active', 'joined_at')->get();
+            
+            // Buscar roles de cada usuário via Spatie
+            setPermissionsTeamId($this->managingTenantId);
+            foreach ($tenantUsers as $tenantUser) {
+                $tenantUser->current_role = $tenantUser->roles()
+                    ->wherePivot('tenant_id', $this->managingTenantId)
+                    ->first();
+            }
             
             // Usuários disponíveis (que não estão neste tenant)
             $userIdsInTenant = $tenantUsers->pluck('id')->toArray();
@@ -329,7 +517,10 @@ class Tenants extends Component
                 ->orderBy('name')
                 ->get();
             
-            $roles = \Spatie\Permission\Models\Role::all();
+            // Buscar roles do tenant específico
+            $roles = \Spatie\Permission\Models\Role::where('tenant_id', $this->managingTenantId)
+                ->orderBy('name')
+                ->get();
         }
 
         return view('livewire.super-admin.tenants.tenants', compact('tenants', 'tenantUsers', 'availableUsers', 'roles'));

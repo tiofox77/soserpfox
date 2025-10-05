@@ -163,6 +163,16 @@ class Receipt extends Model
     }
 
     // Accessors
+    public function getAmountAttribute()
+    {
+        return $this->amount_paid;
+    }
+
+    public function getHashAttribute()
+    {
+        return $this->saft_hash;
+    }
+
     public function getEntityNameAttribute()
     {
         if ($this->type === 'sale' && $this->client) {

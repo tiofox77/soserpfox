@@ -15,6 +15,8 @@ class Plan extends Model
         'slug',
         'description',
         'price_monthly',
+        'price_quarterly',
+        'price_semiannual',
         'price_yearly',
         'max_users',
         'max_companies',
@@ -29,6 +31,8 @@ class Plan extends Model
 
     protected $casts = [
         'price_monthly' => 'decimal:2',
+        'price_quarterly' => 'decimal:2',
+        'price_semiannual' => 'decimal:2',
         'price_yearly' => 'decimal:2',
         'features' => 'array',
         'included_modules' => 'array',
@@ -78,7 +82,12 @@ class Plan extends Model
     // Métodos auxiliares
     public function getPrice($billingCycle = 'monthly')
     {
-        return $billingCycle === 'yearly' ? $this->price_yearly : $this->price_monthly;
+        return match($billingCycle) {
+            'quarterly' => $this->price_quarterly,
+            'semiannual' => $this->price_semiannual,
+            'yearly' => $this->price_yearly,
+            default => $this->price_monthly,
+        };
     }
 
     public function hasModule($moduleSlug)

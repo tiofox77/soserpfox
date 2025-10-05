@@ -247,6 +247,11 @@
                     <i class="fas fa-key w-6 text-orange-400"></i>
                     <span x-show="sidebarOpen" class="ml-3">SAFT Configurações</span>
                 </a>
+                
+                <a href="{{ route('invoicing.agt-documents') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-certificate w-6 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Gerador AGT</span>
+                </a>
             </nav>
 
             <!-- User Menu -->

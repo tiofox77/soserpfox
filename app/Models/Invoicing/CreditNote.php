@@ -144,9 +144,9 @@ class CreditNote extends Model
         // Nota: Você pode querer adicionar um campo balance na tabela de faturas
         // Por enquanto, apenas registramos a nota de crédito
 
-        // Se o total das notas de crédito >= total da fatura, considerar como cancelada ou creditada
+        // Se o total das notas de crédito >= total da fatura, marcar como creditada
         if ($totalCreditNotes >= $invoice->total) {
-            $invoice->status = 'cancelled'; // ou criar um status 'credited'
+            $invoice->status = 'credited';
             $invoice->save();
         }
     }

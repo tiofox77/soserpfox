@@ -291,8 +291,9 @@ class RegisterWizard extends Component
                     'email' => $this->email,
                     'password' => Hash::make($this->password),
                     'is_active' => true,
+                    'is_super_admin' => true, // Primeiro usuário é super admin
                 ]);
-                \Log::info('Usuário criado', ['user_id' => $user->id]);
+                \Log::info('Usuário criado', ['user_id' => $user->id, 'is_super_admin' => true]);
             }
             
             // 2. Criar tenant/empresa
@@ -308,10 +309,9 @@ class RegisterWizard extends Component
             ]);
             \Log::info('Tenant criado', ['tenant_id' => $tenant->id]);
             
-            // 3. Vincular usuário ao tenant como owner/admin
-            \Log::info('Vinculando usuário ao tenant como Admin...');
+            // 3. Vincular usuário ao tenant como owner/super-admin
+            \Log::info('Vinculando usuário ao tenant como Super Admin...');
             $user->tenants()->attach($tenant->id, [
-                'role_id' => 2, // Admin role
                 'is_active' => true,
                 'joined_at' => now(),
             ]);
@@ -319,9 +319,19 @@ class RegisterWizard extends Component
             // 3.1 Definir tenant como ativo para o usuário
             $user->tenant_id = $tenant->id;
             $user->save();
-            \Log::info('Usuário vinculado ao tenant como Admin e tenant definido como ativo', [
+            
+            // 3.2 Atribuir role Super Admin usando Spatie Permission
+            setPermissionsTeamId($tenant->id);
+            $superAdminRole = \Spatie\Permission\Models\Role::firstOrCreate(
+                ['name' => 'super-admin', 'guard_name' => 'web'],
+                ['tenant_id' => $tenant->id]
+            );
+            $user->assignRole($superAdminRole);
+            
+            \Log::info('Usuário vinculado ao tenant como Super Admin e tenant definido como ativo', [
                 'user_tenant_id' => $user->tenant_id,
-                'role' => 'Admin'
+                'role' => 'super-admin',
+                'role_id' => $superAdminRole->id
             ]);
             
             // 4. Salvar comprovativo de pagamento se houver

@@ -36,7 +36,7 @@ class Clients extends Component
     // Form fields
     public $type = 'pessoa_juridica';
     public $name, $nif, $email, $phone, $mobile;
-    public $address, $city, $province, $postal_code, $country = 'Angola';
+    public $address, $city, $province, $postal_code, $country = 'AO'; // ISO 3166-1-alpha-2
     public $logo; // Upload file
     public $currentLogo; // Existing logo path
 
@@ -119,12 +119,22 @@ class Clients extends Component
 
     public function create()
     {
+        if (!auth()->user()->can('invoicing.clients.create')) {
+            $this->dispatch('error', message: 'Sem permissão para criar clientes');
+            return;
+        }
+        
         $this->resetForm();
         $this->showModal = true;
     }
 
     public function edit($id)
     {
+        if (!auth()->user()->can('invoicing.clients.edit')) {
+            $this->dispatch('error', message: 'Sem permissão para editar clientes');
+            return;
+        }
+        
         $client = Client::findOrFail($id);
         
         if ($client->tenant_id !== activeTenantId()) {
@@ -149,6 +159,19 @@ class Clients extends Component
 
     public function save()
     {
+        // Verificar permissão apropriada
+        if ($this->editingClientId) {
+            if (!auth()->user()->can('invoicing.clients.edit')) {
+                $this->dispatch('error', message: 'Sem permissão para editar clientes');
+                return;
+            }
+        } else {
+            if (!auth()->user()->can('invoicing.clients.create')) {
+                $this->dispatch('error', message: 'Sem permissão para criar clientes');
+                return;
+            }
+        }
+        
         $this->validate();
 
         $data = [
@@ -221,6 +244,11 @@ class Clients extends Component
 
     public function delete()
     {
+        if (!auth()->user()->can('invoicing.clients.delete')) {
+            $this->dispatch('error', message: 'Sem permissão para eliminar clientes');
+            return;
+        }
+        
         try {
             $client = Client::findOrFail($this->deletingClientId);
             

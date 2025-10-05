@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware global para identificar tenant
         $middleware->append(\App\Http\Middleware\IdentifyTenant::class);
         
+        // Middleware global para verificar se tenant está ativo
+        $middleware->append(\App\Http\Middleware\CheckTenantActive::class);
+        
         // Middleware global para verificar subscription (após identificar tenant)
         $middleware->append(\App\Http\Middleware\CheckSubscription::class);
         
@@ -23,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'superadmin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'tenant.module' => \App\Http\Middleware\CheckTenantModule::class,
             'subscription' => \App\Http\Middleware\CheckSubscription::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+            'tenant.active' => \App\Http\Middleware\CheckTenantActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

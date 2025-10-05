@@ -47,15 +47,43 @@
 
                 {{-- Tipo de Documento --}}
                 <div class="mb-6">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-file-alt mr-1"></i>Tipo de Documentos
+                    <label class="block text-sm font-bold text-gray-700 mb-3">
+                        <i class="fas fa-filter mr-2 text-purple-600"></i>Filtrar por Tipo de Documento
                     </label>
-                    <select wire:model.live="documentType" 
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500">
-                        <option value="all">Todos os Documentos</option>
-                        <option value="sales">Apenas Vendas</option>
-                        <option value="purchases">Apenas Compras</option>
-                    </select>
+                    <div class="grid grid-cols-3 gap-3">
+                        <label class="relative cursor-pointer">
+                            <input type="radio" wire:model.live="documentType" value="all" class="peer sr-only">
+                            <div class="px-4 py-4 border-2 rounded-xl transition-all peer-checked:border-purple-600 peer-checked:bg-purple-50 peer-checked:shadow-lg hover:border-purple-400 hover:shadow-md">
+                                <div class="flex flex-col items-center text-center">
+                                    <i class="fas fa-file-invoice text-2xl mb-2 text-purple-600"></i>
+                                    <span class="font-bold text-sm">Todos</span>
+                                    <span class="text-xs text-gray-500 mt-1">Vendas + Compras</span>
+                                </div>
+                            </div>
+                        </label>
+                        
+                        <label class="relative cursor-pointer">
+                            <input type="radio" wire:model.live="documentType" value="sales" class="peer sr-only">
+                            <div class="px-4 py-4 border-2 rounded-xl transition-all peer-checked:border-green-600 peer-checked:bg-green-50 peer-checked:shadow-lg hover:border-green-400 hover:shadow-md">
+                                <div class="flex flex-col items-center text-center">
+                                    <i class="fas fa-shopping-cart text-2xl mb-2 text-green-600"></i>
+                                    <span class="font-bold text-sm">Vendas</span>
+                                    <span class="text-xs text-gray-500 mt-1">Faturas emitidas</span>
+                                </div>
+                            </div>
+                        </label>
+                        
+                        <label class="relative cursor-pointer">
+                            <input type="radio" wire:model.live="documentType" value="purchases" class="peer sr-only">
+                            <div class="px-4 py-4 border-2 rounded-xl transition-all peer-checked:border-orange-600 peer-checked:bg-orange-50 peer-checked:shadow-lg hover:border-orange-400 hover:shadow-md">
+                                <div class="flex flex-col items-center text-center">
+                                    <i class="fas fa-truck text-2xl mb-2 text-orange-600"></i>
+                                    <span class="font-bold text-sm">Compras</span>
+                                    <span class="text-xs text-gray-500 mt-1">Faturas recebidas</span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 {{-- Opções de Inclusão --}}
@@ -123,7 +151,22 @@
             {{-- Card Total Documentos --}}
             <div class="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
                 <div class="flex items-center justify-between mb-2">
-                    <p class="text-purple-100 text-sm font-semibold">DOCUMENTOS</p>
+                    <div>
+                        <p class="text-purple-100 text-sm font-semibold">DOCUMENTOS</p>
+                        @if($documentType === 'sales')
+                            <span class="inline-flex items-center px-2 py-1 bg-green-500/80 rounded-lg text-xs font-bold mt-1">
+                                <i class="fas fa-shopping-cart mr-1"></i> Vendas
+                            </span>
+                        @elseif($documentType === 'purchases')
+                            <span class="inline-flex items-center px-2 py-1 bg-orange-500/80 rounded-lg text-xs font-bold mt-1">
+                                <i class="fas fa-truck mr-1"></i> Compras
+                            </span>
+                        @else
+                            <span class="inline-flex items-center px-2 py-1 bg-white/20 rounded-lg text-xs font-bold mt-1">
+                                <i class="fas fa-file-invoice mr-1"></i> Todos
+                            </span>
+                        @endif
+                    </div>
                     <i class="fas fa-file-invoice text-3xl text-white/30"></i>
                 </div>
                 <p class="text-4xl font-bold">{{ number_format($totalInvoices) }}</p>

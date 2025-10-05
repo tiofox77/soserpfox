@@ -11,21 +11,55 @@ class CreditNoteController extends Controller
 {
     public function generatePdf($id)
     {
-        $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator'])
-            ->where('tenant_id', activeTenantId())
-            ->findOrFail($id);
-        
-        $tenant = Tenant::find(activeTenantId());
-        
-        $pdf = Pdf::loadView('pdf.invoicing.credit-note', [
-            'creditNote' => $creditNote,
-            'tenant' => $tenant,
-        ]);
-        
-        $pdf->setPaper('A4', 'portrait');
-        
-        $filename = 'nota_credito_' . str_replace(['/', '\\'], '_', $creditNote->credit_note_number) . '.pdf';
-        return $pdf->stream($filename);
+        try {
+            // Buscar NC com relacionamentos
+            $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator'])
+                ->where('tenant_id', activeTenantId())
+                ->findOrFail($id);
+            
+            // Buscar dados do tenant
+            $tenant = Tenant::find(activeTenantId());
+            
+            // Buscar contas bancárias para exibir na NC (máximo 4)
+            $bankAccounts = \App\Models\Treasury\Account::with('bank')
+                ->where('tenant_id', activeTenantId())
+                ->where('is_active', true)
+                ->where('show_on_invoice', true)
+                ->orderBy('invoice_display_order')
+                ->limit(4)
+                ->get();
+            
+            // Configurar PDF com options
+            $pdf = Pdf::loadView('pdf.invoicing.credit-note', [
+                'creditNote' => $creditNote,
+                'tenant' => $tenant,
+                'bankAccounts' => $bankAccounts,
+            ]);
+            
+            // Configurar tamanho A4 e orientação
+            $pdf->setPaper('A4', 'portrait');
+            
+            // Configurar opções do DomPDF
+            $pdf->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'defaultFont' => 'Arial'
+            ]);
+            
+            // Retornar PDF para visualização no navegador
+            $filename = 'nota_credito_' . str_replace(['/', '\\', ' '], '_', $creditNote->credit_note_number) . '.pdf';
+            return $pdf->stream($filename);
+            
+        } catch (\Exception $e) {
+            // Se houver erro, retornar a view HTML diretamente para debug
+            return view('pdf.invoicing.credit-note', [
+                'creditNote' => CreditNote::with(['client', 'invoice', 'items.product'])
+                    ->where('tenant_id', activeTenantId())
+                    ->findOrFail($id),
+                'tenant' => Tenant::find(activeTenantId()),
+                'bankAccounts' => collect(),
+            ]);
+        }
     }
     
     public function previewHtml($id)
@@ -36,9 +70,19 @@ class CreditNoteController extends Controller
         
         $tenant = Tenant::find(activeTenantId());
         
+        // Buscar contas bancárias para exibir na NC
+        $bankAccounts = \App\Models\Treasury\Account::with('bank')
+            ->where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->where('show_on_invoice', true)
+            ->orderBy('invoice_display_order')
+            ->limit(4)
+            ->get();
+        
         return view('pdf.invoicing.credit-note', [
             'creditNote' => $creditNote,
             'tenant' => $tenant,
+            'bankAccounts' => $bankAccounts,
         ]);
     }
 }

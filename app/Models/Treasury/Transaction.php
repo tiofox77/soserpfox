@@ -67,13 +67,13 @@ class Transaction extends Model
         return $this->belongsTo(PaymentMethod::class);
     }
     
-    public function invoice(): BelongsTo
+    public function salesInvoice(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Invoicing\Invoice::class);
+        return $this->belongsTo(\App\Models\Invoicing\SalesInvoice::class, 'invoice_id');
     }
     
-    public function purchase(): BelongsTo
+    public function purchaseInvoice(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Invoicing\Purchase::class);
+        return $this->belongsTo(\App\Models\Invoicing\PurchaseInvoice::class, 'purchase_invoice_id');
     }
 }

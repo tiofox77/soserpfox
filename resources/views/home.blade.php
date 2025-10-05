@@ -35,6 +35,61 @@
         </div>
     </div>
     @endif
+    
+    <!-- Easter Egg: FOX Friendly Welcome Banner -->
+    @php
+        $tenant = auth()->user()->activeTenant();
+        $subscription = $tenant ? $tenant->activeSubscription : null;
+        $plan = $subscription ? $subscription->plan : null;
+        $isFoxFriendly = $plan && str_contains(strtolower($plan->slug), 'fox');
+    @endphp
+    
+    @if($isFoxFriendly)
+    <div class="mb-6 bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 rounded-2xl shadow-2xl p-6 text-white overflow-hidden relative"
+         x-data="{ foxVisible: true }"
+         x-show="foxVisible"
+         x-transition>
+        <button @click="foxVisible = false" class="absolute top-3 right-3 text-white/80 hover:text-white transition">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <div class="text-6xl animate-bounce" style="animation-duration: 2s;">
+                    🦊
+                </div>
+            </div>
+            <div class="ml-6 flex-1">
+                <h3 class="text-2xl font-bold mb-2 flex items-center">
+                    <span>🎉 FOX Friendly Ativo!</span>
+                    <span class="ml-3 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm">6 meses GRÁTIS</span>
+                </h3>
+                <p class="text-white/90 mb-3">
+                    Você tem acesso <strong>completo e ilimitado</strong> a todos os módulos do sistema! 
+                    Aproveite essa oportunidade especial. 🚀
+                </p>
+                <div class="flex items-center space-x-6 text-sm">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>999 utilizadores</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>100GB storage</span>
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>Todos os módulos</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hidden lg:block">
+                <div class="text-7xl opacity-20 absolute -right-8 -bottom-4 transform rotate-12" style="animation: foxFloat 4s ease-in-out infinite;">
+                    🦊
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <!-- Alert: Sem Empresa -->
     @if($needsCompany)

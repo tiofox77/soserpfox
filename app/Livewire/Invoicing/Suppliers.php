@@ -34,7 +34,7 @@ class Suppliers extends Component
     // Form fields
     public $type = 'pessoa_juridica';
     public $name, $nif, $email, $phone, $mobile;
-    public $address, $city, $province, $postal_code, $country = 'Angola';
+    public $address, $city, $province, $postal_code, $country = 'AO'; // ISO 3166-1-alpha-2
     public $logo; // Upload file
     public $currentLogo; // Existing logo path
 

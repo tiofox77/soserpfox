@@ -45,11 +45,17 @@
             @forelse($tenants as $tenant)
                 <div class="group p-6 hover:bg-gray-50 transition-all duration-300 card-hover cursor-pointer">
                     <div class="flex items-start space-x-4">
-                        <!-- Avatar -->
+                        <!-- Avatar/Logo -->
                         <div class="relative flex-shrink-0">
-                            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg group-hover:shadow-2xl transition-all duration-300 icon-float gradient-shift">
-                                <span class="text-white font-bold text-lg">{{ strtoupper(substr($tenant->name, 0, 2)) }}</span>
-                            </div>
+                            @if($tenant->logo)
+                                <img src="{{ Storage::url($tenant->logo) }}" 
+                                     alt="{{ $tenant->name }}" 
+                                     class="w-14 h-14 rounded-full object-cover shadow-lg group-hover:shadow-2xl transition-all duration-300 ring-2 ring-purple-200">
+                            @else
+                                <div class="w-14 h-14 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg group-hover:shadow-2xl transition-all duration-300 icon-float gradient-shift">
+                                    <span class="text-white font-bold text-lg">{{ strtoupper(substr($tenant->name, 0, 2)) }}</span>
+                                </div>
+                            @endif
                             <div class="absolute -bottom-1 -right-1 w-5 h-5 {{ $tenant->is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-400' }} rounded-full border-2 border-white shadow"></div>
                         </div>
                         
@@ -102,8 +108,25 @@
                                 </div>
                             </div>
                             
-                            <!-- Limits -->
-                            <div class="flex items-center space-x-4 mb-4">
+                            <!-- Plan & Limits -->
+                            <div class="flex items-center flex-wrap gap-2 mb-4">
+                                @php
+                                    $activeSub = $tenant->activeSubscription;
+                                @endphp
+                                @if($activeSub && $activeSub->plan)
+                                <span class="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 rounded-lg text-xs font-bold border border-purple-200">
+                                    <i class="fas fa-crown mr-1.5 text-yellow-500"></i>
+                                    {{ $activeSub->plan->name }}
+                                    <span class="ml-1.5 px-1.5 py-0.5 bg-purple-200 text-purple-800 rounded text-[10px]">
+                                        {{ ucfirst($activeSub->billing_cycle) }}
+                                    </span>
+                                </span>
+                                @else
+                                <span class="inline-flex items-center px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs font-medium">
+                                    <i class="fas fa-question-circle mr-1.5"></i>
+                                    Sem plano
+                                </span>
+                                @endif
                                 <span class="inline-flex items-center px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium">
                                     <i class="fas fa-users mr-1.5"></i>
                                     {{ $tenant->max_users }} utilizadores
@@ -118,6 +141,9 @@
                             <div class="flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button wire:click="manageUsers({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition-colors">
                                     <i class="fas fa-users mr-1.5"></i>Usuários
+                                </button>
+                                <button wire:click="managePlan({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">
+                                    <i class="fas fa-crown mr-1.5"></i>Plano
                                 </button>
                                 <button wire:click="viewDetails({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors">
                                     <i class="fas fa-eye mr-1.5"></i>Ver Detalhes
@@ -159,4 +185,6 @@
     @include('livewire.super-admin.tenants.partials.delete-modal')
     @include('livewire.super-admin.tenants.partials.view-modal')
     @include('livewire.super-admin.tenants.partials.users-modal')
+    @include('livewire.super-admin.tenants.partials.plan-modal')
+    @include('livewire.super-admin.tenants.partials.deactivation-modal')
 </div>

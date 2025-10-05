@@ -11,9 +11,11 @@
                     <p class="text-purple-100 text-sm">Gerir catálogo de produtos</p>
                 </div>
             </div>
+            @can('invoicing.products.create')
             <button wire:click="create" class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                 <i class="fas fa-plus mr-2"></i>Novo Produto
             </button>
+            @endcan
         </div>
     </div>
 
@@ -296,15 +298,23 @@
                     
                     <!-- Ações -->
                     <div class="col-span-1 flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        @can('invoicing.products.view')
                         <button wire:click="view({{ $product->id }})" class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Visualizar">
                             <i class="fas fa-eye text-xs"></i>
                         </button>
+                        @endcan
+                        
+                        @can('invoicing.products.edit')
                         <button wire:click="edit({{ $product->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Editar">
                             <i class="fas fa-edit text-xs"></i>
                         </button>
+                        @endcan
+                        
+                        @can('invoicing.products.delete')
                         <button wire:click="confirmDelete({{ $product->id }})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Excluir">
                             <i class="fas fa-trash text-xs"></i>
                         </button>
+                        @endcan
                     </div>
                 </div>
             @empty

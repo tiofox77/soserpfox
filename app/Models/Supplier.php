@@ -48,4 +48,41 @@ class Supplier extends Model
     {
         return $this->hasMany(Product::class);
     }
+    
+    /**
+     * Retorna código ISO 3166-1-alpha-2 do país para SAFT
+     * 
+     * @return string Código de 2 letras (ex: AO, PT, MZ)
+     */
+    public function getCountryCodeAttribute(): string
+    {
+        $countryMap = [
+            'Angola' => 'AO',
+            'Portugal' => 'PT',
+            'Moçambique' => 'MZ',
+            'Mozambique' => 'MZ',
+            'Brasil' => 'BR',
+            'Brazil' => 'BR',
+            'Cabo Verde' => 'CV',
+            'Guiné-Bissau' => 'GW',
+            'São Tomé e Príncipe' => 'ST',
+            'AO' => 'AO',
+            'PT' => 'PT',
+            'MZ' => 'MZ',
+            'BR' => 'BR',
+            'CV' => 'CV',
+            'GW' => 'GW',
+            'ST' => 'ST',
+        ];
+        
+        $country = $this->country ?? 'AO';
+        
+        // Se já está no formato correto (2 letras)
+        if (strlen($country) === 2) {
+            return strtoupper($country);
+        }
+        
+        // Buscar no mapa
+        return $countryMap[$country] ?? 'AO';
+    }
 }

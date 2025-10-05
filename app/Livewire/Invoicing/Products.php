@@ -126,6 +126,11 @@ class Products extends Component
 
     public function create()
     {
+        if (!auth()->user()->can('invoicing.products.create')) {
+            $this->dispatch('error', message: 'Sem permissão para criar produtos');
+            return;
+        }
+        
         $this->resetForm();
         // Gerar código automaticamente para exibição
         $this->code = Product::generateProductCode(activeTenantId(), $this->type);
@@ -161,6 +166,11 @@ class Products extends Component
     
     public function edit($id)
     {
+        if (!auth()->user()->can('invoicing.products.edit')) {
+            $this->dispatch('error', message: 'Sem permissão para editar produtos');
+            return;
+        }
+        
         $this->closeViewModal(); // Fechar modal de visualização se estiver aberta
         $product = Product::findOrFail($id);
         
@@ -195,6 +205,19 @@ class Products extends Component
 
     public function save()
     {
+        // Verificar permissão apropriada
+        if ($this->editingProductId) {
+            if (!auth()->user()->can('invoicing.products.edit')) {
+                $this->dispatch('error', message: 'Sem permissão para editar produtos');
+                return;
+            }
+        } else {
+            if (!auth()->user()->can('invoicing.products.create')) {
+                $this->dispatch('error', message: 'Sem permissão para criar produtos');
+                return;
+            }
+        }
+        
         $this->validate();
 
         $data = [
@@ -304,6 +327,11 @@ class Products extends Component
 
     public function delete()
     {
+        if (!auth()->user()->can('invoicing.products.delete')) {
+            $this->dispatch('error', message: 'Sem permissão para eliminar produtos');
+            return;
+        }
+        
         try {
             $product = Product::findOrFail($this->deletingProductId);
             

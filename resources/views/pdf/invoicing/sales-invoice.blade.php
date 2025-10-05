@@ -763,9 +763,20 @@
                 </div>
             </div>
 
+            {{-- Mensagem AGT com Hash --}}
+            @php
+                $agtMessage = \App\Helpers\AGTHelper::getFooterMessage($invoice);
+            @endphp
+            
+            @if($agtMessage)
             <div class="agt-description">
-                Esta proforma foi processada pelo Sistema de Facturação | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                {{ $agtMessage }}
             </div>
+            @else
+            <div class="agt-description">
+                Documento processado pelo Sistema de Facturação | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+            </div>
+            @endif
 
             <div class="page-footer">
                 Documento processado em sistema certificado | Todos os direitos reservados

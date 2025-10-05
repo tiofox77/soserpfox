@@ -32,6 +32,9 @@ class Tenant extends Model
         'is_active',
         'trial_ends_at',
         'subscription_ends_at',
+        'deactivation_reason',
+        'deactivated_at',
+        'deactivated_by',
     ];
 
     protected $casts = [
@@ -39,6 +42,7 @@ class Tenant extends Model
         'is_active' => 'boolean',
         'trial_ends_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
+        'deactivated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -245,6 +249,7 @@ class Tenant extends Model
     public function activeSubscription()
     {
         return $this->hasOne(Subscription::class)
+            ->with('plan')
             ->whereIn('status', ['active', 'trial'])
             ->latest();
     }
@@ -267,14 +272,44 @@ class Tenant extends Model
 
     public function canAddUser()
     {
-        return $this->users()->count() < $this->max_users;
+        $maxUsers = $this->getMaxUsers();
+        return $this->users()->count() < $maxUsers;
+    }
+    
+    public function getMaxUsers()
+    {
+        // Buscar do plano ativo através da subscription
+        $subscription = $this->activeSubscription;
+        
+        if ($subscription && $subscription->plan) {
+            return $subscription->plan->max_users;
+        }
+        
+        // Fallback para o valor do tenant
+        return $this->max_users ?? 3;
     }
 
     public function hasModule($moduleSlug)
     {
+        // Se tenant está inativo, não tem acesso a nenhum módulo
+        if (!$this->is_active) {
+            return false;
+        }
+        
         return $this->modules()
             ->where('slug', $moduleSlug)
             ->wherePivot('is_active', true)
             ->exists();
+    }
+    
+    public function isActive()
+    {
+        return $this->is_active === true;
+    }
+    
+    public function canAccess()
+    {
+        // Tenant deve estar ativo E ter subscription ativa
+        return $this->is_active && $this->hasActiveSubscription();
     }
 }

@@ -595,12 +595,23 @@
                 </div>
             </div>
 
+            {{-- Mensagem AGT com Hash --}}
+            @php
+                $agtMessage = \App\Helpers\AGTHelper::getFooterMessage($invoice);
+            @endphp
+            
+            @if($agtMessage)
             <div class="agt-description">
-                Esta factura foi processada pelo Sistema de Facturação da SOFTEC LDA, certif. n.º 2025/AGT
+                {{ $agtMessage }}
             </div>
+            @endif
 
             <div class="page-footer">
-                Documento processado em sistema certificado | Todos os direitos reservados
+                @if($invoice->notes)
+                    {{ $invoice->notes }}
+                @else
+                    Documento processado em sistema certificado | Todos os direitos reservados
+                @endif
             </div>
         </div>
     </div>

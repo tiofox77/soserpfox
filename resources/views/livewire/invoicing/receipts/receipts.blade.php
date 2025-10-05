@@ -158,24 +158,25 @@
                     </td>
                     <td class="px-6 py-4 text-center">
                         <div class="flex items-center justify-center gap-2">
+                            <a href="{{ route('invoicing.receipts.preview', $receipt->id) }}" 
+                               target="_blank"
+                               class="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition transform hover:scale-110" 
+                               title="Preview HTML">
+                                <i class="fas fa-file-alt"></i>
+                            </a>
                             <a href="{{ route('invoicing.receipts.pdf', $receipt->id) }}" 
                                target="_blank"
-                               class="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition transform hover:scale-110" 
-                               title="PDF">
+                               class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition transform hover:scale-110" 
+                               title="Gerar PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
                             <a href="{{ route('invoicing.receipts.edit', $receipt->id) }}" 
-                               class="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition transform hover:scale-110" 
+                               class="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition transform hover:scale-110" 
                                title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <button wire:click="viewReceipt({{ $receipt->id }})" 
-                                    class="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition transform hover:scale-110" 
-                                    title="Visualizar">
-                                <i class="fas fa-eye"></i>
-                            </button>
                             <button wire:click="confirmDelete({{ $receipt->id }})" 
-                                    class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition transform hover:scale-110" 
+                                    class="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition transform hover:scale-110" 
                                     title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>

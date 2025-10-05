@@ -61,18 +61,29 @@ class UserManagement extends Component
 
     public function edit($id)
     {
-        $user = User::with('tenants')->findOrFail($id);
+        $user = User::with('roles', 'tenants')->findOrFail($id);
+        $currentTenantId = activeTenantId();
+        
+        // Verificar se o usuário pertence ao tenant atual (via pivot)
+        if (!auth()->user()->is_super_admin) {
+            $belongsToTenant = $user->tenants()->where('tenants.id', $currentTenantId)->exists();
+            if (!$belongsToTenant) {
+                $this->dispatch('error', message: 'Sem permissão para editar este usuário');
+                return;
+            }
+        }
         
         $this->editingUserId = $id;
         $this->name = $user->name;
         $this->email = $user->email;
         $this->is_active = $user->is_active;
         
-        // Carregar tenants e roles
-        $this->selectedTenants = $user->tenants->pluck('id')->toArray();
-        foreach ($user->tenants as $tenant) {
-            $this->selectedRoles[$tenant->id] = $tenant->pivot->role_id ?? null;
-        }
+        // Carregar apenas o tenant atual
+        $this->selectedTenants = [$currentTenantId];
+        
+        // Carregar roles do Spatie para o tenant atual (especificar tabela pivot)
+        $userRole = $user->roles()->wherePivot('tenant_id', $currentTenantId)->first();
+        $this->selectedRoles[$currentTenantId] = $userRole ? $userRole->id : null;
         
         $this->showModal = true;
     }
@@ -80,6 +91,19 @@ class UserManagement extends Component
     public function save()
     {
         $this->validate();
+        
+        // Verificar limite de usuários ao criar novo (não ao editar)
+        if (!$this->editingUserId) {
+            $tenant = Tenant::find(activeTenantId());
+            
+            if (!$tenant->canAddUser()) {
+                $currentUsers = $tenant->users()->count();
+                $maxUsers = $tenant->getMaxUsers();
+                
+                $this->dispatch('error', message: "Limite de utilizadores atingido! O seu plano permite {$maxUsers} utilizador(es) e já tem {$currentUsers}. Faça upgrade do plano para adicionar mais.");
+                return;
+            }
+        }
         
         DB::beginTransaction();
         try {
@@ -118,43 +142,48 @@ class UserManagement extends Component
     
     protected function syncUserTenants($user)
     {
-        $syncData = [];
-        $myTenantIds = auth()->user()->tenants->pluck('id')->toArray();
+        $currentTenantId = activeTenantId();
         
-        if ($this->assignToAllTenants) {
-            // Atribuir a todos os tenants do usuário logado
-            $allTenants = auth()->user()->tenants->pluck('id');
-            
-            foreach ($allTenants as $tenantId) {
-                $roleId = $this->selectedRoles[$tenantId] ?? null;
-                if ($roleId) {
-                    $syncData[$tenantId] = [
-                        'role_id' => $roleId,
-                        'is_active' => true,
-                        'joined_at' => now(),
-                    ];
-                }
-            }
-        } else {
-            // Atribuir apenas aos tenants selecionados (que pertencem ao usuário logado)
-            foreach ($this->selectedTenants as $tenantId) {
-                // SEGURANÇA: Verificar se o tenant pertence ao usuário logado
-                if (!in_array($tenantId, $myTenantIds)) {
-                    continue; // Pular empresas que o usuário não gerencia
-                }
-                
-                $roleId = $this->selectedRoles[$tenantId] ?? null;
-                if ($roleId) {
-                    $syncData[$tenantId] = [
-                        'role_id' => $roleId,
-                        'is_active' => true,
-                        'joined_at' => now(),
-                    ];
-                }
-            }
+        // Vincular usuário ao tenant se ainda não estiver vinculado
+        if (!$user->tenants()->where('tenants.id', $currentTenantId)->exists()) {
+            $user->tenants()->attach($currentTenantId, [
+                'is_active' => true,
+                'joined_at' => now(),
+            ]);
         }
         
-        $user->tenants()->sync($syncData);
+        // Remover todos os roles antigos do usuário para este tenant
+        $user->roles()->wherePivot('tenant_id', $currentTenantId)->detach();
+        
+        // Atribuir role para o tenant atual
+        $roleId = $this->selectedRoles[$currentTenantId] ?? null;
+        
+        if ($roleId) {
+            // Atribuir role do Spatie com tenant_id
+            $this->assignRoleToUserForTenant($user, $roleId, $currentTenantId);
+        }
+        
+        // Garantir que o usuário tem o tenant_id correto
+        if ($user->tenant_id !== $currentTenantId) {
+            $user->update(['tenant_id' => $currentTenantId]);
+        }
+        
+        // Limpar cache de permissões
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+    }
+    
+    protected function assignRoleToUserForTenant($user, $roleId, $tenantId)
+    {
+        // Definir o tenant_id para o Spatie
+        setPermissionsTeamId($tenantId);
+        
+        // Buscar o role
+        $role = Role::find($roleId);
+        
+        if ($role) {
+            // Atribuir o role ao usuário
+            $user->assignRole($role);
+        }
     }
 
     public function toggleTenant($tenantId)
@@ -200,28 +229,68 @@ class UserManagement extends Component
         $this->dispatch('success', message: "Utilizador {$status} com sucesso!");
     }
 
-    public function delete($id)
+    public $showDeleteModal = false;
+    public $deletingUserId = null;
+    public $deletingUserName = '';
+
+    public function confirmDelete($id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Não permitir deletar super admin
+        if ($user->is_super_admin) {
+            $this->dispatch('error', message: 'Não é possível excluir um Super Admin!');
+            return;
+        }
+        
+        // Não permitir deletar a si mesmo
+        if ($user->id == auth()->id()) {
+            $this->dispatch('error', message: 'Você não pode excluir sua própria conta!');
+            return;
+        }
+        
+        $this->deletingUserId = $id;
+        $this->deletingUserName = $user->name;
+        $this->showDeleteModal = true;
+    }
+
+    public function delete()
     {
         try {
-            $user = User::findOrFail($id);
+            $user = User::with(['roles', 'tenants'])->findOrFail($this->deletingUserId);
             
-            // Não permitir deletar super admin
-            if ($user->is_super_admin) {
-                $this->dispatch('error', message: 'Não é possível excluir um Super Admin!');
+            // Verificar se tem documentos criados
+            $hasDocuments = DB::table('sales_invoices')->where('created_by', $user->id)->exists()
+                || DB::table('sales_proformas')->where('created_by', $user->id)->exists()
+                || DB::table('purchase_invoices')->where('created_by', $user->id)->exists();
+            
+            if ($hasDocuments) {
+                $this->dispatch('error', message: 'Não é possível excluir! Este utilizador tem documentos associados.');
+                $this->closeDeleteModal();
                 return;
             }
             
-            // Não permitir deletar a si mesmo
-            if ($user->id == auth()->id()) {
-                $this->dispatch('error', message: 'Você não pode excluir sua própria conta!');
-                return;
-            }
+            // Remover roles e relações
+            $user->roles()->detach();
+            $user->tenants()->detach();
             
-            $user->delete();
+            // Forçar exclusão permanente
+            $user->forceDelete();
+            
             $this->dispatch('success', message: 'Utilizador excluído com sucesso!');
+            $this->closeDeleteModal();
+            
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir utilizador!');
+            $this->dispatch('error', message: 'Erro ao excluir utilizador: ' . $e->getMessage());
+            $this->closeDeleteModal();
         }
+    }
+    
+    public function closeDeleteModal()
+    {
+        $this->showDeleteModal = false;
+        $this->deletingUserId = null;
+        $this->deletingUserName = '';
     }
 
     public function closeModal()
@@ -242,16 +311,15 @@ class UserManagement extends Component
     public function render()
     {
         $currentUser = auth()->user();
+        $currentTenantId = activeTenantId();
         
-        // Pegar IDs das empresas do usuário logado
-        $myTenantIds = $currentUser->tenants->pluck('id');
-        
-        // Filtrar apenas usuários que pertencem às MESMAS empresas
+        // Filtrar usuários do mesmo tenant (usando relação many-to-many)
         $users = User::query()
-            ->when(!$currentUser->is_super_admin, function ($query) use ($myTenantIds) {
-                // Apenas usuários que têm pelo menos uma empresa em comum
-                $query->whereHas('tenants', function ($q) use ($myTenantIds) {
-                    $q->whereIn('tenants.id', $myTenantIds);
+            ->with(['roles', 'tenants'])
+            ->when(!$currentUser->is_super_admin, function ($query) use ($currentTenantId) {
+                // Apenas usuários que pertencem ao tenant ativo (via pivot)
+                $query->whereHas('tenants', function ($q) use ($currentTenantId) {
+                    $q->where('tenants.id', $currentTenantId);
                 });
             })
             ->when($this->search, function ($query) {
@@ -260,27 +328,32 @@ class UserManagement extends Component
                       ->orWhere('email', 'like', '%' . $this->search . '%');
                 });
             })
-            ->with('tenants')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
         
-        $myTenants = $currentUser->tenants;
-        $roles = Role::orderBy('name')->get();
+        // Pegar apenas o tenant ativo
+        $myTenants = [Tenant::find($currentTenantId)];
+        
+        // Buscar roles do Spatie Permission do tenant atual
+        setPermissionsTeamId($currentTenantId);
+        $roles = Role::where('tenant_id', $currentTenantId)
+            ->orderBy('name')
+            ->get();
         
         // Stats para cards
         $totalUsers = User::query()
-            ->when(!$currentUser->is_super_admin, function ($query) use ($myTenantIds) {
-                $query->whereHas('tenants', function ($q) use ($myTenantIds) {
-                    $q->whereIn('tenants.id', $myTenantIds);
+            ->when(!$currentUser->is_super_admin, function ($query) use ($currentTenantId) {
+                $query->whereHas('tenants', function ($q) use ($currentTenantId) {
+                    $q->where('tenants.id', $currentTenantId);
                 });
             })
             ->count();
             
         $activeUsers = User::query()
             ->where('is_active', true)
-            ->when(!$currentUser->is_super_admin, function ($query) use ($myTenantIds) {
-                $query->whereHas('tenants', function ($q) use ($myTenantIds) {
-                    $q->whereIn('tenants.id', $myTenantIds);
+            ->when(!$currentUser->is_super_admin, function ($query) use ($currentTenantId) {
+                $query->whereHas('tenants', function ($q) use ($currentTenantId) {
+                    $q->where('tenants.id', $currentTenantId);
                 });
             })
             ->count();

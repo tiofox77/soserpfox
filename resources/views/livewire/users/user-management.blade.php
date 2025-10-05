@@ -11,8 +11,20 @@
                     <p class="text-purple-100 text-sm">Criar e gerenciar utilizadores com acesso multi-empresa</p>
                 </div>
             </div>
-            <button wire:click="create" class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
+            @php
+                $tenant = \App\Models\Tenant::find(activeTenantId());
+                $currentUsers = $tenant->users()->count();
+                $maxUsers = $tenant->getMaxUsers();
+                $canAdd = $tenant->canAddUser();
+            @endphp
+            
+            <button wire:click="create" 
+                    class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl {{ !$canAdd ? 'opacity-50 cursor-not-allowed' : '' }}"
+                    {{ !$canAdd ? 'disabled' : '' }}>
                 <i class="fas fa-user-plus mr-2"></i>Novo Utilizador
+                <span class="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg">
+                    {{ $currentUsers }}/{{ $maxUsers }}
+                </span>
             </button>
         </div>
     </div>
@@ -157,9 +169,8 @@
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 @if(!$user->is_super_admin && $user->id != auth()->id())
-                                    <button wire:click="delete({{ $user->id }})" 
-                                            onclick="return confirm('Tem certeza que deseja excluir este utilizador?')"
-                                            class="text-red-600 hover:text-red-900">
+                                    <button wire:click="confirmDelete({{ $user->id }})" 
+                                            class="text-red-600 hover:text-red-900 transition">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 @endif
@@ -207,6 +218,47 @@
                     
                     <!-- Modal Body -->
                     <form wire:submit.prevent="save" class="p-6 max-h-[70vh] overflow-y-auto">
+                        {{-- Indicador de Limite de Usuários --}}
+                        @if(!$editingUserId)
+                            @php
+                                $tenant = \App\Models\Tenant::find(activeTenantId());
+                                $currentUsers = $tenant->users()->count();
+                                $maxUsers = $tenant->getMaxUsers();
+                                $remainingUsers = $maxUsers - $currentUsers;
+                                $percentage = ($currentUsers / $maxUsers) * 100;
+                            @endphp
+                            
+                            <div class="mb-6 p-4 rounded-xl {{ $remainingUsers > 0 ? 'bg-blue-50 border-2 border-blue-200' : 'bg-red-50 border-2 border-red-200' }}">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-users {{ $remainingUsers > 0 ? 'text-blue-600' : 'text-red-600' }} mr-2"></i>
+                                        <span class="font-semibold {{ $remainingUsers > 0 ? 'text-blue-900' : 'text-red-900' }}">
+                                            Limite do Plano: {{ $currentUsers }} / {{ $maxUsers }} utilizadores
+                                        </span>
+                                    </div>
+                                    @if($remainingUsers > 0)
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-lg">
+                                            {{ $remainingUsers }} disponível{{ $remainingUsers != 1 ? 'is' : '' }}
+                                        </span>
+                                    @else
+                                        <span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-lg">
+                                            Limite atingido
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="h-2 rounded-full transition-all {{ $percentage >= 100 ? 'bg-red-600' : ($percentage >= 80 ? 'bg-yellow-500' : 'bg-blue-600') }}" 
+                                         style="width: {{ min($percentage, 100) }}%"></div>
+                                </div>
+                                @if($remainingUsers <= 0)
+                                    <p class="text-xs text-red-700 mt-2">
+                                        <i class="fas fa-exclamation-circle mr-1"></i>
+                                        Faça upgrade do seu plano para adicionar mais utilizadores.
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
+                        
                         <!-- User Info -->
                         <div class="mb-6">
                             <h4 class="text-lg font-bold text-gray-900 mb-4">
@@ -327,4 +379,7 @@
             </div>
         </div>
     @endif
+    
+    {{-- Modal de Exclusão --}}
+    @include('livewire.users.partials.delete-modal')
 </div>

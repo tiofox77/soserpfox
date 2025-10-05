@@ -41,23 +41,21 @@
                                     
                                     <!-- Info -->
                                     <div class="flex-1">
-                                        <div class="font-bold text-gray-900">{{ $user->name }}</div>
                                         <div class="text-sm text-gray-500">{{ $user->email }}</div>
                                     </div>
                                     
                                     <!-- Role -->
                                     <div class="min-w-[200px]">
                                         <select wire:change="updateUserRole({{ $user->id }}, $event.target.value)" 
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm">
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm">
                                             <option value="">Sem Role</option>
                                             @foreach($roles as $role)
-                                                <option value="{{ $role->id }}" {{ $user->pivot->role_id == $role->id ? 'selected' : '' }}>
+                                                <option value="{{ $role->id }}" {{ $user->current_role && $user->current_role->id == $role->id ? 'selected' : '' }}>
                                                     {{ $role->name }}
                                                 </option>
                                             @endforeach
                                         </select>
                                     </div>
-                                    
                                     <!-- Data de Entrada -->
                                     <div class="text-sm text-gray-500 min-w-[120px]">
                                         <i class="fas fa-calendar mr-1"></i>

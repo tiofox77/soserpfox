@@ -109,7 +109,7 @@ class SAFTGenerator extends Component
 
     private function buildSAFTXML()
     {
-        $tenant = auth()->user()->activeTenant;
+        $tenant = auth()->user()->activeTenant();
         
         $xml = new \SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><AuditFile></AuditFile>');
         $xml->addAttribute('xmlns', 'urn:OECD:StandardAuditFile-Tax:AO_1.01_01');
@@ -149,14 +149,21 @@ class SAFTGenerator extends Component
                 $customer = $masterFiles->addChild('Customer');
                 $customer->addChild('CustomerID', $client->id);
                 $customer->addChild('AccountID', 'Desconhecido');
-                $customer->addChild('CustomerTaxID', $client->nif ?? '999999999');
+                
+                // CustomerTaxID: deve ser válido, usar 999999999 se vazio
+                $nif = trim($client->nif ?? '');
+                $customerTaxID = !empty($nif) && strlen($nif) === 9 ? $nif : '999999999';
+                $customer->addChild('CustomerTaxID', $customerTaxID);
+                
                 $customer->addChild('CompanyName', htmlspecialchars($client->name));
                 
                 $billingAddress = $customer->addChild('BillingAddress');
                 $billingAddress->addChild('AddressDetail', htmlspecialchars($client->address ?? 'N/A'));
                 $billingAddress->addChild('City', htmlspecialchars($client->city ?? 'Luanda'));
                 $billingAddress->addChild('PostalCode', $client->postal_code ?? '0000');
-                $billingAddress->addChild('Country', $client->country ?? 'AO');
+                
+                // Country: ISO 3166-1-alpha-2 (2 letras) usando método do model
+                $billingAddress->addChild('Country', $client->country_code);
                 
                 $customer->addChild('SelfBillingIndicator', '0');
             }
@@ -169,14 +176,23 @@ class SAFTGenerator extends Component
                 $supplierNode = $masterFiles->addChild('Supplier');
                 $supplierNode->addChild('SupplierID', $supplier->id);
                 $supplierNode->addChild('AccountID', 'Desconhecido');
-                $supplierNode->addChild('SupplierTaxID', $supplier->nif ?? '999999999');
+                
+                // SupplierTaxID: DEVE ser válido (9 dígitos), usar 999999999 se vazio ou inválido
+                $supplierNif = trim($supplier->nif ?? '');
+                $supplierTaxID = !empty($supplierNif) && strlen($supplierNif) === 9 && is_numeric($supplierNif) 
+                    ? $supplierNif 
+                    : '999999999';
+                $supplierNode->addChild('SupplierTaxID', $supplierTaxID);
+                
                 $supplierNode->addChild('CompanyName', htmlspecialchars($supplier->name));
                 
                 $billingAddress = $supplierNode->addChild('BillingAddress');
                 $billingAddress->addChild('AddressDetail', htmlspecialchars($supplier->address ?? 'N/A'));
                 $billingAddress->addChild('City', htmlspecialchars($supplier->city ?? 'Luanda'));
                 $billingAddress->addChild('PostalCode', $supplier->postal_code ?? '0000');
-                $billingAddress->addChild('Country', $supplier->country ?? 'AO');
+                
+                // Country: ISO 3166-1-alpha-2 (2 letras) usando método do model
+                $billingAddress->addChild('Country', $supplier->country_code);
                 
                 $supplierNode->addChild('SelfBillingIndicator', '0');
             }

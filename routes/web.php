@@ -11,12 +11,22 @@ Route::get('/register', \App\Livewire\Auth\RegisterWizard::class)->name('registe
 // Auth routes (sem register padrão)
 Auth::routes(['register' => false]);
 
+// Tenant Deactivated Page
+Route::get('/tenant-deactivated', function () {
+    return view('auth.tenant-deactivated');
+})->name('tenant.deactivated');
+
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 // My Account Route
 Route::middleware(['auth'])->group(function () {
     Route::get('/my-account', \App\Livewire\MyAccount::class)->name('my-account');
-    Route::get('/users', \App\Livewire\Users\UserManagement::class)->name('users.index');
+});
+
+// User Management Routes (Super Admin Only)
+Route::middleware(['auth', 'superadmin'])->prefix('users')->name('users.')->group(function () {
+    Route::get('/', \App\Livewire\Users\UserManagement::class)->name('index');
+    Route::get('/roles-permissions', \App\Livewire\Users\RolesAndPermissions::class)->name('roles-permissions');
 });
 
 // Super Admin Routes
@@ -33,23 +43,25 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 
 // Invoicing Module Routes
 Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(function () {
-    Route::get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
-    Route::get('/suppliers', \App\Livewire\Invoicing\Suppliers::class)->name('suppliers');
-    Route::get('/products', \App\Livewire\Invoicing\Products::class)->name('products');
-    Route::get('/categories', \App\Livewire\Invoicing\Categories::class)->name('categories');
-    Route::get('/brands', \App\Livewire\Invoicing\Brands::class)->name('brands');
-    Route::get('/invoices', \App\Livewire\Invoicing\Invoices::class)->name('invoices');
+    // Dashboard
+    Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
+    
+    Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
+    Route::middleware('permission:invoicing.suppliers.view')->get('/suppliers', \App\Livewire\Invoicing\Suppliers::class)->name('suppliers');
+    Route::middleware('permission:invoicing.products.view')->get('/products', \App\Livewire\Invoicing\Products::class)->name('products');
+    Route::middleware('permission:invoicing.categories.view')->get('/categories', \App\Livewire\Invoicing\Categories::class)->name('categories');
+    Route::middleware('permission:invoicing.brands.view')->get('/brands', \App\Livewire\Invoicing\Brands::class)->name('brands');
     
     // Proformas e Faturas de Venda
     Route::prefix('sales')->name('sales.')->group(function () {
-        Route::get('/proformas', \App\Livewire\Invoicing\Sales\Proformas::class)->name('proformas');
+        Route::middleware('permission:invoicing.sales.proformas.view')->get('/proformas', \App\Livewire\Invoicing\Sales\Proformas::class)->name('proformas');
         Route::get('/proformas/create', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.create');
         Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->name('proformas.preview');
         
         // Faturas de Venda
-        Route::get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
+        Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
         Route::get('/invoices/create', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.create');
         Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
@@ -77,14 +89,14 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // Proformas e Faturas de Compra
     Route::prefix('purchases')->name('purchases.')->group(function () {
-        Route::get('/proformas', \App\Livewire\Invoicing\Purchases\Proformas::class)->name('proformas');
+        Route::middleware('permission:invoicing.purchases.proformas.view')->get('/proformas', \App\Livewire\Invoicing\Purchases\Proformas::class)->name('proformas');
         Route::get('/proformas/create', \App\Livewire\Invoicing\Purchases\ProformaCreate::class)->name('proformas.create');
         Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Purchases\ProformaCreate::class)->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'previewHtml'])->name('proformas.preview');
         
         // Faturas de Compra
-        Route::get('/invoices', \App\Livewire\Invoicing\Purchases\Invoices::class)->name('invoices');
+        Route::middleware('permission:invoicing.purchases.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Purchases\Invoices::class)->name('invoices');
         Route::get('/invoices/create', \App\Livewire\Invoicing\Purchases\InvoiceCreate::class)->name('invoices.create');
         Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Purchases\InvoiceCreate::class)->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
@@ -93,7 +105,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // Recibos
     Route::prefix('receipts')->name('receipts.')->group(function () {
-        Route::get('/', \App\Livewire\Invoicing\Receipts\Receipts::class)->name('index');
+        Route::middleware('permission:invoicing.receipts.view')->get('/', \App\Livewire\Invoicing\Receipts\Receipts::class)->name('index');
         Route::get('/create', \App\Livewire\Invoicing\Receipts\ReceiptCreate::class)->name('create');
         Route::get('/{id}/edit', \App\Livewire\Invoicing\Receipts\ReceiptCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
@@ -102,7 +114,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // Notas de Crédito
     Route::prefix('credit-notes')->name('credit-notes.')->group(function () {
-        Route::get('/', \App\Livewire\Invoicing\CreditNotes\CreditNotes::class)->name('index');
+        Route::middleware('permission:invoicing.credit-notes.view')->get('/', \App\Livewire\Invoicing\CreditNotes\CreditNotes::class)->name('index');
         Route::get('/create', \App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)->name('create');
         Route::get('/{id}/edit', \App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
@@ -111,16 +123,25 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // Notas de Débito
     Route::prefix('debit-notes')->name('debit-notes.')->group(function () {
-        Route::get('/', \App\Livewire\Invoicing\DebitNotes\DebitNotes::class)->name('index');
+        Route::middleware('permission:invoicing.debit-notes.view')->get('/', \App\Livewire\Invoicing\DebitNotes\DebitNotes::class)->name('index');
         Route::get('/create', \App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)->name('create');
         Route::get('/{id}/edit', \App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)->name('edit');
+        Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
+        Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
+    });
+    
+    // Importações
+    Route::prefix('imports')->name('imports.')->group(function () {
+        Route::middleware('permission:invoicing.imports.view')->get('/', \App\Livewire\Invoicing\Imports\Imports::class)->name('index');
     });
     
     // Adiantamentos
     Route::prefix('advances')->name('advances.')->group(function () {
-        Route::get('/', \App\Livewire\Invoicing\Advances\Advances::class)->name('index');
+        Route::middleware('permission:invoicing.advances.view')->get('/', \App\Livewire\Invoicing\Advances\Advances::class)->name('index');
         Route::get('/create', \App\Livewire\Invoicing\Advances\AdvanceCreate::class)->name('create');
         Route::get('/{id}/edit', \App\Livewire\Invoicing\Advances\AdvanceCreate::class)->name('edit');
+        Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'generatePdf'])->name('pdf');
+        Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'previewHtml'])->name('preview');
     });
     
     // Configurações
@@ -136,6 +157,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // SAFT
     Route::get('/saft-generator', \App\Livewire\Invoicing\SAFTGenerator::class)->name('saft-generator');
+    Route::get('/agt-documents', \App\Livewire\Invoicing\AGTDocumentGenerator::class)->name('agt-documents');
     
     // POS
     Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');

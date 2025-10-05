@@ -118,16 +118,18 @@
             </div>
 
             {{-- Log de Atualização --}}
-            @if(!empty($updateLog))
+            @if(!empty($updateLog) && !$updateInProgress)
             <div class="mt-6 bg-gray-900 rounded-2xl shadow-lg p-4">
                 <h4 class="text-sm font-bold text-white mb-3 flex items-center">
-                    <i class="fas fa-terminal mr-2"></i>Log de Atualização
+                    <i class="fas fa-terminal mr-2"></i>Último Log de Atualização
                 </h4>
                 <div class="space-y-1 max-h-64 overflow-y-auto">
                     @foreach($updateLog as $log)
                     <div class="flex items-start gap-2 text-xs font-mono">
                         <span class="text-gray-500">[{{ $log['time'] }}]</span>
-                        <span class="text-green-400">{{ $log['message'] }}</span>
+                        <span class="{{ $log['type'] === 'error' ? 'text-red-400' : ($log['type'] === 'success' ? 'text-green-400' : 'text-gray-300') }}">
+                            {{ $log['message'] }}
+                        </span>
                     </div>
                     @endforeach
                 </div>
@@ -276,25 +278,60 @@
 
     {{-- Modal de Progresso (se atualizando) --}}
     @if($updateInProgress)
-    <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-2xl w-full p-6">
-            <div class="text-center mb-6">
-                <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i>
+    <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                    Atualizando Sistema
+                </h3>
+                <span class="text-sm text-gray-600">{{ $currentStep }}</span>
+            </div>
+            
+            {{-- Progress Bar --}}
+            <div class="mb-6">
+                <div class="flex justify-between text-sm mb-2">
+                    <span class="text-gray-700 font-semibold">Progresso da Atualização</span>
+                    <span class="text-blue-600 font-bold">{{ round($progressPercentage) }}%</span>
                 </div>
-                <h3 class="text-2xl font-bold text-gray-800">Atualização em Progresso</h3>
-                <p class="text-sm text-gray-600 mt-2">Por favor, aguarde. Não feche esta janela...</p>
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                    <div class="bg-gradient-to-r from-blue-500 via-cyan-500 to-green-500 h-4 rounded-full transition-all duration-500 shadow-lg" 
+                         style="width: {{ $progressPercentage }}%"></div>
+                </div>
             </div>
 
-            {{-- Progress Log --}}
-            <div class="bg-gray-900 rounded-xl p-4 max-h-64 overflow-y-auto">
-                @foreach($updateLog as $log)
-                <div class="flex items-start gap-2 text-sm font-mono mb-1">
-                    <span class="text-gray-500">[{{ $log['time'] }}]</span>
-                    <span class="text-green-400">{{ $log['message'] }}</span>
-                </div>
-                @endforeach
+            {{-- Warning --}}
+            <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 mb-4">
+                <p class="text-sm font-bold text-yellow-800 flex items-center">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Importante: Não feche esta janela durante a atualização!
+                </p>
             </div>
+
+            {{-- Console Log --}}
+            <div class="bg-gray-900 rounded-xl p-4 max-h-80 overflow-y-auto shadow-inner" x-ref="logContainer">
+                @forelse($updateLog as $log)
+                    <div class="flex items-start mb-2 {{ $log['type'] === 'error' ? 'text-red-400' : ($log['type'] === 'success' ? 'text-green-400' : 'text-gray-300') }}">
+                        <span class="text-gray-500 mr-3 flex-shrink-0 font-mono text-xs">[{{ $log['time'] }}]</span>
+                        <span class="flex-1 font-mono text-sm">{{ $log['message'] }}</span>
+                    </div>
+                @empty
+                    <div class="text-gray-500 text-center py-4">
+                        <i class="fas fa-hourglass-start mr-2"></i>
+                        Aguardando início da atualização...
+                    </div>
+                @endforelse
+            </div>
+            
+            {{-- Auto scroll script --}}
+            <script>
+                document.addEventListener('livewire:updated', () => {
+                    const container = document.querySelector('[x-ref="logContainer"]');
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                });
+            </script>
         </div>
     </div>
     @endif

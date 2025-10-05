@@ -100,17 +100,21 @@
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-globe text-blue-500 mr-2"></i>País *
+                                <i class="fas fa-globe text-blue-500 mr-2"></i>País * <span class="text-xs text-gray-500">(ISO 3166-1-alpha-2)</span>
                             </label>
                             <select wire:model.live="country" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                                @foreach(\App\Models\Supplier::PAISES as $pais)
-                                    <option value="{{ $pais }}">{{ $pais }}</option>
-                                @endforeach
+                                <option value="AO">Angola (AO)</option>
+                                <option value="PT">Portugal (PT)</option>
+                                <option value="MZ">Moçambique (MZ)</option>
+                                <option value="BR">Brasil (BR)</option>
+                                <option value="CV">Cabo Verde (CV)</option>
+                                <option value="GW">Guiné-Bissau (GW)</option>
+                                <option value="ST">São Tomé e Príncipe (ST)</option>
                             </select>
                             @error('country') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
-                        @if($country === 'Angola')
+                        @if($country === 'AO')
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-map-marked-alt text-red-500 mr-2"></i>Província *

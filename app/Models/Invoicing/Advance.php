@@ -30,6 +30,7 @@ class Advance extends Model
         'used_amount',
         'remaining_amount',
         'status',
+        'saft_hash',
         'created_by',
     ];
 
@@ -174,6 +175,11 @@ class Advance extends Model
     }
 
     // Accessors
+    public function getHashAttribute()
+    {
+        return $this->saft_hash ?? null;
+    }
+
     public function getStatusLabelAttribute()
     {
         $statuses = [

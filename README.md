@@ -1,4 +1,8 @@
-# 💼 SOS ERP - Sistema Multi-tenant de Gestão Empresarial
+# 🚀 SOS ERP - Sistema de Gestão Empresarial
+
+## 📋 Sistema Modular Integrado
+
+O SOS ERP é um sistema **modular** onde cada módulo funciona de forma independente, mas **certas áreas estão sempre integradas automaticamente** para manter consistência e automatizar processos.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Laravel-11.x-red?logo=laravel" alt="Laravel">
@@ -17,7 +21,9 @@ Sistema ERP multi-tenant completo desenvolvido em Laravel 11 + Livewire V3, com 
 - [Características](#-características)
 - [Tecnologias](#-tecnologias)
 - [Módulos Implementados](#-módulos-implementados)
+- [Integrações Entre Módulos](#-integrações-entre-módulos) ⭐ IMPORTANTE
 - [Instalação](#-instalação)
+- [Atualização do Sistema](#-atualização-do-sistema)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Funcionalidades Detalhadas](#-funcionalidades-detalhadas)
 - [Roadmap](#-roadmap)
@@ -123,6 +129,67 @@ Sistema ERP multi-tenant completo desenvolvido em Laravel 11 + Livewire V3, com 
 - ✅ Taxas padrão de Angola (14%, 7%, 5%)
 - ✅ Sistema extensível para outras taxas
 - ✅ Seeder automático por tenant
+
+---
+
+## 🔗 Integrações Entre Módulos
+
+⚠️ **IMPORTANTE:** O SOS ERP é modular, mas **certas áreas estão sempre integradas automaticamente**.
+
+### Integrações Implementadas ✅
+
+#### **1. POS → Faturação → Treasury**
+```
+Venda POS → Cria Fatura (FR) → Cria Transação Treasury
+```
+- Automático e atômico (DB Transaction)
+- Fatura vinculada à transação
+- Saldo do caixa atualizado
+
+#### **2. Treasury → Faturação (Crédito)**
+```
+Creditar Transação → Cria Nota de Crédito → Atualiza Fatura
+```
+- NC criada automaticamente
+- Status da fatura → 'credited'
+- Rastreabilidade completa
+
+### Documentação Completa
+
+📚 **Leia antes de modificar integrações:**
+- [`MODULE-INTEGRATIONS.md`](MODULE-INTEGRATIONS.md) - Todas as integrações do sistema
+- [`INTEGRATION-RULES.md`](INTEGRATION-RULES.md) - Regras obrigatórias
+
+### Princípios
+
+- ✅ **Automático** - Integrações acontecem automaticamente
+- ✅ **Atômico** - Usa transações DB (tudo ou nada)
+- ✅ **Vinculado** - Registros sempre ligados por foreign keys
+- ✅ **Rastreável** - Histórico completo de ações
+
+---
+
+## 🔄 Atualização do Sistema
+
+### Comando de Atualização Inteligente
+
+```bash
+php artisan system:update
+```
+
+**Menu Interativo:**
+- 🚀 Automático - Executa tudo (recomendado)
+- ✋ Interativo - Pergunta antes de cada seeder
+- ❌ Cancelar
+
+**Para CI/CD:**
+```bash
+php artisan system:update --force
+```
+
+**Documentação:**
+- [`SYSTEM-UPDATE.md`](SYSTEM-UPDATE.md) - Documentação completa
+- [`UPDATE-QUICK-START.md`](UPDATE-QUICK-START.md) - Guia rápido
 
 ---
 

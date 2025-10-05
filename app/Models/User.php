@@ -196,12 +196,10 @@ class User extends Authenticatable
             return false;
         }
 
-        $hasModule = $activeTenant->modules()
-            ->where('slug', $moduleSlug)
-            ->wherePivot('is_active', true)
-            ->exists();
+        // Usar o método hasModule do Tenant que já valida is_active
+        $hasModule = $activeTenant->hasModule($moduleSlug);
 
-        \Log::info("Check module '{$moduleSlug}' for user {$this->id} ({$this->email}), tenant {$activeTenant->id}: " . ($hasModule ? 'YES' : 'NO'));
+        \Log::info("Check module '{$moduleSlug}' for user {$this->id} ({$this->email}), tenant {$activeTenant->id} (active: {$activeTenant->is_active}): " . ($hasModule ? 'YES' : 'NO'));
 
         return $hasModule;
     }

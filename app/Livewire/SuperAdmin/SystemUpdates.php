@@ -20,6 +20,8 @@ class SystemUpdates extends Component
     public $loading = false;
     public $updateInProgress = false;
     public $updateLog = [];
+    public $progressPercentage = 0;
+    public $currentStep = '';
     
     // GitHub Config
     private $githubRepo = 'tiofox77/soserpfox';
@@ -121,43 +123,76 @@ class SystemUpdates extends Component
 
         $this->updateInProgress = true;
         $this->updateLog = [];
+        $this->progressPercentage = 0;
         
         try {
-            // 1. Criar backup
-            $this->addLog('📦 Criando backup do sistema...');
+            // 1. Criar backup (0-15%)
+            $this->currentStep = 'Criando backup do sistema...';
+            $this->addLog('🚀 Iniciando atualização do sistema para v' . $version, 'info');
+            $this->addLog('📦 Criando backup de segurança...', 'info');
+            $this->progressPercentage = 5;
+            
             $this->createBackup();
-            $this->addLog('✅ Backup criado com sucesso');
+            $this->progressPercentage = 15;
+            $this->addLog('✅ Backup criado com sucesso', 'success');
 
-            // 2. Baixar release
-            $this->addLog('⬇️ Baixando versão ' . $version . '...');
+            // 2. Baixar release (15-35%)
+            $this->currentStep = 'Baixando atualização...';
+            $this->progressPercentage = 20;
+            $this->addLog('⬇️ Baixando versão ' . $version . ' do GitHub...', 'info');
+            
             $zipPath = $this->downloadRelease($version);
-            $this->addLog('✅ Download concluído');
+            $this->progressPercentage = 35;
+            $this->addLog('✅ Download concluído', 'success');
 
-            // 3. Extrair arquivos
-            $this->addLog('📂 Extraindo arquivos...');
+            // 3. Extrair arquivos (35-55%)
+            $this->currentStep = 'Extraindo arquivos...';
+            $this->progressPercentage = 40;
+            $this->addLog('📂 Extraindo arquivos da atualização...', 'info');
+            
             $this->extractUpdate($zipPath);
-            $this->addLog('✅ Arquivos extraídos');
+            $this->progressPercentage = 55;
+            $this->addLog('✅ Arquivos extraídos e copiados', 'success');
 
-            // 4. Executar migrations
-            $this->addLog('🔧 Executando migrations...');
+            // 4. Executar migrations (55-70%)
+            $this->currentStep = 'Executando migrations...';
+            $this->progressPercentage = 60;
+            $this->addLog('🔧 Executando migrations do banco de dados...', 'info');
+            
             Artisan::call('migrate', ['--force' => true]);
-            $this->addLog('✅ Migrations executadas');
+            $this->progressPercentage = 70;
+            $this->addLog('✅ Migrations executadas com sucesso', 'success');
 
-            // 5. Limpar cache
-            $this->addLog('🧹 Limpando cache...');
+            // 5. Limpar cache (70-90%)
+            $this->currentStep = 'Limpando cache...';
+            $this->progressPercentage = 75;
+            $this->addLog('🧹 Limpando cache do sistema...', 'info');
+            
             Artisan::call('optimize:clear');
+            $this->addLog('  → Cache de aplicação limpo', 'info');
             Artisan::call('view:clear');
+            $this->addLog('  → Cache de views limpo', 'info');
             Artisan::call('route:clear');
+            $this->addLog('  → Cache de rotas limpo', 'info');
             Artisan::call('config:clear');
-            $this->addLog('✅ Cache limpo');
+            $this->addLog('  → Cache de config limpo', 'info');
+            
+            $this->progressPercentage = 90;
+            $this->addLog('✅ Cache limpo completamente', 'success');
 
-            // 6. Atualizar versão
+            // 6. Atualizar versão (90-100%)
+            $this->currentStep = 'Finalizando...';
+            $this->progressPercentage = 95;
+            $this->addLog('💾 Salvando nova versão...', 'info');
+            
             $this->currentVersion = $version;
             $this->saveVersion($version);
-            $this->addLog('✅ Versão salva: ' . $version);
+            $this->progressPercentage = 100;
+            $this->addLog('✅ Versão atualizada: ' . $version, 'success');
             
-            $this->addLog('🎉 Atualização concluída com sucesso!');
-            $this->addLog('🔄 Recarregue a página para ver as mudanças');
+            $this->currentStep = 'Concluído!';
+            $this->addLog('🎉 Atualização concluída com sucesso!', 'success');
+            $this->addLog('🔄 Recarregue a página para ver as mudanças', 'info');
 
             $this->dispatch('notify', [
                 'type' => 'success',
@@ -165,7 +200,8 @@ class SystemUpdates extends Component
             ]);
 
         } catch (\Exception $e) {
-            $this->addLog('❌ ERRO: ' . $e->getMessage());
+            $this->addLog('❌ ERRO: ' . $e->getMessage(), 'error');
+            $this->addLog('💡 Dica: Verifique os logs para mais detalhes', 'error');
             
             $this->dispatch('notify', [
                 'type' => 'error',
@@ -321,11 +357,12 @@ class SystemUpdates extends Component
         File::put($versionFile, $version);
     }
 
-    private function addLog($message)
+    private function addLog($message, $type = 'info')
     {
         $this->updateLog[] = [
             'time' => now()->format('H:i:s'),
             'message' => $message,
+            'type' => $type,
         ];
     }
 

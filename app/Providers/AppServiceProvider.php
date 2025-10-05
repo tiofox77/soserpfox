@@ -26,5 +26,17 @@ class AppServiceProvider extends ServiceProvider
         // Registrar Observers para atualização automática de stock
         SalesInvoice::observe(SalesInvoiceObserver::class);
         PurchaseInvoice::observe(PurchaseInvoiceObserver::class);
+        
+        // Definir tenant_id para Spatie Permission em cada requisição
+        if (function_exists('setPermissionsTeamId')) {
+            \View::composer('*', function ($view) {
+                if (auth()->check() && function_exists('activeTenantId')) {
+                    $tenantId = activeTenantId();
+                    if ($tenantId) {
+                        setPermissionsTeamId($tenantId);
+                    }
+                }
+            });
+        }
     }
 }
