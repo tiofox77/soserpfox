@@ -3,13 +3,16 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
         // Tabela de Locais de Eventos
-        Schema::create('events_venues', function (Blueprint $table) {
+        try {
+            if (!Schema::hasTable('events_venues')) {
+                Schema::create('events_venues', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained('tenants')->onDelete('cascade');
             $table->string('name');
@@ -22,10 +25,16 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->index(['tenant_id', 'is_active']);
-        });
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Migration events_venues: ' . $e->getMessage());
+        }
 
         // Tabela de Equipamentos
-        Schema::create('events_equipment', function (Blueprint $table) {
+        try {
+            if (!Schema::hasTable('events_equipment')) {
+                Schema::create('events_equipment', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained('tenants')->onDelete('cascade');
             $table->string('name');
@@ -39,13 +48,19 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->index(['tenant_id', 'category', 'status']);
-        });
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Migration events_equipment: ' . $e->getMessage());
+        }
 
         // Tabela de Eventos
-        Schema::create('events_events', function (Blueprint $table) {
+        try {
+            if (!Schema::hasTable('events_events')) {
+                Schema::create('events_events', function (Blueprint $table) {
             $table->id();
             $table->foreignId('tenant_id')->constrained('tenants')->onDelete('cascade');
-            $table->foreignId('client_id')->nullable()->constrained('clients')->onDelete('set null');
+            $table->foreignId('client_id')->nullable()->constrained('invoicing_clients')->onDelete('set null');
             $table->foreignId('venue_id')->nullable()->constrained('events_venues')->onDelete('set null');
             $table->string('event_number')->unique();
             $table->string('name');
@@ -63,10 +78,16 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
             $table->index(['tenant_id', 'status', 'start_date']);
-        });
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Migration events_events: ' . $e->getMessage());
+        }
 
         // Tabela de Equipamentos do Evento
-        Schema::create('events_event_equipment', function (Blueprint $table) {
+        try {
+            if (!Schema::hasTable('events_event_equipment')) {
+                Schema::create('events_event_equipment', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained('events_events')->onDelete('cascade');
             $table->foreignId('equipment_id')->constrained('events_equipment')->onDelete('cascade');
@@ -76,10 +97,16 @@ return new class extends Migration
             $table->integer('days')->default(1);
             $table->text('notes')->nullable();
             $table->timestamps();
-        });
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Migration events_event_equipment: ' . $e->getMessage());
+        }
 
         // Tabela de Equipe do Evento
-        Schema::create('events_event_staff', function (Blueprint $table) {
+        try {
+            if (!Schema::hasTable('events_event_staff')) {
+                Schema::create('events_event_staff', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained('events_events')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
@@ -88,10 +115,16 @@ return new class extends Migration
             $table->dateTime('assigned_end')->nullable();
             $table->decimal('cost', 15, 2)->default(0);
             $table->timestamps();
-        });
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Migration events_event_staff: ' . $e->getMessage());
+        }
 
         // Tabela de Checklist do Evento
-        Schema::create('events_checklists', function (Blueprint $table) {
+        try {
+            if (!Schema::hasTable('events_checklists')) {
+                Schema::create('events_checklists', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained('events_events')->onDelete('cascade');
             $table->string('task');
@@ -102,7 +135,11 @@ return new class extends Migration
             $table->dateTime('completed_at')->nullable();
             $table->integer('order')->default(0);
             $table->timestamps();
-        });
+                });
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Migration events_checklists: ' . $e->getMessage());
+        }
     }
 
     public function down(): void
