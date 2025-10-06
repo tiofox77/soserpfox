@@ -240,7 +240,28 @@
                 <div class="border-t border-blue-700 my-4"></div>
                 
                 <div class="px-3 mb-2">
-                    <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider">Configurações</p>
+                    <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider">Sistema</p>
+                </div>
+                
+                <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-cloud-download-alt w-6 text-cyan-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Atualizações</span>
+                </a>
+                
+                <a href="{{ route('superadmin.system-commands') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-commands') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-terminal w-6 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Comandos do Sistema</span>
+                </a>
+                
+                <a href="{{ route('superadmin.system-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-cog w-6 text-purple-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Configurações Gerais</span>
+                </a>
+                
+                <div class="border-t border-blue-700 my-4"></div>
+                
+                <div class="px-3 mb-2">
+                    <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider">Integrações</p>
                 </div>
                 
                 <a href="{{ route('superadmin.saft') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.saft') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
