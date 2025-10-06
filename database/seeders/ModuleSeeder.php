@@ -93,6 +93,16 @@ class ModuleSeeder extends Seeder
                 'order' => 8,
                 'dependencies' => null,
             ],
+            [
+                'name' => 'Gestão de Eventos',
+                'slug' => 'eventos',
+                'description' => 'Gestão de eventos, montagem de salas, equipamentos (som, telas, LEDs, streaming)',
+                'icon' => 'calendar-alt',
+                'is_core' => false,
+                'is_active' => true,
+                'order' => 9,
+                'dependencies' => ['invoicing'],
+            ],
         ];
 
         foreach ($modules as $module) {

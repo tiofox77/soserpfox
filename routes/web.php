@@ -178,3 +178,22 @@ Route::middleware(['auth'])->prefix('treasury')->name('treasury.')->group(functi
     Route::get('/cash-registers', \App\Livewire\Treasury\CashRegisters::class)->name('cash-registers');
     Route::get('/transactions', \App\Livewire\Treasury\Transactions::class)->name('transactions');
 });
+
+// Events Module Routes
+Route::middleware(['auth'])->prefix('events')->name('events.')->group(function () {
+    // Dashboard
+    Route::get('/dashboard', \App\Livewire\Events\Dashboard::class)->name('dashboard');
+    
+    // Eventos
+    Route::get('/events', \App\Livewire\Events\EventsManager::class)->name('events');
+    
+    // Equipamentos
+    Route::prefix('equipment')->name('equipment.')->group(function () {
+        Route::get('/', \App\Livewire\Events\Equipment\EquipmentManager::class)->name('index');
+    });
+    
+    // Locais
+    Route::prefix('venues')->name('venues.')->group(function () {
+        Route::get('/', \App\Livewire\Events\Venues\VenuesManager::class)->name('index');
+    });
+});

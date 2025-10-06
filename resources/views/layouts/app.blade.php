@@ -756,6 +756,53 @@
                         </div>
                     @endif
 
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('eventos'))
+                        <!-- Events Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ eventsOpen: {{ request()->routeIs('events.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="eventsOpen = !eventsOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-calendar-alt w-6 text-pink-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Eventos</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="eventsOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="eventsOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('events.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.dashboard') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-pie w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('events.events') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.events') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-check w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Eventos</span>
+                                </a>
+                                
+                                <a href="{{ route('events.equipment.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.equipment.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tools w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Equipamentos</span>
+                                </a>
+                                
+                                <a href="{{ route('events.venues.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.venues.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-map-marker-alt w-5 text-red-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Locais</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
                     @if(auth()->user()->isSuperAdmin())
                         <div class="px-3 mt-6 mb-2">
                             <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Super Admin</p>
