@@ -7,6 +7,26 @@
     @if(app_favicon())
     <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
     @endif
+    
+    <!-- Prevenir FOUC: Força tamanhos de imagem antes de qualquer script -->
+    <style>
+        /* Crítico: carrega ANTES de qualquer framework */
+        img[src*="/storage/"] {
+            max-height: 80px !important;
+            object-fit: contain !important;
+        }
+        nav img {
+            max-height: 80px !important;
+            height: 80px !important;
+            width: auto !important;
+        }
+        footer img {
+            max-height: 3rem !important;
+            height: 3rem !important;
+            width: auto !important;
+        }
+    </style>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -20,7 +40,7 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0 flex items-center">
                         @if(app_logo())
-                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 80px;" class="w-auto">
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 80px; max-height: 80px;" class="w-auto object-contain">
                         @else
                             <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                 <i class="fas fa-chart-line text-white text-2xl"></i>
@@ -1041,7 +1061,7 @@
                 <div>
                     <div class="flex items-center mb-4">
                         @if(app_logo())
-                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-12 w-auto">
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="max-height: 3rem;" class="h-12 w-auto object-contain">
                         @else
                             <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                 <i class="fas fa-chart-line text-white text-xl"></i>

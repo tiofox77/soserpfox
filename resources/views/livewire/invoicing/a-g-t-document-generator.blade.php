@@ -152,10 +152,31 @@
                     <td class="px-4 py-3">{{ $doc['doc_number'] }}</td>
                     <td class="px-4 py-3"><code>{{ $doc['hash'] }}</code></td>
                     <td class="px-4 py-3 text-center">
-                        <a href="{{ route('invoicing.sales.invoices.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm">
-                            <i class="fas fa-eye mr-2"></i>
-                            Ver Documento
-                        </a>
+                        @if(isset($doc['is_proforma']) && $doc['is_proforma'])
+                            {{-- Proforma --}}
+                            <a href="{{ route('invoicing.sales.proformas.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition shadow-sm">
+                                <i class="fas fa-eye mr-2"></i>
+                                Ver Proforma
+                            </a>
+                        @elseif(($doc['document_category'] ?? '') === 'credit_note')
+                            {{-- Nota de Crédito --}}
+                            <a href="{{ route('invoicing.credit-notes.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-sm">
+                                <i class="fas fa-eye mr-2"></i>
+                                Ver NC
+                            </a>
+                        @elseif(($doc['document_category'] ?? '') === 'debit_note')
+                            {{-- Nota de Débito --}}
+                            <a href="{{ route('invoicing.debit-notes.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition shadow-sm">
+                                <i class="fas fa-eye mr-2"></i>
+                                Ver ND
+                            </a>
+                        @else
+                            {{-- Fatura --}}
+                            <a href="{{ route('invoicing.sales.invoices.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm">
+                                <i class="fas fa-eye mr-2"></i>
+                                Ver Fatura
+                            </a>
+                        @endif
                     </td>
                 </tr>
                 @endforeach

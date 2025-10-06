@@ -109,6 +109,19 @@ class Product extends Model
         return $this->hasMany(\App\Models\Invoicing\StockMovement::class);
     }
     
+    public function batches()
+    {
+        return $this->hasMany(\App\Models\Invoicing\ProductBatch::class);
+    }
+    
+    public function activeBatches()
+    {
+        return $this->hasMany(\App\Models\Invoicing\ProductBatch::class)
+            ->where('status', 'active')
+            ->where('quantity_available', '>', 0)
+            ->orderBy('expiry_date', 'asc');
+    }
+    
     // Accessor: Preço com Taxa
     public function getPriceWithTaxAttribute()
     {

@@ -377,6 +377,27 @@ class InvoiceCreate extends Component
         }
     }
 
+    public function updateBatchData($productId, $batchNumber, $manufacturingDate, $expiryDate, $alertDays = 30)
+    {
+        $item = Cart::session($this->cartInstance)->get($productId);
+        if ($item) {
+            $attributes = $item->attributes->toArray();
+            $attributes['batch_number'] = $batchNumber;
+            $attributes['manufacturing_date'] = $manufacturingDate;
+            $attributes['expiry_date'] = $expiryDate;
+            $attributes['alert_days'] = $alertDays;
+            
+            Cart::session($this->cartInstance)->update($productId, [
+                'attributes' => $attributes
+            ]);
+            
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'Dados de lote atualizados!'
+            ]);
+        }
+    }
+
     public function createQuickSupplier()
     {
         $this->validate([
@@ -496,6 +517,10 @@ class InvoiceCreate extends Component
                     'tax_amount' => $taxAmount,
                     'total' => $total,
                     'order' => ++$order,
+                    'batch_number' => $item->attributes['batch_number'] ?? null,
+                    'manufacturing_date' => $item->attributes['manufacturing_date'] ?? null,
+                    'expiry_date' => $item->attributes['expiry_date'] ?? null,
+                    'alert_days' => $item->attributes['alert_days'] ?? 30,
                 ]);
             }
 

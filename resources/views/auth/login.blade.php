@@ -102,17 +102,6 @@
             <a href="{{ route('register') }}" class="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold py-3 rounded-xl transition">
                 <i class="fas fa-user-plus mr-2"></i>Criar Conta
             </a>
-
-            <!-- Info -->
-            <div class="mt-6 p-4 bg-blue-50 rounded-xl border-2 border-blue-100">
-                <p class="text-sm text-blue-900 font-semibold mb-2">
-                    <i class="fas fa-info-circle mr-2"></i>Credenciais de Teste
-                </p>
-                <p class="text-xs text-blue-700">
-                    <strong>Email:</strong> admin@soserp.com<br>
-                    <strong>Senha:</strong> password
-                </p>
-            </div>
         </div>
 
         <!-- Back to Landing -->

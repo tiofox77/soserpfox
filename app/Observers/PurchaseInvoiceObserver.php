@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
+use App\Models\Invoicing\ProductBatch;
 
 class PurchaseInvoiceObserver
 {
@@ -70,6 +71,26 @@ class PurchaseInvoiceObserver
                     'movement_date' => $invoice->invoice_date,
                     'created_by' => $invoice->created_by,
                 ]);
+
+                // Criar lote se tiver data de validade
+                if ($item->expiry_date) {
+                    ProductBatch::create([
+                        'tenant_id' => $invoice->tenant_id,
+                        'product_id' => $item->product_id,
+                        'warehouse_id' => $invoice->warehouse_id,
+                        'batch_number' => $item->batch_number,
+                        'manufacturing_date' => $item->manufacturing_date,
+                        'expiry_date' => $item->expiry_date,
+                        'quantity' => $item->quantity,
+                        'quantity_available' => $item->quantity,
+                        'purchase_invoice_id' => $invoice->id,
+                        'supplier_name' => $invoice->supplier->name ?? null,
+                        'cost_price' => $item->unit_price,
+                        'alert_days' => $item->alert_days ?? 30,
+                        'status' => 'active',
+                        'notes' => "Lote criado automaticamente da fatura {$invoice->invoice_number}",
+                    ]);
+                }
             }
         }
     }

@@ -20,6 +20,8 @@ class Stock extends Model
         'reserved_quantity',
         'available_quantity',
         'unit_cost',
+        'minimum_quantity',
+        'maximum_quantity',
     ];
 
     protected $casts = [
@@ -27,6 +29,8 @@ class Stock extends Model
         'reserved_quantity' => 'decimal:3',
         'available_quantity' => 'decimal:3',
         'unit_cost' => 'decimal:2',
+        'minimum_quantity' => 'decimal:3',
+        'maximum_quantity' => 'decimal:3',
     ];
 
     protected static function boot()

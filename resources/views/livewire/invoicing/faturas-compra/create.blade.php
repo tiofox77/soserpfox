@@ -167,6 +167,9 @@
                                     <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                                         <i class="fas fa-percent mr-1 text-blue-500"></i>Taxa
                                     </th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                                        <i class="fas fa-calendar-check mr-1 text-orange-500"></i>Lote/Validade
+                                    </th>
                                     <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Total</th>
                                     <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Ação</th>
                                 </tr>
@@ -225,6 +228,82 @@
                                                 IVA {{ $taxRate }}%
                                             </span>
                                         @endif
+                                    </td>
+                                    <td class="px-4 py-3" x-data="{ showBatch{{ $item->id }}: false }">
+                                        @if(isset($item->attributes['expiry_date']) && $item->attributes['expiry_date'])
+                                            <div class="text-xs">
+                                                <div class="font-semibold text-gray-700">
+                                                    <i class="fas fa-calendar-alt mr-1 text-orange-500"></i>
+                                                    {{ \Carbon\Carbon::parse($item->attributes['expiry_date'])->format('d/m/Y') }}
+                                                </div>
+                                                @if(isset($item->attributes['batch_number']))
+                                                    <div class="text-gray-500">Lote: {{ $item->attributes['batch_number'] }}</div>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <button type="button" @click="showBatch{{ $item->id }} = true"
+                                                    class="text-xs text-blue-600 hover:text-blue-800">
+                                                <i class="fas fa-plus-circle mr-1"></i>Adicionar
+                                            </button>
+                                        @endif
+                                        
+                                        {{-- Modal inline de lote --}}
+                                        <div x-show="showBatch{{ $item->id }}" 
+                                             x-cloak
+                                             @click.away="showBatch{{ $item->id }} = false"
+                                             class="absolute z-50 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 p-4">
+                                            <h4 class="font-bold text-sm mb-3 text-gray-800">
+                                                <i class="fas fa-calendar-check mr-2 text-orange-500"></i>Dados de Lote
+                                            </h4>
+                                            
+                                            <div class="space-y-2">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Nº Lote</label>
+                                                    <input type="text" 
+                                                           x-ref="batchNumber{{ $item->id }}"
+                                                           placeholder="Ex: L2025001"
+                                                           class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-orange-500">
+                                                </div>
+                                                
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Fabricação</label>
+                                                    <input type="date" 
+                                                           x-ref="mfgDate{{ $item->id }}"
+                                                           class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-orange-500">
+                                                </div>
+                                                
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Validade *</label>
+                                                    <input type="date" 
+                                                           x-ref="expiry{{ $item->id }}"
+                                                           class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-orange-500">
+                                                </div>
+                                                
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Alerta (dias)</label>
+                                                    <input type="number" 
+                                                           x-ref="alertDays{{ $item->id }}"
+                                                           value="30"
+                                                           min="1"
+                                                           class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-orange-500">
+                                                </div>
+                                                
+                                                <button type="button"
+                                                        @click="
+                                                            $wire.updateBatchData(
+                                                                {{ $item->id }}, 
+                                                                $refs.batchNumber{{ $item->id }}.value,
+                                                                $refs.mfgDate{{ $item->id }}.value,
+                                                                $refs.expiry{{ $item->id }}.value,
+                                                                $refs.alertDays{{ $item->id }}.value
+                                                            );
+                                                            showBatch{{ $item->id }} = false;
+                                                        "
+                                                        class="w-full px-3 py-2 bg-orange-600 text-white text-xs font-semibold rounded hover:bg-orange-700 transition">
+                                                    <i class="fas fa-save mr-1"></i>Salvar Lote
+                                                </button>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 text-right">
                                         @php

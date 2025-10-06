@@ -260,9 +260,9 @@ class UserManagement extends Component
             $user = User::with(['roles', 'tenants'])->findOrFail($this->deletingUserId);
             
             // Verificar se tem documentos criados
-            $hasDocuments = DB::table('sales_invoices')->where('created_by', $user->id)->exists()
-                || DB::table('sales_proformas')->where('created_by', $user->id)->exists()
-                || DB::table('purchase_invoices')->where('created_by', $user->id)->exists();
+            $hasDocuments = DB::table('invoicing_sales_invoices')->where('created_by', $user->id)->exists()
+                || DB::table('invoicing_sales_proformas')->where('created_by', $user->id)->exists()
+                || DB::table('invoicing_purchase_invoices')->where('created_by', $user->id)->exists();
             
             if ($hasDocuments) {
                 $this->dispatch('error', message: 'Não é possível excluir! Este utilizador tem documentos associados.');

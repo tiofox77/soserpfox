@@ -152,8 +152,12 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     // Armazéns e Stock
     Route::get('/warehouses', \App\Livewire\Invoicing\Warehouses::class)->name('warehouses');
     Route::get('/stock', \App\Livewire\Invoicing\StockManagement::class)->name('stock');
+    Route::get('/product-batches', \App\Livewire\Invoicing\ProductBatches\ProductBatches::class)->name('product-batches');
     Route::get('/warehouse-transfer', \App\Livewire\Invoicing\WarehouseTransfer::class)->name('warehouse-transfer');
     Route::get('/inter-company-transfer', \App\Livewire\Invoicing\InterCompanyTransfer::class)->name('inter-company-transfer');
+    
+    // Relatórios
+    Route::get('/expiry-report', \App\Livewire\Invoicing\Reports\ExpiryReport::class)->name('expiry-report');
     
     // SAFT
     Route::get('/saft-generator', \App\Livewire\Invoicing\SAFTGenerator::class)->name('saft-generator');

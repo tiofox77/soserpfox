@@ -6,7 +6,10 @@ use Livewire\Component;
 use Livewire\Attributes\Computed;
 use App\Models\Order;
 use App\Models\UserNotification;
+use App\Models\Invoicing\ProductBatch;
+use App\Models\Invoicing\Stock;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class Notifications extends Component
 {
@@ -110,9 +113,70 @@ class Notifications extends Component
             }
         }
         
-        // 3. PRODUTOS EXPIRADOS/EXPIRANDO (REMOVIDO TEMPORARIAMENTE - implementar lógica de validade)
+        // 3. PRODUTOS EXPIRADOS (últimos 7 dias)
+        if ($tenant && $user->hasActiveModule('invoicing')) {
+            $expiredCount = ProductBatch::where('tenant_id', $tenant->id)
+                ->where('quantity_available', '>', 0)
+                ->whereDate('expiry_date', '<', Carbon::now())
+                ->whereDate('expiry_date', '>=', Carbon::now()->subDays(7))
+                ->count();
+            
+            if ($expiredCount > 0) {
+                $notifications[] = [
+                    'type' => 'danger',
+                    'icon' => 'fa-times-circle',
+                    'color' => 'red',
+                    'title' => 'Produtos Expirados!',
+                    'message' => "{$expiredCount} lote(s) de produtos já expiraram. Ação urgente necessária!",
+                    'time' => 'Agora',
+                    'link' => route('invoicing.expiry-report', ['reportType' => 'expired']),
+                ];
+            }
+        }
         
-        // 4. PEDIDOS PENDENTES (Super Admin)
+        // 4. PRODUTOS EXPIRANDO EM BREVE (próximos 7 dias)
+        if ($tenant && $user->hasActiveModule('invoicing')) {
+            $expiringSoonCount = ProductBatch::where('tenant_id', $tenant->id)
+                ->where('status', 'active')
+                ->where('quantity_available', '>', 0)
+                ->whereDate('expiry_date', '<=', Carbon::now()->addDays(7))
+                ->whereDate('expiry_date', '>=', Carbon::now())
+                ->count();
+            
+            if ($expiringSoonCount > 0) {
+                $notifications[] = [
+                    'type' => 'warning',
+                    'icon' => 'fa-exclamation-triangle',
+                    'color' => 'orange',
+                    'title' => 'Produtos Expirando em Breve',
+                    'message' => "{$expiringSoonCount} lote(s) de produtos expiram nos próximos 7 dias.",
+                    'time' => 'Requer atenção',
+                    'link' => route('invoicing.expiry-report', ['reportType' => 'expiring_soon']),
+                ];
+            }
+        }
+        
+        // 5. PRODUTOS COM BAIXO STOCK (abaixo do mínimo)
+        if ($tenant && $user->hasActiveModule('invoicing')) {
+            $lowStockCount = Stock::where('tenant_id', $tenant->id)
+                ->whereColumn('quantity', '<', 'minimum_quantity')
+                ->where('minimum_quantity', '>', 0)
+                ->count();
+            
+            if ($lowStockCount > 0) {
+                $notifications[] = [
+                    'type' => 'warning',
+                    'icon' => 'fa-box-open',
+                    'color' => 'yellow',
+                    'title' => 'Baixo Stock!',
+                    'message' => "{$lowStockCount} produto(s) com estoque abaixo do mínimo.",
+                    'time' => 'Requer reposição',
+                    'link' => route('invoicing.stock'),
+                ];
+            }
+        }
+        
+        // 6. PEDIDOS PENDENTES (Super Admin)
         if ($user->is_super_admin) {
             $pendingOrdersCount = Order::where('status', 'pending')->count();
             
@@ -129,7 +193,7 @@ class Notifications extends Component
             }
         }
         
-        // 5. LIMITE DE EMPRESAS ATINGIDO
+        // 7. LIMITE DE EMPRESAS ATINGIDO
         if (!$user->is_super_admin) {
             $currentCount = $user->tenants()->count();
             $maxAllowed = $user->getMaxCompaniesLimit();

@@ -13,6 +13,22 @@
     <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
     @endif
 
+    <!-- Prevenir FOUC: Força tamanhos de imagem antes de qualquer script -->
+    <style>
+        /* Crítico: carrega ANTES de qualquer framework */
+        img[src*="/storage/"] {
+            max-height: 4rem !important;
+            max-width: 200px !important;
+            object-fit: contain !important;
+        }
+        aside img, .sidebar img {
+            max-height: 4rem !important;
+            max-width: 200px !important;
+            height: auto !important;
+            width: auto !important;
+        }
+    </style>
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -24,6 +40,19 @@
     
     <style>
         [x-cloak] { display: none !important; }
+        
+        /* Prevenir FOUC (Flash of Unstyled Content) em imagens */
+        img[src*="/storage/"] {
+            max-height: 4rem !important;
+            max-width: 100% !important;
+        }
+        
+        /* Logo sempre com tamanho controlado */
+        aside img {
+            max-height: 4rem !important;
+            max-width: 200px !important;
+            object-fit: contain !important;
+        }
         
         /* Toastr Custom Styles */
         .toast-success { background-color: #10b981 !important; }
@@ -59,6 +88,110 @@
             100% {
                 left: 200%;
             }
+        }
+        
+        /* Animação Sidebar - Slide In from Left */
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Animação para itens de menu - Fade In sequencial */
+        @keyframes fadeInStagger {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* Animação do Logo - Bounce suave */
+        @keyframes logoEntry {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) rotate(-10deg);
+            }
+            60% {
+                transform: scale(1.1) rotate(5deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+        
+        /* Aplicar animação à sidebar */
+        aside {
+            animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        /* Animação do logo */
+        aside .logo-container {
+            animation: logoEntry 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        /* Animação sequencial dos itens de menu */
+        aside nav a {
+            opacity: 0;
+            animation: fadeInStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        aside nav a:nth-child(1) { animation-delay: 0.1s; }
+        aside nav a:nth-child(2) { animation-delay: 0.15s; }
+        aside nav a:nth-child(3) { animation-delay: 0.2s; }
+        aside nav a:nth-child(4) { animation-delay: 0.25s; }
+        aside nav a:nth-child(5) { animation-delay: 0.3s; }
+        aside nav a:nth-child(6) { animation-delay: 0.35s; }
+        aside nav a:nth-child(7) { animation-delay: 0.4s; }
+        aside nav a:nth-child(8) { animation-delay: 0.45s; }
+        aside nav a:nth-child(9) { animation-delay: 0.5s; }
+        aside nav a:nth-child(10) { animation-delay: 0.55s; }
+        aside nav a:nth-child(n+11) { animation-delay: 0.6s; }
+        
+        /* Animação do conteúdo principal - Fade In */
+        @keyframes fadeInContent {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        main {
+            animation: fadeInContent 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards;
+        }
+        
+        /* Efeito de brilho no hover dos itens de menu */
+        aside nav a {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        aside nav a::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        aside nav a:hover::before {
+            left: 100%;
         }
         
         .card-hover {
@@ -211,13 +344,17 @@
             <!-- Sidebar -->
             <aside :class="sidebarOpen ? 'w-64' : 'w-20'" class="bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 flex flex-col shadow-2xl">
                 <!-- Logo -->
-                <div class="flex items-center justify-between p-4 border-b border-blue-700">
+                <div class="flex items-center justify-between p-4 border-b border-blue-700 logo-container">
                     <div class="flex items-center justify-center" :class="sidebarOpen ? 'w-full' : ''">
                         @if(app_logo())
-                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" :class="sidebarOpen ? 'h-16 w-auto max-w-[200px]' : 'h-12 w-12 object-contain'">
+                            <img src="{{ app_logo() }}" 
+                                 alt="{{ app_name() }}" 
+                                 style="max-height: 4rem; max-width: 200px;"
+                                 class="w-auto object-contain transition-all duration-300"
+                                 :class="sidebarOpen ? 'h-16' : 'h-12 w-12'">
                         @else
-                            <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-                                <i class="fas fa-crown text-white" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
+                            <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg transition-all duration-300">
+                                <i class="fas fa-crown text-white transition-all duration-300" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
                             </div>
                         @endif
                     </div>
@@ -445,6 +582,17 @@
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Adiantamentos</span>
                                         </a>
                                         @endcan
+                                        
+                                        @if(auth()->user()->email === 'carlosfox1782@gmail.com')
+                                        <div class="my-2 border-t border-blue-700/50"></div>
+                                        
+                                        {{-- Gerador de Documentos AGT (Teste) - Apenas para desenvolvedor --}}
+                                        <a href="{{ route('invoicing.agt-documents') }}" 
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-gradient-to-r from-yellow-600 to-orange-600 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-flask w-5 text-yellow-400 text-sm animate-pulse"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-bold">🧪 Gerador AGT</span>
+                                        </a>
+                                        @endif
                                     </div>
                                 </div>
                                 
@@ -463,6 +611,18 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Gestão Stock</span>
                                 </a>
                                 @endcan
+                                
+                                <a href="{{ route('invoicing.product-batches') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.product-batches') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-check w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Lotes e Validades</span>
+                                </a>
+                                
+                                <a href="{{ route('invoicing.expiry-report') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.expiry-report') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-red-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📊 Relatório Validade</span>
+                                </a>
                                 
                                 @can('invoicing.warehouse-transfer.view')
                                 <a href="{{ route('invoicing.warehouse-transfer') }}" 

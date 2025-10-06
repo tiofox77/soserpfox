@@ -26,6 +26,10 @@ class PurchaseInvoiceItem extends Model
         'tax_amount',
         'total',
         'order',
+        'batch_number',
+        'manufacturing_date',
+        'expiry_date',
+        'alert_days',
     ];
 
     protected $casts = [
@@ -37,6 +41,8 @@ class PurchaseInvoiceItem extends Model
         'tax_rate' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total' => 'decimal:2',
+        'manufacturing_date' => 'date',
+        'expiry_date' => 'date',
     ];
 
     protected static function boot()

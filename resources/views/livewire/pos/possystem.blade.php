@@ -1,4 +1,12 @@
 <div>
+    {{-- Prevenir FOUC no POS --}}
+    <style>
+        .bg-gradient-to-r img {
+            max-height: 2rem !important;
+            object-fit: contain !important;
+        }
+    </style>
+    
     {{-- Container Principal POS --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
         
@@ -9,7 +17,7 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
                         @if(app_logo())
-                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-8 w-auto mr-2">
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="max-height: 2rem;" class="h-8 w-auto mr-2 object-contain">
                         @else
                             <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center mr-2">
                                 <i class="fas fa-cash-register text-lg"></i>
