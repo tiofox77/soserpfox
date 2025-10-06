@@ -9,7 +9,7 @@ use Livewire\Attributes\Title;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
 
-#[Layout('layouts.app')]
+#[Layout('layouts.superadmin')]
 #[Title('Configurações do Sistema')]
 class SystemSettings extends Component
 {

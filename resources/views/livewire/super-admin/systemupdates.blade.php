@@ -24,6 +24,31 @@
         </div>
     </div>
 
+    {{-- Card Destaque: Comandos do Sistema --}}
+    <div class="mb-6">
+        <a href="{{ route('superadmin.system-commands') }}" class="block bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 rounded-2xl shadow-2xl p-6 hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300">
+            <div class="flex items-center justify-between text-white">
+                <div class="flex items-center space-x-4">
+                    <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center animate-pulse">
+                        <i class="fas fa-terminal text-4xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold mb-1">🚀 Comandos do Sistema</h3>
+                        <p class="text-white/90">Execute comandos artisan através da interface web com logs em tempo real</p>
+                        <div class="flex gap-2 mt-2">
+                            <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">Sincronizar Módulos</span>
+                            <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">Migrations</span>
+                            <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold">Cache</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <i class="fas fa-chevron-right text-3xl opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Versão Atual --}}
         <div class="lg:col-span-1">

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
-#[Layout('layouts.app')]
+#[Layout('layouts.superadmin')]
 #[Title('Atualizações do Sistema')]
 class SystemUpdates extends Component
 {

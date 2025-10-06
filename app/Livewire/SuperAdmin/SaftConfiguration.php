@@ -7,7 +7,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Storage;
 
-#[Layout('layouts.app')]
+#[Layout('layouts.superadmin')]
 #[Title('Configuração SAFT-AO')]
 class SaftConfiguration extends Component
 {
