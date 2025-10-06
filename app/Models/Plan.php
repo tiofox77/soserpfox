@@ -108,4 +108,106 @@ class Plan extends Model
         
         return round((($monthlyYearly - $this->price_yearly) / $monthlyYearly) * 100);
     }
+
+    /**
+     * Sincronizar módulos do plano com todos os tenants que têm subscription ativa
+     */
+    public function syncModulesToTenants()
+    {
+        try {
+            // Pegar IDs dos módulos vinculados ao plano
+            $moduleIds = $this->modules()->pluck('modules.id')->toArray();
+
+            if (empty($moduleIds)) {
+                \Log::info("Plano {$this->name} não tem módulos vinculados.");
+                return 0;
+            }
+
+            // Buscar todos os tenants com subscription ativa deste plano
+            $tenants = $this->subscriptions()
+                ->where('status', 'active')
+                ->with('tenant')
+                ->get()
+                ->pluck('tenant')
+                ->filter(); // Remove nulls
+
+            if ($tenants->isEmpty()) {
+                \Log::info("Plano {$this->name} não tem tenants com subscription ativa.");
+                return 0;
+            }
+
+            $syncedCount = 0;
+
+            // Para cada tenant, vincular os módulos do plano
+            foreach ($tenants as $tenant) {
+                if (!$tenant) continue;
+
+                // Preparar dados para sincronização
+                $modulesToSync = [];
+                foreach ($moduleIds as $moduleId) {
+                    $modulesToSync[$moduleId] = [
+                        'is_active' => true,
+                        'activated_at' => now(),
+                    ];
+                }
+
+                // Sincronizar sem remover módulos existentes
+                $tenant->modules()->syncWithoutDetaching($modulesToSync);
+                $syncedCount++;
+
+                \Log::info("Módulos do plano '{$this->name}' sincronizados com tenant '{$tenant->name}' (ID: {$tenant->id})");
+            }
+
+            \Log::info("Total de {$syncedCount} tenant(s) sincronizados com os módulos do plano '{$this->name}'");
+
+            return $syncedCount;
+
+        } catch (\Exception $e) {
+            \Log::error("Erro ao sincronizar módulos do plano {$this->name}: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Sincronizar um módulo específico com todos os tenants do plano
+     */
+    public function syncModuleToTenants($moduleId)
+    {
+        try {
+            // Verificar se o módulo está vinculado ao plano
+            if (!$this->modules()->where('modules.id', $moduleId)->exists()) {
+                \Log::warning("Módulo ID {$moduleId} não está vinculado ao plano {$this->name}");
+                return 0;
+            }
+
+            // Buscar todos os tenants com subscription ativa
+            $tenants = $this->subscriptions()
+                ->where('status', 'active')
+                ->with('tenant')
+                ->get()
+                ->pluck('tenant')
+                ->filter();
+
+            $syncedCount = 0;
+
+            foreach ($tenants as $tenant) {
+                if (!$tenant) continue;
+
+                $tenant->modules()->syncWithoutDetaching([
+                    $moduleId => [
+                        'is_active' => true,
+                        'activated_at' => now(),
+                    ]
+                ]);
+
+                $syncedCount++;
+            }
+
+            return $syncedCount;
+
+        } catch (\Exception $e) {
+            \Log::error("Erro ao sincronizar módulo {$moduleId} do plano {$this->name}: " . $e->getMessage());
+            return 0;
+        }
+    }
 }

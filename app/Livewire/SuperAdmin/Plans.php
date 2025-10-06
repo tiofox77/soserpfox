@@ -104,12 +104,39 @@ class Plans extends Component
 
         if ($this->editingPlanId) {
             $plan = Plan::find($this->editingPlanId);
+            
+            // Pegar módulos antes da atualização
+            $oldModuleIds = $plan->modules->pluck('id')->toArray();
+            
             $plan->update($data);
             $plan->modules()->sync($this->selectedModules);
+            
+            // Verificar se há novos módulos adicionados
+            $newModuleIds = array_diff($this->selectedModules, $oldModuleIds);
+            
+            if (!empty($newModuleIds)) {
+                // Sincronizar novos módulos com os tenants
+                $syncedCount = 0;
+                foreach ($newModuleIds as $moduleId) {
+                    $syncedCount += $plan->syncModuleToTenants($moduleId);
+                }
+                
+                if ($syncedCount > 0) {
+                    \Log::info("Novos módulos do plano '{$plan->name}' sincronizados automaticamente com {$syncedCount} tenant(s)");
+                }
+            }
+            
             $this->dispatch('success', message: 'Plano atualizado com sucesso!');
         } else {
             $plan = Plan::create($data);
             $plan->modules()->sync($this->selectedModules);
+            
+            // Para novos planos, sincronizar todos os módulos (se houver tenants)
+            $syncedCount = $plan->syncModulesToTenants();
+            if ($syncedCount > 0) {
+                \Log::info("Módulos do novo plano '{$plan->name}' sincronizados com {$syncedCount} tenant(s)");
+            }
+            
             $this->dispatch('success', message: 'Plano criado com sucesso!');
         }
 

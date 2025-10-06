@@ -5,8 +5,12 @@ namespace App\Livewire\Events;
 use App\Models\Events\Event;
 use App\Models\Events\Equipment;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Carbon\Carbon;
 
+#[Layout('layouts.app')]
+#[Title('Dashboard - Eventos')]
 class Dashboard extends Component
 {
     public function render()

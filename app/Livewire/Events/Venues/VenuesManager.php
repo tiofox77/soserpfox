@@ -5,7 +5,11 @@ namespace App\Livewire\Events\Venues;
 use App\Models\Events\Venue;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 
+#[Layout('layouts.app')]
+#[Title('Locais - Eventos')]
 class VenuesManager extends Component
 {
     use WithPagination;

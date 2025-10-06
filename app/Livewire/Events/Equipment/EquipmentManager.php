@@ -5,7 +5,11 @@ namespace App\Livewire\Events\Equipment;
 use App\Models\Events\Equipment;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 
+#[Layout('layouts.app')]
+#[Title('Equipamentos - Eventos')]
 class EquipmentManager extends Component
 {
     use WithPagination;

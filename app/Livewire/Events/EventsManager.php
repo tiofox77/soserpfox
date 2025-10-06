@@ -7,7 +7,11 @@ use App\Models\Client;
 use App\Models\Events\Venue;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 
+#[Layout('layouts.app')]
+#[Title('Gestão de Eventos')]
 class EventsManager extends Component
 {
     use WithPagination;
