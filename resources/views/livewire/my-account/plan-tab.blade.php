@@ -122,12 +122,154 @@
 
             <!-- Actions -->
             <div class="flex space-x-4">
-                <button class="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition">
+                <a href="#upgrade-plans" class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition text-center shadow-lg">
                     <i class="fas fa-arrow-up mr-2"></i>Fazer Upgrade
-                </button>
-                <button class="px-6 py-3 border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-semibold transition">
+                </a>
+                <button wire:click="setActiveTab('billing')" class="px-6 py-3 border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl font-semibold transition">
                     <i class="fas fa-file-invoice mr-2"></i>Ver Faturas
                 </button>
+            </div>
+        </div>
+        
+        <!-- Comparação de Planos / Upgrade -->
+        <div id="upgrade-plans" class="mt-8">
+            <div class="text-center mb-8">
+                <h3 class="text-3xl font-bold text-gray-900 mb-2">
+                    <i class="fas fa-rocket text-blue-600 mr-2"></i>
+                    Planos Disponíveis
+                </h3>
+                <p class="text-gray-600">Escolha o melhor plano para o seu negócio</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach($availablePlans as $plan)
+                    <div class="bg-white rounded-2xl shadow-lg border-2 {{ $currentPlan && $plan->id === $currentPlan->id ? 'border-blue-500' : 'border-gray-200' }} p-6 relative hover:shadow-2xl transition-all transform hover:-translate-y-1">
+                        
+                        @if($currentPlan && $plan->id === $currentPlan->id)
+                            <div class="absolute top-0 right-0 -mt-3 -mr-3">
+                                <span class="inline-flex items-center px-4 py-1 bg-blue-600 text-white text-xs font-bold rounded-full shadow-lg">
+                                    <i class="fas fa-star mr-1"></i>Seu Plano
+                                </span>
+                            </div>
+                        @elseif($plan->is_featured)
+                            <div class="absolute top-0 right-0 -mt-3 -mr-3">
+                                <span class="inline-flex items-center px-4 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full shadow-lg">
+                                    <i class="fas fa-fire mr-1"></i>Popular
+                                </span>
+                            </div>
+                        @endif
+
+                        <!-- Header -->
+                        <div class="text-center mb-6">
+                            <div class="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-{{ $plan->is_featured ? 'crown' : 'box' }} text-3xl text-blue-600"></i>
+                            </div>
+                            <h4 class="text-2xl font-bold text-gray-900 mb-2">{{ $plan->name }}</h4>
+                            <div class="flex items-baseline justify-center space-x-1">
+                                <span class="text-4xl font-bold text-gray-900">{{ number_format($plan->price_monthly, 0) }}</span>
+                                <span class="text-gray-600">Kz/mês</span>
+                            </div>
+                            @if($plan->price_yearly > 0)
+                                <p class="text-sm text-green-600 mt-2">
+                                    <i class="fas fa-tag mr-1"></i>
+                                    Economize {{ $plan->getYearlySavingsPercentage() }}% no anual
+                                </p>
+                            @endif
+                        </div>
+
+                        <!-- Limites -->
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm text-gray-600">
+                                    <i class="fas fa-users mr-2 text-blue-500"></i>Utilizadores
+                                </span>
+                                <span class="font-semibold text-gray-900">{{ $plan->max_users }}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm text-gray-600">
+                                    <i class="fas fa-building mr-2 text-green-500"></i>Empresas
+                                </span>
+                                <span class="font-semibold text-gray-900">{{ $plan->max_companies >= 999 ? '∞' : $plan->max_companies }}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm text-gray-600">
+                                    <i class="fas fa-database mr-2 text-purple-500"></i>Storage
+                                </span>
+                                <span class="font-semibold text-gray-900">{{ number_format($plan->max_storage_mb / 1000, 1) }}GB</span>
+                            </div>
+                        </div>
+
+                        <!-- Features (primeiras 5) -->
+                        @if($plan->features && count($plan->features) > 0)
+                            <div class="space-y-2 mb-6">
+                                @foreach(array_slice($plan->features, 0, 5) as $feature)
+                                    <div class="flex items-start space-x-2">
+                                        <i class="fas fa-check text-green-500 mt-1 flex-shrink-0"></i>
+                                        <span class="text-sm text-gray-700">{{ $feature }}</span>
+                                    </div>
+                                @endforeach
+                                @if(count($plan->features) > 5)
+                                    <p class="text-xs text-gray-500 italic">
+                                        + {{ count($plan->features) - 5 }} recursos adicionais
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
+
+                        <!-- Módulos -->
+                        @if($plan->modules && $plan->modules->count() > 0)
+                            <div class="mb-6">
+                                <p class="text-xs font-semibold text-gray-600 mb-2">
+                                    <i class="fas fa-puzzle-piece mr-1"></i>
+                                    {{ $plan->modules->count() }} Módulos incluídos
+                                </p>
+                                <div class="flex flex-wrap gap-1">
+                                    @foreach($plan->modules->take(4) as $module)
+                                        <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                                            {{ $module->name }}
+                                        </span>
+                                    @endforeach
+                                    @if($plan->modules->count() > 4)
+                                        <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                            +{{ $plan->modules->count() - 4 }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Action Button -->
+                        @if($currentPlan && $plan->id === $currentPlan->id)
+                            <button disabled class="w-full px-6 py-3 bg-gray-300 text-gray-600 rounded-xl font-semibold cursor-not-allowed">
+                                <i class="fas fa-check mr-2"></i>Plano Atual
+                            </button>
+                        @elseif(!$currentPlan || $plan->price_monthly > $currentPlan->price_monthly)
+                            <button wire:click="openUpgradeModal({{ $plan->id }})" class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition shadow-lg">
+                                <i class="fas fa-arrow-up mr-2"></i>Fazer Upgrade
+                            </button>
+                        @else
+                            <button wire:click="openUpgradeModal({{ $plan->id }})" class="w-full px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-xl font-semibold transition shadow-lg">
+                                <i class="fas fa-exchange-alt mr-2"></i>Mudar para este Plano
+                            </button>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+
+            <!-- Info Box -->
+            <div class="mt-8 bg-blue-50 border-l-4 border-blue-500 rounded-lg p-6">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-blue-500 text-2xl mr-4 mt-1"></i>
+                    <div>
+                        <h4 class="font-semibold text-blue-900 mb-2">Informações sobre Upgrade</h4>
+                        <ul class="text-sm text-blue-800 space-y-1">
+                            <li>• Ao fazer upgrade, você terá acesso imediato aos novos recursos</li>
+                            <li>• O valor será proporcional ao período restante da sua assinatura</li>
+                            <li>• Você pode fazer downgrade ou cancelar a qualquer momento</li>
+                            <li>• Todos os seus dados são mantidos durante a transição</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     @else

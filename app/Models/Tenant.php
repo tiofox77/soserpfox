@@ -232,7 +232,7 @@ class Tenant extends Model
     public function modules()
     {
         return $this->belongsToMany(Module::class, 'tenant_module')
-            ->withPivot('is_active', 'activated_at')
+            ->withPivot('is_active', 'activated_at', 'deactivated_at')
             ->withTimestamps();
     }
 

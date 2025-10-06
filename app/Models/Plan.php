@@ -79,6 +79,28 @@ class Plan extends Model
         return $query->orderBy('order');
     }
 
+    // Accessors - Calcular preços automaticamente se não definidos
+    public function getPriceQuarterlyAttribute($value)
+    {
+        // Se não definido ou zero, calcula 3x o mensal
+        $monthly = $this->attributes['price_monthly'] ?? 0;
+        return $value > 0 ? $value : ($monthly * 3);
+    }
+
+    public function getPriceSemiannualAttribute($value)
+    {
+        // Se não definido ou zero, calcula 6x o mensal
+        $monthly = $this->attributes['price_monthly'] ?? 0;
+        return $value > 0 ? $value : ($monthly * 6);
+    }
+
+    public function getPriceYearlyAttribute($value)
+    {
+        // Se não definido ou zero, calcula 12x o mensal
+        $monthly = $this->attributes['price_monthly'] ?? 0;
+        return $value > 0 ? $value : ($monthly * 12);
+    }
+
     // Métodos auxiliares
     public function getPrice($billingCycle = 'monthly')
     {

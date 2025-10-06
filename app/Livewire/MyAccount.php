@@ -15,7 +15,7 @@ class MyAccount extends Component
 {
     use WithFileUploads;
     
-    public $activeTab = 'companies'; // companies, plan, profile
+    public $activeTab = 'companies'; // companies, plan, billing, profile, security
     
     // Dados do usuário
     public $currentCount = 0;
@@ -38,6 +38,34 @@ class MyAccount extends Component
     public $companyToDelete = null;
     public $companyToDeleteName = '';
     
+    // Profile fields
+    public $userName = '';
+    public $userEmail = '';
+    public $userPhone = '';
+    public $userBio = '';
+    public $userAvatar = null;
+    public $currentAvatar = null;
+    
+    // Security fields
+    public $currentPassword = '';
+    public $newPassword = '';
+    public $confirmPassword = '';
+    public $showChangePasswordForm = false;
+    
+    // Upgrade Modal
+    public $showUpgradeModal = false;
+    public $selectedPlanForUpgrade = null;
+    public $upgradeBillingCycle = 'monthly';
+    public $upgradeStep = 1; // 1 = Selecionar, 2 = Pagamento
+    public $paymentProof = null;
+    
+    // Order Modals
+    public $showOrderViewModal = false;
+    public $showOrderPaymentModal = false;
+    public $viewingOrder = null;
+    public $payingOrder = null;
+    public $newPaymentProof = null;
+    
     // Modal editar empresa
     public $showEditCompanyModal = false;
     public $editCompanyId = null;
@@ -55,10 +83,18 @@ class MyAccount extends Component
         // Aceitar tab via query string
         if (request()->has('tab')) {
             $tab = request()->get('tab');
-            if (in_array($tab, ['companies', 'plan', 'profile'])) {
+            if (in_array($tab, ['companies', 'plan', 'billing', 'profile', 'security'])) {
                 $this->activeTab = $tab;
             }
         }
+        
+        // Carregar dados do perfil
+        $user = auth()->user();
+        $this->userName = $user->name;
+        $this->userEmail = $user->email;
+        $this->userPhone = $user->phone ?? '';
+        $this->userBio = $user->bio ?? '';
+        $this->currentAvatar = $user->avatar;
         
         $this->loadAccountData();
     }
@@ -494,6 +530,331 @@ class MyAccount extends Component
         $this->dispatch('error', message: 'Não foi possível alternar para esta empresa.');
     }
     
+    // ==================== PERFIL ====================
+    
+    public function updateProfile()
+    {
+        $user = auth()->user();
+        
+        $this->validate([
+            'userName' => 'required|min:3|max:255',
+            'userEmail' => 'required|email|unique:users,email,' . $user->id,
+            'userPhone' => 'nullable|max:20',
+            'userBio' => 'nullable|max:500',
+            'userAvatar' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
+        ], [
+            'userName.required' => 'Nome é obrigatório',
+            'userName.min' => 'Nome deve ter no mínimo 3 caracteres',
+            'userEmail.required' => 'Email é obrigatório',
+            'userEmail.email' => 'Email inválido',
+            'userEmail.unique' => 'Este email já está em uso',
+            'userBio.max' => 'Biografia não pode ter mais de 500 caracteres',
+            'userAvatar.image' => 'O arquivo deve ser uma imagem',
+            'userAvatar.max' => 'Imagem não pode ser maior que 2MB',
+        ]);
+        
+        try {
+            $dataToUpdate = [
+                'name' => $this->userName,
+                'email' => $this->userEmail,
+                'phone' => $this->userPhone,
+                'bio' => $this->userBio,
+            ];
+            
+            // Upload de avatar
+            if ($this->userAvatar) {
+                // Deletar avatar antigo
+                if ($user->avatar && \Storage::disk('public')->exists($user->avatar)) {
+                    \Storage::disk('public')->delete($user->avatar);
+                }
+                
+                $avatarPath = $this->userAvatar->store('avatars', 'public');
+                $dataToUpdate['avatar'] = $avatarPath;
+                $this->currentAvatar = $avatarPath;
+            }
+            
+            $user->update($dataToUpdate);
+            
+            $this->userAvatar = null;
+            $this->dispatch('success', message: 'Perfil atualizado com sucesso!');
+            
+        } catch (\Exception $e) {
+            \Log::error('Erro ao atualizar perfil', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('error', message: 'Erro ao atualizar perfil: ' . $e->getMessage());
+        }
+    }
+    
+    public function removeAvatar()
+    {
+        $user = auth()->user();
+        
+        try {
+            if ($user->avatar && \Storage::disk('public')->exists($user->avatar)) {
+                \Storage::disk('public')->delete($user->avatar);
+            }
+            
+            $user->update(['avatar' => null]);
+            $this->currentAvatar = null;
+            $this->dispatch('success', message: 'Avatar removido com sucesso!');
+            
+        } catch (\Exception $e) {
+            \Log::error('Erro ao remover avatar', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('error', message: 'Erro ao remover avatar: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== UPGRADE ====================
+    
+    public function openUpgradeModal($planId)
+    {
+        $plan = \App\Models\Plan::with('modules')->find($planId);
+        
+        if (!$plan) {
+            $this->dispatch('error', message: 'Plano não encontrado!');
+            return;
+        }
+        
+        $this->selectedPlanForUpgrade = $plan;
+        $this->upgradeBillingCycle = 'monthly';
+        $this->showUpgradeModal = true;
+    }
+    
+    public function closeUpgradeModal()
+    {
+        $this->showUpgradeModal = false;
+        $this->selectedPlanForUpgrade = null;
+        $this->upgradeBillingCycle = 'monthly';
+        $this->upgradeStep = 1;
+        $this->paymentProof = null;
+    }
+    
+    public function goToPaymentStep()
+    {
+        $this->upgradeStep = 2;
+    }
+    
+    public function backToSelectPlan()
+    {
+        $this->upgradeStep = 1;
+    }
+    
+    public function processUpgrade()
+    {
+        if (!$this->selectedPlanForUpgrade) {
+            $this->dispatch('error', message: 'Nenhum plano selecionado!');
+            return;
+        }
+        
+        $user = auth()->user();
+        $activeTenant = $user->activeTenant();
+        
+        if (!$activeTenant) {
+            $this->dispatch('error', message: 'Nenhuma empresa ativa encontrada!');
+            return;
+        }
+        
+        \DB::beginTransaction();
+        try {
+            $plan = $this->selectedPlanForUpgrade;
+            
+            // Calcular valor baseado no ciclo
+            $amount = match($this->upgradeBillingCycle) {
+                'yearly' => $plan->price_yearly,
+                'semiannual' => $plan->price_semiannual,
+                'quarterly' => $plan->price_quarterly,
+                default => $plan->price_monthly,
+            };
+            
+            // Upload do comprovativo
+            $proofPath = null;
+            if ($this->paymentProof) {
+                $proofPath = $this->paymentProof->store('payment-proofs', 'public');
+            }
+            
+            // Criar pedido (sempre começa como pending)
+            $order = \App\Models\Order::create([
+                'tenant_id' => $activeTenant->id,
+                'user_id' => $user->id,
+                'plan_id' => $plan->id,
+                'amount' => $amount,
+                'billing_cycle' => $this->upgradeBillingCycle,
+                'status' => 'pending', // Sempre pending - admin aprova manualmente
+                'payment_method' => 'bank_transfer',
+                'payment_proof' => $proofPath,
+            ]);
+            
+            // Criar subscription pendente - calcular data de término
+            $startDate = now();
+            $endDate = match($this->upgradeBillingCycle) {
+                'yearly' => $startDate->copy()->addMonths(14), // 12 meses + 2 meses grátis (promoção)
+                'semiannual' => $startDate->copy()->addMonths(6),
+                'quarterly' => $startDate->copy()->addMonths(3),
+                default => $startDate->copy()->addMonth(),
+            };
+            
+            $subscription = $activeTenant->subscriptions()->create([
+                'plan_id' => $plan->id,
+                'status' => 'pending',
+                'billing_cycle' => $this->upgradeBillingCycle,
+                'amount' => $amount,
+                'current_period_start' => $startDate,
+                'current_period_end' => $endDate,
+                'ends_at' => $endDate,
+            ]);
+            
+            \DB::commit();
+            
+            $this->closeUpgradeModal();
+            $this->loadAccountData();
+            
+            $message = $proofPath 
+                ? '✅ Pedido criado! Comprovativo anexado. Aguarde a validação da nossa equipe (até 24h úteis).' 
+                : '✅ Pedido criado! Efetue a transferência e anexe o comprovativo clicando em "Pagar".';
+            
+            $this->dispatch('success', message: $message);
+            
+            // Mudar para tab de faturas
+            $this->activeTab = 'billing';
+            
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            \Log::error('Erro ao processar upgrade', [
+                'user_id' => $user->id,
+                'plan_id' => $this->selectedPlanForUpgrade->id,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('error', message: 'Erro ao processar upgrade: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== PEDIDOS/FATURAS ====================
+    
+    public function viewOrder($orderId)
+    {
+        $order = \App\Models\Order::with(['plan', 'tenant'])->find($orderId);
+        
+        if (!$order || $order->user_id !== auth()->id()) {
+            $this->dispatch('error', message: 'Pedido não encontrado!');
+            return;
+        }
+        
+        $this->viewingOrder = $order;
+        $this->showOrderViewModal = true;
+    }
+    
+    public function closeOrderViewModal()
+    {
+        $this->showOrderViewModal = false;
+        $this->viewingOrder = null;
+    }
+    
+    public function openPaymentModal($orderId)
+    {
+        $order = \App\Models\Order::with(['plan', 'tenant'])->find($orderId);
+        
+        if (!$order || $order->user_id !== auth()->id()) {
+            $this->dispatch('error', message: 'Pedido não encontrado!');
+            return;
+        }
+        
+        $this->payingOrder = $order;
+        $this->showOrderPaymentModal = true;
+    }
+    
+    public function closePaymentModal()
+    {
+        $this->showOrderPaymentModal = false;
+        $this->payingOrder = null;
+        $this->newPaymentProof = null;
+    }
+    
+    public function uploadPaymentProof()
+    {
+        if (!$this->payingOrder || !$this->newPaymentProof) {
+            $this->dispatch('error', message: 'Nenhum comprovativo selecionado!');
+            return;
+        }
+        
+        try {
+            // Upload do arquivo
+            $proofPath = $this->newPaymentProof->store('payment-proofs', 'public');
+            
+            // Atualizar pedido
+            $this->payingOrder->update([
+                'payment_proof' => $proofPath,
+            ]);
+            
+            $this->closePaymentModal();
+            $this->dispatch('success', message: '✅ Comprovativo anexado com sucesso! Aguarde a validação da nossa equipe.');
+            
+        } catch (\Exception $e) {
+            \Log::error('Erro ao anexar comprovativo', [
+                'order_id' => $this->payingOrder->id,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('error', message: 'Erro ao anexar comprovativo: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== SEGURANÇA ====================
+    
+    public function toggleChangePasswordForm()
+    {
+        $this->showChangePasswordForm = !$this->showChangePasswordForm;
+        $this->reset(['currentPassword', 'newPassword', 'confirmPassword']);
+    }
+    
+    public function changePassword()
+    {
+        $user = auth()->user();
+        
+        $this->validate([
+            'currentPassword' => 'required',
+            'newPassword' => 'required|min:8|different:currentPassword',
+            'confirmPassword' => 'required|same:newPassword',
+        ], [
+            'currentPassword.required' => 'Senha atual é obrigatória',
+            'newPassword.required' => 'Nova senha é obrigatória',
+            'newPassword.min' => 'Nova senha deve ter no mínimo 8 caracteres',
+            'newPassword.different' => 'Nova senha deve ser diferente da atual',
+            'confirmPassword.required' => 'Confirmação de senha é obrigatória',
+            'confirmPassword.same' => 'As senhas não coincidem',
+        ]);
+        
+        try {
+            // Verificar senha atual
+            if (!\Hash::check($this->currentPassword, $user->password)) {
+                $this->addError('currentPassword', 'Senha atual incorreta');
+                return;
+            }
+            
+            // Atualizar senha
+            $user->update([
+                'password' => \Hash::make($this->newPassword),
+            ]);
+            
+            // Atualizar last_password_changed
+            $user->update(['last_password_changed' => now()]);
+            
+            $this->reset(['currentPassword', 'newPassword', 'confirmPassword']);
+            $this->showChangePasswordForm = false;
+            $this->dispatch('success', message: 'Senha alterada com sucesso!');
+            
+        } catch (\Exception $e) {
+            \Log::error('Erro ao alterar senha', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('error', message: 'Erro ao alterar senha: ' . $e->getMessage());
+        }
+    }
+    
     public function render()
     {
         $user = auth()->user();
@@ -510,6 +871,18 @@ class MyAccount extends Component
                 $currentSubscription = $subscription;
             }
         }
+        
+        // Buscar todos os planos disponíveis para upgrade
+        $availablePlans = \App\Models\Plan::where('is_active', true)
+            ->with('modules')
+            ->orderBy('price_monthly')
+            ->get();
+        
+        // Buscar histórico de pedidos/faturas
+        $orders = Order::with(['tenant', 'plan'])
+            ->where('user_id', $user->id)
+            ->latest()
+            ->paginate(10);
         
         // Buscar pedidos pendentes do usuário
         $pendingOrders = Order::with(['tenant', 'plan'])
@@ -528,6 +901,6 @@ class MyAccount extends Component
                 ->get();
         }
         
-        return view('livewire.my-account', compact('myTenants', 'currentPlan', 'currentSubscription', 'pendingOrders', 'pendingSubscriptions'));
+        return view('livewire.my-account', compact('myTenants', 'currentPlan', 'currentSubscription', 'availablePlans', 'orders', 'pendingOrders', 'pendingSubscriptions'));
     }
 }

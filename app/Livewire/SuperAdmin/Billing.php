@@ -308,135 +308,40 @@ class Billing extends Component
     
     public function approveOrder($orderId)
     {
-        \Log::info('=== INÍCIO DA APROVAÇÃO DE PEDIDO ===', ['order_id' => $orderId]);
+        \Log::info('🎯 SuperAdmin: Iniciando aprovação de pedido', ['order_id' => $orderId]);
         
-        $order = Order::with(['tenant', 'plan'])->findOrFail($orderId);
-        
-        \Log::info('Pedido encontrado', [
-            'order_id' => $order->id,
-            'tenant_id' => $order->tenant_id,
-            'plan_id' => $order->plan_id,
-            'amount' => $order->amount
-        ]);
-        
-        DB::beginTransaction();
         try {
-            // 1. Marcar pedido como aprovado
+            $order = Order::with(['tenant', 'plan'])->findOrFail($orderId);
+            
+            \Log::info('📦 Pedido encontrado', [
+                'order_id' => $order->id,
+                'tenant' => $order->tenant->name,
+                'plan' => $order->plan->name,
+                'amount' => $order->amount
+            ]);
+            
+            // Simplesmente mudar o status para 'approved'
+            // O OrderObserver fará TODO o trabalho:
+            // - Cancelar subscription antiga
+            // - Criar nova subscription
+            // - Sincronizar módulos (ativar/desativar)
             $order->update([
                 'status' => 'approved',
                 'approved_at' => now(),
                 'approved_by' => auth()->id(),
             ]);
-            \Log::info('Pedido marcado como aprovado');
             
-            // 2. Buscar subscription
-            $subscription = Subscription::where('tenant_id', $order->tenant_id)
-                ->where('plan_id', $order->plan_id)
-                ->latest()
-                ->first();
-                
-            if ($subscription) {
-                \Log::info('Subscription encontrada', ['subscription_id' => $subscription->id]);
-                
-                $now = now();
-                $plan = $order->plan;
-                
-                // Determinar data de fim do período baseado no ciclo
-                if ($subscription->billing_cycle === 'monthly') {
-                    $periodEnd = $now->copy()->addMonth();
-                } elseif ($subscription->billing_cycle === 'yearly') {
-                    $periodEnd = $now->copy()->addYear();
-                } else {
-                    $periodEnd = $now->copy()->addMonth(); // padrão
-                }
-                
-                // 3. Ativar subscription (SEM TRIAL - é pagamento aprovado!)
-                $subscription->update([
-                    'status' => 'active',
-                    'current_period_start' => $now,
-                    'current_period_end' => $periodEnd,
-                    'ends_at' => $periodEnd,
-                    'trial_ends_at' => null, // Remove trial - é plano pago aprovado
-                ]);
-                
-                \Log::info('Subscription ativada', [
-                    'subscription_id' => $subscription->id,
-                    'status' => 'active',
-                    'current_period_start' => $now->toDateTimeString(),
-                    'current_period_end' => $periodEnd->toDateTimeString(),
-                    'ends_at' => $periodEnd->toDateTimeString()
-                ]);
-                
-                // 4. Ativar módulos do plano
-                $tenant = $order->tenant;
-                \Log::info('Ativando módulos do plano...', ['included_modules' => $plan->included_modules]);
-                
-                if ($plan->included_modules && is_array($plan->included_modules)) {
-                    foreach ($plan->included_modules as $moduleSlug) {
-                        \Log::info('Procurando módulo', ['slug' => $moduleSlug]);
-                        $module = \App\Models\Module::where('slug', $moduleSlug)->first();
-                        
-                        if ($module) {
-                            // Verificar se já está ativado
-                            $alreadyActive = $tenant->modules()->where('module_id', $module->id)->exists();
-                            
-                            if (!$alreadyActive) {
-                                $tenant->modules()->attach($module->id, [
-                                    'is_active' => true,
-                                    'activated_at' => now(),
-                                ]);
-                                \Log::info('Módulo ativado', ['module_id' => $module->id, 'name' => $module->name]);
-                            } else {
-                                \Log::info('Módulo já estava ativado', ['module_id' => $module->id]);
-                            }
-                        } else {
-                            \Log::warning('Módulo não encontrado', ['slug' => $moduleSlug]);
-                        }
-                    }
-                } else {
-                    \Log::warning('Plano não tem módulos ou não é array');
-                }
-            } else {
-                \Log::error('Subscription não encontrada!', [
-                    'tenant_id' => $order->tenant_id,
-                    'plan_id' => $order->plan_id
-                ]);
-            }
+            \Log::info('✅ Status atualizado para approved. Observer processará automaticamente.');
             
-            DB::commit();
-            \Log::info('=== APROVAÇÃO CONCLUÍDA COM SUCESSO ===');
-            
-            // Verificar se realmente ficou ativo
-            $subscription->refresh();
-            \Log::info('Verificação final da subscription', [
-                'subscription_id' => $subscription->id,
-                'status' => $subscription->status,
-                'current_period_start' => $subscription->current_period_start?->toDateTimeString(),
-                'current_period_end' => $subscription->current_period_end?->toDateTimeString()
-            ]);
-            
-            // Verificar módulos ativados
-            $tenant->refresh();
-            $activeModules = $tenant->modules()->wherePivot('is_active', true)->count();
-            \Log::info('Módulos ativos no tenant', ['count' => $activeModules]);
-            
-            // Limpar sessão do usuário para forçar reload do tenant
-            // Isso fará com que na próxima request ele pegue o tenant atualizado
-            $user = $order->user;
-            if ($user->tenant_id === null) {
-                $user->tenant_id = $tenant->id;
-                $user->save();
-                \Log::info('user.tenant_id atualizado', ['user_id' => $user->id, 'tenant_id' => $tenant->id]);
-            }
-            
-            $this->dispatch('success', message: 'Pedido aprovado! Subscription ativada com sucesso.');
+            $this->dispatch('success', message: '✅ Pedido aprovado! Subscription e módulos sendo processados automaticamente.');
             
         } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('ERRO AO APROVAR PEDIDO', [
-                'message' => $e->getMessage(),
+            \Log::error('❌ SuperAdmin: Erro ao aprovar pedido', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+            
             $this->dispatch('error', message: 'Erro ao aprovar pedido: ' . $e->getMessage());
         }
     }

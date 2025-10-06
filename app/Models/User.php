@@ -26,9 +26,11 @@ class User extends Authenticatable
         'tenant_id',
         'is_super_admin',
         'phone',
+        'bio',
         'avatar',
         'is_active',
         'last_login_at',
+        'last_password_changed',
     ];
 
     /**
@@ -54,6 +56,7 @@ class User extends Authenticatable
             'is_super_admin' => 'boolean',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
+            'last_password_changed' => 'datetime',
         ];
     }
 

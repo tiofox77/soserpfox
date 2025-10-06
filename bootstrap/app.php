@@ -20,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware global para verificar subscription (após identificar tenant)
         $middleware->append(\App\Http\Middleware\CheckSubscription::class);
         
+        // Middleware para registrar último login
+        $middleware->append(\App\Http\Middleware\RecordLastLogin::class);
+        
         // Middleware aliases
         $middleware->alias([
             'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,

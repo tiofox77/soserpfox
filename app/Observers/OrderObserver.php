@@ -1,76 +1,53 @@
 <?php
 
-namespace App\Models;
+namespace App\Observers;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Order;
 
-class Order extends Model
+class OrderObserver
 {
-    use HasFactory;
-
-    protected $fillable = [
-        'tenant_id',
-        'user_id',
-        'plan_id',
-        'amount',
-        'billing_cycle',
-        'payment_method',
-        'payment_reference',
-        'payment_proof',
-        'status',
-        'notes',
-        'approved_at',
-        'approved_by',
-    ];
-
-    protected $casts = [
-        'approved_at' => 'datetime',
-    ];
-
-    public function tenant()
+    /**
+     * Handle the Order "updated" event.
+     * Executa após o update ser salvo
+     */
+    public function updated(Order $order): void
     {
-        return $this->belongsTo(Tenant::class);
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function plan()
-    {
-        return $this->belongsTo(Plan::class);
-    }
-
-    public function approvedBy()
-    {
-        return $this->belongsTo(User::class, 'approved_by');
+        // Verificar se o status mudou para 'approved'
+        if ($order->wasChanged('status') && $order->status === 'approved') {
+            \Log::info("✅ OrderObserver: Pedido aprovado, iniciando processamento", [
+                'order_id' => $order->id,
+                'old_status' => $order->getOriginal('status'),
+                'new_status' => $order->status,
+            ]);
+            
+            try {
+                $this->processApproval($order);
+            } catch (\Exception $e) {
+                \Log::error("❌ OrderObserver: Erro ao processar aprovação", [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
     }
 
     /**
-     * Aprovar pedido e ativar/sincronizar plano e módulos
+     * Processar a aprovação: ativar subscription e sincronizar módulos
      */
-    public function approve($approvedBy = null)
+    protected function processApproval(Order $order): void
     {
+        $tenant = $order->tenant;
+        $newPlan = $order->plan;
+
+        if (!$tenant || !$newPlan) {
+            \Log::error("Tenant ou Plano não encontrado", ['order_id' => $order->id]);
+            return;
+        }
+
+        \DB::beginTransaction();
         try {
-            \DB::beginTransaction();
-
-            // Atualizar status do pedido
-            $this->update([
-                'status' => 'approved',
-                'approved_at' => now(),
-                'approved_by' => $approvedBy ?? auth()->id(),
-            ]);
-
-            $tenant = $this->tenant;
-            $newPlan = $this->plan;
-
-            if (!$tenant || !$newPlan) {
-                throw new \Exception('Tenant ou Plano não encontrado');
-            }
-
-            // Buscar plano atual do tenant (subscription ativa)
+            // Buscar subscription ativa atual
             $currentSubscription = $tenant->subscriptions()
                 ->where('status', 'active')
                 ->with('plan.modules')
@@ -78,22 +55,22 @@ class Order extends Model
 
             $oldPlan = $currentSubscription ? $currentSubscription->plan : null;
 
-            // 1. DESATIVAR SUBSCRIPTION ANTIGA (se existir)
+            // 1. CANCELAR SUBSCRIPTION ANTIGA
             if ($currentSubscription) {
                 $currentSubscription->update([
                     'status' => 'cancelled',
                     'ends_at' => now(),
                 ]);
 
-                \Log::info("Subscription antiga cancelada", [
+                \Log::info("📦 Subscription antiga cancelada", [
                     'tenant_id' => $tenant->id,
                     'old_plan' => $oldPlan->name ?? 'N/A',
                 ]);
             }
 
-            // 2. ATIVAR NOVA SUBSCRIPTION
+            // 2. CRIAR NOVA SUBSCRIPTION ATIVA
             $startDate = now();
-            $endDate = match($this->billing_cycle) {
+            $endDate = match($order->billing_cycle) {
                 'yearly' => $startDate->copy()->addMonths(14), // 12 + 2 grátis
                 'semiannual' => $startDate->copy()->addMonths(6),
                 'quarterly' => $startDate->copy()->addMonths(3),
@@ -103,15 +80,16 @@ class Order extends Model
             $newSubscription = $tenant->subscriptions()->create([
                 'plan_id' => $newPlan->id,
                 'status' => 'active',
-                'billing_cycle' => $this->billing_cycle ?? 'monthly',
-                'amount' => $this->amount,
+                'billing_cycle' => $order->billing_cycle ?? 'monthly',
+                'amount' => $order->amount,
                 'current_period_start' => $startDate,
                 'current_period_end' => $endDate,
                 'ends_at' => $endDate,
             ]);
 
-            \Log::info("Nova subscription criada", [
+            \Log::info("🎉 Nova subscription criada e ativada", [
                 'tenant_id' => $tenant->id,
+                'subscription_id' => $newSubscription->id,
                 'new_plan' => $newPlan->name,
                 'period' => "{$startDate->format('Y-m-d')} até {$endDate->format('Y-m-d')}",
             ]);
@@ -119,20 +97,27 @@ class Order extends Model
             // 3. SINCRONIZAR MÓDULOS
             $this->syncModules($tenant, $oldPlan, $newPlan);
 
+            // 4. Atualizar campos de aprovação no pedido (se não foram definidos)
+            if (!$order->approved_at) {
+                $order->approved_at = now();
+            }
+            if (!$order->approved_by) {
+                $order->approved_by = auth()->id() ?? 1; // Sistema
+            }
+            $order->saveQuietly(); // Salvar sem disparar eventos
+
             \DB::commit();
 
-            \Log::info("Pedido aprovado com sucesso", [
-                'order_id' => $this->id,
+            \Log::info("✅ Processamento de aprovação concluído com sucesso", [
+                'order_id' => $order->id,
                 'tenant_id' => $tenant->id,
                 'new_plan' => $newPlan->name,
             ]);
 
-            return true;
-
         } catch (\Exception $e) {
             \DB::rollBack();
-            \Log::error("Erro ao aprovar pedido", [
-                'order_id' => $this->id,
+            \Log::error("❌ Erro ao processar aprovação no Observer", [
+                'order_id' => $order->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -141,32 +126,34 @@ class Order extends Model
     }
 
     /**
-     * Sincronizar módulos do tenant baseado no plano novo
+     * Sincronizar módulos baseado no upgrade/downgrade
      */
-    protected function syncModules($tenant, $oldPlan, $newPlan)
+    protected function syncModules($tenant, $oldPlan, $newPlan): void
     {
-        // Buscar módulos do novo plano
+        // Módulos do novo plano
         $newPlanModuleIds = $newPlan->modules()->pluck('modules.id')->toArray();
         
-        // Buscar módulos do plano antigo (se existir)
+        // Módulos do plano antigo
         $oldPlanModuleIds = $oldPlan ? $oldPlan->modules()->pluck('modules.id')->toArray() : [];
 
-        \Log::info("Sincronizando módulos", [
+        \Log::info("🔄 Sincronizando módulos", [
             'tenant_id' => $tenant->id,
+            'old_plan' => $oldPlan->name ?? 'Nenhum',
+            'new_plan' => $newPlan->name,
             'old_modules' => $oldPlanModuleIds,
             'new_modules' => $newPlanModuleIds,
         ]);
 
-        // UPGRADE: Módulos que estão no novo mas não estavam no antigo
+        // UPGRADE: Novos módulos a ativar
         $modulesToActivate = array_diff($newPlanModuleIds, $oldPlanModuleIds);
 
-        // DOWNGRADE: Módulos que estavam no antigo mas não estão no novo
+        // DOWNGRADE: Módulos a desativar
         $modulesToDeactivate = array_diff($oldPlanModuleIds, $newPlanModuleIds);
 
-        // MANTER: Módulos que estão em ambos
+        // MANTER: Módulos em comum
         $modulesToKeep = array_intersect($oldPlanModuleIds, $newPlanModuleIds);
 
-        // 1. DESATIVAR módulos que não estão no novo plano
+        // 1. DESATIVAR módulos removidos (downgrade)
         if (!empty($modulesToDeactivate)) {
             foreach ($modulesToDeactivate as $moduleId) {
                 $tenant->modules()->updateExistingPivot($moduleId, [
@@ -174,13 +161,13 @@ class Order extends Model
                     'deactivated_at' => now(),
                 ]);
             }
-            \Log::info("Módulos desativados (downgrade)", [
+            \Log::info("❌ Módulos desativados (downgrade)", [
                 'tenant_id' => $tenant->id,
-                'modules' => $modulesToDeactivate,
+                'modules_ids' => $modulesToDeactivate,
             ]);
         }
 
-        // 2. ATIVAR novos módulos
+        // 2. ATIVAR novos módulos (upgrade)
         if (!empty($modulesToActivate)) {
             $syncData = [];
             foreach ($modulesToActivate as $moduleId) {
@@ -192,9 +179,9 @@ class Order extends Model
             }
             $tenant->modules()->syncWithoutDetaching($syncData);
             
-            \Log::info("Módulos ativados (upgrade)", [
+            \Log::info("✅ Módulos ativados (upgrade)", [
                 'tenant_id' => $tenant->id,
-                'modules' => $modulesToActivate,
+                'modules_ids' => $modulesToActivate,
             ]);
         }
 
@@ -205,14 +192,10 @@ class Order extends Model
                     'is_active' => true,
                 ]);
             }
-            \Log::info("Módulos mantidos ativos", [
+            \Log::info("✔️ Módulos mantidos ativos", [
                 'tenant_id' => $tenant->id,
-                'modules' => $modulesToKeep,
+                'modules_ids' => $modulesToKeep,
             ]);
         }
-
-        // 4. REMOVER COMPLETAMENTE módulos que não estão no novo plano e não devem ser mantidos
-        // (opcional - se quiser remover da pivot table completamente)
-        // $tenant->modules()->detach($modulesToDeactivate);
     }
 }
