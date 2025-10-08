@@ -744,6 +744,27 @@
                                 <p class="text-xs text-gray-600">Controle de acesso por status</p>
                             </div>
                         </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Módulo de Eventos</p>
+                                <p class="text-xs text-gray-600">Calendário + Gestão de Equipamentos</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">SETS de Equipamentos</p>
+                                <p class="text-xs text-gray-600">Conjuntos reutilizáveis</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">QR Code Equipamentos</p>
+                                <p class="text-xs text-gray-600">Rastreamento completo</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -763,10 +784,10 @@
                         <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
                             <i class="fas fa-code text-yellow-600 mt-1"></i>
                             <div class="flex-1">
-                                <p class="font-bold text-sm text-gray-900">Inventário Avançado</p>
-                                <p class="text-xs text-gray-600">Armazéns e transferências</p>
+                                <p class="font-bold text-sm text-gray-900">Integração Eventos-Faturação</p>
+                                <p class="text-xs text-gray-600">Orçamentos de equipamentos</p>
                                 <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 70%"></div>
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 30%"></div>
                                 </div>
                             </div>
                         </div>
@@ -777,16 +798,6 @@
                                 <p class="text-xs text-gray-600">Multicaixa, BAI, BFA</p>
                                 <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
                                     <div class="bg-yellow-500 h-2 rounded-full" style="width: 40%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
-                            <i class="fas fa-code text-yellow-600 mt-1"></i>
-                            <div class="flex-1">
-                                <p class="font-bold text-sm text-gray-900">Dashboard Analytics</p>
-                                <p class="text-xs text-gray-600">Gráficos e KPIs</p>
-                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 80%"></div>
                                 </div>
                             </div>
                         </div>
@@ -883,12 +894,12 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6 text-white text-center">
                     <i class="fas fa-check-circle text-5xl mb-3 opacity-50"></i>
-                    <p class="text-4xl font-bold mb-1">9</p>
+                    <p class="text-4xl font-bold mb-1">13</p>
                     <p class="text-sm opacity-90">Concluído</p>
                 </div>
                 <div class="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white text-center">
                     <i class="fas fa-spinner text-5xl mb-3 opacity-50"></i>
-                    <p class="text-4xl font-bold mb-1">5</p>
+                    <p class="text-4xl font-bold mb-1">4</p>
                     <p class="text-sm opacity-90">Em Desenvolvimento</p>
                 </div>
                 <div class="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6 text-white text-center">
@@ -898,7 +909,7 @@
                 </div>
                 <div class="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-6 text-white text-center">
                     <i class="fas fa-chart-line text-5xl mb-3 opacity-50"></i>
-                    <p class="text-4xl font-bold mb-1">41%</p>
+                    <p class="text-4xl font-bold mb-1">75%</p>
                     <p class="text-sm opacity-90">Progresso Total</p>
                 </div>
             </div>

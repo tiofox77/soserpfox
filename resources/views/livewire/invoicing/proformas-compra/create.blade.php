@@ -617,4 +617,90 @@
         </div>
     </div>
     @endif
+
+    {{-- Batch Modal --}}
+    @if($showBatchModal)
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full animate-scale-in">
+            <div class="bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-box-open mr-2"></i>
+                    Informações do Lote - {{ $batchProductName }}
+                </h3>
+                <button wire:click="closeBatchModal" class="text-white hover:text-gray-200 transition">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg mb-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-amber-600 mr-2 mt-0.5"></i>
+                        <div class="text-sm text-amber-800">
+                            <p class="font-semibold">Rastreamento de Lote</p>
+                            <p class="mt-1">Preencha as informações do lote para controle de validade e rastreabilidade.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-barcode text-amber-600 mr-1"></i>
+                        Número do Lote
+                    </label>
+                    <input type="text" wire:model="batch_number" placeholder="Ex: LOTE-2025-001 ou deixe vazio para gerar automaticamente"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition">
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-lightbulb mr-1"></i>
+                        Se deixar vazio, será gerado automaticamente ao finalizar a proforma
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-industry text-blue-600 mr-1"></i>
+                            Data de Fabricação
+                        </label>
+                        <input type="date" wire:model="manufacturing_date"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-calendar-times text-red-600 mr-1"></i>
+                            Data de Validade
+                        </label>
+                        <input type="date" wire:model="expiry_date"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-bell text-yellow-600 mr-1"></i>
+                        Dias de Alerta (antes da validade)
+                    </label>
+                    <input type="number" wire:model="alert_days" min="1" max="365"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition">
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Sistema alertará quando faltar esse número de dias para vencer
+                    </p>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+                <button wire:click="closeBatchModal" 
+                        class="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition">
+                    <i class="fas fa-times mr-2"></i>Cancelar
+                </button>
+                <button wire:click="confirmBatchAndAddProduct" 
+                        class="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
+                    <i class="fas fa-check mr-2"></i>Confirmar e Adicionar
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>

@@ -459,9 +459,132 @@ Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livew
 
 ---
 
+## FASE 5.5: MÓDULO EVENTOS ✅ (95% Completa)
+
+### 5.5.1 Calendário de Eventos ✅
+- [x] Componente Livewire: EventCalendar.php
+- [x] Tabela `events_events` com multi-status
+- [x] Calendário visual interativo
+- [x] CRUD completo de eventos
+- [x] Filtros por status, fase e tipo
+- [x] Quick create modal
+- [x] Integração com clientes
+- [x] Integração com locais (venues)
+- [x] Estados: orçamento, confirmado, em_montagem, em_andamento, concluído, cancelado
+- [x] Fases: planejamento, execução, finalizado
+- [ ] Integração com faturação (gerar proposta/fatura) - Próxima fase
+
+### 5.5.2 Gestão de Equipamentos ✅
+- [x] Componente Livewire: EquipmentManager.php
+- [x] Componente Livewire: EquipmentDashboard.php
+- [x] Tabela `equipment` com tenant isolation
+- [x] CRUD completo de equipamentos
+- [x] Dashboard com analytics e gráficos (Chart.js)
+- [x] Sistema de categorias dinâmicas
+- [x] Histórico completo de movimentações
+- [x] Sistema de empréstimo/devolução com clientes
+- [x] QR Code para cada equipamento (BaconQrCode)
+- [x] Status automático: disponível, em uso, manutenção, emprestado
+- [x] Alertas de manutenção e atrasos
+- [x] Upload de imagens por equipamento
+- [x] Filtros avançados: categoria, status, localização
+- [x] Stats cards: total, disponível, em uso, manutenção
+- [x] Top 10 equipamentos mais usados
+- [x] Gráfico de utilização semanal
+
+### 5.5.3 SETS de Equipamentos ✅
+- [x] Componente Livewire: EquipmentSets.php
+- [x] Tabelas: `equipment_sets` e `equipment_set_items`
+- [x] Criação de conjuntos reutilizáveis
+- [x] Gerenciamento de quantidades por equipamento
+- [x] Categorias personalizadas
+- [x] Vinculação com eventos
+- [x] Sistema de pivot table (many-to-many)
+- [x] Modal de gerenciamento de itens
+- [x] Preview de equipamentos no SET
+- [ ] Verificação de disponibilidade automática - Próxima fase
+
+### 5.5.4 Categorias de Equipamentos ✅
+- [x] Componente Livewire: EquipmentCategories.php
+- [x] Tabela `equipment_categories`
+- [x] CRUD completo
+- [x] Ícones personalizados (emoji)
+- [x] Cores customizáveis (hex color picker)
+- [x] Ordenação customizável (sort_order)
+- [x] Sistema dinâmico criado pelo usuário
+- [x] 9 categorias padrão (seeder):
+  - 🔊 Som e Áudio
+  - 💡 Iluminação
+  - 📹 Vídeo
+  - 🏗️ Estruturas
+  - ✨ Efeitos Especiais
+  - 🎨 Decoração
+  - 🪑 Mobiliário
+  - ⚡ Energia
+  - 📁 Outros
+- [x] Status ativo/inativo
+- [x] Proteção: não permite excluir se tiver equipamentos vinculados
+
+### 5.5.5 Integração Eventos-Equipamentos ✅
+- [x] Tabela `event_equipment` (pivot equipments/sets ↔ events)
+- [x] Vinculação de equipamentos individuais a eventos
+- [x] Vinculação de SETS completos a eventos
+- [x] Status automático "em uso" durante evento ativo
+- [x] Controle de disponibilidade
+- [x] Rastreamento completo (quem, quando, onde)
+- [x] Campos: quantity, start_datetime, end_datetime, status, notes
+- [x] Relacionamentos: Equipment->events(), EquipmentSet->events()
+- [x] Métodos: updateStatusFromEvents(), isInActiveEvent()
+- [ ] Interface no modal de evento para adicionar equipamentos - Próxima fase
+- [ ] Dashboard de equipamentos por evento - Próxima fase
+
+### 5.5.6 Histórico e Rastreamento ✅
+- [x] Tabela `equipment_history`
+- [x] Registro automático de todas movimentações
+- [x] Tipos: aquisicao, uso, manutencao, emprestimo, devolucao, descarte
+- [x] Vinculação com eventos (event_id)
+- [x] Vinculação com clientes (client_id)
+- [x] Notas e observações
+- [x] Método addToHistory() no model Equipment
+- [x] View de histórico completo por equipamento
+
+### 5.5.7 QR Code System ✅
+- [x] Geração de QR Code por equipamento (BaconQrCode)
+- [x] Rota: /events/equipment/{id}/qrcode
+- [x] Página de impressão: /events/equipment/{id}/qrcode/print
+- [x] Rota de scan: /events/equipment/scan/{id}
+- [x] QR Code contém: ID, Nome, Serial, Status
+- [x] Layout de impressão otimizado (A4, múltiplos QR codes)
+
+### 5.5.8 Navegação e Rotas ✅
+- [x] Submenu com 4 opções:
+  - 📊 Dashboard
+  - 📦 Equipamentos  
+  - 📚 SETS
+  - 🏷️ Categorias
+- [x] Rotas implementadas:
+  - `/events/equipment` - Lista de equipamentos
+  - `/events/equipment/dashboard` - Analytics
+  - `/events/equipment/sets` - Gestão de SETS
+  - `/events/equipment/categories` - Gestão de categorias
+  - `/events/calendar` - Calendário de eventos
+- [x] Integração perfeita com módulo Events
+
+### 5.5.9 Próximas Melhorias
+- [ ] Interface no modal de evento para adicionar/remover equipamentos
+- [ ] Dashboard de utilização de equipamentos por evento
+- [ ] Relatório de equipamentos disponíveis por período
+- [ ] Sistema de reserva antecipada
+- [ ] Notificações de conflito de equipamentos
+- [ ] Integração com faturação (orçamento de equipamentos)
+- [ ] Check-in/Check-out de equipamentos via QR Code
+- [ ] Manutenção preventiva automática (por horas de uso)
+
+---
+
 ## FASE 6: MÓDULO RECURSOS HUMANOS
 
-### 5.1 Colaboradores
+### 6.1 Colaboradores
 - [ ] Componente Livewire: CRUD Colaboradores
 - [ ] Dados pessoais e profissionais
 - [ ] Contratos e anexos
@@ -659,7 +782,14 @@ Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livew
 - InvoicingInvoice
 - InvoicingInvoiceItem
 
-### Migrations (15 Migrations)
+**Eventos:**
+- Equipment
+- EquipmentCategory
+- EquipmentSet
+- EquipmentSetItem
+- EquipmentHistory
+
+### Migrations (30+ Migrations)
 **Core:**
 - users, tenants, tenant_user
 - roles, permissions (Spatie)
@@ -681,7 +811,17 @@ Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livew
 - update_products_tax_system
 - add_icon_to_brands_table
 
-### Livewire Components (12 Components)
+**Eventos:**
+- equipment
+- equipment_categories
+- equipment_sets
+- equipment_set_items
+- equipment_history
+- event_equipment
+- add_category_id_to_equipment_table
+- add_category_id_to_equipment_sets_table
+
+### Livewire Components (20+ Components)
 **Core:**
 - TenantSwitcher ✨ (Novo)
 
@@ -700,6 +840,13 @@ Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livew
 - Brands
 - Invoices
 
+**Events:**
+- EventCalendar
+- EquipmentManager
+- EquipmentDashboard
+- EquipmentSets
+- EquipmentCategories
+
 ### Blade Components (2 Components)
 - x-delete-confirmation-modal
 - x-icon-picker
@@ -711,9 +858,10 @@ Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livew
 ### Helpers (1) ✨ (Novo)
 - TenantHelper.php (activeTenantId, activeTenant, canSwitchTenants)
 
-### Seeders (3)
+### Seeders (4)
 - PermissionSeeder
 - TaxRateSeeder
+- EquipmentCategorySeeder ✨ (Novo - 9 categorias padrão)
 - MultiTenantTestSeeder ✨ (Novo - 2 empresas de teste)
 
 ### Middlewares (4)
@@ -776,19 +924,19 @@ Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livew
 
 | Métrica | Quantidade |
 |---------|------------|
-| **Models** | 20+ |
-| **Migrations** | 22+ |
-| **Livewire Components** | 20+ |
+| **Models** | 25+ |
+| **Migrations** | 30+ |
+| **Livewire Components** | 25+ |
 | **Blade Components** | 2 |
-| **Controllers** | 4 |
+| **Controllers** | 5 |
 | **Helpers** | 1 ✨ |
-| **Views Blade** | 45+ |
-| **Rotas Ativas** | 22 |
+| **Views Blade** | 50+ |
+| **Rotas Ativas** | 27+ |
 | **Middlewares** | 4 |
 | **Traits** | 2 |
-| **Seeders** | 3 |
-| **Linhas de Código** | ~18.000+ |
-| **Progress Global** | **~68%** ⬆️ |
+| **Seeders** | 4 |
+| **Linhas de Código** | ~22.000+ |
+| **Progress Global** | **~75%** ⬆️⬆️ |
 
 ---
 

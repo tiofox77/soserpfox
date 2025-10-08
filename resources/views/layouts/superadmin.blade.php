@@ -258,6 +258,21 @@
                     <span x-show="sidebarOpen" class="ml-3">Configurações Gerais</span>
                 </a>
                 
+                <a href="{{ route('superadmin.email-templates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.email-templates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-envelope w-6 text-blue-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Email Templates</span>
+                </a>
+                
+                <a href="{{ route('superadmin.smtp-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.smtp-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-server w-6 text-emerald-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">SMTP Settings</span>
+                </a>
+                
+                <a href="{{ route('superadmin.email-logs') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.email-logs') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-history w-6 text-yellow-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Email Logs</span>
+                </a>
+                
                 <div class="border-t border-blue-700 my-4"></div>
                 
                 <div class="px-3 mb-2">

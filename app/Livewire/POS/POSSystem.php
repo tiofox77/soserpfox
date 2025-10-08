@@ -146,8 +146,47 @@ class POSSystem extends Component
         $currentQuantity = $cartItem ? $cartItem->quantity : 0;
         $newQuantity = $currentQuantity + 1;
         
-        // Validar stock disponível
-        if ($newQuantity > $product->stock_quantity) {
+        // Se produto rastreia lotes, validar disponibilidade nos lotes
+        if ($product->track_batches) {
+            $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
+                ->where('product_id', $productId)
+                ->where('status', 'active')
+                ->where('quantity_available', '>', 0)
+                ->get();
+            
+            $totalAvailable = $availableBatches->sum('quantity_available');
+            
+            if ($availableBatches->isEmpty()) {
+                $this->dispatch('stock-error');
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => '❌ Produto exige lote mas não há lotes disponíveis!'
+                ]);
+                return;
+            }
+            
+            // Verificar lotes expirados
+            $expiredBatches = $availableBatches->filter(fn($b) => $b->is_expired);
+            if ($expiredBatches->isNotEmpty()) {
+                $this->dispatch('stock-error');
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => '❌ Lotes expirados encontrados!'
+                ]);
+                return;
+            }
+            
+            if ($newQuantity > $totalAvailable) {
+                $this->dispatch('stock-error');
+                $this->dispatch('notify', [
+                    'type' => 'warning',
+                    'message' => '⚠️ Quantidade excede lotes disponíveis! Disponível: ' . $totalAvailable . ' un'
+                ]);
+                return;
+            }
+        }
+        // Validar stock disponível (tradi cional)
+        elseif ($newQuantity > $product->stock_quantity) {
             // Disparar som de erro
             $this->dispatch('stock-error');
             
@@ -199,8 +238,27 @@ class POSSystem extends Component
             return;
         }
         
-        // Validar stock disponível
-        if ($quantity > $product->stock_quantity) {
+        // Se produto rastreia lotes, validar nos lotes
+        if ($product->track_batches) {
+            $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
+                ->where('product_id', $itemId)
+                ->where('status', 'active')
+                ->where('quantity_available', '>', 0)
+                ->get();
+            
+            $totalAvailable = $availableBatches->sum('quantity_available');
+            
+            if ($quantity > $totalAvailable) {
+                $this->dispatch('stock-error');
+                $this->dispatch('notify', [
+                    'type' => 'warning',
+                    'message' => '⚠️ Quantidade excede lotes! Disponível: ' . $totalAvailable . ' un. Ajustando...'
+                ]);
+                $quantity = $totalAvailable;
+            }
+        }
+        // Validar stock tradicional
+        elseif ($quantity > $product->stock_quantity) {
             // Disparar som de erro
             $this->dispatch('stock-error');
             

@@ -130,6 +130,46 @@ Sistema ERP multi-tenant completo desenvolvido em Laravel 11 + Livewire V3, com 
 - ✅ Sistema extensível para outras taxas
 - ✅ Seeder automático por tenant
 
+### 🎉 Módulo de Eventos (Events)
+
+#### 📅 Calendário de Eventos
+- ✅ Calendário visual interativo
+- ✅ CRUD completo de eventos
+- ✅ Filtros por status e fase
+- ✅ Quick create modal
+- ✅ Integração com clientes e locais
+
+#### 📦 Gestão de Equipamentos
+- ✅ CRUD completo de equipamentos
+- ✅ Dashboard com analytics e gráficos
+- ✅ Sistema de categorias dinâmicas
+- ✅ Histórico completo de movimentações
+- ✅ Sistema de empréstimo/devolução
+- ✅ QR Code para cada equipamento
+- ✅ Status automático (disponível, em uso, manutenção)
+- ✅ Alertas de manutenção e atrasos
+- ✅ Upload de imagens
+
+#### 📚 SETS de Equipamentos
+- ✅ Criação de conjuntos reutilizáveis
+- ✅ Gerenciamento de quantidades
+- ✅ Categorias personalizadas
+- ✅ Vinculação com eventos
+
+#### 🏷️ Categorias de Equipamentos
+- ✅ CRUD completo
+- ✅ Ícones personalizados (emoji)
+- ✅ Cores customizáveis
+- ✅ Ordenação customizável
+- ✅ 9 categorias padrão
+- ✅ Sistema dinâmico criado pelo usuário
+
+#### 🔗 Integração Eventos-Equipamentos
+- ✅ Vinculação de equipamentos/SETS a eventos
+- ✅ Status automático "em uso" durante evento
+- ✅ Controle de disponibilidade
+- ✅ Rastreamento completo
+
 ---
 
 ## 🔗 Integrações Entre Módulos
@@ -447,15 +487,19 @@ storage/public/
 - [x] Filtros avançados em todas áreas
 - [x] Stats cards com métricas
 - [x] Paginação customizável
+- [x] Módulo de Eventos completo
+- [x] Gestão de Equipamentos com QR Code
+- [x] SETS de Equipamentos reutilizáveis
+- [x] Categorias dinâmicas de equipamentos
 
 ### 🚧 Em Desenvolvimento
 
-- [ ] Gestão de Taxas (CRUD para TaxRates)
-- [ ] Relatórios e Dashboard analítico
+- [ ] Integração Eventos-Calendário (adicionar equipamentos no modal)
+- [ ] Relatórios de equipamentos por evento
+- [ ] Dashboard de utilização de equipamentos
 - [ ] Exportação de Faturas (PDF/Excel)
 - [ ] Integração AGT Angola (exportação XML)
 - [ ] Gestão de Stocks avançada
-- [ ] Histórico de movimentações
 - [ ] Multi-idioma (PT, EN)
 
 ### 📅 Planejado
@@ -477,9 +521,9 @@ storage/public/
 
 | Métrica | Quantidade |
 |---------|------------|
-| **Models** | 12 |
-| **Migrations** | 15 |
-| **Livewire Components** | 11 |
+| **Models** | 18 |
+| **Migrations** | 25 |
+| **Livewire Components** | 17 |
 | **Views Blade** | 25+ |
 | **Rotas** | 11 |
 | **Middlewares** | 2 |

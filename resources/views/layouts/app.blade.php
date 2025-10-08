@@ -782,10 +782,16 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
                                 </a>
                                 
-                                <a href="{{ route('events.events') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.events') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-calendar-check w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Eventos</span>
+                                <a href="{{ route('events.calendar') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.calendar') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-alt w-5 text-indigo-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Calendário</span>
+                                </a>
+                                
+                                <a href="{{ route('events.manager') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.manager') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-list w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Lista de Eventos</span>
                                 </a>
                                 
                                 <a href="{{ route('events.equipment.index') }}" 
@@ -1050,5 +1056,8 @@
             });
         });
     </script>
+    
+    <!-- Custom Scripts Stack -->
+    @stack('scripts')
 </body>
 </html>

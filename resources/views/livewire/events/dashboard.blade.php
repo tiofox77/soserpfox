@@ -67,8 +67,8 @@
                 <i class="fas fa-calendar-day text-blue-500 mr-2"></i>
                 Próximos Eventos
             </h2>
-            <a href="{{ route('events.events') }}" class="text-blue-600 hover:text-blue-800 font-medium">
-                Ver todos <i class="fas fa-arrow-right ml-1"></i>
+            <a href="{{ route('events.calendar') }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                Ver Calendário <i class="fas fa-arrow-right ml-1"></i>
             </a>
         </div>
 
@@ -110,8 +110,8 @@
                             </div>
                         </div>
 
-                        <a href="{{ route('events.events') }}" class="ml-4 text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-arrow-right"></i>
+                        <a href="{{ route('events.calendar') }}" class="ml-4 text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-eye"></i>
                         </a>
                     </div>
                 </div>

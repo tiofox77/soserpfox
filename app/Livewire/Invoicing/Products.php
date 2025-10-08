@@ -49,6 +49,12 @@ class Products extends Component
     public $stock_min = 0;
     public $stock_max = null;
     
+    // Batch tracking fields
+    public $track_batches = false;
+    public $track_expiry = false;
+    public $require_batch_on_purchase = false;
+    public $require_batch_on_sale = false;
+    
     // Tax fields
     public $tax_type = 'iva';
     public $tax_rate_id = null;
@@ -200,6 +206,10 @@ class Products extends Component
         $this->stock_quantity = $product->stock_quantity;
         $this->stock_min = $product->stock_min ?? 0;
         $this->stock_max = $product->stock_max;
+        $this->track_batches = $product->track_batches ?? false;
+        $this->track_expiry = $product->track_expiry ?? false;
+        $this->require_batch_on_purchase = $product->require_batch_on_purchase ?? false;
+        $this->require_batch_on_sale = $product->require_batch_on_sale ?? false;
         $this->showModal = true;
     }
 
@@ -241,6 +251,10 @@ class Products extends Component
             'stock_quantity' => $this->stock_quantity,
             'stock_min' => $this->stock_min,
             'stock_max' => $this->stock_max,
+            'track_batches' => $this->track_batches,
+            'track_expiry' => $this->track_expiry,
+            'require_batch_on_purchase' => $this->require_batch_on_purchase,
+            'require_batch_on_sale' => $this->require_batch_on_sale,
         ];
 
         if ($this->editingProductId) {

@@ -39,6 +39,9 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
     Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
     Route::get('/system-settings', \App\Livewire\SuperAdmin\SystemSettings::class)->name('system-settings');
+    Route::get('/email-templates', \App\Livewire\SuperAdmin\EmailTemplates::class)->name('email-templates');
+    Route::get('/smtp-settings', \App\Livewire\SuperAdmin\SmtpSettings::class)->name('smtp-settings');
+    Route::get('/email-logs', \App\Livewire\SuperAdmin\EmailLogs::class)->name('email-logs');
     Route::get('/saft-configuration', \App\Livewire\SuperAdmin\SaftConfiguration::class)->name('saft');
 });
 
@@ -185,12 +188,43 @@ Route::middleware(['auth'])->prefix('events')->name('events.')->group(function (
     // Dashboard
     Route::get('/dashboard', \App\Livewire\Events\Dashboard::class)->name('dashboard');
     
+    // Calendário
+    Route::get('/calendar', \App\Livewire\Events\EventCalendar::class)->name('calendar');
+    
     // Eventos
-    Route::get('/events', \App\Livewire\Events\EventsManager::class)->name('events');
+    Route::get('/manager', \App\Livewire\Events\EventsManager::class)->name('manager');
     
     // Equipamentos
     Route::prefix('equipment')->name('equipment.')->group(function () {
         Route::get('/', \App\Livewire\Events\Equipment\EquipmentManager::class)->name('index');
+        Route::get('/dashboard', \App\Livewire\Events\Equipment\EquipmentDashboard::class)->name('dashboard');
+        Route::get('/sets', \App\Livewire\Events\Equipment\EquipmentSets::class)->name('sets');
+        Route::get('/categories', \App\Livewire\Events\Equipment\EquipmentCategories::class)->name('categories');
+        Route::get('/scan/{id}', function($id) {
+            $equipment = \App\Models\Equipment::findOrFail($id);
+            return redirect()->route('events.equipment.index')->with('scan_equipment', $equipment->id);
+        })->name('scan');
+        Route::get('/{id}/qrcode', [\App\Http\Controllers\EquipmentController::class, 'generateQrCode'])->name('qrcode');
+        Route::get('/{id}/qrcode/print', [\App\Http\Controllers\EquipmentController::class, 'printQrCode'])->name('qrcode.print');
+        
+        // Rota de teste QR Code
+        Route::get('/test-qrcode', function() {
+            try {
+                $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+                    new \BaconQrCode\Renderer\RendererStyle\RendererStyle(400, 2),
+                    new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+                );
+                $writer = new \BaconQrCode\Writer($renderer);
+                $qrCode = $writer->writeString('https://soserp.test/events/equipment');
+                return response($qrCode)->header('Content-Type', 'image/svg+xml');
+            } catch (\Exception $e) {
+                return response()->json([
+                    'error' => $e->getMessage(),
+                    'line' => $e->getLine(),
+                    'file' => $e->getFile()
+                ], 500);
+            }
+        })->name('test.qrcode');
     });
     
     // Locais

@@ -289,10 +289,73 @@ class ProformaCreate extends Component
     {
         $product = Product::with('taxRate')->where('tenant_id', activeTenantId())->findOrFail($productId);
 
+        // Verificar se produto rastreia lotes e se exige lote na venda
+        if ($product->track_batches && $product->require_batch_on_sale) {
+            // Verificar se há lotes disponíveis
+            $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
+                ->where('product_id', $productId)
+                ->where('warehouse_id', $this->warehouse_id)
+                ->where('status', 'active')
+                ->where('quantity_available', '>', 0)
+                ->orderBy('expiry_date', 'asc')
+                ->get();
+            
+            if ($availableBatches->isEmpty()) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => '❌ Produto exige lote na venda mas não há lotes disponíveis: ' . $product->name
+                ]);
+                return;
+            }
+            
+            // Verificar se há lotes expirados
+            $expiredBatches = $availableBatches->filter(fn($b) => $b->is_expired);
+            if ($expiredBatches->isNotEmpty()) {
+                $expiredNumbers = $expiredBatches->pluck('batch_number')->filter()->join(', ');
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => '⚠️ Lotes expirados encontrados: ' . ($expiredNumbers ?: 'Sem número')
+                ]);
+                return;
+            }
+            
+            // Verificar se há lotes expirando em breve
+            $expiringSoon = $availableBatches->filter(fn($b) => $b->is_expiring_soon && !$b->is_expired);
+            if ($expiringSoon->isNotEmpty()) {
+                $expiringNumbers = $expiringSoon->pluck('batch_number')->filter()->join(', ');
+                $days = $expiringSoon->first()->days_until_expiry ?? 0;
+                $this->dispatch('notify', [
+                    'type' => 'warning',
+                    'message' => '⚠️ Atenção: Lote(s) expirando em ' . $days . ' dias: ' . ($expiringNumbers ?: 'Sem número')
+                ]);
+            }
+        }
+
         // Verificar se produto já existe no carrinho
         $existingItem = Cart::session($this->cartInstance)->get($productId);
         
         if ($existingItem) {
+            // Se produto rastreia lotes, verificar disponibilidade antes de incrementar
+            if ($product->track_batches) {
+                $newQuantity = $existingItem->quantity + 1;
+                $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
+                    ->where('product_id', $productId)
+                    ->where('warehouse_id', $this->warehouse_id)
+                    ->where('status', 'active')
+                    ->where('quantity_available', '>', 0)
+                    ->get();
+                
+                $totalAvailable = $availableBatches->sum('quantity_available');
+                
+                if ($newQuantity > $totalAvailable) {
+                    $this->dispatch('notify', [
+                        'type' => 'error',
+                        'message' => '❌ Quantidade insuficiente em lotes. Disponível: ' . $totalAvailable
+                    ]);
+                    return;
+                }
+            }
+            
             // Se já existe, incrementa quantidade
             Cart::session($this->cartInstance)->update($productId, [
                 'quantity' => 1 // Incrementa 1
@@ -326,9 +389,23 @@ class ProformaCreate extends Component
             ]);
             
             $typeLabel = $product->type === 'servico' ? 'Serviço' : 'Produto';
+            $message = $typeLabel . ' adicionado: ' . $product->name . ' (IVA: ' . $taxRate . '%)';
+            
+            // Se rastreia lotes, adicionar info
+            if ($product->track_batches) {
+                $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
+                    ->where('product_id', $productId)
+                    ->where('warehouse_id', $this->warehouse_id)
+                    ->where('status', 'active')
+                    ->where('quantity_available', '>', 0)
+                    ->get();
+                $totalAvailable = $availableBatches->sum('quantity_available');
+                $message .= ' | Lotes: ' . $availableBatches->count() . ' (Total disponível: ' . $totalAvailable . ')';
+            }
+            
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => $typeLabel . ' adicionado: ' . $product->name . ' (IVA: ' . $taxRate . '%)'
+                'message' => $message
             ]);
         }
 
@@ -362,6 +439,28 @@ class ProformaCreate extends Component
     public function updateQuantity($productId, $quantity)
     {
         if ($quantity > 0) {
+            // Verificar se produto rastreia lotes
+            $product = Product::where('tenant_id', activeTenantId())->find($productId);
+            
+            if ($product && $product->track_batches) {
+                $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
+                    ->where('product_id', $productId)
+                    ->where('warehouse_id', $this->warehouse_id)
+                    ->where('status', 'active')
+                    ->where('quantity_available', '>', 0)
+                    ->get();
+                
+                $totalAvailable = $availableBatches->sum('quantity_available');
+                
+                if ($quantity > $totalAvailable) {
+                    $this->dispatch('notify', [
+                        'type' => 'error',
+                        'message' => '❌ Quantidade insuficiente em lotes. Disponível: ' . $totalAvailable
+                    ]);
+                    return;
+                }
+            }
+            
             Cart::session($this->cartInstance)->update($productId, [
                 'quantity' => [
                     'relative' => false,

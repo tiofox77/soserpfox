@@ -275,6 +275,79 @@
                             @endif
                         </div>
                         
+                        <!-- Controle de Lotes e Validade -->
+                        <div class="col-span-3 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border-2 border-amber-200">
+                            <div class="flex items-center mb-4">
+                                <div class="flex items-center justify-center w-10 h-10 bg-amber-500 rounded-lg shadow-md">
+                                    <i class="fas fa-box-open text-white text-lg"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <h3 class="text-sm font-bold text-gray-900">Controle de Lotes e Validade</h3>
+                                    <p class="text-xs text-gray-600">Rastreabilidade e gestão de validade do produto</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="flex items-center p-3 bg-white rounded-lg hover:bg-amber-50 cursor-pointer border-2 border-transparent hover:border-amber-300 transition group">
+                                    <input type="checkbox" wire:model="track_batches" class="w-4 h-4 text-amber-600 rounded focus:ring-2 focus:ring-amber-500">
+                                    <div class="ml-3 flex-1">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-layer-group text-amber-600 mr-2"></i>
+                                            <span class="text-sm font-semibold text-gray-900">Rastrear por Lotes</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Controlar produto por números de lote</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-center p-3 bg-white rounded-lg hover:bg-red-50 cursor-pointer border-2 border-transparent hover:border-red-300 transition group">
+                                    <input type="checkbox" wire:model="track_expiry" class="w-4 h-4 text-red-600 rounded focus:ring-2 focus:ring-red-500">
+                                    <div class="ml-3 flex-1">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-calendar-times text-red-600 mr-2"></i>
+                                            <span class="text-sm font-semibold text-gray-900">Controlar Validade</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Gerenciar data de validade do produto</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-center p-3 bg-white rounded-lg hover:bg-blue-50 cursor-pointer border-2 border-transparent hover:border-blue-300 transition group">
+                                    <input type="checkbox" wire:model="require_batch_on_purchase" class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                                    <div class="ml-3 flex-1">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-shopping-cart text-blue-600 mr-2"></i>
+                                            <span class="text-sm font-semibold text-gray-900">Exigir Lote na Compra</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Obrigatório informar lote ao comprar</p>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-center p-3 bg-white rounded-lg hover:bg-green-50 cursor-pointer border-2 border-transparent hover:border-green-300 transition group">
+                                    <input type="checkbox" wire:model="require_batch_on_sale" class="w-4 h-4 text-green-600 rounded focus:ring-2 focus:ring-green-500">
+                                    <div class="ml-3 flex-1">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-cash-register text-green-600 mr-2"></i>
+                                            <span class="text-sm font-semibold text-gray-900">Exigir Lote na Venda</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Obrigatório selecionar lote ao vender</p>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <div class="mt-3 p-3 bg-amber-100 border border-amber-300 rounded-lg">
+                                <div class="flex items-start">
+                                    <i class="fas fa-info-circle text-amber-700 mr-2 mt-0.5"></i>
+                                    <div class="text-xs text-amber-800">
+                                        <p class="font-semibold mb-1">ℹ️ Informação Importante:</p>
+                                        <ul class="list-disc list-inside space-y-1">
+                                            <li><strong>Rastrear por Lotes:</strong> Ativa o controle de lotes para este produto</li>
+                                            <li><strong>Controlar Validade:</strong> Permite definir datas de validade nos lotes</li>
+                                            <li><strong>Exigir na Compra/Venda:</strong> Torna obrigatório informar o lote nas operações</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Imagens -->
                         <div x-data="{ preview: null }">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">

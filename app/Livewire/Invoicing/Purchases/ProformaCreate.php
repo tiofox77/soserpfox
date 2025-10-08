@@ -38,6 +38,15 @@ class ProformaCreate extends Component
     public $searchProduct = '';
     public $selectedCategory = '';
     
+    // Batch tracking
+    public $showBatchModal = false;
+    public $batchProductId = null;
+    public $batchProductName = '';
+    public $batch_number = '';
+    public $manufacturing_date = '';
+    public $expiry_date = '';
+    public $alert_days = 30;
+    
     // Supplier search
     public $searchSupplier = '';
     
@@ -249,6 +258,23 @@ class ProformaCreate extends Component
     {
         $product = Product::with('taxRate')->where('tenant_id', activeTenantId())->findOrFail($productId);
 
+        // Verificar se produto rastreia lotes
+        if ($product->track_batches) {
+            // Abrir modal de lote ao invés de adicionar direto
+            $this->batchProductId = $productId;
+            $this->batchProductName = $product->name;
+            $this->showProductModal = false;
+            $this->showBatchModal = true;
+            
+            // Reset batch fields
+            $this->batch_number = '';
+            $this->manufacturing_date = '';
+            $this->expiry_date = '';
+            $this->alert_days = 30;
+            
+            return;
+        }
+
         // Verificar se produto já existe no carrinho
         $existingItem = Cart::session($this->cartInstance)->get($productId);
         
@@ -282,6 +308,10 @@ class ProformaCreate extends Component
                     'type' => $product->type ?? 'produto',
                     'tax_type' => $product->tax_type ?? 'iva',
                     'exemption_reason' => $product->exemption_reason ?? null,
+                    'batch_number' => null,
+                    'manufacturing_date' => null,
+                    'expiry_date' => null,
+                    'alert_days' => 30,
                 ]
             ]);
             
@@ -294,6 +324,86 @@ class ProformaCreate extends Component
 
         $this->showProductModal = false;
         $this->searchProduct = '';
+    }
+    
+    public function confirmBatchAndAddProduct()
+    {
+        if (!$this->batchProductId) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Produto não selecionado'
+            ]);
+            return;
+        }
+        
+        $product = Product::with('taxRate')->where('tenant_id', activeTenantId())->findOrFail($this->batchProductId);
+        
+        // Validar campos obrigatórios se produto exige
+        if ($product->require_batch_on_purchase && !$this->batch_number) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Número do lote é obrigatório para este produto'
+            ]);
+            return;
+        }
+        
+        if ($product->track_expiry && !$this->expiry_date) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'Data de validade não informada'
+            ]);
+        }
+        
+        // Determinar taxa de IVA
+        $taxRate = 0;
+        if ($product->tax_type === 'iva' && $product->taxRate) {
+            $taxRate = $product->taxRate->rate;
+        }
+        
+        // Adicionar ao carrinho com dados do lote
+        Cart::session($this->cartInstance)->add([
+            'id' => $product->id,
+            'name' => $product->name,
+            'price' => $product->price,
+            'quantity' => 1,
+            'attributes' => [
+                'tax_rate' => $taxRate,
+                'discount_percent' => 0,
+                'unit' => $product->unit ?? 'UN',
+                'type' => $product->type ?? 'produto',
+                'tax_type' => $product->tax_type ?? 'iva',
+                'exemption_reason' => $product->exemption_reason ?? null,
+                'batch_number' => $this->batch_number,
+                'manufacturing_date' => $this->manufacturing_date,
+                'expiry_date' => $this->expiry_date,
+                'alert_days' => $this->alert_days,
+            ]
+        ]);
+        
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => 'Produto adicionado com lote: ' . $product->name . ($this->batch_number ? " (Lote: {$this->batch_number})" : '')
+        ]);
+        
+        // Fechar modal e limpar
+        $this->showBatchModal = false;
+        $this->batchProductId = null;
+        $this->batchProductName = '';
+        $this->batch_number = '';
+        $this->manufacturing_date = '';
+        $this->expiry_date = '';
+        $this->alert_days = 30;
+    }
+    
+    public function closeBatchModal()
+    {
+        $this->showBatchModal = false;
+        $this->batchProductId = null;
+        $this->batchProductName = '';
+        $this->batch_number = '';
+        $this->manufacturing_date = '';
+        $this->expiry_date = '';
+        $this->alert_days = 30;
     }
     
     public function clearCart()

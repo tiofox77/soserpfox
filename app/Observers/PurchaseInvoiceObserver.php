@@ -72,23 +72,57 @@ class PurchaseInvoiceObserver
                     'created_by' => $invoice->created_by,
                 ]);
 
-                // Criar lote se tiver data de validade
-                if ($item->expiry_date) {
-                    ProductBatch::create([
-                        'tenant_id' => $invoice->tenant_id,
+                // Criar/Atualizar lote se produto rastreia lotes
+                $product = $item->product;
+                if ($product && $product->track_batches) {
+                    // Se tem batch_number, atualizar ou criar lote
+                    if ($item->batch_number) {
+                        $batch = ProductBatch::firstOrCreate([
+                            'tenant_id' => $invoice->tenant_id,
+                            'product_id' => $item->product_id,
+                            'warehouse_id' => $invoice->warehouse_id,
+                            'batch_number' => $item->batch_number,
+                        ], [
+                            'manufacturing_date' => $item->manufacturing_date,
+                            'expiry_date' => $item->expiry_date,
+                            'quantity' => 0,
+                            'quantity_available' => 0,
+                            'purchase_invoice_id' => $invoice->id,
+                            'supplier_name' => $invoice->supplier->name ?? null,
+                            'cost_price' => $item->unit_price,
+                            'alert_days' => $item->alert_days ?? 30,
+                            'status' => 'active',
+                            'notes' => "Lote criado automaticamente da fatura {$invoice->invoice_number}",
+                        ]);
+                        
+                        // Aumentar quantidade do lote existente
+                        $batch->increment('quantity', $item->quantity);
+                        $batch->increment('quantity_available', $item->quantity);
+                        $batch->updateStatus();
+                    } elseif ($product->track_expiry && $item->expiry_date) {
+                        // Se não tem batch_number mas tem validade e produto controla validade, criar lote genérico
+                        ProductBatch::create([
+                            'tenant_id' => $invoice->tenant_id,
+                            'product_id' => $item->product_id,
+                            'warehouse_id' => $invoice->warehouse_id,
+                            'batch_number' => 'AUTO-' . $invoice->invoice_number . '-' . $item->id,
+                            'manufacturing_date' => $item->manufacturing_date,
+                            'expiry_date' => $item->expiry_date,
+                            'quantity' => $item->quantity,
+                            'quantity_available' => $item->quantity,
+                            'purchase_invoice_id' => $invoice->id,
+                            'supplier_name' => $invoice->supplier->name ?? null,
+                            'cost_price' => $item->unit_price,
+                            'alert_days' => $item->alert_days ?? 30,
+                            'status' => 'active',
+                            'notes' => "Lote gerado automaticamente (sem número de lote informado)",
+                        ]);
+                    }
+                    
+                    \Log::info('Lote criado/atualizado para produto rastreável', [
                         'product_id' => $item->product_id,
-                        'warehouse_id' => $invoice->warehouse_id,
                         'batch_number' => $item->batch_number,
-                        'manufacturing_date' => $item->manufacturing_date,
-                        'expiry_date' => $item->expiry_date,
                         'quantity' => $item->quantity,
-                        'quantity_available' => $item->quantity,
-                        'purchase_invoice_id' => $invoice->id,
-                        'supplier_name' => $invoice->supplier->name ?? null,
-                        'cost_price' => $item->unit_price,
-                        'alert_days' => $item->alert_days ?? 30,
-                        'status' => 'active',
-                        'notes' => "Lote criado automaticamente da fatura {$invoice->invoice_number}",
                     ]);
                 }
             }
