@@ -218,10 +218,19 @@ class SmtpSettings extends Component
             ]);
             
             // Enviar email de teste simples
-            \Illuminate\Support\Facades\Mail::raw($body, function ($message) use ($setting) {
-                $message->to($this->sendTestEmail)
-                        ->subject('Teste de Configuração SMTP - ' . config('app.name'));
-            });
+            try {
+                \Illuminate\Support\Facades\Mail::raw($body, function ($message) use ($setting) {
+                    $message->to($this->sendTestEmail)
+                            ->subject('Teste de Configuração SMTP - ' . config('app.name'));
+                });
+                
+                // Verificar se há falhas
+                if (count(\Illuminate\Support\Facades\Mail::failures()) > 0) {
+                    throw new \Exception('Falha ao enviar email. Destinatário não alcançado.');
+                }
+            } catch (\Exception $mailException) {
+                throw new \Exception('Erro SMTP: ' . $mailException->getMessage());
+            }
             
             // Marcar log como enviado
             if ($emailLog) {
