@@ -38,6 +38,11 @@ class Plan extends Model
         'included_modules' => 'array',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'trial_days' => 'integer',
+        'max_users' => 'integer',
+        'max_companies' => 'integer',
+        'max_storage_mb' => 'integer',
+        'order' => 'integer',
     ];
 
     protected static function boot()

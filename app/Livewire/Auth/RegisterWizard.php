@@ -63,6 +63,9 @@ class RegisterWizard extends Component
         // Restaurar progresso salvo na sessão
         $this->loadWizardProgress();
         
+        // Verificar se há dados incompletos após refresh
+        $this->checkAndResetIfIncomplete();
+        
         // Selecionar plano Starter por padrão se não tiver selecionado
         if (!$this->selected_plan_id) {
             $starterPlan = $this->plans->where('slug', 'starter')->first();
@@ -103,6 +106,61 @@ class RegisterWizard extends Component
             $this->payment_method = $progress['payment_method'] ?? $this->payment_method;
             $this->payment_reference = $progress['payment_reference'] ?? $this->payment_reference;
         }
+    }
+    
+    /**
+     * Verificar se os dados estão incompletos e resetar se necessário
+     * (útil quando usuário atualiza a página e perde dados do formulário)
+     */
+    protected function checkAndResetIfIncomplete()
+    {
+        // Se usuário não logado e está em passo > 1, verificar se step 1 está completo
+        if (!$this->isLoggedIn && $this->currentStep > 1) {
+            if (empty($this->name) || empty($this->email) || empty($this->password)) {
+                \Log::info('Dados incompletos no Step 1 detectados. Reiniciando wizard.');
+                $this->resetToStart('Dados do usuário incompletos. Por favor, preencha novamente.');
+                return;
+            }
+        }
+        
+        // Se está no passo 2 ou superior, verificar se step 2 está completo
+        if ($this->currentStep > 2) {
+            if (empty($this->company_name) || empty($this->company_nif)) {
+                \Log::info('Dados incompletos no Step 2 detectados. Reiniciando wizard.');
+                $this->resetToStart('Dados da empresa incompletos. Por favor, preencha novamente.');
+                return;
+            }
+        }
+        
+        // Se está no passo 3 ou superior, verificar se step 3 está completo
+        if ($this->currentStep > 3) {
+            if (empty($this->selected_plan_id)) {
+                \Log::info('Plano não selecionado detectado. Reiniciando wizard.');
+                $this->resetToStart('Nenhum plano foi selecionado. Por favor, selecione um plano.');
+                return;
+            }
+        }
+    }
+    
+    /**
+     * Resetar wizard para o início com mensagem
+     */
+    protected function resetToStart($message = null)
+    {
+        $this->clearWizardProgress();
+        $this->reset([
+            'name', 'email', 'password', 'password_confirmation',
+            'company_name', 'company_nif', 'company_address', 'company_phone', 'company_email',
+            'selected_plan_id', 'payment_method', 'payment_reference'
+        ]);
+        $this->currentStep = $this->isLoggedIn ? 2 : 1;
+        
+        if ($message) {
+            session()->flash('warning', $message);
+        }
+        
+        // Limpar erros de validação
+        $this->resetErrorBag();
     }
     
     /**
@@ -189,19 +247,43 @@ class RegisterWizard extends Component
     
     public function nextStep()
     {
-        if ($this->currentStep == 1) {
-            $this->validateStep1();
-            $this->currentStep = 2;
-        } elseif ($this->currentStep == 2) {
-            $this->validateStep2();
-            $this->currentStep = 3;
-        } elseif ($this->currentStep == 3) {
-            $this->validateStep3();
-            $this->currentStep = 4;
+        try {
+            if ($this->currentStep == 1) {
+                $this->validateStep1();
+                $this->currentStep = 2;
+            } elseif ($this->currentStep == 2) {
+                $this->validateStep2();
+                $this->currentStep = 3;
+            } elseif ($this->currentStep == 3) {
+                $this->validateStep3();
+                $this->currentStep = 4;
+            }
+            
+            // Salvar progresso após avançar
+            $this->saveWizardProgress();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Se erro de validação, verificar se dados foram perdidos
+            $this->checkIfDataLostAndReset($e);
+            throw $e;
         }
+    }
+    
+    /**
+     * Verificar se dados foram perdidos (refresh) e resetar wizard
+     */
+    protected function checkIfDataLostAndReset($validationException)
+    {
+        $errors = $validationException->errors();
         
-        // Salvar progresso após avançar
-        $this->saveWizardProgress();
+        // Se há muitos erros (>= 3), provavelmente refresh perdeu dados
+        if (count($errors) >= 3) {
+            \Log::warning('Múltiplos erros de validação detectados, possível perda de dados após refresh', [
+                'errors_count' => count($errors),
+                'current_step' => $this->currentStep
+            ]);
+            
+            $this->resetToStart('Dados do formulário foram perdidos. Por favor, preencha novamente desde o início.');
+        }
     }
     
     public function previousStep()
@@ -348,7 +430,8 @@ class RegisterWizard extends Component
             
             // Determinar status baseado em pagamento
             $hasPaidProof = $this->payment_reference || $paymentProofPath;
-            $hasTrialPeriod = $plan->trial_days > 0;
+            $trialDays = (int) $plan->trial_days; // Converter para inteiro
+            $hasTrialPeriod = $trialDays > 0;
             
             // Se pagou, aguarda aprovação. Se não pagou mas tem trial, inicia trial
             $now = now();
@@ -359,7 +442,7 @@ class RegisterWizard extends Component
                 $periodEnd = null;
             } elseif ($hasTrialPeriod) {
                 $status = 'trial';
-                $trialEndsAt = $now->copy()->addDays($plan->trial_days);
+                $trialEndsAt = $now->copy()->addDays($trialDays);
                 $periodStart = $now;
                 $periodEnd = $trialEndsAt;
             } else {
@@ -441,7 +524,7 @@ class RegisterWizard extends Component
             if ($status === 'pending') {
                 session()->flash('success', 'Empresa criada com sucesso! Seu pagamento está aguardando aprovação. Você receberá acesso total assim que for aprovado.');
             } elseif ($status === 'trial') {
-                session()->flash('success', "Empresa criada com sucesso! Você tem {$plan->trial_days} dias de teste grátis. Bem-vindo ao SOSERP!");
+                session()->flash('success', "Empresa criada com sucesso! Você tem {$trialDays} dias de teste grátis. Bem-vindo ao SOSERP!");
             } else {
                 session()->flash('success', 'Empresa criada com sucesso! Bem-vindo ao SOSERP.');
             }

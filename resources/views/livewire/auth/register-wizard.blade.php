@@ -10,13 +10,35 @@
             </a>
         </div>
 
-        <!-- Error Messages -->
+        <!-- Messages -->
         @if (session()->has('error'))
             <div class="mb-6 bg-red-50 border-2 border-red-500 rounded-2xl p-4 text-red-800">
                 <div class="flex items-center">
                     <i class="fas fa-exclamation-circle text-2xl mr-3"></i>
                     <div>
                         <strong>Erro:</strong> {{ session('error') }}
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        @if (session()->has('warning'))
+            <div class="mb-6 bg-yellow-50 border-2 border-yellow-500 rounded-2xl p-4 text-yellow-800">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-2xl mr-3"></i>
+                    <div>
+                        <strong>Atenção:</strong> {{ session('warning') }}
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        @if (session()->has('info'))
+            <div class="mb-6 bg-blue-50 border-2 border-blue-500 rounded-2xl p-4 text-blue-800">
+                <div class="flex items-center">
+                    <i class="fas fa-info-circle text-2xl mr-3"></i>
+                    <div>
+                        <strong>Informação:</strong> {{ session('info') }}
                     </div>
                 </div>
             </div>
@@ -37,17 +59,28 @@
                         <div></div>
                     @endif
                     
-                    <!-- Indicador de Progresso Salvo -->
-                    @php
-                        $savedProgress = session('wizard_progress');
-                        $savedAt = $savedProgress['saved_at'] ?? null;
-                    @endphp
-                    @if($savedAt)
-                        <div class="inline-flex items-center px-3 py-1 bg-green-500/20 backdrop-blur-sm rounded-full text-white text-xs">
-                            <i class="fas fa-check-circle mr-1"></i>
-                            Progresso salvo
-                        </div>
-                    @endif
+                    <div class="flex items-center gap-3">
+                        <!-- Indicador de Progresso Salvo -->
+                        @php
+                            $savedProgress = session('wizard_progress');
+                            $savedAt = $savedProgress['saved_at'] ?? null;
+                        @endphp
+                        @if($savedAt)
+                            <div class="inline-flex items-center px-3 py-1 bg-green-500/20 backdrop-blur-sm rounded-full text-white text-xs">
+                                <i class="fas fa-check-circle mr-1"></i>
+                                Progresso salvo
+                            </div>
+                        @endif
+                        
+                        <!-- Botão Recomeçar -->
+                        <button wire:click="restartWizard" 
+                                onclick="return confirm('Deseja realmente recomeçar? Todo o progresso será perdido.')"
+                                class="inline-flex items-center px-3 py-1 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-white text-xs transition"
+                                title="Recomeçar wizard do zero">
+                            <i class="fas fa-redo mr-1"></i>
+                            Recomeçar
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="flex items-center justify-between max-w-2xl mx-auto">
