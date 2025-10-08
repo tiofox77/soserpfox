@@ -286,6 +286,65 @@ class RegisterWizard extends Component
         }
     }
     
+    /**
+     * Criar roles padrão para um novo tenant (Sistema de Níveis)
+     */
+    protected function createDefaultRolesForTenant($tenantId)
+    {
+        \Log::info('Criando roles padrão para tenant', ['tenant_id' => $tenantId]);
+        
+        // Buscar todas as permissões globais
+        $allPermissions = \Spatie\Permission\Models\Permission::all();
+        
+        // Definir estrutura de roles por nível
+        $roleLevels = [
+            'Super Admin' => [
+                'permissions' => $allPermissions->pluck('name')->toArray(), // TODAS
+            ],
+            'Admin' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    // Admin tem tudo EXCETO gestão de sistema
+                    return !str_contains($perm->name, 'system.');
+                })->pluck('name')->toArray(),
+            ],
+            'Gestor' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    // Gestor: view, create e edit (sem delete)
+                    return str_contains($perm->name, '.view') || 
+                           str_contains($perm->name, '.create') ||
+                           str_contains($perm->name, '.edit');
+                })->pluck('name')->toArray(),
+            ],
+            'Utilizador' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    // Utilizador: apenas view
+                    return str_contains($perm->name, '.view');
+                })->pluck('name')->toArray(),
+            ],
+        ];
+        
+        // Criar cada role com suas permissões
+        foreach ($roleLevels as $roleName => $config) {
+            $role = \Spatie\Permission\Models\Role::firstOrCreate(
+                ['name' => $roleName, 'guard_name' => 'web', 'tenant_id' => $tenantId]
+            );
+            
+            // Sincronizar permissões
+            $permissions = \Spatie\Permission\Models\Permission::whereIn('name', $config['permissions'])->get();
+            $role->syncPermissions($permissions);
+            
+            \Log::info("Role '{$roleName}' criada", [
+                'tenant_id' => $tenantId,
+                'permissions_count' => $permissions->count()
+            ]);
+        }
+        
+        \Log::info('Todas as roles padrão criadas para tenant', [
+            'tenant_id' => $tenantId,
+            'roles' => array_keys($roleLevels)
+        ]);
+    }
+    
     public function previousStep()
     {
         // Se usuário logado, não deixar voltar para o passo 1
@@ -373,9 +432,9 @@ class RegisterWizard extends Component
                     'email' => $this->email,
                     'password' => Hash::make($this->password),
                     'is_active' => true,
-                    'is_super_admin' => true, // Primeiro usuário é super admin
+                    'is_super_admin' => false, // Usuário do tenant, não é super admin do sistema
                 ]);
-                \Log::info('Usuário criado', ['user_id' => $user->id, 'is_super_admin' => true]);
+                \Log::info('Usuário criado', ['user_id' => $user->id, 'is_super_admin' => false]);
             }
             
             // 2. Criar tenant/empresa
@@ -391,8 +450,8 @@ class RegisterWizard extends Component
             ]);
             \Log::info('Tenant criado', ['tenant_id' => $tenant->id]);
             
-            // 3. Vincular usuário ao tenant como owner/super-admin
-            \Log::info('Vinculando usuário ao tenant como Super Admin...');
+            // 3. Vincular usuário ao tenant como owner/admin do tenant
+            \Log::info('Vinculando usuário ao tenant como Admin do Tenant...');
             $user->tenants()->attach($tenant->id, [
                 'is_active' => true,
                 'joined_at' => now(),
@@ -402,18 +461,26 @@ class RegisterWizard extends Component
             $user->tenant_id = $tenant->id;
             $user->save();
             
-            // 3.2 Atribuir role Super Admin usando Spatie Permission
+            // 3.2 Criar roles padrão para o tenant
             setPermissionsTeamId($tenant->id);
-            $superAdminRole = \Spatie\Permission\Models\Role::firstOrCreate(
-                ['name' => 'super-admin', 'guard_name' => 'web'],
-                ['tenant_id' => $tenant->id]
-            );
-            $user->assignRole($superAdminRole);
             
-            \Log::info('Usuário vinculado ao tenant como Super Admin e tenant definido como ativo', [
+            // Criar roles padrão do tenant
+            $this->createDefaultRolesForTenant($tenant->id);
+            
+            // Atribuir role 'Super Admin' ao dono do tenant
+            $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Admin')
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            
+            if ($superAdminRole) {
+                $user->assignRole($superAdminRole);
+            }
+            
+            \Log::info('Usuário vinculado ao tenant como Admin do Tenant (role: Super Admin)', [
                 'user_tenant_id' => $user->tenant_id,
-                'role' => 'super-admin',
-                'role_id' => $superAdminRole->id
+                'role' => 'Super Admin',
+                'role_id' => $superAdminRole->id,
+                'is_system_super_admin' => false
             ]);
             
             // 4. Salvar comprovativo de pagamento se houver
@@ -428,28 +495,54 @@ class RegisterWizard extends Component
             \Log::info('Criando subscription...');
             $plan = Plan::find($this->selected_plan_id);
             
-            // Determinar status baseado em pagamento
+            // Determinar status baseado em pagamento e configuração do plano
             $hasPaidProof = $this->payment_reference || $paymentProofPath;
             $trialDays = (int) $plan->trial_days; // Converter para inteiro
             $hasTrialPeriod = $trialDays > 0;
+            $autoActivate = (bool) $plan->auto_activate; // Ativação automática
             
-            // Se pagou, aguarda aprovação. Se não pagou mas tem trial, inicia trial
+            // Lógica de ativação
             $now = now();
-            if ($hasPaidProof) {
-                $status = 'pending'; // Aguarda aprovação do Super Admin
-                $trialEndsAt = null;
-                $periodStart = null; // Só inicia quando aprovar
-                $periodEnd = null;
-            } elseif ($hasTrialPeriod) {
+            
+            if ($autoActivate && !$hasPaidProof && $hasTrialPeriod) {
+                // ATIVAÇÃO AUTOMÁTICA COM TRIAL
                 $status = 'trial';
                 $trialEndsAt = $now->copy()->addDays($trialDays);
                 $periodStart = $now;
                 $periodEnd = $trialEndsAt;
-            } else {
+                \Log::info('Ativação automática com trial', ['trial_days' => $trialDays]);
+                
+            } elseif ($autoActivate && !$hasPaidProof && !$hasTrialPeriod) {
+                // ATIVAÇÃO AUTOMÁTICA SEM TRIAL (ativa direto por 30 dias)
+                $status = 'active';
+                $trialEndsAt = null;
+                $periodStart = $now;
+                $periodEnd = $now->copy()->addDays(30); // 30 dias de cortesia
+                \Log::info('Ativação automática sem trial', ['days' => 30]);
+                
+            } elseif ($hasPaidProof) {
+                // PAGOU: aguarda aprovação
                 $status = 'pending';
                 $trialEndsAt = null;
                 $periodStart = null;
                 $periodEnd = null;
+                \Log::info('Aguardando aprovação de pagamento');
+                
+            } elseif ($hasTrialPeriod) {
+                // TEM TRIAL mas não tem auto-ativação: inicia trial
+                $status = 'trial';
+                $trialEndsAt = $now->copy()->addDays($trialDays);
+                $periodStart = $now;
+                $periodEnd = $trialEndsAt;
+                \Log::info('Trial iniciado', ['trial_days' => $trialDays]);
+                
+            } else {
+                // SEM TRIAL e SEM AUTO-ATIVAÇÃO: aguarda aprovação
+                $status = 'pending';
+                $trialEndsAt = null;
+                $periodStart = null;
+                $periodEnd = null;
+                \Log::info('Aguardando aprovação manual');
             }
             
             $subscription = $tenant->subscriptions()->create([
@@ -506,6 +599,45 @@ class RegisterWizard extends Component
             \Log::info('Commit da transação...');
             DB::commit();
             \Log::info('Transação commitada com sucesso!');
+            
+            // Enviar email de boas-vindas
+            try {
+                \Log::info('===== INICIANDO ENVIO DE EMAIL DE BOAS-VINDAS =====', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'user_name' => $user->name,
+                    'tenant_id' => $tenant->id,
+                    'tenant_name' => $tenant->name,
+                ]);
+                
+                $emailData = [
+                    'user_name' => $user->name,
+                    'tenant_name' => $tenant->name,
+                    'app_name' => config('app.name', 'SOS ERP'),
+                    'login_url' => route('login'),
+                ];
+                
+                \Log::info('Dados do email preparados', $emailData);
+                
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->send(new \App\Mail\TemplateMail('welcome', $emailData, $tenant->id));
+                    
+                \Log::info('===== EMAIL DE BOAS-VINDAS ENVIADO COM SUCESSO! =====', [
+                    'destinatario' => $user->email,
+                    'template' => 'welcome',
+                ]);
+                
+            } catch (\Exception $emailError) {
+                \Log::error('===== ERRO AO ENVIAR EMAIL DE BOAS-VINDAS =====', [
+                    'error_message' => $emailError->getMessage(),
+                    'error_file' => $emailError->getFile(),
+                    'error_line' => $emailError->getLine(),
+                    'error_trace' => $emailError->getTraceAsString(),
+                    'user_email' => $user->email,
+                    'tenant_id' => $tenant->id,
+                ]);
+                // Não falha o registro se o email falhar
+            }
             
             // Limpar progresso do wizard após sucesso
             $this->clearWizardProgress();

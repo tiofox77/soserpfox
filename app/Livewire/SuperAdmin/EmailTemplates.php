@@ -162,6 +162,14 @@ class EmailTemplates extends Component
             $template = EmailTemplate::findOrFail($this->testTemplateId);
             $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
             
+            // ✅ IMPORTANTE: Configurar SMTP ANTES de enviar
+            if (!$smtpSetting) {
+                throw new \Exception('Nenhuma configuração SMTP encontrada. Por favor, configure o SMTP em /superadmin/smtp-settings primeiro.');
+            }
+            
+            // Configurar SMTP com as credenciais corretas
+            $smtpSetting->configure();
+            
             // Dados de exemplo para o teste
             $sampleData = [
                 'user_name' => auth()->user()->name ?? 'Usuário Teste',
@@ -192,9 +200,24 @@ class EmailTemplates extends Component
                 'template_data' => $sampleData,
             ]);
             
-            // Enviar email
+            // Log antes de enviar
+            \Log::info('🚀 Iniciando envio de email de teste', [
+                'template' => $template->slug,
+                'to' => $this->testEmail,
+                'smtp_id' => $smtpSetting->id,
+                'smtp_host' => $smtpSetting->host,
+                'smtp_port' => $smtpSetting->port,
+                'smtp_encryption' => $smtpSetting->encryption,
+            ]);
+            
+            // Enviar email (TemplateMail.php já configura SMTP novamente, mas deixamos aqui também)
             $mail = new \App\Mail\TemplateMail($template->slug, $sampleData);
             \Illuminate\Support\Facades\Mail::to($this->testEmail)->send($mail);
+            
+            \Log::info('✅ Email enviado com sucesso (sem exceção)', [
+                'to' => $this->testEmail,
+                'template' => $template->slug
+            ]);
             
             // Marcar log como enviado
             if ($emailLog) {

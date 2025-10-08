@@ -141,6 +141,20 @@ class SystemCommands extends Component
                 'color' => 'gray',
                 'params' => [],
             ],
+            'fix_roles_permissions' => [
+                'name' => 'Corrigir Roles e Permissões',
+                'description' => 'Corrige roles e permissões de todos os usuários e tenants. Cria roles padrão, sincroniza permissões e corrige usuários sem roles.',
+                'command' => 'users:fix-roles-permissions',
+                'icon' => 'user-shield',
+                'color' => 'teal',
+                'params' => [
+                    'dry-run' => [
+                        'label' => 'Modo Teste (Dry-Run) - Simula sem fazer alterações',
+                        'type' => 'checkbox',
+                        'required' => false,
+                    ],
+                ],
+            ],
         ];
     }
 

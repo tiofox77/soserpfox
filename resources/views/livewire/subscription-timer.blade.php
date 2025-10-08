@@ -29,7 +29,15 @@
                 <i class="fas {{ $data['expired'] ? 'fa-exclamation-triangle' : 'fa-clock' }} text-white text-sm"></i>
             </div>
             <div class="text-white">
-                <div class="text-xs font-medium opacity-90">{{ $data['expired'] ? 'Expirado!' : 'Plano' }}</div>
+                <div class="text-xs font-medium opacity-90">
+                    @if($data['expired'])
+                        Expirado!
+                    @elseif(($data['subscription_type'] ?? 'plan') === 'trial')
+                        🎁 Trial
+                    @else
+                        Plano
+                    @endif
+                </div>
                 <div class="text-lg font-bold leading-none">
                     @if($data['expired'])
                         0d
@@ -92,7 +100,12 @@
                             
                             <p class="text-xs text-gray-600">
                                 <i class="fas fa-calendar mr-1"></i>
-                                Expira em: <strong>{{ $data['ends_at'] }}</strong>
+                                @if(($data['subscription_type'] ?? 'plan') === 'trial')
+                                    <span class="text-purple-600 font-semibold">🎁 Trial termina em:</span>
+                                @else
+                                    Expira em:
+                                @endif
+                                <strong>{{ $data['ends_at'] }}</strong>
                             </p>
                         </div>
                         
@@ -113,24 +126,47 @@
                                         @endif
                                     </p>
                                     <p class="text-xs text-gray-600 mt-1">
+                                        @php
+                                            $isTrial = ($data['subscription_type'] ?? 'plan') === 'trial';
+                                        @endphp
                                         @if($data['days'] <= 3)
-                                            Sua subscription expira em breve! Renove agora para evitar interrupções.
+                                            @if($isTrial)
+                                                🎁 Seu trial termina em breve! Assine um plano para continuar.
+                                            @else
+                                                Sua subscription expira em breve! Renove agora para evitar interrupções.
+                                            @endif
                                         @elseif($data['days'] <= 7)
-                                            Planeje renovar sua subscription nos próximos dias.
+                                            @if($isTrial)
+                                                🎁 Seu trial está terminando em breve. Aproveite para conhecer todos os recursos!
+                                            @else
+                                                Planeje renovar sua subscription nos próximos dias.
+                                            @endif
                                         @elseif($data['days'] <= 15)
-                                            Sua subscription está se aproximando da data de renovação.
+                                            @if($isTrial)
+                                                🎁 Você está em período de trial. Explore todas as funcionalidades!
+                                            @else
+                                                Sua subscription está se aproximando da data de renovação.
+                                            @endif
                                         @else
-                                            Sua subscription está ativa e válida.
+                                            @if($isTrial)
+                                                🎁 Aproveite seu período de trial grátis!
+                                            @else
+                                                Sua subscription está ativa e válida.
+                                            @endif
                                         @endif
                                     </p>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Botão Renovar -->
+                        <!-- Botão Renovar/Assinar -->
                         @if($data['days'] <= 15)
                             <a href="{{ route('my-account') }}?tab=plan" class="block w-full text-center px-4 py-2 bg-gradient-to-r {{ $colorClasses[$data['color']] ?? 'from-gray-500 to-gray-600' }} text-white rounded-lg font-semibold text-sm hover:scale-105 transition shadow-lg">
-                                <i class="fas fa-arrow-up mr-2"></i>Renovar Subscription
+                                @if(($data['subscription_type'] ?? 'plan') === 'trial')
+                                    <i class="fas fa-star mr-2"></i>Assinar Plano
+                                @else
+                                    <i class="fas fa-arrow-up mr-2"></i>Renovar Subscription
+                                @endif
                             </a>
                         @endif
                     @endif

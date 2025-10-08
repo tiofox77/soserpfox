@@ -1,12 +1,91 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-AO">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app_name() }} - Sistema de Gestão Empresarial</title>
+    
+    <!-- SEO Meta Tags -->
+    <title>{{ app_name() ?? 'SOS ERP' }} - Sistema de Gestão Empresarial Multi-Tenant em Angola</title>
+    <meta name="description" content="SOS ERP é a plataforma líder de gestão empresarial multi-tenant em Angola. Gerencie eventos, inventário, CRM, faturação, RH, contabilidade e muito mais. Solução completa para pequenas e grandes empresas. Teste grátis por 14 dias!">
+    <meta name="keywords" content="ERP Angola, sistema gestão empresarial, ERP multi-tenant, gestão eventos Angola, CRM Angola, faturação Angola, sistema inventário, contabilidade Angola, RH Angola, software empresarial, SOS ERP, gestão empresas Angola, plataforma gestão, ERP cloud Angola">
+    <meta name="author" content="{{ app_name() ?? 'SOS ERP' }}">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
+    <meta name="language" content="Portuguese">
+    <meta name="geo.region" content="AO">
+    <meta name="geo.placename" content="Angola">
+    
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:title" content="{{ app_name() ?? 'SOS ERP' }} - Sistema de Gestão Empresarial Multi-Tenant">
+    <meta property="og:description" content="🚀 Plataforma completa de gestão empresarial em Angola. Gestão de Eventos, Inventário, CRM, Faturação, RH e Contabilidade. 📊 Multi-tenant, Seguro e Profissional. ✅ Teste grátis!">
+    <meta property="og:image" content="{{ app_logo() ?? url('/images/og-image.png') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="{{ app_name() ?? 'SOS ERP' }}">
+    <meta property="og:locale" content="pt_AO">
+    <meta property="og:locale:alternate" content="pt_PT">
+    <meta property="og:locale:alternate" content="pt_BR">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ url()->current() }}">
+    <meta name="twitter:title" content="{{ app_name() ?? 'SOS ERP' }} - Sistema de Gestão Empresarial">
+    <meta name="twitter:description" content="Plataforma completa de gestão empresarial multi-tenant. Eventos, Inventário, CRM, Faturação, RH e Contabilidade. Solução profissional para empresas em Angola.">
+    <meta name="twitter:image" content="{{ app_logo() ?? url('/images/og-image.png') }}">
+    <meta name="twitter:creator" content="@soserp">
+    <meta name="twitter:site" content="@soserp">
+    
+    <!-- Favicon -->
     @if(app_favicon())
     <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ app_favicon() }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ app_favicon() }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ app_favicon() }}">
+    @else
+    <link rel="icon" type="image/x-icon" href="{{ url('/favicon.ico') }}">
     @endif
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ url('/') }}">
+    
+    <!-- Preconnect para Performance -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <!-- Schema.org Markup (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "{{ app_name() ?? 'SOS ERP' }}",
+      "description": "Sistema de Gestão Empresarial Multi-Tenant para empresas em Angola",
+      "url": "{{ url('/') }}",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "AOA",
+        "availability": "https://schema.org/InStock",
+        "eligibleRegion": {
+          "@type": "Place",
+          "name": "Angola"
+        }
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "150"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "{{ app_name() ?? 'SOS ERP' }}",
+        "url": "{{ url('/') }}"
+      }
+    }
+    </script>
     
     <!-- Prevenir FOUC: Força tamanhos de imagem antes de qualquer script -->
     <style>

@@ -25,12 +25,37 @@ class SubscriptionTimer extends Component
         
         $subscription = $tenant->activeSubscription;
         
-        if (!$subscription || !$subscription->ends_at) {
+        if (!$subscription) {
             return null;
         }
         
         $now = now();
-        $endsAt = $subscription->ends_at;
+        $endsAt = null;
+        $subscriptionType = 'plan'; // 'trial' ou 'plan'
+        
+        // Determinar qual data usar baseado no status
+        if ($subscription->status === 'trial' && $subscription->trial_ends_at) {
+            // TRIAL: usar trial_ends_at
+            $endsAt = $subscription->trial_ends_at;
+            $subscriptionType = 'trial';
+        } elseif ($subscription->status === 'active' && $subscription->current_period_end) {
+            // ATIVO: usar current_period_end
+            $endsAt = $subscription->current_period_end;
+            $subscriptionType = 'plan';
+        } elseif ($subscription->status === 'pending' && $subscription->current_period_end) {
+            // PENDENTE: usar current_period_end
+            $endsAt = $subscription->current_period_end;
+            $subscriptionType = 'plan';
+        } elseif ($subscription->ends_at) {
+            // CANCELADO ou outro: usar ends_at
+            $endsAt = $subscription->ends_at;
+            $subscriptionType = 'plan';
+        }
+        
+        // Se não há data definida
+        if (!$endsAt) {
+            return null;
+        }
         
         // Se já expirou
         if ($endsAt->isPast()) {
@@ -39,8 +64,9 @@ class SubscriptionTimer extends Component
                 'days' => 0,
                 'status' => 'expired',
                 'color' => 'red',
-                'message' => 'Expirado',
+                'message' => $subscriptionType === 'trial' ? 'Trial Expirado' : 'Expirado',
                 'plan_name' => $subscription->plan->name ?? 'N/A',
+                'subscription_type' => $subscriptionType,
             ];
         }
         
@@ -76,6 +102,8 @@ class SubscriptionTimer extends Component
             'ends_at' => $endsAt->format('d/m/Y H:i'),
             'plan_name' => $subscription->plan->name ?? 'N/A',
             'billing_cycle' => $subscription->billing_cycle,
+            'subscription_type' => $subscriptionType, // 'trial' ou 'plan'
+            'subscription_status' => $subscription->status, // trial, active, pending, cancelled
         ];
     }
     

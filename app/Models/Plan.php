@@ -26,6 +26,7 @@ class Plan extends Model
         'is_active',
         'is_featured',
         'trial_days',
+        'auto_activate',
         'order',
     ];
 
@@ -38,6 +39,7 @@ class Plan extends Model
         'included_modules' => 'array',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'auto_activate' => 'boolean',
         'trial_days' => 'integer',
         'max_users' => 'integer',
         'max_companies' => 'integer',

@@ -7,11 +7,37 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ app_name() }}</title>
+    <!-- SEO Meta Tags -->
+    <title>{{ $title ?? config('app.name', 'SOS ERP') }} | Sistema de Gestão Empresarial</title>
+    <meta name="description" content="SOS ERP - Sistema completo de gestão empresarial. Gerencie eventos, inventário, CRM, faturação e muito mais. Solução profissional para empresas em Angola.">
+    <meta name="keywords" content="ERP, gestão empresarial, sistema de gestão, Angola, eventos, inventário, CRM, faturação, contabilidade">
+    <meta name="author" content="SOS ERP">
+    <meta name="robots" content="index, follow">
     
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:title" content="{{ config('app.name', 'SOS ERP') }} - Sistema de Gestão Empresarial">
+    <meta property="og:description" content="Sistema completo de gestão empresarial. Gerencie eventos, inventário, CRM, faturação e muito mais.">
+    <meta property="og:image" content="{{ app_logo() ?? asset('images/logo.png') }}">
+    <meta property="og:site_name" content="{{ config('app.name', 'SOS ERP') }}">
+    <meta property="og:locale" content="pt_AO">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ url()->current() }}">
+    <meta name="twitter:title" content="{{ config('app.name', 'SOS ERP') }} - Sistema de Gestão Empresarial">
+    <meta name="twitter:description" content="Sistema completo de gestão empresarial. Gerencie eventos, inventário, CRM, faturação e muito mais.">
+    <meta name="twitter:image" content="{{ app_logo() ?? asset('images/logo.png') }}">
+    
+    <!-- Favicon -->
     @if(app_favicon())
     <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
+    <link rel="apple-touch-icon" href="{{ app_favicon() }}">
     @endif
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ url()->current() }}">
 
     <!-- Prevenir FOUC: Força tamanhos de imagem antes de qualquer script -->
     <style>
@@ -792,6 +818,12 @@
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.manager') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-list w-5 text-green-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Lista de Eventos</span>
+                                </a>
+                                
+                                <a href="{{ route('events.reports') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.reports') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-bar w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
                                 </a>
                                 
                                 <a href="{{ route('events.equipment.index') }}" 

@@ -69,20 +69,37 @@ class SmtpSetting extends Model
      */
     public function configure()
     {
-        Config::set('mail.mailers.smtp', [
+        $config = [
             'transport' => 'smtp',
             'host' => $this->host,
-            'port' => $this->port,
+            'port' => (int) $this->port,
             'encryption' => $this->encryption,
             'username' => $this->username,
             'password' => $this->password,
-            'timeout' => null,
-        ]);
+            'timeout' => 30,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(config('app.url'), PHP_URL_HOST)),
+        ];
+        
+        // Para SSL (porta 465), configurações adicionais
+        if ($this->encryption === 'ssl' && $this->port == 465) {
+            $config['stream'] = [
+                'ssl' => [
+                    'allow_self_signed' => true,
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ],
+            ];
+        }
+        
+        Config::set('mail.mailers.smtp', $config);
 
         Config::set('mail.from', [
             'address' => $this->from_email,
             'name' => $this->from_name,
         ]);
+        
+        // Forçar o mailer padrão para SMTP
+        Config::set('mail.default', 'smtp');
     }
 
     /**
@@ -91,13 +108,31 @@ class SmtpSetting extends Model
     public function testConnection(): array
     {
         try {
+            // Ajustar host para SSL se necessário
+            $host = $this->host;
+            
+            // Se for SSL na porta 465, adicionar prefixo ssl://
+            if ($this->encryption === 'ssl' && $this->port == 465) {
+                $host = 'ssl://' . $host;
+            }
+            
+            // Criar contexto SSL com opções mais permissivas
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true,
+                ]
+            ]);
+            
             // Testar conexão socket direta
-            $socket = @fsockopen(
-                $this->host,
-                $this->port,
+            $socket = @stream_socket_client(
+                $host . ':' . $this->port,
                 $errno,
                 $errstr,
-                10
+                10,
+                STREAM_CLIENT_CONNECT,
+                $context
             );
 
             if (!$socket) {
@@ -118,7 +153,7 @@ class SmtpSetting extends Model
             
             return [
                 'success' => true,
-                'message' => 'Conexão SMTP estabelecida com sucesso! Host: ' . $this->host . ':' . $this->port,
+                'message' => 'Conexão SMTP estabelecida com sucesso! Host: ' . $this->host . ':' . $this->port . ' (' . strtoupper($this->encryption) . ')',
             ];
         } catch (\Exception $e) {
             return [

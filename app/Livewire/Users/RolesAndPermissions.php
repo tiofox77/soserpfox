@@ -42,11 +42,19 @@ class RolesAndPermissions extends Component
 
     public function render()
     {
-        $roles = Role::withCount('permissions', 'users')->get();
+        // Definir contexto do tenant
+        $tenantId = activeTenantId();
+        setPermissionsTeamId($tenantId);
+        
+        // Buscar APENAS roles do tenant atual
+        $roles = Role::withCount('permissions', 'users')
+            ->where('tenant_id', $tenantId)
+            ->get();
+            
         $permissions = Permission::all()->groupBy(function($permission) {
             return explode('.', $permission->name)[0]; // Group by module
         });
-        $users = User::with('roles')->where('tenant_id', activeTenantId())->get();
+        $users = User::with('roles')->where('tenant_id', $tenantId)->get();
         $allPermissions = Permission::orderBy('name')->get();
 
         return view('livewire.users.roles-and-permissions', [
@@ -100,7 +108,12 @@ class RolesAndPermissions extends Component
         $this->resetRoleForm();
         
         if ($roleId) {
-            $role = Role::findOrFail($roleId);
+            // Garantir que a role pertence ao tenant atual
+            $tenantId = activeTenantId();
+            $role = Role::where('id', $roleId)
+                ->where('tenant_id', $tenantId)
+                ->firstOrFail();
+                
             $this->editingRole = $roleId;
             $this->roleName = $role->name;
             $this->roleDescription = $role->description ?? '';
@@ -116,6 +129,10 @@ class RolesAndPermissions extends Component
             'roleName' => 'required|min:3',
             'roleDescription' => 'nullable',
         ]);
+        
+        // Definir contexto do tenant
+        $tenantId = activeTenantId();
+        setPermissionsTeamId($tenantId);
 
         if ($this->editingRole) {
             $role = Role::findOrFail($this->editingRole);
@@ -125,8 +142,11 @@ class RolesAndPermissions extends Component
             ]);
             $message = 'Role atualizado com sucesso!';
         } else {
+            // Criar role COM tenant_id
             $role = Role::create([
                 'name' => $this->roleName,
+                'guard_name' => 'web',
+                'tenant_id' => $tenantId,
                 'description' => $this->roleDescription,
             ]);
             $message = 'Role criado com sucesso!';
@@ -169,7 +189,11 @@ class RolesAndPermissions extends Component
 
     public function deleteRole()
     {
-        $role = Role::findOrFail($this->deletingItem);
+        // Garantir que a role pertence ao tenant atual
+        $tenantId = activeTenantId();
+        $role = Role::where('id', $this->deletingItem)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
         
         // Check if role has users
         if ($role->users()->count() > 0) {
@@ -252,13 +276,19 @@ class RolesAndPermissions extends Component
 
     public function assignRoles()
     {
-        $user = User::findOrFail($this->selectedUser);
+        $tenantId = activeTenantId();
+        $user = User::where('id', $this->selectedUser)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
         
         // Definir o tenant_id para as operações do Spatie Permission
-        setPermissionsTeamId($user->tenant_id);
+        setPermissionsTeamId($tenantId);
         
-        // Converter IDs para objetos Role
-        $roles = Role::whereIn('id', $this->selectedRoles)->get();
+        // Converter IDs para objetos Role (APENAS do tenant atual)
+        $roles = Role::whereIn('id', $this->selectedRoles)
+            ->where('tenant_id', $tenantId)
+            ->get();
+            
         $user->syncRoles($roles);
         
         // Limpar cache de permissões para aplicar imediatamente

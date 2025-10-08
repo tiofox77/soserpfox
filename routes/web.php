@@ -8,6 +8,10 @@ Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('
 // Custom Register Wizard
 Route::get('/register', \App\Livewire\Auth\RegisterWizard::class)->name('register');
 
+// User Invitation Routes
+Route::get('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'show'])->name('invitation.accept');
+Route::post('/invitation/{token}', [App\Http\Controllers\InvitationController::class, 'accept'])->name('invitation.accept.post');
+
 // Auth routes (sem register padrão)
 Auth::routes(['register' => false]);
 
@@ -27,6 +31,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'superadmin'])->prefix('users')->name('users.')->group(function () {
     Route::get('/', \App\Livewire\Users\UserManagement::class)->name('index');
     Route::get('/roles-permissions', \App\Livewire\Users\RolesAndPermissions::class)->name('roles-permissions');
+    Route::get('/invitations', \App\Livewire\Users\InviteUser::class)->name('invitations');
 });
 
 // Super Admin Routes
@@ -193,6 +198,9 @@ Route::middleware(['auth'])->prefix('events')->name('events.')->group(function (
     
     // Eventos
     Route::get('/manager', \App\Livewire\Events\EventsManager::class)->name('manager');
+    
+    // Relatórios
+    Route::get('/reports', \App\Livewire\Events\Reports::class)->name('reports');
     
     // Equipamentos
     Route::prefix('equipment')->name('equipment.')->group(function () {

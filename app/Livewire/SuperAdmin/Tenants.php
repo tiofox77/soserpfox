@@ -505,6 +505,7 @@ class Tenants extends Component
             // Buscar roles de cada usuário via Spatie
             setPermissionsTeamId($this->managingTenantId);
             foreach ($tenantUsers as $tenantUser) {
+                // A tabela model_has_roles usa 'tenant_id' como pivot
                 $tenantUser->current_role = $tenantUser->roles()
                     ->wherePivot('tenant_id', $this->managingTenantId)
                     ->first();

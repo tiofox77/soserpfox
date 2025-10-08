@@ -44,12 +44,38 @@ class TemplateMail extends Mailable
 
         // Configurar SMTP
         $smtpSetting = SmtpSetting::getForTenant($this->tenantId);
-        if ($smtpSetting) {
+        
+        if (!$smtpSetting) {
+            \Log::warning('⚠️ Nenhuma configuração SMTP encontrada para tenant. Usando configuração padrão do sistema (.env)', [
+                'tenant_id' => $this->tenantId,
+                'template' => $this->templateSlug,
+                'default_mailer' => config('mail.default'),
+                'default_host' => config('mail.mailers.smtp.host'),
+            ]);
+            
+            // Usar configuração padrão do sistema (não lançar exceção)
+            // O Laravel usará as configurações do .env
+            
+        } else {
+            \Log::info('📧 Configurando SMTP personalizado para envio de email', [
+                'template' => $this->templateSlug,
+                'smtp_host' => $smtpSetting->host,
+                'smtp_port' => $smtpSetting->port,
+                'smtp_encryption' => $smtpSetting->encryption,
+                'from_email' => $smtpSetting->from_email,
+            ]);
+            
+            // Configurar SMTP personalizado
             $smtpSetting->configure();
         }
 
         // Renderizar template com dados
         $rendered = $template->render($this->data);
+        
+        \Log::info('📨 Email renderizado e pronto para envio', [
+            'subject' => $rendered['subject'],
+            'to' => $this->to ?? 'não definido ainda'
+        ]);
 
         return $this->subject($rendered['subject'])
             ->html($rendered['body_html'])

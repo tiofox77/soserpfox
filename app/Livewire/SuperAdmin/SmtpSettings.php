@@ -217,20 +217,27 @@ class SmtpSettings extends Component
                 ],
             ]);
             
+            // Log antes de enviar
+            \Log::info('🚀 Iniciando envio de email de teste SMTP', [
+                'to' => $this->sendTestEmail,
+                'smtp_id' => $setting->id,
+                'smtp_host' => $setting->host,
+                'smtp_port' => $setting->port,
+                'smtp_encryption' => $setting->encryption,
+                'smtp_from' => $setting->from_email,
+            ]);
+            
             // Enviar email de teste simples
-            try {
-                \Illuminate\Support\Facades\Mail::raw($body, function ($message) use ($setting) {
-                    $message->to($this->sendTestEmail)
-                            ->subject('Teste de Configuração SMTP - ' . config('app.name'));
-                });
-                
-                // Verificar se há falhas
-                if (count(\Illuminate\Support\Facades\Mail::failures()) > 0) {
-                    throw new \Exception('Falha ao enviar email. Destinatário não alcançado.');
-                }
-            } catch (\Exception $mailException) {
-                throw new \Exception('Erro SMTP: ' . $mailException->getMessage());
-            }
+            // No Laravel 12, exceções são lançadas automaticamente em caso de falha
+            \Illuminate\Support\Facades\Mail::raw($body, function ($message) use ($setting) {
+                $message->to($this->sendTestEmail)
+                        ->subject('Teste de Configuração SMTP - ' . config('app.name'));
+            });
+            
+            \Log::info('✅ Email SMTP enviado com sucesso (sem exceção)', [
+                'to' => $this->sendTestEmail,
+                'smtp_id' => $setting->id
+            ]);
             
             // Marcar log como enviado
             if ($emailLog) {

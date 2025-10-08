@@ -19,7 +19,7 @@ class Plans extends Component
     public $price_monthly = 0, $price_yearly = 0;
     public $max_users = 5, $max_companies = 1, $max_storage_mb = 1000;
     public $trial_days = 30, $order = 0;
-    public $is_active = true, $is_featured = false;
+    public $is_active = true, $is_featured = false, $auto_activate = false;
     public $features = [];
     public $newFeature = '';
     public $selectedModules = [];
@@ -59,6 +59,7 @@ class Plans extends Component
         $this->order = $plan->order;
         $this->is_active = $plan->is_active;
         $this->is_featured = $plan->is_featured;
+        $this->auto_activate = $plan->auto_activate;
         $this->features = $plan->features ?? [];
         $this->selectedModules = $plan->modules->pluck('id')->toArray();
         $this->showModal = true;
@@ -99,6 +100,7 @@ class Plans extends Component
             'order' => $this->order,
             'is_active' => $this->is_active,
             'is_featured' => $this->is_featured,
+            'auto_activate' => $this->auto_activate,
             'features' => $this->features,
         ];
 
@@ -185,6 +187,7 @@ class Plans extends Component
         $this->order = 0;
         $this->is_active = true;
         $this->is_featured = false;
+        $this->auto_activate = false;
     }
 
     public function render()

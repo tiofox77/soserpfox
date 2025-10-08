@@ -34,8 +34,10 @@ class VenuesManager extends Component
     public function render()
     {
         $venues = Venue::where('tenant_id', activeTenantId())
+            ->withCount('events')
             ->when($this->search, fn($q) => $q->where('name', 'like', '%' . $this->search . '%')
-                                             ->orWhere('city', 'like', '%' . $this->search . '%'))
+                                             ->orWhere('city', 'like', '%' . $this->search . '%')
+                                             ->orWhere('address', 'like', '%' . $this->search . '%'))
             ->orderBy('name')
             ->paginate(15);
 
@@ -96,7 +98,23 @@ class VenuesManager extends Component
 
     public function delete($id)
     {
-        Venue::find($id)->delete();
+        $venue = Venue::findOrFail($id);
+        
+        // Verificar se pode ser deletado
+        if (!$venue->canBeDeleted()) {
+            session()->flash('error', 'Não é possível excluir este local pois existem eventos associados!');
+            return;
+        }
+        
+        $venue->delete();
         session()->flash('message', 'Local excluído com sucesso!');
+    }
+
+    public function closeModal()
+    {
+        $this->showModal = false;
+        $this->reset(['venue_id', 'name', 'address', 'city', 'phone', 'contact_person', 'capacity', 'notes']);
+        $this->is_active = true;
+        $this->editMode = false;
     }
 }

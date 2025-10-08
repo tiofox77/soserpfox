@@ -114,6 +114,16 @@
                         </div>
                     </div>
                     
+                    <!-- Auto Activate Badge -->
+                    @if($plan->auto_activate)
+                        <div class="mt-3 mb-2">
+                            <div class="inline-flex items-center px-3 py-2 bg-gradient-to-r from-green-100 to-emerald-100 border border-green-300 rounded-lg text-xs font-semibold text-green-800 w-full justify-center">
+                                <i class="fas fa-bolt text-green-600 mr-2 animate-pulse"></i>
+                                <span>Ativação Automática</span>
+                            </div>
+                        </div>
+                    @endif
+                    
                     <!-- Status & Stats -->
                     <div class="pt-4 border-t border-gray-200">
                         <div class="flex items-center justify-between mb-3">
@@ -244,6 +254,49 @@
                                 </label>
                                 <input wire:model="trial_days" type="number" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition">
                                 @error('trial_days') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <!-- Checkboxes Options -->
+                            <div class="col-span-2">
+                                <label class="block text-sm font-semibold text-gray-700 mb-3">
+                                    <i class="fas fa-cog text-gray-500 mr-2"></i>Opções
+                                </label>
+                                <div class="space-y-3">
+                                    <!-- Ativação Automática -->
+                                    <label class="flex items-center p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl cursor-pointer hover:border-green-400 transition">
+                                        <input type="checkbox" wire:model="auto_activate" class="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500 cursor-pointer">
+                                        <div class="ml-3 flex-1">
+                                            <div class="text-sm font-semibold text-green-800">
+                                                <i class="fas fa-bolt text-green-600 mr-2"></i>Ativação Automática
+                                            </div>
+                                            <div class="text-xs text-green-700 mt-1">
+                                                Ativa a conta automaticamente após o registro (sem aguardar aprovação)
+                                            </div>
+                                        </div>
+                                    </label>
+                                    
+                                    <!-- Plano Ativo -->
+                                    <label class="flex items-center p-3 bg-blue-50 border-2 border-blue-200 rounded-xl cursor-pointer hover:border-blue-400 transition">
+                                        <input type="checkbox" wire:model="is_active" class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                                        <div class="ml-3">
+                                            <div class="text-sm font-semibold text-blue-800">
+                                                <i class="fas fa-check-circle text-blue-600 mr-2"></i>Plano Ativo
+                                            </div>
+                                            <div class="text-xs text-blue-700 mt-1">Disponível para novos registros</div>
+                                        </div>
+                                    </label>
+                                    
+                                    <!-- Plano Destaque -->
+                                    <label class="flex items-center p-3 bg-purple-50 border-2 border-purple-200 rounded-xl cursor-pointer hover:border-purple-400 transition">
+                                        <input type="checkbox" wire:model="is_featured" class="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer">
+                                        <div class="ml-3">
+                                            <div class="text-sm font-semibold text-purple-800">
+                                                <i class="fas fa-star text-purple-600 mr-2"></i>Plano em Destaque
+                                            </div>
+                                            <div class="text-xs text-purple-700 mt-1">Destaca este plano como recomendado</div>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                             
                             <!-- Features -->

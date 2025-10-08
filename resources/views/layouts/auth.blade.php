@@ -4,7 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name') }} - @yield('title', 'Login')</title>
+    
+    <!-- SEO Meta Tags -->
+    <title>{{ config('app.name', 'SOS ERP') }} - @yield('title', 'Login') | Sistema de Gestão Empresarial</title>
+    <meta name="description" content="SOS ERP - Sistema completo de gestão empresarial multi-tenant. Gerencie eventos, inventário, CRM, faturação, RH e muito mais. Plataforma profissional para empresas em Angola.">
+    <meta name="keywords" content="ERP Angola, sistema de gestão, multi-tenant, gestão empresarial, eventos, inventário, CRM, faturação, RH, contabilidade">
+    <meta name="author" content="SOS ERP">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:title" content="{{ config('app.name', 'SOS ERP') }} - Sistema de Gestão Empresarial Multi-Tenant">
+    <meta property="og:description" content="Plataforma completa de gestão empresarial. Gestão de eventos, inventário, CRM, faturação, RH e contabilidade. Solução profissional para empresas.">
+    <meta property="og:image" content="{{ asset('images/og-image.png') }}">
+    <meta property="og:site_name" content="{{ config('app.name', 'SOS ERP') }}">
+    <meta property="og:locale" content="pt_AO">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ url()->current() }}">
+    <meta name="twitter:title" content="{{ config('app.name', 'SOS ERP') }} - Sistema de Gestão Empresarial">
+    <meta name="twitter:description" content="Plataforma completa de gestão empresarial multi-tenant. Eventos, inventário, CRM, faturação e muito mais.">
+    <meta name="twitter:image" content="{{ asset('images/og-image.png') }}">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ url()->current() }}">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
