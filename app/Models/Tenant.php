@@ -65,6 +65,129 @@ class Tenant extends Model
             // Popular métodos de pagamento padrão
             self::populatePaymentMethods($tenant);
         });
+        
+        static::deleting(function ($tenant) {
+            \Log::info("🗑️ INICIANDO EXCLUSÃO EM CASCATA DO TENANT", [
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name,
+                'deleted_by' => auth()->id() ?? 'System',
+            ]);
+            
+            try {
+                \DB::beginTransaction();
+                
+                // 1. DELETAR USUÁRIOS DO TENANT
+                $users = $tenant->users()->get();
+                foreach ($users as $user) {
+                    // Remover roles específicas do tenant
+                    setPermissionsTeamId($tenant->id);
+                    $user->roles()->detach();
+                    
+                    // Remover da pivot table tenant_user
+                    $user->tenants()->detach($tenant->id);
+                    
+                    // Se o usuário não pertence a nenhum outro tenant, deletar completamente
+                    if ($user->tenants()->count() == 0) {
+                        $user->forceDelete();
+                        \Log::info("   👤 Usuário deletado: {$user->email}");
+                    }
+                }
+                
+                // 2. DELETAR ROLES DO TENANT
+                $roles = $tenant->roles()->get();
+                foreach ($roles as $role) {
+                    $role->permissions()->detach();
+                    $role->forceDelete();
+                }
+                \Log::info("   🔐 {$roles->count()} roles deletadas");
+                
+                // 3. DELETAR SUBSCRIPTIONS
+                $subscriptions = $tenant->subscriptions()->get();
+                foreach ($subscriptions as $subscription) {
+                    $subscription->forceDelete();
+                }
+                \Log::info("   📋 {$subscriptions->count()} subscriptions deletadas");
+                
+                // 4. DELETAR ORDERS
+                $orders = \App\Models\Order::where('tenant_id', $tenant->id)->get();
+                foreach ($orders as $order) {
+                    $order->forceDelete();
+                }
+                \Log::info("   📦 {$orders->count()} orders deletadas");
+                
+                // 5. DELETAR INVOICES
+                $invoices = $tenant->invoices()->get();
+                foreach ($invoices as $invoice) {
+                    $invoice->forceDelete();
+                }
+                \Log::info("   🧾 {$invoices->count()} invoices deletadas");
+                
+                // 6. REMOVER MÓDULOS
+                $tenant->modules()->detach();
+                \Log::info("   🧩 Módulos desvinculados");
+                
+                // 7. DELETAR CATEGORIAS DE EQUIPAMENTOS
+                if (class_exists('\App\Models\EquipmentCategory')) {
+                    $categories = \App\Models\EquipmentCategory::where('tenant_id', $tenant->id)->get();
+                    foreach ($categories as $category) {
+                        $category->forceDelete();
+                    }
+                    \Log::info("   📁 {$categories->count()} categorias de equipamentos deletadas");
+                }
+                
+                // 8. DELETAR MÉTODOS DE PAGAMENTO
+                if (class_exists('\App\Models\Treasury\PaymentMethod')) {
+                    $methods = \App\Models\Treasury\PaymentMethod::where('tenant_id', $tenant->id)->get();
+                    foreach ($methods as $method) {
+                        $method->forceDelete();
+                    }
+                    \Log::info("   💳 {$methods->count()} métodos de pagamento deletados");
+                }
+                
+                // 9. DELETAR EVENTOS (se existir)
+                if (class_exists('\App\Models\Event')) {
+                    $events = \App\Models\Event::where('tenant_id', $tenant->id)->get();
+                    foreach ($events as $event) {
+                        $event->forceDelete();
+                    }
+                    \Log::info("   📅 {$events->count()} eventos deletados");
+                }
+                
+                // 10. DELETAR EQUIPAMENTOS (se existir)
+                if (class_exists('\App\Models\Equipment')) {
+                    $equipments = \App\Models\Equipment::where('tenant_id', $tenant->id)->get();
+                    foreach ($equipments as $equipment) {
+                        $equipment->forceDelete();
+                    }
+                    \Log::info("   📦 {$equipments->count()} equipamentos deletados");
+                }
+                
+                // 11. DELETAR CONVITES PENDENTES
+                if (class_exists('\App\Models\UserInvitation')) {
+                    $invitations = \App\Models\UserInvitation::where('tenant_id', $tenant->id)->get();
+                    foreach ($invitations as $invitation) {
+                        $invitation->forceDelete();
+                    }
+                    \Log::info("   📨 {$invitations->count()} convites deletados");
+                }
+                
+                \DB::commit();
+                
+                \Log::info("✅ EXCLUSÃO EM CASCATA CONCLUÍDA COM SUCESSO", [
+                    'tenant_id' => $tenant->id,
+                    'tenant_name' => $tenant->name,
+                ]);
+                
+            } catch (\Exception $e) {
+                \DB::rollBack();
+                \Log::error("❌ ERRO NA EXCLUSÃO EM CASCATA DO TENANT", [
+                    'tenant_id' => $tenant->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                throw $e;
+            }
+        });
     }
 
     /**
