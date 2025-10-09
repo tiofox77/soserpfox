@@ -44,7 +44,9 @@ class EquipmentManager extends Component
     // Empréstimo
     public $showBorrowModal = false;
     public $borrowEquipmentId = null;
+    public $borrow_type = 'client'; // 'client' ou 'technician'
     public $borrowed_to_client_id = '';
+    public $borrowed_to_technician_id = '';
     public $borrow_date = '';
     public $return_due_date = '';
     public $rental_price_per_day = '';
@@ -80,13 +82,14 @@ class EquipmentManager extends Component
             ->when($this->categoryFilter, fn($q) => $q->where('category_id', $this->categoryFilter))
             ->when(!empty($this->statusFilter), fn($q) => $q->whereIn('status', $this->statusFilter))
             ->when($this->locationFilter, fn($q) => $q->where('location', 'like', '%' . $this->locationFilter . '%'))
-            ->with(['borrowedToClient', 'createdBy', 'category'])
+            ->with(['borrowedToClient', 'borrowedToTechnician', 'createdBy', 'category'])
             ->orderBy('created_at', 'desc')
             ->paginate(12);
 
         $stats = $this->getStatistics();
         $categories = EquipmentCategory::where('tenant_id', activeTenantId())->active()->ordered()->get();
         $clients = Client::where('tenant_id', activeTenantId())->where('is_active', true)->get();
+        $technicians = \App\Models\Events\Technician::where('tenant_id', activeTenantId())->where('is_active', true)->get();
         $locations = Equipment::where('tenant_id', activeTenantId())
             ->whereNotNull('location')
             ->distinct()
@@ -95,7 +98,7 @@ class EquipmentManager extends Component
         // Alertas
         $alerts = $this->getAlerts();
 
-        return view('livewire.events.equipment.equipment-manager', compact('equipment', 'stats', 'categories', 'clients', 'locations', 'alerts'));
+        return view('livewire.events.equipment.equipment-manager', compact('equipment', 'stats', 'categories', 'clients', 'technicians', 'locations', 'alerts'));
     }
 
     private function getStatistics()
@@ -220,40 +223,78 @@ class EquipmentManager extends Component
 
     public function openBorrowModal($id)
     {
-        $this->reset(['borrowed_to_client_id', 'borrow_date', 'return_due_date', 'rental_price_per_day', 'borrow_notes']);
+        $this->reset(['borrowed_to_client_id', 'borrowed_to_technician_id', 'borrow_type', 'borrow_date', 'return_due_date', 'rental_price_per_day', 'borrow_notes']);
         $this->borrowEquipmentId = $id;
+        $this->borrow_type = 'client';
         $this->borrow_date = now()->format('Y-m-d');
         $this->showBorrowModal = true;
     }
 
     public function saveBorrow()
     {
-        $this->validate([
-            'borrowed_to_client_id' => 'required|exists:clients,id',
-            'borrow_date' => 'required|date',
-            'return_due_date' => 'required|date|after:borrow_date',
-            'rental_price_per_day' => 'nullable|numeric|min:0',
-        ]);
+        // Validação condicional baseada no tipo
+        if ($this->borrow_type === 'client') {
+            $this->validate([
+                'borrowed_to_client_id' => 'required|exists:invoicing_clients,id',
+                'borrow_date' => 'required|date',
+                'return_due_date' => 'required|date|after:borrow_date',
+                'rental_price_per_day' => 'nullable|numeric|min:0',
+            ], [
+                'borrowed_to_client_id.required' => 'Selecione um cliente',
+                'borrowed_to_client_id.exists' => 'Cliente não encontrado',
+            ]);
+        } else {
+            $this->validate([
+                'borrowed_to_technician_id' => 'required|exists:events_technicians,id',
+                'borrow_date' => 'required|date',
+                'return_due_date' => 'required|date|after:borrow_date',
+            ], [
+                'borrowed_to_technician_id.required' => 'Selecione um técnico',
+                'borrowed_to_technician_id.exists' => 'Técnico não encontrado',
+            ]);
+        }
 
         $equipment = Equipment::findOrFail($this->borrowEquipmentId);
-        $equipment->update([
+        
+        // Atualizar baseado no tipo
+        $updateData = [
             'status' => 'emprestado',
-            'borrowed_to_client_id' => $this->borrowed_to_client_id,
             'borrow_date' => $this->borrow_date,
             'return_due_date' => $this->return_due_date,
-            'rental_price_per_day' => $this->rental_price_per_day ?: null,
             'actual_return_date' => null,
-        ]);
+        ];
+        
+        if ($this->borrow_type === 'client') {
+            $updateData['borrowed_to_client_id'] = $this->borrowed_to_client_id;
+            $updateData['borrowed_to_technician_id'] = null;
+            $updateData['rental_price_per_day'] = $this->rental_price_per_day ?: null;
+        } else {
+            $updateData['borrowed_to_technician_id'] = $this->borrowed_to_technician_id;
+            $updateData['borrowed_to_client_id'] = null;
+            $updateData['rental_price_per_day'] = null; // Técnicos não pagam
+        }
+        
+        $equipment->update($updateData);
 
-        $equipment->addToHistory('emprestimo', [
-            'client_id' => $this->borrowed_to_client_id,
+        // Adicionar ao histórico
+        $historyData = [
             'start_datetime' => $this->borrow_date,
             'notes' => $this->borrow_notes ?: 'Equipamento emprestado'
-        ]);
+        ];
+        
+        if ($this->borrow_type === 'client') {
+            $historyData['client_id'] = $this->borrowed_to_client_id;
+            $message = '✅ Equipamento emprestado ao cliente com sucesso!';
+        } else {
+            $historyData['technician_id'] = $this->borrowed_to_technician_id;
+            $message = '✅ Equipamento emprestado ao técnico com sucesso!';
+        }
+        
+        $equipment->addToHistory('emprestimo', $historyData);
 
-        $this->dispatch('notify', ['type' => 'success', 'message' => '✅ Equipamento emprestado com sucesso!']);
+        $this->dispatch('notify', ['type' => 'success', 'message' => $message]);
         $this->showBorrowModal = false;
-        $this->reset(['borrowed_to_client_id', 'borrow_date', 'return_due_date', 'rental_price_per_day', 'borrow_notes', 'borrowEquipmentId']);
+        $this->reset(['borrowed_to_client_id', 'borrowed_to_technician_id', 'borrow_type', 'borrow_date', 'return_due_date', 'rental_price_per_day', 'borrow_notes', 'borrowEquipmentId']);
     }
 
     public function returnEquipment($id)

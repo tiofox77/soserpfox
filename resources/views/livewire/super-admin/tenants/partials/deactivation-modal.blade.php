@@ -64,14 +64,24 @@
                     <div class="flex justify-end space-x-3">
                         <button 
                             type="button" 
-                            wire:click="closeDeactivationModal" 
-                            class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
+                            wire:click="closeDeactivationModal"
+                            wire:loading.attr="disabled"
+                            wire:target="confirmDeactivation"
+                            class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition disabled:opacity-50">
                             <i class="fas fa-times mr-2"></i>Cancelar
                         </button>
                         <button 
-                            type="submit" 
-                            class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl font-semibold hover:from-red-700 hover:to-orange-700 shadow-lg hover:shadow-xl transition">
-                            <i class="fas fa-ban mr-2"></i>Desativar Tenant
+                            type="submit"
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-75 cursor-not-allowed"
+                            wire:target="confirmDeactivation"
+                            class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl font-semibold hover:from-red-700 hover:to-orange-700 shadow-lg hover:shadow-xl transition disabled:opacity-75">
+                            <span wire:loading.remove wire:target="confirmDeactivation">
+                                <i class="fas fa-ban mr-2"></i>Desativar Tenant
+                            </span>
+                            <span wire:loading wire:target="confirmDeactivation">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Desativando e enviando emails...
+                            </span>
                         </button>
                     </div>
                 </form>

@@ -579,6 +579,18 @@ document.addEventListener('livewire:initialized', () => {
             },
             height: 'auto',
             editable: true,
+            displayEventEnd: true,
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            },
+            slotLabelFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            },
+            nextDayThreshold: '00:00:00',
             events: @json($events),
             eventDidMount: function(info) {
                 // Adicionar tooltip com mais informações

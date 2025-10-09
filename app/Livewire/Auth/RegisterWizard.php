@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Tenant;
 use App\Models\Plan;
 use App\Models\Order;
+use App\Models\EmailTemplate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +21,10 @@ class RegisterWizard extends Component
     // Wizard step
     public $currentStep = 1;
     public $isLoggedIn = false;
+    
+    // Email template properties (igual à modal)
+    public $testTemplateId;
+    public $testEmail = '';
     
     // Step 1: User data
     public $name = '';
@@ -617,98 +622,16 @@ class RegisterWizard extends Component
                 'tenant_name' => $tenant->name ?? 'NULL',
             ]);
             
-            // Enviar email de boas-vindas (EMAIL DO SISTEMA - usa SMTP do Super Admin)
+            // ✅ ENVIAR EMAIL SIMPLES COM CONFIGURAÇÃO SSL DIRETA
             try {
-                \Log::info('===== 📧📧📧 INICIANDO ENVIO DE EMAIL DE BOAS-VINDAS 📧📧📧 =====', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'user_name' => $user->name,
-                    'tenant_id' => $tenant->id,
-                    'tenant_name' => $tenant->name,
-                    'hora' => now()->toDateTimeString(),
-                ]);
-                
-                // Verificar se template existe
-                $templateCheck = \App\Models\EmailTemplate::where('slug', 'welcome')->first();
-                \Log::info('DEBUG: Template welcome existe?', [
-                    'existe' => $templateCheck ? 'SIM' : 'NÃO',
-                    'template_id' => $templateCheck->id ?? 'NULL',
-                    'template_ativo' => $templateCheck->is_active ?? 'NULL',
-                ]);
-                
-                // Verificar SMTP
-                $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
-                \Log::info('DEBUG: SMTP padrão existe?', [
-                    'existe' => $smtpSetting ? 'SIM' : 'NÃO',
-                    'smtp_id' => $smtpSetting->id ?? 'NULL',
-                    'smtp_host' => $smtpSetting->host ?? 'NULL',
-                ]);
-                
-                if (!$smtpSetting) {
-                    throw new \Exception('Nenhuma configuração SMTP encontrada.');
-                }
-                
-                // ✅ REPLICAR EXATAMENTE O CÓDIGO DO FORMULÁRIO DE TESTE
-                // Linha 171 de EmailTemplates.php
-                $smtpSetting->configure();
-                
-                // Dados de exemplo para o teste (IGUAL ao formulário)
-                // Linha 174-184 de EmailTemplates.php
-                $sampleData = [
-                    'user_name' => $user->name,
-                    'tenant_name' => $tenant->name,
-                    'app_name' => config('app.name', 'SOS ERP'),
-                    'plan_name' => 'Plano Premium',
-                    'old_plan_name' => 'Plano Básico',
-                    'new_plan_name' => 'Plano Premium',
-                    'reason' => 'Registro de nova conta',
-                    'support_email' => config('mail.from.address', 'suporte@soserp.com'),
-                    'login_url' => route('login'),
-                ];
-                
-                \Log::info('📧 Dados do email preparados (formato teste)', $sampleData);
-                \Log::info('🚀 Iniciando envio de email de teste', [
-                    'template' => 'welcome',
-                    'to' => $user->email,
-                    'smtp_id' => $smtpSetting->id,
-                    'smtp_host' => $smtpSetting->host,
-                    'smtp_port' => $smtpSetting->port,
-                    'smtp_encryption' => $smtpSetting->encryption,
-                ]);
-                
-                // ✅ ENVIAR EMAIL - CÓDIGO EXATO DO FORMULÁRIO DE TESTE
-                // Linha 214-215 de EmailTemplates.php
-                $mail = new \App\Mail\TemplateMail('welcome', $sampleData);
-                \Illuminate\Support\Facades\Mail::to($user->email)->send($mail);
-                
-                \Log::info('✅ Email enviado com sucesso (sem exceção)', [
-                    'to' => $user->email,
-                    'template' => 'welcome'
-                ]);
-                    
-                \Log::info('===== ✅✅✅ EMAIL DE BOAS-VINDAS ENVIADO COM SUCESSO! ✅✅✅ =====', [
-                    'destinatario' => $user->email,
-                    'template' => 'welcome',
-                    'smtp_type' => 'SISTEMA (Super Admin)',
-                    'timestamp' => now()->toDateTimeString(),
-                ]);
-                
+                \Log::info('📧 Enviando email de boas-vindas com SSL direto');
+                $this->sendSimpleWelcomeEmail($user, $tenant);
+                \Log::info('✅ Email de boas-vindas enviado com sucesso');
             } catch (\Exception $emailError) {
-                \Log::error('===== ❌❌❌ ERRO AO ENVIAR EMAIL DE BOAS-VINDAS ❌❌❌ =====', [
-                    'error_message' => $emailError->getMessage(),
-                    'error_file' => $emailError->getFile(),
-                    'error_line' => $emailError->getLine(),
-                    'error_trace' => $emailError->getTraceAsString(),
-                    'user_email' => $user->email ?? 'NULL',
-                    'tenant_id' => $tenant->id ?? 'NULL',
+                \Log::error('❌ Erro ao enviar email de boas-vindas', [
+                    'error' => $emailError->getMessage(),
+                    'trace' => $emailError->getTraceAsString(),
                 ]);
-                
-                \Log::error('STACK TRACE COMPLETO:', [
-                    'trace' => $emailError->getTraceAsString()
-                ]);
-                
-                // Não falha o registro se o email falhar
-                \Log::warning('⚠️ Registro continua mesmo com erro no email');
             }
             
             \Log::info('🏁 CHECKPOINT: Saiu do bloco de envio de email');
@@ -748,6 +671,79 @@ class RegisterWizard extends Component
             session()->flash('error', 'Erro ao criar conta: ' . $e->getMessage());
             $this->dispatch('error', message: 'Erro ao criar conta: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Enviar email de boas-vindas usando TEMPLATE DO BANCO + SMTP DO BANCO
+     * Usa template 'welcome' e configuração SMTP do banco de dados
+     */
+    private function sendSimpleWelcomeEmail($user, $tenant)
+    {
+        \Log::info('🔧 Buscando configuração SMTP do banco de dados');
+        
+        // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (em vez de hardcoded)
+        $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+        
+        if (!$smtpSetting) {
+            \Log::error('❌ Configuração SMTP não encontrada no banco');
+            throw new \Exception('Configuração SMTP não encontrada');
+        }
+        
+        \Log::info('📧 Configuração SMTP encontrada', [
+            'host' => $smtpSetting->host,
+            'port' => $smtpSetting->port,
+            'encryption' => $smtpSetting->encryption,
+            'from' => $smtpSetting->from_email,
+        ]);
+        
+        // CONFIGURAR SMTP usando método configure() do modelo
+        $smtpSetting->configure();
+        
+        \Log::info('✅ SMTP configurado do banco de dados');
+        
+        // BUSCAR TEMPLATE WELCOME DO BANCO
+        $template = EmailTemplate::where('slug', 'welcome')->first();
+        
+        if (!$template) {
+            \Log::error('❌ Template welcome não encontrado');
+            throw new \Exception('Template welcome não encontrado');
+        }
+        
+        \Log::info('📄 Template welcome encontrado', [
+            'id' => $template->id,
+            'subject' => $template->subject,
+        ]);
+        
+        // Dados para o template
+        $data = [
+            'user_name' => $user->name,
+            'tenant_name' => $tenant->name,
+            'app_name' => config('app.name', 'SOS ERP'),
+            'app_url' => config('app.url'),
+            'support_email' => 'sos@soserp.vip',
+            'login_url' => route('login'),
+        ];
+        
+        // Renderizar template do BD
+        $rendered = $template->render($data);
+        
+        \Log::info('📧 Template renderizado do BD', [
+            'subject' => $rendered['subject'],
+            'body_length' => strlen($rendered['body_html']),
+        ]);
+        
+        // Enviar email usando HTML DO TEMPLATE
+        \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+            $message->to($user->email, $user->name)
+                    ->subject($rendered['subject'])
+                    ->html($rendered['body_html']);
+        });
+        
+        \Log::info('✅ Email de boas-vindas enviado via template do BD', [
+            'to' => $user->email,
+            'subject' => $rendered['subject'],
+            'template_id' => $rendered['subject'],
+        ]);
     }
     
     public function render()

@@ -1097,5 +1097,8 @@
     
     <!-- Custom Scripts Stack -->
     @stack('scripts')
+    
+    <!-- Componente para enviar email de boas-vindas após redirect -->
+    @livewire('send-welcome-email')
 </body>
 </html>

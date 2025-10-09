@@ -241,4 +241,12 @@ class User extends Authenticatable
         
         return $currentCount < $maxAllowed;
     }
+    
+    /**
+     * Enviar notificação de reset de senha com SMTP e template do banco
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }

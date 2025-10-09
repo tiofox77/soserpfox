@@ -131,6 +131,43 @@ class UserInvitation extends Model
      */
     public function sendInvitationEmail(): void
     {
+        \Log::info('📧 Enviando convite de usuário', [
+            'email' => $this->email,
+            'tenant_id' => $this->tenant_id,
+        ]);
+        
+        // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (igual ao wizard)
+        $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+        
+        if (!$smtpSetting) {
+            \Log::error('❌ Configuração SMTP não encontrada no banco');
+            throw new \Exception('Configuração SMTP não encontrada');
+        }
+        
+        \Log::info('📧 Configuração SMTP encontrada', [
+            'host' => $smtpSetting->host,
+            'port' => $smtpSetting->port,
+            'encryption' => $smtpSetting->encryption,
+        ]);
+        
+        // CONFIGURAR SMTP usando método configure() do modelo
+        $smtpSetting->configure();
+        \Log::info('✅ SMTP configurado do banco de dados');
+        
+        // BUSCAR TEMPLATE DO BANCO
+        $template = \App\Models\EmailTemplate::where('slug', 'user-invitation')->first();
+        
+        if (!$template) {
+            \Log::error('❌ Template user-invitation não encontrado');
+            throw new \Exception('Template user-invitation não encontrado');
+        }
+        
+        \Log::info('📄 Template user-invitation encontrado', [
+            'id' => $template->id,
+            'subject' => $template->subject,
+        ]);
+        
+        // Dados para o template
         $data = [
             'inviter_name' => $this->invitedBy->name,
             'invited_name' => $this->name,
@@ -138,9 +175,25 @@ class UserInvitation extends Model
             'invite_url' => $this->getInviteUrl(),
             'expires_in_days' => now()->diffInDays($this->expires_at),
             'app_name' => config('app.name', 'SOS ERP'),
+            'app_url' => config('app.url'),
+            'support_email' => $smtpSetting->from_email,
         ];
-
-        \Illuminate\Support\Facades\Mail::to($this->email)
-            ->send(new \App\Mail\TemplateMail('user_invitation', $data, $this->tenant_id));
+        
+        // Renderizar template do BD
+        $rendered = $template->render($data);
+        
+        \Log::info('📧 Template renderizado', [
+            'to' => $this->email,
+            'subject' => $rendered['subject'],
+        ]);
+        
+        // Enviar email usando HTML DO TEMPLATE
+        \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($rendered) {
+            $message->to($this->email, $this->name)
+                    ->subject($rendered['subject'])
+                    ->html($rendered['body_html']);
+        });
+        
+        \Log::info('✅ Email de convite enviado', ['to' => $this->email]);
     }
 }

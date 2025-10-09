@@ -39,7 +39,7 @@ class Reports extends Component
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->selectRaw('DATE_FORMAT(start_date, "%Y-%m") as month, COUNT(*) as total')
             ->groupBy('month')
@@ -52,7 +52,7 @@ class Reports extends Component
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->selectRaw('YEAR(start_date) as year, COUNT(*) as total')
             ->groupBy('year')
@@ -64,7 +64,7 @@ class Reports extends Component
     {
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->select('client_id', DB::raw('COUNT(*) as total'))
             ->with('client:id,name')
@@ -80,8 +80,9 @@ class Reports extends Component
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
-            ->select('type', DB::raw('COUNT(*) as total'))
-            ->groupBy('type')
+            ->select('type_id', DB::raw('COUNT(*) as total'))
+            ->with('type:id,name')
+            ->groupBy('type_id')
             ->orderByDesc('total')
             ->get();
     }
@@ -91,7 +92,7 @@ class Reports extends Component
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->select('status', DB::raw('COUNT(*) as total'))
             ->groupBy('status')
             ->orderByDesc('total')
@@ -103,7 +104,7 @@ class Reports extends Component
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->count();
     }
@@ -113,7 +114,7 @@ class Reports extends Component
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->sum('total_value');
     }
@@ -123,7 +124,7 @@ class Reports extends Component
         return Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->sum('expected_attendees');
     }
@@ -133,7 +134,7 @@ class Reports extends Component
         $avg = Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
             ->avg('total_value');
         
@@ -170,9 +171,9 @@ class Reports extends Component
         $events = Event::whereTenantId(activeTenantId())
             ->whereBetween('start_date', [$this->startDate, $this->endDate])
             ->when($this->selectedClient, fn($q) => $q->where('client_id', $this->selectedClient))
-            ->when($this->selectedType, fn($q) => $q->where('type', $this->selectedType))
+            ->when($this->selectedType, fn($q) => $q->where('type_id', $this->selectedType))
             ->when($this->selectedStatus, fn($q) => $q->where('status', $this->selectedStatus))
-            ->with('client')
+            ->with(['client', 'type'])
             ->get();
         
         $filename = 'eventos_' . date('Y-m-d_His') . '.csv';
@@ -194,7 +195,7 @@ class Reports extends Component
                     $event->event_number,
                     $event->name,
                     $event->client->name ?? 'N/A',
-                    $event->type,
+                    $event->type?->name ?? 'N/A',
                     $event->status,
                     $event->start_date->format('d/m/Y'),
                     $event->end_date->format('d/m/Y'),
@@ -224,12 +225,10 @@ class Reports extends Component
             ->orderBy('name')
             ->get();
         
-        $types = Event::whereTenantId(activeTenantId())
-            ->distinct()
-            ->pluck('type')
-            ->filter()
-            ->sort()
-            ->values();
+        // Buscar tipos de eventos através do modelo EventType
+        $types = \App\Models\Events\EventType::whereTenantId(activeTenantId())
+            ->orderBy('name')
+            ->get();
         
         $statuses = Event::whereTenantId(activeTenantId())
             ->distinct()

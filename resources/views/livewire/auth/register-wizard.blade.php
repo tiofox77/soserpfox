@@ -165,6 +165,10 @@
             <div class="p-8">
                 <form wire:submit.prevent="register">
                     
+                    <!-- Hidden input para email passar pelo wire:model (igual à modal) -->
+                    <input type="hidden" wire:model="testEmail">
+                    <input type="hidden" wire:model="testTemplateId">
+                    
                     <!-- STEP 1: User Data -->
                     @if($currentStep == 1)
                         <div class="max-w-2xl mx-auto">

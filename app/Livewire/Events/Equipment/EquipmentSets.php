@@ -112,7 +112,7 @@ class EquipmentSets extends Component
     public function addEquipment()
     {
         $this->validate([
-            'selectedEquipment' => 'required|exists:equipment,id',
+            'selectedEquipment' => 'required|exists:events_equipments_manager,id',
             'quantity' => 'required|integer|min:1',
         ]);
 

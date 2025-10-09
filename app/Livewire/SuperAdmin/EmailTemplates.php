@@ -156,19 +156,9 @@ class EmailTemplates extends Component
         ]);
 
         $this->sending = true;
-        $emailLog = null;
 
         try {
             $template = EmailTemplate::findOrFail($this->testTemplateId);
-            $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
-            
-            // ✅ IMPORTANTE: Configurar SMTP ANTES de enviar
-            if (!$smtpSetting) {
-                throw new \Exception('Nenhuma configuração SMTP encontrada. Por favor, configure o SMTP em /superadmin/smtp-settings primeiro.');
-            }
-            
-            // Configurar SMTP com as credenciais corretas
-            $smtpSetting->configure();
             
             // Dados de exemplo para o teste
             $sampleData = [
@@ -183,55 +173,27 @@ class EmailTemplates extends Component
                 'login_url' => route('login'),
             ];
             
-            // Renderizar template para pegar subject e body
-            $rendered = $template->render($sampleData);
+            \Log::info('🔷 MODAL: Chamando método estático centralizado');
             
-            // Criar log ANTES de enviar
-            $emailLog = \App\Models\EmailLog::createLog([
-                'tenant_id' => null,
-                'email_template_id' => $template->id,
-                'smtp_setting_id' => $smtpSetting->id ?? null,
-                'to_email' => $this->testEmail,
-                'from_email' => $smtpSetting->from_email ?? config('mail.from.address'),
-                'from_name' => $smtpSetting->from_name ?? config('mail.from.name'),
-                'subject' => $rendered['subject'],
-                'body_preview' => \Illuminate\Support\Str::limit(strip_tags($rendered['body_html']), 200),
-                'template_slug' => $template->slug,
-                'template_data' => $sampleData,
-            ]);
+            // ✅ USAR O MÉTODO ESTÁTICO CENTRALIZADO
+            // Agora modal e registro usam EXATAMENTE o mesmo código
+            EmailTemplate::sendEmail(
+                templateSlug: $template->slug,
+                toEmail: $this->testEmail,
+                data: $sampleData,
+                tenantId: null
+            );
             
-            // Log antes de enviar
-            \Log::info('🚀 Iniciando envio de email de teste', [
-                'template' => $template->slug,
-                'to' => $this->testEmail,
-                'smtp_id' => $smtpSetting->id,
-                'smtp_host' => $smtpSetting->host,
-                'smtp_port' => $smtpSetting->port,
-                'smtp_encryption' => $smtpSetting->encryption,
-            ]);
-            
-            // Enviar email (TemplateMail.php já configura SMTP novamente, mas deixamos aqui também)
-            $mail = new \App\Mail\TemplateMail($template->slug, $sampleData);
-            \Illuminate\Support\Facades\Mail::to($this->testEmail)->send($mail);
-            
-            \Log::info('✅ Email enviado com sucesso (sem exceção)', [
-                'to' => $this->testEmail,
-                'template' => $template->slug
-            ]);
-            
-            // Marcar log como enviado
-            if ($emailLog) {
-                $emailLog->markAsSent();
-            }
+            \Log::info('✅ MODAL: Email enviado via método estático');
             
             session()->flash('success', "Email de teste enviado com sucesso para {$this->testEmail}!");
             $this->dispatch('success', message: "Email de teste enviado com sucesso para {$this->testEmail}!");
             $this->closeTestModal();
         } catch (\Exception $e) {
-            // Marcar log como falho
-            if ($emailLog) {
-                $emailLog->markAsFailed($e->getMessage());
-            }
+            \Log::error('❌ MODAL: Erro ao enviar email', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             
             session()->flash('error', 'Erro ao enviar email: ' . $e->getMessage());
             $this->dispatch('error', message: 'Erro ao enviar email: ' . $e->getMessage());

@@ -22,10 +22,14 @@ class Order extends Model
         'notes',
         'approved_at',
         'approved_by',
+        'rejection_reason',
+        'rejected_at',
+        'rejected_by',
     ];
 
     protected $casts = [
         'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     public function tenant()
@@ -46,6 +50,11 @@ class Order extends Model
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+    
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
     }
 
     /**
@@ -132,6 +141,45 @@ class Order extends Model
         } catch (\Exception $e) {
             \DB::rollBack();
             \Log::error("Erro ao aprovar pedido", [
+                'order_id' => $this->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Rejeitar pedido e enviar notificação
+     */
+    public function reject($reason = null, $rejectedBy = null)
+    {
+        try {
+            \Log::info("Rejeitando pedido", [
+                'order_id' => $this->id,
+                'reason' => $reason,
+                'rejected_by' => $rejectedBy ?? auth()->id(),
+            ]);
+            
+            // Atualizar status do pedido
+            $this->update([
+                'status' => 'rejected',
+                'rejection_reason' => $reason,
+                'rejected_at' => now(),
+                'rejected_by' => $rejectedBy ?? auth()->id(),
+            ]);
+            
+            \Log::info("✅ Pedido rejeitado com sucesso", [
+                'order_id' => $this->id,
+                'tenant_id' => $this->tenant_id,
+            ]);
+            
+            // Observer vai disparar o envio do email automaticamente
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            \Log::error("❌ Erro ao rejeitar pedido", [
                 'order_id' => $this->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

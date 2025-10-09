@@ -42,7 +42,9 @@ class EquipmentController extends Controller
 
     public function printQrCode($id)
     {
-        $equipment = Equipment::where('tenant_id', activeTenantId())->findOrFail($id);
+        $equipment = Equipment::where('tenant_id', activeTenantId())
+            ->with('category')
+            ->findOrFail($id);
         return view('equipment.qrcode-print', compact('equipment'));
     }
 }

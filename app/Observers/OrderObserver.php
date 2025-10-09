@@ -30,6 +30,25 @@ class OrderObserver
                 ]);
             }
         }
+        
+        // Verificar se o status mudou para 'rejected'
+        if ($order->wasChanged('status') && $order->status === 'rejected') {
+            \Log::info("❌ OrderObserver: Pedido rejeitado, enviando notificação", [
+                'order_id' => $order->id,
+                'old_status' => $order->getOriginal('status'),
+                'new_status' => $order->status,
+            ]);
+            
+            try {
+                $this->processRejection($order);
+            } catch (\Exception $e) {
+                \Log::error("❌ OrderObserver: Erro ao processar rejeição", [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
     }
 
     /**
@@ -228,24 +247,67 @@ class OrderObserver
                 return;
             }
             
+            // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (igual ao wizard)
+            $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+            
+            if (!$smtpSetting) {
+                \Log::error('❌ Configuração SMTP não encontrada no banco');
+                return;
+            }
+            
+            \Log::info('📧 Configuração SMTP encontrada', [
+                'host' => $smtpSetting->host,
+                'port' => $smtpSetting->port,
+            ]);
+            
+            // CONFIGURAR SMTP
+            $smtpSetting->configure();
+            \Log::info('✅ SMTP configurado do banco de dados');
+            
+            // BUSCAR TEMPLATE DO BANCO
+            $template = \App\Models\EmailTemplate::where('slug', 'plan_updated')->first();
+            
+            if (!$template) {
+                \Log::error('❌ Template plan_updated não encontrado');
+                return;
+            }
+            
+            \Log::info('📄 Template plan_updated encontrado', [
+                'id' => $template->id,
+                'subject' => $template->subject,
+            ]);
+            
             // Determinar se é upgrade ou downgrade
             $isUpgrade = $newPlan->price_monthly > $oldPlan->price_monthly;
             $changeType = $isUpgrade ? 'upgrade' : 'downgrade';
             
-            $emailData = [
+            // Dados para o template
+            $data = [
                 'user_name' => $user->name,
                 'tenant_name' => $tenant->name,
                 'old_plan_name' => $oldPlan->name,
                 'new_plan_name' => $newPlan->name,
                 'change_type' => $changeType,
-                'app_name' => config('app.name', 'SOSERP'),
+                'app_name' => config('app.name', 'SOS ERP'),
+                'app_url' => config('app.url'),
+                'support_email' => $smtpSetting->from_email,
                 'login_url' => route('login'),
             ];
             
-            \Log::info("📧 Dados do email de atualização preparados", $emailData);
+            // Renderizar template do BD
+            $rendered = $template->render($data);
             
-            \Illuminate\Support\Facades\Mail::to($user->email)
-                ->send(new \App\Mail\TemplateMail('plan_updated', $emailData, $tenant->id));
+            \Log::info('📧 Template renderizado', [
+                'to' => $user->email,
+                'subject' => $rendered['subject'],
+            ]);
+            
+            // Enviar email usando HTML DO TEMPLATE
+            \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+                $message->to($user->email, $user->name)
+                        ->subject($rendered['subject'])
+                        ->html($rendered['body_html']);
+            });
             
             \Log::info("✅ Email de atualização de plano enviado com sucesso!", [
                 'destinatario' => $user->email,
@@ -260,6 +322,7 @@ class OrderObserver
                 'error_line' => $emailError->getLine(),
                 'order_id' => $order->id,
                 'tenant_id' => $tenant->id,
+                'trace' => $emailError->getTraceAsString(),
             ]);
         }
     }
@@ -282,7 +345,38 @@ class OrderObserver
                 return;
             }
             
-            $emailData = [
+            // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (igual ao wizard)
+            $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+            
+            if (!$smtpSetting) {
+                \Log::error('❌ Configuração SMTP não encontrada no banco');
+                return;
+            }
+            
+            \Log::info('📧 Configuração SMTP encontrada', [
+                'host' => $smtpSetting->host,
+                'port' => $smtpSetting->port,
+            ]);
+            
+            // CONFIGURAR SMTP
+            $smtpSetting->configure();
+            \Log::info('✅ SMTP configurado do banco de dados');
+            
+            // BUSCAR TEMPLATE DO BANCO
+            $template = \App\Models\EmailTemplate::where('slug', 'payment_approved')->first();
+            
+            if (!$template) {
+                \Log::error('❌ Template payment_approved não encontrado');
+                return;
+            }
+            
+            \Log::info('📄 Template payment_approved encontrado', [
+                'id' => $template->id,
+                'subject' => $template->subject,
+            ]);
+            
+            // Dados para o template
+            $data = [
                 'user_name' => $user->name,
                 'tenant_name' => $tenant->name,
                 'plan_name' => $plan->name,
@@ -290,14 +384,26 @@ class OrderObserver
                 'billing_cycle' => $order->billing_cycle ?? 'monthly',
                 'period_start' => $subscription->current_period_start->format('d/m/Y'),
                 'period_end' => $subscription->current_period_end->format('d/m/Y'),
-                'app_name' => config('app.name', 'SOSERP'),
+                'app_name' => config('app.name', 'SOS ERP'),
+                'app_url' => config('app.url'),
+                'support_email' => $smtpSetting->from_email,
                 'login_url' => route('login'),
             ];
             
-            \Log::info("📧 Dados do email preparados", $emailData);
+            // Renderizar template do BD
+            $rendered = $template->render($data);
             
-            \Illuminate\Support\Facades\Mail::to($user->email)
-                ->send(new \App\Mail\TemplateMail('payment_approved', $emailData, $tenant->id));
+            \Log::info('📧 Template renderizado', [
+                'to' => $user->email,
+                'subject' => $rendered['subject'],
+            ]);
+            
+            // Enviar email usando HTML DO TEMPLATE
+            \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+                $message->to($user->email, $user->name)
+                        ->subject($rendered['subject'])
+                        ->html($rendered['body_html']);
+            });
             
             \Log::info("✅ Email de aprovação enviado com sucesso!", [
                 'destinatario' => $user->email,
@@ -311,8 +417,116 @@ class OrderObserver
                 'error_line' => $emailError->getLine(),
                 'order_id' => $order->id,
                 'tenant_id' => $tenant->id,
+                'trace' => $emailError->getTraceAsString(),
             ]);
             // Não falha o processo de aprovação se o email falhar
+        }
+    }
+    
+    /**
+     * Processar rejeição: enviar notificação ao cliente
+     */
+    protected function processRejection(Order $order): void
+    {
+        $tenant = $order->tenant;
+        $plan = $order->plan;
+        
+        if (!$tenant || !$plan) {
+            \Log::error("❌ Tenant ou Plano não encontrado para rejeição", ['order_id' => $order->id]);
+            return;
+        }
+        
+        $user = $order->user;
+        if (!$user || !$user->email) {
+            \Log::warning("❌ Usuário não encontrado ou sem email", ['order_id' => $order->id]);
+            return;
+        }
+        
+        try {
+            \Log::info("📧 Iniciando envio de notificação de rejeição", [
+                'order_id' => $order->id,
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+            ]);
+            
+            // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (igual ao wizard)
+            $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+            
+            if (!$smtpSetting) {
+                \Log::error('❌ Configuração SMTP não encontrada no banco');
+                return;
+            }
+            
+            \Log::info('📧 Configuração SMTP encontrada', [
+                'host' => $smtpSetting->host,
+                'port' => $smtpSetting->port,
+            ]);
+            
+            // CONFIGURAR SMTP
+            $smtpSetting->configure();
+            \Log::info('✅ SMTP configurado do banco de dados');
+            
+            // BUSCAR TEMPLATE DO BANCO
+            $template = \App\Models\EmailTemplate::where('slug', 'plan_rejected')->first();
+            
+            if (!$template) {
+                \Log::error('❌ Template plan_rejected não encontrado');
+                return;
+            }
+            
+            \Log::info('📄 Template plan_rejected encontrado', [
+                'id' => $template->id,
+                'subject' => $template->subject,
+            ]);
+            
+            // Dados para o template
+            $data = [
+                'user_name' => $user->name,
+                'tenant_name' => $tenant->name,
+                'plan_name' => $plan->name,
+                'amount' => number_format($order->amount, 2, ',', '.'),
+                'reason' => $order->rejection_reason ?? 'Não especificado',
+                'order_id' => $order->id,
+                'app_name' => config('app.name', 'SOS ERP'),
+                'app_url' => config('app.url'),
+                'support_email' => $smtpSetting->from_email,
+                'support_url' => route('support'),
+                'billing_url' => route('billing'),
+            ];
+            
+            // Renderizar template do BD
+            $rendered = $template->render($data);
+            
+            \Log::info('📧 Template renderizado', [
+                'to' => $user->email,
+                'subject' => $rendered['subject'],
+            ]);
+            
+            // Enviar email usando HTML DO TEMPLATE
+            \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+                $message->to($user->email, $user->name)
+                        ->subject($rendered['subject'])
+                        ->html($rendered['body_html']);
+            });
+            
+            \Log::info("✅ Email de rejeição enviado com sucesso!", [
+                'destinatario' => $user->email,
+                'template' => 'plan_rejected',
+                'order_id' => $order->id,
+            ]);
+            
+        } catch (\Exception $emailError) {
+            \Log::error("❌ Erro ao enviar email de rejeição", [
+                'error_message' => $emailError->getMessage(),
+                'error_file' => $emailError->getFile(),
+                'error_line' => $emailError->getLine(),
+                'order_id' => $order->id,
+                'tenant_id' => $tenant->id,
+                'user_email' => $user->email,
+                'trace' => $emailError->getTraceAsString(),
+            ]);
+            // Não falha o processo se o email falhar
         }
     }
 }

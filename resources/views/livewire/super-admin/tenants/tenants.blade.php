@@ -68,9 +68,17 @@
                                 </div>
                                 
                                 <button wire:click="toggleStatus({{ $tenant->id }})"
-                                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all {{ $tenant->is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                    <span class="w-1.5 h-1.5 rounded-full {{ $tenant->is_active ? 'bg-green-500' : 'bg-gray-500' }} mr-1.5"></span>
-                                    {{ $tenant->is_active ? 'Ativo' : 'Inativo' }}
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 cursor-not-allowed"
+                                        wire:target="activateTenant({{ $tenant->id }}), confirmDeactivation"
+                                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all {{ $tenant->is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }} disabled:opacity-50">
+                                    <span wire:loading.remove wire:target="activateTenant({{ $tenant->id }}), confirmDeactivation">
+                                        <span class="w-1.5 h-1.5 rounded-full {{ $tenant->is_active ? 'bg-green-500' : 'bg-gray-500' }} mr-1.5"></span>
+                                        {{ $tenant->is_active ? 'Ativo' : 'Inativo' }}
+                                    </span>
+                                    <span wire:loading wire:target="activateTenant({{ $tenant->id }}), confirmDeactivation">
+                                        <i class="fas fa-spinner fa-spin mr-1.5"></i>Processando...
+                                    </span>
                                 </button>
                             </div>
                             
@@ -151,8 +159,17 @@
                                 <button wire:click="edit({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors">
                                     <i class="fas fa-edit mr-1.5"></i>Editar
                                 </button>
-                                <button wire:click="toggleStatus({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">
-                                    <i class="fas fa-power-off mr-1.5"></i>{{ $tenant->is_active ? 'Desativar' : 'Ativar' }}
+                                <button wire:click="toggleStatus({{ $tenant->id }})" 
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 cursor-not-allowed"
+                                        wire:target="activateTenant({{ $tenant->id }}), confirmDeactivation"
+                                        class="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors disabled:opacity-50">
+                                    <span wire:loading.remove wire:target="activateTenant({{ $tenant->id }}), confirmDeactivation">
+                                        <i class="fas fa-power-off mr-1.5"></i>{{ $tenant->is_active ? 'Desativar' : 'Ativar' }}
+                                    </span>
+                                    <span wire:loading wire:target="activateTenant({{ $tenant->id }}), confirmDeactivation">
+                                        <i class="fas fa-spinner fa-spin mr-1.5"></i>Enviando emails...
+                                    </span>
                                 </button>
                                 <button wire:click="openDeleteModal({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors">
                                     <i class="fas fa-trash mr-1.5"></i>Excluir

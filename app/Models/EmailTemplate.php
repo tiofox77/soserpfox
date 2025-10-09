@@ -128,4 +128,84 @@ class EmailTemplate extends Model
     {
         return $query->where('slug', $slug);
     }
+
+    /**
+     * Método estático para enviar email de teste
+     * Usado pela modal de teste E pelo registro
+     * Garante que o código seja 100% idêntico
+     */
+    public static function sendEmail(string $templateSlug, string $toEmail, array $data, $tenantId = null)
+    {
+        \Log::info('📧 EmailTemplate::sendEmail chamado', [
+            'template' => $templateSlug,
+            'to' => $toEmail,
+            'tenant_id' => $tenantId,
+        ]);
+
+        $template = self::where('slug', $templateSlug)->first();
+        if (!$template) {
+            throw new \Exception("Template '{$templateSlug}' não encontrado.");
+        }
+
+        $smtpSetting = \App\Models\SmtpSetting::getForTenant($tenantId);
+        if (!$smtpSetting) {
+            throw new \Exception('Nenhuma configuração SMTP encontrada.');
+        }
+
+        // Configurar SMTP com as credenciais corretas
+        $smtpSetting->configure();
+        
+        \Log::info('✅ SMTP configurado', [
+            'smtp_id' => $smtpSetting->id,
+            'host' => $smtpSetting->host,
+        ]);
+
+        // Renderizar template para pegar subject e body
+        $rendered = $template->render($data);
+
+        // Criar log ANTES de enviar
+        $emailLog = \App\Models\EmailLog::createLog([
+            'tenant_id' => $tenantId,
+            'email_template_id' => $template->id,
+            'smtp_setting_id' => $smtpSetting->id,
+            'to_email' => $toEmail,
+            'from_email' => $smtpSetting->from_email ?? config('mail.from.address'),
+            'from_name' => $smtpSetting->from_name ?? config('mail.from.name'),
+            'subject' => $rendered['subject'],
+            'body_preview' => \Illuminate\Support\Str::limit(strip_tags($rendered['body_html']), 200),
+            'template_slug' => $template->slug,
+            'template_data' => $data,
+        ]);
+
+        \Log::info('📝 EmailLog criado', [
+            'email_log_id' => $emailLog->id ?? 'NULL',
+        ]);
+
+        // Log antes de enviar
+        \Log::info('🚀 Iniciando envio de email', [
+            'template' => $template->slug,
+            'to' => $toEmail,
+            'smtp_id' => $smtpSetting->id,
+            'smtp_host' => $smtpSetting->host,
+            'smtp_port' => $smtpSetting->port,
+            'smtp_encryption' => $smtpSetting->encryption,
+        ]);
+
+        // Enviar email
+        $mail = new \App\Mail\TemplateMail($template->slug, $data);
+        \Illuminate\Support\Facades\Mail::to($toEmail)->send($mail);
+
+        \Log::info('✅ Email enviado com sucesso', [
+            'to' => $toEmail,
+            'template' => $template->slug
+        ]);
+
+        // Marcar log como enviado
+        if ($emailLog) {
+            $emailLog->markAsSent();
+            \Log::info('✅ EmailLog marcado como enviado');
+        }
+
+        return true;
+    }
 }

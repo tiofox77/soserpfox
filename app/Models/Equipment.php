@@ -27,6 +27,7 @@ class Equipment extends Model
         'purchase_price',
         'current_value',
         'borrowed_to_client_id',
+        'borrowed_to_technician_id',
         'borrow_date',
         'return_due_date',
         'actual_return_date',
@@ -71,6 +72,11 @@ class Equipment extends Model
     public function borrowedToClient(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'borrowed_to_client_id');
+    }
+
+    public function borrowedToTechnician(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Events\Technician::class, 'borrowed_to_technician_id');
     }
 
     public function createdBy(): BelongsTo
@@ -249,7 +255,7 @@ class Equipment extends Model
             'id' => $this->id,
             'name' => $this->name,
             'serial_number' => $this->serial_number,
-            'category' => $this->category,
+            'category' => $this->category?->name ?? 'N/A',
             'location' => $this->location,
             'status' => $this->status,
             'tenant_id' => $this->tenant_id,

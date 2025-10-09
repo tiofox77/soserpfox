@@ -78,14 +78,30 @@
                         
                         <div class="flex space-x-2 ml-4">
                             <button wire:click="approveOrder({{ $order->id }})" 
-                                    onclick="return confirm('Aprovar este pedido?')"
-                                    class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition">
-                                <i class="fas fa-check mr-1"></i>Aprovar
+                                    onclick="return confirm('Aprovar este pedido? O cliente receberá um email de confirmação.')"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-50 cursor-not-allowed"
+                                    wire:target="approveOrder({{ $order->id }})"
+                                    class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition disabled:opacity-50">
+                                <span wire:loading.remove wire:target="approveOrder({{ $order->id }})">
+                                    <i class="fas fa-check mr-1"></i>Aprovar
+                                </span>
+                                <span wire:loading wire:target="approveOrder({{ $order->id }})">
+                                    <i class="fas fa-spinner fa-spin mr-1"></i>Enviando email...
+                                </span>
                             </button>
                             <button wire:click="rejectOrder({{ $order->id }})"
-                                    onclick="return confirm('Rejeitar este pedido?')"
-                                    class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition">
-                                <i class="fas fa-times mr-1"></i>Rejeitar
+                                    onclick="return confirm('Rejeitar este pedido? O cliente receberá um email de notificação.')"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-50 cursor-not-allowed"
+                                    wire:target="rejectOrder({{ $order->id }})"
+                                    class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition disabled:opacity-50">
+                                <span wire:loading.remove wire:target="rejectOrder({{ $order->id }})">
+                                    <i class="fas fa-times mr-1"></i>Rejeitar
+                                </span>
+                                <span wire:loading wire:target="rejectOrder({{ $order->id }})">
+                                    <i class="fas fa-spinner fa-spin mr-1"></i>Enviando email...
+                                </span>
                             </button>
                         </div>
                     </div>

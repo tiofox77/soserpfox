@@ -28,6 +28,10 @@ class Billing extends Component
     public $billing_cycle = 'monthly';
     public $selectedPlan = null;
     public $showSubscriptionModal = false;
+    
+    // Loading states
+    public $approvingOrderId = null;
+    public $rejectingOrderId = null;
 
     protected $rules = [
         'tenant_id' => 'required|exists:tenants,id',
@@ -308,6 +312,8 @@ class Billing extends Component
     
     public function approveOrder($orderId)
     {
+        $this->approvingOrderId = $orderId; // Ativar loading
+        
         \Log::info('🎯 SuperAdmin: Iniciando aprovação de pedido', ['order_id' => $orderId]);
         
         try {
@@ -325,6 +331,7 @@ class Billing extends Component
             // - Cancelar subscription antiga
             // - Criar nova subscription
             // - Sincronizar módulos (ativar/desativar)
+            // - ENVIAR EMAIL (pode demorar)
             $order->update([
                 'status' => 'approved',
                 'approved_at' => now(),
@@ -333,7 +340,7 @@ class Billing extends Component
             
             \Log::info('✅ Status atualizado para approved. Observer processará automaticamente.');
             
-            $this->dispatch('success', message: '✅ Pedido aprovado! Subscription e módulos sendo processados automaticamente.');
+            $this->dispatch('success', message: '✅ Pedido aprovado! Email de confirmação enviado ao cliente.');
             
         } catch (\Exception $e) {
             \Log::error('❌ SuperAdmin: Erro ao aprovar pedido', [
@@ -343,27 +350,29 @@ class Billing extends Component
             ]);
             
             $this->dispatch('error', message: 'Erro ao aprovar pedido: ' . $e->getMessage());
+        } finally {
+            $this->approvingOrderId = null; // Desativar loading
         }
     }
     
     public function rejectOrder($orderId)
     {
+        $this->rejectingOrderId = $orderId; // Ativar loading
+        
         \Log::info('🚫 SuperAdmin: Rejeitando pedido', ['order_id' => $orderId]);
         
         try {
             $order = Order::with(['tenant', 'user', 'plan'])->findOrFail($orderId);
             
+            // Observer vai enviar email automaticamente
             $order->update([
                 'status' => 'rejected',
                 'rejected_at' => now(),
                 'rejected_by' => auth()->id(),
             ]);
             
-            // Enviar notificação de rejeição
-            $this->sendRejectionNotification($order);
-            
-            \Log::info('✅ Pedido rejeitado com sucesso');
-            $this->dispatch('success', message: 'Pedido rejeitado!');
+            \Log::info('✅ Pedido rejeitado com sucesso. Email enviado ao cliente.');
+            $this->dispatch('success', message: '✅ Pedido rejeitado! Email de notificação enviado ao cliente.');
             
         } catch (\Exception $e) {
             \Log::error('❌ Erro ao rejeitar pedido', [
@@ -371,6 +380,8 @@ class Billing extends Component
                 'error' => $e->getMessage()
             ]);
             $this->dispatch('error', message: 'Erro ao rejeitar pedido: ' . $e->getMessage());
+        } finally {
+            $this->rejectingOrderId = null; // Desativar loading
         }
     }
     

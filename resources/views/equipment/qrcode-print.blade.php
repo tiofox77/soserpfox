@@ -32,7 +32,13 @@
             {{-- Header --}}
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ $equipment->name }}</h1>
-                <p class="text-gray-600">{{ $equipment->category }}</p>
+                <p class="text-gray-600">
+                    @if($equipment->category)
+                        {{ $equipment->category->icon }} {{ $equipment->category->name }}
+                    @else
+                        Sem categoria
+                    @endif
+                </p>
                 @if($equipment->serial_number)
                 <p class="text-sm text-gray-500 mt-2">
                     <i class="fas fa-barcode mr-1"></i>

@@ -139,7 +139,12 @@ class TemplateMail extends Mailable
             'to' => $this->to ?? 'não definido ainda'
         ]);
 
-        return $this->subject($rendered['subject'])
+        // Definir FROM explicitamente (IMPORTANTE para evitar hello@example.com)
+        $fromEmail = $smtpSetting ? $smtpSetting->from_email : config('mail.from.address');
+        $fromName = $smtpSetting ? $smtpSetting->from_name : config('mail.from.name');
+        
+        return $this->from($fromEmail, $fromName)
+            ->subject($rendered['subject'])
             ->html($rendered['body_html'])
             ->text('emails.text', ['content' => $rendered['body_text'] ?? strip_tags($rendered['body_html'])]);
     }

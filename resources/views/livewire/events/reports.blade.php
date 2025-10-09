@@ -87,7 +87,7 @@
                 <select wire:model.live="selectedType" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                     <option value="">Todos os Tipos</option>
                     @foreach($types as $type)
-                        <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                        <option value="{{ $type->id }}">{{ $type->icon }} {{ $type->name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -242,7 +242,7 @@
                                 <i class="fas fa-tag text-white text-xs"></i>
                             </div>
                             <div class="flex-1">
-                                <div class="font-medium text-gray-900">{{ ucfirst($item->type) }}</div>
+                                <div class="font-medium text-gray-900">{{ $item->type->icon ?? '' }} {{ $item->type->name ?? 'N/A' }}</div>
                                 <div class="text-xs text-gray-500">{{ number_format($percentage, 1) }}%</div>
                             </div>
                         </div>

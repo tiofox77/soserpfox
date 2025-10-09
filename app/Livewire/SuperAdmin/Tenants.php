@@ -50,6 +50,10 @@ class Tenants extends Component
     public $deactivatingTenantName = '';
     public $deactivationReason = '';
     
+    // Loading states
+    public $activatingTenantId = null;
+    public $deactivatingLoadingId = null;
+    
     // Form fields
     public $name, $slug, $email, $phone, $company_name, $nif;
     public $address, $city, $postal_code, $country = 'Portugal';
@@ -144,38 +148,56 @@ class Tenants extends Component
             'deactivationReason.min' => 'O motivo deve ter pelo menos 10 caracteres.',
         ]);
         
-        $tenant = Tenant::findOrFail($this->deactivatingTenantId);
-        $usersCount = $tenant->users()->count();
+        $this->deactivatingLoadingId = $this->deactivatingTenantId; // Ativar loading
         
-        $tenant->update([
-            'is_active' => false,
-            'deactivation_reason' => $this->deactivationReason,
-            'deactivated_at' => now(),
-            'deactivated_by' => auth()->id(),
-        ]);
-        
-        // Enviar notificação para todos os usuários do tenant
-        $this->sendSuspensionNotification($tenant);
-        
-        $this->dispatch('warning', message: 
-            "⚠️ Tenant '{$tenant->name}' desativado! {$usersCount} usuário(s) perderam acesso imediatamente."
-        );
-        
-        $this->closeDeactivationModal();
+        try {
+            $tenant = Tenant::findOrFail($this->deactivatingTenantId);
+            $usersCount = $tenant->users()->count();
+            
+            $tenant->update([
+                'is_active' => false,
+                'deactivation_reason' => $this->deactivationReason,
+                'deactivated_at' => now(),
+                'deactivated_by' => auth()->id(),
+            ]);
+            
+            // Enviar notificação para todos os usuários do tenant (PODE DEMORAR)
+            $this->sendSuspensionNotification($tenant);
+            
+            $this->dispatch('warning', message: 
+                "⚠️ Tenant '{$tenant->name}' desativado! {$usersCount} usuário(s) notificados por email."
+            );
+            
+            $this->closeDeactivationModal();
+            
+        } finally {
+            $this->deactivatingLoadingId = null; // Desativar loading
+        }
     }
     
     public function activateTenant($id)
     {
-        $tenant = Tenant::findOrFail($id);
+        $this->activatingTenantId = $id; // Ativar loading
         
-        $tenant->update([
-            'is_active' => true,
-            'deactivation_reason' => null,
-            'deactivated_at' => null,
-            'deactivated_by' => null,
-        ]);
-        
-        $this->dispatch('success', message: "✓ Tenant '{$tenant->name}' reativado! Os usuários podem acessar normalmente.");
+        try {
+            $tenant = Tenant::findOrFail($id);
+            $usersCount = $tenant->users()->count();
+            
+            $tenant->update([
+                'is_active' => true,
+                'deactivation_reason' => null,
+                'deactivated_at' => null,
+                'deactivated_by' => null,
+            ]);
+            
+            // Enviar notificação de reativação para todos os usuários (PODE DEMORAR)
+            $this->sendReactivationNotification($tenant);
+            
+            $this->dispatch('success', message: "✓ Tenant '{$tenant->name}' reativado! {$usersCount} usuário(s) notificados por email.");
+            
+        } finally {
+            $this->activatingTenantId = null; // Desativar loading
+        }
     }
     
     public function closeDeactivationModal()
@@ -538,6 +560,37 @@ class Tenants extends Component
                 'tenant_name' => $tenant->name
             ]);
             
+            // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (igual ao wizard)
+            $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+            
+            if (!$smtpSetting) {
+                \Log::error('❌ Configuração SMTP não encontrada no banco');
+                return;
+            }
+            
+            \Log::info('📧 Configuração SMTP encontrada', [
+                'host' => $smtpSetting->host,
+                'port' => $smtpSetting->port,
+                'encryption' => $smtpSetting->encryption,
+            ]);
+            
+            // CONFIGURAR SMTP usando método configure() do modelo
+            $smtpSetting->configure();
+            \Log::info('✅ SMTP configurado do banco de dados');
+            
+            // BUSCAR TEMPLATE DO BANCO
+            $template = \App\Models\EmailTemplate::where('slug', 'account_suspended')->first();
+            
+            if (!$template) {
+                \Log::error('❌ Template account_suspended não encontrado');
+                return;
+            }
+            
+            \Log::info('📄 Template account_suspended encontrado', [
+                'id' => $template->id,
+                'subject' => $template->subject,
+            ]);
+            
             // Buscar todos os usuários do tenant
             $users = $tenant->users()->get();
             
@@ -547,18 +600,32 @@ class Tenants extends Component
                     continue;
                 }
                 
-                $emailData = [
+                // Dados para o template
+                $data = [
                     'user_name' => $user->name,
                     'tenant_name' => $tenant->name,
                     'reason' => $tenant->deactivation_reason ?? 'Conta suspensa por motivos administrativos.',
-                    'app_name' => config('app.name', 'SOSERP'),
-                    'support_email' => 'suporte@soserp.vip',
+                    'app_name' => config('app.name', 'SOS ERP'),
+                    'app_url' => config('app.url'),
+                    'support_email' => $smtpSetting->from_email,
                 ];
                 
-                \Illuminate\Support\Facades\Mail::to($user->email)
-                    ->send(new \App\Mail\TemplateMail('account_suspended', $emailData, $tenant->id));
+                // Renderizar template do BD
+                $rendered = $template->render($data);
                 
-                \Log::info('📧 Email de suspensão enviado', ['to' => $user->email]);
+                \Log::info('📧 Template renderizado', [
+                    'to' => $user->email,
+                    'subject' => $rendered['subject'],
+                ]);
+                
+                // Enviar email usando HTML DO TEMPLATE
+                \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+                    $message->to($user->email, $user->name)
+                            ->subject($rendered['subject'])
+                            ->html($rendered['body_html']);
+                });
+                
+                \Log::info('✅ Email de suspensão enviado', ['to' => $user->email]);
             }
             
             \Log::info('✅ Todas as notificações de suspensão foram enviadas');
@@ -566,7 +633,95 @@ class Tenants extends Component
         } catch (\Exception $e) {
             \Log::error('❌ Erro ao enviar notificações de suspensão', [
                 'error' => $e->getMessage(),
-                'tenant_id' => $tenant->id
+                'tenant_id' => $tenant->id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+    
+    protected function sendReactivationNotification($tenant)
+    {
+        try {
+            \Log::info('📧 Enviando notificação de reativação para usuários do tenant', [
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name
+            ]);
+            
+            // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (igual ao wizard)
+            $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+            
+            if (!$smtpSetting) {
+                \Log::error('❌ Configuração SMTP não encontrada no banco');
+                return;
+            }
+            
+            \Log::info('📧 Configuração SMTP encontrada', [
+                'host' => $smtpSetting->host,
+                'port' => $smtpSetting->port,
+                'encryption' => $smtpSetting->encryption,
+            ]);
+            
+            // CONFIGURAR SMTP usando método configure() do modelo
+            $smtpSetting->configure();
+            \Log::info('✅ SMTP configurado do banco de dados');
+            
+            // BUSCAR TEMPLATE DO BANCO
+            $template = \App\Models\EmailTemplate::where('slug', 'account_reactivated')->first();
+            
+            if (!$template) {
+                \Log::error('❌ Template account_reactivated não encontrado');
+                return;
+            }
+            
+            \Log::info('📄 Template account_reactivated encontrado', [
+                'id' => $template->id,
+                'subject' => $template->subject,
+            ]);
+            
+            // Buscar todos os usuários do tenant
+            $users = $tenant->users()->get();
+            
+            foreach ($users as $user) {
+                if (!$user->email) {
+                    \Log::warning('Usuário sem email', ['user_id' => $user->id]);
+                    continue;
+                }
+                
+                // Dados para o template
+                $data = [
+                    'user_name' => $user->name,
+                    'tenant_name' => $tenant->name,
+                    'app_name' => config('app.name', 'SOS ERP'),
+                    'app_url' => config('app.url'),
+                    'support_email' => $smtpSetting->from_email,
+                    'login_url' => route('login'),
+                ];
+                
+                // Renderizar template do BD
+                $rendered = $template->render($data);
+                
+                \Log::info('📧 Template renderizado', [
+                    'to' => $user->email,
+                    'subject' => $rendered['subject'],
+                ]);
+                
+                // Enviar email usando HTML DO TEMPLATE
+                \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+                    $message->to($user->email, $user->name)
+                            ->subject($rendered['subject'])
+                            ->html($rendered['body_html']);
+                });
+                
+                \Log::info('✅ Email de reativação enviado', ['to' => $user->email]);
+            }
+            
+            \Log::info('✅ Todas as notificações de reativação foram enviadas');
+            
+        } catch (\Exception $e) {
+            \Log::error('❌ Erro ao enviar notificações de reativação', [
+                'error' => $e->getMessage(),
+                'tenant_id' => $tenant->id,
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

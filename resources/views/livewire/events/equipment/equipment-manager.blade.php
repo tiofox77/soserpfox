@@ -514,6 +514,23 @@
             </div>
             
             <div class="p-6 space-y-4">
+                {{-- Tipo de Empréstimo --}}
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-3">Emprestar para:</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" wire:model.live="borrow_type" value="client" class="w-4 h-4 text-purple-600 focus:ring-purple-500">
+                            <span class="ml-2 text-gray-700">👤 Cliente</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" wire:model.live="borrow_type" value="technician" class="w-4 h-4 text-purple-600 focus:ring-purple-500">
+                            <span class="ml-2 text-gray-700">🔧 Técnico</span>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Campo Cliente (condicional) --}}
+                @if($borrow_type === 'client')
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente *</label>
                     <select wire:model="borrowed_to_client_id" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 @error('borrowed_to_client_id') border-red-500 @enderror">
@@ -524,6 +541,21 @@
                     </select>
                     @error('borrowed_to_client_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
+                @endif
+
+                {{-- Campo Técnico (condicional) --}}
+                @if($borrow_type === 'technician')
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Técnico *</label>
+                    <select wire:model="borrowed_to_technician_id" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 @error('borrowed_to_technician_id') border-red-500 @enderror">
+                        <option value="">Selecione o técnico</option>
+                        @foreach($technicians as $technician)
+                            <option value="{{ $technician->id }}">{{ $technician->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('borrowed_to_technician_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                </div>
+                @endif
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -539,11 +571,21 @@
                     </div>
                 </div>
 
+                {{-- Preço/Dia (só para clientes) --}}
+                @if($borrow_type === 'client')
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Preço/Dia € (opcional)</label>
                     <input type="number" wire:model="rental_price_per_day" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 @error('rental_price_per_day') border-red-500 @enderror">
                     @error('rental_price_per_day') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>
+                @else
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                    <p class="text-sm text-blue-800 flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>Empréstimo para técnico não tem custo</span>
+                    </p>
+                </div>
+                @endif
 
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Observações (opcional)</label>

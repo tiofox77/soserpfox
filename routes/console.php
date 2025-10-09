@@ -20,3 +20,10 @@ Schedule::command('products:check-expiry --notify')
     ->dailyAt('17:00')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Rejeitar pedidos pendentes há mais de 7 dias - Executar diariamente às 9h
+Schedule::command('orders:reject-expired --days=7')
+    ->dailyAt('09:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->emailOutputOnFailure(config('mail.from.address'));

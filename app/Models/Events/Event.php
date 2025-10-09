@@ -16,7 +16,7 @@ class Event extends Model
 
     protected $fillable = [
         'tenant_id', 'client_id', 'venue_id', 'event_number', 'name', 'description',
-        'type', 'start_date', 'end_date', 'setup_start', 'teardown_end',
+        'type_id', 'start_date', 'end_date', 'setup_start', 'teardown_end',
         'expected_attendees', 'total_value', 'status', 'phase', 'notes', 'responsible_user_id',
         'confirmed_at', 'pre_production_started_at', 'setup_started_at', 
         'operation_started_at', 'teardown_started_at', 'completed_at',
@@ -65,6 +65,7 @@ class Event extends Model
     // Relacionamentos
     public function client() { return $this->belongsTo(Client::class); }
     public function venue() { return $this->belongsTo(Venue::class); }
+    public function type() { return $this->belongsTo(EventType::class, 'type_id'); }
     public function responsible() { return $this->belongsTo(User::class, 'responsible_user_id'); }
     public function equipment() { return $this->hasMany(EventEquipment::class); }
     public function staff() { return $this->hasMany(EventStaff::class); }

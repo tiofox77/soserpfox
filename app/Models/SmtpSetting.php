@@ -76,42 +76,41 @@ class SmtpSetting extends Model
             'encryption' => $this->encryption,
             'username' => $this->username,
             'password' => $this->password,
-            'timeout' => 30,
-            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(config('app.url'), PHP_URL_HOST)),
+            'timeout' => null,
+            'local_domain' => null,
+            'auth_mode' => null,
         ];
         
-        // Para SSL (porta 465), configurações adicionais
-        if ($this->encryption === 'ssl' && $this->port == 465) {
-            $config['stream'] = [
-                'ssl' => [
-                    'allow_self_signed' => true,
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                ],
-            ];
-        }
+        // Configurar mailer customizado
+        Config::set('mail.mailers.database_smtp', $config);
         
-        Config::set('mail.mailers.smtp', $config);
+        // Definir como padrão
+        Config::set('mail.default', 'database_smtp');
 
+        // Configurar FROM do banco
         Config::set('mail.from', [
             'address' => $this->from_email,
             'name' => $this->from_name,
         ]);
         
-        // Forçar o mailer padrão para SMTP
-        Config::set('mail.default', 'smtp');
-        
-        // IMPORTANTE: Limpar instâncias em cache do mailer
-        // Isso força o Laravel a recriar o mailer com as novas configurações
+        // CRÍTICO: Limpar TODO o cache do mailer
         if (app()->bound('mail.manager')) {
             app()->forgetInstance('mail.manager');
+        }
+        if (app()->bound('mailer')) {
             app()->forgetInstance('mailer');
         }
         
-        \Log::info('⚙️ SMTP Configurado e cache limpo', [
+        // Forçar reconfiguração do Swift_Mailer
+        $app = app();
+        $app->forgetInstance(\Swift_Mailer::class);
+        
+        \Log::info('⚙️ SMTP COMPLETO configurado do BD (SEM .env)', [
+            'mailer' => 'database_smtp',
             'host' => $this->host,
             'port' => $this->port,
             'encryption' => $this->encryption,
+            'username' => $this->username,
             'from_email' => $this->from_email,
             'from_name' => $this->from_name,
         ]);

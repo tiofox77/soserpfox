@@ -109,7 +109,7 @@ class EventCalendar extends Component
         }
 
         if (!empty($this->typeFilter)) {
-            $query->whereIn('type', $this->typeFilter);
+            $query->whereIn('type_id', $this->typeFilter);
         }
 
         return $query->orderBy('start_date', 'asc')->get();
@@ -142,7 +142,7 @@ class EventCalendar extends Component
         }
 
         if (!empty($this->typeFilter)) {
-            $query->whereIn('type', $this->typeFilter);
+            $query->whereIn('type_id', $this->typeFilter);
         }
 
         return $query->get()->map(function ($event) {
@@ -158,11 +158,15 @@ class EventCalendar extends Component
             
             $statusIcon = $statusIcons[$event->status] ?? '📌';
             
+            // Verificar se o evento começa e termina no mesmo dia
+            $isSameDay = $event->start_date->isSameDay($event->end_date);
+            
             return [
                 'id' => $event->id,
                 'title' => $statusIcon . ' ' . $event->name,
-                'start' => $event->start_date->toIso8601String(),
-                'end' => $event->end_date->toIso8601String(),
+                'start' => $event->start_date->format('Y-m-d\TH:i:s'),
+                'end' => $event->end_date->format('Y-m-d\TH:i:s'),
+                'allDay' => false,
                 'backgroundColor' => $event->calendar_color,
                 'borderColor' => $event->calendar_color,
                 'textColor' => '#ffffff',
@@ -177,7 +181,7 @@ class EventCalendar extends Component
                     'client_name' => $event->client?->name ?? 'Sem cliente',
                     'venue_name' => $event->venue?->name ?? 'Sem local',
                     'progress' => $event->checklist_progress,
-                    'type' => $event->type,
+                    'type' => $event->type?->name ?? 'N/A',
                 ],
             ];
         })->toArray();
@@ -357,7 +361,7 @@ class EventCalendar extends Component
             'end_date' => $this->quickEndDate,
             'client_id' => $this->quickClientId,
             'venue_id' => $this->quickVenueId,
-            'type' => $this->quickType,
+            'type_id' => $this->quickType,
             'description' => $this->quickDescription,
             'expected_attendees' => $this->quickAttendees,
             'status' => 'orcamento',
