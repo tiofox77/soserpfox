@@ -25,14 +25,21 @@ equipment                 → events_equipments_manager
 ---
 
 ### **2. Migration: `2025_10_09_101324_drop_category_column_from_equipment_table.php`**
-**Status:** ✅ PRONTA PARA PRODUÇÃO
+**Status:** ✅ PRONTA PARA PRODUÇÃO ⚠️ **CORRIGIDA**
 
 **O que faz:**
-- Remove a coluna `category` (string) da tabela `events_equipments_manager`
+- Remove a coluna `category` (string) da tabela de equipamentos
 - Remove o índice `['tenant_id', 'category']`
+
+**Inteligente:**
+- ✅ Detecta automaticamente o nome da tabela (`equipment` ou `events_equipments_manager`)
+- ✅ Verifica se a coluna `category` existe antes de tentar remover
+- ✅ Funciona tanto no cPanel (antes de renomear) quanto no local (depois de renomear)
 
 **Motivo:**
 - Agora usamos apenas `category_id` (foreign key para `events_equipment_categories`)
+
+**Ordem de execução:** Esta migration roda ANTES da renomeação, por isso precisa ser compatível com ambos os nomes
 
 ---
 
@@ -46,9 +53,13 @@ equipment                 → events_equipments_manager
 
 php artisan migrate --force
 
-# As migrations rodarão nesta ordem automática:
-# 1º → 2025_10_09_101522 (renomear tabelas)
-# 2º → 2025_10_09_101324 (remover coluna category)
+# As migrations rodarão nesta ordem automática (por timestamp):
+# 1º → 2025_10_09_101324 (remover coluna category da tabela 'equipment')
+# 2º → 2025_10_09_101522 (renomear 'equipment' → 'events_equipments_manager')
+
+# ⚠️ IMPORTANTE:
+# A migration 1 detecta automaticamente se a tabela ainda se chama 'equipment'
+# ou já foi renomeada para 'events_equipments_manager' e age adequadamente.
 ```
 
 ---

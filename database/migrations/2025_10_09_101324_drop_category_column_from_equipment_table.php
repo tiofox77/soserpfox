@@ -11,13 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('events_equipments_manager', function (Blueprint $table) {
-            // Remover o índice antes de remover a coluna
-            $table->dropIndex(['tenant_id', 'category']);
-            
-            // Remover a coluna category (antiga)
-            $table->dropColumn('category');
-        });
+        // Verificar qual nome de tabela usar
+        $tableName = Schema::hasTable('events_equipments_manager') 
+            ? 'events_equipments_manager' 
+            : 'equipment';
+        
+        if (Schema::hasTable($tableName) && Schema::hasColumn($tableName, 'category')) {
+            Schema::table($tableName, function (Blueprint $table) {
+                // Remover o índice antes de remover a coluna
+                $table->dropIndex(['tenant_id', 'category']);
+                
+                // Remover a coluna category (antiga)
+                $table->dropColumn('category');
+            });
+        }
     }
 
     /**
@@ -25,12 +32,19 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('events_equipments_manager', function (Blueprint $table) {
-            // Recriar a coluna category
-            $table->string('category')->nullable()->after('name');
-            
-            // Recriar o índice
-            $table->index(['tenant_id', 'category']);
-        });
+        // Verificar qual nome de tabela usar
+        $tableName = Schema::hasTable('events_equipments_manager') 
+            ? 'events_equipments_manager' 
+            : 'equipment';
+        
+        if (Schema::hasTable($tableName)) {
+            Schema::table($tableName, function (Blueprint $table) {
+                // Recriar a coluna category
+                $table->string('category')->nullable()->after('name');
+                
+                // Recriar o índice
+                $table->index(['tenant_id', 'category']);
+            });
+        }
     }
 };
