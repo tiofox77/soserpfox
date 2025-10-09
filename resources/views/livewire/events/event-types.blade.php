@@ -1,81 +1,136 @@
-<div class="p-6">
+<div class="p-4 sm:p-6">
     {{-- Header --}}
-    <div class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center">
-                <div class="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mr-4">
-                    <i class="fas fa-tags text-3xl"></i>
-                </div>
-                <div>
-                    <h2 class="text-3xl font-bold">Tipos de Eventos</h2>
-                    <p class="text-blue-100 text-sm mt-1">Gerencie os tipos personalizados de eventos</p>
-                </div>
-            </div>
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-tags text-blue-600 mr-3"></i>
+                Tipos de Eventos
+            </h2>
+            <p class="text-sm sm:text-base text-gray-600">Gerencie categorias personalizadas</p>
+        </div>
+        <div class="flex items-center space-x-2 sm:space-x-3">
             <button wire:click="create" 
-                    class="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition shadow-lg">
-                <i class="fas fa-plus mr-2"></i>Novo Tipo
+                    class="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
+                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
+                Novo Tipo
             </button>
         </div>
     </div>
 
-    {{-- Lista de Tipos --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        @forelse($types as $type)
-        <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition p-5 border-2" 
-             style="border-color: {{ $type->color }}20">
-            <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                         style="background-color: {{ $type->color }}20; border: 2px solid {{ $type->color }}">
-                        {{ $type->icon }}
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-lg" style="color: {{ $type->color }}">
-                            {{ $type->name }}
-                        </h3>
-                        <p class="text-xs text-gray-500">Ordem: {{ $type->order }}</p>
-                    </div>
+    {{-- Stats Cards --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-4 sm:p-6 text-white transform hover:scale-105 transition duration-300">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-blue-100 text-xs sm:text-sm font-medium">Total</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1">{{ $types->count() }}</p>
                 </div>
-                
-                <div class="flex items-center gap-2">
-                    {{-- Toggle Status --}}
-                    <button wire:click="toggleStatus({{ $type->id }})"
-                            class="p-2 rounded-lg hover:bg-gray-100 transition"
-                            title="{{ $type->is_active ? 'Desativar' : 'Ativar' }}">
-                        @if($type->is_active)
-                            <i class="fas fa-toggle-on text-green-500 text-xl"></i>
-                        @else
-                            <i class="fas fa-toggle-off text-gray-400 text-xl"></i>
-                        @endif
-                    </button>
-                    
-                    {{-- Editar --}}
-                    <button wire:click="edit({{ $type->id }})"
-                            class="p-2 rounded-lg hover:bg-blue-100 text-blue-600 transition">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    
-                    {{-- Deletar --}}
-                    <button wire:click="delete({{ $type->id }})"
-                            onclick="return confirm('Tem certeza que deseja excluir este tipo?')"
-                            class="p-2 rounded-lg hover:bg-red-100 text-red-600 transition">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-tags text-xl sm:text-2xl"></i>
                 </div>
             </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-4 sm:p-6 text-white transform hover:scale-105 transition duration-300">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-green-100 text-xs sm:text-sm font-medium">Ativos</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1">{{ $types->where('is_active', true)->count() }}</p>
+                </div>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-check-circle text-xl sm:text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-4 sm:p-6 text-white transform hover:scale-105 transition duration-300">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-purple-100 text-xs sm:text-sm font-medium">Em Uso</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1">{{ $types->sum('events_count') }}</p>
+                </div>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-calendar-alt text-xl sm:text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-4 sm:p-6 text-white transform hover:scale-105 transition duration-300">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-orange-100 text-xs sm:text-sm font-medium">Personalizados</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1">{{ $types->count() }}</p>
+                </div>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-palette text-xl sm:text-2xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Grid de Tipos --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        @forelse($types as $type)
+        <div class="group bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border-2 border-gray-100 hover:border-{{ substr($type->color, 1) }}">
             
-            @if($type->description)
-            <p class="text-sm text-gray-600 mt-2">{{ $type->description }}</p>
-            @endif
-            
-            <div class="mt-3 pt-3 border-t flex items-center justify-between text-xs text-gray-500">
-                <span>
-                    <i class="fas fa-calendar-check mr-1"></i>
-                    {{ $type->events_count ?? 0 }} evento(s)
-                </span>
-                <span class="px-2 py-1 rounded-full {{ $type->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">
-                    {{ $type->is_active ? 'Ativo' : 'Inativo' }}
-                </span>
+            {{-- Área do Ícone --}}
+            <div class="relative h-32 flex items-center justify-center overflow-hidden"
+                 style="background: linear-gradient(135deg, {{ $type->color }}20 0%, {{ $type->color }}40 100%);">
+                <div class="w-20 h-20 rounded-full flex items-center justify-center text-5xl transform group-hover:scale-110 transition-transform duration-300"
+                     style="background-color: {{ $type->color }}30; border: 3px solid {{ $type->color }}">
+                    {{ $type->icon }}
+                </div>
+                
+                {{-- Badge Status --}}
+                <div class="absolute top-2 right-2">
+                    <button wire:click="toggleStatus({{ $type->id }})"
+                            class="px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg transition-all duration-300 {{ $type->is_active ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600' }}">
+                        {{ $type->is_active ? '✓ Ativo' : 'Inativo' }}
+                    </button>
+                </div>
+                
+                {{-- Badge Ordem --}}
+                <div class="absolute bottom-2 left-2">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-white/90 text-gray-700 shadow">
+                        #{{ $type->order }}
+                    </span>
+                </div>
+            </div>
+
+            {{-- Conteúdo --}}
+            <div class="p-4">
+                <h3 class="font-bold text-lg text-gray-900 mb-2 group-hover:text-blue-700 transition"
+                    style="color: {{ $type->color }}">
+                    {{ $type->name }}
+                </h3>
+                
+                @if($type->description)
+                <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ $type->description }}</p>
+                @endif
+                
+                {{-- Contador de Eventos --}}
+                <div class="flex items-center text-sm text-gray-600 mb-4">
+                    <i class="fas fa-calendar-check w-5 text-blue-600"></i>
+                    <span class="font-semibold">{{ $type->events_count ?? 0 }}</span>
+                    <span class="ml-1">evento(s) criado(s)</span>
+                </div>
+
+                {{-- Ações --}}
+                <div class="space-y-2">
+                    <div class="flex gap-2">
+                        <button wire:click="edit({{ $type->id }})"
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center">
+                            <i class="fas fa-edit mr-2"></i>
+                            Editar
+                        </button>
+                        <button wire:click="delete({{ $type->id }})"
+                                onclick="return confirm('Tem certeza que deseja excluir este tipo?')"
+                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center">
+                            <i class="fas fa-trash mr-2"></i>
+                            Excluir
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         @empty

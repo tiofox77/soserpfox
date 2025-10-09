@@ -100,6 +100,21 @@ class SmtpSetting extends Model
         
         // Forçar o mailer padrão para SMTP
         Config::set('mail.default', 'smtp');
+        
+        // IMPORTANTE: Limpar instâncias em cache do mailer
+        // Isso força o Laravel a recriar o mailer com as novas configurações
+        if (app()->bound('mail.manager')) {
+            app()->forgetInstance('mail.manager');
+            app()->forgetInstance('mailer');
+        }
+        
+        \Log::info('⚙️ SMTP Configurado e cache limpo', [
+            'host' => $this->host,
+            'port' => $this->port,
+            'encryption' => $this->encryption,
+            'from_email' => $this->from_email,
+            'from_name' => $this->from_name,
+        ]);
     }
 
     /**

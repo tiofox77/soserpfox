@@ -550,17 +550,28 @@
                             </div>
                         </div>
                     @endif
-
                     <!-- Navigation Buttons -->
                     <div class="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
                         <div>
                             @if($currentStep > 1)
-                                <button type="button" wire:click="previousStep"
-                                        class="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
-                                    <i class="fas fa-arrow-left mr-2"></i>Voltar
+                                <button type="button" 
+                                        wire:click="previousStep"
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 cursor-not-allowed"
+                                        class="group relative px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden">
+                                    <!-- Loading overlay -->
+                                    <span wire:loading wire:target="previousStep" class="absolute inset-0 bg-gray-50 flex items-center justify-center">
+                                        <i class="fas fa-spinner fa-spin text-gray-700"></i>
+                                    </span>
+                                    
+                                    <!-- Conteúdo normal -->
+                                    <span wire:loading.remove wire:target="previousStep" class="flex items-center">
+                                        <i class="fas fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"></i>
+                                        Voltar
+                                    </span>
                                 </button>
                             @else
-                                <a href="{{ route('login') }}" class="px-6 py-3 text-gray-600 hover:text-gray-900 font-semibold">
+                                <a href="{{ route('login') }}" class="px-6 py-3 text-gray-600 hover:text-gray-900 font-semibold transition hover:underline">
                                     Já tem conta? <span class="underline">Entre aqui</span>
                                 </a>
                             @endif
@@ -568,25 +579,42 @@
 
                         <div>
                             @if($currentStep < 4)
-                                <button type="button" wire:click="nextStep"
-                                        class="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
-                                    Próximo <i class="fas fa-arrow-right ml-2"></i>
+                                <button type="button" 
+                                        wire:click="nextStep"
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-75 cursor-not-allowed"
+                                        class="group relative px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition disabled:opacity-75 disabled:cursor-not-allowed overflow-hidden">
+                                    <!-- Loading overlay com gradiente -->
+                                    <span wire:loading wire:target="nextStep" class="absolute inset-0 bg-gradient-to-r from-blue-700 to-purple-700 flex items-center justify-center">
+                                        <i class="fas fa-spinner fa-spin text-white"></i>
+                                    </span>
+                                    
+                                    <!-- Conteúdo normal -->
+                                    <span wire:loading.remove wire:target="nextStep" class="flex items-center">
+                                        Próximo
+                                        <i class="fas fa-arrow-right ml-2 transition-transform group-hover:translate-x-1"></i>
+                                    </span>
                                 </button>
                             @else
                                 <button type="submit"
                                         wire:loading.attr="disabled"
-                                        class="px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <span wire:loading.remove wire:target="register">
-                                        <i class="fas fa-rocket mr-2"></i>Finalizar e Criar Conta
+                                        wire:target="register"
+                                        class="group relative px-8 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition disabled:opacity-75 disabled:cursor-not-allowed overflow-hidden">
+                                    <!-- Loading overlay -->
+                                    <span wire:loading wire:target="register" class="absolute inset-0 bg-gradient-to-r from-green-700 to-green-800 flex items-center justify-center">
+                                        <i class="fas fa-spinner fa-spin text-white mr-2"></i>
+                                        <span>Processando...</span>
                                     </span>
-                                    <span wire:loading wire:target="register">
-                                        <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
+                                    
+                                    <!-- Conteúdo normal -->
+                                    <span wire:loading.remove wire:target="register" class="flex items-center">
+                                        <i class="fas fa-check mr-2 transition-transform group-hover:scale-110"></i>
+                                        Finalizar cadastro
                                     </span>
                                 </button>
                             @endif
                         </div>
                     </div>
-                </form>
             </div>
         </div>
 

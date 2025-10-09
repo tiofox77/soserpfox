@@ -600,44 +600,118 @@ class RegisterWizard extends Component
             DB::commit();
             \Log::info('Transação commitada com sucesso!');
             
-            // Enviar email de boas-vindas
+            // ========================================
+            // ENVIAR EMAIL DE BOAS-VINDAS
+            // ========================================
+            \Log::info('🎯🎯🎯 CHECKPOINT: Chegou no bloco de envio de email! 🎯🎯🎯');
+            \Log::info('DEBUG: Dados do usuário antes do email', [
+                'user_existe' => isset($user),
+                'user_id' => $user->id ?? 'NULL',
+                'user_email' => $user->email ?? 'NULL',
+                'user_name' => $user->name ?? 'NULL',
+            ]);
+            
+            \Log::info('DEBUG: Dados do tenant antes do email', [
+                'tenant_existe' => isset($tenant),
+                'tenant_id' => $tenant->id ?? 'NULL',
+                'tenant_name' => $tenant->name ?? 'NULL',
+            ]);
+            
+            // Enviar email de boas-vindas (EMAIL DO SISTEMA - usa SMTP do Super Admin)
             try {
-                \Log::info('===== INICIANDO ENVIO DE EMAIL DE BOAS-VINDAS =====', [
+                \Log::info('===== 📧📧📧 INICIANDO ENVIO DE EMAIL DE BOAS-VINDAS 📧📧📧 =====', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,
                     'user_name' => $user->name,
                     'tenant_id' => $tenant->id,
                     'tenant_name' => $tenant->name,
+                    'hora' => now()->toDateTimeString(),
                 ]);
                 
-                $emailData = [
+                // Verificar se template existe
+                $templateCheck = \App\Models\EmailTemplate::where('slug', 'welcome')->first();
+                \Log::info('DEBUG: Template welcome existe?', [
+                    'existe' => $templateCheck ? 'SIM' : 'NÃO',
+                    'template_id' => $templateCheck->id ?? 'NULL',
+                    'template_ativo' => $templateCheck->is_active ?? 'NULL',
+                ]);
+                
+                // Verificar SMTP
+                $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+                \Log::info('DEBUG: SMTP padrão existe?', [
+                    'existe' => $smtpSetting ? 'SIM' : 'NÃO',
+                    'smtp_id' => $smtpSetting->id ?? 'NULL',
+                    'smtp_host' => $smtpSetting->host ?? 'NULL',
+                ]);
+                
+                if (!$smtpSetting) {
+                    throw new \Exception('Nenhuma configuração SMTP encontrada.');
+                }
+                
+                // ✅ REPLICAR EXATAMENTE O CÓDIGO DO FORMULÁRIO DE TESTE
+                // Linha 171 de EmailTemplates.php
+                $smtpSetting->configure();
+                
+                // Dados de exemplo para o teste (IGUAL ao formulário)
+                // Linha 174-184 de EmailTemplates.php
+                $sampleData = [
                     'user_name' => $user->name,
                     'tenant_name' => $tenant->name,
                     'app_name' => config('app.name', 'SOS ERP'),
+                    'plan_name' => 'Plano Premium',
+                    'old_plan_name' => 'Plano Básico',
+                    'new_plan_name' => 'Plano Premium',
+                    'reason' => 'Registro de nova conta',
+                    'support_email' => config('mail.from.address', 'suporte@soserp.com'),
                     'login_url' => route('login'),
                 ];
                 
-                \Log::info('Dados do email preparados', $emailData);
+                \Log::info('📧 Dados do email preparados (formato teste)', $sampleData);
+                \Log::info('🚀 Iniciando envio de email de teste', [
+                    'template' => 'welcome',
+                    'to' => $user->email,
+                    'smtp_id' => $smtpSetting->id,
+                    'smtp_host' => $smtpSetting->host,
+                    'smtp_port' => $smtpSetting->port,
+                    'smtp_encryption' => $smtpSetting->encryption,
+                ]);
                 
-                \Illuminate\Support\Facades\Mail::to($user->email)
-                    ->send(new \App\Mail\TemplateMail('welcome', $emailData, $tenant->id));
+                // ✅ ENVIAR EMAIL - CÓDIGO EXATO DO FORMULÁRIO DE TESTE
+                // Linha 214-215 de EmailTemplates.php
+                $mail = new \App\Mail\TemplateMail('welcome', $sampleData);
+                \Illuminate\Support\Facades\Mail::to($user->email)->send($mail);
+                
+                \Log::info('✅ Email enviado com sucesso (sem exceção)', [
+                    'to' => $user->email,
+                    'template' => 'welcome'
+                ]);
                     
-                \Log::info('===== EMAIL DE BOAS-VINDAS ENVIADO COM SUCESSO! =====', [
+                \Log::info('===== ✅✅✅ EMAIL DE BOAS-VINDAS ENVIADO COM SUCESSO! ✅✅✅ =====', [
                     'destinatario' => $user->email,
                     'template' => 'welcome',
+                    'smtp_type' => 'SISTEMA (Super Admin)',
+                    'timestamp' => now()->toDateTimeString(),
                 ]);
                 
             } catch (\Exception $emailError) {
-                \Log::error('===== ERRO AO ENVIAR EMAIL DE BOAS-VINDAS =====', [
+                \Log::error('===== ❌❌❌ ERRO AO ENVIAR EMAIL DE BOAS-VINDAS ❌❌❌ =====', [
                     'error_message' => $emailError->getMessage(),
                     'error_file' => $emailError->getFile(),
                     'error_line' => $emailError->getLine(),
                     'error_trace' => $emailError->getTraceAsString(),
-                    'user_email' => $user->email,
-                    'tenant_id' => $tenant->id,
+                    'user_email' => $user->email ?? 'NULL',
+                    'tenant_id' => $tenant->id ?? 'NULL',
                 ]);
+                
+                \Log::error('STACK TRACE COMPLETO:', [
+                    'trace' => $emailError->getTraceAsString()
+                ]);
+                
                 // Não falha o registro se o email falhar
+                \Log::warning('⚠️ Registro continua mesmo com erro no email');
             }
+            
+            \Log::info('🏁 CHECKPOINT: Saiu do bloco de envio de email');
             
             // Limpar progresso do wizard após sucesso
             $this->clearWizardProgress();

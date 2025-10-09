@@ -188,7 +188,7 @@
         <div class="email-header">
             <div class="logo-container">
                 @if(app_logo())
-                    <img src="{{ app_logo() }}" 
+                    <img src="{{ url(app_logo()) }}" 
                          alt="{{ config('app.name', 'SOS ERP') }}" 
                          style="max-height: 80px; max-width: 200px; width: auto; height: auto; display: block; margin: 0 auto;">
                 @else

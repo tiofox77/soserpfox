@@ -243,4 +243,9 @@ Route::middleware(['auth'])->prefix('events')->name('events.')->group(function (
     Route::prefix('types')->name('types.')->group(function () {
         Route::get('/', \App\Livewire\Events\EventTypes::class)->name('index');
     });
+    
+    // Técnicos
+    Route::prefix('technicians')->name('technicians.')->group(function () {
+        Route::get('/', \App\Livewire\Events\TechniciansManager::class)->name('index');
+    });
 });

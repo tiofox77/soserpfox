@@ -837,6 +837,12 @@
                                     <i class="fas fa-tags w-5 text-yellow-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Eventos</span>
                                 </a>
+                                
+                                <a href="{{ route('events.technicians.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.technicians.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-user-tie w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Técnicos</span>
+                                </a>
                             </div>
                         </div>
                     @endif
