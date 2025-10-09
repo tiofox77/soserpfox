@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EquipmentSetItem extends Model
 {
+    protected $table = 'events_equipment_set_items';
+    
     protected $fillable = [
         'equipment_set_id',
         'equipment_id',

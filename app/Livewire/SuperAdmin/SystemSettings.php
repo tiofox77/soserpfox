@@ -49,6 +49,19 @@ class SystemSettings extends Component
     public $instagram_url;
     public $twitter_url;
     public $linkedin_url;
+    
+    // Schema.org
+    public $schema_app_name;
+    public $schema_app_description;
+    public $schema_app_url;
+    public $schema_app_category;
+    public $schema_price;
+    public $schema_currency;
+    public $schema_region;
+    public $schema_rating_value;
+    public $schema_review_count;
+    public $schema_creator_name;
+    public $schema_creator_url;
 
     public function mount()
     {
@@ -87,6 +100,19 @@ class SystemSettings extends Component
         $this->instagram_url = SystemSetting::get('instagram_url');
         $this->twitter_url = SystemSetting::get('twitter_url');
         $this->linkedin_url = SystemSetting::get('linkedin_url');
+        
+        // Schema.org
+        $this->schema_app_name = SystemSetting::get('schema_app_name', 'SOSERP');
+        $this->schema_app_description = SystemSetting::get('schema_app_description');
+        $this->schema_app_url = SystemSetting::get('schema_app_url', 'https://soserp.vip');
+        $this->schema_app_category = SystemSetting::get('schema_app_category', 'BusinessApplication');
+        $this->schema_price = SystemSetting::get('schema_price', '0');
+        $this->schema_currency = SystemSetting::get('schema_currency', 'AOA');
+        $this->schema_region = SystemSetting::get('schema_region', 'Angola');
+        $this->schema_rating_value = SystemSetting::get('schema_rating_value', '4.8');
+        $this->schema_review_count = SystemSetting::get('schema_review_count', '150');
+        $this->schema_creator_name = SystemSetting::get('schema_creator_name', 'SOSERP');
+        $this->schema_creator_url = SystemSetting::get('schema_creator_url', 'https://soserp.vip');
     }
 
     public function saveGeneral()
@@ -183,6 +209,28 @@ class SystemSettings extends Component
         $this->dispatch('notify', [
             'type' => 'success',
             'message' => '✅ Redes sociais salvas com sucesso!'
+        ]);
+    }
+    
+    public function saveSchema()
+    {
+        SystemSetting::set('schema_app_name', $this->schema_app_name);
+        SystemSetting::set('schema_app_description', $this->schema_app_description);
+        SystemSetting::set('schema_app_url', $this->schema_app_url);
+        SystemSetting::set('schema_app_category', $this->schema_app_category);
+        SystemSetting::set('schema_price', $this->schema_price);
+        SystemSetting::set('schema_currency', $this->schema_currency);
+        SystemSetting::set('schema_region', $this->schema_region);
+        SystemSetting::set('schema_rating_value', $this->schema_rating_value);
+        SystemSetting::set('schema_review_count', $this->schema_review_count);
+        SystemSetting::set('schema_creator_name', $this->schema_creator_name);
+        SystemSetting::set('schema_creator_url', $this->schema_creator_url);
+        
+        SystemSetting::clearCache();
+        
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => '✅ Configurações Schema.org (JSON-LD) salvas com sucesso!'
         ]);
     }
 

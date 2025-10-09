@@ -198,9 +198,6 @@ Route::middleware(['auth'])->prefix('events')->name('events.')->group(function (
     // Calendário
     Route::get('/calendar', \App\Livewire\Events\EventCalendar::class)->name('calendar');
     
-    // Eventos
-    Route::get('/manager', \App\Livewire\Events\EventsManager::class)->name('manager');
-    
     // Relatórios
     Route::get('/reports', \App\Livewire\Events\Reports::class)->name('reports');
     
@@ -240,5 +237,10 @@ Route::middleware(['auth'])->prefix('events')->name('events.')->group(function (
     // Locais
     Route::prefix('venues')->name('venues.')->group(function () {
         Route::get('/', \App\Livewire\Events\Venues\VenuesManager::class)->name('index');
+    });
+    
+    // Tipos de Eventos
+    Route::prefix('types')->name('types.')->group(function () {
+        Route::get('/', \App\Livewire\Events\EventTypes::class)->name('index');
     });
 });

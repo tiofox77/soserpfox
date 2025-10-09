@@ -35,6 +35,10 @@
                     class="px-6 py-3 rounded-lg font-semibold transition {{ $activeTab === 'social' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100' }}">
                 <i class="fas fa-share-alt mr-2"></i>Redes Sociais
             </button>
+            <button wire:click="$set('activeTab', 'schema')" 
+                    class="px-6 py-3 rounded-lg font-semibold transition {{ $activeTab === 'schema' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100' }}">
+                <i class="fas fa-code mr-2"></i>Schema.org
+            </button>
         </div>
     </div>
 
@@ -448,5 +452,203 @@
         </div>
         @endif
 
+        {{-- TAB: SCHEMA.ORG --}}
+        @if($activeTab === 'schema')
+        <div class="space-y-6">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-code mr-3 text-purple-600"></i>
+                Schema.org (JSON-LD)
+            </h3>
+
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
+                <p class="text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Importante:</strong> Estas configurações são usadas para gerar o JSON-LD na landing page, melhorando o SEO e a exibição nos resultados de busca.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- App Name --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-tag mr-1"></i>Nome da Aplicação (Schema)
+                    </label>
+                    <input type="text" wire:model="schema_app_name" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="SOSERP">
+                    <p class="text-xs text-gray-500 mt-1">Nome exibido no schema JSON-LD</p>
+                </div>
+
+                {{-- App URL --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-link mr-1"></i>URL da Aplicação (Schema)
+                    </label>
+                    <input type="url" wire:model="schema_app_url" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="https://soserp.vip">
+                    <p class="text-xs text-gray-500 mt-1">URL canônica do site</p>
+                </div>
+
+                {{-- App Category --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-folder mr-1"></i>Categoria da Aplicação
+                    </label>
+                    <select wire:model="schema_app_category" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500">
+                        <option value="BusinessApplication">BusinessApplication</option>
+                        <option value="WebApplication">WebApplication</option>
+                        <option value="MobileApplication">MobileApplication</option>
+                        <option value="SoftwareApplication">SoftwareApplication</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Tipo de aplicação para schema.org</p>
+                </div>
+
+                {{-- Price --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-dollar-sign mr-1"></i>Preço Inicial
+                    </label>
+                    <input type="text" wire:model="schema_price" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="0">
+                    <p class="text-xs text-gray-500 mt-1">Use "0" para grátis</p>
+                </div>
+
+                {{-- Currency --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-money-bill mr-1"></i>Moeda
+                    </label>
+                    <select wire:model="schema_currency" 
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500">
+                        <option value="AOA">AOA (Kwanza Angolano)</option>
+                        <option value="USD">USD (Dólar Americano)</option>
+                        <option value="EUR">EUR (Euro)</option>
+                        <option value="BRL">BRL (Real Brasileiro)</option>
+                    </select>
+                </div>
+
+                {{-- Region --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt mr-1"></i>Região/País
+                    </label>
+                    <input type="text" wire:model="schema_region" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="Angola">
+                    <p class="text-xs text-gray-500 mt-1">Região elegível para oferta</p>
+                </div>
+
+                {{-- Rating Value --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-star mr-1"></i>Avaliação (Rating)
+                    </label>
+                    <input type="number" step="0.1" min="0" max="5" wire:model="schema_rating_value" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="4.8">
+                    <p class="text-xs text-gray-500 mt-1">Nota média (0-5)</p>
+                </div>
+
+                {{-- Review Count --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-comment mr-1"></i>Número de Avaliações
+                    </label>
+                    <input type="number" wire:model="schema_review_count" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="150">
+                    <p class="text-xs text-gray-500 mt-1">Total de reviews/avaliações</p>
+                </div>
+
+                {{-- Creator Name --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-building mr-1"></i>Nome do Criador/Organização
+                    </label>
+                    <input type="text" wire:model="schema_creator_name" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="SOSERP">
+                    <p class="text-xs text-gray-500 mt-1">Nome da organização criadora</p>
+                </div>
+
+                {{-- Creator URL --}}
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-external-link-alt mr-1"></i>URL do Criador
+                    </label>
+                    <input type="url" wire:model="schema_creator_url" 
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                           placeholder="https://soserp.vip">
+                    <p class="text-xs text-gray-500 mt-1">Website da organização</p>
+                </div>
+
+                {{-- App Description (full width) --}}
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <i class="fas fa-align-left mr-1"></i>Descrição da Aplicação (Schema)
+                    </label>
+                    <textarea wire:model="schema_app_description" rows="4"
+                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                              placeholder="Sistema de Gestão Empresarial Multi-Tenant para empresas em Angola..."></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Descrição completa para JSON-LD</p>
+                </div>
+            </div>
+
+            {{-- Preview JSON-LD --}}
+            <div class="bg-gray-900 rounded-xl p-4 mt-6">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-white font-bold">
+                        <i class="fas fa-code mr-2"></i>Preview JSON-LD
+                    </p>
+                    <span class="text-xs text-gray-400">Este código será inserido no &lt;head&gt; da landing page</span>
+                </div>
+                <pre class="text-xs text-green-400 overflow-x-auto"><code>{
+  "@@context": "https://schema.org",
+  "@@type": "SoftwareApplication",
+  "name": "{{ $schema_app_name }}",
+  "description": "{{ $schema_app_description }}",
+  "url": "{{ $schema_app_url }}",
+  "applicationCategory": "{{ $schema_app_category }}",
+  "offers": {
+    "@@type": "Offer",
+    "price": "{{ $schema_price }}",
+    "priceCurrency": "{{ $schema_currency }}",
+    "eligibleRegion": {
+      "@@type": "Place",
+      "name": "{{ $schema_region }}"
+    }
+  },
+  "aggregateRating": {
+    "@@type": "AggregateRating",
+    "ratingValue": "{{ $schema_rating_value }}",
+    "reviewCount": "{{ $schema_review_count }}"
+  },
+  "creator": {
+    "@@type": "Organization",
+    "name": "{{ $schema_creator_name }}",
+    "url": "{{ $schema_creator_url }}"
+  }
+}</code></pre>
+            </div>
+
+            <div class="flex justify-end">
+                <button wire:click="saveSchema" 
+                        wire:loading.attr="disabled"
+                        class="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold shadow-lg transition">
+                    <span wire:loading.remove wire:target="saveSchema">
+                        <i class="fas fa-save mr-2"></i>Salvar Schema.org
+                    </span>
+                    <span wire:loading wire:target="saveSchema">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
+                    </span>
+                </button>
+            </div>
+        </div>
+        @endif
+        
     </div>
 </div>
+

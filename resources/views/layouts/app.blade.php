@@ -814,12 +814,6 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Calendário</span>
                                 </a>
                                 
-                                <a href="{{ route('events.manager') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.manager') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-list w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Lista de Eventos</span>
-                                </a>
-                                
                                 <a href="{{ route('events.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.reports') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-purple-400 text-sm"></i>
@@ -836,6 +830,12 @@
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.venues.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-map-marker-alt w-5 text-red-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Locais</span>
+                                </a>
+                                
+                                <a href="{{ route('events.types.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.types.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tags w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Eventos</span>
                                 </a>
                             </div>
                         </div>

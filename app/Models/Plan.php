@@ -239,4 +239,99 @@ class Plan extends Model
             return 0;
         }
     }
+    
+    /**
+     * Adicionar um módulo aos tenants que têm subscription ativa deste plano
+     */
+    public function addModuleToTenants($moduleId)
+    {
+        try {
+            $module = Module::find($moduleId);
+            if (!$module) {
+                \Log::error("Módulo ID {$moduleId} não encontrado");
+                return 0;
+            }
+
+            // Buscar todos os tenants com subscription ativa
+            $tenants = $this->subscriptions()
+                ->where('status', 'active')
+                ->with('tenant')
+                ->get()
+                ->pluck('tenant')
+                ->filter();
+
+            if ($tenants->isEmpty()) {
+                return 0;
+            }
+
+            $addedCount = 0;
+
+            foreach ($tenants as $tenant) {
+                if (!$tenant) continue;
+
+                // Adicionar módulo ao tenant (sem remover os existentes)
+                $tenant->modules()->syncWithoutDetaching([
+                    $moduleId => [
+                        'is_active' => true,
+                        'activated_at' => now(),
+                    ]
+                ]);
+
+                $addedCount++;
+
+                \Log::info("✅ Módulo '{$module->name}' adicionado ao tenant '{$tenant->name}' (Plano: {$this->name})");
+            }
+
+            return $addedCount;
+
+        } catch (\Exception $e) {
+            \Log::error("Erro ao adicionar módulo {$moduleId} aos tenants do plano {$this->name}: " . $e->getMessage());
+            return 0;
+        }
+    }
+    
+    /**
+     * Remover um módulo dos tenants que têm subscription ativa deste plano
+     */
+    public function removeModuleFromTenants($moduleId)
+    {
+        try {
+            $module = Module::find($moduleId);
+            if (!$module) {
+                \Log::error("Módulo ID {$moduleId} não encontrado");
+                return 0;
+            }
+
+            // Buscar todos os tenants com subscription ativa
+            $tenants = $this->subscriptions()
+                ->where('status', 'active')
+                ->with('tenant')
+                ->get()
+                ->pluck('tenant')
+                ->filter();
+
+            if ($tenants->isEmpty()) {
+                return 0;
+            }
+
+            $removedCount = 0;
+
+            foreach ($tenants as $tenant) {
+                if (!$tenant) continue;
+
+                // Remover módulo do tenant
+                $tenant->modules()->detach($moduleId);
+
+                $removedCount++;
+
+                \Log::info("❌ Módulo '{$module->name}' removido do tenant '{$tenant->name}' (Plano: {$this->name})");
+            }
+
+            return $removedCount;
+
+        } catch (\Exception $e) {
+            \Log::error("Erro ao remover módulo {$moduleId} dos tenants do plano {$this->name}: " . $e->getMessage());
+            return 0;
+        }
+    }
 }

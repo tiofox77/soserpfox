@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>SOSERP - Sistema de Gestão Empresarial Multi-Tenant em Angola</title>
-    <meta name="description" content="Sistema completo de gestão empresarial em Angola. Gerencie eventos, inventário, CRM, faturação, RH e contabilidade. Solução profissional multi-tenant.">
-    <meta name="keywords" content="ERP Angola, sistema gestão empresarial, gestão eventos, CRM, faturação, inventário, contabilidade Angola">
-    <meta name="author" content="SOSERP">
+    <title>{{ $settings['seo_title'] ?? 'SOSERP - Sistema de Gestão Empresarial' }}</title>
+    <meta name="description" content="{{ $settings['seo_description'] ?? 'Sistema completo de gestão empresarial em Angola. Gerencie eventos, inventário, CRM, faturação, RH e contabilidade. Solução profissional multi-tenant.' }}">
+    <meta name="keywords" content="{{ $settings['seo_keywords'] ?? 'ERP Angola, sistema gestão empresarial, gestão eventos, CRM, faturação, inventário, contabilidade Angola' }}">
+    <meta name="author" content="{{ $settings['schema_creator_name'] ?? 'SOSERP' }}">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="index, follow">
     <meta name="language" content="Portuguese">
@@ -16,18 +16,28 @@
     
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://soserp.vip">
-    <meta property="og:title" content="SOS ERP - Sistema de Gestão Empresarial">
-    <meta property="og:description" content="Plataforma completa de gestão empresarial em Angola. Gestão de Eventos, Inventário, CRM, Faturação, RH e Contabilidade. Multi-tenant, Seguro e Profissional. Teste grátis por 14 dias!">
-    <meta property="og:site_name" content="SOS ERP">
+    <meta property="og:url" content="{{ $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
+    <meta property="og:title" content="{{ $settings['seo_title'] ?? 'SOS ERP - Sistema de Gestão Empresarial' }}">
+    <meta property="og:description" content="{{ $settings['seo_description'] ?? 'Plataforma completa de gestão empresarial em Angola.' }}">
+    <meta property="og:site_name" content="{{ $settings['app_name'] ?? 'SOS ERP' }}">
     <meta property="og:locale" content="pt_AO">
+    @if($settings['app_logo'])
+    <meta property="og:image" content="{{ asset('storage/' . $settings['app_logo']) }}">
+    @endif
     
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="SOSERP - Sistema de Gestão Empresarial">
-    <meta name="twitter:description" content="Sistema completo de gestão empresarial em Angola.">
+    <meta name="twitter:title" content="{{ $settings['seo_title'] ?? 'SOSERP - Sistema de Gestão Empresarial' }}">
+    <meta name="twitter:description" content="{{ $settings['seo_description'] ?? 'Sistema completo de gestão empresarial em Angola.' }}">
+    @if($settings['app_logo'])
+    <meta name="twitter:image" content="{{ asset('storage/' . $settings['app_logo']) }}">
+    @endif
     
+    @if($settings['app_favicon'])
+    <link rel="icon" type="image/x-icon" href="{{ asset('storage/' . $settings['app_favicon']) }}">
+    @else
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="canonical" href="https://soserp.vip">
+    @endif
+    <link rel="canonical" href="{{ $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
     
     <!-- Preconnect para Performance -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
@@ -37,30 +47,33 @@
     {
       "@@context": "https://schema.org",
       "@@type": "SoftwareApplication",
-      "name": "SOSERP",
-      "description": "Sistema de Gestão Empresarial Multi-Tenant para empresas em Angola",
-      "url": "https://soserp.vip",
-      "applicationCategory": "BusinessApplication",
+      "name": "{{ $settings['schema_app_name'] ?? 'SOSERP' }}",
+      "description": "{{ $settings['schema_app_description'] ?? 'Sistema de Gestão Empresarial Multi-Tenant para empresas em Angola' }}",
+      "url": "{{ $settings['schema_app_url'] ?? 'https://soserp.vip' }}",
+      "applicationCategory": "{{ $settings['schema_app_category'] ?? 'BusinessApplication' }}",
       "operatingSystem": "Web",
+      @if($settings['app_logo'])
+      "image": "{{ asset('storage/' . $settings['app_logo']) }}",
+      @endif
       "offers": {
         "@@type": "Offer",
-        "price": "0",
-        "priceCurrency": "AOA",
+        "price": "{{ $settings['schema_price'] ?? '0' }}",
+        "priceCurrency": "{{ $settings['schema_currency'] ?? 'AOA' }}",
         "availability": "https://schema.org/InStock",
         "eligibleRegion": {
-          "@type": "Place",
-          "name": "Angola"
+          "@@type": "Place",
+          "name": "{{ $settings['schema_region'] ?? 'Angola' }}"
         }
       },
       "aggregateRating": {
         "@@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "reviewCount": "150"
+        "ratingValue": "{{ $settings['schema_rating_value'] ?? '4.8' }}",
+        "reviewCount": "{{ $settings['schema_review_count'] ?? '150' }}"
       },
       "creator": {
         "@@type": "Organization",
-        "name": "SOSERP",
-        "url": "https://soserp.vip"
+        "name": "{{ $settings['schema_creator_name'] ?? 'SOSERP' }}",
+        "url": "{{ $settings['schema_creator_url'] ?? 'https://soserp.vip' }}"
       }
     }
     </script>

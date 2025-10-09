@@ -370,7 +370,14 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Categoria *</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between">
+                            <span>Categoria *</span>
+                            <button type="button"
+                                    wire:click="openCategoryModal"
+                                    class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-md hover:bg-purple-200 transition">
+                                <i class="fas fa-plus mr-1"></i>Nova
+                            </button>
+                        </label>
                         <select wire:model="category" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 @error('category') border-red-500 @enderror">
                             <option value="">Selecione</option>
                             @foreach($categories as $cat)
@@ -425,27 +432,53 @@
                     </div>
 
                     <div class="col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Imagem</label>
-                        <input type="file" wire:model="image" accept="image/*" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg @error('image') border-red-500 @enderror">
-                        @error('image') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-image text-purple-600 mr-2"></i>
+                            Imagem do Equipamento
+                        </label>
                         
-                        {{-- Preview da imagem --}}
-                        @if ($image)
-                        <div class="mt-3">
-                            <p class="text-sm text-gray-600 mb-2">Preview:</p>
-                            <img src="{{ $image->temporaryUrl() }}" class="w-32 h-32 object-cover rounded-lg border-2 border-purple-300">
-                        </div>
-                        @endif
-                        
-                        {{-- Loading indicator --}}
-                        <div wire:loading wire:target="image" class="mt-2">
-                            <span class="text-sm text-purple-600">
-                                <i class="fas fa-spinner fa-spin mr-2"></i>
-                                Carregando imagem...
-                            </span>
+                        <div class="flex items-start gap-4">
+                            {{-- Preview --}}
+                            <div class="flex-shrink-0">
+                                @if ($image)
+                                    <div class="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-purple-300 shadow-lg">
+                                        <img src="{{ $image->temporaryUrl() }}" class="w-full h-full object-cover">
+                                        <div class="absolute top-1 right-1">
+                                            <button type="button" wire:click="$set('image', null)" 
+                                                    class="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition">
+                                                <i class="fas fa-times text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="w-32 h-32 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                                        <i class="fas fa-image text-4xl text-gray-300"></i>
+                                    </div>
+                                @endif
+                            </div>
+                            
+                            {{-- Upload button --}}
+                            <div class="flex-1">
+                                <label for="image-upload" class="cursor-pointer">
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-purple-500 hover:bg-purple-50 transition text-center @error('image') border-red-500 @enderror">
+                                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                        <p class="text-sm font-semibold text-gray-700">Clique para escolher</p>
+                                        <p class="text-xs text-gray-500 mt-1">PNG, JPG até 2MB</p>
+                                    </div>
+                                </label>
+                                <input id="image-upload" type="file" wire:model="image" accept="image/*" class="hidden">
+                                @error('image') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                
+                                {{-- Loading indicator --}}
+                                <div wire:loading wire:target="image" class="mt-2">
+                                    <div class="flex items-center gap-2 text-purple-600">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                        <span class="text-sm">Carregando imagem...</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
                 <div class="flex space-x-3 pt-4 border-t">
                     <button wire:click="save" 
@@ -531,6 +564,90 @@
                         </span>
                     </button>
                     <button wire:click="closeModal" class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+    
+    {{-- Mini Modal: Criar Categoria --}}
+    @if($showCategoryModal)
+    <div class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md" @click.stop>
+            <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-3 flex items-center justify-between rounded-t-xl">
+                <h4 class="text-lg font-bold text-white flex items-center">
+                    <i class="fas fa-tag mr-2"></i>
+                    Nova Categoria
+                </h4>
+                <button wire:click="closeCategoryModal" class="text-white hover:text-gray-200">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-3">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Nome da Categoria *</label>
+                    <input type="text" wire:model="newCategoryName" 
+                           class="w-full px-3 py-2 border-2 @error('newCategoryName') border-red-500 @else border-gray-300 @enderror rounded-lg focus:ring-2 focus:ring-purple-500"
+                           placeholder="Ex: Câmeras">
+                    @error('newCategoryName') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Ícone *</label>
+                        <select wire:model="newCategoryIcon" 
+                                class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                            <option value="📦">📦 Geral</option>
+                            <option value="🎥">🎥 Câmera</option>
+                            <option value="🎤">🎤 Áudio</option>
+                            <option value="💡">💡 Iluminação</option>
+                            <option value="📹">📹 Vídeo</option>
+                            <option value="🎬">🎬 Filmagem</option>
+                            <option value="🎸">🎸 Musical</option>
+                            <option value="🖥️">🖥️ Computador</option>
+                            <option value="📡">📡 Streaming</option>
+                            <option value="🔌">🔌 Elétrico</option>
+                            <option value="🎭">🎭 Cenário</option>
+                            <option value="📺">📺 TV/Monitor</option>
+                            <option value="🎮">🎮 Gaming</option>
+                            <option value="🔧">🔧 Ferramentas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Cor *</label>
+                        <input type="color" wire:model="newCategoryColor" 
+                               class="w-full h-[42px] border-2 border-gray-300 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-3 flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl" 
+                         style="background-color: {{ $newCategoryColor }}20; border: 2px solid {{ $newCategoryColor }}">
+                        {{ $newCategoryIcon }}
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 font-semibold">Preview:</p>
+                        <p class="font-bold" style="color: {{ $newCategoryColor }}">
+                            {{ $newCategoryIcon }} {{ $newCategoryName ?: 'Nome da categoria' }}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2 pt-3">
+                    <button wire:click="saveCategory" 
+                            wire:loading.attr="disabled"
+                            class="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
+                        <span wire:loading.remove wire:target="saveCategory">
+                            <i class="fas fa-save mr-1"></i>Salvar
+                        </span>
+                        <span wire:loading wire:target="saveCategory">
+                            <i class="fas fa-spinner fa-spin mr-1"></i>Salvando...
+                        </span>
+                    </button>
+                    <button wire:click="closeCategoryModal" 
+                            class="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition">
                         Cancelar
                     </button>
                 </div>

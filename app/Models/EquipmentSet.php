@@ -12,12 +12,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class EquipmentSet extends Model
 {
     use BelongsToTenant, SoftDeletes;
+    
+    protected $table = 'events_equipment_sets';
 
     protected $fillable = [
         'tenant_id',
         'name',
         'description',
-        'category', // manter para compatibilidade
         'category_id',
         'image_path',
         'is_active',
@@ -42,7 +43,7 @@ class EquipmentSet extends Model
 
     public function equipments(): BelongsToMany
     {
-        return $this->belongsToMany(Equipment::class, 'equipment_set_items')
+        return $this->belongsToMany(Equipment::class, 'events_equipment_set_items')
             ->withPivot('quantity', 'notes')
             ->withTimestamps();
     }

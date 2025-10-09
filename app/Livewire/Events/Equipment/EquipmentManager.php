@@ -55,6 +55,12 @@ class EquipmentManager extends Component
     public $maintenanceEquipmentId = null;
     public $maintenance_notes = '';
     public $next_maintenance_date = '';
+    
+    // Criar Categoria
+    public $showCategoryModal = false;
+    public $newCategoryName = '';
+    public $newCategoryIcon = '📦';
+    public $newCategoryColor = '#8b5cf6';
 
     public function mount()
     {
@@ -273,11 +279,64 @@ class EquipmentManager extends Component
         $this->dispatch('notify', ['type' => 'success', 'message' => 'Equipamento excluído!']);
     }
 
+    /**
+     * Abrir modal de criar categoria
+     */
+    public function openCategoryModal()
+    {
+        $this->reset(['newCategoryName', 'newCategoryIcon', 'newCategoryColor']);
+        $this->newCategoryIcon = '📦';
+        $this->newCategoryColor = '#8b5cf6';
+        $this->showCategoryModal = true;
+    }
+    
+    /**
+     * Fechar modal de criar categoria
+     */
+    public function closeCategoryModal()
+    {
+        $this->showCategoryModal = false;
+        $this->reset(['newCategoryName', 'newCategoryIcon', 'newCategoryColor']);
+    }
+    
+    /**
+     * Salvar nova categoria
+     */
+    public function saveCategory()
+    {
+        $this->validate([
+            'newCategoryName' => 'required|string|max:100',
+            'newCategoryIcon' => 'required|string|max:10',
+            'newCategoryColor' => 'required|string|max:7',
+        ], [
+            'newCategoryName.required' => 'O nome da categoria é obrigatório',
+        ]);
+        
+        $category = EquipmentCategory::create([
+            'tenant_id' => activeTenantId(),
+            'name' => $this->newCategoryName,
+            'icon' => $this->newCategoryIcon,
+            'color' => $this->newCategoryColor,
+            'sort_order' => EquipmentCategory::where('tenant_id', activeTenantId())->max('sort_order') + 1,
+            'is_active' => true,
+        ]);
+        
+        $this->category = $category->id;
+        
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => '✅ Categoria criada: ' . $category->icon . ' ' . $category->name
+        ]);
+        
+        $this->closeCategoryModal();
+    }
+    
     public function closeModal()
     {
         $this->showModal = false;
         $this->showBorrowModal = false;
         $this->showMaintenanceModal = false;
+        $this->showCategoryModal = false;
     }
 
     public function switchView($mode)

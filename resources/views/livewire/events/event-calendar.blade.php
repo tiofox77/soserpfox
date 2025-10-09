@@ -333,9 +333,15 @@
                     <h3 class="text-xl font-bold text-white">{{ $selectedEvent->name }}</h3>
                     <p class="text-purple-100 text-sm">{{ $selectedEvent->event_number }}</p>
                 </div>
-                <button wire:click="closeModal" class="text-white hover:text-gray-200">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
+                <div class="flex items-center gap-3">
+                    <button wire:click="editEvent({{ $selectedEvent->id }})" 
+                            class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-semibold transition">
+                        <i class="fas fa-edit mr-2"></i>Editar
+                    </button>
+                    <button wire:click="closeModal" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="p-6">
@@ -432,137 +438,11 @@
     </div>
     @endif
 
-    {{-- Modal Quick Create --}}
-    @if($showQuickCreateModal)
-    <div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4 animate-fade-in-up"
-         style="backdrop-filter: blur(4px);">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full animate-scale-in">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
-                <h3 class="text-xl font-bold text-white flex items-center">
-                    <i class="fas fa-plus-circle mr-2"></i>
-                    Criar Evento Rápido
-                </h3>
-                <button wire:click="closeModal" class="text-white hover:text-gray-200">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <i class="fas fa-signature text-purple-600 mr-2"></i>
-                        Nome do Evento *
-                    </label>
-                    <input type="text" wire:model="quickName" 
-                           class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                           placeholder="Ex: Conferência Anual 2025">
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                            <i class="fas fa-calendar-day text-green-600 mr-2"></i>
-                            Data/Hora Início *
-                        </label>
-                        <input type="datetime-local" wire:model="quickStartDate" 
-                               step="900"
-                               class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                            <i class="fas fa-calendar-check text-red-600 mr-2"></i>
-                            Data/Hora Fim *
-                        </label>
-                        <input type="datetime-local" wire:model="quickEndDate" 
-                               step="900"
-                               class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                            <i class="fas fa-tag text-blue-600 mr-2"></i>
-                            Tipo de Evento *
-                        </label>
-                        <select wire:model="quickType" 
-                                class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                            <option value="">Selecione o tipo</option>
-                            <option value="corporativo">🏢 Corporativo</option>
-                            <option value="casamento">💍 Casamento</option>
-                            <option value="conferencia">🎤 Conferência</option>
-                            <option value="show">🎸 Show</option>
-                            <option value="streaming">📹 Streaming</option>
-                            <option value="outros">📌 Outros</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                            <i class="fas fa-users text-orange-600 mr-2"></i>
-                            Participantes Esperados
-                        </label>
-                        <input type="number" wire:model="quickAttendees" 
-                               class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                               placeholder="Ex: 100" min="1">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <i class="fas fa-user text-indigo-600 mr-2"></i>
-                        Cliente
-                    </label>
-                    <select wire:model="quickClientId" 
-                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        <option value="">Selecione um cliente</option>
-                        @foreach($clients as $client)
-                            <option value="{{ $client->id }}">{{ $client->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <i class="fas fa-map-marker-alt text-red-600 mr-2"></i>
-                        Local do Evento
-                    </label>
-                    <select wire:model="quickVenueId" 
-                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        <option value="">Selecione um local</option>
-                        @foreach($venues as $venue)
-                            <option value="{{ $venue->id }}">{{ $venue->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                        <i class="fas fa-align-left text-gray-600 mr-2"></i>
-                        Descrição
-                    </label>
-                    <textarea wire:model="quickDescription" 
-                              rows="3"
-                              class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                              placeholder="Descreva os detalhes do evento..."></textarea>
-                </div>
-
-                <div class="flex space-x-3 pt-4 border-t">
-                    <button wire:click="saveQuickEvent" 
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center">
-                        <i class="fas fa-save mr-2"></i>
-                        Criar Evento
-                    </button>
-                    <button wire:click="closeModal" 
-                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
-                        <i class="fas fa-times mr-2"></i>
-                        Cancelar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
+    {{-- Modal Quick Create Event (Componente Separado) --}}
+    @include('livewire.events.partials.quick-create-modal')
+    
+    {{-- Modal Edit Event (Componente Separado) --}}
+    @include('livewire.events.partials.edit-event-modal')
 </div>
 
 @push('scripts')

@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class EquipmentCategory extends Model
 {
     use BelongsToTenant;
+    
+    protected $table = 'events_equipment_categories';
 
     protected $fillable = [
         'tenant_id',

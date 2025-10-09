@@ -9,14 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class EquipmentHistory extends Model
 {
     use BelongsToTenant;
-
-    protected $table = 'equipment_history';
+    
+    protected $table = 'events_equipment_history';
 
     protected $fillable = [
         'equipment_id',
         'tenant_id',
         'action_type',
-        'event_id',
         'client_id',
         'user_id',
         'start_datetime',
