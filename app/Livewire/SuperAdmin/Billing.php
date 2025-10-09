@@ -348,9 +348,62 @@ class Billing extends Component
     
     public function rejectOrder($orderId)
     {
-        $order = Order::findOrFail($orderId);
-        $order->update(['status' => 'rejected']);
+        \Log::info('🚫 SuperAdmin: Rejeitando pedido', ['order_id' => $orderId]);
         
-        $this->dispatch('success', message: 'Pedido rejeitado!');
+        try {
+            $order = Order::with(['tenant', 'user', 'plan'])->findOrFail($orderId);
+            
+            $order->update([
+                'status' => 'rejected',
+                'rejected_at' => now(),
+                'rejected_by' => auth()->id(),
+            ]);
+            
+            // Enviar notificação de rejeição
+            $this->sendRejectionNotification($order);
+            
+            \Log::info('✅ Pedido rejeitado com sucesso');
+            $this->dispatch('success', message: 'Pedido rejeitado!');
+            
+        } catch (\Exception $e) {
+            \Log::error('❌ Erro ao rejeitar pedido', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('error', message: 'Erro ao rejeitar pedido: ' . $e->getMessage());
+        }
+    }
+    
+    protected function sendRejectionNotification($order)
+    {
+        try {
+            $user = $order->user;
+            $tenant = $order->tenant;
+            $plan = $order->plan;
+            
+            if (!$user || !$user->email) {
+                \Log::warning('Usuário não encontrado para notificação de rejeição');
+                return;
+            }
+            
+            $emailData = [
+                'user_name' => $user->name,
+                'tenant_name' => $tenant->name,
+                'plan_name' => $plan->name,
+                'reason' => 'Comprovante de pagamento não aprovado. Por favor, entre em contato com o suporte.',
+                'app_name' => config('app.name', 'SOSERP'),
+                'support_email' => 'suporte@soserp.vip',
+            ];
+            
+            \Illuminate\Support\Facades\Mail::to($user->email)
+                ->send(new \App\Mail\TemplateMail('plan_rejected', $emailData, $tenant->id));
+            
+            \Log::info('📧 Email de rejeição enviado', ['to' => $user->email]);
+            
+        } catch (\Exception $e) {
+            \Log::error('❌ Erro ao enviar email de rejeição', [
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

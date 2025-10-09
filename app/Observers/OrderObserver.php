@@ -97,7 +97,12 @@ class OrderObserver
             // 3. SINCRONIZAR MÓDULOS
             $this->syncModules($tenant, $oldPlan, $newPlan);
 
-            // 4. Atualizar campos de aprovação no pedido (se não foram definidos)
+            // 4. Verificar se é upgrade/downgrade e enviar notificação apropriada
+            if ($oldPlan && $oldPlan->id !== $newPlan->id) {
+                $this->sendPlanUpdateNotification($order, $tenant, $oldPlan, $newPlan);
+            }
+
+            // 5. Atualizar campos de aprovação no pedido (se não foram definidos)
             if (!$order->approved_at) {
                 $order->approved_at = now();
             }
@@ -113,6 +118,11 @@ class OrderObserver
                 'tenant_id' => $tenant->id,
                 'new_plan' => $newPlan->name,
             ]);
+            
+            // 6. ENVIAR NOTIFICAÇÃO DE PAGAMENTO APROVADO (se for primeiro pagamento)
+            if (!$oldPlan) {
+                $this->sendApprovalNotification($order, $tenant, $newPlan, $newSubscription);
+            }
 
         } catch (\Exception $e) {
             \DB::rollBack();
@@ -196,6 +206,113 @@ class OrderObserver
                 'tenant_id' => $tenant->id,
                 'modules_ids' => $modulesToKeep,
             ]);
+        }
+    }
+    
+    /**
+     * Enviar notificação de atualização de plano (upgrade/downgrade)
+     */
+    protected function sendPlanUpdateNotification($order, $tenant, $oldPlan, $newPlan): void
+    {
+        try {
+            \Log::info("📧 Enviando notificação de atualização de plano", [
+                'order_id' => $order->id,
+                'tenant_id' => $tenant->id,
+                'old_plan' => $oldPlan->name,
+                'new_plan' => $newPlan->name,
+            ]);
+            
+            $user = $order->user;
+            if (!$user || !$user->email) {
+                \Log::warning("❌ Usuário não encontrado ou sem email", ['order_id' => $order->id]);
+                return;
+            }
+            
+            // Determinar se é upgrade ou downgrade
+            $isUpgrade = $newPlan->price_monthly > $oldPlan->price_monthly;
+            $changeType = $isUpgrade ? 'upgrade' : 'downgrade';
+            
+            $emailData = [
+                'user_name' => $user->name,
+                'tenant_name' => $tenant->name,
+                'old_plan_name' => $oldPlan->name,
+                'new_plan_name' => $newPlan->name,
+                'change_type' => $changeType,
+                'app_name' => config('app.name', 'SOSERP'),
+                'login_url' => route('login'),
+            ];
+            
+            \Log::info("📧 Dados do email de atualização preparados", $emailData);
+            
+            \Illuminate\Support\Facades\Mail::to($user->email)
+                ->send(new \App\Mail\TemplateMail('plan_updated', $emailData, $tenant->id));
+            
+            \Log::info("✅ Email de atualização de plano enviado com sucesso!", [
+                'destinatario' => $user->email,
+                'template' => 'plan_updated',
+                'tipo' => $changeType,
+            ]);
+            
+        } catch (\Exception $emailError) {
+            \Log::error("❌ Erro ao enviar email de atualização de plano", [
+                'error_message' => $emailError->getMessage(),
+                'error_file' => $emailError->getFile(),
+                'error_line' => $emailError->getLine(),
+                'order_id' => $order->id,
+                'tenant_id' => $tenant->id,
+            ]);
+        }
+    }
+    
+    /**
+     * Enviar notificação de aprovação ao cliente
+     */
+    protected function sendApprovalNotification($order, $tenant, $plan, $subscription): void
+    {
+        try {
+            \Log::info("📧 Iniciando envio de notificação de aprovação", [
+                'order_id' => $order->id,
+                'tenant_id' => $tenant->id,
+                'user_id' => $order->user_id,
+            ]);
+            
+            $user = $order->user;
+            if (!$user || !$user->email) {
+                \Log::warning("❌ Usuário não encontrado ou sem email", ['order_id' => $order->id]);
+                return;
+            }
+            
+            $emailData = [
+                'user_name' => $user->name,
+                'tenant_name' => $tenant->name,
+                'plan_name' => $plan->name,
+                'amount' => number_format($order->amount, 2, ',', '.'),
+                'billing_cycle' => $order->billing_cycle ?? 'monthly',
+                'period_start' => $subscription->current_period_start->format('d/m/Y'),
+                'period_end' => $subscription->current_period_end->format('d/m/Y'),
+                'app_name' => config('app.name', 'SOSERP'),
+                'login_url' => route('login'),
+            ];
+            
+            \Log::info("📧 Dados do email preparados", $emailData);
+            
+            \Illuminate\Support\Facades\Mail::to($user->email)
+                ->send(new \App\Mail\TemplateMail('payment_approved', $emailData, $tenant->id));
+            
+            \Log::info("✅ Email de aprovação enviado com sucesso!", [
+                'destinatario' => $user->email,
+                'template' => 'payment_approved',
+            ]);
+            
+        } catch (\Exception $emailError) {
+            \Log::error("❌ Erro ao enviar email de aprovação", [
+                'error_message' => $emailError->getMessage(),
+                'error_file' => $emailError->getFile(),
+                'error_line' => $emailError->getLine(),
+                'order_id' => $order->id,
+                'tenant_id' => $tenant->id,
+            ]);
+            // Não falha o processo de aprovação se o email falhar
         }
     }
 }

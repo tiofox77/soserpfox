@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 // Landing Page
 Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('landing.home');
+Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 
 // Custom Register Wizard
 Route::get('/register', \App\Livewire\Auth\RegisterWizard::class)->name('register');
@@ -48,6 +49,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/smtp-settings', \App\Livewire\SuperAdmin\SmtpSettings::class)->name('smtp-settings');
     Route::get('/email-logs', \App\Livewire\SuperAdmin\EmailLogs::class)->name('email-logs');
     Route::get('/saft-configuration', \App\Livewire\SuperAdmin\SaftConfiguration::class)->name('saft');
+    Route::get('/contact-messages', \App\Livewire\SuperAdmin\ContactMessages::class)->name('contact-messages');
 });
 
 // Invoicing Module Routes

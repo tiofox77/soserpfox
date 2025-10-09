@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <!-- SEO Meta Tags -->
-    <title>{{ app_name() ?? 'SOS ERP' }} - Sistema de Gestão Empresarial Multi-Tenant em Angola</title>
-    <meta name="description" content="SOS ERP é a plataforma líder de gestão empresarial multi-tenant em Angola. Gerencie eventos, inventário, CRM, faturação, RH, contabilidade e muito mais. Solução completa para pequenas e grandes empresas. Teste grátis por 14 dias!">
-    <meta name="keywords" content="ERP Angola, sistema gestão empresarial, ERP multi-tenant, gestão eventos Angola, CRM Angola, faturação Angola, sistema inventário, contabilidade Angola, RH Angola, software empresarial, SOS ERP, gestão empresas Angola, plataforma gestão, ERP cloud Angola">
-    <meta name="author" content="{{ app_name() ?? 'SOS ERP' }}">
+    <title>SOSERP - Sistema de Gestão Empresarial Multi-Tenant em Angola</title>
+    <meta name="description" content="Sistema completo de gestão empresarial em Angola. Gerencie eventos, inventário, CRM, faturação, RH e contabilidade. Solução profissional multi-tenant.">
+    <meta name="keywords" content="ERP Angola, sistema gestão empresarial, gestão eventos, CRM, faturação, inventário, contabilidade Angola">
+    <meta name="author" content="SOSERP">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="index, follow">
     <meta name="language" content="Portuguese">
@@ -17,55 +16,34 @@
     
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:title" content="{{ app_name() ?? 'SOS ERP' }} - Sistema de Gestão Empresarial Multi-Tenant">
-    <meta property="og:description" content="🚀 Plataforma completa de gestão empresarial em Angola. Gestão de Eventos, Inventário, CRM, Faturação, RH e Contabilidade. 📊 Multi-tenant, Seguro e Profissional. ✅ Teste grátis!">
-    <meta property="og:image" content="{{ app_logo() ?? url('/images/og-image.png') }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:site_name" content="{{ app_name() ?? 'SOS ERP' }}">
+    <meta property="og:url" content="https://soserp.vip">
+    <meta property="og:title" content="SOS ERP - Sistema de Gestão Empresarial">
+    <meta property="og:description" content="Plataforma completa de gestão empresarial em Angola. Gestão de Eventos, Inventário, CRM, Faturação, RH e Contabilidade. Multi-tenant, Seguro e Profissional. Teste grátis por 14 dias!">
+    <meta property="og:site_name" content="SOS ERP">
     <meta property="og:locale" content="pt_AO">
-    <meta property="og:locale:alternate" content="pt_PT">
-    <meta property="og:locale:alternate" content="pt_BR">
     
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="{{ url()->current() }}">
-    <meta name="twitter:title" content="{{ app_name() ?? 'SOS ERP' }} - Sistema de Gestão Empresarial">
-    <meta name="twitter:description" content="Plataforma completa de gestão empresarial multi-tenant. Eventos, Inventário, CRM, Faturação, RH e Contabilidade. Solução profissional para empresas em Angola.">
-    <meta name="twitter:image" content="{{ app_logo() ?? url('/images/og-image.png') }}">
-    <meta name="twitter:creator" content="@soserp">
-    <meta name="twitter:site" content="@soserp">
+    <meta name="twitter:title" content="SOSERP - Sistema de Gestão Empresarial">
+    <meta name="twitter:description" content="Sistema completo de gestão empresarial em Angola.">
     
-    <!-- Favicon -->
-    @if(app_favicon())
-    <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ app_favicon() }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ app_favicon() }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ app_favicon() }}">
-    @else
-    <link rel="icon" type="image/x-icon" href="{{ url('/favicon.ico') }}">
-    @endif
-    
-    <!-- Canonical URL -->
-    <link rel="canonical" href="{{ url('/') }}">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="canonical" href="https://soserp.vip">
     
     <!-- Preconnect para Performance -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     
-    <!-- Schema.org Markup (JSON-LD) -->
     <script type="application/ld+json">
     {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "{{ app_name() ?? 'SOS ERP' }}",
+      "@@context": "https://schema.org",
+      "@@type": "SoftwareApplication",
+      "name": "SOSERP",
       "description": "Sistema de Gestão Empresarial Multi-Tenant para empresas em Angola",
-      "url": "{{ url('/') }}",
+      "url": "https://soserp.vip",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
       "offers": {
-        "@type": "Offer",
+        "@@type": "Offer",
         "price": "0",
         "priceCurrency": "AOA",
         "availability": "https://schema.org/InStock",
@@ -75,14 +53,14 @@
         }
       },
       "aggregateRating": {
-        "@type": "AggregateRating",
+        "@@type": "AggregateRating",
         "ratingValue": "4.8",
         "reviewCount": "150"
       },
       "creator": {
-        "@type": "Organization",
-        "name": "{{ app_name() ?? 'SOS ERP' }}",
-        "url": "{{ url('/') }}"
+        "@@type": "Organization",
+        "name": "SOSERP",
+        "url": "https://soserp.vip"
       }
     }
     </script>
@@ -443,6 +421,141 @@
         </div>
     </section>
 
+    <!-- Events Module Highlight Section -->
+    <section class="py-20 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+        <!-- Background Animation -->
+        <div class="absolute inset-0 opacity-20">
+            <div class="absolute top-10 left-10 w-72 h-72 bg-purple-500 rounded-full filter blur-3xl animate-pulse"></div>
+            <div class="absolute bottom-10 right-10 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
+            <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-pink-500 rounded-full filter blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-16">
+                <div class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold rounded-full mb-6 shadow-2xl animate-bounce">
+                    <i class="fas fa-star mr-3 text-yellow-300"></i>
+                    MÓDULO DESTAQUE
+                    <i class="fas fa-star ml-3 text-yellow-300"></i>
+                </div>
+                <h2 class="text-5xl md:text-6xl font-extrabold text-white mb-6">
+                    <i class="fas fa-calendar-star mr-4"></i>Gestão de Eventos
+                </h2>
+                <p class="text-2xl text-purple-200 max-w-3xl mx-auto leading-relaxed">
+                    Organize eventos profissionais com controle total de equipamentos, equipes, orçamentos e muito mais!
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <!-- Left Side - Image/Icon -->
+                <div class="relative">
+                    <div class="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl blur-2xl opacity-50 animate-pulse"></div>
+                    <div class="relative bg-white/10 backdrop-blur-lg rounded-3xl p-12 border border-white/20 shadow-2xl">
+                        <div class="text-center">
+                            <div class="w-48 h-48 mx-auto bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-full flex items-center justify-center mb-8 shadow-2xl animate-pulse">
+                                <i class="fas fa-calendar-check text-white text-8xl"></i>
+                            </div>
+                            <h3 class="text-3xl font-bold text-white mb-4">Tudo em Um Só Lugar</h3>
+                            <p class="text-purple-200 text-lg">
+                                Gerencie desde pequenas reuniões até grandes eventos corporativos com total profissionalismo
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side - Features -->
+                <div class="space-y-6">
+                    <!-- Feature 1 -->
+                    <div class="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mr-5 shadow-lg">
+                                <i class="fas fa-calendar-alt text-white text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-xl font-bold text-white mb-2">📅 Calendário Inteligente</h4>
+                                <p class="text-purple-200">Visualize todos os eventos em um calendário interativo. Filtros avançados, arrastar e soltar, visão mensal/semanal/diária.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feature 2 -->
+                    <div class="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center mr-5 shadow-lg">
+                                <i class="fas fa-boxes text-white text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-xl font-bold text-white mb-2">📦 Gestão de Equipamentos</h4>
+                                <p class="text-purple-200">Controle completo de equipamentos: som, luz, palco, decoração. Rastreamento com QR Code, kits pré-definidos, histórico de uso.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feature 3 -->
+                    <div class="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center mr-5 shadow-lg">
+                                <i class="fas fa-users text-white text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-xl font-bold text-white mb-2">👥 Gestão de Equipes</h4>
+                                <p class="text-purple-200">Aloque técnicos, fotógrafos, segurança e equipe. Controle de disponibilidade, turnos e remuneração por evento.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feature 4 -->
+                    <div class="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-5 shadow-lg">
+                                <i class="fas fa-map-marker-alt text-white text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-xl font-bold text-white mb-2">📍 Locais & Venues</h4>
+                                <p class="text-purple-200">Cadastre salões, espaços e locais. Capacidade, disponibilidade, galeria de fotos, contatos e muito mais.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feature 5 -->
+                    <div class="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-red-500 to-rose-500 rounded-xl flex items-center justify-center mr-5 shadow-lg">
+                                <i class="fas fa-file-invoice-dollar text-white text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-xl font-bold text-white mb-2">💰 Orçamentos & Faturação</h4>
+                                <p class="text-purple-200">Crie orçamentos detalhados, controle custos vs. receita, emita faturas automaticamente e acompanhe pagamentos.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feature 6 -->
+                    <div class="group bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-xl flex items-center justify-center mr-5 shadow-lg">
+                                <i class="fas fa-chart-line text-white text-2xl"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-xl font-bold text-white mb-2">📊 Relatórios Avançados</h4>
+                                <p class="text-purple-200">Dashboards com KPIs, relatórios de lucratividade, análise de equipamentos mais usados, performance da equipe.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA Button -->
+            <div class="text-center mt-16">
+                <a href="/register" class="inline-flex items-center px-10 py-5 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white text-xl font-bold rounded-full shadow-2xl hover:shadow-pink-500/50 hover:scale-110 transition-all duration-300">
+                    <i class="fas fa-rocket mr-3"></i>
+                    Experimentar Gestão de Eventos Grátis
+                    <i class="fas fa-arrow-right ml-3"></i>
+                </a>
+                <p class="text-purple-200 mt-4 text-sm">✨ 14 dias grátis • Sem cartão de crédito • Cancele quando quiser</p>
+            </div>
+        </div>
+    </section>
+
     <!-- Pricing Section -->
     <section id="planos" class="py-20 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden">
         <!-- Background decoration -->
@@ -529,27 +642,27 @@
                         <!-- Price -->
                         <div class="mb-6 text-center">
                             @if($plan->price_monthly == 0)
-                                <div>
-                                    <span class="text-5xl font-bold bg-gradient-to-r {{ $gradient }} bg-clip-text text-transparent">GRÁTIS</span>
-                                    <p class="text-sm text-gray-500 mt-2">{{ $plan->trial_days }} dias</p>
-                                </div>
+                            <div>
+                                <span class="text-5xl font-bold bg-gradient-to-r {{ $gradient }} bg-clip-text text-transparent">GRÁTIS</span>
+                                <p class="text-sm text-gray-500 mt-2">{{ $plan->trial_days }} dias</p>
+                            </div>
                             @else
-                                <div>
-                                    <span class="text-5xl font-bold text-gray-900">{{ number_format($plan->price_monthly, 0) }}</span>
-                                    <span class="text-gray-600 text-lg"> Kz</span>
-                                    <p class="text-sm text-gray-500 mt-1">/mês</p>
-                                </div>
+                            <div>
+                                <span class="text-5xl font-bold text-gray-900">{{ number_format($plan->price_monthly, 0) }}</span>
+                                <span class="text-gray-600 text-lg"> Kz</span>
+                                <p class="text-sm text-gray-500 mt-1">/mês</p>
+                            </div>
                             @endif
                         </div>
 
                         <!-- CTA Button -->
                         <a href="{{ route('register') }}" class="block w-full text-center bg-gradient-to-r {{ $gradient }} text-white px-6 py-4 rounded-xl font-bold hover:shadow-xl transition-all duration-300 mb-6">
                             <span class="inline-flex items-center">
-                                @if($isFox)
-                                    🦊 Começar GRÁTIS
-                                @else
-                                    <i class="fas fa-rocket mr-2"></i>Começar Agora
-                                @endif
+                            @if($isFox)
+                                🦊 Começar GRÁTIS
+                            @else
+                                <i class="fas fa-rocket mr-2"></i>Começar Agora
+                            @endif
                             </span>
                         </a>
 
@@ -661,7 +774,10 @@
                         </div>
                         
                         <!-- Ver Mais Button -->
-                        <button @click="showDetails = !showDetails" class="w-full mt-6 px-4 py-2 border-2 {{ 'border-' . ($isFox ? 'orange' : ($isStarter ? 'green' : ($isProfessional ? 'blue' : 'purple'))) . '-500' }} text-{{ $isFox ? 'orange' : ($isStarter ? 'green' : ($isProfessional ? 'blue' : 'purple')) }}-600 rounded-lg font-semibold hover:bg-{{ $isFox ? 'orange' : ($isStarter ? 'green' : ($isProfessional ? 'blue' : 'purple')) }}-50 transition text-sm">
+                        @php
+                            $buttonColor = $isFox ? 'orange' : ($isStarter ? 'green' : ($isProfessional ? 'blue' : 'purple'));
+                        @endphp
+                        <button @click="showDetails = !showDetails" class="w-full mt-6 px-4 py-2 border-2 border-{{ $buttonColor }}-500 text-{{ $buttonColor }}-600 rounded-lg font-semibold hover:bg-{{ $buttonColor }}-50 transition text-sm">
                             <span x-show="!showDetails">
                                 <i class="fas fa-chevron-down mr-2"></i>Ver Todos os Detalhes
                             </span>
@@ -1076,8 +1192,17 @@
                 <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl p-8 shadow-xl">
                     <h3 class="text-2xl font-bold text-gray-900 mb-6">Envie uma Mensagem</h3>
                     
-                    <form action="#" method="POST" class="space-y-6" x-data="{ submitting: false }" @submit="submitting = true">
-                        @csrf
+                    <form id="contactForm" class="space-y-6" x-data="{ submitting: false, success: false, error: '' }" @submit.prevent="submitForm">
+                        <div x-show="success" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl" x-transition>
+                            <i class="fas fa-check-circle mr-2"></i>
+                            <span>Mensagem enviada com sucesso! Entraremos em contato em breve.</span>
+                        </div>
+                        
+                        <div x-show="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl" x-transition>
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span x-text="error"></span>
+                        </div>
+                        
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-user mr-2"></i>Nome Completo *
@@ -1147,7 +1272,7 @@
     <!-- Footer -->
     <footer class="bg-gray-900 text-gray-400 py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
                 <div>
                     <div class="flex items-center mb-4">
                         @if(app_logo())
@@ -1161,6 +1286,7 @@
                     </div>
                     <p class="text-sm">Sistema de Gestão Empresarial completo e moderno para empresas angolanas.</p>
                 </div>
+                
                 <div>
                     <h3 class="text-white font-bold mb-4">Produto</h3>
                     <ul class="space-y-2 text-sm">
@@ -1170,6 +1296,7 @@
                         <li><a href="https://docs.soserp.ao" target="_blank" class="hover:text-white">Documentação</a></li>
                     </ul>
                 </div>
+                
                 <div>
                     <h3 class="text-white font-bold mb-4">Empresa</h3>
                     <ul class="space-y-2 text-sm">
@@ -1178,6 +1305,7 @@
                         <li><a href="#contacto" class="hover:text-white">Suporte</a></li>
                     </ul>
                 </div>
+                
                 <div>
                     <h3 class="text-white font-bold mb-4">Legal</h3>
                     <ul class="space-y-2 text-sm">
@@ -1186,12 +1314,105 @@
                         <li><a href="#" class="hover:text-white">Cookies</a></li>
                     </ul>
                 </div>
+                
+                <div>
+                    <h3 class="text-white font-bold mb-4">Contacto</h3>
+                    <ul class="space-y-3 text-sm">
+                        <li>
+                            <div class="flex items-start">
+                                <i class="fas fa-envelope mt-1 mr-2 text-blue-400"></i>
+                                <div>
+                                    <a href="mailto:suporte@soserp.vip" class="hover:text-white block">suporte@soserp.vip</a>
+                                    <a href="mailto:comercial@soserp.vip" class="hover:text-white block">comercial@soserp.vip</a>
+                                </div>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="flex items-start">
+                                <i class="fas fa-phone mt-1 mr-2 text-blue-400"></i>
+                                <a href="tel:+244939779902" class="hover:text-white">+244 939 779 902</a>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="flex items-start">
+                                <i class="fas fa-map-marker-alt mt-1 mr-2 text-blue-400"></i>
+                                <div>
+                                    <p>Luanda, Angola</p>
+                                    <p>Talatona, Rua Principal</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="flex items-start">
+                                <i class="fas fa-clock mt-1 mr-2 text-blue-400"></i>
+                                <div>
+                                    <p>Segunda - Sexta: 8h - 18h</p>
+                                    <p>Sábado: 9h - 13h</p>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
             </div>
+            
             <div class="border-t border-gray-800 pt-8 text-center text-sm">
-                <p>&copy; {{ date('Y') }} SOSERP. Todos os direitos reservados.</p>
+                <p>&copy; 2025 SOSERP. Todos os direitos reservados.</p>
+                <p class="mt-2">
+                    Desenvolvido por 
+                    <a href="https://softecangola.net" target="_blank" class="text-blue-400 hover:text-blue-300 font-semibold">
+                        Softec Angola
+                    </a>
+                </p>
             </div>
         </div>
     </footer>
+
+    <script>
+        function submitForm() {
+            const form = document.getElementById('contactForm');
+            const formData = new FormData(form);
+            
+            this.submitting = true;
+            this.success = false;
+            this.error = '';
+            
+            fetch('{{ route("contact.store") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.submitting = false;
+                
+                if (data.success) {
+                    this.success = true;
+                    form.reset();
+                    
+                    // Esconder mensagem de sucesso após 5 segundos
+                    setTimeout(() => {
+                        this.success = false;
+                    }, 5000);
+                } else {
+                    this.error = data.message || 'Erro ao enviar mensagem. Por favor, tente novamente.';
+                    
+                    // Se houver erros de validação
+                    if (data.errors) {
+                        const firstError = Object.values(data.errors)[0];
+                        this.error = Array.isArray(firstError) ? firstError[0] : firstError;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                this.submitting = false;
+                this.error = 'Erro ao enviar mensagem. Por favor, tente novamente.';
+            });
+        }
+    </script>
 
 </body>
 </html>

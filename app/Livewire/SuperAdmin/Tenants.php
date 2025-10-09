@@ -154,6 +154,9 @@ class Tenants extends Component
             'deactivated_by' => auth()->id(),
         ]);
         
+        // Enviar notificação para todos os usuários do tenant
+        $this->sendSuspensionNotification($tenant);
+        
         $this->dispatch('warning', message: 
             "⚠️ Tenant '{$tenant->name}' desativado! {$usersCount} usuário(s) perderam acesso imediatamente."
         );
@@ -525,5 +528,46 @@ class Tenants extends Component
         }
 
         return view('livewire.super-admin.tenants.tenants', compact('tenants', 'tenantUsers', 'availableUsers', 'roles'));
+    }
+    
+    protected function sendSuspensionNotification($tenant)
+    {
+        try {
+            \Log::info('📧 Enviando notificação de suspensão para usuários do tenant', [
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name
+            ]);
+            
+            // Buscar todos os usuários do tenant
+            $users = $tenant->users()->get();
+            
+            foreach ($users as $user) {
+                if (!$user->email) {
+                    \Log::warning('Usuário sem email', ['user_id' => $user->id]);
+                    continue;
+                }
+                
+                $emailData = [
+                    'user_name' => $user->name,
+                    'tenant_name' => $tenant->name,
+                    'reason' => $tenant->deactivation_reason ?? 'Conta suspensa por motivos administrativos.',
+                    'app_name' => config('app.name', 'SOSERP'),
+                    'support_email' => 'suporte@soserp.vip',
+                ];
+                
+                \Illuminate\Support\Facades\Mail::to($user->email)
+                    ->send(new \App\Mail\TemplateMail('account_suspended', $emailData, $tenant->id));
+                
+                \Log::info('📧 Email de suspensão enviado', ['to' => $user->email]);
+            }
+            
+            \Log::info('✅ Todas as notificações de suspensão foram enviadas');
+            
+        } catch (\Exception $e) {
+            \Log::error('❌ Erro ao enviar notificações de suspensão', [
+                'error' => $e->getMessage(),
+                'tenant_id' => $tenant->id
+            ]);
+        }
     }
 }

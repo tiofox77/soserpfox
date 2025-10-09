@@ -14,6 +14,70 @@ class EmailTemplateSeeder extends Seeder
     {
         $templates = [
             [
+                'slug' => 'user_invitation',
+                'name' => 'Convite de Usuário',
+                'subject' => '📩 Você foi convidado para {tenant_name}',
+                'description' => 'Email enviado quando um usuário é convidado para o tenant',
+                'variables' => ['inviter_name', 'invited_name', 'tenant_name', 'invite_url', 'expires_in_days', 'app_name'],
+                'body_html' => '
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .invite-box { background: #e0e7ff; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .button { display: inline-block; background: #667eea; color: white !important; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .expires { background: #fef3c7; padding: 10px; border-radius: 5px; margin-top: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📩 Você foi convidado!</h1>
+        </div>
+        <div class="content">
+            <h2>Olá {invited_name}!</h2>
+            
+            <div class="invite-box">
+                <strong>🎉 Convite Especial</strong><br>
+                <p style="margin:5px 0 0 0;"><strong>{inviter_name}</strong> convidou você para fazer parte da equipe em <strong>{tenant_name}</strong> no {app_name}!</p>
+            </div>
+            
+            <h3>📋 O que isso significa:</h3>
+            <ul>
+                <li>✅ Acesso ao sistema da empresa</li>
+                <li>✅ Colaboração com a equipe</li>
+                <li>✅ Ferramentas profissionais de gestão</li>
+                <li>✅ Produtividade aprimorada</li>
+            </ul>
+            
+            <div style="text-align: center;">
+                <a href="{invite_url}" class="button">Aceitar Convite</a>
+            </div>
+            
+            <div class="expires">
+                ⏰ <strong>Atenção:</strong> Este convite expira em <strong>{expires_in_days} dias</strong>. Aceite logo para não perder o acesso!
+            </div>
+            
+            <p style="margin-top: 20px; font-size: 14px; color: #666;">Se você não esperava este convite ou não conhece {inviter_name}, pode ignorar este email com segurança.</p>
+            
+            <p>Atenciosamente,<br><strong>Equipe {app_name}</strong></p>
+        </div>
+        <div class="footer">
+            <p>&copy; ' . date('Y') . ' {app_name}. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>',
+                'body_text' => 'Olá {invited_name}! {inviter_name} convidou você para fazer parte de {tenant_name} no {app_name}. Aceite o convite: {invite_url}. Expira em {expires_in_days} dias.',
+                'is_active' => true,
+            ],
+            
+            [
                 'slug' => 'welcome',
                 'name' => 'Boas-vindas',
                 'subject' => 'Bem-vindo ao {app_name}!',
@@ -65,62 +129,6 @@ class EmailTemplateSeeder extends Seeder
 </body>
 </html>',
                 'body_text' => 'Olá {user_name}! Bem-vindo ao {app_name}. Sua conta {tenant_name} foi criada com sucesso. Acesse: {login_url}',
-                'is_active' => true,
-            ],
-            
-            [
-                'slug' => 'plan_approved',
-                'name' => 'Plano Aprovado',
-                'subject' => '✅ Seu plano foi aprovado - {tenant_name}',
-                'description' => 'Email enviado quando um plano/subscrição é aprovado',
-                'variables' => ['user_name', 'tenant_name', 'plan_name', 'app_name'],
-                'body_html' => '
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; }
-        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>✅ Plano Aprovado!</h1>
-        </div>
-        <div class="content">
-            <h2>Olá {user_name}!</h2>
-            
-            <div class="success-box">
-                <strong>🎉 Boas notícias!</strong><br>
-                Seu plano <strong>{plan_name}</strong> foi aprovado e ativado com sucesso!
-            </div>
-            
-            <p>A partir de agora, você tem acesso a todos os recursos incluídos no seu plano.</p>
-            
-            <h3>O que você pode fazer agora:</h3>
-            <ul>
-                <li>✅ Acessar todos os módulos contratados</li>
-                <li>✅ Adicionar membros da equipe</li>
-                <li>✅ Configurar integrações</li>
-                <li>✅ Começar a usar o sistema completo</li>
-            </ul>
-            
-            <p>Estamos aqui para garantir seu sucesso. Se precisar de ajuda, não hesite em contatar nosso suporte!</p>
-            
-            <p>Atenciosamente,<br><strong>Equipe {app_name}</strong></p>
-        </div>
-        <div class="footer">
-            <p>&copy; ' . date('Y') . ' {app_name}. Todos os direitos reservados.</p>
-        </div>
-    </div>
-</body>
-</html>',
-                'body_text' => 'Olá {user_name}! Seu plano {plan_name} foi aprovado e ativado com sucesso!',
                 'is_active' => true,
             ],
             
@@ -231,6 +239,90 @@ class EmailTemplateSeeder extends Seeder
 </body>
 </html>',
                 'body_text' => 'Olá {user_name}! Seu plano foi atualizado de {old_plan_name} para {new_plan_name}.',
+                'is_active' => true,
+            ],
+            
+            [
+                'slug' => 'payment_approved',
+                'name' => 'Pagamento Aprovado',
+                'subject' => '✅ Pagamento Aprovado - Sua assinatura está ativa!',
+                'description' => 'Email enviado quando um pagamento é aprovado e a subscrição é ativada',
+                'variables' => ['user_name', 'tenant_name', 'plan_name', 'amount', 'billing_cycle', 'period_start', 'period_end', 'app_name', 'login_url'],
+                'body_html' => '
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .info-table { width: 100%; background: white; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .info-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+        .button { display: inline-block; background: #10b981; color: white !important; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Pagamento Aprovado!</h1>
+        </div>
+        <div class="content">
+            <h2>Olá {user_name}!</h2>
+            
+            <div class="success-box">
+                <h3 style="margin-top:0; color: #10b981;">✅ Excelente Notícia!</h3>
+                <p style="margin:0;">Seu pagamento foi aprovado com sucesso e sua assinatura do plano <strong>{plan_name}</strong> está agora ativa!</p>
+            </div>
+            
+            <h3>📋 Detalhes da Assinatura:</h3>
+            <table class="info-table">
+                <tr>
+                    <td><strong>Empresa:</strong></td>
+                    <td>{tenant_name}</td>
+                </tr>
+                <tr>
+                    <td><strong>Plano:</strong></td>
+                    <td>{plan_name}</td>
+                </tr>
+                <tr>
+                    <td><strong>Valor:</strong></td>
+                    <td>AOA {amount}</td>
+                </tr>
+                <tr>
+                    <td><strong>Período:</strong></td>
+                    <td>{period_start} a {period_end}</td>
+                </tr>
+            </table>
+            
+            <h3>🎯 O que você pode fazer agora:</h3>
+            <ul>
+                <li>✅ Acessar todos os módulos contratados</li>
+                <li>✅ Adicionar membros da sua equipe</li>
+                <li>✅ Configurar integrações e personalizar o sistema</li>
+                <li>✅ Começar a usar todos os recursos disponíveis</li>
+            </ul>
+            
+            <div style="text-align: center;">
+                <a href="{login_url}" class="button">Acessar o Sistema</a>
+            </div>
+            
+            <p>Estamos aqui para garantir seu sucesso. Se precisar de qualquer ajuda ou tiver dúvidas, nossa equipe de suporte está pronta para assist ir!</p>
+            
+            <p>Obrigado por confiar no {app_name}! 🚀</p>
+            
+            <p>Atenciosamente,<br><strong>Equipe {app_name}</strong></p>
+        </div>
+        <div class="footer">
+            <p>&copy; ' . date('Y') . ' {app_name}. Todos os direitos reservados.</p>
+            <p style="color: #999; margin-top: 10px;">📧 Email: suporte@soserp.vip | 📞 Telefone: +244 939 779 902</p>
+        </div>
+    </div>
+</body>
+</html>',
+                'body_text' => 'Olá {user_name}! Seu pagamento foi aprovado e sua assinatura do plano {plan_name} está ativa. Período: {period_start} a {period_end}. Acesse: {login_url}',
                 'is_active' => true,
             ],
             

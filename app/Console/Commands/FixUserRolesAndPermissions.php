@@ -98,15 +98,41 @@ class FixUserRolesAndPermissions extends Command
                 
                 if (!$role) {
                     if (!$isDryRun) {
-                        $role = Role::create([
-                            'name' => $roleName,
-                            'guard_name' => 'web',
-                            'tenant_id' => $tenant->id,
-                        ]);
-                        $this->stats['roles_created']++;
+                        // Verificar se já existe uma role com o mesmo nome (sem tenant_id ou outro tenant)
+                        $existingRole = Role::where('name', $roleName)
+                            ->where('guard_name', 'web')
+                            ->first();
+                        
+                        if ($existingRole && $existingRole->tenant_id != $tenant->id) {
+                            // Role existe mas para outro tenant, criar nova
+                            try {
+                                $role = Role::create([
+                                    'name' => $roleName,
+                                    'guard_name' => 'web',
+                                    'tenant_id' => $tenant->id,
+                                ]);
+                                $this->stats['roles_created']++;
+                            } catch (\Exception $e) {
+                                // Se falhar, pular este tenant
+                                continue;
+                            }
+                        } elseif (!$existingRole) {
+                            // Não existe, criar
+                            $role = Role::create([
+                                'name' => $roleName,
+                                'guard_name' => 'web',
+                                'tenant_id' => $tenant->id,
+                            ]);
+                            $this->stats['roles_created']++;
+                        } else {
+                            // Já existe para este tenant, usar ela
+                            $role = $existingRole;
+                        }
                     }
-                } elseif ($role->permissions()->count() == 0) {
-                    // Role existe mas sem permissões
+                }
+                
+                // Sincronizar permissões se a role existe
+                if ($role && (!$role->permissions()->count() || $isDryRun)) {
                     if (!$isDryRun) {
                         $permissions = Permission::whereIn('name', $permissionNames)->get();
                         $role->syncPermissions($permissions);
@@ -129,11 +155,23 @@ class FixUserRolesAndPermissions extends Command
         
         $this->line("   Usuários encontrados: {$users->count()}");
         
+        // Proteger usuário ID 1
+        $protectedUser = User::find(1);
+        if ($protectedUser) {
+            $this->warn("   🛡️  Usuário ID 1 ({$protectedUser->email}) está PROTEGIDO");
+        }
+        
         $bar = $this->output->createProgressBar($users->count());
         $bar->start();
         
         foreach ($users as $user) {
             $this->stats['users_checked']++;
+            
+            // PROTEÇÃO: Pular usuário ID 1
+            if ($user->id == 1) {
+                $bar->advance();
+                continue;
+            }
             
             // Pular super admin do sistema
             if ($user->is_super_admin) {
@@ -151,9 +189,19 @@ class FixUserRolesAndPermissions extends Command
                     ->where('tenant_id', $user->tenant_id)
                     ->where('user_id', $user->id)
                     ->whereNotNull('joined_at')
+                    ->orderBy('joined_at')
+                    ->limit(1)
                     ->exists();
                 
-                $targetRole = $isOwner ? 'Super Admin' : 'Utilizador';
+                // Verificar se é o primeiro usuário do tenant
+                $firstUser = DB::table('tenant_user')
+                    ->where('tenant_id', $user->tenant_id)
+                    ->orderBy('joined_at')
+                    ->first();
+                
+                $isFirstUser = $firstUser && $firstUser->user_id == $user->id;
+                
+                $targetRole = ($isOwner || $isFirstUser) ? 'Super Admin' : 'Utilizador';
                 
                 if (!$isDryRun) {
                     $role = Role::where('name', $targetRole)
@@ -173,6 +221,14 @@ class FixUserRolesAndPermissions extends Command
         $bar->finish();
         $this->newLine();
         $this->line("   ✅ Usuários sem roles corrigidos");
+        
+        if ($protectedUser) {
+            $this->newLine();
+            $this->info("   🛡️  USUÁRIO PROTEGIDO:");
+            $this->line("      ID: {$protectedUser->id}");
+            $this->line("      Email: {$protectedUser->email}");
+            $this->line("      is_super_admin: " . ($protectedUser->is_super_admin ? 'TRUE ✅' : 'FALSE'));
+        }
     }
     
     protected function fixRolesWithoutPermissions($isDryRun)
