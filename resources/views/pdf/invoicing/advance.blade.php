@@ -737,7 +737,7 @@
                         </div>
                         
                         <div class="total-extenso" style="background-color: #fef9e7; padding: 8px; border-radius: 5px; margin-top: 10px;">
-                            {{ number_format($advance->amount, 2, ',', '.') }} AOA
+                            {{ numberToWords($advance->amount, 'AOA') }}
                         </div>
                     </div>
                 </div>

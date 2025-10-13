@@ -1,0 +1,11 @@
+# Ignorar scripts temporários
+temp-*.php
+tmp-*.php
+debug-*.php
+
+# Ignorar outputs
+*.log
+*.txt
+
+# Manter README
+!README.md

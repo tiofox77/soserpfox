@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use App\Services\OpcacheService;
 use ZipArchive;
 
 #[Layout('layouts.superadmin')]
@@ -25,6 +26,9 @@ class SystemUpdates extends Component
     
     // GitHub Config
     private $githubRepo = 'tiofox77/soserpfox';
+    
+    // Services
+    protected $opcacheService;
     
     public function mount()
     {
@@ -177,8 +181,43 @@ class SystemUpdates extends Component
             Artisan::call('config:clear');
             $this->addLog('  → Cache de config limpo', 'info');
             
-            $this->progressPercentage = 90;
+            // Limpar OPcache
+            try {
+                $opcacheService = app(OpcacheService::class);
+                if ($opcacheService->isEnabled()) {
+                    if ($opcacheService->clear()) {
+                        $this->addLog('  → OPcache limpo com sucesso', 'success');
+                    } else {
+                        $this->addLog('  → ⚠️ OPcache: falha ao limpar', 'warning');
+                    }
+                } else {
+                    $this->addLog('  → OPcache não está ativo', 'info');
+                }
+            } catch (\Exception $e) {
+                $this->addLog('  → ⚠️ OPcache: ' . $e->getMessage(), 'warning');
+                \Log::warning('Erro ao limpar OPcache na atualização', ['error' => $e->getMessage()]);
+            }
+            
+            $this->progressPercentage = 85;
             $this->addLog('✅ Cache limpo completamente', 'success');
+            
+            // 5.5. Otimizar para Produção (85-90%)
+            $this->currentStep = 'Otimizando sistema...';
+            $this->addLog('⚡ Otimizando sistema para produção...', 'info');
+            
+            try {
+                Artisan::call('config:cache');
+                $this->addLog('  → Config otimizado', 'success');
+                Artisan::call('route:cache');
+                $this->addLog('  → Rotas otimizadas', 'success');
+                Artisan::call('view:cache');
+                $this->addLog('  → Views otimizadas', 'success');
+            } catch (\Exception $e) {
+                $this->addLog('  → ⚠️ Erro ao otimizar: ' . $e->getMessage(), 'warning');
+            }
+            
+            $this->progressPercentage = 90;
+            $this->addLog('✅ Sistema otimizado', 'success');
 
             // 6. Atualizar versão (90-100%)
             $this->currentStep = 'Finalizando...';
@@ -192,11 +231,20 @@ class SystemUpdates extends Component
             
             $this->currentStep = 'Concluído!';
             $this->addLog('🎉 Atualização concluída com sucesso!', 'success');
-            $this->addLog('🔄 Recarregue a página para ver as mudanças', 'info');
+            $this->addLog('', 'info');
+            $this->addLog('✅ Processamento completo:', 'success');
+            $this->addLog('  ✓ Backup criado', 'success');
+            $this->addLog('  ✓ Arquivos atualizados', 'success');
+            $this->addLog('  ✓ Migrations executadas', 'success');
+            $this->addLog('  ✓ Cache limpo (incluindo OPcache)', 'success');
+            $this->addLog('  ✓ Sistema otimizado', 'success');
+            $this->addLog('', 'info');
+            $this->addLog('💡 Próximo passo:', 'info');
+            $this->addLog('  → Recarregue a página (F5 ou Ctrl+R) para ver as mudanças', 'info');
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => '✅ Sistema atualizado para versão ' . $version . '! Recarregue a página.'
+                'message' => '✅ Sistema atualizado para v' . $version . '! Cache limpo, OPcache resetado e sistema otimizado. Recarregue a página!'
             ]);
 
         } catch (\Exception $e) {

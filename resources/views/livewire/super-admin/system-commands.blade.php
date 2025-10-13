@@ -24,6 +24,47 @@
         </div>
     </div>
 
+    {{-- Seção de Seeders --}}
+    <div class="mb-6 bg-gradient-to-r from-green-600 to-teal-600 rounded-lg shadow-lg p-6 text-white">
+        <h3 class="text-2xl font-bold mb-4 flex items-center">
+            <i class="fas fa-seedling mr-3"></i>
+            Executar Seeders
+        </h3>
+        <p class="text-green-100 mb-4">Selecione e execute um seeder do banco de dados</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-semibold mb-2">Seeder Disponível</label>
+                <select wire:model="selectedSeeder" class="w-full px-4 py-2 text-gray-900 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-400">
+                    <option value="">Selecione um seeder...</option>
+                    @foreach($availableSeeders as $seeder)
+                        <option value="{{ $seeder['class'] }}">{{ $seeder['name'] }} ({{ $seeder['class'] }})</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button wire:click="runSeeder" 
+                        wire:loading.attr="disabled"
+                        wire:target="runSeeder"
+                        class="w-full px-6 py-2 bg-white text-green-600 font-bold rounded-lg hover:bg-green-50 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span wire:loading.remove wire:target="runSeeder">
+                        <i class="fas fa-play mr-2"></i>Executar Seeder
+                    </span>
+                    <span wire:loading wire:target="runSeeder">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Executando...
+                    </span>
+                </button>
+            </div>
+        </div>
+        
+        @if(count($availableSeeders) === 0)
+            <div class="mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded">
+                <p class="font-semibold">⚠️ Nenhum seeder encontrado</p>
+                <p class="text-sm">Crie seeders na pasta database/seeders/</p>
+            </div>
+        @endif
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Lista de Comandos --}}
         <div class="lg:col-span-2">

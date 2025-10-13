@@ -10,6 +10,45 @@ use Livewire\Attributes\Title;
 #[Title('Dashboard - Super Admin')]
 class Dashboard extends Component
 {
+    public function viewTenant($tenantId)
+    {
+        return redirect()->route('superadmin.tenants.show', $tenantId);
+    }
+    
+    public function editTenant($tenantId)
+    {
+        return redirect()->route('superadmin.tenants.edit', $tenantId);
+    }
+    
+    public function manageTenant($tenantId)
+    {
+        // Impersonar o tenant
+        $tenant = \App\Models\Tenant::find($tenantId);
+        if ($tenant) {
+            session(['impersonate_tenant_id' => $tenant->id]);
+            return redirect('/dashboard');
+        }
+    }
+    
+    public function deleteTenant($tenantId)
+    {
+        try {
+            $tenant = \App\Models\Tenant::find($tenantId);
+            if ($tenant) {
+                $tenant->delete();
+                $this->dispatch('notify', [
+                    'type' => 'success',
+                    'message' => '✅ Tenant eliminado com sucesso!'
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => '❌ Erro ao eliminar tenant: ' . $e->getMessage()
+            ]);
+        }
+    }
+
     public function render()
     {
         $stats = [

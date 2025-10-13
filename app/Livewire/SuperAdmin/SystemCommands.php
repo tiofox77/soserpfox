@@ -23,10 +23,60 @@ class SystemCommands extends Component
     public $planId = null;
     public $moduleSlug = null;
     public $tenantId = null;
+    
+    // Seeders
+    public $selectedSeeder = null;
+    public $availableSeeders = [];
 
     public function mount()
     {
         $this->loadExecutionHistory();
+        $this->loadAvailableSeeders();
+    }
+    
+    /**
+     * Carregar seeders disponíveis
+     */
+    private function loadAvailableSeeders()
+    {
+        $seederPath = database_path('seeders');
+        $seeders = [];
+        
+        if (File::isDirectory($seederPath)) {
+            $files = File::files($seederPath);
+            
+            foreach ($files as $file) {
+                $filename = $file->getFilename();
+                
+                // Pegar apenas arquivos PHP que não sejam DatabaseSeeder
+                if (str_ends_with($filename, '.php') && $filename !== 'DatabaseSeeder.php') {
+                    $className = str_replace('.php', '', $filename);
+                    $seeders[] = [
+                        'class' => $className,
+                        'name' => $this->formatSeederName($className),
+                    ];
+                }
+            }
+        }
+        
+        // Ordenar alfabeticamente
+        usort($seeders, fn($a, $b) => strcmp($a['name'], $b['name']));
+        
+        $this->availableSeeders = $seeders;
+    }
+    
+    /**
+     * Formatar nome do seeder para exibição
+     */
+    private function formatSeederName($className)
+    {
+        // Remove "Seeder" do final
+        $name = str_replace('Seeder', '', $className);
+        
+        // Adiciona espaços antes de maiúsculas
+        $name = preg_replace('/([a-z])([A-Z])/', '$1 $2', $name);
+        
+        return $name;
     }
 
     /**
@@ -331,6 +381,70 @@ class SystemCommands extends Component
     public function clearOutput()
     {
         $this->output = '';
+    }
+    
+    /**
+     * Executar seeder selecionado
+     */
+    public function runSeeder()
+    {
+        if (!$this->selectedSeeder) {
+            $this->dispatch('error', message: 'Selecione um seeder para executar!');
+            return;
+        }
+        
+        $this->output = '';
+        $this->isRunning = true;
+        
+        try {
+            $seederClass = "Database\\Seeders\\{$this->selectedSeeder}";
+            
+            $this->addOutput("🌱 Iniciando Seeder: {$this->selectedSeeder}", 'info');
+            $this->addOutput("⏳ Executando: php artisan db:seed --class={$seederClass}", 'info');
+            $this->addOutput(str_repeat('─', 80), 'separator');
+            
+            // Executar seeder
+            Artisan::call('db:seed', [
+                '--class' => $seederClass
+            ], $this->getOutputBuffer());
+            
+            $output = Artisan::output();
+            
+            if ($output) {
+                $this->addOutput($output, 'success');
+            } else {
+                $this->addOutput("Seeder executado sem output (sucesso silencioso)", 'success');
+            }
+            
+            $this->addOutput(str_repeat('─', 80), 'separator');
+            $this->addOutput("✅ Seeder executado com sucesso!", 'success');
+            
+            // Salvar no histórico
+            $this->saveToHistory(
+                "seeder_{$this->selectedSeeder}", 
+                "Seeder: {$this->formatSeederName($this->selectedSeeder)}", 
+                true, 
+                $output ?: 'Executado com sucesso'
+            );
+            
+            $this->dispatch('success', message: "✅ Seeder '{$this->selectedSeeder}' executado com sucesso!");
+            
+        } catch (\Exception $e) {
+            $this->addOutput("❌ ERRO: " . $e->getMessage(), 'error');
+            $this->addOutput($e->getTraceAsString(), 'error');
+            
+            // Salvar erro no histórico
+            $this->saveToHistory(
+                "seeder_{$this->selectedSeeder}", 
+                "Seeder: {$this->formatSeederName($this->selectedSeeder)}", 
+                false, 
+                $e->getMessage()
+            );
+            
+            $this->dispatch('error', message: "❌ Erro ao executar seeder: " . $e->getMessage());
+        }
+        
+        $this->isRunning = false;
     }
 
     public function render()

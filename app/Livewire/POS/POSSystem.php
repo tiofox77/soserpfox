@@ -11,6 +11,7 @@ use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesInvoiceItem;
 use App\Models\Invoicing\InvoicingSeries;
 use App\Models\Invoicing\InvoicingSettings;
+use App\Models\Invoicing\PosShift;
 use App\Models\Category;
 use App\Models\Treasury\Transaction;
 use App\Models\Treasury\PaymentMethod as TreasuryPaymentMethod;
@@ -22,6 +23,7 @@ use Darryldecode\Cart\Facades\CartFacade as Cart;
 #[Title('POS - Ponto de Venda')]
 class POSSystem extends Component
 {
+    public $currentShift = null;
     public $search = '';
     public $selectedCategory = null;
     public $selectedClient = null;
@@ -53,6 +55,18 @@ class POSSystem extends Component
 
     public function mount()
     {
+        // Verificar se há turno aberto
+        $this->currentShift = PosShift::where('tenant_id', activeTenantId())
+            ->where('user_id', auth()->id())
+            ->where('status', 'open')
+            ->first();
+        
+        // Se não houver turno aberto, redirecionar para abrir turno
+        if (!$this->currentShift) {
+            session()->flash('warning', '⚠️ Você precisa abrir um turno antes de usar o POS!');
+            return redirect()->route('invoicing.pos.shifts');
+        }
+        
         // Definir cliente padrão "Consumidor Final"
         $this->selectedClient = Client::where('tenant_id', activeTenantId())
             ->where('name', 'LIKE', '%Consumidor Final%')
@@ -491,6 +505,49 @@ class POSSystem extends Component
 
             // Criar transação no Treasury (Fatura-Recibo)
             $this->createTreasuryTransaction($invoice);
+            
+            // Registrar transação no turno POS
+            if ($this->currentShift) {
+                // Recarregar turno para garantir que está aberto
+                $this->currentShift->refresh();
+                
+                try {
+                    $this->currentShift->addTransaction([
+                        'type' => 'invoice',
+                        'reference_type' => 'App\\Models\\Invoicing\\SalesInvoice',
+                        'reference_id' => $invoice->id,
+                        'reference_number' => $invoice->invoice_number,
+                        'payment_method' => $this->paymentMethod,
+                        'amount' => $invoice->total,
+                        'description' => 'Venda POS - ' . $invoice->invoice_number,
+                        'metadata' => [
+                            'client_id' => $this->selectedClient->id,
+                            'client_name' => $this->selectedClient->name,
+                            'items_count' => $this->cartItems->count(),
+                            'amount_received' => $this->amountReceived,
+                            'change' => $this->change,
+                        ],
+                    ]);
+                    
+                    \Log::info('Venda registrada no turno com sucesso', [
+                        'shift_number' => $this->currentShift->shift_number,
+                        'invoice_number' => $invoice->invoice_number,
+                        'amount' => $invoice->total,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('ERRO ao registrar venda no turno', [
+                        'shift_id' => $this->currentShift->id,
+                        'invoice_id' => $invoice->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Não bloqueia a venda, apenas registra o erro
+                }
+            } else {
+                \Log::warning('Venda realizada sem turno aberto', [
+                    'invoice_number' => $invoice->invoice_number,
+                    'user_id' => auth()->id(),
+                ]);
+            }
 
             DB::commit();
 

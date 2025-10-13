@@ -30,6 +30,7 @@ class Tenant extends Model
         'max_storage_mb',
         'settings',
         'is_active',
+        'accounting_integration_enabled',
         'trial_ends_at',
         'subscription_ends_at',
         'deactivation_reason',
@@ -40,6 +41,7 @@ class Tenant extends Model
     protected $casts = [
         'settings' => 'array',
         'is_active' => 'boolean',
+        'accounting_integration_enabled' => 'boolean',
         'trial_ends_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
         'deactivated_at' => 'datetime',
@@ -51,7 +53,17 @@ class Tenant extends Model
 
         static::creating(function ($tenant) {
             if (empty($tenant->slug)) {
-                $tenant->slug = Str::slug($tenant->name);
+                $baseSlug = Str::slug($tenant->name);
+                $slug = $baseSlug;
+                $counter = 1;
+                
+                // Garantir slug único
+                while (self::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                
+                $tenant->slug = $slug;
             }
         });
 
@@ -583,5 +595,38 @@ class Tenant extends Model
     {
         // Tenant deve estar ativo E ter subscription ativa
         return $this->is_active && $this->hasActiveSubscription();
+    }
+    
+    /**
+     * Verificar se o tenant pode ser deletado
+     * (não pode ter faturas emitidas)
+     */
+    public function canBeDeleted()
+    {
+        // Verificar se tem faturas
+        if ($this->invoices()->exists()) {
+            return [
+                'can_delete' => false,
+                'reason' => 'Não é possível excluir uma empresa que já tem faturas emitidas.',
+                'invoices_count' => $this->invoices()->count(),
+            ];
+        }
+        
+        // Verificar se tem sales_invoices (módulo de faturação)
+        if (class_exists('\App\Models\Invoicing\SalesInvoice')) {
+            $salesInvoicesCount = \App\Models\Invoicing\SalesInvoice::where('tenant_id', $this->id)->count();
+            if ($salesInvoicesCount > 0) {
+                return [
+                    'can_delete' => false,
+                    'reason' => 'Não é possível excluir uma empresa que já tem faturas emitidas.',
+                    'invoices_count' => $salesInvoicesCount,
+                ];
+            }
+        }
+        
+        return [
+            'can_delete' => true,
+            'reason' => null,
+        ];
     }
 }

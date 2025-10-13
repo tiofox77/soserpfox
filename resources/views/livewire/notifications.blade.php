@@ -22,7 +22,7 @@
         
         <!-- Header -->
         <div class="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between mb-2">
                 <h3 class="text-white font-bold text-lg">
                     <i class="fas fa-bell mr-2"></i>Notificações
                 </h3>
@@ -30,6 +30,12 @@
                     {{ $this->unreadCount }}
                 </span>
             </div>
+            @if($this->unreadCount > 0)
+                <button wire:click="markAllAsRead" 
+                        class="text-xs text-white/80 hover:text-white flex items-center">
+                    <i class="fas fa-check-double mr-1"></i>Marcar todas como lidas
+                </button>
+            @endif
         </div>
         
         <!-- Lista de Notificações -->
@@ -44,11 +50,13 @@
                 @foreach($this->notifications() as $notification)
                     @php
                         $bgColors = [
-                            'green' => 'bg-green-50 hover:bg-green-100 border-green-200',
-                            'yellow' => 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200',
-                            'orange' => 'bg-orange-50 hover:bg-orange-100 border-orange-200',
-                            'red' => 'bg-red-50 hover:bg-red-100 border-red-200',
-                            'blue' => 'bg-blue-50 hover:bg-blue-100 border-blue-200',
+                            'green' => 'bg-green-50 hover:bg-green-100',
+                            'yellow' => 'bg-yellow-50 hover:bg-yellow-100',
+                            'orange' => 'bg-orange-50 hover:bg-orange-100',
+                            'red' => 'bg-red-50 hover:bg-red-100',
+                            'blue' => 'bg-blue-50 hover:bg-blue-100',
+                            'cyan' => 'bg-cyan-50 hover:bg-cyan-100',
+                            'purple' => 'bg-purple-50 hover:bg-purple-100',
                         ];
                         $iconColors = [
                             'green' => 'text-green-600',
@@ -56,29 +64,56 @@
                             'orange' => 'text-orange-600',
                             'red' => 'text-red-600',
                             'blue' => 'text-blue-600',
+                            'cyan' => 'text-cyan-600',
+                            'purple' => 'text-purple-600',
                         ];
                     @endphp
                     
-                    <a href="{{ $notification['link'] }}" 
-                       class="block p-4 border-b border-gray-100 {{ $bgColors[$notification['color']] ?? 'bg-gray-50 hover:bg-gray-100' }} transition-colors"
-                       wire:click="closeDropdown">
+                    <div class="relative group p-4 border-b border-gray-100 {{ $bgColors[$notification['color']] ?? 'bg-gray-50' }} {{ ($notification['is_read'] ?? false) ? 'opacity-70' : '' }} transition-all">
                         <div class="flex items-start space-x-3">
                             <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
                                 <i class="fas {{ $notification['icon'] }} {{ $iconColors[$notification['color']] ?? 'text-gray-600' }} text-lg"></i>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between mb-1">
-                                    <h4 class="text-sm font-bold text-gray-900 truncate">
-                                        {{ $notification['title'] }}
-                                    </h4>
-                                    <span class="text-xs text-gray-500 ml-2">{{ $notification['time'] }}</span>
-                                </div>
-                                <p class="text-sm text-gray-700 line-clamp-2">
-                                    {{ $notification['message'] }}
-                                </p>
+                                <a href="{{ $notification['link'] }}" 
+                                   @if(($notification['is_database'] ?? false) && !($notification['is_read'] ?? false))
+                                       wire:click="markAsRead('{{ $notification['id'] ?? '' }}')"
+                                   @else
+                                       wire:click="closeDropdown"
+                                   @endif
+                                   class="block hover:underline">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <h4 class="text-sm font-bold text-gray-900 truncate pr-2">
+                                            {{ $notification['title'] }}
+                                            @if(!($notification['is_read'] ?? false))
+                                                <span class="inline-block w-2 h-2 bg-blue-500 rounded-full ml-1"></span>
+                                            @endif
+                                        </h4>
+                                        <span class="text-xs text-gray-500 whitespace-nowrap">{{ $notification['time'] }}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-700 line-clamp-2">
+                                        {{ $notification['message'] }}
+                                    </p>
+                                </a>
+                                
+                                {{-- Botões de Ação (apenas para notificações do BD) --}}
+                                @if(($notification['is_database'] ?? false))
+                                    <div class="mt-2 flex items-center space-x-2">
+                                        @if(!($notification['is_read'] ?? false))
+                                            <button wire:click="markAsRead('{{ $notification['id'] }}')" 
+                                                    class="text-xs text-gray-600 hover:text-blue-600 flex items-center">
+                                                <i class="fas fa-check mr-1"></i>Marcar como lida
+                                            </button>
+                                        @endif
+                                        <button wire:click="deleteNotification('{{ $notification['id'] }}')" 
+                                                class="text-xs text-gray-600 hover:text-red-600 flex items-center">
+                                            <i class="fas fa-trash mr-1"></i>Excluir
+                                        </button>
+                                    </div>
+                                @endif
                             </div>
                         </div>
-                    </a>
+                    </div>
                 @endforeach
             @endif
         </div>

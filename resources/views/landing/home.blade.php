@@ -126,6 +126,9 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <a href="{{ route('client.login') }}" class="text-purple-700 hover:text-purple-800 text-sm font-medium transition" style="padding: 10px;" title="Portal do Cliente">
+                        <i class="fas fa-users mr-2"></i>Área Cliente
+                    </a>
                     <a href="{{ route('login') }}" class="text-gray-700 hover:text-blue-600 text-sm font-medium transition" style="padding: 10px;">
                         <i class="fas fa-sign-in-alt mr-2"></i>Entrar
                     </a>

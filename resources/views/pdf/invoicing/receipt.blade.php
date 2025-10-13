@@ -728,7 +728,7 @@
                         </div>
                         
                         <div class="total-extenso" style="background-color: #f0f9ff; padding: 8px; border-radius: 5px; margin-top: 10px;">
-                            {{ number_format($receipt->amount, 2, ',', '.') }} AOA
+                            {{ numberToWords($receipt->amount, 'AOA') }}
                         </div>
                     </div>
                 </div>

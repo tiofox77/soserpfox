@@ -258,6 +258,16 @@
                     <span x-show="sidebarOpen" class="ml-3">Configurações Gerais</span>
                 </a>
                 
+                <a href="{{ route('superadmin.software-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.software-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-shield-alt w-6 text-red-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Configurações do Software</span>
+                </a>
+                
+                <a href="{{ route('superadmin.system-optimization') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-optimization') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-rocket w-6 text-yellow-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">Otimização do Sistema</span>
+                </a>
+                
                 <a href="{{ route('superadmin.email-templates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.email-templates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                     <i class="fas fa-envelope w-6 text-blue-400"></i>
                     <span x-show="sidebarOpen" class="ml-3">Email Templates</span>
@@ -271,6 +281,11 @@
                 <a href="{{ route('superadmin.email-logs') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.email-logs') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                     <i class="fas fa-history w-6 text-yellow-400"></i>
                     <span x-show="sidebarOpen" class="ml-3">Email Logs</span>
+                </a>
+                
+                <a href="{{ route('superadmin.sms-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.sms-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fas fa-sms w-6 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">SMS Settings</span>
                 </a>
                 
                 <div class="border-t border-blue-700 my-4"></div>

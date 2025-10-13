@@ -15,6 +15,7 @@ class UserInvitation extends Model
         'name',
         'token',
         'role',
+        'role_id',
         'status',
         'expires_at',
         'accepted_at',
@@ -171,13 +172,24 @@ class UserInvitation extends Model
         $data = [
             'inviter_name' => $this->invitedBy->name,
             'invited_name' => $this->name,
+            'user_name' => $this->name, // Alias para compatibilidade
+            'name' => $this->name, // Alias para compatibilidade
             'tenant_name' => $this->tenant->name,
+            'company_name' => $this->tenant->company_name ?? $this->tenant->name,
             'invite_url' => $this->getInviteUrl(),
+            'invite_link' => $this->getInviteUrl(), // Alias
             'expires_in_days' => now()->diffInDays($this->expires_at),
+            'expiry_date' => $this->expires_at->format('d/m/Y'),
             'app_name' => config('app.name', 'SOS ERP'),
             'app_url' => config('app.url'),
             'support_email' => $smtpSetting->from_email,
+            'email' => $this->email,
         ];
+        
+        // Log dos dados enviados
+        \Log::info('📋 Dados para o template', [
+            'data' => $data,
+        ]);
         
         // Renderizar template do BD
         $rendered = $template->render($data);
@@ -185,6 +197,7 @@ class UserInvitation extends Model
         \Log::info('📧 Template renderizado', [
             'to' => $this->email,
             'subject' => $rendered['subject'],
+            'body_preview' => substr($rendered['body_html'], 0, 200),
         ]);
         
         // Enviar email usando HTML DO TEMPLATE

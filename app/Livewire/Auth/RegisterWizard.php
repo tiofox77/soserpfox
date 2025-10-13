@@ -293,61 +293,13 @@ class RegisterWizard extends Component
     
     /**
      * Criar roles padrão para um novo tenant (Sistema de Níveis)
+     * 
+     * @deprecated Use createDefaultRolesForTenant() helper function instead
      */
     protected function createDefaultRolesForTenant($tenantId)
     {
-        \Log::info('Criando roles padrão para tenant', ['tenant_id' => $tenantId]);
-        
-        // Buscar todas as permissões globais
-        $allPermissions = \Spatie\Permission\Models\Permission::all();
-        
-        // Definir estrutura de roles por nível
-        $roleLevels = [
-            'Super Admin' => [
-                'permissions' => $allPermissions->pluck('name')->toArray(), // TODAS
-            ],
-            'Admin' => [
-                'permissions' => $allPermissions->filter(function($perm) {
-                    // Admin tem tudo EXCETO gestão de sistema
-                    return !str_contains($perm->name, 'system.');
-                })->pluck('name')->toArray(),
-            ],
-            'Gestor' => [
-                'permissions' => $allPermissions->filter(function($perm) {
-                    // Gestor: view, create e edit (sem delete)
-                    return str_contains($perm->name, '.view') || 
-                           str_contains($perm->name, '.create') ||
-                           str_contains($perm->name, '.edit');
-                })->pluck('name')->toArray(),
-            ],
-            'Utilizador' => [
-                'permissions' => $allPermissions->filter(function($perm) {
-                    // Utilizador: apenas view
-                    return str_contains($perm->name, '.view');
-                })->pluck('name')->toArray(),
-            ],
-        ];
-        
-        // Criar cada role com suas permissões
-        foreach ($roleLevels as $roleName => $config) {
-            $role = \Spatie\Permission\Models\Role::firstOrCreate(
-                ['name' => $roleName, 'guard_name' => 'web', 'tenant_id' => $tenantId]
-            );
-            
-            // Sincronizar permissões
-            $permissions = \Spatie\Permission\Models\Permission::whereIn('name', $config['permissions'])->get();
-            $role->syncPermissions($permissions);
-            
-            \Log::info("Role '{$roleName}' criada", [
-                'tenant_id' => $tenantId,
-                'permissions_count' => $permissions->count()
-            ]);
-        }
-        
-        \Log::info('Todas as roles padrão criadas para tenant', [
-            'tenant_id' => $tenantId,
-            'roles' => array_keys($roleLevels)
-        ]);
+        // Usar função helper global
+        createDefaultRolesForTenant($tenantId);
     }
     
     public function previousStep()
@@ -487,6 +439,11 @@ class RegisterWizard extends Component
                 'role_id' => $superAdminRole->id,
                 'is_system_super_admin' => false
             ]);
+            
+            // 3.3 Criar dados padrão de contabilidade
+            \Log::info('Criando dados padrão de contabilidade...');
+            $this->createDefaultAccountingData($tenant->id);
+            \Log::info('Dados de contabilidade criados com sucesso');
             
             // 4. Salvar comprovativo de pagamento se houver
             $paymentProofPath = null;
@@ -744,6 +701,39 @@ class RegisterWizard extends Component
             'subject' => $rendered['subject'],
             'template_id' => $rendered['subject'],
         ]);
+    }
+    
+    /**
+     * Criar dados padrão de contabilidade para novo tenant
+     */
+    private function createDefaultAccountingData($tenantId)
+    {
+        try {
+            // Criar Plano de Contas (71 contas SNC Angola)
+            $accountSeeder = new \Database\Seeders\Accounting\AccountSeeder();
+            $accountSeeder->runForTenant($tenantId);
+            
+            // Criar Diários padrão (6 diários)
+            $journalSeeder = new \Database\Seeders\Accounting\JournalSeeder();
+            $journalSeeder->runForTenant($tenantId);
+            
+            // Criar Períodos para o ano atual
+            $periodSeeder = new \Database\Seeders\Accounting\PeriodSeeder();
+            $periodSeeder->runForTenant($tenantId);
+            
+            \Log::info('✅ Dados de contabilidade criados', [
+                'tenant_id' => $tenantId,
+                'contas' => 71,
+                'diarios' => 6,
+                'periodos' => 12
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao criar dados de contabilidade', [
+                'tenant_id' => $tenantId,
+                'error' => $e->getMessage()
+            ]);
+            // Não lançar exceção para não quebrar o registro
+        }
     }
     
     public function render()

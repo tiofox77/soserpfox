@@ -757,7 +757,7 @@
                         </div>
                         
                         <div class="total-extenso">
-                            {{ number_format($invoice->total - ($invoice->irt_amount ?? 0), 2, ',', '.') }} AOA
+                            {{ numberToWords($invoice->total - ($invoice->irt_amount ?? 0), 'AOA') }}
                         </div>
                     </div>
                 </div>

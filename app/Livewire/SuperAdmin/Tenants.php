@@ -27,14 +27,16 @@ class Tenants extends Component
     public $showViewModal = false;
     public $viewingTenant = null;
     
-    // Users management
-    public $showUsersModal = false;
+    // User management
+    public $showUserModal = false;
     public $managingTenantId = null;
-    public $showAddUserModal = false;
     public $selectedUserId = null;
     public $selectedRoleId = null;
+    
+    // Create new user
     public $newUserName = '';
     public $newUserEmail = '';
+    public $newUserPhone = '';
     public $newUserPassword = '';
     public $createNewUser = 0; // 0 = existente, 1 = novo
     
@@ -117,8 +119,17 @@ class Tenants extends Component
             Tenant::find($this->editingTenantId)->update($data);
             $this->dispatch('success', message: 'Tenant atualizado com sucesso!');
         } else {
-            Tenant::create($data);
-            $this->dispatch('success', message: 'Tenant criado com sucesso!');
+            $tenant = Tenant::create($data);
+            
+            // Criar roles padrão para o novo tenant
+            createDefaultRolesForTenant($tenant->id);
+            
+            \Log::info('Tenant criado pelo Super Admin com roles', [
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name,
+            ]);
+            
+            $this->dispatch('success', message: 'Tenant criado com sucesso e roles configurados!');
         }
 
         $this->closeModal();
@@ -311,6 +322,7 @@ class Tenants extends Component
             $this->validate([
                 'newUserName' => 'required|min:3',
                 'newUserEmail' => 'required|email|unique:users,email',
+                'newUserPhone' => 'nullable|string',
                 'newUserPassword' => 'required|min:6',
                 'selectedRoleId' => 'required',
             ]);
@@ -318,12 +330,49 @@ class Tenants extends Component
             $user = \App\Models\User::create([
                 'name' => $this->newUserName,
                 'email' => $this->newUserEmail,
+                'phone' => $this->newUserPhone,
                 'password' => \Hash::make($this->newUserPassword),
                 'is_active' => true,
             ]);
             
+            $tenant = \App\Models\Tenant::find($this->managingTenantId);
+            $emailSent = false;
+            $smsSent = false;
+            
+            // Enviar email de boas-vindas com credenciais (usando lógica do RegisterWizard)
+            try {
+                $this->sendNewUserWelcomeEmail($user, $this->newUserPassword, $tenant);
+                $emailSent = true;
+            } catch (\Exception $e) {
+                \Log::error('Erro ao enviar email de boas-vindas', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+            
+            // Enviar SMS de boas-vindas
+            if ($this->newUserPhone) {
+                try {
+                    $smsService = new \App\Services\SmsService();
+                    $result = $smsService->sendNewAccountSms($user, $this->newUserPassword, $tenant);
+                    $smsSent = $result['success'] ?? false;
+                } catch (\Exception $e) {
+                    \Log::error('Erro ao enviar SMS de boas-vindas', [
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
             $userId = $user->id;
-            $message = 'Usuário criado e adicionado ao tenant com sucesso!';
+            
+            // Mensagem de sucesso com status de envios
+            $statusParts = [];
+            if ($emailSent) $statusParts[] = '📧 Email enviado';
+            if ($smsSent) $statusParts[] = '📱 SMS enviado';
+            
+            $statusMessage = !empty($statusParts) ? ' (' . implode(', ', $statusParts) . ')' : '';
+            $message = '✅ Usuário criado com sucesso!' . $statusMessage;
         } else {
             // Adicionar usuário existente
             $this->validate([
@@ -724,5 +773,87 @@ class Tenants extends Component
                 'trace' => $e->getTraceAsString(),
             ]);
         }
+    }
+    
+    /**
+     * Enviar email de boas-vindas para novo usuário
+     * Usa SMTP e Template do banco de dados (mesma lógica do RegisterWizard)
+     */
+    private function sendNewUserWelcomeEmail($user, $password, $tenant)
+    {
+        \Log::info('📧 Iniciando envio de email para novo usuário', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
+        
+        // BUSCAR CONFIGURAÇÃO SMTP DO BANCO (mesma lógica do RegisterWizard)
+        $smtpSetting = \App\Models\SmtpSetting::getForTenant(null);
+        
+        if (!$smtpSetting) {
+            \Log::error('❌ Configuração SMTP não encontrada no banco');
+            throw new \Exception('Configuração SMTP não encontrada');
+        }
+        
+        \Log::info('📧 Configuração SMTP encontrada', [
+            'host' => $smtpSetting->host,
+            'port' => $smtpSetting->port,
+            'encryption' => $smtpSetting->encryption,
+        ]);
+        
+        // CONFIGURAR SMTP do banco de dados
+        $smtpSetting->configure();
+        
+        // BUSCAR TEMPLATE 'new-user' DO BANCO (criar se não existir)
+        $template = \App\Models\EmailTemplate::where('slug', 'new-user')->first();
+        
+        if (!$template) {
+            \Log::warning('⚠️ Template new-user não encontrado, usando template welcome');
+            $template = \App\Models\EmailTemplate::where('slug', 'welcome')->first();
+        }
+        
+        if (!$template) {
+            \Log::error('❌ Nenhum template encontrado');
+            throw new \Exception('Template de email não encontrado');
+        }
+        
+        \Log::info('📄 Template encontrado', [
+            'id' => $template->id,
+            'slug' => $template->slug,
+            'subject' => $template->subject,
+        ]);
+        
+        // Dados para o template
+        $data = [
+            'user_name' => $user->name,
+            'user_email' => $user->email,
+            'user_password' => $password, // Senha em texto plano (apenas neste email)
+            'tenant_name' => $tenant->name,
+            'tenant_email' => $tenant->email,
+            'tenant_domain' => $tenant->domain,
+            'app_name' => config('app.name', 'SOS ERP'),
+            'app_url' => config('app.url'),
+            'login_url' => route('login'),
+            'support_email' => 'sos@soserp.vip',
+        ];
+        
+        // Renderizar template do BD
+        $rendered = $template->render($data);
+        
+        \Log::info('📧 Template renderizado', [
+            'subject' => $rendered['subject'],
+            'body_length' => strlen($rendered['body_html']),
+        ]);
+        
+        // Enviar email usando HTML DO TEMPLATE
+        \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($user, $rendered) {
+            $message->to($user->email, $user->name)
+                    ->subject($rendered['subject'])
+                    ->html($rendered['body_html']);
+        });
+        
+        \Log::info('✅ Email de boas-vindas enviado com sucesso', [
+            'to' => $user->email,
+            'subject' => $rendered['subject'],
+        ]);
     }
 }

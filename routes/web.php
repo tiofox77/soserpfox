@@ -44,10 +44,14 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
     Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
     Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
+    Route::get('/script-runner', \App\Livewire\SuperAdmin\ScriptRunner::class)->name('script-runner');
     Route::get('/system-settings', \App\Livewire\SuperAdmin\SystemSettings::class)->name('system-settings');
+    Route::get('/software-settings', \App\Livewire\SuperAdmin\SoftwareSettings::class)->name('software-settings');
+    Route::get('/system-optimization', \App\Livewire\SuperAdmin\SystemOptimization::class)->name('system-optimization');
     Route::get('/email-templates', \App\Livewire\SuperAdmin\EmailTemplates::class)->name('email-templates');
     Route::get('/smtp-settings', \App\Livewire\SuperAdmin\SmtpSettings::class)->name('smtp-settings');
     Route::get('/email-logs', \App\Livewire\SuperAdmin\EmailLogs::class)->name('email-logs');
+    Route::get('/sms-settings', \App\Livewire\SuperAdmin\SmsSettings::class)->name('sms-settings');
     Route::get('/saft-configuration', \App\Livewire\SuperAdmin\SaftConfiguration::class)->name('saft');
     Route::get('/contact-messages', \App\Livewire\SuperAdmin\ContactMessages::class)->name('contact-messages');
 });
@@ -176,6 +180,8 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // POS
     Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');
+    Route::get('/pos/shifts', \App\Livewire\Invoicing\Pos\PosShiftManager::class)->name('pos.shifts');
+    Route::get('/pos/shift-history', \App\Livewire\Invoicing\Pos\ShiftHistory::class)->name('pos.shift-history');
     Route::get('/pos/reports', \App\Livewire\POS\SalesReport::class)->name('pos.reports');
 });
 
@@ -248,4 +254,98 @@ Route::middleware(['auth'])->prefix('events')->name('events.')->group(function (
     Route::prefix('technicians')->name('technicians.')->group(function () {
         Route::get('/', \App\Livewire\Events\TechniciansManager::class)->name('index');
     });
+});
+
+// ============================================
+// PORTAL DO CLIENTE
+// ============================================
+
+// Login do Cliente
+Route::get('/client/login', \App\Livewire\Client\ClientLogin::class)->name('client.login');
+Route::get('/client/forgot-password', function () {
+    return view('client.forgot-password');
+})->name('client.forgot-password');
+
+// Rotas protegidas do cliente
+Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(function () {
+    Route::get('/dashboard', \App\Livewire\Client\ClientDashboard::class)->name('dashboard');
+    Route::get('/statement', \App\Livewire\Client\ClientStatement::class)->name('statement');
+    Route::get('/events', \App\Livewire\Client\ClientEvents::class)->name('events');
+    Route::get('/invoices', \App\Livewire\Client\ClientInvoices::class)->name('invoices');
+    Route::get('/proformas', \App\Livewire\Client\ClientProformas::class)->name('proformas');
+    Route::get('/profile', \App\Livewire\Client\ClientProfile::class)->name('profile');
+});
+
+// HR Module Routes
+Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
+    Route::get('/dashboard', \App\Livewire\HR\HRDashboard::class)->name('dashboard');
+    Route::get('/employees', \App\Livewire\HR\EmployeeManagement::class)->name('employees.index');
+    Route::get('/payroll', \App\Livewire\HR\PayrollManagement::class)->name('payroll');
+    Route::get('/departments', \App\Livewire\HR\DepartmentManagement::class)->name('departments.index');
+    Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
+    Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
+    Route::get('/leaves', \App\Livewire\HR\LeaveManagement::class)->name('leaves');
+    Route::get('/advances', \App\Livewire\HR\SalaryAdvanceManagement::class)->name('advances');
+    Route::get('/overtime', \App\Livewire\HR\OvertimeManagement::class)->name('overtime');
+    Route::get('/settings', \App\Livewire\HR\SettingsManagement::class)->name('settings');
+});
+
+// Accounting Module Routes
+Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(function () {
+    Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
+    Route::get('/accounts', \App\Livewire\Accounting\AccountManagement::class)->name('accounts');
+    Route::get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
+    Route::get('/moves', \App\Livewire\Accounting\MoveManagement::class)->name('moves');
+    Route::get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
+    Route::get('/reports', \App\Livewire\Accounting\ReportsManagement::class)->name('reports');
+    
+    // R1 & R2 Routes
+    Route::get('/reconciliation', \App\Livewire\Accounting\BankReconciliationManagement::class)->name('reconciliation');
+    Route::get('/fixed-assets', \App\Livewire\Accounting\FixedAssetManagement::class)->name('fixed-assets');
+    Route::get('/currencies', \App\Livewire\Accounting\CurrencyManagement::class)->name('currencies');
+    Route::get('/cost-centers', \App\Livewire\Accounting\CostCenterManagement::class)->name('cost-centers');
+    Route::get('/analytics', \App\Livewire\Accounting\AnalyticManagement::class)->name('analytics');
+    Route::get('/budgets', \App\Livewire\Accounting\BudgetManagement::class)->name('budgets');
+    Route::get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
+});
+
+// Workshop Module Routes
+Route::middleware(['auth'])->prefix('workshop')->name('workshop.')->group(function () {
+    Route::get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
+    Route::get('/vehicles', \App\Livewire\Workshop\VehicleManagement::class)->name('vehicles');
+    Route::get('/services', \App\Livewire\Workshop\ServiceManagement::class)->name('services');
+    Route::get('/work-orders', \App\Livewire\Workshop\WorkOrderManagement::class)->name('work-orders');
+    Route::get('/reports', \App\Livewire\Workshop\Reports::class)->name('reports');
+});
+
+// CRM Module Routes (Placeholder)
+Route::middleware(['auth'])->prefix('crm')->name('crm.')->group(function () {
+    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'CRM']))->name('dashboard');
+    Route::get('/leads', fn() => view('modules.under-construction', ['module' => 'Leads']))->name('leads');
+    Route::get('/oportunidades', fn() => view('modules.under-construction', ['module' => 'Oportunidades']))->name('oportunidades');
+    Route::get('/funil-vendas', fn() => view('modules.under-construction', ['module' => 'Funil de Vendas']))->name('funil-vendas');
+});
+
+// Inventário Module Routes (Placeholder)
+Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(function () {
+    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Inventário']))->name('dashboard');
+    Route::get('/armazens', fn() => view('modules.under-construction', ['module' => 'Armazéns']))->name('armazens');
+    Route::get('/movimentos', fn() => view('modules.under-construction', ['module' => 'Movimentos de Stock']))->name('movimentos');
+    Route::get('/contagem', fn() => view('modules.under-construction', ['module' => 'Contagem de Stock']))->name('contagem');
+});
+
+// Compras Module Routes (Placeholder)
+Route::middleware(['auth'])->prefix('compras')->name('compras.')->group(function () {
+    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Compras']))->name('dashboard');
+    Route::get('/fornecedores', fn() => view('modules.under-construction', ['module' => 'Fornecedores']))->name('fornecedores');
+    Route::get('/requisicoes', fn() => view('modules.under-construction', ['module' => 'Requisições de Compra']))->name('requisicoes');
+    Route::get('/encomendas', fn() => view('modules.under-construction', ['module' => 'Encomendas']))->name('encomendas');
+});
+
+// Projetos Module Routes (Placeholder)
+Route::middleware(['auth'])->prefix('projetos')->name('projetos.')->group(function () {
+    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Projetos']))->name('dashboard');
+    Route::get('/lista', fn() => view('modules.under-construction', ['module' => 'Lista de Projetos']))->name('lista');
+    Route::get('/tarefas', fn() => view('modules.under-construction', ['module' => 'Tarefas']))->name('tarefas');
+    Route::get('/timesheet', fn() => view('modules.under-construction', ['module' => 'Timesheet']))->name('timesheet');
 });

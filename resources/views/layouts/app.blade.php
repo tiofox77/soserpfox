@@ -470,6 +470,18 @@
                                 </a>
                                 @endcan
                                 
+                                <a href="{{ route('invoicing.pos.shifts') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.shifts') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-user-clock w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">⏰ Turnos de Caixa</span>
+                                </a>
+                                
+                                <a href="{{ route('invoicing.pos.shift-history') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.shift-history') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-history w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📋 Histórico de Turnos</span>
+                                </a>
+                                
                                 @can('invoicing.pos.reports')
                                 <a href="{{ route('invoicing.pos.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.reports') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
@@ -847,6 +859,447 @@
                         </div>
                     @endif
 
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('rh'))
+                        <!-- HR Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ hrOpen: {{ request()->routeIs('hr.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="hrOpen = !hrOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-user-tie w-6 text-cyan-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Recursos Humanos</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="hrOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="hrOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('hr.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.dashboard') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('hr.employees.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.employees*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-users w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Funcionários</span>
+                                </a>
+                                
+                                <a href="{{ route('hr.departments.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.departments*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-building w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Departamentos</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('hr.attendance.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.attendance*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clock w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Presenças</span>
+                                </a>
+                                
+                                <a href="{{ route('hr.vacations.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.vacations*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-umbrella-beach w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Férias</span>
+                                </a>
+                                
+                                <a href="{{ route('hr.leaves') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.leaves*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-times w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Licenças e Faltas</span>
+                                </a>
+                                
+                                <a href="{{ route('hr.overtime') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.overtime*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-business-time w-5 text-pink-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Horas Extras</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('hr.payroll') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.payroll*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-money-check-alt w-5 text-emerald-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Folha de Pagamento</span>
+                                </a>
+                                
+                                <a href="{{ route('hr.advances') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.advances*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-hand-holding-usd w-5 text-teal-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Adiantamentos</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('hr.settings') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.settings*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cogs w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações RH</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('contabilidade'))
+                        <!-- Accounting Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ accountingOpen: {{ request()->routeIs('accounting.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="accountingOpen = !accountingOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-chart-line w-6 text-emerald-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Contabilidade</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="accountingOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="accountingOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('accounting.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.dashboard') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-pie w-5 text-emerald-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('accounting.accounts') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.accounts*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-sitemap w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Plano de Contas</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.journals') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.journals*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-book w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Diários</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.moves') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.moves*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-file-invoice w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Lançamentos</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.periods') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.periods*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-alt w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Períodos</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('accounting.reports') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.reports*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-bar w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('accounting.reconciliation') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.reconciliation*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-exchange-alt w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Reconciliação</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.fixed-assets') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.fixed-assets*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-building w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Imobilizado</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.currencies') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.currencies*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-coins w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Moedas</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.cost-centers') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.cost-centers*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-sitemap w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Centros Custo</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.analytics') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.analytics*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-pie w-5 text-pink-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Analítica</span>
+                                </a>
+                                
+                                <a href="{{ route('accounting.budgets') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.budgets*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calculator w-5 text-indigo-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Orçamentos</span>
+                                </a>
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
+                                <a href="{{ route('accounting.settings') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.settings*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('oficina'))
+                        <!-- Oficina Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ oficinaOpen: {{ request()->routeIs('workshop.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="oficinaOpen = !oficinaOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-wrench w-6 text-orange-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Gestão de Oficina</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="oficinaOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="oficinaOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('workshop.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.dashboard') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('workshop.vehicles') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.vehicles*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-car w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Veículos</span>
+                                </a>
+                                
+                                <a href="{{ route('workshop.services') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.services*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tools w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Serviços</span>
+                                </a>
+                                
+                                <a href="{{ route('workshop.work-orders') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.work-orders*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clipboard-list w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Ordens de Serviço</span>
+                                </a>
+                                
+                                <a href="{{ route('workshop.reports') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.reports*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-bar w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('crm'))
+                        <!-- CRM Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ crmOpen: {{ request()->routeIs('crm.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="crmOpen = !crmOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-user-check w-6 text-teal-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">CRM</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="crmOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="crmOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('crm.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.dashboard') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('crm.leads') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.leads*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-user-plus w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Leads</span>
+                                </a>
+                                
+                                <a href="{{ route('crm.oportunidades') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.oportunidades*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-bullseye w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Oportunidades</span>
+                                </a>
+                                
+                                <a href="{{ route('crm.funil-vendas') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.funil-vendas*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-filter w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Funil de Vendas</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('inventario'))
+                        <!-- Inventário Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="inventarioOpen = !inventarioOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-boxes w-6 text-amber-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Inventário</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="inventarioOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="inventarioOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('inventario.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.dashboard') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('inventario.armazens') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.armazens*') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-warehouse w-5 text-indigo-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Armazéns</span>
+                                </a>
+                                
+                                <a href="{{ route('inventario.movimentos') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.movimentos*') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-exchange-alt w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Movimentos</span>
+                                </a>
+                                
+                                <a href="{{ route('inventario.contagem') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.contagem*') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clipboard-check w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Contagem de Stock</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('compras'))
+                        <!-- Compras Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ comprasOpen: {{ request()->routeIs('compras.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="comprasOpen = !comprasOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-shopping-cart w-6 text-lime-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Compras</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="comprasOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="comprasOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('compras.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.dashboard') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('compras.fornecedores') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.fornecedores*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-truck w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Fornecedores</span>
+                                </a>
+                                
+                                <a href="{{ route('compras.requisicoes') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.requisicoes*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-file-alt w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Requisições</span>
+                                </a>
+                                
+                                <a href="{{ route('compras.encomendas') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.encomendas*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clipboard-list w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Encomendas</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('projetos'))
+                        <!-- Projetos Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ projetosOpen: {{ request()->routeIs('projetos.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="projetosOpen = !projetosOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-project-diagram w-6 text-violet-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Projetos</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="projetosOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="projetosOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('projetos.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.dashboard') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('projetos.lista') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.lista*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-briefcase w-5 text-indigo-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Projetos</span>
+                                </a>
+                                
+                                <a href="{{ route('projetos.tarefas') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.tarefas*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tasks w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tarefas</span>
+                                </a>
+                                
+                                <a href="{{ route('projetos.timesheet') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.timesheet*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clock w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Timesheet</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
                     @if(auth()->user()->isSuperAdmin())
                         <div class="px-3 mt-6 mb-2">
                             <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Super Admin</p>
@@ -884,6 +1337,11 @@
                         <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-cloud-download-alt w-6 text-cyan-400"></i>
                             <span x-show="sidebarOpen" class="ml-3">Atualizações do Sistema</span>
+                        </a>
+                        
+                        <a href="{{ route('superadmin.script-runner') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.script-runner') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                            <i class="fas fa-code w-6 text-green-400"></i>
+                            <span x-show="sidebarOpen" class="ml-3">Executar Scripts</span>
                         </a>
                         
                         <div class="px-3 mt-6 mb-2">
@@ -984,14 +1442,14 @@
                         </div>
                         
                         <div class="flex items-center space-x-4">
+                            <!-- Tenant Switcher (Sempre mostra empresa ativa) -->
+                            @if(auth()->check() && !auth()->user()->isSuperAdmin())
+                                <livewire:tenant-switcher />
+                            @endif
+                            
                             <!-- Subscription Timer -->
                             @if(auth()->check())
                                 <livewire:subscription-timer />
-                            @endif
-                            
-                            <!-- Tenant Switcher (se usuário tem mais de 1 empresa) -->
-                            @if(auth()->check() && canSwitchTenants())
-                                <livewire:tenant-switcher />
                             @endif
                             
                             <!-- Easter Egg: Fox Paw in Header (FOX Friendly Only) -->

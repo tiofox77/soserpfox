@@ -216,8 +216,29 @@
                         </button>
                     </div>
                     
+                    @if(!$editingUserId)
+                        <!-- Tabs Navigation -->
+                        <div class="border-b border-gray-200 bg-gray-50 px-6">
+                            <nav class="flex space-x-4" aria-label="Tabs">
+                                <button type="button" wire:click="$set('activeTab', 'create')"
+                                        class="py-4 px-6 text-sm font-semibold border-b-2 transition-all {{ $activeTab === 'create' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                                    <i class="fas fa-user-plus mr-2"></i>
+                                    Criar Utilizador
+                                </button>
+                                <button type="button" wire:click="$set('activeTab', 'invite')"
+                                        class="py-4 px-6 text-sm font-semibold border-b-2 transition-all {{ $activeTab === 'invite' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                                    <i class="fas fa-envelope mr-2"></i>
+                                    Convidar via Email
+                                </button>
+                            </nav>
+                        </div>
+                    @endif
+                    
                     <!-- Modal Body -->
-                    <form wire:submit.prevent="save" class="p-6 max-h-[70vh] overflow-y-auto">
+                    <div class="p-6 max-h-[70vh] overflow-y-auto">
+                        @if($activeTab === 'create')
+                            <!-- Criar Utilizador Form -->
+                            <form wire:submit.prevent="save">
                         {{-- Indicador de Limite de Usuários --}}
                         @if(!$editingUserId)
                             @php
@@ -312,14 +333,20 @@
                         <!-- Companies & Permissions -->
                         <div class="mb-6">
                             <div class="flex items-center justify-between mb-4">
-                                <h4 class="text-lg font-bold text-gray-900">
-                                    <i class="fas fa-building text-purple-500 mr-2"></i>
-                                    Empresas e Permissões
-                                </h4>
+                                <div>
+                                    <h4 class="text-lg font-bold text-gray-900">
+                                        <i class="fas fa-building text-purple-500 mr-2"></i>
+                                        Empresas e Permissões
+                                    </h4>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        {{ count($selectedTenants) }} de {{ count($myTenants) }} empresas selecionadas
+                                    </p>
+                                </div>
                                 <button type="button" wire:click="selectAllTenants" 
                                         class="text-sm font-semibold {{ $assignToAllTenants ? 'text-purple-600' : 'text-gray-600' }} hover:text-purple-700">
                                     <i class="fas {{ $assignToAllTenants ? 'fa-check-square' : 'fa-square' }} mr-1"></i>
-                                    Atribuir a todas as empresas
+                                    Atribuir a todas
                                 </button>
                             </div>
                             
@@ -347,7 +374,7 @@
                                                 <select wire:model="selectedRoles.{{ $tenant->id }}" 
                                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                                                     <option value="">Selecione...</option>
-                                                    @foreach($roles as $role)
+                                                    @foreach($roles->where('tenant_id', $tenant->id) as $role)
                                                         <option value="{{ $role->id }}">{{ $role->name }}</option>
                                                     @endforeach
                                                 </select>
@@ -374,7 +401,100 @@
                                 <i class="fas fa-save mr-2"></i>{{ $editingUserId ? 'Atualizar' : 'Criar' }} Utilizador
                             </button>
                         </div>
-                    </form>
+                            </form>
+                        @else
+                            <!-- Convidar via Email Form -->
+                            <form wire:submit.prevent="sendInvitation">
+                                <div class="mb-6">
+                                    <div class="bg-blue-50 border-l-4 border-blue-500 rounded-xl p-4 mb-6">
+                                        <div class="flex items-start">
+                                            <i class="fas fa-info-circle text-blue-500 text-xl mr-3 mt-0.5"></i>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-blue-900 mb-1">Como funciona o convite?</h4>
+                                                <p class="text-sm text-blue-700">
+                                                    O utilizador receberá um email com um link para criar a sua conta. 
+                                                    O convite é válido por 7 dias e pode ser reenviado se necessário.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h4 class="text-lg font-bold text-gray-900 mb-4">
+                                        <i class="fas fa-envelope text-purple-500 mr-2"></i>
+                                        Dados do Convite
+                                    </h4>
+                                    
+                                    <div class="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                                <i class="fas fa-user-circle text-purple-500 mr-2"></i>Nome do Utilizador *
+                                            </label>
+                                            <input wire:model="inviteName" type="text" 
+                                                   placeholder="Ex: João Silva"
+                                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                                            @error('inviteName') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                                <i class="fas fa-envelope text-purple-500 mr-2"></i>Email *
+                                            </label>
+                                            <input wire:model="inviteEmail" type="email" 
+                                                   placeholder="Ex: joao.silva@empresa.ao"
+                                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                                            @error('inviteEmail') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                                <i class="fas fa-user-tag text-purple-500 mr-2"></i>Perfil/Função *
+                                            </label>
+                                            <select wire:model="inviteRole" 
+                                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                                                <option value="">Selecione o perfil...</option>
+                                                @foreach($roles as $role)
+                                                    <option value="{{ $role->id }}">{{ $role->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('inviteRole') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
+                                        <h5 class="text-sm font-bold text-gray-900 mb-2">
+                                            <i class="fas fa-paper-plane text-purple-500 mr-2"></i>
+                                            O que será enviado:
+                                        </h5>
+                                        <ul class="text-sm text-gray-700 space-y-1">
+                                            <li><i class="fas fa-check text-green-500 mr-2"></i>Email de boas-vindas personalizado</li>
+                                            <li><i class="fas fa-check text-green-500 mr-2"></i>Link único para criar senha</li>
+                                            <li><i class="fas fa-check text-green-500 mr-2"></i>Instruções de acesso ao sistema</li>
+                                            <li><i class="fas fa-check text-green-500 mr-2"></i>Informações da empresa</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                                    <button type="button" wire:click="closeModal" 
+                                            class="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
+                                        <i class="fas fa-times mr-2"></i>Cancelar
+                                    </button>
+                                    <button type="submit" 
+                                            wire:loading.attr="disabled"
+                                            wire:target="sendInvitation"
+                                            class="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span wire:loading.remove wire:target="sendInvitation">
+                                            <i class="fas fa-paper-plane mr-2"></i>Enviar Convite
+                                        </span>
+                                        <span wire:loading wire:target="sendInvitation">
+                                            <i class="fas fa-spinner fa-spin mr-2"></i>Enviando...
+                                        </span>
+                                    </button>
+                                </div>
+                            </form>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>

@@ -10,7 +10,14 @@ if (!function_exists('activeTenantId')) {
             return null;
         }
         
-        return auth()->user()->activeTenantId();
+        $user = auth()->user();
+        
+        // Verificar se é um User (não Client)
+        if (!method_exists($user, 'activeTenantId')) {
+            return null;
+        }
+        
+        return $user->activeTenantId();
     }
 }
 
@@ -24,7 +31,14 @@ if (!function_exists('activeTenant')) {
             return null;
         }
         
-        return auth()->user()->activeTenant();
+        $user = auth()->user();
+        
+        // Verificar se é um User (não Client)
+        if (!method_exists($user, 'activeTenant')) {
+            return null;
+        }
+        
+        return $user->activeTenant();
     }
 }
 
@@ -39,6 +53,11 @@ if (!function_exists('canSwitchTenants')) {
         }
         
         $user = auth()->user();
+        
+        // Verificar se é um User (não Client)
+        if (!method_exists($user, 'tenants') || !property_exists($user, 'is_super_admin')) {
+            return false;
+        }
         
         // Super Admin sempre pode
         if ($user->is_super_admin) {
@@ -71,6 +90,11 @@ if (!function_exists('hasExceededCompanyLimit')) {
         }
         
         $user = auth()->user();
+        
+        // Verificar se é um User (não Client)
+        if (!method_exists($user, 'tenants') || !property_exists($user, 'is_super_admin')) {
+            return false;
+        }
         
         // Super Admin nunca excede
         if ($user->is_super_admin) {

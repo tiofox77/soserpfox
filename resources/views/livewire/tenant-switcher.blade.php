@@ -62,8 +62,12 @@
         <!-- Header -->
         <div class="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 {{ $hasExceededLimit ? '' : 'rounded-t-xl' }}">
             <div class="text-white">
-                <div class="text-xs font-medium opacity-90">Suas Empresas</div>
-                <div class="text-sm font-bold">{{ $tenants->count() }} empresa(s) disponível(is)</div>
+                <div class="text-xs font-medium opacity-90">
+                    {{ $tenants->count() > 1 ? 'Suas Empresas' : 'Empresa Ativa' }}
+                </div>
+                <div class="text-sm font-bold">
+                    {{ $tenants->count() }} empresa(s) {{ $tenants->count() > 1 ? 'disponível(is)' : 'cadastrada' }}
+                </div>
             </div>
         </div>
         
@@ -124,10 +128,18 @@
         
         <!-- Footer -->
         <div class="px-4 py-3 bg-gray-50 rounded-b-xl border-t border-gray-200">
-            <p class="text-xs text-gray-600 text-center">
-                <i class="fas fa-info-circle mr-1"></i>
-                Clique em uma empresa para alternar
-            </p>
+            @if($tenants->count() > 1)
+                <p class="text-xs text-gray-600 text-center">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Clique em uma empresa para alternar
+                </p>
+            @else
+                <a href="{{ route('my-account') }}?tab=companies" 
+                   class="block text-xs text-blue-600 hover:text-blue-700 text-center font-medium">
+                    <i class="fas fa-plus-circle mr-1"></i>
+                    Adicionar mais empresas
+                </a>
+            @endif
         </div>
     </div>
 </div>

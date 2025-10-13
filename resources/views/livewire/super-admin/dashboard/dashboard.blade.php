@@ -150,16 +150,25 @@
                                 
                                 <!-- Action Icons -->
                                 <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button class="w-7 h-7 rounded flex items-center justify-center hover:bg-blue-50 transition-colors">
+                                    <button wire:click="viewTenant({{ $tenant->id }})" 
+                                            class="w-7 h-7 rounded flex items-center justify-center hover:bg-blue-50 transition-colors"
+                                            title="Ver Detalhes">
                                         <i class="fas fa-eye text-blue-600 text-xs"></i>
                                     </button>
-                                    <button class="w-7 h-7 rounded flex items-center justify-center hover:bg-green-50 transition-colors">
+                                    <button wire:click="editTenant({{ $tenant->id }})" 
+                                            class="w-7 h-7 rounded flex items-center justify-center hover:bg-green-50 transition-colors"
+                                            title="Editar">
                                         <i class="fas fa-edit text-green-600 text-xs"></i>
                                     </button>
-                                    <button class="w-7 h-7 rounded flex items-center justify-center hover:bg-purple-50 transition-colors">
+                                    <button wire:click="manageTenant({{ $tenant->id }})" 
+                                            class="w-7 h-7 rounded flex items-center justify-center hover:bg-purple-50 transition-colors"
+                                            title="Gerir Tenant">
                                         <i class="fas fa-cog text-purple-600 text-xs"></i>
                                     </button>
-                                    <button class="w-7 h-7 rounded flex items-center justify-center hover:bg-red-50 transition-colors">
+                                    <button wire:click="deleteTenant({{ $tenant->id }})" 
+                                            wire:confirm="Tem certeza que deseja eliminar este tenant? Esta ação não pode ser desfeita."
+                                            class="w-7 h-7 rounded flex items-center justify-center hover:bg-red-50 transition-colors"
+                                            title="Eliminar">
                                         <i class="fas fa-trash text-red-600 text-xs"></i>
                                     </button>
                                 </div>

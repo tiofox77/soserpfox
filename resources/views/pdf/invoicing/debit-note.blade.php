@@ -762,7 +762,7 @@
                         </div>
                         
                         <div class="total-extenso">
-                            {{ number_format($debitNote->total, 2, ',', '.') }} AOA
+                            {{ numberToWords($debitNote->total, 'AOA') }}
                         </div>
                     </div>
                 </div>

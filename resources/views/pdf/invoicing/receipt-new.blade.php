@@ -762,7 +762,7 @@
                         </div>
                         
                         <div class="total-extenso">
-                            {{ number_format($creditNote->total, 2, ',', '.') }} AOA
+                            {{ numberToWords($creditNote->total, 'AOA') }}
                         </div>
                     </div>
                 </div>

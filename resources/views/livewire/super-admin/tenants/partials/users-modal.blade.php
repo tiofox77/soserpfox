@@ -173,6 +173,18 @@
                             
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-mobile-alt text-green-500 mr-2"></i>Telefone (com código do país)
+                                    <span class="text-xs text-gray-500 ml-1">Ex: +244939729902</span>
+                                </label>
+                                <input wire:model="newUserPhone" type="text" placeholder="+244..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500">
+                                @error('newUserPhone') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                <p class="text-xs text-blue-600 mt-1">
+                                    <i class="fas fa-info-circle mr-1"></i>Se fornecido, o usuário receberá SMS com as credenciais
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
                                     <i class="fas fa-lock text-green-500 mr-2"></i>Senha *
                                 </label>
                                 <input wire:model="newUserPassword" type="password" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500">

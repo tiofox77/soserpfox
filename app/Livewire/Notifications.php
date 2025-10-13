@@ -4,8 +4,8 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use App\Models\Order;
-use App\Models\UserNotification;
 use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +15,8 @@ class Notifications extends Component
 {
     public $showDropdown = false;
     public $showOnlyUnread = true;
+    
+    protected $listeners = ['notificationCreated' => '$refresh'];
     
     public function toggleDropdown()
     {
@@ -33,40 +35,70 @@ class Notifications extends Component
     
     public function markAsRead($notificationId)
     {
-        $notification = UserNotification::where('user_id', auth()->id())
-            ->find($notificationId);
-        
-        if ($notification) {
-            $notification->markAsRead();
-        }
+        // Marcar notificação do Laravel como lida
+        auth()->user()->notifications()
+            ->where('id', $notificationId)
+            ->update(['read_at' => now()]);
     }
     
     public function markAllAsRead()
     {
-        UserNotification::where('user_id', auth()->id())
-            ->unread()
-            ->update([
-                'is_read' => true,
-                'read_at' => now(),
-            ]);
+        // Marcar todas as notificações não lidas como lidas
+        auth()->user()->unreadNotifications->markAsRead();
     }
     
     public function deleteNotification($notificationId)
     {
-        UserNotification::where('user_id', auth()->id())
-            ->find($notificationId)
-            ?->delete();
+        // Deletar notificação
+        auth()->user()->notifications()
+            ->where('id', $notificationId)
+            ->delete();
+    }
+    
+    public function deleteAllRead()
+    {
+        // Deletar todas as notificações lidas
+        auth()->user()->notifications()
+            ->whereNotNull('read_at')
+            ->delete();
     }
     
     #[Computed]
     public function notifications()
     {
         $user = auth()->user();
-        $notifications = [];
+        $allNotifications = [];
         
         if (!$user) {
-            return $notifications;
+            return collect($allNotifications);
         }
+        
+        // BUSCAR NOTIFICAÇÕES DO BANCO DE DADOS (Laravel Notifications)
+        $dbNotifications = $user->notifications()
+            ->when($this->showOnlyUnread, fn($q) => $q->whereNull('read_at'))
+            ->latest()
+            ->take(20)
+            ->get()
+            ->map(function($notification) {
+                $data = $notification->data;
+                return [
+                    'id' => $notification->id,
+                    'type' => $data['type'] ?? 'info',
+                    'icon' => $data['icon'] ?? 'fa-bell',
+                    'color' => $data['color'] ?? 'blue',
+                    'title' => $data['title'] ?? 'Notificação',
+                    'message' => $data['message'] ?? '',
+                    'time' => $notification->created_at->diffForHumans(),
+                    'link' => $data['url'] ?? '#',
+                    'is_read' => $notification->read_at !== null,
+                    'is_database' => true,
+                ];
+            });
+        
+        $allNotifications = array_merge($allNotifications, $dbNotifications->toArray());
+        
+        // NOTIFICAÇÕES DINÂMICAS DO SISTEMA
+        $systemNotifications = [];
         
         // 1. PLANO ATIVADO RECENTEMENTE (últimas 48h)
         $tenant = $user->activeTenant();
@@ -78,7 +110,7 @@ class Notifications extends Component
                 ->first();
             
             if ($recentlyActivatedSubscription) {
-                $notifications[] = [
+                $systemNotifications[] = [
                     'type' => 'success',
                     'icon' => 'fa-check-circle',
                     'color' => 'green',
@@ -86,6 +118,8 @@ class Notifications extends Component
                     'message' => "Seu plano {$recentlyActivatedSubscription->plan->name} foi ativado com sucesso!",
                     'time' => $recentlyActivatedSubscription->current_period_start->diffForHumans(),
                     'link' => route('my-account') . '?tab=plan',
+                    'is_read' => false,
+                    'is_database' => false,
                 ];
             }
         }
@@ -100,7 +134,7 @@ class Notifications extends Component
                     $color = $daysRemaining <= 3 ? 'red' : ($daysRemaining <= 7 ? 'orange' : 'yellow');
                     $icon = $daysRemaining <= 3 ? 'fa-exclamation-triangle' : 'fa-clock';
                     
-                    $notifications[] = [
+                    $systemNotifications[] = [
                         'type' => 'warning',
                         'icon' => $icon,
                         'color' => $color,
@@ -108,6 +142,8 @@ class Notifications extends Component
                         'message' => "Seu plano expira em {$daysRemaining} dia(s). Renove para continuar usando o sistema.",
                         'time' => $subscription->ends_at->diffForHumans(),
                         'link' => route('my-account') . '?tab=plan',
+                        'is_read' => false,
+                        'is_database' => false,
                     ];
                 }
             }
@@ -122,7 +158,7 @@ class Notifications extends Component
                 ->count();
             
             if ($expiredCount > 0) {
-                $notifications[] = [
+                $systemNotifications[] = [
                     'type' => 'danger',
                     'icon' => 'fa-times-circle',
                     'color' => 'red',
@@ -130,6 +166,8 @@ class Notifications extends Component
                     'message' => "{$expiredCount} lote(s) de produtos já expiraram. Ação urgente necessária!",
                     'time' => 'Agora',
                     'link' => route('invoicing.expiry-report', ['reportType' => 'expired']),
+                    'is_read' => false,
+                    'is_database' => false,
                 ];
             }
         }
@@ -144,7 +182,7 @@ class Notifications extends Component
                 ->count();
             
             if ($expiringSoonCount > 0) {
-                $notifications[] = [
+                $systemNotifications[] = [
                     'type' => 'warning',
                     'icon' => 'fa-exclamation-triangle',
                     'color' => 'orange',
@@ -152,6 +190,8 @@ class Notifications extends Component
                     'message' => "{$expiringSoonCount} lote(s) de produtos expiram nos próximos 7 dias.",
                     'time' => 'Requer atenção',
                     'link' => route('invoicing.expiry-report', ['reportType' => 'expiring_soon']),
+                    'is_read' => false,
+                    'is_database' => false,
                 ];
             }
         }
@@ -164,7 +204,7 @@ class Notifications extends Component
                 ->count();
             
             if ($lowStockCount > 0) {
-                $notifications[] = [
+                $systemNotifications[] = [
                     'type' => 'warning',
                     'icon' => 'fa-box-open',
                     'color' => 'yellow',
@@ -172,6 +212,8 @@ class Notifications extends Component
                     'message' => "{$lowStockCount} produto(s) com estoque abaixo do mínimo.",
                     'time' => 'Requer reposição',
                     'link' => route('invoicing.stock'),
+                    'is_read' => false,
+                    'is_database' => false,
                 ];
             }
         }
@@ -181,7 +223,7 @@ class Notifications extends Component
             $pendingOrdersCount = Order::where('status', 'pending')->count();
             
             if ($pendingOrdersCount > 0) {
-                $notifications[] = [
+                $systemNotifications[] = [
                     'type' => 'info',
                     'icon' => 'fa-shopping-cart',
                     'color' => 'blue',
@@ -189,17 +231,87 @@ class Notifications extends Component
                     'message' => "{$pendingOrdersCount} pedido(s) aguardando aprovação.",
                     'time' => 'Requer atenção',
                     'link' => route('superadmin.billing'),
+                    'is_read' => false,
+                    'is_database' => false,
                 ];
             }
         }
         
-        // 7. LIMITE DE EMPRESAS ATINGIDO
+        // 7. FATURAS VENCIDAS (módulo de faturação)
+        if ($tenant && $user->hasActiveModule('invoicing')) {
+            $invoiceModel = $this->getInvoiceModel();
+            
+            if ($invoiceModel) {
+                $overdueInvoices = $invoiceModel::where('tenant_id', $tenant->id)
+                    ->whereIn('status', ['pending', 'sent', 'partial'])
+                    ->whereDate('due_date', '<', Carbon::today())
+                    ->get();
+                
+                if ($overdueInvoices->isNotEmpty()) {
+                    $totalOverdue = $overdueInvoices->sum('total');
+                    $criticalCount = $overdueInvoices->filter(function($inv) {
+                        return Carbon::parse($inv->due_date)->diffInDays(Carbon::today()) > 30;
+                    })->count();
+                    
+                    $color = $criticalCount > 0 ? 'red' : 'orange';
+                    $icon = $criticalCount > 0 ? 'fa-exclamation-triangle' : 'fa-exclamation-circle';
+                    
+                    $systemNotifications[] = [
+                        'type' => 'danger',
+                        'icon' => $icon,
+                        'color' => $color,
+                        'title' => 'Faturas Vencidas!',
+                        'message' => "{$overdueInvoices->count()} fatura(s) vencida(s) totalizando " . number_format($totalOverdue, 2) . " Kz" . ($criticalCount > 0 ? " ({$criticalCount} críticas > 30 dias)" : ""),
+                        'time' => 'Ação urgente',
+                        'link' => route('invoicing.invoices') . '?status=overdue',
+                        'is_read' => false,
+                        'is_database' => false,
+                    ];
+                }
+            }
+        }
+        
+        // 8. FATURAS EXPIRANDO EM BREVE (próximos 7 dias)
+        if ($tenant && $user->hasActiveModule('invoicing')) {
+            $invoiceModel = $this->getInvoiceModel();
+            
+            if ($invoiceModel) {
+                $expiringInvoices = $invoiceModel::where('tenant_id', $tenant->id)
+                    ->whereIn('status', ['pending', 'sent', 'partial'])
+                    ->whereDate('due_date', '>', Carbon::today())
+                    ->whereDate('due_date', '<=', Carbon::today()->addDays(7))
+                    ->get();
+                
+                if ($expiringInvoices->isNotEmpty()) {
+                    $totalExpiring = $expiringInvoices->sum('total');
+                    $urgentCount = $expiringInvoices->filter(function($inv) {
+                        return Carbon::today()->diffInDays(Carbon::parse($inv->due_date)) <= 3;
+                    })->count();
+                    
+                    $color = $urgentCount > 0 ? 'orange' : 'yellow';
+                    
+                    $systemNotifications[] = [
+                        'type' => 'warning',
+                        'icon' => 'fa-clock',
+                        'color' => $color,
+                        'title' => 'Faturas Vencendo em Breve',
+                        'message' => "{$expiringInvoices->count()} fatura(s) vencem nos próximos 7 dias - Total: " . number_format($totalExpiring, 2) . " Kz" . ($urgentCount > 0 ? " ({$urgentCount} em 3 dias)" : ""),
+                        'time' => 'Lembrar clientes',
+                        'link' => route('invoicing.invoices') . '?status=expiring',
+                        'is_read' => false,
+                        'is_database' => false,
+                    ];
+                }
+            }
+        }
+        
+        // 9. LIMITE DE EMPRESAS ATINGIDO
         if (!$user->is_super_admin) {
             $currentCount = $user->tenants()->count();
             $maxAllowed = $user->getMaxCompaniesLimit();
             
             if ($currentCount >= $maxAllowed && $maxAllowed < 999) {
-                $notifications[] = [
+                $systemNotifications[] = [
                     'type' => 'info',
                     'icon' => 'fa-building',
                     'color' => 'blue',
@@ -207,17 +319,56 @@ class Notifications extends Component
                     'message' => "Você atingiu o limite de {$maxAllowed} empresa(s). Faça upgrade para criar mais.",
                     'time' => 'Ação disponível',
                     'link' => route('my-account') . '?tab=plan',
+                    'is_read' => false,
+                    'is_database' => false,
                 ];
             }
         }
         
-        return collect($notifications);
+        // Combinar notificações do banco de dados com notificações do sistema
+        // Adicionar campos padrão para notificações do sistema
+        foreach ($systemNotifications as &$notif) {
+            if (!isset($notif['is_read'])) $notif['is_read'] = false;
+            if (!isset($notif['is_database'])) $notif['is_database'] = false;
+        }
+        
+        $allNotifications = array_merge($allNotifications, $systemNotifications);
+        
+        return collect($allNotifications);
     }
     
     #[Computed]
     public function unreadCount()
     {
-        return $this->notifications()->count();
+        // Contar apenas não lidas do banco de dados
+        $dbUnread = auth()->user()->unreadNotifications->count();
+        
+        // Contar notificações dinâmicas do sistema (sempre contam como não lidas)
+        $systemUnread = $this->notifications()
+            ->where('is_database', false)
+            ->count();
+        
+        return $dbUnread + $systemUnread;
+    }
+    
+    /**
+     * Obter modelo de fatura correto
+     */
+    private function getInvoiceModel()
+    {
+        $models = [
+            '\App\Models\Invoicing\SalesInvoice',
+            '\App\Models\Invoice',
+            '\App\Models\Invoicing\Invoice',
+        ];
+        
+        foreach ($models as $model) {
+            if (class_exists($model)) {
+                return $model;
+            }
+        }
+        
+        return null;
     }
     
     public function render()

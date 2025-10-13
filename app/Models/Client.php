@@ -4,8 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
-class Client extends Model
+class Client extends Authenticatable
 {
     use SoftDeletes;
 
@@ -29,13 +30,22 @@ class Client extends Model
         'tenant_id', 'type', 'name', 'nif', 'logo', 'email', 'phone', 'mobile',
         'address', 'city', 'province', 'postal_code', 'country',
         'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days',
-        'website', 'notes', 'is_active'
+        'website', 'notes', 'is_active', 'password', 'portal_access',
+        'last_login_at', 'password_changed_at'
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
     protected $casts = [
         'is_iva_subject' => 'boolean',
         'is_active' => 'boolean',
+        'portal_access' => 'boolean',
         'credit_limit' => 'decimal:2',
+        'last_login_at' => 'datetime',
+        'password_changed_at' => 'datetime',
     ];
 
     // Relacionamentos

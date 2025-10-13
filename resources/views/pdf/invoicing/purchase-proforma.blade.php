@@ -757,7 +757,7 @@
                         </div>
                         
                         <div class="total-extenso">
-                            {{ number_format($proforma->total - ($proforma->irt_amount ?? 0), 2, ',', '.') }} AOA
+                            {{ numberToWords($proforma->total - ($proforma->irt_amount ?? 0), 'AOA') }}
                         </div>
                     </div>
                 </div>

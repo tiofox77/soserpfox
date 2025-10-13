@@ -197,12 +197,37 @@ class MyAccount extends Component
                 'is_active' => true,
             ]);
             
-            // Vincular usuário ao novo tenant como Admin
+            // Criar roles padrão para o novo tenant
+            createDefaultRolesForTenant($tenant->id);
+            
+            // Buscar o role "Super Admin" criado
+            $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Admin')
+                ->where('tenant_id', $tenant->id)
+                ->first();
+            
+            // Vincular usuário ao novo tenant como Super Admin
             $user->tenants()->attach($tenant->id, [
-                'role_id' => 2, // Admin
+                'role_id' => $superAdminRole ? $superAdminRole->id : null,
                 'is_active' => true,
                 'joined_at' => now(),
             ]);
+            
+            // Atribuir role "Super Admin" ao usuário para este tenant
+            if ($superAdminRole) {
+                setPermissionsTeamId($tenant->id);
+                $user->assignRole($superAdminRole);
+                
+                \Log::info('Role Super Admin atribuído ao usuário', [
+                    'user_id' => $user->id,
+                    'tenant_id' => $tenant->id,
+                    'role_id' => $superAdminRole->id,
+                ]);
+            }
+            
+            // Criar dados padrão de contabilidade
+            \Log::info('Criando dados padrão de contabilidade para nova empresa...');
+            $this->createDefaultAccountingData($tenant->id);
+            \Log::info('Dados de contabilidade criados com sucesso');
             
             // Replicar subscription do tenant atual (se existir)
             if ($currentSubscription && $currentSubscription->plan) {
@@ -282,23 +307,20 @@ class MyAccount extends Component
             return;
         }
         
-        // Não permitir deletar se for a empresa ativa
-        if ($user->tenant_id == $tenantId) {
-            $this->dispatch('error', message: 'Não pode eliminar a empresa ativa. Troque para outra empresa primeiro.');
-            return;
-        }
+        // Verificar se pode deletar (sem faturas)
+        $canDelete = $tenant->canBeDeleted();
         
-        // Verificar se tem faturas registradas
-        $invoicesCount = $tenant->invoices()->count();
-        if ($invoicesCount > 0) {
-            $this->dispatch('error', message: "Não é possível eliminar esta empresa. Existem {$invoicesCount} fatura(s) registrada(s). Por motivos legais e de auditoria, empresas com faturas não podem ser eliminadas.");
+        if (!$canDelete['can_delete']) {
+            $this->dispatch('error', message: $canDelete['reason'] . ' (' . $canDelete['invoices_count'] . ' fatura(s) emitida(s))');
             return;
         }
         
         // Verificar se tem clientes
-        $clientsCount = \DB::table('invoicing_clients')->where('tenant_id', $tenantId)->count();
-        if ($clientsCount > 0) {
-            $this->dispatch('warning', message: "Esta empresa possui {$clientsCount} cliente(s) cadastrado(s). Ao eliminar, todos os dados serão perdidos permanentemente.");
+        if (class_exists('\App\Models\Invoicing\Client')) {
+            $clientsCount = \App\Models\Invoicing\Client::where('tenant_id', $tenantId)->count();
+            if ($clientsCount > 0) {
+                $this->dispatch('warning', message: "Esta empresa possui {$clientsCount} cliente(s) cadastrado(s). Ao eliminar, todos os dados serão perdidos PERMANENTEMENTE da base de dados.");
+            }
         }
         
         // Abrir modal de confirmação
@@ -330,23 +352,54 @@ class MyAccount extends Component
             return;
         }
         
+        // Verificar se pode ser deletada (sem faturas)
+        $canDelete = $tenant->canBeDeleted();
+        
+        if (!$canDelete['can_delete']) {
+            $this->closeDeleteModal();
+            $this->dispatch('error', message: $canDelete['reason'] . ' (' . $canDelete['invoices_count'] . ' fatura(s) emitida(s))');
+            return;
+        }
+        
         \DB::beginTransaction();
         try {
-            // Deletar tenant (cascade vai deletar subscriptions, modules, etc)
-            $tenant->delete();
+            \Log::info('🗑️ Deletando empresa permanentemente', [
+                'tenant_id' => $tenant->id,
+                'tenant_name' => $tenant->name,
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+            ]);
+            
+            // Deletar PERMANENTEMENTE (forceDelete irá acionar o evento deleting do boot)
+            $tenant->forceDelete();
             
             \DB::commit();
             
+            \Log::info('✅ Empresa deletada com sucesso', [
+                'tenant_id' => $tenant->id,
+            ]);
+            
             $this->closeDeleteModal();
             $this->loadAccountData();
-            $this->dispatch('success', message: 'Empresa eliminada com sucesso!');
+            $this->dispatch('success', message: 'Empresa eliminada permanentemente com sucesso!');
+            
+            // Se deletou a empresa ativa, trocar para outra
+            if (activeTenantId() == $this->companyToDelete) {
+                $firstTenant = $user->tenants()->first();
+                if ($firstTenant) {
+                    $user->switchTenant($firstTenant->id);
+                    // Recarregar página para atualizar contexto
+                    $this->dispatch('tenant-switched-reload');
+                }
+            }
             
         } catch (\Exception $e) {
             \DB::rollBack();
-            \Log::error('Erro ao eliminar empresa', [
+            \Log::error('❌ Erro ao eliminar empresa', [
                 'user_id' => $user->id,
                 'tenant_id' => $this->companyToDelete,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
             $this->closeDeleteModal();
             $this->dispatch('error', message: 'Erro ao eliminar empresa: ' . $e->getMessage());
@@ -902,5 +955,38 @@ class MyAccount extends Component
         }
         
         return view('livewire.my-account', compact('myTenants', 'currentPlan', 'currentSubscription', 'availablePlans', 'orders', 'pendingOrders', 'pendingSubscriptions'));
+    }
+    
+    /**
+     * Criar dados padrão de contabilidade para novo tenant
+     */
+    private function createDefaultAccountingData($tenantId)
+    {
+        try {
+            // Criar Plano de Contas (71 contas SNC Angola)
+            $accountSeeder = new \Database\Seeders\Accounting\AccountSeeder();
+            $accountSeeder->runForTenant($tenantId);
+            
+            // Criar Diários padrão (6 diários)
+            $journalSeeder = new \Database\Seeders\Accounting\JournalSeeder();
+            $journalSeeder->runForTenant($tenantId);
+            
+            // Criar Períodos para o ano atual
+            $periodSeeder = new \Database\Seeders\Accounting\PeriodSeeder();
+            $periodSeeder->runForTenant($tenantId);
+            
+            \Log::info('✅ Dados de contabilidade criados', [
+                'tenant_id' => $tenantId,
+                'contas' => 71,
+                'diarios' => 6,
+                'periodos' => 12
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao criar dados de contabilidade', [
+                'tenant_id' => $tenantId,
+                'error' => $e->getMessage()
+            ]);
+            // Não lançar exceção para não quebrar a criação da empresa
+        }
     }
 }

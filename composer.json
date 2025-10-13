@@ -36,7 +36,11 @@
         "files": [
             "app/Helpers/TenantHelper.php",
             "app/Helpers/WarehouseHelper.php",
-            "app/Helpers/SettingsHelper.php"
+            "app/Helpers/SettingsHelper.php",
+            "app/Helpers/RoleHelper.php",
+            "app/Helpers/NumberToWordsHelper.php",
+            "app/Helpers/SoftwareSettingsHelper.php",
+            "app/Helpers/AngolanTaxHelper.php"
         ]
     },
     "autoload-dev": {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aceitar Convite - {{ config('app.name') }}</title>
+    <title>Aceitar Convite - {{ app_name() ?? config('app.name') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -12,14 +12,14 @@
         <!-- Logo -->
         <div class="text-center mb-8">
             @if(app_logo())
-                <img src="{{ app_logo() }}" alt="{{ config('app.name') }}" class="h-16 mx-auto mb-4">
+                <img src="{{ app_logo() }}" alt="{{ app_name() ?? config('app.name') }}" class="h-16 mx-auto mb-4">
             @else
                 <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-crown text-white text-3xl"></i>
                 </div>
             @endif
             <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {{ config('app.name') }}
+                {{ app_name() ?? config('app.name') }}
             </h1>
         </div>
 

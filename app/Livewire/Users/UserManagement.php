@@ -20,6 +20,7 @@ class UserManagement extends Component
 
     public $showModal = false;
     public $editingUserId = null;
+    public $activeTab = 'create'; // 'create' ou 'invite'
     
     // Form fields
     public $name, $email, $password, $password_confirmation;
@@ -27,6 +28,12 @@ class UserManagement extends Component
     public $selectedTenants = []; // IDs dos tenants selecionados
     public $selectedRoles = []; // [tenant_id => role_id]
     public $assignToAllTenants = false;
+    
+    // Invite fields
+    public $inviteName = '';
+    public $inviteEmail = '';
+    public $inviteRole = '';
+    public $sending = false;
     
     // Filters
     public $search = '';
@@ -56,6 +63,7 @@ class UserManagement extends Component
     public function create()
     {
         $this->resetForm();
+        $this->activeTab = 'create';
         $this->showModal = true;
     }
 
@@ -78,12 +86,14 @@ class UserManagement extends Component
         $this->email = $user->email;
         $this->is_active = $user->is_active;
         
-        // Carregar apenas o tenant atual
-        $this->selectedTenants = [$currentTenantId];
+        // Carregar TODAS as empresas que o usuário já tem acesso
+        $this->selectedTenants = $user->tenants->pluck('id')->toArray();
         
-        // Carregar roles do Spatie para o tenant atual (especificar tabela pivot)
-        $userRole = $user->roles()->wherePivot('tenant_id', $currentTenantId)->first();
-        $this->selectedRoles[$currentTenantId] = $userRole ? $userRole->id : null;
+        // Carregar roles de TODAS as empresas do usuário
+        foreach ($user->tenants as $tenant) {
+            $userRole = $user->roles()->wherePivot('tenant_id', $tenant->id)->first();
+            $this->selectedRoles[$tenant->id] = $userRole ? $userRole->id : null;
+        }
         
         $this->showModal = true;
     }
@@ -144,28 +154,79 @@ class UserManagement extends Component
     {
         $currentTenantId = activeTenantId();
         
-        // Vincular usuário ao tenant se ainda não estiver vinculado
-        if (!$user->tenants()->where('tenants.id', $currentTenantId)->exists()) {
-            $user->tenants()->attach($currentTenantId, [
-                'is_active' => true,
-                'joined_at' => now(),
-            ]);
+        // Sincronizar TODAS as empresas selecionadas
+        foreach ($this->selectedTenants as $tenantId) {
+            // Verificar se é uma NOVA empresa sendo adicionada
+            $isNewTenant = !$user->tenants()->where('tenants.id', $tenantId)->exists();
+            
+            // Vincular usuário ao tenant se ainda não estiver vinculado
+            if ($isNewTenant) {
+                $user->tenants()->attach($tenantId, [
+                    'is_active' => true,
+                    'joined_at' => now(),
+                ]);
+                
+                // ENVIAR NOTIFICAÇÃO POR EMAIL
+                $tenant = Tenant::find($tenantId);
+                $roleId = $this->selectedRoles[$tenantId] ?? null;
+                $roleName = null;
+                
+                if ($roleId) {
+                    $role = \Spatie\Permission\Models\Role::find($roleId);
+                    $roleName = $role ? $role->name : null;
+                }
+                
+                try {
+                    $user->notify(new \App\Notifications\UserAddedToTenantNotification(
+                        $tenant,
+                        auth()->user(),
+                        $roleName
+                    ));
+                    
+                    \Log::info('📧 Notificação enviada: Usuário adicionado a empresa', [
+                        'user_id' => $user->id,
+                        'user_email' => $user->email,
+                        'tenant_id' => $tenantId,
+                        'tenant_name' => $tenant->name,
+                        'role' => $roleName,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('❌ Erro ao enviar notificação de adição a empresa', [
+                        'user_id' => $user->id,
+                        'tenant_id' => $tenantId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            
+            // Remover todos os roles antigos do usuário para este tenant
+            $user->roles()->wherePivot('tenant_id', $tenantId)->detach();
+            
+            // Atribuir role para este tenant
+            $roleId = $this->selectedRoles[$tenantId] ?? null;
+            
+            if ($roleId) {
+                // Atribuir role do Spatie com tenant_id
+                $this->assignRoleToUserForTenant($user, $roleId, $tenantId);
+            }
         }
         
-        // Remover todos os roles antigos do usuário para este tenant
-        $user->roles()->wherePivot('tenant_id', $currentTenantId)->detach();
+        // Remover tenants que foram desmarcados
+        $currentTenantIds = $user->tenants()->pluck('tenants.id')->toArray();
+        $tenantsToRemove = array_diff($currentTenantIds, $this->selectedTenants);
         
-        // Atribuir role para o tenant atual
-        $roleId = $this->selectedRoles[$currentTenantId] ?? null;
-        
-        if ($roleId) {
-            // Atribuir role do Spatie com tenant_id
-            $this->assignRoleToUserForTenant($user, $roleId, $currentTenantId);
+        if (!empty($tenantsToRemove)) {
+            $user->tenants()->detach($tenantsToRemove);
+            
+            // Remover roles dos tenants removidos
+            foreach ($tenantsToRemove as $tenantId) {
+                $user->roles()->wherePivot('tenant_id', $tenantId)->detach();
+            }
         }
         
-        // Garantir que o usuário tem o tenant_id correto
-        if ($user->tenant_id !== $currentTenantId) {
-            $user->update(['tenant_id' => $currentTenantId]);
+        // Garantir que o usuário tem o tenant_id correto (primeira empresa selecionada)
+        if (!empty($this->selectedTenants) && $user->tenant_id !== $this->selectedTenants[0]) {
+            $user->update(['tenant_id' => $this->selectedTenants[0]]);
         }
         
         // Limpar cache de permissões
@@ -299,13 +360,88 @@ class UserManagement extends Component
         $this->resetForm();
     }
 
+    public function sendInvitation()
+    {
+        $this->validate([
+            'inviteName' => 'required|min:3',
+            'inviteEmail' => 'required|email',
+            'inviteRole' => 'required|exists:roles,id',
+        ]);
+        
+        $this->sending = true;
+        
+        try {
+            // Verificar se o email já está em uso
+            $existingUser = User::where('email', $this->inviteEmail)
+                ->whereHas('tenants', function($q) {
+                    $q->where('tenants.id', activeTenantId());
+                })
+                ->first();
+                
+            if ($existingUser) {
+                $this->dispatch('error', message: 'Este email já está em uso por um utilizador existente.');
+                $this->sending = false;
+                return;
+            }
+            
+            // Verificar se já existe um convite pendente
+            $pendingInvitation = \App\Models\UserInvitation::where('email', $this->inviteEmail)
+                ->where('tenant_id', activeTenantId())
+                ->where('status', 'pending')
+                ->where('expires_at', '>', now())
+                ->first();
+                
+            if ($pendingInvitation) {
+                $this->dispatch('error', message: 'Já existe um convite pendente para este email.');
+                $this->sending = false;
+                return;
+            }
+            
+            DB::beginTransaction();
+            
+            // Buscar nome do role
+            $role = \Spatie\Permission\Models\Role::find($this->inviteRole);
+            
+            // Criar convite
+            $invitation = \App\Models\UserInvitation::create([
+                'tenant_id' => activeTenantId(),
+                'invited_by' => auth()->id(),
+                'email' => $this->inviteEmail,
+                'name' => $this->inviteName,
+                'role' => $role ? $role->name : 'user',
+                'role_id' => $this->inviteRole,
+            ]);
+            
+            // Enviar email
+            $invitation->sendInvitationEmail();
+            
+            DB::commit();
+            
+            $this->dispatch('success', message: "Convite enviado com sucesso para {$this->inviteEmail}!");
+            $this->closeModal();
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Erro ao enviar convite', [
+                'error' => $e->getMessage(),
+                'email' => $this->inviteEmail
+            ]);
+            
+            $this->dispatch('error', message: 'Erro ao enviar convite: ' . $e->getMessage());
+        }
+        
+        $this->sending = false;
+    }
+
     private function resetForm()
     {
         $this->reset([
             'name', 'email', 'password', 'password_confirmation',
-            'editingUserId', 'selectedTenants', 'selectedRoles', 'assignToAllTenants'
+            'editingUserId', 'selectedTenants', 'selectedRoles', 'assignToAllTenants',
+            'inviteName', 'inviteEmail', 'inviteRole', 'activeTab'
         ]);
         $this->is_active = true;
+        $this->activeTab = 'create';
     }
 
     public function render()
@@ -331,14 +467,27 @@ class UserManagement extends Component
             ->orderBy('created_at', 'desc')
             ->paginate(10);
         
-        // Pegar apenas o tenant ativo
-        $myTenants = [Tenant::find($currentTenantId)];
+        // Pegar TODAS as empresas que o usuário logado tem acesso
+        if ($currentUser->is_super_admin) {
+            // Super Admin vê todos os tenants
+            $myTenants = Tenant::orderBy('name')->get();
+        } else {
+            // Usuário normal vê apenas suas empresas
+            $myTenants = $currentUser->tenants()->orderBy('name')->get();
+        }
         
-        // Buscar roles do Spatie Permission do tenant atual
-        setPermissionsTeamId($currentTenantId);
-        $roles = Role::where('tenant_id', $currentTenantId)
-            ->orderBy('name')
-            ->get();
+        // Buscar roles de TODOS os tenants disponíveis
+        if ($currentUser->is_super_admin) {
+            // Super Admin vê roles de todos os tenants
+            $roles = Role::orderBy('tenant_id')->orderBy('name')->get();
+        } else {
+            // Usuário normal vê roles apenas de seus tenants
+            $tenantIds = $myTenants->pluck('id')->toArray();
+            $roles = Role::whereIn('tenant_id', $tenantIds)
+                ->orderBy('tenant_id')
+                ->orderBy('name')
+                ->get();
+        }
         
         // Stats para cards
         $totalUsers = User::query()
