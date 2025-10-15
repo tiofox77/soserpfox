@@ -1112,6 +1112,17 @@
                         </div>
                     @endif
 
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('notifications'))
+                        <!-- Notifications Module -->
+                        <div class="mt-6">
+                            <a href="{{ route('notifications.settings') }}" 
+                               class="flex items-center px-4 py-3 {{ request()->routeIs('notifications.*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                <i class="ri-notification-3-line text-2xl text-yellow-400"></i>
+                                <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Notificações</span>
+                            </a>
+                        </div>
+                    @endif
+
                     @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('crm'))
                         <!-- CRM Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ crmOpen: {{ request()->routeIs('crm.*') ? 'true' : 'false' }} }">

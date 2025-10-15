@@ -22,3 +22,8 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Twilio credentials
+.env.twilio
+*-credentials.php
+*-config-local.php

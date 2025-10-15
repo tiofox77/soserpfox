@@ -23,6 +23,7 @@ class OvertimeManagement extends Component
     // Modal
     public $showModal = false;
     public $showDetailsModal = false;
+    public $showRejectionModal = false;
     public $editMode = false;
     public $overtimeId;
     
@@ -148,7 +149,7 @@ class OvertimeManagement extends Component
         if ($action === 'approve') {
             $this->approve();
         } else {
-            $this->showApprovalModal = true;
+            $this->showRejectionModal = true;
         }
     }
 
@@ -176,7 +177,7 @@ class OvertimeManagement extends Component
             $overtime->reject(Auth::id(), $this->rejection_reason);
             
             session()->flash('success', 'Hora extra rejeitada com sucesso!');
-            $this->showApprovalModal = false;
+            $this->showRejectionModal = false;
         } catch (\Exception $e) {
             session()->flash('error', 'Erro ao rejeitar hora extra: ' . $e->getMessage());
         }
@@ -238,6 +239,7 @@ class OvertimeManagement extends Component
         $this->showModal = false;
         $this->showDetailsModal = false;
         $this->showApprovalModal = false;
+        $this->showRejectionModal = false;
         $this->resetForm();
     }
 

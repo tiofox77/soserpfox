@@ -1,0 +1,634 @@
+<div>
+    {{-- Flash Messages --}}
+    @if (session()->has('success'))
+        <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)" 
+             class="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-lg p-4 text-white flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle text-2xl mr-3"></i>
+                <span class="font-semibold">{{ session('success') }}</span>
+            </div>
+            <button @click="show = false" class="text-white hover:text-green-100 transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)"
+             class="mb-6 bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl shadow-lg p-4 text-white flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle text-2xl mr-3"></i>
+                <span class="font-semibold">{{ session('error') }}</span>
+            </div>
+            <button @click="show = false" class="text-white hover:text-red-100 transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    @endif
+
+    {{-- Header --}}
+    <div class="mb-6 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl shadow-lg p-6 text-white">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
+                    <i class="fas fa-bell text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold">Gestão de Notificações</h2>
+                    <p class="text-yellow-100 text-sm">Configure Email, SMS e WhatsApp para seu tenant</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button wire:click="$set('activeTab', 'dashboard')" 
+                        class="px-4 py-2 rounded-xl font-semibold transition-all {{ $activeTab === 'dashboard' ? 'bg-white text-yellow-600 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30' }}">
+                    <i class="fas fa-chart-line mr-2"></i>Dashboard
+                </button>
+                <button wire:click="$set('activeTab', 'email')" 
+                        class="px-4 py-2 rounded-xl font-semibold transition-all {{ in_array($activeTab, ['email', 'sms', 'whatsapp']) ? 'bg-white text-yellow-600 shadow-lg' : 'bg-white/20 text-white hover:bg-white/30' }}">
+                    <i class="fas fa-cog mr-2"></i>Configurações
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Dashboard Tab --}}
+    @if($activeTab === 'dashboard')
+        {{-- Stats Cards --}}
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white rounded-2xl shadow-lg p-6 border border-blue-100 overflow-hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/50">
+                        <i class="fas fa-envelope text-white text-2xl"></i>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold {{ $email_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600' }}">
+                        {{ $email_enabled ? 'Ativo' : 'Inativo' }}
+                    </span>
+                </div>
+                <p class="text-sm text-blue-600 font-semibold mb-2">Email</p>
+                <p class="text-4xl font-bold text-gray-900 mb-1">
+                    {{ count(array_filter($email_notifications ?? [])) }}
+                </p>
+                <p class="text-xs text-gray-500">Notificações ativas</p>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-uppercase fw-medium text-muted mb-0">SMS</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <h5 class="text-{{ $sms_enabled ? 'info' : 'muted' }} fs-14 mb-0">
+                                    <i class="ri-message-3-line align-middle"></i>
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-end justify-content-between mt-4">
+                            <div>
+                                <h4 class="fs-22 fw-semibold ff-secondary mb-2">
+                                    <span class="badge bg-{{ $sms_enabled ? 'info' : 'secondary' }}">
+                                        {{ $sms_enabled ? 'Ativo' : 'Inativo' }}
+                                    </span>
+                                </h4>
+                                <small class="text-muted">
+                                    {{ count(array_filter($sms_notifications ?? [])) }} notificações ativas
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-uppercase fw-medium text-muted mb-0">WhatsApp</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <h5 class="text-{{ $whatsapp_enabled ? 'success' : 'muted' }} fs-14 mb-0">
+                                    <i class="ri-whatsapp-line align-middle"></i>
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-end justify-content-between mt-4">
+                            <div>
+                                <h4 class="fs-22 fw-semibold ff-secondary mb-2">
+                                    <span class="badge bg-{{ $whatsapp_enabled ? 'success' : 'secondary' }}">
+                                        {{ $whatsapp_enabled ? 'Ativo' : 'Inativo' }}
+                                    </span>
+                                </h4>
+                                <small class="text-muted">
+                                    {{ count(array_filter($whatsapp_notifications ?? [])) }} notificações ativas
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <p class="text-uppercase fw-medium text-muted mb-0">Templates</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <h5 class="text-primary fs-14 mb-0">
+                                    <i class="ri-file-list-3-line align-middle"></i>
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-end justify-content-between mt-4">
+                            <div>
+                                <h4 class="fs-22 fw-semibold ff-secondary mb-2">
+                                    {{ count($whatsapp_templates ?? []) }}
+                                </h4>
+                                <small class="text-muted">WhatsApp templates</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Tipos de Notificação Disponíveis</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo de Notificação</th>
+                                        <th class="text-center">Email</th>
+                                        <th class="text-center">SMS</th>
+                                        <th class="text-center">WhatsApp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><i class="ri-user-add-line me-2 text-primary"></i>Funcionário Criado</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($email_notifications['employee_created'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($email_notifications['employee_created'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($sms_notifications['employee_created'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($sms_notifications['employee_created'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($whatsapp_notifications['employee_created'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($whatsapp_notifications['employee_created'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="ri-money-dollar-circle-line me-2 text-success"></i>Adiantamento Aprovado</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($email_notifications['salary_advance_approved'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($email_notifications['salary_advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($sms_notifications['salary_advance_approved'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($sms_notifications['salary_advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($whatsapp_notifications['salary_advance_approved'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($whatsapp_notifications['salary_advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="ri-close-circle-line me-2 text-danger"></i>Adiantamento Rejeitado</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($email_notifications['salary_advance_rejected'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($email_notifications['salary_advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($sms_notifications['salary_advance_rejected'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($sms_notifications['salary_advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($whatsapp_notifications['salary_advance_rejected'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($whatsapp_notifications['salary_advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="ri-sun-line me-2 text-warning"></i>Férias Aprovadas</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($email_notifications['vacation_approved'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($email_notifications['vacation_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($sms_notifications['vacation_approved'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($sms_notifications['vacation_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($whatsapp_notifications['vacation_approved'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($whatsapp_notifications['vacation_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="ri-close-circle-line me-2 text-danger"></i>Férias Rejeitadas</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($email_notifications['vacation_rejected'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($email_notifications['vacation_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($sms_notifications['vacation_rejected'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($sms_notifications['vacation_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($whatsapp_notifications['vacation_rejected'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($whatsapp_notifications['vacation_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><i class="ri-file-text-line me-2 text-info"></i>Recibo de Pagamento</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($email_notifications['payslip_ready'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($email_notifications['payslip_ready'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($sms_notifications['payslip_ready'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($sms_notifications['payslip_ready'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ ($whatsapp_notifications['payslip_ready'] ?? false) ? 'success' : 'secondary' }}">
+                                                {{ ($whatsapp_notifications['payslip_ready'] ?? false) ? 'Ativo' : 'Inativo' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Settings Tab --}}
+    @if(in_array($activeTab, ['email', 'sms', 'whatsapp']))
+    <form wire:submit="save">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs-custom card-header-tabs border-bottom-0" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link {{ $activeTab === 'email' ? 'active' : '' }}" 
+                                   wire:click="$set('activeTab', 'email')" role="tab" style="cursor: pointer;">
+                                    <i class="ri-mail-line me-1"></i>Email
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $activeTab === 'sms' ? 'active' : '' }}" 
+                                   wire:click="$set('activeTab', 'sms')" role="tab" style="cursor: pointer;">
+                                    <i class="ri-message-3-line me-1"></i>SMS
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ $activeTab === 'whatsapp' ? 'active' : '' }}" 
+                                   wire:click="$set('activeTab', 'whatsapp')" role="tab" style="cursor: pointer;">
+                                    <i class="ri-whatsapp-line me-1"></i>WhatsApp
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="tab-content">
+                            {{-- EMAIL TAB --}}
+                            <div class="tab-pane {{ $activeTab === 'email' ? 'active show' : '' }}">
+                                <div class="row">
+                                    <div class="col-lg-6">
+                                        <h5 class="mb-3">Configurações SMTP</h5>
+                                        
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" wire:model="email_enabled" id="emailEnabled">
+                                                <label class="form-check-label" for="emailEnabled">Ativar Notificações por Email</label>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Host SMTP</label>
+                                            <input type="text" class="form-control" wire:model="smtp_host" placeholder="smtp.gmail.com">
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Porta</label>
+                                                <input type="number" class="form-control" wire:model="smtp_port" placeholder="587">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">Encriptação</label>
+                                                <select class="form-select" wire:model="smtp_encryption">
+                                                    <option value="tls">TLS</option>
+                                                    <option value="ssl">SSL</option>
+                                                    <option value="">Nenhuma</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Usuário SMTP</label>
+                                            <input type="text" class="form-control" wire:model="smtp_username">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Senha SMTP</label>
+                                            <input type="password" class="form-control" wire:model="smtp_password">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Email Remetente</label>
+                                            <input type="email" class="form-control" wire:model="from_email" placeholder="noreply@empresa.com">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Nome Remetente</label>
+                                            <input type="text" class="form-control" wire:model="from_name" placeholder="Sistema SOSERP">
+                                        </div>
+
+                                        <button type="button" wire:click="testEmailConnection" class="btn btn-info">
+                                            <i class="ri-mail-send-line me-1"></i>Testar Conexão
+                                        </button>
+                                    </div>
+
+                                    <div class="col-lg-6">
+                                        <h5 class="mb-3">Tipos de Notificação</h5>
+                                        
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="email_notifications.employee_created" id="emailEmpCreated">
+                                            <label class="form-check-label" for="emailEmpCreated">Funcionário Criado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="email_notifications.salary_advance_approved" id="emailAdvApproved">
+                                            <label class="form-check-label" for="emailAdvApproved">Adiantamento Aprovado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="email_notifications.salary_advance_rejected" id="emailAdvRejected">
+                                            <label class="form-check-label" for="emailAdvRejected">Adiantamento Rejeitado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="email_notifications.vacation_approved" id="emailVacApproved">
+                                            <label class="form-check-label" for="emailVacApproved">Férias Aprovadas</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="email_notifications.vacation_rejected" id="emailVacRejected">
+                                            <label class="form-check-label" for="emailVacRejected">Férias Rejeitadas</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="email_notifications.payslip_ready" id="emailPayslip">
+                                            <label class="form-check-label" for="emailPayslip">Recibo de Pagamento</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- SMS TAB --}}
+                            <div class="tab-pane {{ $activeTab === 'sms' ? 'active show' : '' }}">
+                                <div class="row">
+                                    <div class="col-lg-6">
+                                        <h5 class="mb-3">Configurações SMS</h5>
+                                        
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" wire:model="sms_enabled" id="smsEnabled">
+                                                <label class="form-check-label" for="smsEnabled">Ativar Notificações por SMS</label>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Provedor SMS</label>
+                                            <select class="form-select" wire:model="sms_provider">
+                                                <option value="twilio">Twilio</option>
+                                                <option value="nexmo">Nexmo</option>
+                                                <option value="other">Outro</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Account SID</label>
+                                            <input type="text" class="form-control" wire:model="sms_account_sid">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Auth Token</label>
+                                            <input type="password" class="form-control" wire:model="sms_auth_token">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Número Remetente</label>
+                                            <input type="text" class="form-control" wire:model="sms_from_number" placeholder="+244...">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-lg-6">
+                                        <h5 class="mb-3">Tipos de Notificação</h5>
+                                        
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="sms_notifications.employee_created" id="smsEmpCreated">
+                                            <label class="form-check-label" for="smsEmpCreated">Funcionário Criado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="sms_notifications.salary_advance_approved" id="smsAdvApproved">
+                                            <label class="form-check-label" for="smsAdvApproved">Adiantamento Aprovado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="sms_notifications.salary_advance_rejected" id="smsAdvRejected">
+                                            <label class="form-check-label" for="smsAdvRejected">Adiantamento Rejeitado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="sms_notifications.vacation_approved" id="smsVacApproved">
+                                            <label class="form-check-label" for="smsVacApproved">Férias Aprovadas</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="sms_notifications.vacation_rejected" id="smsVacRejected">
+                                            <label class="form-check-label" for="smsVacRejected">Férias Rejeitadas</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="sms_notifications.payslip_ready" id="smsPayslip">
+                                            <label class="form-check-label" for="smsPayslip">Recibo de Pagamento</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- WHATSAPP TAB --}}
+                            <div class="tab-pane {{ $activeTab === 'whatsapp' ? 'active show' : '' }}">
+                                <div class="row">
+                                    <div class="col-lg-6">
+                                        <h5 class="mb-3">Configurações WhatsApp</h5>
+                                        
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" wire:model="whatsapp_enabled" id="whatsappEnabled">
+                                                <label class="form-check-label" for="whatsappEnabled">Ativar Notificações por WhatsApp</label>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Account SID (Twilio)</label>
+                                            <input type="text" class="form-control" wire:model="whatsapp_account_sid" placeholder="AC...">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Auth Token</label>
+                                            <input type="password" class="form-control" wire:model="whatsapp_auth_token">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Número WhatsApp</label>
+                                            <input type="text" class="form-control" wire:model="whatsapp_from_number" placeholder="+15558740135">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Business Account ID</label>
+                                            <input type="text" class="form-control" wire:model="whatsapp_business_account_id">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" wire:model="whatsapp_sandbox" id="whatsappSandbox">
+                                                <label class="form-check-label" for="whatsappSandbox">Modo Sandbox</label>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button type="button" wire:click="fetchWhatsAppTemplates" class="btn btn-secondary">
+                                                <i class="ri-refresh-line me-1"></i>Buscar Templates
+                                            </button>
+                                        </div>
+
+                                        {{-- Templates --}}
+                                        @if(count($whatsapp_templates) > 0)
+                                            <h6 class="mb-2">Templates Configurados:</h6>
+                                            <div class="list-group mb-3">
+                                                @foreach($whatsapp_templates as $index => $template)
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>{{ $template['name'] }}</strong>
+                                                            <br><small class="text-muted">{{ $template['sid'] }}</small>
+                                                        </div>
+                                                        <button type="button" wire:click="removeWhatsAppTemplate({{ $index }})" class="btn btn-sm btn-danger">
+                                                            <i class="ri-delete-bin-line"></i>
+                                                        </button>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+
+                                        @if(count($availableWhatsAppTemplates) > 0)
+                                            <h6 class="mb-2">Templates Disponíveis:</h6>
+                                            <div class="list-group">
+                                                @foreach($availableWhatsAppTemplates as $template)
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>{{ $template['name'] }}</strong>
+                                                            <br><small>{{ $template['sid'] }}</small>
+                                                        </div>
+                                                        <button type="button" wire:click="addWhatsAppTemplate({{ json_encode($template) }})" class="btn btn-sm btn-primary">
+                                                            <i class="ri-add-line"></i>
+                                                        </button>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+
+                                        {{-- Teste --}}
+                                        <hr class="my-4">
+                                        <h6 class="mb-3">Enviar Teste</h6>
+                                        <div class="mb-3">
+                                            <input type="text" class="form-control" wire:model="testPhone" placeholder="Número com código do país: +244...">
+                                        </div>
+                                        <button type="button" wire:click="sendTestWhatsApp" class="btn btn-success">
+                                            <i class="ri-send-plane-line me-1"></i>Enviar Teste
+                                        </button>
+                                    </div>
+
+                                    <div class="col-lg-6">
+                                        <h5 class="mb-3">Tipos de Notificação</h5>
+                                        
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="whatsapp_notifications.employee_created" id="whatsappEmpCreated">
+                                            <label class="form-check-label" for="whatsappEmpCreated">Funcionário Criado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="whatsapp_notifications.salary_advance_approved" id="whatsappAdvApproved">
+                                            <label class="form-check-label" for="whatsappAdvApproved">Adiantamento Aprovado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="whatsapp_notifications.salary_advance_rejected" id="whatsappAdvRejected">
+                                            <label class="form-check-label" for="whatsappAdvRejected">Adiantamento Rejeitado</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="whatsapp_notifications.vacation_approved" id="whatsappVacApproved">
+                                            <label class="form-check-label" for="whatsappVacApproved">Férias Aprovadas</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="whatsapp_notifications.vacation_rejected" id="whatsappVacRejected">
+                                            <label class="form-check-label" for="whatsappVacRejected">Férias Rejeitadas</label>
+                                        </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" wire:model="whatsapp_notifications.payslip_ready" id="whatsappPayslip">
+                                            <label class="form-check-label" for="whatsappPayslip">Recibo de Pagamento</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ri-save-line me-1"></i>Salvar Configurações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    @endif
+</div>

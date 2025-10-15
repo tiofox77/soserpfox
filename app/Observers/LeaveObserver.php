@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\HR\Leave;
 use App\Models\HR\Attendance;
+use App\Services\ImmediateNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -17,6 +18,17 @@ class LeaveObserver
         // Verificar se o status mudou para aprovado
         if ($leave->isDirty('status') && $leave->status === 'approved') {
             $this->createAttendanceRecords($leave);
+            
+            // Enviar notificação de aprovação
+            try {
+                $notificationService = new ImmediateNotificationService($leave->tenant_id);
+                $notificationService->notifyLeaveApproved($leave);
+            } catch (\Exception $e) {
+                Log::error('Failed to send leave approved notification', [
+                    'leave_id' => $leave->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
         
         // Verificar se foi cancelada, remover registros de presença
@@ -27,6 +39,17 @@ class LeaveObserver
         // Verificar se foi rejeitada, remover registros se existirem
         if ($leave->isDirty('status') && $leave->status === 'rejected') {
             $this->removeAttendanceRecords($leave);
+            
+            // Enviar notificação de rejeição
+            try {
+                $notificationService = new ImmediateNotificationService($leave->tenant_id);
+                $notificationService->notifyLeaveRejected($leave);
+            } catch (\Exception $e) {
+                Log::error('Failed to send leave rejected notification', [
+                    'leave_id' => $leave->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
     }
 

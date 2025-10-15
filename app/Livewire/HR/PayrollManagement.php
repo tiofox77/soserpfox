@@ -45,7 +45,7 @@ class PayrollManagement extends Component
         try {
             $payrollService = new PayrollService();
             $payroll = $payrollService->createPayroll(
-                tenant('id'),
+                auth()->user()->tenant_id,
                 $this->createYear,
                 $this->createMonth
             );
@@ -111,7 +111,7 @@ class PayrollManagement extends Component
 
     public function render()
     {
-        $query = Payroll::where('tenant_id', tenant('id'))
+        $query = Payroll::where('tenant_id', auth()->user()->tenant_id)
             ->with(['approvedBy', 'processedBy']);
 
         if ($this->yearFilter) {

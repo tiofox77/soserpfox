@@ -52,6 +52,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/smtp-settings', \App\Livewire\SuperAdmin\SmtpSettings::class)->name('smtp-settings');
     Route::get('/email-logs', \App\Livewire\SuperAdmin\EmailLogs::class)->name('email-logs');
     Route::get('/sms-settings', \App\Livewire\SuperAdmin\SmsSettings::class)->name('sms-settings');
+    Route::get('/whatsapp-notifications', \App\Livewire\SuperAdmin\WhatsAppNotifications::class)->name('whatsapp-notifications');
     Route::get('/saft-configuration', \App\Livewire\SuperAdmin\SaftConfiguration::class)->name('saft');
     Route::get('/contact-messages', \App\Livewire\SuperAdmin\ContactMessages::class)->name('contact-messages');
 });
@@ -307,6 +308,12 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('/analytics', \App\Livewire\Accounting\AnalyticManagement::class)->name('analytics');
     Route::get('/budgets', \App\Livewire\Accounting\BudgetManagement::class)->name('budgets');
     Route::get('/settings', \App\Livewire\Accounting\SettingsManagement::class)->name('settings');
+});
+
+// Notifications Module Routes
+Route::middleware(['auth'])->prefix('notifications')->name('notifications.')->group(function () {
+    Route::get('/settings', \App\Livewire\Settings\NotificationSettings::class)->name('settings');
+    Route::get('/templates', \App\Livewire\Settings\ManageNotificationTemplates::class)->name('templates');
 });
 
 // Workshop Module Routes

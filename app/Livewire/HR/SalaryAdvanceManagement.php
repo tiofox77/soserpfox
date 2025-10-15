@@ -22,6 +22,8 @@ class SalaryAdvanceManagement extends Component
     public $showModal = false;
     public $showDetailsModal = false;
     public $showApprovalModal = false;
+    public $showRejectionModal = false;
+    public $editMode = false;
     public $advanceId;
     
     // Form Fields
@@ -34,11 +36,16 @@ class SalaryAdvanceManagement extends Component
     // Approval
     public $approvalAdvanceId;
     public $approved_amount = '';
+    public $approval_notes = '';
     public $rejection_reason = '';
     public $approval_action = 'approve';
     
     // Details
     public $selectedAdvance;
+    
+    // Calculated from employee
+    public $maxPercentage = 50;
+    public $alreadyAdvanced = 0;
     
     // Calculated
     public $maxAllowed = 0;
@@ -111,7 +118,7 @@ class SalaryAdvanceManagement extends Component
             $advanceService = new SalaryAdvanceService();
             
             $data = [
-                'tenant_id' => tenant('id'),
+                'tenant_id' => auth()->user()->tenant_id,
                 'employee_id' => $this->employee_id,
                 'requested_amount' => $this->requested_amount,
                 'installments' => $this->installments,
@@ -140,11 +147,17 @@ class SalaryAdvanceManagement extends Component
         $this->approvalAdvanceId = $id;
         $this->approval_action = $action;
         $this->rejection_reason = '';
+        $this->approval_notes = '';
         
         $advance = SalaryAdvance::findOrFail($id);
+        $this->selectedAdvance = $advance;
         $this->approved_amount = $advance->requested_amount;
         
-        $this->showApprovalModal = true;
+        if ($action === 'approve') {
+            $this->showApprovalModal = true;
+        } else {
+            $this->showRejectionModal = true;
+        }
     }
 
     public function processApproval()
@@ -184,7 +197,7 @@ class SalaryAdvanceManagement extends Component
             $advance->reject(Auth::id(), $this->rejection_reason);
             
             session()->flash('success', 'Adiantamento rejeitado com sucesso!');
-            $this->showApprovalModal = false;
+            $this->showRejectionModal = false;
         } catch (\Exception $e) {
             session()->flash('error', 'Erro ao rejeitar adiantamento: ' . $e->getMessage());
         }
@@ -246,6 +259,7 @@ class SalaryAdvanceManagement extends Component
         $this->showModal = false;
         $this->showDetailsModal = false;
         $this->showApprovalModal = false;
+        $this->showRejectionModal = false;
         $this->resetForm();
     }
 
@@ -268,7 +282,7 @@ class SalaryAdvanceManagement extends Component
 
     public function render()
     {
-        $query = SalaryAdvance::where('tenant_id', tenant('id'))
+        $query = SalaryAdvance::where('tenant_id', auth()->user()->tenant_id)
             ->with(['employee', 'approvedBy']);
 
         if ($this->search) {
@@ -295,7 +309,7 @@ class SalaryAdvanceManagement extends Component
         }
 
         $advances = $query->latest()->paginate(15);
-        $employees = Employee::where('tenant_id', tenant('id'))
+        $employees = Employee::where('tenant_id', auth()->user()->tenant_id)
             ->where('status', 'active')
             ->orderBy('first_name')
             ->get();

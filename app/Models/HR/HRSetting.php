@@ -51,10 +51,11 @@ class HRSetting extends Model
     // Métodos estáticos para recuperar configurações
     public static function get(string $key, $default = null)
     {
-        $cacheKey = 'hr_setting_' . tenant('id') . '_' . $key;
+        $tenantId = auth()->check() ? auth()->user()->tenant_id : 1;
+        $cacheKey = 'hr_setting_' . $tenantId . '_' . $key;
         
-        return Cache::remember($cacheKey, 3600, function () use ($key, $default) {
-            $setting = self::where('tenant_id', tenant('id'))
+        return Cache::remember($cacheKey, 3600, function () use ($key, $default, $tenantId) {
+            $setting = self::where('tenant_id', $tenantId)
                 ->where('key', $key)
                 ->where('is_active', true)
                 ->first();
@@ -69,7 +70,8 @@ class HRSetting extends Model
 
     public static function set(string $key, $value): bool
     {
-        $setting = self::where('tenant_id', tenant('id'))
+        $tenantId = auth()->check() ? auth()->user()->tenant_id : 1;
+        $setting = self::where('tenant_id', $tenantId)
             ->where('key', $key)
             ->first();
         
@@ -84,13 +86,14 @@ class HRSetting extends Model
 
     public static function clearCache(string $key = null)
     {
+        $tenantId = auth()->check() ? auth()->user()->tenant_id : 1;
         if ($key) {
-            Cache::forget('hr_setting_' . tenant('id') . '_' . $key);
+            Cache::forget('hr_setting_' . $tenantId . '_' . $key);
         } else {
             // Limpar todas as configurações do tenant
-            $settings = self::where('tenant_id', tenant('id'))->get();
+            $settings = self::where('tenant_id', $tenantId)->get();
             foreach ($settings as $setting) {
-                Cache::forget('hr_setting_' . tenant('id') . '_' . $setting->key);
+                Cache::forget('hr_setting_' . $tenantId . '_' . $setting->key);
             }
         }
     }

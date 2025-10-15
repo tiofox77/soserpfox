@@ -288,6 +288,11 @@
                     <span x-show="sidebarOpen" class="ml-3">SMS Settings</span>
                 </a>
                 
+                <a href="{{ route('superadmin.whatsapp-notifications') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.whatsapp-notifications') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                    <i class="fab fa-whatsapp w-6 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3">WhatsApp Notificações</span>
+                </a>
+                
                 <div class="border-t border-blue-700 my-4"></div>
                 
                 <div class="px-3 mb-2">

@@ -1,28 +1,60 @@
 <div>
-    {{-- Flash Messages --}}
+    {{-- Toastr Notifications --}}
     @if (session()->has('success'))
-        <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)" 
-             class="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-lg p-4 text-white flex items-center justify-between">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-2xl mr-3"></i>
-                <span class="font-semibold">{{ session('success') }}</span>
+        <div x-data="{ show: true }" 
+             x-show="show" 
+             x-transition:enter="transform transition ease-out duration-300"
+             x-transition:enter-start="translate-y-2 opacity-0 scale-90"
+             x-transition:enter-end="translate-y-0 opacity-100 scale-100"
+             x-transition:leave="transform transition ease-in duration-200"
+             x-transition:leave-start="translate-y-0 opacity-100 scale-100"
+             x-transition:leave-end="translate-y-2 opacity-0 scale-90"
+             x-init="setTimeout(() => show = false, 5000)" 
+             class="fixed top-4 right-4 z-50 max-w-md bg-white rounded-2xl shadow-2xl border-l-4 border-green-500 overflow-hidden toastr-slide-in">
+            <div class="p-4 flex items-start">
+                <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-3 toastr-icon-bounce">
+                    <i class="fas fa-check-circle text-white text-lg"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-bold text-gray-900">Sucesso!</p>
+                    <p class="text-sm text-gray-600 mt-1">{{ session('success') }}</p>
+                </div>
+                <button @click="show = false" class="ml-3 text-gray-400 hover:text-gray-600 transition">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <button @click="show = false" class="text-white hover:text-green-100 transition">
-                <i class="fas fa-times"></i>
-            </button>
+            <div class="h-1 bg-gray-100">
+                <div class="h-full bg-gradient-to-r from-green-500 to-emerald-600 toastr-progress"></div>
+            </div>
         </div>
     @endif
 
     @if (session()->has('error'))
-        <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)"
-             class="mb-6 bg-gradient-to-r from-red-500 to-pink-600 rounded-2xl shadow-lg p-4 text-white flex items-center justify-between">
-            <div class="flex items-center">
-                <i class="fas fa-exclamation-circle text-2xl mr-3"></i>
-                <span class="font-semibold">{{ session('error') }}</span>
+        <div x-data="{ show: true }" 
+             x-show="show" 
+             x-transition:enter="transform transition ease-out duration-300"
+             x-transition:enter-start="translate-y-2 opacity-0 scale-90"
+             x-transition:enter-end="translate-y-0 opacity-100 scale-100"
+             x-transition:leave="transform transition ease-in duration-200"
+             x-transition:leave-start="translate-y-0 opacity-100 scale-100"
+             x-transition:leave-end="translate-y-2 opacity-0 scale-90"
+             x-init="setTimeout(() => show = false, 5000)" 
+             class="fixed top-4 right-4 z-50 max-w-md bg-white rounded-2xl shadow-2xl border-l-4 border-red-500 overflow-hidden toastr-slide-in">
+            <div class="p-4 flex items-start">
+                <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center mr-3 toastr-icon-bounce">
+                    <i class="fas fa-exclamation-circle text-white text-lg"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-bold text-gray-900">Erro!</p>
+                    <p class="text-sm text-gray-600 mt-1">{{ session('error') }}</p>
+                </div>
+                <button @click="show = false" class="ml-3 text-gray-400 hover:text-gray-600 transition">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <button @click="show = false" class="text-white hover:text-red-100 transition">
-                <i class="fas fa-times"></i>
-            </button>
+            <div class="h-1 bg-gray-100">
+                <div class="h-full bg-gradient-to-r from-red-500 to-pink-600 toastr-progress"></div>
+            </div>
         </div>
     @endif
 
@@ -282,8 +314,7 @@
                                         title="Editar">
                                     <i class="fas fa-edit text-xs"></i>
                                 </button>
-                                <button wire:click="delete({{ $employee->id }})" 
-                                        onclick="confirm('Tem certeza que deseja remover este funcionário?') || event.stopImmediatePropagation()"
+                                <button @click="$dispatch('open-delete-modal', { id: {{ $employee->id }}, name: '{{ $employee->full_name }}' })" 
                                         class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg"
                                         title="Excluir">
                                     <i class="fas fa-trash text-xs"></i>
@@ -315,14 +346,98 @@
         @endif
     </div>
 
-    {{-- Modal --}}
+    {{-- Modal Form --}}
     @if($showModal)
         @include('livewire.hr.employees.partials.form-modal')
     @endif
+
+    {{-- Delete Confirmation Modal --}}
+    <div x-data="{ 
+        show: false, 
+        employeeId: null, 
+        employeeName: '' 
+    }"
+         @open-delete-modal.window="show = true; employeeId = $event.detail.id; employeeName = $event.detail.name"
+         x-show="show"
+         x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+        
+        {{-- Backdrop --}}
+        <div x-show="show"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+             @click="show = false"></div>
+
+        {{-- Modal --}}
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div x-show="show"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="relative inline-block w-full max-w-lg p-6 my-8 text-left align-middle transition-all transform bg-white shadow-2xl rounded-3xl">
+                
+                {{-- Icon Warning --}}
+                <div class="flex items-center justify-center mb-6">
+                    <div class="w-20 h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center shadow-lg shadow-red-500/50 animate-pulse">
+                        <i class="fas fa-exclamation-triangle text-white text-3xl"></i>
+                    </div>
+                </div>
+
+                {{-- Title --}}
+                <h3 class="text-2xl font-bold text-center text-gray-900 mb-3">
+                    Confirmar Exclusão
+                </h3>
+
+                {{-- Description --}}
+                <div class="text-center mb-6">
+                    <p class="text-gray-600 mb-2">
+                        Tem certeza que deseja remover o funcionário:
+                    </p>
+                    <p class="text-lg font-bold text-red-600" x-text="employeeName"></p>
+                    <p class="text-sm text-gray-500 mt-3">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Esta ação não pode ser desfeita!
+                    </p>
+                </div>
+
+                {{-- Actions --}}
+                <div class="flex space-x-3">
+                    <button @click="show = false"
+                            type="button"
+                            class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg">
+                        <i class="fas fa-times mr-2"></i>
+                        Cancelar
+                    </button>
+                    <button @click="$wire.delete(employeeId); show = false"
+                            type="button"
+                            class="flex-1 px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
+                        <i class="fas fa-trash mr-2"></i>
+                        Sim, Excluir
+                    </button>
+                </div>
+
+                {{-- Close Button --}}
+                <button @click="show = false"
+                        class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 @push('styles')
 <style>
+    /* Card Animations */
     .card-hover {
         transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -356,6 +471,19 @@
     .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
     .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
     
+    /* Toastr Animations */
+    .toastr-slide-in {
+        animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .toastr-icon-bounce {
+        animation: iconBounce 0.6s ease-out;
+    }
+    
+    .toastr-progress {
+        animation: progressBar 5s linear;
+    }
+    
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -365,6 +493,40 @@
             opacity: 1;
             transform: translateY(0);
         }
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(100px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes iconBounce {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.2);
+        }
+    }
+    
+    @keyframes progressBar {
+        from {
+            width: 100%;
+        }
+        to {
+            width: 0%;
+        }
+    }
+    
+    /* Alpine.js x-cloak */
+    [x-cloak] {
+        display: none !important;
     }
 </style>
 @endpush
