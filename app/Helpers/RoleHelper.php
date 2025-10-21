@@ -69,3 +69,49 @@ if (!function_exists('createDefaultRolesForTenant')) {
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }
+
+if (!function_exists('initializeAccountingDataForTenant')) {
+    /**
+     * Inicializar dados contabilísticos padrão para novo tenant
+     * 
+     * @param int $tenantId
+     * @return void
+     */
+    function initializeAccountingDataForTenant($tenantId)
+    {
+        \Log::info('Inicializando dados contabilísticos para tenant', ['tenant_id' => $tenantId]);
+        
+        try {
+            // 1. Criar plano de contas padrão
+            $accountSeeder = new \Database\Seeders\Accounting\AccountSeeder();
+            $accountSeeder->runForTenant($tenantId);
+            
+            \Log::info('✅ Plano de contas criado', ['tenant_id' => $tenantId]);
+            
+            // 2. Criar diários contabilísticos padrão
+            $journalSeeder = new \Database\Seeders\Accounting\JournalSeeder();
+            $journalSeeder->runForTenant($tenantId);
+            
+            \Log::info('✅ Diários contabilísticos criados', ['tenant_id' => $tenantId]);
+            
+            // 3. Criar impostos padrão (IVA, IRT, etc)
+            $taxSeeder = new \Database\Seeders\Accounting\TaxSeeder();
+            $taxSeeder->seedForTenant($tenantId);
+            
+            \Log::info('✅ Impostos padrão criados', ['tenant_id' => $tenantId]);
+            
+            // 4. Criar centros de custo padrão
+            $ccSeeder = new \Database\Seeders\CostCenterSeeder();
+            $ccSeeder->seedForTenant($tenantId);
+            
+            \Log::info('✅ Centros de custo criados', ['tenant_id' => $tenantId]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Erro ao inicializar dados contabilísticos', [
+                'tenant_id' => $tenantId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+}

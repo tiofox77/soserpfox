@@ -1,6 +1,33 @@
 <div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4"
      style="backdrop-filter: blur(4px);"
-     x-data="{ activeTab: 'personal' }"
+     x-data="{ 
+        activeTab: 'personal',
+        init() {
+            // Listener para mudar de tab quando houver erro de validação
+            Livewire.on('switchTab', (event) => {
+                const targetTab = event.tab || event[0]?.tab || 'personal';
+                this.activeTab = targetTab;
+                
+                // Aguardar um momento para a tab mudar, depois destacar campo com erro
+                setTimeout(() => {
+                    // Procurar primeiro campo com erro (classe de validação do Livewire)
+                    const errorInput = document.querySelector('.border-red-500, input:invalid, select:invalid');
+                    if (errorInput) {
+                        // Adicionar animação de shake
+                        errorInput.classList.add('error-field');
+                        // Rolar até o campo
+                        errorInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Focar no campo
+                        errorInput.focus();
+                        // Remover classe após animação
+                        setTimeout(() => {
+                            errorInput.classList.remove('error-field');
+                        }, 600);
+                    }
+                }, 100);
+            });
+        }
+     }"
      x-show="true"
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0"
@@ -533,7 +560,7 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-money-bill-wave mr-1 text-green-600"></i>Salário Base (Kz)
                         </label>
-                        <input type="number" wire:model="salary" step="0.01" min="0"
+                        <input type="number" wire:model.live="salary" step="0.01" min="0"
                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="0,00">
                         <p class="text-xs text-gray-500 mt-1">Salário mensal base do funcionário</p>
@@ -543,7 +570,7 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-gift mr-1 text-purple-600"></i>Bônus/Prêmios (Kz)
                         </label>
-                        <input type="number" wire:model="bonus" step="0.01" min="0"
+                        <input type="number" wire:model.live="bonus" step="0.01" min="0"
                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="0,00">
                         <p class="text-xs text-gray-500 mt-1">Bônus mensal ou prêmios adicionais</p>
@@ -553,7 +580,7 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-car mr-1 text-blue-600"></i>Subsídio de Transporte (Kz)
                         </label>
-                        <input type="number" wire:model="transport_allowance" step="0.01" min="0"
+                        <input type="number" wire:model.live="transport_allowance" step="0.01" min="0"
                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="0,00">
                         <p class="text-xs text-gray-500 mt-1">Valor mensal para transporte</p>
@@ -563,7 +590,7 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-utensils mr-1 text-orange-600"></i>Subsídio de Alimentação (Kz)
                         </label>
-                        <input type="number" wire:model="meal_allowance" step="0.01" min="0"
+                        <input type="number" wire:model.live="meal_allowance" step="0.01" min="0"
                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="0,00">
                         <p class="text-xs text-gray-500 mt-1">Valor mensal para alimentação</p>
@@ -613,9 +640,13 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-university mr-1 text-blue-600"></i>Banco
                         </label>
-                        <input type="text" wire:model="bank_name" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                               placeholder="Nome do banco">
+                        <select wire:model="bank_name" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                            <option value="">Selecione um banco...</option>
+                            @foreach($banks as $bank)
+                                <option value="{{ $bank->name }}">{{ $bank->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div>
@@ -680,4 +711,23 @@
             </div>
         </div>
     </div>
+
+    {{-- Estilos para animação de erro --}}
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        .error-field {
+            animation: shake 0.5s;
+            border-color: #ef4444 !important;
+        }
+        
+        .error-field:focus {
+            border-color: #ef4444 !important;
+            ring-color: #ef4444 !important;
+        }
+    </style>
 </div>

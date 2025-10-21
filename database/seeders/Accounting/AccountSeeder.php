@@ -16,7 +16,7 @@ class AccountSeeder extends Seeder
         $tenants = \App\Models\Tenant::where('is_active', true)->get();
         
         if ($tenants->isEmpty()) {
-            $this->command->error('❌ Nenhum tenant ativo encontrado!');
+            \Log::warning('❌ Nenhum tenant ativo encontrado!');
             return;
         }
         
@@ -28,7 +28,7 @@ class AccountSeeder extends Seeder
                 ->count();
             
             if ($existingCount > 0) {
-                $this->command->warn("⚠️  Tenant {$tenant->name} já possui {$existingCount} contas. Pulando...");
+                \Log::info("⚠️  Tenant {$tenant->name} já possui {$existingCount} contas. Pulando...");
                 continue;
             }
             
@@ -40,7 +40,7 @@ class AccountSeeder extends Seeder
                 ]));
             }
             
-            $this->command->info("✅ Criadas " . count($accounts) . " contas para {$tenant->name}");
+            \Log::info("✅ Criadas " . count($accounts) . " contas para {$tenant->name}");
         }
     }
     
@@ -62,6 +62,16 @@ class AccountSeeder extends Seeder
     
     private function getSNCAccounts(): array
     {
+        // Carregar contas importadas do Excel (se existir)
+        $importedFile = database_path('seeders/Accounting/imported_accounts.php');
+        
+        if (file_exists($importedFile)) {
+            \Log::info('📄 Usando plano de contas importado do Excel');
+            return require $importedFile;
+        }
+        
+        // Usar contas padrão embutidas no seeder
+        \Log::info('📄 Usando plano de contas padrão embutido');
         return [
             // ===== CLASSE 1 - ACTIVO =====
             // Disponibilidades

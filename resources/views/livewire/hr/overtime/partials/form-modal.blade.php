@@ -87,8 +87,10 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-clock mr-1 text-blue-600"></i>Hora Início *
                         </label>
-                        <input type="time" wire:model.live="start_time" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all @error('start_time') border-red-500 @enderror">
+                        <input type="time" wire:model.live="start_time" step="1"
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all @error('start_time') border-red-500 @enderror"
+                               pattern="[0-9]{2}:[0-9]{2}"
+                               placeholder="00:00">
                         @error('start_time') 
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
@@ -99,8 +101,10 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-clock mr-1 text-red-600"></i>Hora Fim *
                         </label>
-                        <input type="time" wire:model.live="end_time" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all @error('end_time') border-red-500 @enderror">
+                        <input type="time" wire:model.live="end_time" step="1"
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all @error('end_time') border-red-500 @enderror"
+                               pattern="[0-9]{2}:[0-9]{2}"
+                               placeholder="00:00">
                         @error('end_time') 
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
@@ -193,4 +197,21 @@
             </div>
         </form>
     </div>
+
+    {{-- Style para forçar formato 24h em inputs time --}}
+    <style>
+        /* Forçar formato 24h removendo indicadores AM/PM */
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+        }
+        
+        input[type="time"]::-webkit-datetime-edit-ampm-field {
+            display: none;
+        }
+        
+        input[type="time"] {
+            -webkit-appearance: textfield;
+            -moz-appearance: textfield;
+        }
+    </style>
 </div>

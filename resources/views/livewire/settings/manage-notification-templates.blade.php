@@ -39,6 +39,82 @@
         </div>
     </div>
 
+    {{-- Filtros --}}
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                <i class="fas fa-filter mr-2 text-indigo-600"></i>
+                Filtros
+            </h3>
+            <button wire:click="clearFilters" 
+                    class="text-sm text-indigo-600 hover:text-indigo-700 font-semibold flex items-center">
+                <i class="fas fa-redo mr-1"></i>Limpar Filtros
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{-- Filtro por Canal --}}
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-paper-plane mr-1"></i>Filtrar por Canal
+                </label>
+                <select wire:model.live="channelFilter" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none bg-white text-sm">
+                    <option value="all">Todos os Canais</option>
+                    <option value="email">📧 Email</option>
+                    <option value="sms">📱 SMS</option>
+                    <option value="whatsapp">💬 WhatsApp</option>
+                </select>
+            </div>
+
+            {{-- Filtro por Módulo --}}
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-cube mr-1"></i>Filtrar por Módulo
+                </label>
+                <select wire:model.live="moduleFilter" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none bg-white text-sm">
+                    <option value="all">Todos os Módulos</option>
+                    @foreach($modules as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        {{-- Badges de Filtros Ativos --}}
+        @if($channelFilter !== 'all' || $moduleFilter !== 'all')
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <div class="flex flex-wrap gap-2">
+                    <span class="text-xs font-semibold text-gray-600">Filtros ativos:</span>
+                    @if($channelFilter !== 'all')
+                        <span class="inline-flex items-center px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                            @if($channelFilter === 'email') 📧 Email
+                            @elseif($channelFilter === 'sms') 📱 SMS
+                            @elseif($channelFilter === 'whatsapp') 💬 WhatsApp
+                            @endif
+                            <button wire:click="$set('channelFilter', 'all')" class="ml-2 hover:text-indigo-900">×</button>
+                        </span>
+                    @endif
+                    @if($moduleFilter !== 'all')
+                        <span class="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                            {{ $modules[$moduleFilter] }}
+                            <button wire:click="$set('moduleFilter', 'all')" class="ml-2 hover:text-purple-900">×</button>
+                        </span>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </div>
+
+    {{-- Contador de Templates --}}
+    <div class="mb-4 flex items-center justify-between">
+        <span class="text-sm text-gray-600 font-semibold">
+            <i class="fas fa-list mr-1"></i>
+            {{ $templates->count() }} Template(s) encontrado(s)
+        </span>
+    </div>
+
     {{-- Lista de Templates --}}
     <div class="grid grid-cols-1 gap-4">
         @forelse($templates as $template)
@@ -500,22 +576,59 @@
 
                     {{-- Body --}}
                     <div class="px-6 py-6 space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-phone text-green-600 mr-2"></i>
-                                Número de Teste * 
-                                <span class="text-xs text-gray-500 font-normal">(Angola)</span>
-                            </label>
-                            <input type="text" wire:model="testPhone" 
-                                   placeholder="939729902 ou +244939729902"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                            <p class="text-xs text-gray-500 mt-1">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Aceita: 939729902, +244939729902 ou 244939729902
-                            </p>
-                            @error('testPhone') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        {{-- Canais Detectados --}}
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 class="text-sm font-bold text-blue-900 mb-2 flex items-center">
+                                <i class="fas fa-broadcast-tower mr-2"></i>
+                                Canais que receberão o teste:
+                            </h4>
+                            <div class="flex gap-3 text-sm">
+                                @foreach($detectedChannels as $channel)
+                                    @if($channel === 'email')
+                                        <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">📧 Email</span>
+                                    @elseif($channel === 'sms')
+                                        <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">📱 SMS</span>
+                                    @elseif($channel === 'whatsapp')
+                                        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full font-semibold">💬 WhatsApp</span>
+                                    @endif
+                                @endforeach
+                            </div>
                         </div>
 
+                        {{-- Campo de Email (se email_enabled) --}}
+                        @if(in_array('email', $detectedChannels))
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-envelope text-blue-600 mr-2"></i>
+                                    Email de Teste * 
+                                </label>
+                                <input type="email" wire:model="testEmail" 
+                                       placeholder="exemplo@email.com"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                @error('testEmail') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+                        @endif
+
+                        {{-- Campo de Telefone (se sms_enabled ou whatsapp_enabled) --}}
+                        @if(in_array('sms', $detectedChannels) || in_array('whatsapp', $detectedChannels))
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-phone text-green-600 mr-2"></i>
+                                    Número de Teste * 
+                                    <span class="text-xs text-gray-500 font-normal">(Angola)</span>
+                                </label>
+                                <input type="text" wire:model="testPhone" 
+                                       placeholder="939729902 ou +244939729902"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                <p class="text-xs text-gray-500 mt-1">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Aceita: 939729902, +244939729902 ou 244939729902
+                                </p>
+                                @error('testPhone') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+                        @endif
+
+                        {{-- Variáveis do Template --}}
                         @if(!empty($testVariables))
                             <div class="border-t border-gray-200 pt-4">
                                 <h4 class="text-sm font-bold text-gray-900 mb-3">

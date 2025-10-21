@@ -45,6 +45,19 @@ class PayrollItem extends Model
     {
         return $this->belongsTo(Contract::class);
     }
+    
+    /**
+     * Accessors
+     */
+    public function getTotalAllowancesAttribute()
+    {
+        return ($this->food_allowance ?? 0) + ($this->transport_allowance ?? 0) + ($this->housing_allowance ?? 0);
+    }
+    
+    public function getTotalBonusesAttribute()
+    {
+        return ($this->bonus ?? 0) + ($this->overtime_pay ?? 0) + ($this->commission ?? 0);
+    }
 
     /**
      * Calcular folha de pagamento do funcionário

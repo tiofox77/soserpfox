@@ -48,6 +48,7 @@ class Employee extends Model
         'province',
         'department_id',
         'position_id',
+        'shift_id',
         'manager_id',
         'hire_date',
         'termination_date',
@@ -119,6 +120,11 @@ class Employee extends Model
     public function position()
     {
         return $this->belongsTo(Position::class, 'position_id');
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class, 'shift_id');
     }
 
     public function manager()

@@ -200,6 +200,9 @@ class MyAccount extends Component
             // Criar roles padrão para o novo tenant
             createDefaultRolesForTenant($tenant->id);
             
+            // Criar dados contabilísticos padrão
+            initializeAccountingDataForTenant($tenant->id);
+            
             // Buscar o role "Super Admin" criado
             $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Admin')
                 ->where('tenant_id', $tenant->id)

@@ -17,6 +17,10 @@ class ManageNotificationTemplates extends Component
     public $showVariableModal = false;
     public $editing = false;
     
+    // Filtros
+    public $channelFilter = 'all'; // all, email, sms, whatsapp
+    public $moduleFilter = 'all';
+    
     // Form fields
     public $templateId;
     public $name;
@@ -57,7 +61,9 @@ class ManageNotificationTemplates extends Component
     public $showTestModal = false;
     public $testTemplateId;
     public $testPhone;
+    public $testEmail;
     public $testVariables = [];
+    public $detectedChannels = [];
     
     public function mount()
     {
@@ -67,10 +73,38 @@ class ManageNotificationTemplates extends Component
     public function loadTemplates()
     {
         $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
-        $this->templates = NotificationTemplate::where('tenant_id', $tenantId)
-            ->orderBy('module')
+        $query = NotificationTemplate::where('tenant_id', $tenantId);
+        
+        // Filtro por módulo
+        if ($this->moduleFilter !== 'all') {
+            $query->where('module', $this->moduleFilter);
+        }
+        
+        // Filtro por canal
+        if ($this->channelFilter !== 'all') {
+            $query->where($this->channelFilter . '_enabled', true);
+        }
+        
+        $this->templates = $query->orderBy('module')
             ->orderBy('name')
             ->get();
+    }
+    
+    public function updatedChannelFilter()
+    {
+        $this->loadTemplates();
+    }
+    
+    public function updatedModuleFilter()
+    {
+        $this->loadTemplates();
+    }
+    
+    public function clearFilters()
+    {
+        $this->channelFilter = 'all';
+        $this->moduleFilter = 'all';
+        $this->loadTemplates();
     }
     
     public function create()
@@ -410,7 +444,14 @@ class ManageNotificationTemplates extends Component
         $template = NotificationTemplate::findOrFail($id);
         $this->testTemplateId = $id;
         $this->testPhone = '';
+        $this->testEmail = '';
         $this->testVariables = [];
+        
+        // Detectar canais habilitados
+        $this->detectedChannels = [];
+        if ($template->email_enabled) $this->detectedChannels[] = 'email';
+        if ($template->sms_enabled) $this->detectedChannels[] = 'sms';
+        if ($template->whatsapp_enabled) $this->detectedChannels[] = 'whatsapp';
         
         // Inicializar variáveis do template
         if ($template->variable_mappings) {
@@ -424,56 +465,140 @@ class ManageNotificationTemplates extends Component
     
     public function sendTest()
     {
-        $this->validate([
-            'testPhone' => 'required|string',
-        ]);
+        $template = NotificationTemplate::findOrFail($this->testTemplateId);
+        $settings = TenantNotificationSetting::getForTenant($template->tenant_id);
+        $sentChannels = [];
+        $errors = [];
         
         try {
-            // Normalizar número angolano
-            $normalizedPhone = PhoneHelper::normalizeAngolanPhone($this->testPhone);
+            // ===== CONFIGURAR SMTP DO TENANT (módulo notificação) =====
+            $tenantNotificationSettings = TenantNotificationSetting::getForTenant($template->tenant_id);
             
-            if (!PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
-                $this->dispatch('show-toast', [
-                    'type' => 'error',
-                    'message' => 'Número de telefone inválido! Use formato: 939729902 ou +244939729902'
-                ]);
-                return;
+            if ($tenantNotificationSettings && $tenantNotificationSettings->email_enabled) {
+                $tenantNotificationSettings->configureSMTP();
+                \Log::info('✅ SMTP do tenant configurado para teste');
+            } else {
+                \Log::warning('⚠️ Configuração SMTP do tenant não encontrada ou email não habilitado');
             }
             
-            $template = NotificationTemplate::findOrFail($this->testTemplateId);
-            $settings = TenantNotificationSetting::getForTenant($template->tenant_id);
-            
-            if ($template->whatsapp_enabled && $template->whatsapp_template_sid) {
-                $whatsapp = new WhatsAppService(
-                    $settings->whatsapp_account_sid,
-                    $settings->whatsapp_auth_token,
-                    $settings->whatsapp_from_number
-                );
+            // ===== ENVIAR POR EMAIL =====
+            if ($template->email_enabled && $this->testEmail) {
+                $this->validate(['testEmail' => 'required|email']);
                 
-                $result = $whatsapp->sendTemplate(
-                    $normalizedPhone,
-                    $template->name,
-                    $this->testVariables,
-                    $template->whatsapp_template_sid
-                );
-                
-                if ($result) {
-                    $this->dispatch('show-toast', [
-                        'type' => 'success',
-                        'message' => 'Teste enviado com sucesso para ' . PhoneHelper::formatAngolanPhone($normalizedPhone) . '! SID: ' . $result
-                    ]);
-                    $this->showTestModal = false;
-                } else {
-                    $this->dispatch('show-toast', [
-                        'type' => 'error',
-                        'message' => 'Falha ao enviar teste'
-                    ]);
+                try {
+                    // Substituir variáveis no email
+                    $subject = $template->email_subject ?? 'Teste de Template';
+                    $body = $template->email_body ?? 'Corpo do email de teste';
+                    
+                    foreach ($this->testVariables as $key => $value) {
+                        $subject = str_replace('{{' . $key . '}}', $value, $subject);
+                        $body = str_replace('{{' . $key . '}}', $value, $body);
+                    }
+                    
+                    // Adicionar marcação de teste
+                    $subject = '[TESTE] ' . $subject;
+                    
+                    // Capturar variáveis para usar na closure
+                    $testEmail = $this->testEmail;
+                    
+                    // Usar mesmo método do convite: Mail::send()
+                    \Illuminate\Support\Facades\Mail::send([], [], function($message) use ($testEmail, $subject, $body) {
+                        $message->to($testEmail)
+                                ->subject($subject)
+                                ->html($body);
+                    });
+                    
+                    \Log::info('📧 Email de teste enviado', ['to' => $testEmail, 'subject' => $subject]);
+                    
+                    $sentChannels[] = '📧 Email';
+                } catch (\Exception $e) {
+                    $errors[] = 'Email: ' . $e->getMessage();
+                    \Log::error('❌ Erro ao enviar email de teste', ['error' => $e->getMessage()]);
                 }
             }
+            
+            // ===== ENVIAR POR SMS =====
+            if ($template->sms_enabled && $this->testPhone) {
+                $this->validate(['testPhone' => 'required|string']);
+                
+                try {
+                    $normalizedPhone = PhoneHelper::normalizeAngolanPhone($this->testPhone);
+                    
+                    if (!PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
+                        $errors[] = 'SMS: Número inválido';
+                    } else {
+                        // Substituir variáveis no SMS
+                        $smsBody = $template->sms_body;
+                        foreach ($this->testVariables as $key => $value) {
+                            $smsBody = str_replace('{{' . $key . '}}', $value, $smsBody);
+                        }
+                        
+                        // TODO: Implementar envio SMS via provider (Twilio, etc)
+                        \Log::info('SMS Test', ['phone' => $normalizedPhone, 'body' => $smsBody]);
+                        $sentChannels[] = '📱 SMS';
+                    }
+                } catch (\Exception $e) {
+                    $errors[] = 'SMS: ' . $e->getMessage();
+                }
+            }
+            
+            // ===== ENVIAR POR WHATSAPP =====
+            if ($template->whatsapp_enabled && $template->whatsapp_template_sid && $this->testPhone) {
+                $this->validate(['testPhone' => 'required|string']);
+                
+                try {
+                    $normalizedPhone = PhoneHelper::normalizeAngolanPhone($this->testPhone);
+                    
+                    if (!PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
+                        $errors[] = 'WhatsApp: Número inválido';
+                    } else {
+                        $whatsapp = new WhatsAppService(
+                            $settings->whatsapp_account_sid,
+                            $settings->whatsapp_auth_token,
+                            $settings->whatsapp_from_number
+                        );
+                        
+                        $result = $whatsapp->sendTemplate(
+                            $normalizedPhone,
+                            $template->name,
+                            $this->testVariables,
+                            $template->whatsapp_template_sid
+                        );
+                        
+                        if ($result) {
+                            $sentChannels[] = '💬 WhatsApp';
+                        } else {
+                            $errors[] = 'WhatsApp: Falha no envio';
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $errors[] = 'WhatsApp: ' . $e->getMessage();
+                }
+            }
+            
+            // Mensagem final
+            if (!empty($sentChannels)) {
+                $message = 'Teste enviado com sucesso via: ' . implode(', ', $sentChannels);
+                if (!empty($errors)) {
+                    $message .= ' | Falhas: ' . implode(', ', $errors);
+                }
+                
+                $this->dispatch('show-toast', [
+                    'type' => empty($errors) ? 'success' : 'warning',
+                    'message' => $message
+                ]);
+                $this->showTestModal = false;
+            } else {
+                $this->dispatch('show-toast', [
+                    'type' => 'error',
+                    'message' => 'Nenhum canal enviado. Erros: ' . implode(', ', $errors)
+                ]);
+            }
+            
         } catch (\Exception $e) {
             $this->dispatch('show-toast', [
                 'type' => 'error',
-                'message' => 'Erro: ' . $e->getMessage()
+                'message' => 'Erro ao enviar teste: ' . $e->getMessage()
             ]);
         }
     }

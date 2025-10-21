@@ -9,10 +9,23 @@
                 </h2>
                 <p class="text-gray-600 mt-1">Gestão de adiantamentos de salário para funcionários</p>
             </div>
-            <button wire:click="create" 
-                    class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
-                <i class="fas fa-plus mr-2"></i>Novo Adiantamento
-            </button>
+            <div class="flex items-center gap-3">
+                {{-- Toggle View Type --}}
+                <div class="flex bg-gray-100 rounded-xl p-1">
+                    <button wire:click="setViewType('list')" 
+                            class="px-4 py-2 rounded-lg transition {{ $viewType === 'list' ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:text-gray-900' }}">
+                        <i class="fas fa-list"></i>
+                    </button>
+                    <button wire:click="setViewType('grid')" 
+                            class="px-4 py-2 rounded-lg transition {{ $viewType === 'grid' ? 'bg-white text-blue-600 shadow' : 'text-gray-600 hover:text-gray-900' }}">
+                        <i class="fas fa-th"></i>
+                    </button>
+                </div>
+                <button wire:click="create" 
+                        class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
+                    <i class="fas fa-plus mr-2"></i>Novo Adiantamento
+                </button>
+            </div>
         </div>
     </div>
 
@@ -120,9 +133,128 @@
         </div>
     </div>
 
-    {{-- Grid de Adiantamentos --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @forelse($advances as $advance)
+    {{-- List View (Tabela) --}}
+    @if($viewType === 'list')
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Funcionário</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Número</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Valor</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Parcelas</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Data</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @forelse($advances as $advance)
+                            <tr class="hover:bg-gray-50 transition">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold mr-3">
+                                            {{ substr($advance->employee->full_name, 0, 1) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-gray-900">{{ $advance->employee->full_name }}</div>
+                                            <div class="text-xs text-gray-500">{{ $advance->employee->employee_number }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm font-mono font-semibold text-blue-600">{{ $advance->advance_number }}</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="font-bold text-gray-900">{{ number_format($advance->requested_amount, 2, ',', '.') }} Kz</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm text-gray-900">{{ $advance->installments }}x de</div>
+                                    <div class="text-xs font-semibold text-blue-600">{{ number_format($advance->installment_amount, 2, ',', '.') }} Kz</div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600">
+                                    {{ $advance->request_date->format('d/m/Y') }}
+                                </td>
+                                <td class="px-6 py-4">
+                                    @if($advance->status === 'pending')
+                                        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">Pendente</span>
+                                    @elseif($advance->status === 'approved')
+                                        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Aprovado</span>
+                                    @elseif($advance->status === 'rejected')
+                                        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">Rejeitado</span>
+                                    @elseif($advance->status === 'paid')
+                                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Pago</span>
+                                    @elseif($advance->status === 'in_deduction')
+                                        <span class="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold">Em Dedução</span>
+                                    @elseif($advance->status === 'completed')
+                                        <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-semibold">Completado</span>
+                                    @else
+                                        <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">{{ ucfirst($advance->status) }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        @if($advance->status === 'pending')
+                                            <button wire:click="openApprovalModal({{ $advance->id }}, 'approve')" 
+                                                    class="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-xs font-semibold transition"
+                                                    title="Aprovar">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                            <button wire:click="openApprovalModal({{ $advance->id }}, 'reject')" 
+                                                    class="px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg text-xs font-semibold transition"
+                                                    title="Rejeitar">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        @elseif($advance->status === 'approved')
+                                            <button wire:click="openPaymentModal({{ $advance->id }})" 
+                                                    class="px-3 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-xs font-semibold transition"
+                                                    title="Registrar Pagamento">
+                                                <i class="fas fa-hand-holding-usd"></i>
+                                            </button>
+                                        @elseif($advance->status === 'in_deduction' && $advance->balance > 0)
+                                            <button wire:click="openInstallmentModal({{ $advance->id }})" 
+                                                    class="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg text-xs font-semibold transition"
+                                                    title="Processar Prestação">
+                                                <i class="fas fa-money-check-alt"></i>
+                                            </button>
+                                        @endif
+                                        <button wire:click="viewDetails({{ $advance->id }})" 
+                                                class="px-3 py-2 bg-purple-100 text-purple-700 hover:bg-purple-200 rounded-lg text-xs font-semibold transition"
+                                                title="Ver Detalhes">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <a href="{{ route('hr.advances.pdf', $advance->id) }}" target="_blank"
+                                           class="px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg text-xs font-semibold transition"
+                                           title="Gerar PDF">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <i class="fas fa-hand-holding-usd text-6xl text-gray-300 mb-4"></i>
+                                        <h3 class="text-xl font-bold text-gray-600 mb-2">Nenhum adiantamento encontrado</h3>
+                                        <p class="text-gray-500 mb-4">Crie um novo adiantamento salarial para começar</p>
+                                        <button wire:click="create" 
+                                                class="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition">
+                                            <i class="fas fa-plus mr-2"></i>Novo Adiantamento
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @else
+        {{-- Grid View (Cards) --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @forelse($advances as $advance)
             <div class="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
                 <!-- Header do Card -->
                 <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white">
@@ -138,9 +270,13 @@
                         @elseif($advance->status === 'rejected')
                             <span class="px-3 py-1 bg-red-500 rounded-full text-xs font-semibold">✗ Rejeitado</span>
                         @elseif($advance->status === 'paid')
-                            <span class="px-3 py-1 bg-emerald-500 rounded-full text-xs font-semibold">💰 Pago</span>
+                            <span class="px-3 py-1 bg-blue-500 rounded-full text-xs font-semibold">💰 Pago</span>
+                        @elseif($advance->status === 'in_deduction')
+                            <span class="px-3 py-1 bg-orange-500 rounded-full text-xs font-semibold">📊 Em Dedução</span>
+                        @elseif($advance->status === 'completed')
+                            <span class="px-3 py-1 bg-emerald-500 rounded-full text-xs font-semibold">✅ Completado</span>
                         @else
-                            <span class="px-3 py-1 bg-gray-500 rounded-full text-xs font-semibold">Completado</span>
+                            <span class="px-3 py-1 bg-gray-500 rounded-full text-xs font-semibold">{{ ucfirst($advance->status) }}</span>
                         @endif
                     </div>
                 </div>
@@ -202,9 +338,14 @@
                                 </button>
                             </div>
                         @elseif($advance->status === 'approved')
-                            <button wire:click="markAsPaid({{ $advance->id }})" 
-                                    class="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg font-semibold transition transform hover:scale-105 shadow">
-                                <i class="fas fa-money-bill-wave mr-2"></i>Marcar como Pago
+                            <button wire:click="openPaymentModal({{ $advance->id }})" 
+                                    class="w-full px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-lg font-semibold transition transform hover:scale-105 shadow">
+                                <i class="fas fa-hand-holding-usd mr-2"></i>Registrar Pagamento
+                            </button>
+                        @elseif($advance->status === 'in_deduction' && $advance->balance > 0)
+                            <button wire:click="openInstallmentModal({{ $advance->id }})" 
+                                    class="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-semibold transition transform hover:scale-105 shadow">
+                                <i class="fas fa-money-check-alt mr-2"></i>Processar Prestação
                             </button>
                         @endif
                         
@@ -212,6 +353,11 @@
                                 class="w-full px-4 py-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg font-semibold transition">
                             <i class="fas fa-eye mr-2"></i>Ver Detalhes
                         </button>
+                        
+                        <a href="{{ route('hr.advances.pdf', $advance->id) }}" target="_blank"
+                           class="w-full px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-semibold transition transform hover:scale-105 shadow text-center block">
+                            <i class="fas fa-file-pdf mr-2"></i>Gerar PDF
+                        </a>
                     </div>
                 </div>
             </div>
@@ -228,7 +374,8 @@
                 </div>
             </div>
         @endforelse
-    </div>
+        </div>
+    @endif
 
     {{-- Paginação --}}
     <div class="mt-6">
@@ -240,6 +387,8 @@
     @include('livewire.hr.advances.partials.approval-modal')
     @include('livewire.hr.advances.partials.rejection-modal')
     @include('livewire.hr.advances.partials.details-modal')
+    @include('livewire.hr.advances.partials.installment-modal')
+    @include('livewire.hr.advances.partials.payment-modal')
     
     {{-- Animações --}}
     <style>

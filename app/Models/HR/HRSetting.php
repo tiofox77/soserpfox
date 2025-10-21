@@ -51,7 +51,17 @@ class HRSetting extends Model
     // Métodos estáticos para recuperar configurações
     public static function get(string $key, $default = null)
     {
-        $tenantId = auth()->check() ? auth()->user()->tenant_id : 1;
+        if (!auth()->check()) {
+            return $default;
+        }
+
+        $user = auth()->user();
+        $tenantId = method_exists($user, 'activeTenantId') ? $user->activeTenantId() : ($user->tenant_id ?? null);
+        
+        if (!$tenantId) {
+            return $default;
+        }
+        
         $cacheKey = 'hr_setting_' . $tenantId . '_' . $key;
         
         return Cache::remember($cacheKey, 3600, function () use ($key, $default, $tenantId) {
@@ -68,9 +78,25 @@ class HRSetting extends Model
         });
     }
 
+    // Alias para get() - para compatibilidade
+    public static function getValue(string $key, $default = null)
+    {
+        return self::get($key, $default);
+    }
+
     public static function set(string $key, $value): bool
     {
-        $tenantId = auth()->check() ? auth()->user()->tenant_id : 1;
+        if (!auth()->check()) {
+            return false;
+        }
+
+        $user = auth()->user();
+        $tenantId = method_exists($user, 'activeTenantId') ? $user->activeTenantId() : ($user->tenant_id ?? null);
+        
+        if (!$tenantId) {
+            return false;
+        }
+
         $setting = self::where('tenant_id', $tenantId)
             ->where('key', $key)
             ->first();
@@ -86,7 +112,17 @@ class HRSetting extends Model
 
     public static function clearCache(string $key = null)
     {
-        $tenantId = auth()->check() ? auth()->user()->tenant_id : 1;
+        if (!auth()->check()) {
+            return;
+        }
+
+        $user = auth()->user();
+        $tenantId = method_exists($user, 'activeTenantId') ? $user->activeTenantId() : ($user->tenant_id ?? null);
+        
+        if (!$tenantId) {
+            return;
+        }
+
         if ($key) {
             Cache::forget('hr_setting_' . $tenantId . '_' . $key);
         } else {

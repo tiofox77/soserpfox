@@ -17,14 +17,24 @@ class SalaryAdvanceManagement extends Component
     public $yearFilter = '';
     public $statusFilter = '';
     public $employeeFilter = '';
+    public $viewType = 'list'; // 'list' ou 'grid'
     
     // Modal
     public $showModal = false;
     public $showDetailsModal = false;
     public $showApprovalModal = false;
     public $showRejectionModal = false;
+    public $showInstallmentModal = false;
+    public $showPaymentModal = false;
     public $editMode = false;
     public $advanceId;
+    public $installmentAdvanceId;
+    public $paymentAdvanceId;
+    public $paymentType = 'total';
+    public $paymentAmount = 0;
+    public $paymentInstallments = '';
+    public $paymentDate;
+    public $paymentNotes = '';
     
     // Form Fields
     public $employee_id = '';
@@ -64,6 +74,9 @@ class SalaryAdvanceManagement extends Component
     public function mount()
     {
         $this->yearFilter = date('Y');
+        $this->paymentDate = date('Y-m-d');
+        // Carregar percentual das configurações
+        $this->maxPercentage = \App\Models\HR\HRSetting::get('max_salary_advance_percentage', 50);
     }
 
     public function updatingSearch()
@@ -93,6 +106,7 @@ class SalaryAdvanceManagement extends Component
                 $this->baseSalary = $limits['base_salary'];
                 $this->maxAllowed = $limits['max_allowed'];
                 $this->availableAmount = $limits['available_amount'];
+                $this->maxPercentage = $limits['percentage'];
             }
         }
     }
@@ -107,6 +121,8 @@ class SalaryAdvanceManagement extends Component
     public function create()
     {
         $this->resetForm();
+        // Carregar percentual das configurações
+        $this->maxPercentage = \App\Models\HR\HRSetting::get('max_salary_advance_percentage', 50);
         $this->showModal = true;
     }
 
@@ -127,11 +143,11 @@ class SalaryAdvanceManagement extends Component
             ];
 
             $advanceService->createAdvanceRequest($data);
-            session()->flash('success', 'Solicitação de adiantamento criada com sucesso!');
-
+            
+            $this->dispatch('notify', type: 'success', message: 'Solicitação de adiantamento criada com sucesso!');
             $this->closeModal();
         } catch (\Exception $e) {
-            session()->flash('error', $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
         }
     }
 
@@ -179,10 +195,10 @@ class SalaryAdvanceManagement extends Component
             $advance = SalaryAdvance::findOrFail($this->approvalAdvanceId);
             $advance->approve(Auth::id(), $this->approved_amount);
             
-            session()->flash('success', 'Adiantamento aprovado com sucesso!');
+            $this->dispatch('notify', type: 'success', message: 'Adiantamento aprovado com sucesso!');
             $this->showApprovalModal = false;
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao aprovar adiantamento: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao aprovar adiantamento: ' . $e->getMessage());
         }
     }
 
@@ -196,10 +212,10 @@ class SalaryAdvanceManagement extends Component
             $advance = SalaryAdvance::findOrFail($this->approvalAdvanceId);
             $advance->reject(Auth::id(), $this->rejection_reason);
             
-            session()->flash('success', 'Adiantamento rejeitado com sucesso!');
+            $this->dispatch('notify', type: 'success', message: 'Adiantamento rejeitado com sucesso!');
             $this->showRejectionModal = false;
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao rejeitar adiantamento: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao rejeitar adiantamento: ' . $e->getMessage());
         }
     }
 
@@ -209,14 +225,14 @@ class SalaryAdvanceManagement extends Component
             $advance = SalaryAdvance::findOrFail($id);
             
             if ($advance->status !== 'approved') {
-                session()->flash('error', 'Apenas adiantamentos aprovados podem ser marcados como pagos!');
+                $this->dispatch('notify', type: 'error', message: 'Apenas adiantamentos aprovados podem ser marcados como pagos!');
                 return;
             }
 
             $advance->markAsPaid(Auth::id());
-            session()->flash('success', 'Adiantamento marcado como pago com sucesso!');
+            $this->dispatch('notify', type: 'success', message: 'Adiantamento marcado como pago com sucesso!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao marcar como pago: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao marcar como pago: ' . $e->getMessage());
         }
     }
 
@@ -226,14 +242,14 @@ class SalaryAdvanceManagement extends Component
             $advance = SalaryAdvance::findOrFail($id);
             
             if ($advance->status !== 'paid') {
-                session()->flash('error', 'Apenas adiantamentos pagos podem iniciar dedução!');
+                $this->dispatch('notify', type: 'error', message: 'Apenas adiantamentos pagos podem iniciar dedução!');
                 return;
             }
 
             $advance->startDeduction();
-            session()->flash('success', 'Dedução iniciada com sucesso!');
+            $this->dispatch('notify', type: 'success', message: 'Dedução iniciada com sucesso!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao iniciar dedução: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao iniciar dedução: ' . $e->getMessage());
         }
     }
 
@@ -243,15 +259,128 @@ class SalaryAdvanceManagement extends Component
             $advance = SalaryAdvance::findOrFail($id);
             
             if ($advance->status !== 'pending' && $advance->status !== 'cancelled') {
-                session()->flash('error', 'Apenas adiantamentos pendentes podem ser excluídos!');
+                $this->dispatch('notify', type: 'error', message: 'Apenas adiantamentos pendentes podem ser excluídos!');
                 return;
             }
 
             $advance->delete();
-            session()->flash('success', 'Adiantamento removido com sucesso!');
+            $this->dispatch('notify', type: 'success', message: 'Adiantamento removido com sucesso!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao remover adiantamento: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao remover adiantamento: ' . $e->getMessage());
         }
+    }
+
+    public function generatePDF($id)
+    {
+        $advance = SalaryAdvance::with(['employee', 'approvedBy'])->findOrFail($id);
+        
+        return response()->streamDownload(function () use ($advance) {
+            echo view('livewire.hr.advances.pdf', compact('advance'))->render();
+        }, 'adiantamento-' . $advance->advance_number . '.pdf', [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    public function openInstallmentModal($id)
+    {
+        $this->installmentAdvanceId = $id;
+        $advance = SalaryAdvance::findOrFail($id);
+        $this->installmentAmount = $advance->installment_amount;
+        $this->showInstallmentModal = true;
+    }
+
+    public function processInstallment()
+    {
+        try {
+            $advance = SalaryAdvance::findOrFail($this->installmentAdvanceId);
+            
+            if ($advance->status !== 'in_deduction') {
+                $this->dispatch('notify', type: 'error', message: 'Apenas adiantamentos em dedução podem ter prestações processadas!');
+                return;
+            }
+
+            if ($advance->balance <= 0) {
+                $this->dispatch('notify', type: 'error', message: 'Este adiantamento já foi completamente pago!');
+                return;
+            }
+
+            // Processar prestação
+            $advance->recordInstallmentPayment($this->installmentAmount);
+            
+            $this->dispatch('notify', type: 'success', message: 'Prestação processada com sucesso!');
+            $this->showInstallmentModal = false;
+            $this->installmentAdvanceId = null;
+        } catch (\Exception $e) {
+            $this->dispatch('notify', type: 'error', message: 'Erro ao processar prestação: ' . $e->getMessage());
+        }
+    }
+
+    public function openPaymentModal($id)
+    {
+        $this->paymentAdvanceId = $id;
+        $advance = SalaryAdvance::findOrFail($id);
+        
+        // Resetar valores
+        $this->paymentType = 'total';
+        $this->paymentAmount = 0;
+        $this->paymentInstallments = '';
+        $this->paymentDate = date('Y-m-d');
+        $this->paymentNotes = '';
+        
+        $this->showPaymentModal = true;
+    }
+
+    public function processPayment()
+    {
+        try {
+            $advance = SalaryAdvance::findOrFail($this->paymentAdvanceId);
+            
+            $balance = $advance->balance ?? $advance->approved_amount;
+            $paymentValue = 0;
+
+            // Calcular valor do pagamento baseado no tipo
+            if ($this->paymentType === 'total') {
+                $paymentValue = $balance;
+            } elseif ($this->paymentType === 'installment') {
+                if (empty($this->paymentInstallments)) {
+                    $this->dispatch('notify', type: 'error', message: 'Selecione o número de parcelas!');
+                    return;
+                }
+                $paymentValue = $balance / $this->paymentInstallments;
+            } elseif ($this->paymentType === 'custom') {
+                if ($this->paymentAmount <= 0) {
+                    $this->dispatch('notify', type: 'error', message: 'Informe um valor válido!');
+                    return;
+                }
+                if ($this->paymentAmount > $balance) {
+                    $this->dispatch('notify', type: 'error', message: 'Valor não pode ser maior que o saldo!');
+                    return;
+                }
+                $paymentValue = $this->paymentAmount;
+            }
+
+            // Registrar pagamento
+            $advance->recordInstallmentPayment($paymentValue);
+            
+            // Adicionar notas se houver
+            if ($this->paymentNotes) {
+                $currentNotes = $advance->notes ? $advance->notes . "\n" : '';
+                $advance->update([
+                    'notes' => $currentNotes . "[" . date('d/m/Y') . "] " . $this->paymentNotes
+                ]);
+            }
+
+            $this->dispatch('notify', type: 'success', message: 'Pagamento registrado com sucesso!');
+            $this->showPaymentModal = false;
+            $this->paymentAdvanceId = null;
+        } catch (\Exception $e) {
+            $this->dispatch('notify', type: 'error', message: 'Erro ao processar pagamento: ' . $e->getMessage());
+        }
+    }
+
+    public function setViewType($type)
+    {
+        $this->viewType = $type;
     }
 
     public function closeModal()
@@ -260,6 +389,10 @@ class SalaryAdvanceManagement extends Component
         $this->showDetailsModal = false;
         $this->showApprovalModal = false;
         $this->showRejectionModal = false;
+        $this->showInstallmentModal = false;
+        $this->showPaymentModal = false;
+        $this->installmentAdvanceId = null;
+        $this->paymentAdvanceId = null;
         $this->resetForm();
     }
 

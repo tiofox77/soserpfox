@@ -124,12 +124,15 @@ class Tenants extends Component
             // Criar roles padrão para o novo tenant
             createDefaultRolesForTenant($tenant->id);
             
+            // Criar dados contabilísticos padrão
+            initializeAccountingDataForTenant($tenant->id);
+            
             \Log::info('Tenant criado pelo Super Admin com roles', [
                 'tenant_id' => $tenant->id,
                 'tenant_name' => $tenant->name,
             ]);
             
-            $this->dispatch('success', message: 'Tenant criado com sucesso e roles configurados!');
+            $this->dispatch('success', message: 'Tenant criado com sucesso com dados contabilísticos!');
         }
 
         $this->closeModal();

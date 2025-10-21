@@ -149,4 +149,40 @@ class TenantNotificationSetting extends Model
     {
         return $this->whatsapp_enabled && ($this->whatsapp_notifications[$type] ?? false);
     }
+
+    /**
+     * Configurar SMTP do tenant para envio de emails
+     */
+    public function configureSMTP(): void
+    {
+        if (!$this->email_enabled || !$this->smtp_host) {
+            \Log::warning('⚠️ Configuração SMTP do tenant não está completa');
+            return;
+        }
+
+        $config = [
+            'driver' => 'smtp',
+            'host' => $this->smtp_host,
+            'port' => $this->smtp_port ?? 587,
+            'encryption' => $this->smtp_encryption ?? 'tls',
+            'username' => $this->smtp_username,
+            'password' => $this->smtp_password,
+            'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+            'from' => [
+                'address' => $this->from_email,
+                'name' => $this->from_name ?? config('app.name'),
+            ],
+        ];
+
+        config(['mail.mailers.smtp' => $config]);
+        config(['mail.from.address' => $this->from_email]);
+        config(['mail.from.name' => $this->from_name ?? config('app.name')]);
+
+        \Log::info('✅ SMTP do tenant configurado', [
+            'host' => $this->smtp_host,
+            'port' => $this->smtp_port,
+            'from' => $this->from_email,
+        ]);
+    }
 }

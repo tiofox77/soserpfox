@@ -442,7 +442,7 @@ class RegisterWizard extends Component
             
             // 3.3 Criar dados padrão de contabilidade
             \Log::info('Criando dados padrão de contabilidade...');
-            $this->createDefaultAccountingData($tenant->id);
+            initializeAccountingDataForTenant($tenant->id);
             \Log::info('Dados de contabilidade criados com sucesso');
             
             // 4. Salvar comprovativo de pagamento se houver

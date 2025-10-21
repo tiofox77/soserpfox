@@ -79,13 +79,21 @@
 
                     {{-- Footer --}}
                     <div class="flex gap-3 pt-4 border-t">
-                        <button type="button" wire:click="closeModal"
+                        <button type="button" 
+                                wire:click="closeModal"
                                 class="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition">
                             <i class="fas fa-arrow-left mr-2"></i>Voltar
                         </button>
                         <button type="submit"
-                                class="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg font-semibold transition shadow-lg">
-                            <i class="fas fa-times-circle mr-2"></i>Confirmar Rejeição
+                                wire:loading.attr="disabled"
+                                wire:target="reject"
+                                class="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg font-semibold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span wire:loading.remove wire:target="reject">
+                                <i class="fas fa-times-circle mr-2"></i>Confirmar Rejeição
+                            </span>
+                            <span wire:loading wire:target="reject">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Rejeitando...
+                            </span>
                         </button>
                     </div>
                 </form>

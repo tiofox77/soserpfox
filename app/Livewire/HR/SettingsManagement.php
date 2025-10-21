@@ -69,10 +69,12 @@ class SettingsManagement extends Component
                 $this->dispatch('notify', message: "✓ {$setting->label} salvo!");
             }
         } catch (\Illuminate\Validation\ValidationException $e) {
-            $this->dispatch('notify', message: "✗ Erro: " . implode(', ', $e->validator->errors()->all()));
-            throw $e;
+            // Pegar primeira mensagem de erro (mais limpa)
+            $errors = $e->validator->errors()->all();
+            $firstError = $errors[0] ?? 'Erro de validação';
+            $this->dispatch('notify', type: 'error', message: $firstError);
         } catch (\Exception $e) {
-            $this->dispatch('notify', message: "✗ Erro ao salvar: " . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao salvar: ' . $e->getMessage());
         }
     }
 
@@ -105,11 +107,14 @@ class SettingsManagement extends Component
 
             HRSetting::clearCache();
             $this->editingSettings = [];
-            session()->flash('success', "{$count} configuração(ões) salva(s) com sucesso!");
+            $this->dispatch('notify', type: 'success', message: "{$count} configuração(ões) salva(s) com sucesso!");
         } catch (\Illuminate\Validation\ValidationException $e) {
-            session()->flash('error', 'Erro de validação: ' . implode(', ', $e->validator->errors()->all()));
+            // Pegar primeira mensagem de erro (mais limpa)
+            $errors = $e->validator->errors()->all();
+            $firstError = $errors[0] ?? 'Erro de validação';
+            $this->dispatch('notify', type: 'error', message: $firstError);
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao salvar configurações: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao salvar: ' . $e->getMessage());
         }
     }
 
@@ -131,9 +136,9 @@ class SettingsManagement extends Component
                 $this->editingSettings[$setting->key] = $setting->value;
             }
             
-            session()->flash('success', 'Configurações restauradas para os valores padrão!');
+            $this->dispatch('notify', type: 'success', message: 'Configurações restauradas para os valores padrão!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Erro ao restaurar configurações: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: 'Erro ao restaurar: ' . $e->getMessage());
         }
     }
 

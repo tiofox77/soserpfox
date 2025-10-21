@@ -80,11 +80,74 @@
             object-fit: contain !important;
         }
         
-        /* Toastr Custom Styles */
-        .toast-success { background-color: #10b981 !important; }
-        .toast-error { background-color: #ef4444 !important; }
-        .toast-warning { background-color: #f59e0b !important; }
-        .toast-info { background-color: #3b82f6 !important; }
+        /* Toastr Custom Styles - Barra colorida apenas em cima */
+        #toast-container > div {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border-top: 4px solid #3b82f6 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .toast-success {
+            border-top-color: #3b82f6 !important;
+        }
+        
+        .toast-success .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-success:before {
+            color: #3b82f6 !important;
+        }
+        
+        .toast-error {
+            border-top-color: #ef4444 !important;
+        }
+        
+        .toast-error .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-error:before {
+            color: #ef4444 !important;
+        }
+        
+        .toast-warning {
+            border-top-color: #f59e0b !important;
+        }
+        
+        .toast-warning .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-warning:before {
+            color: #f59e0b !important;
+        }
+        
+        .toast-info {
+            border-top-color: #3b82f6 !important;
+        }
+        
+        .toast-info .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-info:before {
+            color: #3b82f6 !important;
+        }
+        
+        #toast-container > div:hover {
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .toast-close-button {
+            color: #6b7280 !important;
+        }
+        
+        .toast-progress {
+            opacity: 0.3 !important;
+        }
         
         /* Modern 2025 Animations */
         @keyframes fadeInUp {
@@ -924,6 +987,22 @@
                                     <i class="fas fa-business-time w-5 text-pink-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Horas Extras</span>
                                 </a>
+
+                                @php
+                                    $usesShifts = false;
+                                    try {
+                                        $usesShifts = \App\Models\HR\HRSetting::getValue('uses_shifts', '0') == '1';
+                                    } catch (\Exception $e) {
+                                        // Silenciosamente falhar se não conseguir recuperar a configuração
+                                    }
+                                @endphp
+                                @if($usesShifts)
+                                <a href="{{ route('hr.shifts.index') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.shifts*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clock w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Turnos</span>
+                                </a>
+                                @endif
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
                                 
@@ -1527,29 +1606,16 @@
             "timeOut": "3000"
         };
 
-        // Configuração global do Livewire
+        // Configuração global do Livewire - Listener único para notificações
         document.addEventListener('livewire:init', () => {
-            Livewire.on('success', (event) => {
-                toastr.success(event.message || event[0].message || 'Operação realizada com sucesso!');
-            });
-            
-            Livewire.on('error', (event) => {
-                toastr.error(event.message || event[0].message || 'Ocorreu um erro!');
-            });
-            
-            Livewire.on('warning', (event) => {
-                toastr.warning(event.message || event[0].message || 'Atenção!');
-            });
-            
-            Livewire.on('info', (event) => {
-                toastr.info(event.message || event[0].message || 'Informação!');
-            });
-            
-            // Listener para notificações genéricas (com tipo dinâmico)
+            // Listener único para notificações (evita duplicação)
             Livewire.on('notify', (event) => {
                 const data = event[0] || event;
                 const type = data.type || 'info';
                 const message = data.message || 'Notificação';
+                
+                // Prevenir duplicação
+                toastr.remove();
                 
                 if (type === 'success') {
                     toastr.success(message);

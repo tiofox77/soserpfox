@@ -72,6 +72,15 @@ class OvertimeManagement extends Component
 
     public function updated($propertyName)
     {
+        // Normalizar hora para formato 24h sempre que atualizar
+        if ($propertyName === 'start_time' && $this->start_time) {
+            $this->start_time = date('H:i', strtotime($this->start_time));
+        }
+        
+        if ($propertyName === 'end_time' && $this->end_time) {
+            $this->end_time = date('H:i', strtotime($this->end_time));
+        }
+        
         if ($propertyName === 'start_time' || $propertyName === 'end_time' || $propertyName === 'employee_id' || $propertyName === 'overtime_type') {
             $this->calculateOvertime();
         }

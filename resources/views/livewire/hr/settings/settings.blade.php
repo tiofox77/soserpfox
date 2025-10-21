@@ -177,6 +177,7 @@
                                            wire:keydown.enter="saveSetting('{{ $setting->key }}')"
                                            value="{{ $setting->value }}"
                                            step="0.01"
+                                           min="0"
                                            placeholder="{{ $setting->value }}">
                                     <div wire:loading wire:target="saveSetting('{{ $setting->key }}')" class="absolute right-3 top-3">
                                         <i class="fas fa-spinner fa-spin text-purple-600"></i>
@@ -193,7 +194,6 @@
                                                value="{{ $setting->value }}"
                                                step="0.1"
                                                min="0"
-                                               max="100"
                                                placeholder="{{ $setting->value }}">
                                         <div wire:loading wire:target="saveSetting('{{ $setting->key }}')" class="absolute right-3 top-3">
                                             <i class="fas fa-spinner fa-spin text-purple-600"></i>
@@ -304,10 +304,6 @@
                 <ul class="space-y-2 text-sm text-gray-700">
                     <li class="flex items-start">
                         <i class="fas fa-check text-pink-600 mr-2 mt-1"></i>
-                        <span><strong>Subsídio de Natal (13º):</strong> 100% do salário base</span>
-                    </li>
-                    <li class="flex items-start">
-                        <i class="fas fa-check text-pink-600 mr-2 mt-1"></i>
                         <span><strong>Subsídio de Férias (14º):</strong> mínimo 50% do salário</span>
                     </li>
                 </ul>
@@ -364,7 +360,7 @@
         isError: false,
         init() {
             Livewire.on('notify', (event) => {
-                this.showToast(event.message);
+                this.showToast(event.message || event[0]?.message);
             });
         },
         showToast(msg) {
@@ -381,10 +377,10 @@
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 transform translate-y-0"
          x-transition:leave-end="opacity-0 transform translate-y-2"
-         :class="isError ? 'bg-red-500' : 'bg-green-500'"
-         class="fixed bottom-4 right-4 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 z-50"
+         class="fixed bottom-4 right-4 bg-white text-gray-800 px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 z-50 border-t-4"
+         :class="isError ? 'border-red-500' : 'border-blue-500'"
          style="display: none;">
-        <i :class="isError ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+        <i :class="isError ? 'fas fa-exclamation-circle text-red-500' : 'fas fa-check-circle text-blue-500'" class="text-xl"></i>
         <span class="font-semibold" x-text="message"></span>
     </div>
 

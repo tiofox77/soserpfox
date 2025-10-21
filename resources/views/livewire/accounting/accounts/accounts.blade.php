@@ -36,7 +36,7 @@
                     <i class="fas fa-wallet text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-green-600 font-semibold mb-2">Contas de Ativo</p>
+            <p class="text-sm text-green-600 font-semibold mb-2">Tipo: Ativo</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $totalAssets }}</p>
             <p class="text-xs text-gray-500">Caixa, bancos, clientes</p>
         </div>
@@ -47,7 +47,7 @@
                     <i class="fas fa-file-invoice-dollar text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-red-600 font-semibold mb-2">Contas de Passivo</p>
+            <p class="text-sm text-red-600 font-semibold mb-2">Tipo: Passivo</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $totalLiabilities }}</p>
             <p class="text-xs text-gray-500">Fornecedores, empréstimos</p>
         </div>
@@ -58,7 +58,7 @@
                     <i class="fas fa-arrow-trend-up text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-purple-600 font-semibold mb-2">Contas de Receita</p>
+            <p class="text-sm text-purple-600 font-semibold mb-2">Tipo: Receita</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $totalRevenue }}</p>
             <p class="text-xs text-gray-500">Vendas e serviços</p>
         </div>
@@ -66,7 +66,33 @@
 
     {{-- Filters --}}
     <div class="bg-white rounded-xl shadow-lg p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <h3 class="text-sm font-semibold text-gray-700">
+                    <i class="fas fa-filter mr-2 text-emerald-600"></i>Filtros
+                </h3>
+                @php
+                    $activeFilters = 0;
+                    if($search) $activeFilters++;
+                    if($typeFilter) $activeFilters++;
+                    if($levelFilter) $activeFilters++;
+                    if($natureFilter) $activeFilters++;
+                    if($statusFilter !== '') $activeFilters++;
+                @endphp
+                @if($activeFilters > 0)
+                    <span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+                        {{ $activeFilters }} ativo{{ $activeFilters > 1 ? 's' : '' }}
+                    </span>
+                @endif
+            </div>
+            @if($activeFilters > 0)
+                <button wire:click="clearFilters" 
+                        class="text-sm text-red-600 hover:text-red-800 font-medium flex items-center gap-1 hover:underline">
+                    <i class="fas fa-times-circle"></i>Limpar Filtros
+                </button>
+            @endif
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Pesquisar</label>
                 <input type="text" wire:model.live="search" 
@@ -85,11 +111,54 @@
                     <option value="expense">Gastos</option>
                 </select>
             </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nível</label>
+                <select wire:model.live="levelFilter" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                    <option value="">Todos os níveis</option>
+                    <option value="1">Nível 1</option>
+                    <option value="2">Nível 2</option>
+                    <option value="3">Nível 3</option>
+                    <option value="4">Nível 4</option>
+                    <option value="5">Nível 5</option>
+                    <option value="6">Nível 6</option>
+                    <option value="7">Nível 7</option>
+                    <option value="8">Nível 8</option>
+                    <option value="9">Nível 9</option>
+                    <option value="10">Nível 10</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Natureza</label>
+                <select wire:model.live="natureFilter" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                    <option value="">Todas as naturezas</option>
+                    <option value="debit">Débito</option>
+                    <option value="credit">Crédito</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select wire:model.live="statusFilter" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+                    <option value="">Todos os status</option>
+                    <option value="active">Ativa</option>
+                    <option value="blocked">Bloqueada</option>
+                </select>
+            </div>
         </div>
     </div>
 
     {{-- Table --}}
     <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        @if($activeFilters > 0)
+            <div class="px-6 py-3 bg-emerald-50 border-b border-emerald-100">
+                <p class="text-sm text-emerald-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Exibindo <strong>{{ $accounts->total() }}</strong> conta(s) de um total de <strong>{{ $totalAccounts }}</strong>
+                </p>
+            </div>
+        @endif
         <div class="overflow-x-auto">
             <table class="w-full">
                 <thead class="bg-gray-50 border-b border-gray-200">
@@ -142,12 +211,19 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 text-center">
+                            <button wire:click="view({{ $account->id }})" 
+                                    class="text-cyan-600 hover:text-cyan-800 mx-1"
+                                    title="Ver Detalhes">
+                                <i class="fas fa-eye"></i>
+                            </button>
                             <button wire:click="edit({{ $account->id }})" 
-                                    class="text-blue-600 hover:text-blue-800 mx-1">
+                                    class="text-blue-600 hover:text-blue-800 mx-1"
+                                    title="Editar">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <button wire:click="delete({{ $account->id }})" 
                                     onclick="confirm('Tem certeza?') || event.stopImmediatePropagation()"
+                                    title="Excluir"
                                     class="text-red-600 hover:text-red-800 mx-1">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -156,8 +232,19 @@
                     @empty
                     <tr>
                         <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                            <i class="fas fa-inbox text-4xl mb-3 block"></i>
-                            Nenhuma conta encontrada
+                            @if($activeFilters > 0)
+                                <i class="fas fa-filter text-4xl mb-3 block text-gray-400"></i>
+                                <p class="text-lg font-semibold text-gray-700 mb-2">Nenhum resultado encontrado</p>
+                                <p class="text-sm text-gray-500 mb-4">Tente ajustar os filtros para ver mais resultados</p>
+                                <button wire:click="clearFilters" 
+                                        class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                                    <i class="fas fa-times-circle mr-2"></i>Limpar Filtros
+                                </button>
+                            @else
+                                <i class="fas fa-inbox text-4xl mb-3 block text-gray-400"></i>
+                                <p class="text-lg font-semibold text-gray-700">Nenhuma conta encontrada</p>
+                                <p class="text-sm text-gray-500">Clique em "Nova Conta" para começar</p>
+                            @endif
                         </td>
                     </tr>
                     @endforelse
@@ -170,8 +257,12 @@
         </div>
     </div>
 
-    {{-- Modal --}}
+    {{-- Modals --}}
     @if($showModal)
         @include('livewire.accounting.accounts.partials.form-modal')
+    @endif
+    
+    @if($showViewModal)
+        @include('livewire.accounting.accounts.partials.view-modal')
     @endif
 </div>

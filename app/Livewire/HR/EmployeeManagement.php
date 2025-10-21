@@ -8,6 +8,8 @@ use Livewire\WithFileUploads;
 use App\Models\HR\Employee;
 use App\Models\HR\Department;
 use App\Models\HR\Position;
+use App\Models\Events\Technician;
+use App\Models\Treasury\Bank;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
@@ -21,8 +23,12 @@ class EmployeeManagement extends Component
     
     // Modal
     public $showModal = false;
+    public $showViewModal = false;
+    public $showImportModal = false;
     public $editMode = false;
     public $employeeId;
+    public $viewingEmployee = null;
+    public $selectedTechnicians = [];
     
     // Form Fields
     public $first_name = '';
@@ -114,6 +120,21 @@ class EmployeeManagement extends Component
         'criminal_record_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
     ];
 
+    protected $messages = [
+        'first_name.required' => 'O primeiro nome é obrigatório. Por favor, acesse a aba "Pessoais" e preencha este campo.',
+        'last_name.required' => 'O último nome é obrigatório. Por favor, acesse a aba "Pessoais" e preencha este campo.',
+        'email.email' => 'O email informado não é válido. Verifique na aba "Pessoais".',
+        'employment_type.required' => 'O tipo de contrato é obrigatório. Por favor, acesse a aba "Profissional" e selecione uma opção.',
+        'status.required' => 'O status do funcionário é obrigatório. Por favor, acesse a aba "Profissional" e selecione uma opção.',
+        'department_id.exists' => 'Departamento inválido. Por favor, selecione um departamento válido na aba "Profissional".',
+        'position_id.exists' => 'Cargo inválido. Por favor, selecione um cargo válido na aba "Profissional".',
+        'salary.numeric' => 'O salário deve ser um valor numérico. Verifique na aba "Remuneração".',
+        'salary.min' => 'O salário não pode ser negativo. Verifique na aba "Remuneração".',
+        'bonus.numeric' => 'O bônus deve ser um valor numérico. Verifique na aba "Remuneração".',
+        'transport_allowance.numeric' => 'O subsídio de transporte deve ser um valor numérico. Verifique na aba "Remuneração".',
+        'meal_allowance.numeric' => 'O subsídio de alimentação deve ser um valor numérico. Verifique na aba "Remuneração".',
+    ];
+
     public function updatingSearch()
     {
         $this->resetPage();
@@ -127,6 +148,18 @@ class EmployeeManagement extends Component
         $this->showModal = true;
         logger('✅ showModal definido como true', ['showModal' => $this->showModal]);
         $this->dispatch('modal-opened');
+    }
+
+    public function view($id)
+    {
+        $this->viewingEmployee = Employee::with(['department', 'position'])->findOrFail($id);
+        $this->showViewModal = true;
+    }
+
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->viewingEmployee = null;
     }
 
     public function edit($id)
@@ -184,7 +217,66 @@ class EmployeeManagement extends Component
 
     public function save()
     {
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Pegar primeiro erro
+            $errors = $e->validator->errors();
+            $firstError = $errors->first();
+            $firstField = array_key_first($errors->messages());
+            
+            // Mapear campo para tab
+            $tabMap = [
+                'first_name' => 'personal',
+                'last_name' => 'personal',
+                'email' => 'personal',
+                'phone' => 'personal',
+                'mobile' => 'personal',
+                'birth_date' => 'personal',
+                'gender' => 'personal',
+                'nif' => 'personal',
+                'bi_number' => 'documents',
+                'bi_expiry_date' => 'documents',
+                'passport_number' => 'documents',
+                'passport_expiry_date' => 'documents',
+                'work_permit_number' => 'documents',
+                'work_permit_expiry_date' => 'documents',
+                'residence_permit_number' => 'documents',
+                'residence_permit_expiry_date' => 'documents',
+                'driver_license_number' => 'documents',
+                'driver_license_expiry_date' => 'documents',
+                'driver_license_category' => 'documents',
+                'health_insurance_number' => 'documents',
+                'health_insurance_expiry_date' => 'documents',
+                'health_insurance_provider' => 'documents',
+                'social_security_number' => 'documents',
+                'contract_expiry_date' => 'documents',
+                'probation_end_date' => 'documents',
+                'address' => 'contact',
+                'city' => 'contact',
+                'province' => 'contact',
+                'department_id' => 'professional',
+                'position_id' => 'professional',
+                'hire_date' => 'professional',
+                'employment_type' => 'professional',
+                'status' => 'professional',
+                'salary' => 'salary',
+                'bonus' => 'salary',
+                'transport_allowance' => 'salary',
+                'meal_allowance' => 'salary',
+                'bank_name' => 'banking',
+                'bank_account' => 'banking',
+                'iban' => 'banking',
+            ];
+            
+            $targetTab = $tabMap[$firstField] ?? 'personal';
+            
+            // Notificar usuário e mudar para tab com erro
+            $this->dispatch('notify', type: 'error', message: $firstError);
+            $this->dispatch('switchTab', tab: $targetTab);
+            
+            throw $e;
+        }
 
         $data = [
             'tenant_id' => auth()->user()->activeTenantId(),
@@ -362,6 +454,108 @@ class EmployeeManagement extends Component
         $this->resetErrorBag();
     }
 
+    public function openImportModal()
+    {
+        $this->selectedTechnicians = [];
+        $this->showImportModal = true;
+    }
+
+    public function closeImportModal()
+    {
+        $this->showImportModal = false;
+        $this->selectedTechnicians = [];
+    }
+
+    public function importSelected()
+    {
+        if (empty($this->selectedTechnicians)) {
+            session()->flash('error', 'Selecione pelo menos um técnico');
+            return;
+        }
+
+        $imported = 0;
+        $skipped = 0;
+        $tenantId = auth()->user()->activeTenantId();
+
+        foreach ($this->selectedTechnicians as $technicianId) {
+            $technician = Technician::find($technicianId);
+            
+            if (!$technician) continue;
+
+            // Verifica se já existe funcionário com mesmo email ou telefone
+            $exists = Employee::where('tenant_id', $tenantId)
+                ->where(function($q) use ($technician) {
+                    if ($technician->email) {
+                        $q->where('email', $technician->email);
+                    }
+                    if ($technician->phone) {
+                        $q->orWhere('phone', $technician->phone);
+                    }
+                })
+                ->exists();
+
+            if ($exists) {
+                $skipped++;
+                continue;
+            }
+
+            // Separar nome em first_name e last_name
+            $nameParts = explode(' ', $technician->name, 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName = $nameParts[1] ?? '';
+
+            // Importar técnico como funcionário
+            Employee::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $technician->user_id,
+                'employee_number' => 'EMP-' . strtoupper(uniqid()),
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'email' => $technician->email,
+                'phone' => $technician->phone,
+                'document_number' => $technician->document,
+                'position' => $technician->specialties[0] ?? 'Técnico',
+                'hire_date' => now(),
+                'employment_type' => 'Contrato',
+                'status' => $technician->is_active ? 'active' : 'inactive',
+            ]);
+
+            $imported++;
+        }
+
+        $message = "{$imported} técnico(s) importado(s)";
+        if ($skipped > 0) {
+            $message .= " ({$skipped} já existente(s))";
+        }
+
+        session()->flash('success', $message);
+        $this->closeImportModal();
+    }
+
+    public function getAvailableTechnicians()
+    {
+        $tenantId = auth()->user()->activeTenantId();
+        
+        // Buscar técnicos que ainda não são funcionários
+        $existingEmails = Employee::where('tenant_id', $tenantId)
+            ->whereNotNull('email')
+            ->pluck('email')
+            ->toArray();
+
+        $existingPhones = Employee::where('tenant_id', $tenantId)
+            ->whereNotNull('phone')
+            ->pluck('phone')
+            ->toArray();
+
+        return Technician::where('tenant_id', $tenantId)
+            ->where(function($q) use ($existingEmails, $existingPhones) {
+                $q->whereNotIn('email', $existingEmails)
+                  ->whereNotIn('phone', $existingPhones);
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
     public function render()
     {
         $tenantId = auth()->user()->activeTenantId();
@@ -389,11 +583,13 @@ class EmployeeManagement extends Component
         $employees = $query->latest()->paginate(15);
         $departments = Department::where('tenant_id', $tenantId)->where('is_active', true)->get();
         $positions = Position::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $banks = Bank::where('is_active', true)->orderBy('name')->get();
 
         return view('livewire.hr.employees.employees', [
             'employees' => $employees,
             'departments' => $departments,
             'positions' => $positions,
+            'banks' => $banks,
         ])->layout('layouts.app', ['title' => 'Gestão de Funcionários']);
     }
 }

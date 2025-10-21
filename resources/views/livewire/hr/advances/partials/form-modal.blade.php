@@ -25,11 +25,9 @@
                         </label>
                         <select wire:model.live="employee_id" 
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                            <option value="">Selecione um funcionário...</option>
-                            @foreach($employees as $employee)
-                                <option value="{{ $employee->id }}">
-                                    {{ $employee->full_name }} - {{ $employee->employee_number }}
-                                </option>
+                            <option value="">Selecione um funcionário</option>
+                            @foreach($employees as $emp)
+                                <option value="{{ $emp->id }}">{{ $emp->full_name }} - {{ $emp->employee_number }}</option>
                             @endforeach
                         </select>
                         @error('employee_id') 
@@ -39,33 +37,39 @@
                         @enderror
                     </div>
 
-                    {{-- Informações do Salário --}}
-                    @if($baseSalary > 0)
-                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-lg">
-                            <div class="flex items-start">
-                                <i class="fas fa-info-circle text-blue-600 mt-1 mr-3"></i>
-                                <div class="flex-1">
-                                    <h4 class="font-semibold text-blue-900 mb-2">Informações Salariais</h4>
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <span class="text-blue-700">Salário Base:</span>
-                                            <span class="font-bold text-blue-900 ml-2">{{ number_format($baseSalary, 2, ',', '.') }} Kz</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-blue-700">Máximo Permitido ({{ $maxPercentage }}%):</span>
-                                            <span class="font-bold text-blue-900 ml-2">{{ number_format($maxAllowed, 2, ',', '.') }} Kz</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-blue-700">Já Adiantado:</span>
-                                            <span class="font-bold text-orange-600 ml-2">{{ number_format($alreadyAdvanced, 2, ',', '.') }} Kz</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-blue-700">Disponível:</span>
-                                            <span class="font-bold text-green-600 ml-2">{{ number_format($availableAmount, 2, ',', '.') }} Kz</span>
-                                        </div>
-                                    </div>
+                    {{-- Informações de Limite --}}
+                    @if($employee_id && $baseSalary > 0)
+                        <div class="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
+                            <h4 class="font-bold text-green-900 mb-3 flex items-center">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                Limite de Adiantamento
+                            </h4>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div class="bg-white rounded-lg p-3 border border-green-200">
+                                    <p class="text-gray-600 text-xs mb-1">Salário Base</p>
+                                    <p class="text-xl font-bold text-gray-900">{{ number_format($baseSalary, 2, ',', '.') }} Kz</p>
+                                </div>
+                                <div class="bg-white rounded-lg p-3 border border-green-200">
+                                    <p class="text-gray-600 text-xs mb-1">Máximo Permitido ({{ $maxPercentage }}%)</p>
+                                    <p class="text-xl font-bold text-green-600">{{ number_format($maxAllowed, 2, ',', '.') }} Kz</p>
                                 </div>
                             </div>
+                            @if($availableAmount < $maxAllowed)
+                                <div class="mt-3 p-2 bg-orange-100 border border-orange-300 rounded-lg">
+                                    <p class="text-xs text-orange-800">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        <strong>Disponível:</strong> {{ number_format($availableAmount, 2, ',', '.') }} Kz
+                                        (há adiantamentos em dedução)
+                                    </p>
+                                </div>
+                            @else
+                                <div class="mt-3 p-2 bg-green-100 border border-green-300 rounded-lg">
+                                    <p class="text-xs text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        <strong>Disponível para solicitar:</strong> {{ number_format($availableAmount, 2, ',', '.') }} Kz
+                                    </p>
+                                </div>
+                            @endif
                         </div>
                     @endif
 
@@ -144,13 +148,21 @@
 
                     {{-- Footer --}}
                     <div class="flex gap-3 pt-4 border-t">
-                        <button type="button" wire:click="closeModal"
+                        <button type="button" 
+                                wire:click="closeModal"
                                 class="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition">
                             <i class="fas fa-times mr-2"></i>Cancelar
                         </button>
                         <button type="submit"
-                                class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition shadow-lg">
-                            <i class="fas fa-save mr-2"></i>Salvar
+                                wire:loading.attr="disabled"
+                                wire:target="save"
+                                class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span wire:loading.remove wire:target="save">
+                                <i class="fas fa-save mr-2"></i>Salvar
+                            </span>
+                            <span wire:loading wire:target="save">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
+                            </span>
                         </button>
                     </div>
                 </form>

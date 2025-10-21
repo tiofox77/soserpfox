@@ -26,11 +26,74 @@
     <style>
         [x-cloak] { display: none !important; }
         
-        /* Toastr Custom Styles */
-        .toast-success { background-color: #10b981 !important; }
-        .toast-error { background-color: #ef4444 !important; }
-        .toast-warning { background-color: #f59e0b !important; }
-        .toast-info { background-color: #3b82f6 !important; }
+        /* Toastr Custom Styles - Barra colorida apenas em cima */
+        #toast-container > div {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border-top: 4px solid #3b82f6 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .toast-success {
+            border-top-color: #3b82f6 !important;
+        }
+        
+        .toast-success .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-success:before {
+            color: #3b82f6 !important;
+        }
+        
+        .toast-error {
+            border-top-color: #ef4444 !important;
+        }
+        
+        .toast-error .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-error:before {
+            color: #ef4444 !important;
+        }
+        
+        .toast-warning {
+            border-top-color: #f59e0b !important;
+        }
+        
+        .toast-warning .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-warning:before {
+            color: #f59e0b !important;
+        }
+        
+        .toast-info {
+            border-top-color: #3b82f6 !important;
+        }
+        
+        .toast-info .toast-message {
+            color: #1f2937 !important;
+        }
+        
+        .toast-info:before {
+            color: #3b82f6 !important;
+        }
+        
+        #toast-container > div:hover {
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .toast-close-button {
+            color: #6b7280 !important;
+        }
+        
+        .toast-progress {
+            opacity: 0.3 !important;
+        }
         
         /* Modern 2025 Animations */
         @keyframes fadeInUp {

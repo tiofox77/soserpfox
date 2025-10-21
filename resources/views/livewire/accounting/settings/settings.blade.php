@@ -84,6 +84,79 @@
         @endif
     </div>
 
+    {{-- Manage Existing Data --}}
+    @if($stats['accounts'] > 0 || $stats['journals'] > 0)
+    <div class="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
+            <i class="fas fa-tools mr-2 text-purple-600"></i>
+            Gerir Dados Existentes
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {{-- Sincronizar Diários --}}
+            <button wire:click="syncJournals"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-50"
+                    class="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition font-semibold">
+                <span wire:loading.remove wire:target="syncJournals">
+                    <i class="fas fa-sync-alt mr-2"></i>Sincronizar Diários (13)
+                </span>
+                <span wire:loading wire:target="syncJournals">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Sincronizando...
+                </span>
+            </button>
+            
+            {{-- Sincronizar Impostos --}}
+            <button wire:click="syncTaxes"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-50"
+                    class="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition font-semibold">
+                <span wire:loading.remove wire:target="syncTaxes">
+                    <i class="fas fa-percent mr-2"></i>Sincronizar Impostos
+                </span>
+                <span wire:loading wire:target="syncTaxes">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Sincronizando...
+                </span>
+            </button>
+            
+            {{-- Sincronizar Centros de Custo --}}
+            <button wire:click="syncCostCenters"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-50"
+                    class="px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:shadow-lg transition font-semibold">
+                <span wire:loading.remove wire:target="syncCostCenters">
+                    <i class="fas fa-building mr-2"></i>Sincronizar C. Custo
+                </span>
+                <span wire:loading wire:target="syncCostCenters">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Sincronizando...
+                </span>
+            </button>
+            
+            {{-- Apagar Todos --}}
+            <button wire:click="deleteAllAccountingData"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-50"
+                    onclick="return confirm('⚠️ ATENÇÃO: Isto irá apagar TODOS os dados contabilísticos (contas, diários, impostos, centros de custo). Esta ação é irreversível!\n\nTem certeza que deseja continuar?')"
+                    class="px-4 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition font-semibold">
+                <span wire:loading.remove wire:target="deleteAllAccountingData">
+                    <i class="fas fa-trash-alt mr-2"></i>Apagar Tudo
+                </span>
+                <span wire:loading wire:target="deleteAllAccountingData">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Apagando...
+                </span>
+            </button>
+        </div>
+        
+        <div class="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <p class="text-xs text-purple-800">
+                <i class="fas fa-info-circle mr-1"></i>
+                <strong>Sincronizar:</strong> Atualiza/cria registos padrão sem apagar dados existentes. 
+                <strong>Apagar Tudo:</strong> Remove todos os dados (apenas se não houver lançamentos).
+            </p>
+        </div>
+    </div>
+    @endif
+
     {{-- Import Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         {{-- Plano de Contas --}}
@@ -148,7 +221,7 @@
             
             <div class="p-6">
                 <div class="mb-4">
-                    <p class="text-gray-600 text-sm mb-3">Importar 6 diários padrão para organização de lançamentos contabilísticos</p>
+                    <p class="text-gray-600 text-sm mb-3">Sincronizar 13 diários padrão para organização de lançamentos contabilísticos</p>
                     
                     <div class="bg-gray-50 rounded-lg p-3 mb-4">
                         <div class="flex items-center justify-between">
@@ -157,32 +230,23 @@
                         </div>
                     </div>
 
-                    @if($stats['journals'] > 0)
-                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-                            <p class="text-xs text-yellow-800">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Já existem diários cadastrados. Não é possível importar novamente.
-                            </p>
-                        </div>
-                    @else
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                            <p class="text-xs text-blue-800">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Inclui: Vendas, Compras, Caixa, Banco, Salários, Ajustes
-                            </p>
-                        </div>
-                    @endif
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                        <p class="text-xs text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Geral, Caixa, Banco, Vendas, Compras, Salários, IVA, Depreciações, Op. Diversas, Ajustes, Regularização, Abertura, Encerramento
+                        </p>
+                    </div>
                 </div>
 
-                <button wire:click="importJournals"
+                <button wire:click="syncJournals"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-50"
-                        @if($stats['journals'] > 0) disabled class="w-full px-4 py-3 bg-gray-300 text-gray-500 rounded-lg font-semibold cursor-not-allowed" @else class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition font-semibold" @endif>
-                    <span wire:loading.remove wire:target="importJournals">
-                        <i class="fas fa-download mr-2"></i>Importar Diários
+                        class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition font-semibold">
+                    <span wire:loading.remove wire:target="syncJournals">
+                        <i class="fas fa-sync-alt mr-2"></i>Sincronizar Diários
                     </span>
-                    <span wire:loading wire:target="importJournals">
-                        <i class="fas fa-spinner fa-spin mr-2"></i>Importando...
+                    <span wire:loading wire:target="syncJournals">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Sincronizando...
                     </span>
                 </button>
             </div>

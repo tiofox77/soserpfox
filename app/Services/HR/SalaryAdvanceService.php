@@ -5,39 +5,46 @@ namespace App\Services\HR;
 use App\Models\HR\SalaryAdvance;
 use App\Models\HR\Employee;
 use App\Models\HR\Contract;
+use App\Models\HR\HRSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class SalaryAdvanceService
 {
     /**
-     * Percentual máximo permitido para adiantamento (50% do salário)
-     */
-    const MAX_ADVANCE_PERCENTAGE = 0.5;
-
-    /**
      * Calcular valor máximo permitido para adiantamento
      */
     public function calculateMaxAllowed(Employee $employee): array
     {
+        // Buscar percentual configurado nas configurações de RH (padrão: 50%)
+        $maxPercentage = HRSetting::get('max_salary_advance_percentage', 50);
+        $maxPercentageDecimal = $maxPercentage / 100;
+        
+        // Tentar pegar salário do contrato ativo, senão usar o salário do employee
         $contract = $employee->contracts()
             ->where('status', 'active')
             ->first();
 
-        if (!$contract) {
+        $baseSalary = $contract && $contract->base_salary > 0 
+            ? $contract->base_salary 
+            : ($employee->salary ?? 0);
+
+        if ($baseSalary <= 0) {
             return [
                 'base_salary' => 0,
                 'max_allowed' => 0,
-                'percentage' => self::MAX_ADVANCE_PERCENTAGE * 100,
+                'pending_balance' => 0,
+                'available_amount' => 0,
+                'percentage' => $maxPercentage,
             ];
         }
 
-        $baseSalary = $contract->base_salary;
-        $maxAllowed = $baseSalary * self::MAX_ADVANCE_PERCENTAGE;
+        $maxAllowed = $baseSalary * $maxPercentageDecimal;
 
-        // Verificar adiantamentos pendentes
+        // Verificar apenas adiantamentos em dedução ativa (que estão bloqueando o limite)
         $pendingAdvances = SalaryAdvance::where('employee_id', $employee->id)
-            ->whereIn('status', ['approved', 'paid', 'in_deduction'])
+            ->where('status', 'in_deduction')
+            ->where('balance', '>', 0)
             ->sum('balance');
 
         $availableAmount = $maxAllowed - $pendingAdvances;
@@ -47,7 +54,7 @@ class SalaryAdvanceService
             'max_allowed' => $maxAllowed,
             'pending_balance' => $pendingAdvances,
             'available_amount' => max(0, $availableAmount),
-            'percentage' => self::MAX_ADVANCE_PERCENTAGE * 100,
+            'percentage' => $maxPercentage,
         ];
     }
 
@@ -64,12 +71,19 @@ class SalaryAdvanceService
             // Calcular limites
             $limits = $this->calculateMaxAllowed($employee);
 
-            if ($limits['available_amount'] <= 0) {
-                throw new \Exception('Funcionário já possui adiantamentos pendentes. Não é possível solicitar novo adiantamento.');
+            // Verificar se funcionário tem salário configurado
+            if ($limits['base_salary'] <= 0) {
+                throw new \Exception('Funcionário não possui salário configurado. Configure um salário ou contrato ativo antes de solicitar adiantamento.');
             }
 
+            // Verificar se há adiantamentos em dedução ativa
+            if ($limits['pending_balance'] > 0 && $limits['available_amount'] <= 0) {
+                throw new \Exception('Funcionário já possui adiantamentos em dedução totalizando ' . number_format($limits['pending_balance'], 2, ',', '.') . ' Kz. Limite máximo de ' . number_format($limits['max_allowed'], 2, ',', '.') . ' Kz já atingido.');
+            }
+
+            // Validar se valor solicitado está dentro do disponível
             if ($data['requested_amount'] > $limits['available_amount']) {
-                throw new \Exception('Valor solicitado excede o limite disponível de ' . number_format($limits['available_amount'], 2, ',', '.') . ' Kz');
+                throw new \Exception('Valor solicitado (' . number_format($data['requested_amount'], 2, ',', '.') . ' Kz) excede o limite disponível de ' . number_format($limits['available_amount'], 2, ',', '.') . ' Kz. Salário base: ' . number_format($limits['base_salary'], 2, ',', '.') . ' Kz (50% = ' . number_format($limits['max_allowed'], 2, ',', '.') . ' Kz)');
             }
 
             // Calcular valor da parcela

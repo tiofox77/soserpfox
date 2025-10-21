@@ -41,6 +41,11 @@
                         class="py-3 px-4 border-b-2 font-semibold text-sm transition-all">
                     <i class="fas fa-info-circle mr-2"></i>Dados Gerais
                 </button>
+                <button @click="activeTab = 'advanced'" 
+                        :class="activeTab === 'advanced' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-600 hover:text-gray-800'"
+                        class="py-3 px-4 border-b-2 font-semibold text-sm transition-all">
+                    <i class="fas fa-sliders-h mr-2"></i>Avançado
+                </button>
                 <button @click="activeTab = 'settings'" 
                         :class="activeTab === 'settings' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-600 hover:text-gray-800'"
                         class="py-3 px-4 border-b-2 font-semibold text-sm transition-all">
@@ -137,6 +142,109 @@
                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                                   placeholder="Descrição opcional da conta"></textarea>
                     </div>
+                </div>
+            </div>
+
+            {{-- Tab: Avançado --}}
+            <div x-show="activeTab === 'advanced'" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {{-- Imposto Padrão (IVA) --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-percent mr-1 text-purple-600"></i>Imposto Padrão (IVA)
+                        </label>
+                        <select wire:model="default_tax_id" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                            <option value="">Sem imposto padrão</option>
+                            @foreach($availableTaxes ?? [] as $tax)
+                                <option value="{{ $tax->id }}">{{ $tax->name }} ({{ $tax->rate }}%)</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Imposto aplicado automaticamente nos lançamentos</p>
+                    </div>
+
+                    {{-- Centro de Custo Padrão --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-building mr-1 text-indigo-600"></i>Centro de Custo Padrão
+                        </label>
+                        <select wire:model="default_cost_center_id" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                            <option value="">Sem centro de custo padrão</option>
+                            @foreach($availableCostCenters ?? [] as $cc)
+                                <option value="{{ $cc->id }}">{{ $cc->code }} - {{ $cc->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Centro de custo associado automaticamente</p>
+                    </div>
+
+                    {{-- Reflexão em Débito --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-arrow-right mr-1 text-green-600"></i>Conta Reflexo (Débito)
+                        </label>
+                        <select wire:model="debit_reflection_account_id" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                            <option value="">Sem reflexo automático</option>
+                            @foreach($parentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Conta de contrapartida em débito</p>
+                    </div>
+
+                    {{-- Reflexão em Crédito --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-arrow-left mr-1 text-red-600"></i>Conta Reflexo (Crédito)
+                        </label>
+                        <select wire:model="credit_reflection_account_id" 
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                            <option value="">Sem reflexo automático</option>
+                            @foreach($parentAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} - {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Conta de contrapartida em crédito</p>
+                    </div>
+
+                    {{-- Chave da Conta --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-key mr-1 text-yellow-600"></i>Chave da Conta
+                        </label>
+                        <input type="text" wire:model="account_key" 
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                               placeholder="Ex: KEY001">
+                        <p class="text-xs text-gray-500 mt-1">Código/chave adicional para identificação</p>
+                    </div>
+
+                    {{-- Subtipo da Conta --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-tags mr-1 text-pink-600"></i>Subtipo/Classificação
+                        </label>
+                        <input type="text" wire:model="account_subtype" 
+                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                               placeholder="Ex: Operacional, Financeiro">
+                        <p class="text-xs text-gray-500 mt-1">Classificação adicional da conta</p>
+                    </div>
+
+                    {{-- Custo Fixo --}}
+                    <div class="md:col-span-2">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" wire:model="is_fixed_cost" 
+                                       class="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500">
+                                <div class="ml-3">
+                                    <span class="text-sm font-bold text-gray-900">Custo Fixo</span>
+                                    <p class="text-xs text-gray-600">Marcar se esta conta representa um custo fixo</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 

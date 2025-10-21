@@ -21,28 +21,19 @@ class JournalSeeder extends Seeder
             $fornecedoresConta = Account::where('tenant_id', $tenant->id)->where('code', '31')->first();
             
             $journals = [
+                // Diários Principais
                 [
-                    'code' => 'VEND',
-                    'name' => 'Diário de Vendas',
-                    'type' => 'sale',
-                    'sequence_prefix' => 'VD-',
+                    'code' => '01',
+                    'name' => 'Diário Geral',
+                    'type' => 'general',
+                    'sequence_prefix' => 'DG-',
                     'last_number' => 0,
-                    'default_debit_account_id' => $clientesConta?->id,
+                    'default_debit_account_id' => null,
                     'default_credit_account_id' => null,
                     'active' => true,
                 ],
                 [
-                    'code' => 'COMP',
-                    'name' => 'Diário de Compras',
-                    'type' => 'purchase',
-                    'sequence_prefix' => 'CP-',
-                    'last_number' => 0,
-                    'default_debit_account_id' => null,
-                    'default_credit_account_id' => $fornecedoresConta?->id,
-                    'active' => true,
-                ],
-                [
-                    'code' => 'CX',
+                    'code' => '02',
                     'name' => 'Diário de Caixa',
                     'type' => 'cash',
                     'sequence_prefix' => 'CX-',
@@ -52,8 +43,8 @@ class JournalSeeder extends Seeder
                     'active' => true,
                 ],
                 [
-                    'code' => 'BCO',
-                    'name' => 'Diário de Banco',
+                    'code' => '03',
+                    'name' => 'Diário de Bancos',
                     'type' => 'bank',
                     'sequence_prefix' => 'BC-',
                     'last_number' => 0,
@@ -62,8 +53,30 @@ class JournalSeeder extends Seeder
                     'active' => true,
                 ],
                 [
-                    'code' => 'SAL',
-                    'name' => 'Diário de Salários',
+                    'code' => '04',
+                    'name' => 'Diário de Vendas',
+                    'type' => 'sale',
+                    'sequence_prefix' => 'VD-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => $clientesConta?->id,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
+                [
+                    'code' => '05',
+                    'name' => 'Diário de Compras',
+                    'type' => 'purchase',
+                    'sequence_prefix' => 'CP-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => $fornecedoresConta?->id,
+                    'active' => true,
+                ],
+                
+                // Diários de Controle e Gestão
+                [
+                    'code' => '06',
+                    'name' => 'Diário de Salários e Ordenados',
                     'type' => 'payroll',
                     'sequence_prefix' => 'SAL-',
                     'last_number' => 0,
@@ -72,8 +85,40 @@ class JournalSeeder extends Seeder
                     'active' => true,
                 ],
                 [
-                    'code' => 'AJ',
-                    'name' => 'Diário de Ajustes',
+                    'code' => '07',
+                    'name' => 'Diário de IVA',
+                    'type' => 'tax',
+                    'sequence_prefix' => 'IVA-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
+                [
+                    'code' => '08',
+                    'name' => 'Diário de Depreciações e Amortizações',
+                    'type' => 'depreciation',
+                    'sequence_prefix' => 'DEP-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
+                
+                // Diários Especiais
+                [
+                    'code' => '09',
+                    'name' => 'Diário de Operações Diversas',
+                    'type' => 'miscellaneous',
+                    'sequence_prefix' => 'OD-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
+                [
+                    'code' => '10',
+                    'name' => 'Diário de Ajustes e Correções',
                     'type' => 'adjustment',
                     'sequence_prefix' => 'AJ-',
                     'last_number' => 0,
@@ -81,16 +126,55 @@ class JournalSeeder extends Seeder
                     'default_credit_account_id' => null,
                     'active' => true,
                 ],
+                [
+                    'code' => '11',
+                    'name' => 'Diário de Regularização',
+                    'type' => 'regularization',
+                    'sequence_prefix' => 'REG-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
+                [
+                    'code' => '12',
+                    'name' => 'Diário de Abertura',
+                    'type' => 'opening',
+                    'sequence_prefix' => 'ABT-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
+                [
+                    'code' => '13',
+                    'name' => 'Diário de Encerramento',
+                    'type' => 'closing',
+                    'sequence_prefix' => 'ENC-',
+                    'last_number' => 0,
+                    'default_debit_account_id' => null,
+                    'default_credit_account_id' => null,
+                    'active' => true,
+                ],
             ];
             
+            // Limpar diários antigos (exceto os que já têm lançamentos)
+            Journal::where('tenant_id', $tenant->id)
+                ->doesntHave('moves')
+                ->delete();
+            
+            // Criar/atualizar diários padrão
             foreach ($journals as $journalData) {
-                Journal::create([
-                    'tenant_id' => $tenant->id,
-                    ...$journalData
-                ]);
+                Journal::updateOrInsert(
+                    [
+                        'tenant_id' => $tenant->id,
+                        'code' => $journalData['code'],
+                    ],
+                    $journalData + ['tenant_id' => $tenant->id]
+                );
             }
             
-            echo "✅ Criados 6 diários contabilísticos para {$tenant->name}\n";
+            echo "✅ Criados 13 diários contabilísticos para {$tenant->name}\n";
         }
     }
     
@@ -105,28 +189,19 @@ class JournalSeeder extends Seeder
         $fornecedoresConta = Account::where('tenant_id', $tenantId)->where('code', '22')->first();
         
         $journals = [
+            // Diários Principais
             [
-                'code' => 'VEND',
-                'name' => 'Diário de Vendas',
-                'type' => 'sale',
-                'sequence_prefix' => 'VD-',
+                'code' => '01',
+                'name' => 'Diário Geral',
+                'type' => 'general',
+                'sequence_prefix' => 'DG-',
                 'last_number' => 0,
-                'default_debit_account_id' => $clientesConta?->id,
+                'default_debit_account_id' => null,
                 'default_credit_account_id' => null,
                 'active' => true,
             ],
             [
-                'code' => 'COMP',
-                'name' => 'Diário de Compras',
-                'type' => 'purchase',
-                'sequence_prefix' => 'CP-',
-                'last_number' => 0,
-                'default_debit_account_id' => null,
-                'default_credit_account_id' => $fornecedoresConta?->id,
-                'active' => true,
-            ],
-            [
-                'code' => 'CX',
+                'code' => '02',
                 'name' => 'Diário de Caixa',
                 'type' => 'cash',
                 'sequence_prefix' => 'CX-',
@@ -136,8 +211,8 @@ class JournalSeeder extends Seeder
                 'active' => true,
             ],
             [
-                'code' => 'BCO',
-                'name' => 'Diário de Banco',
+                'code' => '03',
+                'name' => 'Diário de Bancos',
                 'type' => 'bank',
                 'sequence_prefix' => 'BC-',
                 'last_number' => 0,
@@ -146,8 +221,30 @@ class JournalSeeder extends Seeder
                 'active' => true,
             ],
             [
-                'code' => 'SAL',
-                'name' => 'Diário de Salários',
+                'code' => '04',
+                'name' => 'Diário de Vendas',
+                'type' => 'sale',
+                'sequence_prefix' => 'VD-',
+                'last_number' => 0,
+                'default_debit_account_id' => $clientesConta?->id,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            [
+                'code' => '05',
+                'name' => 'Diário de Compras',
+                'type' => 'purchase',
+                'sequence_prefix' => 'CP-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => $fornecedoresConta?->id,
+                'active' => true,
+            ],
+            
+            // Diários de Controle e Gestão
+            [
+                'code' => '06',
+                'name' => 'Diário de Salários e Ordenados',
                 'type' => 'payroll',
                 'sequence_prefix' => 'SAL-',
                 'last_number' => 0,
@@ -156,10 +253,72 @@ class JournalSeeder extends Seeder
                 'active' => true,
             ],
             [
-                'code' => 'AJ',
-                'name' => 'Diário de Ajustes',
+                'code' => '07',
+                'name' => 'Diário de IVA',
+                'type' => 'tax',
+                'sequence_prefix' => 'IVA-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            [
+                'code' => '08',
+                'name' => 'Diário de Depreciações e Amortizações',
+                'type' => 'depreciation',
+                'sequence_prefix' => 'DEP-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            
+            // Diários Especiais
+            [
+                'code' => '09',
+                'name' => 'Diário de Operações Diversas',
+                'type' => 'miscellaneous',
+                'sequence_prefix' => 'OD-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            [
+                'code' => '10',
+                'name' => 'Diário de Ajustes e Correções',
                 'type' => 'adjustment',
                 'sequence_prefix' => 'AJ-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            [
+                'code' => '11',
+                'name' => 'Diário de Regularização',
+                'type' => 'regularization',
+                'sequence_prefix' => 'REG-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            [
+                'code' => '12',
+                'name' => 'Diário de Abertura',
+                'type' => 'opening',
+                'sequence_prefix' => 'ABT-',
+                'last_number' => 0,
+                'default_debit_account_id' => null,
+                'default_credit_account_id' => null,
+                'active' => true,
+            ],
+            [
+                'code' => '13',
+                'name' => 'Diário de Encerramento',
+                'type' => 'closing',
+                'sequence_prefix' => 'ENC-',
                 'last_number' => 0,
                 'default_debit_account_id' => null,
                 'default_credit_account_id' => null,
@@ -168,10 +327,13 @@ class JournalSeeder extends Seeder
         ];
         
         foreach ($journals as $journalData) {
-            Journal::create([
-                'tenant_id' => $tenantId,
-                ...$journalData
-            ]);
+            Journal::updateOrInsert(
+                [
+                    'tenant_id' => $tenantId,
+                    'code' => $journalData['code'],
+                ],
+                $journalData + ['tenant_id' => $tenantId]
+            );
         }
     }
 }

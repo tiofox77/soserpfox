@@ -287,7 +287,9 @@ Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
     Route::get('/leaves', \App\Livewire\HR\LeaveManagement::class)->name('leaves');
     Route::get('/advances', \App\Livewire\HR\SalaryAdvanceManagement::class)->name('advances');
+    Route::get('/advances/{id}/pdf', [\App\Http\Controllers\HR\SalaryAdvanceController::class, 'generatePDF'])->name('advances.pdf');
     Route::get('/overtime', \App\Livewire\HR\OvertimeManagement::class)->name('overtime');
+    Route::get('/shifts', \App\Livewire\HR\ShiftsManagement::class)->name('shifts.index');
     Route::get('/settings', \App\Livewire\HR\SettingsManagement::class)->name('settings');
 });
 
