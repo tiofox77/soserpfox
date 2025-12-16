@@ -14,11 +14,14 @@ class ServiceManagement extends Component
 
     public $search = '';
     public $categoryFilter = '';
+    public $viewMode = 'grid'; // grid ou list
     
     // Modal
     public $showModal = false;
+    public $showViewModal = false;
     public $editMode = false;
     public $serviceId;
+    public $viewingService = null;
     
     // Form Fields
     public $name = '';
@@ -99,10 +102,23 @@ class ServiceManagement extends Component
         session()->flash('success', 'Serviço removido com sucesso!');
     }
 
+    public function view($id)
+    {
+        $this->viewingService = Service::with(['workOrderItems.workOrder.vehicle'])
+            ->findOrFail($id);
+        $this->showViewModal = true;
+    }
+    
     public function closeModal()
     {
         $this->showModal = false;
         $this->resetForm();
+    }
+    
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->viewingService = null;
     }
 
     private function resetForm()

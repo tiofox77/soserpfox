@@ -5,12 +5,13 @@ namespace App\Models\Invoicing;
 use App\Models\Client;
 use App\Models\User;
 use App\Traits\BelongsToTenant;
+use App\Traits\HasAGTSignature;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SalesInvoice extends Model
 {
-    use SoftDeletes, BelongsToTenant;
+    use SoftDeletes, BelongsToTenant, HasAGTSignature;
 
     protected $table = 'invoicing_sales_invoices';
 
@@ -50,6 +51,12 @@ class SalesInvoice extends Model
         'notes',
         'terms',
         'created_by',
+        'saft_hash',
+        'jws_signature',
+        'agt_status',
+        'agt_reference',
+        'agt_submitted_at',
+        'agt_validated_at',
     ];
 
     protected $casts = [
@@ -93,17 +100,55 @@ class SalesInvoice extends Model
 
     public static function generateInvoiceNumber($tenantId)
     {
-        $year = now()->year;
-        $prefix = 'FT ' . $year . '/';
+        // Tentar usar o sistema de séries (formato AGT Angola: FT A 2025/000001)
+        // Por enquanto usar 'invoice' pois 'FT' não está no ENUM
+        $series = InvoicingSeries::getDefaultSeries($tenantId, 'invoice');
         
-        $lastInvoice = static::where('tenant_id', $tenantId)
-            ->where('invoice_number', 'like', $prefix . '%')
-            ->orderBy('invoice_number', 'desc')
-            ->first();
+        if ($series) {
+            \Log::info("Workshop: Usando série padrão ID {$series->id} para gerar número");
+            return $series->getNextNumber();  // Método correto
+        }
+        
+        // Fallback: gerar manualmente com formato AGT Angola
+        $year = now()->year;
+        $prefix = 'FT A ' . $year . '/';  // Formato AGT: FT A 2025/
+        
+        $maxAttempts = 5;
+        $attempt = 0;
+        
+        while ($attempt < $maxAttempts) {
+            // Lock para evitar duplicatas
+            $lastInvoice = static::where('tenant_id', $tenantId)
+                ->where('invoice_number', 'like', $prefix . '%')
+                ->orderBy('id', 'desc')
+                ->lockForUpdate()
+                ->first();
 
-        $newNumber = $lastInvoice ? ((int) substr($lastInvoice->invoice_number, -6)) + 1 : 1;
-
-        return $prefix . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
+            $lastNumber = $lastInvoice ? ((int) substr($lastInvoice->invoice_number, -6)) : 0;
+            $newNumber = $lastNumber + 1;
+            $invoiceNumber = $prefix . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
+            
+            \Log::info("Workshop: Gerando número de fatura. Última: " . ($lastInvoice ? $lastInvoice->invoice_number : 'nenhuma') . " → Nova: {$invoiceNumber}");
+            
+            // Verificar se já existe (segurança extra)
+            $exists = static::where('tenant_id', $tenantId)
+                ->where('invoice_number', $invoiceNumber)
+                ->exists();
+            
+            if (!$exists) {
+                \Log::info("Workshop: Número {$invoiceNumber} disponível!");
+                return $invoiceNumber;
+            }
+            
+            // Se existir, incrementar e tentar novamente
+            $attempt++;
+            \Log::warning("Workshop: Número {$invoiceNumber} JÁ EXISTE! Tentativa {$attempt}/{$maxAttempts}");
+            
+            // Pequeno delay antes de tentar novamente
+            usleep(100000); // 100ms
+        }
+        
+        throw new \Exception("Não foi possível gerar número único de fatura após {$maxAttempts} tentativas.");
     }
 
     // Relacionamentos
@@ -145,6 +190,11 @@ class SalesInvoice extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function series()
+    {
+        return $this->belongsTo(InvoicingSeries::class, 'series_id');
     }
 
     // Métodos

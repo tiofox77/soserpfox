@@ -103,6 +103,26 @@ class ModuleSeeder extends Seeder
                 'order' => 9,
                 'dependencies' => ['invoicing'],
             ],
+            [
+                'name' => 'Gestão de Hotel',
+                'slug' => 'hotel',
+                'description' => 'Sistema completo de gestão hoteleira com booking online, reservas, check-in/out, housekeeping e analytics.',
+                'icon' => 'hotel',
+                'is_core' => false,
+                'is_active' => true,
+                'order' => 10,
+                'dependencies' => ['invoicing'],
+            ],
+            [
+                'name' => 'Salão de Beleza',
+                'slug' => 'salon',
+                'description' => 'Sistema de gestão para salões de beleza, barbearias e spas com agendamento online, gestão de profissionais e clientes.',
+                'icon' => 'spa',
+                'is_core' => false,
+                'is_active' => true,
+                'order' => 11,
+                'dependencies' => ['invoicing'],
+            ],
         ];
 
         foreach ($modules as $module) {

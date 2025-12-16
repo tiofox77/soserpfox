@@ -581,7 +581,18 @@
                     
                     <div class="qr-section">
                         <div class="qr-code">
-                            <img src="data:image/png;base64,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" alt="QR Code" />
+                            @if(isset($qrCode) && $qrCode['image'])
+                                <img src="{{ $qrCode['image'] }}" alt="QR Code AGT" style="width: 80px; height: 80px;" />
+                                @if($qrCode['atcud'])
+                                    <div style="font-size: 6px; text-align: center; margin-top: 2px;">
+                                        ATCUD: {{ $qrCode['atcud'] }}
+                                    </div>
+                                @endif
+                            @else
+                                <div style="width: 80px; height: 80px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999;">
+                                    QR Code
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

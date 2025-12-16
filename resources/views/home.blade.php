@@ -13,28 +13,6 @@
             </div>
         </div>
     @endif
-
-    <!-- Debug Panel -->
-    @if(config('app.debug'))
-    <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-xl">
-        <div class="flex items-start">
-            <i class="fas fa-bug text-yellow-600 text-2xl mr-3 mt-1"></i>
-            <div class="flex-1">
-                <h3 class="text-lg font-bold text-yellow-800 mb-3">🐛 Debug Info - Verificação de Acesso</h3>
-                <div class="text-sm text-yellow-700 space-y-2 font-mono bg-yellow-100 p-4 rounded">
-                    @foreach($debug as $key => $value)
-                        <div class="flex">
-                            <strong class="w-48 text-yellow-900">{{ $key }}:</strong>
-                            <span class="flex-1 {{ is_array($value) ? 'text-blue-700' : 'text-gray-800' }}">
-                                {{ is_array($value) ? json_encode($value, JSON_PRETTY_PRINT) : $value }}
-                            </span>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
     
     <!-- Easter Egg: FOX Friendly Welcome Banner -->
     @php

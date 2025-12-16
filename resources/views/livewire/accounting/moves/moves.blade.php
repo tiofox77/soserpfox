@@ -174,8 +174,8 @@
         </div>
     </div>
 
-    {{-- Modal --}}
+    {{-- Modal Estilo Primavera/Excel --}}
     @if($showModal)
-        @include('livewire.accounting.moves.partials.form-modal')
+        @include('livewire.accounting.moves.partials.form-modal-excel')
     @endif
 </div>

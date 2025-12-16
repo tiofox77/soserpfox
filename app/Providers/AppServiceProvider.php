@@ -28,6 +28,8 @@ use App\Observers\ReceiptObserver;
 use App\Observers\PaymentObserver;
 use App\Observers\EventObserver;
 use App\Observers\EventTechnicianObserver;
+use App\Observers\WorkOrderObserver;
+use App\Models\Workshop\WorkOrder;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -85,6 +87,16 @@ class AppServiceProvider extends ServiceProvider
         
         if (class_exists(\App\Models\Meeting::class)) {
             Meeting::observe(MeetingObserver::class);
+        }
+        
+        // Registrar Observer para rastrear histórico de WorkOrders
+        if (class_exists(\App\Models\Workshop\WorkOrder::class)) {
+            WorkOrder::observe(WorkOrderObserver::class);
+        }
+        
+        // Registrar Observer para Salon - atualizar visitas e VIP automático
+        if (class_exists(\App\Models\Salon\Appointment::class)) {
+            \App\Models\Salon\Appointment::observe(\App\Observers\SalonAppointmentObserver::class);
         }
         
         // Observer para quando técnico é designado (tabela pivot)

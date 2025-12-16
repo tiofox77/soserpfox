@@ -18,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\CheckTenantActive::class);
         
         // Middleware global para verificar subscription (após identificar tenant)
-        $middleware->append(\App\Http\Middleware\CheckSubscription::class);
+        // IMPORTANTE: Só executa em rotas web que exigem autenticação
+        $middleware->appendToGroup('web', \App\Http\Middleware\CheckSubscription::class);
         
         // Middleware para registrar último login
         $middleware->append(\App\Http\Middleware\RecordLastLogin::class);

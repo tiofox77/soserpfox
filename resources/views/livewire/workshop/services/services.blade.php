@@ -93,6 +93,18 @@
                 <i class="fas fa-filter mr-2 text-purple-600"></i>
                 Filtros Avançados
             </h3>
+            
+            {{-- View Mode Toggle --}}
+            <div class="flex items-center bg-gray-100 rounded-xl p-1">
+                <button wire:click="$set('viewMode', 'grid')" 
+                        class="px-4 py-2 rounded-lg transition-all {{ $viewMode === 'grid' ? 'bg-white shadow-md text-purple-600' : 'text-gray-600 hover:text-gray-900' }}">
+                    <i class="fas fa-th-large mr-2"></i>Grid
+                </button>
+                <button wire:click="$set('viewMode', 'list')" 
+                        class="px-4 py-2 rounded-lg transition-all {{ $viewMode === 'list' ? 'bg-white shadow-md text-purple-600' : 'text-gray-600 hover:text-gray-900' }}">
+                    <i class="fas fa-list mr-2"></i>Lista
+                </button>
+            </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="md:col-span-2">
@@ -124,60 +136,66 @@
         </div>
     </div>
 
-        <!-- Services Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            @forelse($services as $service)
-                <div class="bg-white rounded-xl shadow-md hover:shadow-xl transition-all transform hover:scale-105 overflow-hidden">
-                    <!-- Category Badge -->
-                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
-                        <div class="flex items-center justify-between">
-                            <span class="text-white font-bold text-sm">
-                                <i class="fas fa-tag mr-2"></i>{{ $service->category }}
+    {{-- Grid View --}}
+    @if($viewMode === 'grid')
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        @forelse($services as $service)
+            <div class="bg-white rounded-xl shadow-md hover:shadow-xl transition-all transform hover:scale-105 overflow-hidden">
+                <!-- Category Badge -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-white font-bold text-sm">
+                            <i class="fas fa-tag mr-2"></i>{{ $service->category }}
+                        </span>
+                        @if($service->is_active)
+                            <span class="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                                <i class="fas fa-check mr-1"></i>Ativo
                             </span>
-                            @if($service->is_active)
-                                <span class="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                                    <i class="fas fa-check mr-1"></i>Ativo
-                                </span>
-                            @else
-                                <span class="bg-gray-500 text-white text-xs px-2 py-1 rounded-full">
-                                    <i class="fas fa-times mr-1"></i>Inativo
-                                </span>
-                            @endif
+                        @else
+                            <span class="bg-gray-500 text-white text-xs px-2 py-1 rounded-full">
+                                <i class="fas fa-times mr-1"></i>Inativo
+                            </span>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">{{ $service->name }}</h3>
+                        <p class="text-sm text-gray-600 line-clamp-2">
+                            {{ $service->description ?: 'Sem descrição' }}
+                        </p>
+                    </div>
+
+                    <div class="space-y-2 mb-4">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-600">
+                                <i class="fas fa-code mr-2 text-blue-600"></i>Código:
+                            </span>
+                            <span class="font-semibold text-gray-900">{{ $service->service_code }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-600">
+                                <i class="fas fa-money-bill-wave mr-2 text-green-600"></i>Mão de Obra:
+                            </span>
+                            <span class="font-bold text-green-600">{{ $service->formatted_labor_cost }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-600">
+                                <i class="fas fa-clock mr-2 text-orange-600"></i>Tempo:
+                            </span>
+                            <span class="font-semibold text-gray-900">{{ $service->estimated_hours }}h</span>
                         </div>
                     </div>
 
-                    <!-- Content -->
-                    <div class="p-6">
-                        <div class="mb-4">
-                            <h3 class="text-lg font-bold text-gray-900 mb-2">{{ $service->name }}</h3>
-                            <p class="text-sm text-gray-600 line-clamp-2">
-                                {{ $service->description ?: 'Sem descrição' }}
-                            </p>
-                        </div>
-
-                        <div class="space-y-2 mb-4">
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600">
-                                    <i class="fas fa-code mr-2 text-blue-600"></i>Código:
-                                </span>
-                                <span class="font-semibold text-gray-900">{{ $service->service_code }}</span>
-                            </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600">
-                                    <i class="fas fa-money-bill-wave mr-2 text-green-600"></i>Mão de Obra:
-                                </span>
-                                <span class="font-bold text-green-600">{{ $service->formatted_labor_cost }}</span>
-                            </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600">
-                                    <i class="fas fa-clock mr-2 text-orange-600"></i>Tempo:
-                                </span>
-                                <span class="font-semibold text-gray-900">{{ $service->estimated_hours }}h</span>
-                            </div>
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="flex items-center justify-end space-x-2 pt-4 border-t border-gray-200">
+                    <!-- Actions -->
+                    <div class="space-y-2 pt-4 border-t border-gray-200">
+                        <button wire:click="view({{ $service->id }})" 
+                                class="w-full text-purple-600 hover:text-purple-900 hover:bg-purple-50 py-2 rounded-lg transition-all font-medium">
+                            <i class="fas fa-eye mr-2"></i>Visualizar
+                        </button>
+                        <div class="flex items-center justify-end space-x-2">
                             <button wire:click="edit({{ $service->id }})" 
                                     class="flex-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 py-2 rounded-lg transition-all font-medium">
                                 <i class="fas fa-edit mr-2"></i>Editar
@@ -190,25 +208,111 @@
                         </div>
                     </div>
                 </div>
-            @empty
-                <div class="col-span-full">
-                    <div class="bg-white rounded-xl shadow-md p-12 text-center">
-                        <i class="fas fa-tools text-6xl text-gray-300 mb-4"></i>
-                        <p class="text-gray-500 text-lg font-medium">Nenhum serviço encontrado</p>
-                        <p class="text-gray-400 text-sm mt-2">Clique em "Novo Serviço" para começar</p>
+            </div>
+        @empty
+            <div class="col-span-full">
+                <div class="bg-white rounded-xl shadow-md p-12 text-center">
+                    <i class="fas fa-tools text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500 text-lg font-medium">Nenhum serviço encontrado</p>
+                    <p class="text-gray-400 text-sm mt-2">Clique em "Novo Serviço" para começar</p>
+                </div>
+            </div>
+        @endforelse
+    </div>
+    @endif
+
+    {{-- List View --}}
+    @if($viewMode === 'list')
+    <div class="space-y-4">
+        @forelse($services as $service)
+            <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all overflow-hidden">
+                <div class="flex items-center">
+                    {{-- Category Badge --}}
+                    <div class="w-2 h-full bg-gradient-to-b from-blue-600 to-blue-700"></div>
+                    
+                    {{-- Content --}}
+                    <div class="flex-1 p-6">
+                        <div class="flex items-start justify-between">
+                            {{-- Info --}}
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-bold text-gray-900">{{ $service->name }}</h3>
+                                    <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                        <i class="fas fa-tag mr-1"></i>{{ $service->category }}
+                                    </span>
+                                    @if($service->is_active)
+                                        <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                                            <i class="fas fa-check mr-1"></i>Ativo
+                                        </span>
+                                    @else
+                                        <span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">
+                                            <i class="fas fa-times mr-1"></i>Inativo
+                                        </span>
+                                    @endif
+                                </div>
+                                
+                                <p class="text-sm text-gray-600 mb-3 line-clamp-1">
+                                    {{ $service->description ?: 'Sem descrição' }}
+                                </p>
+                                
+                                <div class="flex items-center gap-6 text-sm">
+                                    <div class="flex items-center text-gray-600">
+                                        <i class="fas fa-code w-5 text-blue-600"></i>
+                                        <span class="font-semibold text-gray-900">{{ $service->service_code }}</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-600">
+                                        <i class="fas fa-money-bill-wave w-5 text-green-600"></i>
+                                        <span class="font-bold text-green-600">{{ $service->formatted_labor_cost }}</span>
+                                    </div>
+                                    <div class="flex items-center text-gray-600">
+                                        <i class="fas fa-clock w-5 text-orange-600"></i>
+                                        <span class="font-semibold text-gray-900">{{ $service->estimated_hours }}h</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {{-- Actions --}}
+                            <div class="flex items-center gap-2 ml-6">
+                                <button wire:click="view({{ $service->id }})" 
+                                        class="px-4 py-2 text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded-lg transition-all font-medium">
+                                    <i class="fas fa-eye mr-2"></i>Ver
+                                </button>
+                                <button wire:click="edit({{ $service->id }})" 
+                                        class="px-4 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all font-medium">
+                                    <i class="fas fa-edit mr-2"></i>Editar
+                                </button>
+                                <button wire:click="delete({{ $service->id }})" 
+                                        onclick="return confirm('Tem certeza que deseja remover este serviço?')"
+                                        class="px-4 py-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-all font-medium">
+                                    <i class="fas fa-trash mr-2"></i>Remover
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            @endforelse
-        </div>
+            </div>
+        @empty
+            <div class="bg-white rounded-xl shadow-md p-12 text-center">
+                <i class="fas fa-tools text-6xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg font-medium">Nenhum serviço encontrado</p>
+                <p class="text-gray-400 text-sm mt-2">Clique em "Novo Serviço" para começar</p>
+            </div>
+        @endforelse
+    </div>
+    @endif
 
-        {{-- Pagination --}}
-        <div class="mt-6">
-            {{ $services->links() }}
-        </div>
+    {{-- Pagination --}}
+    <div class="mt-6">
+        {{ $services->links() }}
     </div>
 
     {{-- Modal --}}
     @if($showModal)
         @include('livewire.workshop.services.partials.form-modal')
+    @endif
+    
+    {{-- Modal de Visualização --}}
+    @if($showViewModal)
+        @include('livewire.workshop.services.partials.view-modal')
     @endif
 </div>

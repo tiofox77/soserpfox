@@ -535,6 +535,11 @@ class Tenant extends Model
         return $this->hasOne(Subscription::class)
             ->with('plan')
             ->whereIn('status', ['active', 'trial'])
+            ->where(function($query) {
+                // Subscription sem data de fim (perpétua) OU período ainda válido
+                $query->whereNull('current_period_end')
+                      ->orWhere('current_period_end', '>=', now());
+            })
             ->latest();
     }
 

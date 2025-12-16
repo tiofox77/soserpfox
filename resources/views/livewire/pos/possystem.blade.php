@@ -63,10 +63,12 @@
                     
                     {{-- Imagem --}}
                     <div class="aspect-square bg-gray-100 rounded mb-0.5 overflow-hidden">
-                        @if($product->featured_image)
-                            <img src="{{ Storage::url($product->featured_image) }}" 
+                        @if($product->image_url)
+                            <img src="{{ $product->image_url }}" 
                                  alt="{{ $product->name }}"
-                                 class="w-full h-full object-cover">
+                                 class="w-full h-full object-cover"
+                                 loading="lazy"
+                                 onerror="this.src='{{ app_logo() ?? asset('images/placeholder-product.png') }}'">
                         @elseif(app_logo())
                             <div class="w-full h-full flex items-center justify-center p-2">
                                 <img src="{{ app_logo() }}" 
@@ -187,57 +189,79 @@
             </div>
 
             {{-- Totais e Resumo --}}
-            <div class="border-t border-gray-200 p-1.5 space-y-1.5 flex-shrink-0">
-                {{-- Resumo Detalhado --}}
-                <div class="bg-gray-50 rounded-lg p-1.5 space-y-1">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-gray-600">Subtotal:</span>
-                        <span class="font-bold">{{ number_format($cartSubtotal, 2) }}</span>
+            <div class="border-t border-gray-200 p-2 space-y-2 flex-shrink-0">
+                {{-- Desconto --}}
+                <div class="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg p-2">
+                    <span class="text-xs font-bold text-orange-700"><i class="fas fa-tag"></i></span>
+                    <select wire:model.live="discountType" class="w-14 px-1 py-1 border border-orange-300 rounded text-xs bg-white">
+                        <option value="percentage">%</option>
+                        <option value="fixed">Kz</option>
+                    </select>
+                    <input type="number" wire:model.live="discount" placeholder="0" step="0.01"
+                           class="flex-1 px-2 py-1 border border-orange-300 rounded text-sm font-bold text-center">
+                </div>
+
+                {{-- Resumo Financeiro --}}
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 space-y-2 border border-gray-200">
+                    {{-- Subtotal --}}
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-600">Subtotal</span>
+                        <span class="font-semibold text-gray-800">{{ number_format($cartSubtotal, 2, ',', '.') }} Kz</span>
                     </div>
                     
+                    {{-- Desconto --}}
                     @if($cartDiscount > 0)
-                    <div class="flex justify-between text-xs text-orange-600">
-                        <span>Desconto:</span>
-                        <span class="font-bold">-{{ number_format($cartDiscount, 2) }}</span>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-orange-600 flex items-center gap-1">
+                            <i class="fas fa-minus-circle text-xs"></i> Desconto
+                        </span>
+                        <span class="font-semibold text-orange-600">-{{ number_format($cartDiscount, 2, ',', '.') }} Kz</span>
                     </div>
                     @endif
                     
-                    <div class="flex justify-between text-xs">
-                        <span class="text-gray-600">IVA (14%):</span>
-                        <span class="font-bold">{{ number_format($cartTax, 2) }}</span>
+                    {{-- IVA --}}
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-blue-600 flex items-center gap-1">
+                            <i class="fas fa-plus-circle text-xs"></i> IVA ({{ number_format($taxRate, 0) }}%)
+                        </span>
+                        <span class="font-semibold text-blue-600">+{{ number_format($cartTax, 2, ',', '.') }} Kz</span>
                     </div>
                     
-                    <div class="border-t border-gray-300 pt-1 flex justify-between items-center">
-                        <span class="font-bold text-sm text-gray-800">TOTAL:</span>
-                        <span class="font-bold text-xl text-indigo-600">{{ number_format($cartTotal, 0) }} Kz</span>
+                    {{-- Retenção IRT --}}
+                    @if($cartIrt > 0)
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-purple-600 flex items-center gap-1">
+                            <i class="fas fa-hand-holding-usd text-xs"></i> Ret. IRT ({{ number_format($irtRate, 1) }}%)
+                        </span>
+                        <span class="font-semibold text-purple-600">-{{ number_format($cartIrt, 2, ',', '.') }} Kz</span>
                     </div>
-                </div>
-
-                {{-- Desconto --}}
-                <div class="bg-orange-50 border border-orange-200 rounded-lg p-1.5">
-                    <p class="text-xs font-bold text-orange-800 mb-1">💰 Desconto</p>
-                    <div class="flex gap-1">
-                        <select wire:model.live="discountType" 
-                                class="w-16 px-1 py-1 border border-orange-300 rounded text-xs">
-                            <option value="percentage">%</option>
-                            <option value="fixed">Kz</option>
-                        </select>
-                        <input type="number" wire:model.live="discount" 
-                               placeholder="0"
-                               step="0.01"
-                               class="flex-1 px-2 py-1 border border-orange-300 rounded text-sm font-bold">
+                    @endif
+                    
+                    {{-- Linha divisória --}}
+                    <div class="border-t-2 border-dashed border-gray-300 my-1"></div>
+                    
+                    {{-- Total --}}
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-gray-800 text-base">TOTAL A PAGAR</span>
+                        <span class="font-bold text-2xl text-indigo-600">{{ number_format($cartTotal, 2, ',', '.') }} <small class="text-sm">Kz</small></span>
+                    </div>
+                    
+                    {{-- Info itens --}}
+                    <div class="text-center text-xs text-gray-500">
+                        {{ $cartQuantity }} {{ $cartQuantity == 1 ? 'item' : 'itens' }} no carrinho
                     </div>
                 </div>
 
                 {{-- Botões de Ação --}}
-                <div class="flex gap-1">
+                <div class="flex gap-2">
                     <button wire:click="clearCart" 
-                            class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition text-sm">
+                            class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition text-sm shadow-lg shadow-red-500/30">
                         <i class="fas fa-trash"></i>
                     </button>
                     <button wire:click="openPaymentModal" 
-                            class="flex-1 px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-bold shadow transition text-sm">
-                        <i class="fas fa-cash-register mr-1"></i>Pagar
+                            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition text-sm"
+                            {{ $cartItems->isEmpty() ? 'disabled' : '' }}>
+                        <i class="fas fa-cash-register mr-2"></i>Finalizar Venda
                     </button>
                 </div>
             </div>

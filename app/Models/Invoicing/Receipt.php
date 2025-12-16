@@ -66,6 +66,11 @@ class Receipt extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(InvoicingSeries::class, 'series_id');
+    }
+
     // Scopes
     public function scopeOfType($query, $type)
     {

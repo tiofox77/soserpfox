@@ -131,6 +131,10 @@ class PermissionsSeeder extends Seeder
         // Configurações
         Permission::create(['name' => 'invoicing.settings.view', 'description' => 'Ver Configurações de Faturação']);
         Permission::create(['name' => 'invoicing.settings.edit', 'description' => 'Editar Configurações de Faturação']);
+        
+        // AGT Angola
+        Permission::create(['name' => 'invoicing.agt.view', 'description' => 'Ver Configurações AGT Angola']);
+        Permission::create(['name' => 'invoicing.agt.edit', 'description' => 'Editar Configurações AGT Angola']);
 
         // Armazéns
         Permission::create(['name' => 'invoicing.warehouses.view', 'description' => 'Ver Armazéns']);
@@ -232,6 +236,8 @@ class PermissionsSeeder extends Seeder
             'invoicing.pos.access', 'invoicing.pos.sell', 'invoicing.pos.refund', 'invoicing.pos.reports', 'invoicing.pos.settings',
             // Configurações
             'invoicing.settings.view', 'invoicing.settings.edit',
+            // AGT Angola
+            'invoicing.agt.view', 'invoicing.agt.edit',
             // Armazéns e Stock
             'invoicing.warehouses.view', 'invoicing.warehouses.create', 'invoicing.warehouses.edit', 'invoicing.warehouses.delete',
             'invoicing.stock.view', 'invoicing.stock.edit',

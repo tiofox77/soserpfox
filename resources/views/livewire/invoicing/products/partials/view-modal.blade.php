@@ -22,10 +22,12 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                             <!-- Imagem -->
                             <div class="md:col-span-1">
-                                @if($viewingProduct->featured_image)
-                                    <img src="{{ Storage::url($viewingProduct->featured_image) }}" 
+                                @if($viewingProduct->image_url)
+                                    <img src="{{ $viewingProduct->image_url }}" 
                                          alt="{{ $viewingProduct->name }}" 
-                                         class="w-full h-64 object-cover rounded-xl shadow-lg border-2 border-purple-200">
+                                         class="w-full h-64 object-cover rounded-xl shadow-lg border-2 border-purple-200"
+                                         loading="lazy"
+                                         onerror="this.src='{{ asset('images/placeholder-product.png') }}'">
                                 @else
                                     <div class="w-full h-64 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl shadow-lg border-2 border-purple-200 flex items-center justify-center">
                                         <div class="text-center">

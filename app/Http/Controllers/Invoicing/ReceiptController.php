@@ -13,7 +13,7 @@ class ReceiptController extends Controller
     {
         try {
             // Buscar recibo com relacionamentos
-            $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator'])
+            $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
                 ->findOrFail($id);
             
@@ -29,11 +29,15 @@ class ReceiptController extends Controller
                 ->limit(4)
                 ->get();
             
+            // Gerar QR Code AGT
+            $qrCode = getAGTQRData($receipt, 80);
+            
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.receipt', [
                 'receipt' => $receipt,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,
+                'qrCode' => $qrCode,
             ]);
             
             // Configurar tamanho A4 e orientação
@@ -65,7 +69,7 @@ class ReceiptController extends Controller
     public function previewHtml($id)
     {
         // Buscar recibo com relacionamentos
-        $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator'])
+        $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
             ->findOrFail($id);
         
@@ -81,11 +85,15 @@ class ReceiptController extends Controller
             ->limit(4)
             ->get();
         
+        // Gerar QR Code AGT
+        $qrCode = getAGTQRData($receipt, 80);
+        
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.receipt', [
             'receipt' => $receipt,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
         ]);
     }
 }

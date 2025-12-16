@@ -13,7 +13,7 @@ class SalesInvoiceController extends Controller
     {
         try {
             // Buscar fatura com relacionamentos
-            $invoice = SalesInvoice::with(['client', 'items.product', 'warehouse', 'creator'])
+            $invoice = SalesInvoice::with(['client', 'items.product', 'warehouse', 'creator', 'creditNotes', 'series'])
                 ->where('tenant_id', activeTenantId())
                 ->findOrFail($id);
             
@@ -29,11 +29,15 @@ class SalesInvoiceController extends Controller
                 ->limit(4)
                 ->get();
             
+            // Gerar QR Code AGT
+            $qrCode = getAGTQRData($invoice, 80);
+            
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.sales-invoice', [
                 'invoice' => $invoice,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,
+                'qrCode' => $qrCode,
             ]);
             
             // Configurar tamanho A4 e orientação
@@ -43,8 +47,19 @@ class SalesInvoiceController extends Controller
             $pdf->setOptions([
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
-                'defaultFont' => 'Arial'
+                'defaultFont' => 'Arial',
+                'dpi' => 96,
+                'enable_php' => false,
+                'enable_javascript' => true,
+                'enable_remote' => true,
+                'chroot' => public_path()
             ]);
+            
+            // Configurar margens do PDF (em mm): esquerda, topo, direita, baixo
+            $pdf->setOption('margin-left', 10);
+            $pdf->setOption('margin-top', 10);
+            $pdf->setOption('margin-right', 10);
+            $pdf->setOption('margin-bottom', 10);
             
             // Retornar PDF para visualização no navegador
             $filename = 'fatura_venda_' . str_replace(['/', '\\', ' '], '_', $invoice->invoice_number) . '.pdf';
@@ -64,7 +79,7 @@ class SalesInvoiceController extends Controller
     public function previewHtml($id)
     {
         // Buscar fatura com relacionamentos
-        $invoice = SalesInvoice::with(['client', 'items.product', 'warehouse', 'creator'])
+        $invoice = SalesInvoice::with(['client', 'items.product', 'warehouse', 'creator', 'creditNotes', 'series'])
             ->where('tenant_id', activeTenantId())
             ->findOrFail($id);
         
@@ -80,11 +95,15 @@ class SalesInvoiceController extends Controller
             ->limit(4)
             ->get();
         
+        // Gerar QR Code AGT
+        $qrCode = getAGTQRData($invoice, 80);
+        
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.sales-invoice', [
             'invoice' => $invoice,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
         ]);
     }
 }

@@ -137,7 +137,7 @@
                 <h3 class="font-bold text-lg text-gray-900 mb-1 group-hover:text-cyan-700 transition">{{ $tech->name }}</h3>
                 
                 {{-- Especialidades --}}
-                @if($tech->specialties && count($tech->specialties) > 0)
+                @if(!empty($tech->specialties) && is_array($tech->specialties))
                 <div class="flex flex-wrap gap-1 mb-3">
                     @foreach($tech->specialties as $spec)
                     <span class="px-2 py-1 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded">

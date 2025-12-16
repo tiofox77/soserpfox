@@ -10,6 +10,7 @@ use App\Models\Accounting\MoveLine;
 use App\Models\Accounting\Journal;
 use App\Models\Accounting\Period;
 use App\Models\Accounting\Account;
+use App\Models\Accounting\DocumentType;
 use Illuminate\Support\Facades\DB;
 
 #[Layout('layouts.app')]
@@ -27,6 +28,7 @@ class MoveManagement extends Component
     public $moveId;
     public $journal_id;
     public $period_id;
+    public $document_type_id;
     public $date;
     public $ref;
     public $narration;
@@ -38,7 +40,16 @@ class MoveManagement extends Component
     public function mount()
     {
         $this->date = now()->format('Y-m-d');
+        $this->setCurrentPeriod();
         $this->addLine();
+    }
+    
+    public function updated($propertyName)
+    {
+        // Gerar referência automática quando diário for selecionado
+        if ($propertyName === 'journal_id' && $this->journal_id) {
+            $this->generateReference();
+        }
     }
     
     public function render()
@@ -62,6 +73,7 @@ class MoveManagement extends Component
         $journals = Journal::where('tenant_id', $tenantId)->where('active', true)->orderBy('name')->get();
         $periods = Period::where('tenant_id', $tenantId)->where('state', 'open')->orderBy('date_start', 'desc')->get();
         $accounts = Account::where('tenant_id', $tenantId)->where('blocked', false)->orderBy('code')->get();
+        $documentTypes = DocumentType::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('code')->get();
         
         // Stats
         $allMoves = Move::where('tenant_id', $tenantId)->get();
@@ -77,6 +89,7 @@ class MoveManagement extends Component
             'journals' => $journals,
             'periods' => $periods,
             'accounts' => $accounts,
+            'documentTypes' => $documentTypes,
             'stats' => $stats,
         ]);
     }
@@ -143,6 +156,7 @@ class MoveManagement extends Component
                 'tenant_id' => auth()->user()->tenant_id,
                 'journal_id' => $this->journal_id,
                 'period_id' => $this->period_id,
+                'document_type_id' => $this->document_type_id,
                 'date' => $this->date,
                 'ref' => $this->ref,
                 'narration' => $this->narration,
@@ -162,6 +176,12 @@ class MoveManagement extends Component
                     'balance' => $line['debit'] - $line['credit'],
                     'narration' => $line['narration'] ?? null,
                 ]);
+            }
+            
+            // Atualizar último número do diário
+            $journal = Journal::find($this->journal_id);
+            if ($journal) {
+                $journal->increment('last_number');
             }
         });
         
@@ -186,16 +206,58 @@ class MoveManagement extends Component
         session()->flash('message', 'Lançamento excluído com sucesso!');
     }
     
+    /**
+     * Define o período contabilístico do mês atual
+     */
+    private function setCurrentPeriod()
+    {
+        $tenantId = auth()->user()->tenant_id;
+        $currentMonth = now()->format('Y-m');
+        
+        // Buscar período do mês atual
+        $period = Period::where('tenant_id', $tenantId)
+            ->where('state', 'open')
+            ->whereRaw("DATE_FORMAT(date_start, '%Y-%m') = ?", [$currentMonth])
+            ->first();
+        
+        if ($period) {
+            $this->period_id = $period->id;
+        }
+    }
+    
+    /**
+     * Gera referência automática baseada no diário selecionado
+     */
+    private function generateReference()
+    {
+        $journal = Journal::find($this->journal_id);
+        
+        if (!$journal) {
+            return;
+        }
+        
+        // Incrementar o último número do diário
+        $nextNumber = $journal->last_number + 1;
+        
+        // Gerar referência: Prefixo + Número
+        // Exemplo: DG-00001, VD-00042, CP-00123
+        $this->ref = $journal->sequence_prefix . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+        
+        // Atualizar last_number do diário será feito ao salvar
+    }
+    
     private function resetForm()
     {
         $this->moveId = null;
         $this->journal_id = null;
         $this->period_id = null;
+        $this->document_type_id = null;
         $this->date = now()->format('Y-m-d');
         $this->ref = '';
         $this->narration = '';
         $this->state = 'draft';
         $this->lines = [];
+        $this->setCurrentPeriod();
         $this->addLine();
         $this->addLine();
     }

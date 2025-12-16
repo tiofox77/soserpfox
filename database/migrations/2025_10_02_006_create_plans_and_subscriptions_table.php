@@ -33,7 +33,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('plan_id')->constrained()->onDelete('restrict');
-            $table->string('status')->default('trial'); // trial, active, suspended, cancelled
+            $table->string('status')->default('trial'); // trial, active, suspended, cancelled, expired, pending
             $table->string('billing_cycle')->default('monthly'); // monthly, yearly
             $table->decimal('amount', 10, 2);
             $table->timestamp('trial_ends_at')->nullable();

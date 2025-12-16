@@ -9,6 +9,7 @@ use App\Models\HR\Employee;
 use App\Models\HR\Department;
 use App\Models\HR\Position;
 use App\Models\Events\Technician;
+use App\Models\Hotel\Staff as HotelStaff;
 use App\Models\Treasury\Bank;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -25,10 +26,13 @@ class EmployeeManagement extends Component
     public $showModal = false;
     public $showViewModal = false;
     public $showImportModal = false;
+    public $showImportHotelModal = false;
     public $editMode = false;
     public $employeeId;
     public $viewingEmployee = null;
     public $selectedTechnicians = [];
+    public $selectedHotelStaff = [];
+    public $importSource = 'technicians';
     
     // Form Fields
     public $first_name = '';
@@ -530,6 +534,103 @@ class EmployeeManagement extends Component
 
         session()->flash('success', $message);
         $this->closeImportModal();
+    }
+
+    // Import from Hotel Staff
+    public function openImportHotelModal()
+    {
+        $this->selectedHotelStaff = [];
+        $this->showImportHotelModal = true;
+    }
+
+    public function closeImportHotelModal()
+    {
+        $this->showImportHotelModal = false;
+        $this->selectedHotelStaff = [];
+    }
+
+    public function getHotelStaffProperty()
+    {
+        // Buscar funcionários do Hotel que ainda não foram importados
+        $importedIds = Employee::where('tenant_id', activeTenantId())
+            ->whereNotNull('hotel_staff_id')
+            ->pluck('hotel_staff_id');
+        
+        return HotelStaff::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->whereNotIn('id', $importedIds)
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function importFromHotel()
+    {
+        if (empty($this->selectedHotelStaff)) {
+            session()->flash('error', 'Selecione pelo menos um funcionário');
+            return;
+        }
+
+        $imported = 0;
+        $skipped = 0;
+        $tenantId = auth()->user()->activeTenantId();
+
+        foreach ($this->selectedHotelStaff as $staffId) {
+            $staff = HotelStaff::find($staffId);
+            
+            if (!$staff) continue;
+
+            // Verifica se já existe funcionário com mesmo email
+            $exists = Employee::where('tenant_id', $tenantId)
+                ->where(function($q) use ($staff) {
+                    if ($staff->email) {
+                        $q->where('email', $staff->email);
+                    }
+                    if ($staff->phone) {
+                        $q->orWhere('phone', $staff->phone);
+                    }
+                })
+                ->exists();
+
+            if ($exists) {
+                $skipped++;
+                continue;
+            }
+
+            // Separar nome em first_name e last_name
+            $nameParts = explode(' ', $staff->name, 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName = $nameParts[1] ?? '';
+
+            // Importar staff do hotel como funcionário
+            Employee::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $staff->user_id,
+                'hotel_staff_id' => $staff->id,
+                'employee_number' => 'EMP-' . strtoupper(uniqid()),
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'email' => $staff->email,
+                'phone' => $staff->phone,
+                'bi_number' => $staff->document,
+                'address' => $staff->address,
+                'birth_date' => $staff->birth_date,
+                'hire_date' => $staff->hire_date ?? now(),
+                'salary' => $staff->monthly_salary,
+                'employment_type' => 'Contrato',
+                'status' => 'active',
+                'photo' => $staff->photo,
+            ]);
+
+            $imported++;
+        }
+
+        $message = "{$imported} funcionário(s) do hotel importado(s)";
+        if ($skipped > 0) {
+            $message .= " ({$skipped} já existente(s))";
+        }
+
+        session()->flash('success', $message);
+        $this->closeImportHotelModal();
     }
 
     public function getAvailableTechnicians()

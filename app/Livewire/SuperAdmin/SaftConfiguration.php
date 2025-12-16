@@ -168,6 +168,101 @@ EOD;
         return Storage::disk('local')->download('saft/private_key.pem', 'saft_private_key.pem');
     }
     
+    public function downloadPublicKeyTxt()
+    {
+        if (!$this->publicKeyExists) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Chave pública não encontrada!'
+            ]);
+            return;
+        }
+        
+        $content = Storage::disk('local')->get('saft/public_key.pem');
+        
+        return response()->streamDownload(function () use ($content) {
+            echo $content;
+        }, 'saft_public_key.txt', [
+            'Content-Type' => 'text/plain',
+        ]);
+    }
+    
+    public function downloadPrivateKeyTxt()
+    {
+        if (!$this->privateKeyExists) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Chave privada não encontrada!'
+            ]);
+            return;
+        }
+        
+        $content = Storage::disk('local')->get('saft/private_key.pem');
+        
+        return response()->streamDownload(function () use ($content) {
+            echo $content;
+        }, 'saft_private_key.txt', [
+            'Content-Type' => 'text/plain',
+        ]);
+    }
+    
+    public function downloadBothKeysTxt()
+    {
+        if (!$this->publicKeyExists || !$this->privateKeyExists) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Uma ou ambas as chaves não foram encontradas!'
+            ]);
+            return;
+        }
+        
+        $publicKey = Storage::disk('local')->get('saft/public_key.pem');
+        $privateKey = Storage::disk('local')->get('saft/private_key.pem');
+        
+        $metadata = Storage::disk('local')->exists('saft/metadata.json') 
+            ? json_decode(Storage::disk('local')->get('saft/metadata.json'), true) 
+            : [];
+        
+        $content = "==============================================\n";
+        $content .= "       CHAVES SAFT-AO ANGOLA\n";
+        $content .= "==============================================\n\n";
+        
+        if (!empty($metadata)) {
+            $content .= "INFORMAÇÕES:\n";
+            $content .= "- Gerado em: " . ($metadata['generated_at'] ?? 'N/A') . "\n";
+            $content .= "- Algoritmo: " . ($metadata['algorithm'] ?? 'RSA-2048') . "\n";
+            $content .= "- Digest: " . ($metadata['digest'] ?? 'SHA-256') . "\n";
+            $content .= "- Conformidade: " . ($metadata['compliance'] ?? 'SAFT-AO Angola') . "\n";
+            $content .= "- PHP: " . ($metadata['php_version'] ?? PHP_VERSION) . "\n";
+            $content .= "- OpenSSL: " . ($metadata['openssl_version'] ?? OPENSSL_VERSION_TEXT) . "\n\n";
+        }
+        
+        $content .= "==============================================\n";
+        $content .= "       CHAVE PÚBLICA (PUBLIC KEY)\n";
+        $content .= "==============================================\n\n";
+        $content .= $publicKey . "\n\n";
+        
+        $content .= "==============================================\n";
+        $content .= "       CHAVE PRIVADA (PRIVATE KEY)\n";
+        $content .= "       ⚠️ MANTENHA EM SEGURANÇA!\n";
+        $content .= "==============================================\n\n";
+        $content .= $privateKey . "\n\n";
+        
+        $content .= "==============================================\n";
+        $content .= "IMPORTANTE:\n";
+        $content .= "- Guarde este arquivo em local seguro\n";
+        $content .= "- NÃO compartilhe a chave privada\n";
+        $content .= "- Mantenha backup das chaves\n";
+        $content .= "- Regenerar chaves invalida documentos anteriores\n";
+        $content .= "==============================================\n";
+        
+        return response()->streamDownload(function () use ($content) {
+            echo $content;
+        }, 'saft_chaves_completas_' . date('Y-m-d_His') . '.txt', [
+            'Content-Type' => 'text/plain',
+        ]);
+    }
+    
     public function regenerateKeys()
     {
         if (!confirm('Atenção! Regenerar as chaves invalidará todos os documentos assinados. Deseja continuar?')) {

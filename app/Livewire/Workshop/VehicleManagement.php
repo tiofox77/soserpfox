@@ -15,13 +15,16 @@ class VehicleManagement extends Component
     public $search = '';
     public $statusFilter = '';
     
-    // Modal
+    // Modals
     public $showModal = false;
+    public $showViewModal = false;
     public $editMode = false;
     public $vehicleId;
+    public $viewingVehicle;
     
     // Form Fields - Owner
     public $plate = '';
+    public $client_id = '';
     public $owner_name = '';
     public $owner_phone = '';
     public $owner_email = '';
@@ -49,21 +52,77 @@ class VehicleManagement extends Component
     public $status = 'active';
     public $notes = '';
 
-    protected $rules = [
-        'plate' => 'required|string|max:255',
-        'owner_name' => 'required|string|max:255',
-        'owner_phone' => 'nullable|string|max:20',
-        'owner_email' => 'nullable|email|max:255',
-        'brand' => 'required|string|max:255',
-        'model' => 'required|string|max:255',
-        'year' => 'nullable|integer|min:1900|max:' . PHP_INT_MAX,
-        'fuel_type' => 'nullable|in:Gasolina,Diesel,Elétrico,Híbrido,GPL',
-        'status' => 'required|in:active,in_service,completed,inactive',
+    protected function rules()
+    {
+        return [
+            'plate' => [
+                'required',
+                'string',
+                'max:20',
+                \Illuminate\Validation\Rule::unique('workshop_vehicles', 'plate')
+                    ->where('tenant_id', auth()->user()->activeTenantId())
+                    ->ignore($this->vehicleId)
+            ],
+            'owner_name' => 'required|string|max:255',
+            'owner_phone' => 'nullable|string|max:20',
+            'owner_email' => 'nullable|email|max:255',
+            'owner_nif' => 'nullable|string|max:20',
+            'brand' => 'required|string|max:100',
+            'model' => 'required|string|max:100',
+            'year' => 'nullable|integer|min:1900|max:2100',
+            'fuel_type' => 'nullable|in:Gasolina,Diesel,Elétrico,Híbrido,GPL',
+            'status' => 'required|in:active,in_service,completed,inactive',
+        ];
+    }
+    
+    protected $messages = [
+        'plate.required' => 'A matrícula é obrigatória.',
+        'plate.max' => 'A matrícula não pode ter mais de 20 caracteres.',
+        'plate.unique' => 'Esta matrícula já está cadastrada.',
+        'owner_name.required' => 'O nome do proprietário é obrigatório.',
+        'owner_name.max' => 'O nome não pode ter mais de 255 caracteres.',
+        'owner_email.email' => 'O email deve ser válido.',
+        'owner_nif.max' => 'O NIF não pode ter mais de 20 caracteres.',
+        'owner_phone.max' => 'O telefone não pode ter mais de 20 caracteres.',
+        'brand.required' => 'A marca é obrigatória.',
+        'brand.max' => 'A marca não pode ter mais de 100 caracteres.',
+        'model.required' => 'O modelo é obrigatório.',
+        'model.max' => 'O modelo não pode ter mais de 100 caracteres.',
+        'year.integer' => 'O ano deve ser um número.',
+        'year.min' => 'O ano deve ser maior que 1900.',
+        'year.max' => 'O ano não pode ser maior que 2100.',
+        'fuel_type.in' => 'Tipo de combustível inválido.',
+        'status.required' => 'O status é obrigatório.',
     ];
-
+    
     public function updatingSearch()
     {
         $this->resetPage();
+    }
+    
+    public function updatedClientId($value)
+    {
+        if ($value) {
+            $client = \App\Models\Client::find($value);
+            if ($client) {
+                $this->owner_name = $client->name;
+                $this->owner_phone = $client->phone;
+                $this->owner_email = $client->email;
+                $this->owner_nif = $client->nif;
+                $this->owner_address = $client->address;
+            }
+        }
+    }
+    
+    // Validação em tempo real para campos principais
+    public function updated($propertyName)
+    {
+        // Não validar campos de busca e client_id
+        if (in_array($propertyName, ['search', 'statusFilter', 'client_id'])) {
+            return;
+        }
+        
+        $this->validateOnly($propertyName);
     }
 
     public function create()
@@ -79,6 +138,7 @@ class VehicleManagement extends Component
         
         $this->vehicleId = $vehicle->id;
         $this->plate = $vehicle->plate;
+        $this->client_id = $vehicle->client_id;
         $this->owner_name = $vehicle->owner_name;
         $this->owner_phone = $vehicle->owner_phone;
         $this->owner_email = $vehicle->owner_email;
@@ -107,11 +167,17 @@ class VehicleManagement extends Component
 
     public function save()
     {
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->dispatch('error', message: 'Por favor, corrija os erros no formulário.');
+            throw $e;
+        }
 
         $data = [
             'tenant_id' => auth()->user()->activeTenantId(),
             'plate' => $this->plate,
+            'client_id' => $this->client_id ?: null,
             'owner_name' => $this->owner_name,
             'owner_phone' => $this->owner_phone,
             'owner_email' => $this->owner_email,
@@ -126,11 +192,11 @@ class VehicleManagement extends Component
             'fuel_type' => $this->fuel_type,
             'mileage' => $this->mileage,
             'registration_document' => $this->registration_document,
-            'registration_expiry' => $this->registration_expiry,
+            'registration_expiry' => $this->registration_expiry ?: null,
             'insurance_company' => $this->insurance_company,
             'insurance_policy' => $this->insurance_policy,
-            'insurance_expiry' => $this->insurance_expiry,
-            'inspection_expiry' => $this->inspection_expiry,
+            'insurance_expiry' => $this->insurance_expiry ?: null,
+            'inspection_expiry' => $this->inspection_expiry ?: null,
             'status' => $this->status,
             'notes' => $this->notes,
         ];
@@ -138,23 +204,30 @@ class VehicleManagement extends Component
         if ($this->editMode) {
             $vehicle = Vehicle::findOrFail($this->vehicleId);
             $vehicle->update($data);
-            session()->flash('success', 'Veículo atualizado com sucesso!');
+            $this->dispatch('success', message: 'Veículo atualizado com sucesso!');
         } else {
             // Gerar número de veículo
             $data['vehicle_number'] = 'VEH-' . str_pad(Vehicle::count() + 1, 5, '0', STR_PAD_LEFT);
             Vehicle::create($data);
-            session()->flash('success', 'Veículo criado com sucesso!');
+            $this->dispatch('success', message: 'Veículo criado com sucesso!');
         }
 
         $this->closeModal();
     }
 
+    public function view($id)
+    {
+        $this->viewingVehicle = Vehicle::with(['workOrders.mechanic', 'workOrders.items'])
+            ->findOrFail($id);
+        $this->showViewModal = true;
+    }
+    
     public function delete($id)
     {
         $vehicle = Vehicle::findOrFail($id);
         $vehicle->delete();
         
-        session()->flash('success', 'Veículo removido com sucesso!');
+        $this->dispatch('success', message: 'Veículo removido com sucesso!');
     }
 
     public function closeModal()
@@ -162,11 +235,18 @@ class VehicleManagement extends Component
         $this->showModal = false;
         $this->resetForm();
     }
+    
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->viewingVehicle = null;
+    }
 
     private function resetForm()
     {
         $this->vehicleId = null;
         $this->plate = '';
+        $this->client_id = '';
         $this->owner_name = '';
         $this->owner_phone = '';
         $this->owner_email = '';
@@ -208,9 +288,15 @@ class VehicleManagement extends Component
             })
             ->latest()
             ->paginate(10);
+        
+        // Buscar clientes para o select
+        $clients = \App\Models\Client::where('tenant_id', $tenantId)
+            ->orderBy('name')
+            ->get();
 
         return view('livewire.workshop.vehicles.vehicles', [
             'vehicles' => $vehicles,
+            'clients' => $clients,
         ]);
     }
 }

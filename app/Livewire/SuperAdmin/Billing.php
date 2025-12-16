@@ -17,6 +17,8 @@ class Billing extends Component
 
     public $search = '';
     public $statusFilter = '';
+    public $subscriptionSearch = '';
+    public $subscriptionStatusFilter = '';
     public $showModal = false;
     public $editingInvoiceId = null;
 
@@ -299,7 +301,21 @@ class Billing extends Component
         $pendingRevenue = Invoice::where('status', 'pending')->sum('total');
         $tenants = Tenant::where('is_active', true)->get();
         $plans = Plan::with('modules')->where('is_active', true)->orderBy('order')->get();
-        $subscriptions = Subscription::with(['tenant', 'plan.modules'])->latest()->get();
+        
+        // Subscriptions com filtros
+        $subscriptions = Subscription::with(['tenant', 'plan.modules'])
+            ->when($this->subscriptionSearch, function ($query) {
+                $query->whereHas('tenant', function ($q) {
+                    $q->where('name', 'like', '%' . $this->subscriptionSearch . '%');
+                })->orWhereHas('plan', function ($q) {
+                    $q->where('name', 'like', '%' . $this->subscriptionSearch . '%');
+                });
+            })
+            ->when($this->subscriptionStatusFilter, function ($query) {
+                $query->where('status', $this->subscriptionStatusFilter);
+            })
+            ->latest()
+            ->get();
         
         // Pedidos pendentes
         $pendingOrders = Order::with(['tenant', 'user', 'plan'])

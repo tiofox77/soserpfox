@@ -62,7 +62,7 @@
 <!-- Meu Plano Tab -->
 <div class="bg-white rounded-2xl shadow-lg p-6">
     @if($currentPlan)
-        <div class="max-w-2xl mx-auto">
+        <div class="max-w-4xl mx-auto">
             <!-- Plano Atual Card -->
             <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-8 text-white mb-6">
                 <div class="flex items-center justify-between mb-6">
@@ -273,9 +273,111 @@
             </div>
         </div>
     @else
-        <div class="text-center py-12">
-            <i class="fas fa-info-circle text-gray-400 text-5xl mb-4"></i>
-            <p class="text-gray-600">Nenhum plano ativo encontrado</p>
+        {{-- Sem plano ativo - mostrar planos disponíveis --}}
+        <div class="max-w-6xl mx-auto">
+            {{-- Alert de subscription expirada --}}
+            <div class="bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl p-8 text-white mb-8 text-center">
+                <div class="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-4xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold mb-2">Subscription Expirada</h2>
+                <p class="text-red-100 text-lg mb-4">Renove seu plano para continuar utilizando o sistema</p>
+            </div>
+
+            {{-- Planos Disponíveis --}}
+            <div class="text-center mb-8">
+                <h3 class="text-3xl font-bold text-gray-900 mb-2">
+                    <i class="fas fa-rocket text-blue-600 mr-2"></i>
+                    Escolha seu Plano
+                </h3>
+                <p class="text-gray-600">Selecione o melhor plano para o seu negócio</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                @foreach($availablePlans as $plan)
+                    <div class="bg-white rounded-2xl shadow-lg border-2 {{ $plan->is_featured ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200' }} p-6 relative hover:shadow-2xl transition-all transform hover:scale-105">
+                        @if($plan->is_featured)
+                            <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                                <span class="inline-flex items-center px-4 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full shadow-lg">
+                                    <i class="fas fa-fire mr-1"></i>Popular
+                                </span>
+                            </div>
+                        @endif
+
+                        {{-- Header --}}
+                        <div class="text-center mb-4 {{ $plan->is_featured ? 'mt-2' : '' }}">
+                            <div class="w-14 h-14 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-{{ $plan->is_featured ? 'crown' : 'box' }} text-2xl text-blue-600"></i>
+                            </div>
+                            <h4 class="text-xl font-bold text-gray-900 mb-1">{{ $plan->name }}</h4>
+                            <div class="flex items-baseline justify-center space-x-1 mb-2">
+                                <span class="text-3xl font-bold text-gray-900">{{ number_format($plan->price_monthly, 0) }}</span>
+                                <span class="text-sm text-gray-600">Kz/mês</span>
+                            </div>
+                        </div>
+
+                        {{-- Limites Compactos --}}
+                        <div class="space-y-2 mb-4">
+                            <div class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                                <span class="text-xs text-gray-600 flex items-center">
+                                    <i class="fas fa-users mr-2 text-blue-500"></i>Utilizadores
+                                </span>
+                                <span class="font-bold text-gray-900">{{ $plan->max_users }}</span>
+                            </div>
+                            <div class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                                <span class="text-xs text-gray-600 flex items-center">
+                                    <i class="fas fa-database mr-2 text-purple-500"></i>Storage
+                                </span>
+                                <span class="font-bold text-gray-900">{{ number_format($plan->max_storage_mb / 1000, 1) }}GB</span>
+                            </div>
+                        </div>
+
+                        {{-- Features Resumidas (primeiras 3) --}}
+                        @if($plan->features && count($plan->features) > 0)
+                            <div class="space-y-1.5 mb-4 border-t border-gray-100 pt-4">
+                                @foreach(array_slice($plan->features, 0, 3) as $feature)
+                                    <div class="flex items-start space-x-2">
+                                        <i class="fas fa-check text-green-500 text-xs mt-0.5 flex-shrink-0"></i>
+                                        <span class="text-xs text-gray-700">{{ $feature }}</span>
+                                    </div>
+                                @endforeach
+                                @if(count($plan->features) > 3)
+                                    <p class="text-xs text-blue-600 font-medium pt-1">
+                                        + {{ count($plan->features) - 3 }} recursos adicionais
+                                    </p>
+                                @endif
+                            </div>
+                        @endif
+
+                        {{-- Action Button --}}
+                        <button wire:click="openUpgradeModal({{ $plan->id }})" class="w-full px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold transition shadow-lg text-center text-sm">
+                            <i class="fas fa-shopping-cart mr-2"></i>Selecionar Plano
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Info Box --}}
+            <div class="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-5">
+                <div class="flex items-center justify-center space-x-8 text-center flex-wrap gap-4">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-bolt text-blue-600 text-lg"></i>
+                        <span class="text-sm font-semibold text-gray-700">Acesso Imediato</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-shield-alt text-green-600 text-lg"></i>
+                        <span class="text-sm font-semibold text-gray-700">Dados Preservados</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-headset text-purple-600 text-lg"></i>
+                        <span class="text-sm font-semibold text-gray-700">Suporte Prioritário</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-check-circle text-blue-600 text-lg"></i>
+                        <span class="text-sm font-semibold text-gray-700">AGT Angola</span>
+                    </div>
+                </div>
+            </div>
         </div>
     @endif
 </div>

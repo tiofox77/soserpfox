@@ -158,7 +158,7 @@
     @endif
 
     {{-- Import Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {{-- Plano de Contas --}}
         <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition">
             <div class="bg-gradient-to-r from-emerald-500 to-green-600 p-4">
@@ -302,6 +302,57 @@
                 </button>
             </div>
         </div>
+
+        {{-- Tipos de Documentos --}}
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition">
+            <div class="bg-gradient-to-r from-purple-500 to-pink-600 p-4">
+                <h3 class="text-lg font-bold text-white flex items-center">
+                    <i class="fas fa-file-alt mr-2"></i>
+                    Tipos de Documentos
+                </h3>
+            </div>
+            
+            <div class="p-6">
+                <div class="mb-4">
+                    <p class="text-gray-600 text-sm mb-3">Importar 63 tipos de documentos contabilísticos do Excel (Abertura, Caixa, Facturas, etc.)</p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">Tipos Existentes:</span>
+                            <span class="text-2xl font-bold text-purple-600">{{ $stats['documentTypes'] ?? 0 }}</span>
+                        </div>
+                    </div>
+
+                    @if(($stats['documentTypes'] ?? 0) > 0)
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                            <p class="text-xs text-yellow-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Já existem tipos cadastrados. Sincronizar adicionará novos tipos sem duplicar.
+                            </p>
+                        </div>
+                    @else
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                            <p class="text-xs text-blue-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Inclui: Abertura, Caixa AKZ/USD, Facturas, Vendas, Compras, Salários, IVA, etc.
+                            </p>
+                        </div>
+                    @endif
+                </div>
+
+                <button wire:click="importDocumentTypes"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="opacity-50"
+                        class="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition font-semibold">
+                    <span wire:loading.remove wire:target="importDocumentTypes">
+                        <i class="fas fa-download mr-2"></i>Importar Tipos de Documentos
+                    </span>
+                    <span wire:loading wire:target="importDocumentTypes">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Importando...
+                    </span>
+                </button>
+            </div>
+        </div>
     </div>
 
     {{-- Info Section --}}
@@ -315,7 +366,7 @@
                 <ul class="space-y-2 text-sm text-gray-700">
                     <li class="flex items-start">
                         <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>
-                        <span>Importe os dados na ordem: <strong>Plano de Contas → Diários → Períodos</strong></span>
+                        <span>Importe os dados na ordem: <strong>Plano de Contas → Diários → Tipos de Documentos → Períodos</strong></span>
                     </li>
                     <li class="flex items-start">
                         <i class="fas fa-check-circle text-green-600 mr-2 mt-1"></i>

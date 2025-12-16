@@ -804,8 +804,7 @@ class AGTDocumentGenerator extends Component
             'client_id' => $client->id,
             'warehouse_id' => $warehouse->id,
             'issue_date' => now(),
-            'reason' => 'additional_charges',
-            'type' => 'partial',
+            'reason' => 'additional_charge',
             'status' => 'issued',
             'subtotal' => 50.00,
             'tax_amount' => 7.00,
@@ -986,6 +985,72 @@ class AGTDocumentGenerator extends Component
     public function viewDocument($id)
     {
         return redirect()->route('invoicing.invoices.show', $id);
+    }
+    
+    public function cleanAllDocuments()
+    {
+        $tenantId = activeTenantId();
+        
+        $this->addLog('🧹 Iniciando limpeza de documentos...', 'info');
+        
+        DB::beginTransaction();
+        
+        try {
+            // 1. Faturas (Sales Invoices) e seus itens
+            $invoiceCount = SalesInvoice::where('tenant_id', $tenantId)->count();
+            $invoiceIds = SalesInvoice::where('tenant_id', $tenantId)->pluck('id');
+            SalesInvoiceItem::whereIn('sales_invoice_id', $invoiceIds)->delete();
+            SalesInvoice::where('tenant_id', $tenantId)->delete();
+            $this->addLog("✓ {$invoiceCount} faturas removidas", 'success');
+            
+            // 2. Proformas e seus itens
+            $proformaCount = SalesProforma::where('tenant_id', $tenantId)->count();
+            $proformaIds = SalesProforma::where('tenant_id', $tenantId)->pluck('id');
+            SalesProformaItem::whereIn('sales_proforma_id', $proformaIds)->delete();
+            SalesProforma::where('tenant_id', $tenantId)->delete();
+            $this->addLog("✓ {$proformaCount} proformas removidas", 'success');
+            
+            // 3. Notas de Crédito e seus itens
+            $creditNoteCount = CreditNote::where('tenant_id', $tenantId)->count();
+            $creditNoteIds = CreditNote::where('tenant_id', $tenantId)->pluck('id');
+            CreditNoteItem::whereIn('credit_note_id', $creditNoteIds)->delete();
+            CreditNote::where('tenant_id', $tenantId)->delete();
+            $this->addLog("✓ {$creditNoteCount} notas de crédito removidas", 'success');
+            
+            // 4. Notas de Débito e seus itens
+            $debitNoteCount = DebitNote::where('tenant_id', $tenantId)->count();
+            $debitNoteIds = DebitNote::where('tenant_id', $tenantId)->pluck('id');
+            DebitNoteItem::whereIn('debit_note_id', $debitNoteIds)->delete();
+            DebitNote::where('tenant_id', $tenantId)->delete();
+            $this->addLog("✓ {$debitNoteCount} notas de débito removidas", 'success');
+            
+            // 5. POS Orders (se existir a tabela)
+            if (\Schema::hasTable('pos_orders')) {
+                $posCount = \DB::table('pos_orders')->where('tenant_id', $tenantId)->count();
+                $posOrderIds = \DB::table('pos_orders')->where('tenant_id', $tenantId)->pluck('id');
+                \DB::table('pos_order_items')->whereIn('pos_order_id', $posOrderIds)->delete();
+                \DB::table('pos_orders')->where('tenant_id', $tenantId)->delete();
+                $this->addLog("✓ {$posCount} vendas POS removidas", 'success');
+            }
+            
+            // 6. Resetar sequências das séries
+            $series = InvoicingSeries::where('tenant_id', $tenantId)->get();
+            foreach ($series as $s) {
+                $s->update(['current_number' => 0, 'last_number' => 0]);
+            }
+            $this->addLog("✓ Sequências de séries resetadas", 'success');
+            
+            DB::commit();
+            
+            $total = $invoiceCount + $proformaCount + $creditNoteCount + $debitNoteCount;
+            $this->addLog("🎉 Limpeza concluída! Total: {$total} documentos removidos", 'success');
+            $this->dispatch('success', message: 'Todos os documentos foram limpos com sucesso!');
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->addLog('❌ ERRO: ' . $e->getMessage(), 'error');
+            $this->dispatch('error', message: 'Erro ao limpar documentos: ' . $e->getMessage());
+        }
     }
     
     public function render()

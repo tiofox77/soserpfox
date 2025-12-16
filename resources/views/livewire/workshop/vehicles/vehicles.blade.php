@@ -1,18 +1,4 @@
 <div>
-    {{-- Flash Messages --}}
-    @if (session()->has('success'))
-        <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)" 
-             class="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl shadow-lg p-4 text-white flex items-center justify-between">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-2xl mr-3"></i>
-                <span class="font-semibold">{{ session('success') }}</span>
-            </div>
-            <button @click="show = false" class="text-white hover:text-green-100 transition">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    @endif
-
     {{-- Header --}}
     <div class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
         <div class="flex items-center justify-between">
@@ -239,6 +225,11 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex items-center justify-end space-x-2">
+                                    <button wire:click="view({{ $vehicle->id }})" 
+                                            class="text-purple-600 hover:text-purple-900 hover:bg-purple-50 p-2 rounded-lg transition-all"
+                                            title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
                                     <button wire:click="edit({{ $vehicle->id }})" 
                                             class="text-blue-600 hover:text-blue-900 hover:bg-blue-50 p-2 rounded-lg transition-all"
                                             title="Editar">
@@ -274,8 +265,13 @@
         </div>
     </div>
 
-    {{-- Modal --}}
+    {{-- Modal de Edição --}}
     @if($showModal)
         @include('livewire.workshop.vehicles.partials.form-modal')
+    @endif
+    
+    {{-- Modal de Visualização --}}
+    @if($showViewModal)
+        @include('livewire.workshop.vehicles.partials.view-modal')
     @endif
 </div>

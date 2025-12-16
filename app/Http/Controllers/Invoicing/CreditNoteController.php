@@ -13,7 +13,7 @@ class CreditNoteController extends Controller
     {
         try {
             // Buscar NC com relacionamentos
-            $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator'])
+            $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
                 ->findOrFail($id);
             
@@ -29,11 +29,15 @@ class CreditNoteController extends Controller
                 ->limit(4)
                 ->get();
             
+            // Gerar QR Code AGT
+            $qrCode = getAGTQRData($creditNote, 80);
+            
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.credit-note', [
                 'creditNote' => $creditNote,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,
+                'qrCode' => $qrCode,
             ]);
             
             // Configurar tamanho A4 e orientação
@@ -64,7 +68,7 @@ class CreditNoteController extends Controller
     
     public function previewHtml($id)
     {
-        $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator'])
+        $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
             ->findOrFail($id);
         
@@ -79,10 +83,14 @@ class CreditNoteController extends Controller
             ->limit(4)
             ->get();
         
+        // Gerar QR Code AGT
+        $qrCode = getAGTQRData($creditNote, 80);
+        
         return view('pdf.invoicing.credit-note', [
             'creditNote' => $creditNote,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
         ]);
     }
 }

@@ -13,7 +13,7 @@ class ProformaController extends Controller
     {
         try {
             // Buscar proforma com relacionamentos
-            $proforma = \App\Models\Invoicing\SalesProforma::with(['client', 'items.product', 'warehouse', 'creator'])
+            $proforma = \App\Models\Invoicing\SalesProforma::with(['client', 'items.product', 'warehouse', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
                 ->findOrFail($id);
             
@@ -29,11 +29,15 @@ class ProformaController extends Controller
                 ->limit(4)
                 ->get();
             
+            // Gerar QR Code AGT
+            $qrCode = getAGTQRData($proforma, 80);
+            
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.proforma', [
                 'proforma' => $proforma,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,
+                'qrCode' => $qrCode,
             ]);
             
             // Configurar tamanho A4 e orientação
@@ -64,7 +68,7 @@ class ProformaController extends Controller
     public function previewHtml($id)
     {
         // Buscar proforma com relacionamentos
-        $proforma = \App\Models\Invoicing\SalesProforma::with(['client', 'items.product', 'warehouse', 'creator'])
+        $proforma = \App\Models\Invoicing\SalesProforma::with(['client', 'items.product', 'warehouse', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
             ->findOrFail($id);
         
@@ -80,11 +84,15 @@ class ProformaController extends Controller
             ->limit(4)
             ->get();
         
+        // Gerar QR Code AGT
+        $qrCode = getAGTQRData($proforma, 80);
+        
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.proforma', [
             'proforma' => $proforma,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
         ]);
     }
 }

@@ -18,6 +18,7 @@ class Employee extends Model
         'tenant_id',
         'employee_number',
         'user_id',
+        'hotel_staff_id',
         'first_name',
         'last_name',
         'birth_date',

@@ -5,6 +5,7 @@ namespace App\Models\Invoicing;
 use App\Models\Client;
 use App\Models\User;
 use App\Traits\BelongsToTenant;
+use App\Traits\HasAGTSignature;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DebitNote extends Model
 {
-    use BelongsToTenant, SoftDeletes;
+    use BelongsToTenant, SoftDeletes, HasAGTSignature;
 
     protected $table = 'invoicing_debit_notes';
 
@@ -31,6 +32,9 @@ class DebitNote extends Model
         'total',
         'status',
         'saft_hash',
+        'jws_signature',
+        'agt_status',
+        'agt_reference',
         'created_by',
     ];
 
@@ -71,6 +75,11 @@ class DebitNote extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(InvoicingSeries::class, 'series_id');
     }
 
     // Scopes

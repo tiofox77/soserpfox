@@ -74,13 +74,22 @@
             @endforeach
         </div>
 
-        <div class="mt-6 flex justify-between">
+        <div class="mt-6 flex justify-between items-center">
             <div class="text-sm">
                 <span class="font-semibold">{{ count($selectedDocuments) }}</span> de 17 selecionados
             </div>
-            <button wire:click="generateDocuments" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl">
-                Gerar Documentos
-            </button>
+            <div class="flex gap-3">
+                <button wire:click="cleanAllDocuments" 
+                        onclick="return confirm('⚠️ ATENÇÃO!\n\nEsta ação irá remover PERMANENTEMENTE:\n\n• Todas as faturas\n• Todas as proformas\n• Todas as notas de crédito\n• Todas as notas de débito\n• Todas as vendas POS\n• Resetar sequências de séries\n\ndo tenant atual.\n\nDeseja realmente continuar?')"
+                        class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center">
+                    <i class="fas fa-trash-alt mr-2"></i>
+                    Limpar Todos os Documentos
+                </button>
+                <button wire:click="generateDocuments" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center">
+                    <i class="fas fa-file-invoice mr-2"></i>
+                    Gerar Documentos
+                </button>
+            </div>
         </div>
     </div>
 

@@ -59,6 +59,15 @@ class InvoicingSettings extends Model
         'pos_auto_complete_sale',
         'pos_require_customer',
         'pos_default_payment_method_id',
+        'agt_environment',
+        'agt_api_base_url',
+        'agt_client_id',
+        'agt_client_secret',
+        'agt_access_token',
+        'agt_token_expires_at',
+        'agt_auto_submit',
+        'agt_require_validation',
+        'agt_software_certificate',
     ];
 
     protected $casts = [
@@ -86,6 +95,9 @@ class InvoicingSettings extends Model
         'pos_products_per_page' => 'integer',
         'pos_auto_complete_sale' => 'boolean',
         'pos_require_customer' => 'boolean',
+        'agt_auto_submit' => 'boolean',
+        'agt_require_validation' => 'boolean',
+        'agt_token_expires_at' => 'datetime',
     ];
 
     // Relationships

@@ -135,9 +135,11 @@
                         <!-- Product -->
                         <td class="px-6 py-4">
                             <div class="flex items-center">
-                                @if($stock->product->featured_image)
-                                    <img src="{{ Storage::url($stock->product->featured_image) }}" 
-                                         class="h-12 w-12 rounded-xl object-cover shadow-md ring-2 ring-purple-200">
+                                @if($stock->product->image_url)
+                                    <img src="{{ $stock->product->image_url }}" 
+                                         class="h-12 w-12 rounded-xl object-cover shadow-md ring-2 ring-purple-200"
+                                         loading="lazy"
+                                         onerror="this.src='{{ asset('images/placeholder-product.png') }}'">
                                 @else
                                     <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
                                         <i class="fas fa-box text-white text-lg"></i>

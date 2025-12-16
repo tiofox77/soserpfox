@@ -107,3 +107,107 @@ if (!function_exists('hasExceededCompanyLimit')) {
         return $currentCount > $maxAllowed;
     }
 }
+
+// ====== DATE HELPERS (Formato Português) ======
+
+if (!function_exists('formatDate')) {
+    /**
+     * Formatar data para exibição PT (dd/mm/yyyy)
+     */
+    function formatDate($date, $format = 'd/m/Y')
+    {
+        if (!$date) return '';
+        
+        if (is_string($date)) {
+            $date = \Carbon\Carbon::parse($date);
+        }
+        
+        return $date->format($format);
+    }
+}
+
+if (!function_exists('formatDateTime')) {
+    /**
+     * Formatar data e hora PT
+     */
+    function formatDateTime($date, $format = 'd/m/Y H:i')
+    {
+        if (!$date) return '';
+        
+        if (is_string($date)) {
+            $date = \Carbon\Carbon::parse($date);
+        }
+        
+        return $date->format($format);
+    }
+}
+
+if (!function_exists('formatDateLong')) {
+    /**
+     * Formatar data por extenso
+     */
+    function formatDateLong($date)
+    {
+        if (!$date) return '';
+        
+        if (is_string($date)) {
+            $date = \Carbon\Carbon::parse($date);
+        }
+        
+        return $date->locale('pt')->isoFormat('D [de] MMMM [de] YYYY');
+    }
+}
+
+if (!function_exists('dateToDb')) {
+    /**
+     * Converter de formato PT para Y-m-d (para DB)
+     */
+    function dateToDb($date)
+    {
+        if (!$date) return null;
+        
+        // Se já está no formato correto
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $date;
+        }
+        
+        // Converter de dd/mm/yyyy para yyyy-mm-dd
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $date, $matches)) {
+            return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+        }
+        
+        return \Carbon\Carbon::parse($date)->format('Y-m-d');
+    }
+}
+
+if (!function_exists('dateFromDb')) {
+    /**
+     * Converter de Y-m-d para formato PT
+     */
+    function dateFromDb($date)
+    {
+        if (!$date) return '';
+        
+        if (is_string($date)) {
+            $date = \Carbon\Carbon::parse($date);
+        }
+        
+        return $date->format('d/m/Y');
+    }
+}
+
+if (!function_exists('dateDiff')) {
+    /**
+     * Data relativa (há X dias, etc)
+     */
+    function dateDiff($date)
+    {
+        if (!$date) return '';
+        
+        if (is_string($date)) {
+            $date = \Carbon\Carbon::parse($date);
+        }
+        
+        return $date->locale('pt')->diffForHumans();
+    }
+}

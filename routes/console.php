@@ -27,3 +27,10 @@ Schedule::command('orders:reject-expired --days=7')
     ->withoutOverlapping()
     ->onOneServer()
     ->emailOutputOnFailure(config('mail.from.address'));
+
+// Expirar subscriptions vencidas - Executar a cada hora
+Schedule::command('subscriptions:expire')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->emailOutputOnFailure(config('mail.from.address'));

@@ -15,6 +15,7 @@ class Vehicle extends Model
 
     protected $fillable = [
         'tenant_id',
+        'client_id',
         'plate',
         'vehicle_number',
         'owner_name',
@@ -50,10 +51,15 @@ class Vehicle extends Model
 
     protected $appends = ['full_name', 'is_document_expired'];
 
-    // Relationships
+    // Relacionamentos
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);
+    }
+    
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
     }
 
     public function workOrders()

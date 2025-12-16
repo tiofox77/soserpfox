@@ -155,6 +155,22 @@ class SettingsManagement extends Component
         }
     }
     
+    public function importDocumentTypes()
+    {
+        try {
+            $tenantId = auth()->user()->tenant_id;
+            
+            // Rodar seeder de tipos de documentos
+            $seeder = new \Database\Seeders\Accounting\DocumentTypeSeeder();
+            $seeder->runForTenant($tenantId);
+            
+            session()->flash('success', '✅ Tipos de documentos contabilísticos importados com sucesso do Excel!');
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Erro ao importar tipos de documentos: ' . $e->getMessage());
+        }
+    }
+    
     public function toggleIntegration()
     {
         try {
@@ -179,6 +195,7 @@ class SettingsManagement extends Component
             'accounts' => DB::table('accounting_accounts')->where('tenant_id', $tenantId)->count(),
             'journals' => DB::table('accounting_journals')->where('tenant_id', $tenantId)->count(),
             'periods' => DB::table('accounting_periods')->where('tenant_id', $tenantId)->count(),
+            'documentTypes' => DB::table('accounting_document_types')->where('tenant_id', $tenantId)->count(),
         ];
         
         // Buscar tenant para pegar status da integração

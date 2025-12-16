@@ -87,7 +87,14 @@ class OrderObserver
                 ]);
             }
 
-            // 2. CRIAR NOVA SUBSCRIPTION ATIVA
+            // 2. ATIVAR SUBSCRIPTION PENDENTE (ou criar nova se não existir)
+            // Buscar subscription pendente do mesmo plano e tenant
+            $pendingSubscription = $tenant->subscriptions()
+                ->where('plan_id', $newPlan->id)
+                ->where('status', 'pending')
+                ->latest()
+                ->first();
+            
             $startDate = now();
             $endDate = match($order->billing_cycle) {
                 'yearly' => $startDate->copy()->addMonths(14), // 12 + 2 grátis
@@ -95,23 +102,43 @@ class OrderObserver
                 'quarterly' => $startDate->copy()->addMonths(3),
                 default => $startDate->copy()->addMonth(),
             };
+            
+            if ($pendingSubscription) {
+                // ATIVAR a subscription pendente existente
+                $pendingSubscription->update([
+                    'status' => 'active',
+                    'current_period_start' => $startDate,
+                    'current_period_end' => $endDate,
+                    'ends_at' => $endDate,
+                ]);
+                
+                $newSubscription = $pendingSubscription;
+                
+                \Log::info("✅ Subscription pendente ATIVADA", [
+                    'tenant_id' => $tenant->id,
+                    'subscription_id' => $newSubscription->id,
+                    'new_plan' => $newPlan->name,
+                    'period' => "{$startDate->format('Y-m-d')} até {$endDate->format('Y-m-d')}",
+                ]);
+            } else {
+                // CRIAR nova subscription (caso não exista pendente)
+                $newSubscription = $tenant->subscriptions()->create([
+                    'plan_id' => $newPlan->id,
+                    'status' => 'active',
+                    'billing_cycle' => $order->billing_cycle ?? 'monthly',
+                    'amount' => $order->amount,
+                    'current_period_start' => $startDate,
+                    'current_period_end' => $endDate,
+                    'ends_at' => $endDate,
+                ]);
 
-            $newSubscription = $tenant->subscriptions()->create([
-                'plan_id' => $newPlan->id,
-                'status' => 'active',
-                'billing_cycle' => $order->billing_cycle ?? 'monthly',
-                'amount' => $order->amount,
-                'current_period_start' => $startDate,
-                'current_period_end' => $endDate,
-                'ends_at' => $endDate,
-            ]);
-
-            \Log::info("🎉 Nova subscription criada e ativada", [
-                'tenant_id' => $tenant->id,
-                'subscription_id' => $newSubscription->id,
-                'new_plan' => $newPlan->name,
-                'period' => "{$startDate->format('Y-m-d')} até {$endDate->format('Y-m-d')}",
-            ]);
+                \Log::info("🎉 Nova subscription criada e ativada", [
+                    'tenant_id' => $tenant->id,
+                    'subscription_id' => $newSubscription->id,
+                    'new_plan' => $newPlan->name,
+                    'period' => "{$startDate->format('Y-m-d')} até {$endDate->format('Y-m-d')}",
+                ]);
+            }
 
             // 3. SINCRONIZAR MÓDULOS
             $this->syncModules($tenant, $oldPlan, $newPlan);
@@ -434,6 +461,22 @@ class OrderObserver
         if (!$tenant || !$plan) {
             \Log::error("❌ Tenant ou Plano não encontrado para rejeição", ['order_id' => $order->id]);
             return;
+        }
+        
+        // REMOVER subscription pendente relacionada ao pedido rejeitado
+        $pendingSubscription = $tenant->subscriptions()
+            ->where('plan_id', $plan->id)
+            ->where('status', 'pending')
+            ->latest()
+            ->first();
+        
+        if ($pendingSubscription) {
+            $pendingSubscription->delete();
+            \Log::info("🗑️ Subscription pendente removida após rejeição", [
+                'subscription_id' => $pendingSubscription->id,
+                'tenant_id' => $tenant->id,
+                'plan' => $plan->name,
+            ]);
         }
         
         $user = $order->user;

@@ -55,6 +55,8 @@ class NotificationTemplate extends Model
             'crm' => 'CRM',
             'projects' => 'Projetos',
             'tasks' => 'Tarefas',
+            'hotel' => 'Gestão de Hotel',
+            'workshop' => 'Gestão de Oficina',
         ];
     }
 

@@ -13,7 +13,7 @@ class DebitNoteController extends Controller
     {
         try {
             // Buscar ND com relacionamentos
-            $debitNote = DebitNote::with(['client', 'invoice', 'items.product', 'creator'])
+            $debitNote = DebitNote::with(['client', 'invoice', 'items.product', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
                 ->findOrFail($id);
             
@@ -29,11 +29,15 @@ class DebitNoteController extends Controller
                 ->limit(4)
                 ->get();
             
+            // Gerar QR Code AGT
+            $qrCode = getAGTQRData($debitNote, 80);
+            
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.debit-note', [
                 'debitNote' => $debitNote,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,
+                'qrCode' => $qrCode,
             ]);
             
             // Configurar tamanho A4 e orientação
@@ -65,7 +69,7 @@ class DebitNoteController extends Controller
     public function previewHtml($id)
     {
         // Buscar ND com relacionamentos
-        $debitNote = DebitNote::with(['client', 'invoice', 'items.product', 'creator'])
+        $debitNote = DebitNote::with(['client', 'invoice', 'items.product', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
             ->findOrFail($id);
         
@@ -81,11 +85,15 @@ class DebitNoteController extends Controller
             ->limit(4)
             ->get();
         
+        // Gerar QR Code AGT
+        $qrCode = getAGTQRData($debitNote, 80);
+        
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.debit-note', [
             'debitNote' => $debitNote,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
         ]);
     }
 }

@@ -42,10 +42,16 @@
                         </p>
                     </div>
                     
-                    <button wire:click="downloadPublicKey" 
-                            class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition">
-                        <i class="fas fa-download mr-2"></i>Download Chave Pública
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button wire:click="downloadPublicKey" 
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition text-sm">
+                            <i class="fas fa-download mr-1"></i>PEM
+                        </button>
+                        <button wire:click="downloadPublicKeyTxt" 
+                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition text-sm">
+                            <i class="fas fa-file-alt mr-1"></i>TXT
+                        </button>
+                    </div>
                 @else
                     <div class="text-center py-8">
                         <i class="fas fa-exclamation-triangle text-6xl text-gray-300 mb-4"></i>
@@ -84,10 +90,16 @@
                         </p>
                     </div>
                     
-                    <button wire:click="downloadPrivateKey" 
-                            class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition">
-                        <i class="fas fa-download mr-2"></i>Download Chave Privada
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button wire:click="downloadPrivateKey" 
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition text-sm">
+                            <i class="fas fa-download mr-1"></i>PEM
+                        </button>
+                        <button wire:click="downloadPrivateKeyTxt" 
+                                class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold transition text-sm">
+                            <i class="fas fa-file-alt mr-1"></i>TXT
+                        </button>
+                    </div>
                 @else
                     <div class="text-center py-8">
                         <i class="fas fa-exclamation-triangle text-6xl text-gray-300 mb-4"></i>
@@ -97,6 +109,37 @@
             </div>
         </div>
     </div>
+
+    {{-- Download Completo --}}
+    @if($publicKeyExists && $privateKeyExists)
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+        <div class="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4">
+            <h3 class="text-white font-bold text-lg flex items-center">
+                <i class="fas fa-file-download mr-2"></i>
+                Download Completo
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h4 class="font-bold text-gray-900 mb-2">Baixar Ambas as Chaves em TXT</h4>
+                    <p class="text-sm text-gray-600 mb-2">
+                        Download de arquivo único contendo chave pública + privada com metadados completos
+                    </p>
+                    <div class="flex items-center text-xs text-gray-500 space-x-4">
+                        <span><i class="fas fa-check text-green-600 mr-1"></i>Metadados inclusos</span>
+                        <span><i class="fas fa-check text-green-600 mr-1"></i>Formato legível</span>
+                        <span><i class="fas fa-shield-alt text-red-600 mr-1"></i>Mantenha seguro</span>
+                    </div>
+                </div>
+                <button wire:click="downloadBothKeysTxt" 
+                        class="ml-4 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-semibold transition shadow-lg flex items-center">
+                    <i class="fas fa-download mr-2"></i>Download TXT Completo
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- Ações --}}
     <div class="bg-white rounded-2xl shadow-xl overflow-hidden">

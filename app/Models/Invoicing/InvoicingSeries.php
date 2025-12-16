@@ -26,6 +26,12 @@ class InvoicingSeries extends Model
         'current_year',
         'reset_yearly',
         'description',
+        'agt_series_id',
+        'atcud_validation_code',
+        'agt_status',
+        'agt_environment',
+        'agt_registered_at',
+        'agt_response',
     ];
 
     protected $casts = [
@@ -36,7 +42,22 @@ class InvoicingSeries extends Model
         'next_number' => 'integer',
         'number_padding' => 'integer',
         'current_year' => 'integer',
+        'agt_registered_at' => 'datetime',
+        'agt_response' => 'array',
     ];
+
+    // Verifica se a série está registada na AGT
+    public function isAGTRegistered(): bool
+    {
+        return !empty($this->agt_series_id);
+    }
+
+    // Gera ATCUD para documento
+    public function generateATCUD(int $sequentialNumber): string
+    {
+        $validationCode = $this->atcud_validation_code ?? '0';
+        return $validationCode . '-' . $sequentialNumber;
+    }
 
     // Relationships
     public function tenant()

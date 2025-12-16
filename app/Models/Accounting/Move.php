@@ -15,6 +15,7 @@ class Move extends Model
         'tenant_id',
         'journal_id',
         'period_id',
+        'document_type_id',
         'date',
         'ref',
         'narration',
@@ -42,6 +43,11 @@ class Move extends Model
     public function period(): BelongsTo
     {
         return $this->belongsTo(Period::class);
+    }
+    
+    public function documentType(): BelongsTo
+    {
+        return $this->belongsTo(DocumentType::class);
     }
     
     public function lines(): HasMany

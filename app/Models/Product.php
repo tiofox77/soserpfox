@@ -63,7 +63,9 @@ class Product extends Model
         // Define o prefixo baseado no tipo
         $prefix = $type === 'servico' ? 'SVC' : 'PROD';
         
-        $lastProduct = static::where('tenant_id', $tenantId)
+        // Usar withoutGlobalScopes para ignorar filtros de módulo
+        $lastProduct = \App\Models\Product::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
             ->where('code', 'like', $prefix . '%')
             ->orderBy('code', 'desc')
             ->first();
@@ -149,5 +151,41 @@ class Product extends Model
     public function getSalePriceAttribute()
     {
         return $this->price ?? 0;
+    }
+    
+    /**
+     * Accessor: URL absoluta da imagem com domínio de produção
+     * Garante que sempre use o domínio correto, mesmo em ambiente local
+     * 
+     * @return string|null
+     */
+    public function getImageUrlAttribute()
+    {
+        if (!$this->featured_image) {
+            return null;
+        }
+        
+        // Se a imagem já for uma URL completa (http:// ou https://), retornar como está
+        if (filter_var($this->featured_image, FILTER_VALIDATE_URL)) {
+            return $this->featured_image;
+        }
+        
+        // Verificar se há um domínio de imagens configurado
+        $imagesDomain = config('app.images_url', config('app.url'));
+        
+        // Se o caminho começar com '/', usar diretamente
+        if (str_starts_with($this->featured_image, '/')) {
+            return rtrim($imagesDomain, '/') . $this->featured_image;
+        }
+        
+        // Caso contrário, usar Storage::url() mas forçar domínio absoluto
+        $storagePath = \Storage::url($this->featured_image);
+        
+        // Garantir URL absoluta
+        if (!str_starts_with($storagePath, 'http')) {
+            return rtrim($imagesDomain, '/') . '/' . ltrim($storagePath, '/');
+        }
+        
+        return $storagePath;
     }
 }

@@ -59,6 +59,31 @@
             {{-- Tab: Proprietário --}}
             <div x-show="activeTab === 'owner'" class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {{-- Seleção de Cliente Existente --}}
+                    <div class="md:col-span-2 mb-4">
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-4">
+                            <label class="block text-sm font-bold text-blue-900 mb-3">
+                                <i class="fas fa-user-tie mr-2 text-blue-600"></i>Cliente Vinculado
+                                <span class="ml-2 text-xs text-blue-600">(opcional)</span>
+                            </label>
+                            <select wire:model.live="client_id" 
+                                    class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white">
+                                <option value="">➕ Criar novo cliente / Preencher manualmente</option>
+                                @foreach($clients as $client)
+                                    <option value="{{ $client->id }}">
+                                        {{ $client->name }} 
+                                        @if($client->nif) • NIF: {{ $client->nif }} @endif
+                                        @if($client->phone) • {{ $client->phone }} @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-blue-700 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Selecione um cliente existente ou deixe em branco para criar novo
+                            </p>
+                        </div>
+                    </div>
+                    
                     <div class="md:col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-user mr-1 text-blue-600"></i>Nome do Proprietário *
@@ -75,8 +100,9 @@
                             <i class="fas fa-phone mr-1 text-green-600"></i>Telefone
                         </label>
                         <input type="text" wire:model="owner_phone" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               class="w-full px-4 py-2.5 border @error('owner_phone') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="+244 900 000 000">
+                        @error('owner_phone') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div>
@@ -84,8 +110,9 @@
                             <i class="fas fa-envelope mr-1 text-purple-600"></i>Email
                         </label>
                         <input type="email" wire:model="owner_email" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               class="w-full px-4 py-2.5 border @error('owner_email') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="email@example.com">
+                        @error('owner_email') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div>
@@ -93,8 +120,9 @@
                             <i class="fas fa-id-card mr-1 text-orange-600"></i>NIF
                         </label>
                         <input type="text" wire:model="owner_nif" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               class="w-full px-4 py-2.5 border @error('owner_nif') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="Número de identificação fiscal">
+                        @error('owner_nif') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div>
@@ -149,8 +177,9 @@
                             <i class="fas fa-calendar mr-1 text-green-600"></i>Ano
                         </label>
                         <input type="number" wire:model="year" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               class="w-full px-4 py-2.5 border @error('year') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                placeholder="2020">
+                        @error('year') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div>
@@ -282,10 +311,36 @@
                     class="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-semibold transition-all">
                 <i class="fas fa-times mr-2"></i>Cancelar
             </button>
-            <button type="submit" wire:click="save"
-                    class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg transition-all">
-                <i class="fas fa-save mr-2"></i>Salvar Veículo
+            <button type="submit" wire:click="save" wire:loading.attr="disabled"
+                    class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="save">
+                    <i class="fas fa-save mr-2"></i>Salvar Veículo
+                </span>
+                <span wire:loading wire:target="save">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
+                </span>
             </button>
         </div>
     </div>
+    
+    {{-- Script para scroll automático para primeiro erro --}}
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.hook('message.processed', (message, component) => {
+                // Aguardar renderização do DOM
+                setTimeout(() => {
+                    const firstError = document.querySelector('.border-red-500');
+                    if (firstError) {
+                        // Scroll suave para o campo com erro
+                        firstError.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                        // Focar no campo
+                        firstError.focus();
+                    }
+                }, 100);
+            });
+        });
+    </script>
 </div>

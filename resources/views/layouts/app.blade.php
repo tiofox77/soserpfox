@@ -453,7 +453,7 @@
                 </div>
 
                 <!-- Menu -->
-                <nav class="flex-1 overflow-y-auto py-4">
+                <nav id="sidebar-menu" class="flex-1 overflow-y-auto py-4">
                     <div class="px-3 mb-2">
                         <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Menu Principal</p>
                     </div>
@@ -1069,6 +1069,12 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Diários</span>
                                 </a>
                                 
+                                <a href="{{ route('accounting.document-types') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.document-types*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-file-alt w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Documentos</span>
+                                </a>
+                                
                                 <a href="{{ route('accounting.moves') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.moves*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-invoice w-5 text-green-400 text-sm"></i>
@@ -1170,10 +1176,22 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Veículos</span>
                                 </a>
                                 
+                                <a href="{{ route('workshop.mechanics') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.mechanics*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-user-cog w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Mecânicos</span>
+                                </a>
+                                
                                 <a href="{{ route('workshop.services') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.services*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tools w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Serviços</span>
+                                </a>
+                                
+                                <a href="{{ route('workshop.parts') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.parts*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-boxes w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Peças</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.work-orders') }}" 
@@ -1186,6 +1204,204 @@
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.reports*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-green-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('hotel'))
+                        <!-- Hotel Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ hotelOpen: {{ request()->routeIs('hotel.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="hotelOpen = !hotelOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-hotel w-6 text-purple-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Gestão de Hotel</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="hotelOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="hotelOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('hotel.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.dashboard') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.reservations') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.reservations*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-check w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Reservas</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.walk-in') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.walk-in*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-walking w-5 text-emerald-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Walk-in</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.checkout') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.checkout*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-sign-out-alt w-5 text-red-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Check-out</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.calendar') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.calendar*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-alt w-5 text-indigo-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Calendário</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.housekeeping') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.housekeeping*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-broom w-5 text-teal-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Housekeeping</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.maintenance') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.maintenance*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tools w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Manutenção</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.staff') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.staff*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-users w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Funcionarios</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.rooms') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.rooms*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-door-open w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Quartos</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.room-types') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.room-types*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-bed w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Quarto</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.guests') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.guests*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-users w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Hóspedes</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.reports') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.reports*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-bar w-5 text-amber-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.rates') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.rates*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tags w-5 text-amber-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tarifas</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.packages') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.packages*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-gift w-5 text-pink-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Pacotes</span>
+                                </a>
+                                
+                                <a href="{{ route('hotel.settings') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.settings*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('salon'))
+                        <!-- Salon Module - Collapsible Menu -->
+                        <div class="mt-6" x-data="{ salonOpen: {{ request()->routeIs('salon.*') ? 'true' : 'false' }} }">
+                            <!-- Header do Módulo -->
+                            <button @click="salonOpen = !salonOpen" 
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-spa w-6 text-pink-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Salão de Beleza</span>
+                                </div>
+                                <i x-show="sidebarOpen" 
+                                   :class="salonOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            
+                            <!-- Submenu Items -->
+                            <div x-show="salonOpen" 
+                                 x-collapse
+                                 class="bg-blue-900/30">
+                                
+                                <a href="{{ route('salon.dashboard') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.dashboard') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.appointments') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.appointments*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-check w-5 text-green-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Agendamentos</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.clients') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.clients*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-users w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Clientes</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.services') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.services') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cut w-5 text-purple-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Serviços</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.services.categories') }}" 
+                                   class="flex items-center pl-10 pr-4 py-2 {{ request()->routeIs('salon.services.categories') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-folder w-4 text-pink-300 text-xs"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-xs text-blue-200">Categorias</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.professionals') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.professionals*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-user-tie w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Profissionais</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.products') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.products*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-boxes w-5 text-emerald-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Produtos</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.pos') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.pos*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cash-register w-5 text-yellow-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">POS / Faturar</span>
+                                </a>
+                                
+                                <a href="{{ route('salon.reports.time') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.reports.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-bar w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                </a>
+                                
+                                <div class="border-t border-blue-700/50 my-2"></div>
+                                
+                                <a href="{{ route('salon.settings') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.settings') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
                                 </a>
                             </div>
                         </div>
@@ -1484,6 +1700,16 @@
                 </div>
                 @endif
 
+                <!-- Suporte Menu -->
+                <div class="mt-auto border-t border-blue-700 pt-4">
+                    <a href="{{ route('support.tickets') }}" 
+                       class="flex items-center px-4 py-3 {{ request()->routeIs('support.*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition group">
+                        <i class="fas fa-life-ring text-2xl text-purple-400"></i>
+                        <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Suporte</span>
+                        <span x-show="sidebarOpen" class="ml-auto text-xs bg-purple-500 px-2 py-1 rounded-full">Novo</span>
+                    </a>
+                </div>
+
                 <!-- User Menu -->
                 <div class="border-t border-blue-700 p-4">
                     <div x-data="{ open: false }" class="relative">
@@ -1606,9 +1832,29 @@
             "timeOut": "3000"
         };
 
-        // Configuração global do Livewire - Listener único para notificações
+        // Configuração global do Livewire - Listeners para notificações
         document.addEventListener('livewire:init', () => {
-            // Listener único para notificações (evita duplicação)
+            // Listener para notificações de sucesso
+            Livewire.on('success', (event) => {
+                toastr.success(event.message || event[0].message || 'Operação realizada com sucesso!');
+            });
+            
+            // Listener para notificações de erro
+            Livewire.on('error', (event) => {
+                toastr.error(event.message || event[0].message || 'Ocorreu um erro!');
+            });
+            
+            // Listener para notificações de aviso
+            Livewire.on('warning', (event) => {
+                toastr.warning(event.message || event[0].message || 'Atenção!');
+            });
+            
+            // Listener para notificações de informação
+            Livewire.on('info', (event) => {
+                toastr.info(event.message || event[0].message || 'Informação!');
+            });
+            
+            // Listener único para notificações (evita duplicação) - Mantido para compatibilidade
             Livewire.on('notify', (event) => {
                 const data = event[0] || event;
                 const type = data.type || 'info';
@@ -1630,10 +1876,49 @@
         });
     </script>
     
+    <!-- Sidebar Scroll Memory -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarMenu = document.getElementById('sidebar-menu');
+            const scrollKey = 'sidebar-scroll-position';
+            
+            if (!sidebarMenu) return;
+            
+            // Restaurar posição do scroll ao carregar
+            const savedScrollPosition = localStorage.getItem(scrollKey);
+            if (savedScrollPosition !== null) {
+                sidebarMenu.scrollTop = parseInt(savedScrollPosition, 10);
+            }
+            
+            // Salvar posição do scroll quando rolar
+            let scrollTimeout;
+            sidebarMenu.addEventListener('scroll', function() {
+                // Debounce para não salvar a cada pixel
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(function() {
+                    localStorage.setItem(scrollKey, sidebarMenu.scrollTop);
+                }, 100);
+            });
+            
+            // Também salvar quando clicar em qualquer link da sidebar
+            const sidebarLinks = sidebarMenu.querySelectorAll('a, button');
+            sidebarLinks.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    localStorage.setItem(scrollKey, sidebarMenu.scrollTop);
+                });
+            });
+        });
+    </script>
+    
     <!-- Custom Scripts Stack -->
     @stack('scripts')
     
     <!-- Componente para enviar email de boas-vindas após redirect -->
     @livewire('send-welcome-email')
+    
+    <!-- Botão Flutuante de Suporte -->
+    @if(!auth()->user()->isSuperAdmin())
+        @include('components.support-button')
+    @endif
 </body>
 </html>

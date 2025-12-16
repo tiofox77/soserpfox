@@ -21,6 +21,11 @@ Route::get('/tenant-deactivated', function () {
     return view('auth.tenant-deactivated');
 })->name('tenant.deactivated');
 
+// Subscription Expired Page
+Route::get('/subscription-expired', function () {
+    return view('subscription-expired');
+})->middleware('auth')->name('subscription.expired');
+
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 // My Account Route
@@ -161,9 +166,10 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     });
     
     // Configurações
-    Route::get('/settings', \App\Livewire\Invoicing\Settings::class)->name('settings');
-    Route::get('/series', \App\Livewire\Invoicing\SeriesManagement::class)->name('series');
-    Route::get('/taxes', \App\Livewire\Invoicing\TaxManagement::class)->name('taxes');
+    Route::middleware('permission:invoicing.settings.view')->get('/settings', \App\Livewire\Invoicing\Settings::class)->name('settings');
+    Route::middleware('permission:invoicing.series.view')->get('/series', \App\Livewire\Invoicing\SeriesManagement::class)->name('series');
+    Route::middleware('permission:invoicing.taxes.view')->get('/taxes', \App\Livewire\Invoicing\TaxManagement::class)->name('taxes');
+    Route::middleware('permission:invoicing.agt.view')->get('/agt-settings', \App\Livewire\Invoicing\AGTSettings::class)->name('agt-settings');
     
     // Armazéns e Stock
     Route::get('/warehouses', \App\Livewire\Invoicing\Warehouses::class)->name('warehouses');
@@ -298,6 +304,7 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
     Route::get('/accounts', \App\Livewire\Accounting\AccountManagement::class)->name('accounts');
     Route::get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
+    Route::get('/document-types', \App\Livewire\Accounting\DocumentTypeManagement::class)->name('document-types');
     Route::get('/moves', \App\Livewire\Accounting\MoveManagement::class)->name('moves');
     Route::get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
     Route::get('/reports', \App\Livewire\Accounting\ReportsManagement::class)->name('reports');
@@ -322,8 +329,11 @@ Route::middleware(['auth'])->prefix('notifications')->name('notifications.')->gr
 Route::middleware(['auth'])->prefix('workshop')->name('workshop.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
     Route::get('/vehicles', \App\Livewire\Workshop\VehicleManagement::class)->name('vehicles');
+    Route::get('/mechanics', \App\Livewire\Workshop\MechanicManagement::class)->name('mechanics');
     Route::get('/services', \App\Livewire\Workshop\ServiceManagement::class)->name('services');
+    Route::get('/parts', \App\Livewire\Workshop\PartManagement::class)->name('parts');
     Route::get('/work-orders', \App\Livewire\Workshop\WorkOrderManagement::class)->name('work-orders');
+    Route::get('/work-orders/{id}/print', [\App\Http\Controllers\Workshop\WorkOrderController::class, 'printPreview'])->name('work-orders.print');
     Route::get('/reports', \App\Livewire\Workshop\Reports::class)->name('reports');
 });
 
@@ -357,4 +367,50 @@ Route::middleware(['auth'])->prefix('projetos')->name('projetos.')->group(functi
     Route::get('/lista', fn() => view('modules.under-construction', ['module' => 'Lista de Projetos']))->name('lista');
     Route::get('/tarefas', fn() => view('modules.under-construction', ['module' => 'Tarefas']))->name('tarefas');
     Route::get('/timesheet', fn() => view('modules.under-construction', ['module' => 'Timesheet']))->name('timesheet');
+});
+
+// Hotel Module Routes
+Route::middleware(['auth'])->prefix('hotel')->name('hotel.')->group(function () {
+    Route::get('/dashboard', \App\Livewire\Hotel\Dashboard::class)->name('dashboard');
+    Route::get('/room-types', \App\Livewire\Hotel\RoomTypeManagement::class)->name('room-types');
+    Route::get('/rooms', \App\Livewire\Hotel\RoomManagement::class)->name('rooms');
+    Route::get('/guests', \App\Livewire\Hotel\GuestManagement::class)->name('guests');
+    Route::get('/reservations', \App\Livewire\Hotel\ReservationManagement::class)->name('reservations');
+    Route::get('/walk-in', \App\Livewire\Hotel\WalkIn::class)->name('walk-in');
+    Route::get('/checkout', \App\Livewire\Hotel\Checkout::class)->name('checkout');
+    Route::get('/calendar', \App\Livewire\Hotel\CalendarReservation::class)->name('calendar');
+    Route::get('/housekeeping', \App\Livewire\Hotel\HousekeepingDashboard::class)->name('housekeeping');
+    Route::get('/maintenance', \App\Livewire\Hotel\MaintenanceManagement::class)->name('maintenance');
+    Route::get('/staff', \App\Livewire\Hotel\StaffManagement::class)->name('staff');
+    Route::get('/reports', \App\Livewire\Hotel\Reports::class)->name('reports');
+    Route::get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
+    Route::get('/packages', \App\Livewire\Hotel\PackageManagement::class)->name('packages');
+    Route::get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
+});
+
+// Hotel Booking Online (Public)
+Route::get('/booking/{tenant?}', \App\Livewire\Hotel\BookingOnline::class)->name('booking.online');
+Route::get('/hotel/booking/{slug}', \App\Livewire\Hotel\HotelBookingOnline::class)->name('hotel.booking.online');
+
+// Salon Module Routes
+Route::middleware(['auth'])->prefix('salon')->name('salon.')->group(function () {
+    Route::get('/dashboard', \App\Livewire\Salon\Dashboard::class)->name('dashboard');
+    Route::get('/appointments', \App\Livewire\Salon\AppointmentManagement::class)->name('appointments');
+    Route::get('/services', \App\Livewire\Salon\ServiceManagement::class)->name('services');
+    Route::get('/services/categories', \App\Livewire\Salon\ServiceCategoryManagement::class)->name('services.categories');
+    Route::get('/professionals', \App\Livewire\Salon\ProfessionalManagement::class)->name('professionals');
+    Route::get('/clients', \App\Livewire\Salon\ClientManagement::class)->name('clients');
+    Route::get('/products', \App\Livewire\Salon\ProductManagement::class)->name('products');
+    Route::get('/pos', \App\Livewire\Salon\SalonPOS::class)->name('pos');
+    Route::get('/reports/time', \App\Livewire\Salon\TimeReport::class)->name('reports.time');
+    Route::get('/settings', \App\Livewire\Salon\SalonSettingsManagement::class)->name('settings');
+});
+
+// Salon Booking Online (Public) - Landing Page Customizada
+Route::get('/agendar/{slug}', \App\Livewire\Salon\SalonBookingOnline::class)->name('salon.booking.online');
+
+// Support/Help Center Routes
+Route::middleware(['auth'])->prefix('support')->name('support.')->group(function () {
+    Route::get('/tickets', \App\Livewire\Support\TicketsManagement::class)->name('tickets');
+    Route::get('/features', \App\Livewire\Support\FeatureRequestsBoard::class)->name('features');
 });

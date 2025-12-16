@@ -41,7 +41,7 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-book mr-1 text-green-600"></i>Diário *
                         </label>
-                        <select wire:model="journal_id" 
+                        <select wire:model.live="journal_id" 
                                 class="w-full px-4 py-2.5 border @error('journal_id') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-green-500"
                                 required>
                             <option value="">Selecione...</option>
@@ -55,6 +55,7 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-calendar mr-1 text-green-600"></i>Período *
+                            <span class="text-xs font-normal text-gray-500">(mês atual)</span>
                         </label>
                         <select wire:model="period_id" 
                                 class="w-full px-4 py-2.5 border @error('period_id') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-green-500"
@@ -80,10 +81,12 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-hashtag mr-1 text-green-600"></i>Referência *
+                            <span class="text-xs font-normal text-gray-500">(gerada automaticamente)</span>
                         </label>
                         <input type="text" wire:model="ref" 
-                               class="w-full px-4 py-2.5 border @error('ref') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-green-500"
-                               placeholder="Ex: LC-001"
+                               class="w-full px-4 py-2.5 border @error('ref') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-green-500 bg-gray-50"
+                               placeholder="Selecione o diário..."
+                               readonly
                                required>
                         @error('ref') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>

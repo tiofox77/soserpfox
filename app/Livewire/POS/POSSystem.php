@@ -46,8 +46,11 @@ class POSSystem extends Component
     public $cartTotal = 0;
     public $cartSubtotal = 0;
     public $cartTax = 0;
+    public $cartIrt = 0;
     public $cartDiscount = 0;
     public $cartQuantity = 0;
+    public $taxRate = 14;
+    public $irtRate = 6.5;
     public $change = 0;
     
     // Quick amounts (trocos rápidos)
@@ -102,6 +105,16 @@ class POSSystem extends Component
         $this->cartSubtotal = Cart::session(auth()->id())->getSubTotal();
         $this->cartQuantity = Cart::session(auth()->id())->getTotalQuantity();
         
+        // Obter configurações de impostos
+        $settings = InvoicingSettings::forTenant(activeTenantId());
+        $defaultTaxRate = $settings->default_tax_rate ?? 14;
+        $defaultIrtRate = $settings->default_irt_rate ?? 6.5;
+        $applyIrtServices = $settings->apply_irt_services ?? true;
+        
+        // Guardar taxas para exibição
+        $this->taxRate = $defaultTaxRate;
+        $this->irtRate = $defaultIrtRate;
+        
         // Garantir que desconto seja numérico
         $discount = is_numeric($this->discount) ? floatval($this->discount) : 0;
         
@@ -112,12 +125,27 @@ class POSSystem extends Component
             $this->cartDiscount = $discount;
         }
         
-        // Calcular IVA (14%)
+        // Calcular impostos por item (IVA e IRT para serviços)
         $subtotalAfterDiscount = $this->cartSubtotal - $this->cartDiscount;
-        $this->cartTax = $subtotalAfterDiscount * 0.14;
+        $this->cartTax = 0;
+        $this->cartIrt = 0;
         
-        // Total final
-        $this->cartTotal = $subtotalAfterDiscount + $this->cartTax;
+        foreach ($this->cartItems as $item) {
+            $itemTotal = $item->price * $item->quantity;
+            $isService = isset($item->attributes['type']) && $item->attributes['type'] === 'service';
+            
+            // Taxa de IVA do item ou padrão
+            $taxRate = $item->attributes['tax_rate'] ?? $defaultTaxRate;
+            $this->cartTax += $itemTotal * ($taxRate / 100);
+            
+            // IRT para serviços
+            if ($isService && $applyIrtServices) {
+                $this->cartIrt += $itemTotal * ($defaultIrtRate / 100);
+            }
+        }
+        
+        // Total final (subtotal - desconto + IVA - IRT retido)
+        $this->cartTotal = $subtotalAfterDiscount + $this->cartTax - $this->cartIrt;
         
         $this->calculateChange();
     }
@@ -296,29 +324,39 @@ class POSSystem extends Component
 
     public function increaseQuantity($itemId)
     {
-        $product = Product::find($itemId);
         $cartItem = Cart::session(auth()->id())->get($itemId);
         
-        if (!$product) {
+        if (!$cartItem) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Produto não encontrado!'
+                'message' => '❌ Item não encontrado no carrinho!'
             ]);
             return;
         }
         
         $newQuantity = $cartItem->quantity + 1;
+        $isService = isset($cartItem->attributes['type']) && $cartItem->attributes['type'] === 'service';
         
-        // Validar stock disponível
-        if ($newQuantity > $product->stock_quantity) {
-            // Disparar som de erro
-            $this->dispatch('stock-error');
+        // Para produtos, validar stock disponível
+        if (!$isService) {
+            $product = Product::find($itemId);
             
-            $this->dispatch('notify', [
-                'type' => 'warning',
-                'message' => '⚠️ Stock máximo atingido! Disponível: ' . $product->stock_quantity . ' un'
-            ]);
-            return;
+            if (!$product) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => '❌ Produto não encontrado!'
+                ]);
+                return;
+            }
+            
+            if ($newQuantity > $product->stock_quantity) {
+                $this->dispatch('stock-error');
+                $this->dispatch('notify', [
+                    'type' => 'warning',
+                    'message' => '⚠️ Stock máximo atingido! Disponível: ' . $product->stock_quantity . ' un'
+                ]);
+                return;
+            }
         }
         
         Cart::session(auth()->id())->update($itemId, [
@@ -326,12 +364,15 @@ class POSSystem extends Component
         ]);
         $this->loadCart();
         
-        // Disparar evento para tocar som
         $this->dispatch('cart-updated', ['action' => 'add']);
         
+        $message = $isService 
+            ? '📈 ' . $cartItem->name . ' (' . $newQuantity . 'x)'
+            : '📈 Quantidade: ' . $newQuantity . '/' . ($product->stock_quantity ?? 0) . ' un';
+            
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => '📈 Quantidade: ' . $newQuantity . '/' . $product->stock_quantity . ' un'
+            'message' => $message
         ]);
     }
 
@@ -480,11 +521,16 @@ class POSSystem extends Component
                 $subtotal = $item->price * $item->quantity;
                 $taxAmount = $subtotal * ($taxRate / 100);
                 
+                // Verificar se é serviço (ID começa com 'service_')
+                $isService = str_starts_with($item->id, 'service_');
+                // Extrair ID numérico: 'service_21' -> 21, ou ID do produto
+                $productId = $isService ? (int) str_replace('service_', '', $item->id) : $item->id;
+                
                 SalesInvoiceItem::create([
                     'sales_invoice_id' => $invoice->id,
-                    'product_id' => $item->id,
+                    'product_id' => $productId,
                     'product_name' => $item->name,
-                    'description' => $item->name,
+                    'description' => $isService ? '[SERVIÇO] ' . $item->name : $item->name,
                     'quantity' => $item->quantity,
                     'unit_price' => $item->price,
                     'discount_percent' => 0,
@@ -495,11 +541,13 @@ class POSSystem extends Component
                     'total' => $subtotal + $taxAmount,
                 ]);
 
-                // Atualizar stock
-                $product = Product::find($item->id);
-                if ($product) {
-                    $product->stock_quantity -= $item->quantity;
-                    $product->save();
+                // Atualizar stock apenas para produtos
+                if (!$isService) {
+                    $product = Product::find($item->id);
+                    if ($product) {
+                        $product->stock_quantity -= $item->quantity;
+                        $product->save();
+                    }
                 }
             }
 

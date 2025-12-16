@@ -110,10 +110,12 @@
                         <tr class="hover:bg-indigo-50 transition">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    @if($stock->product->featured_image)
-                                        <img src="{{ Storage::url($stock->product->featured_image) }}" 
+                                    @if($stock->product->image_url)
+                                        <img src="{{ $stock->product->image_url }}" 
                                              class="w-10 h-10 rounded object-cover mr-3" 
-                                             alt="{{ $stock->product->name }}">
+                                             alt="{{ $stock->product->name }}"
+                                             loading="lazy"
+                                             onerror="this.src='{{ asset('images/placeholder-product.png') }}'">
                                     @else
                                         <div class="w-10 h-10 bg-indigo-100 rounded flex items-center justify-center mr-3">
                                             <i class="fas fa-box text-indigo-600"></i>

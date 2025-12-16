@@ -60,8 +60,16 @@
                     </thead>
                     <tbody>
                         @foreach($lastInvoice->items as $item)
+                        @php
+                            $isItemService = str_starts_with($item->description ?? '', '[SERVIÇO]');
+                        @endphp
                         <tr class="border-b border-dotted border-gray-300">
-                            <td class="py-1">{{ $item->product_name }}</td>
+                            <td class="py-1">
+                                @if($isItemService)
+                                <span class="text-purple-600">●</span>
+                                @endif
+                                {{ $item->product_name }}
+                            </td>
                             <td class="text-center">{{ number_format($item->quantity, 0) }}</td>
                             <td class="text-right">{{ number_format($item->unit_price, 0) }}</td>
                             <td class="text-right">{{ number_format($item->subtotal, 0) }}</td>
@@ -69,7 +77,10 @@
                         <tr class="text-[10px] text-gray-600">
                             <td colspan="4" class="pl-2 pb-1">
                                 @if($item->tax_rate > 0)
-                                Incidência IVA {{ $item->tax_rate }}%: {{ number_format($item->subtotal, 2) }} Kz | IVA: {{ number_format($item->tax_amount, 2) }} Kz
+                                IVA {{ number_format($item->tax_rate, 0) }}%: {{ number_format($item->tax_amount, 2) }} Kz
+                                @if($isItemService)
+                                 | <span class="text-purple-600">IRT {{ number_format($irtRate ?? 6.5, 1) }}%</span>
+                                @endif
                                 @else
                                 Isento de IVA
                                 @endif
@@ -81,6 +92,16 @@
             </div>
 
             {{-- Resumo Fiscal SAFT --}}
+            @php
+                $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
+                $taxRate = $settings->default_tax_rate ?? 14;
+                $irtRate = $settings->default_irt_rate ?? 6.5;
+                
+                // Calcular valores de serviços para IRT
+                $servicosTotal = $lastInvoice->items->filter(fn($i) => str_starts_with($i->description ?? '', '[SERVIÇO]'))->sum('subtotal');
+                $irtAmount = $servicosTotal * ($irtRate / 100);
+                $hasServices = $servicosTotal > 0;
+            @endphp
             <div class="text-xs mb-3 pb-3 border-t-2 border-gray-400 pt-2 space-y-1">
                 <div class="font-bold mb-1">RESUMO FISCAL:</div>
                 
@@ -104,15 +125,32 @@
                 
                 {{-- Total IVA --}}
                 <div class="flex justify-between">
-                    <span>Total IVA (14%):</span>
+                    <span>Total IVA ({{ number_format($taxRate, 0) }}%):</span>
                     <span>{{ number_format($lastInvoice->tax_amount, 2) }} Kz</span>
                 </div>
+                
+                {{-- Retenção IRT para Serviços --}}
+                @if($hasServices)
+                <div class="flex justify-between text-purple-700">
+                    <span>Retenção IRT ({{ number_format($irtRate, 1) }}%):</span>
+                    <span>-{{ number_format($irtAmount, 2) }} Kz</span>
+                </div>
+                <div class="text-[9px] text-purple-600 pl-2">
+                    Base serviços: {{ number_format($servicosTotal, 2) }} Kz
+                </div>
+                @endif
                 
                 {{-- Total Geral --}}
                 <div class="flex justify-between font-bold text-base border-t-2 border-gray-900 pt-1 mt-1">
                     <span>TOTAL GERAL:</span>
-                    <span>{{ number_format($lastInvoice->total, 2) }} Kz</span>
+                    <span>{{ number_format($lastInvoice->total - $irtAmount, 2) }} Kz</span>
                 </div>
+                
+                @if($hasServices)
+                <div class="text-[9px] text-gray-600 text-center mt-1">
+                    (Valor líquido após retenção IRT)
+                </div>
+                @endif
             </div>
 
             {{-- Pagamento --}}

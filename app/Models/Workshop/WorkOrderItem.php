@@ -15,6 +15,8 @@ class WorkOrderItem extends Model
     protected $fillable = [
         'work_order_id',
         'service_id',
+        'product_id',
+        'invoice_id',
         'type',
         'code',
         'name',
@@ -57,6 +59,16 @@ class WorkOrderItem extends Model
     public function mechanic()
     {
         return $this->belongsTo(Employee::class, 'mechanic_id');
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(\App\Models\Product::class);
+    }
+
+    public function invoice()
+    {
+        return $this->belongsTo(\App\Models\Invoicing\SalesInvoice::class, 'invoice_id');
     }
 
     // Accessors

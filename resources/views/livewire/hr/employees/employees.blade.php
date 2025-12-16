@@ -71,6 +71,11 @@
                 </div>
             </div>
             <div class="flex items-center space-x-3">
+                <button wire:click="openImportHotelModal" 
+                        type="button"
+                        class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
+                    <i class="fas fa-hotel mr-2"></i>Importar do Hotel
+                </button>
                 <button wire:click="openImportModal" 
                         type="button"
                         class="bg-purple-500 hover:bg-purple-600 text-white px-5 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
@@ -619,6 +624,117 @@
                             <span wire:loading wire:target="importSelected">
                                 <i class="fas fa-spinner fa-spin mr-2"></i>
                                 Importando...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Modal de Importação do Hotel --}}
+    @if($showImportHotelModal)
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm" wire:click="closeImportHotelModal"></div>
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border-4 border-teal-500">
+                {{-- Header --}}
+                <div class="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-5 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-hotel text-2xl text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Importar do Hotel</h3>
+                            <p class="text-teal-100 text-sm">Selecione os funcionários do hotel para adicionar ao RH</p>
+                        </div>
+                    </div>
+                    <button wire:click="closeImportHotelModal" class="text-white hover:bg-white/20 p-2 rounded-lg transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                {{-- Body --}}
+                <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                    @if($this->hotelStaff->isEmpty())
+                        <div class="text-center py-12">
+                            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-inbox text-4xl text-gray-400"></i>
+                            </div>
+                            <h4 class="text-xl font-bold text-gray-700 mb-2">Nenhum funcionário disponível</h4>
+                            <p class="text-gray-500">Todos os funcionários do hotel já foram importados.</p>
+                        </div>
+                    @else
+                        <div class="bg-teal-50 border-l-4 border-teal-500 p-4 mb-6 rounded-lg">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-teal-600 text-xl mr-3 mt-1"></i>
+                                <div>
+                                    <p class="font-bold text-teal-900 mb-1">{{ $this->hotelStaff->count() }} funcionário(s) disponível(is)</p>
+                                    <p class="text-sm text-teal-700">Os funcionários selecionados serão copiados para o RH.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach($this->hotelStaff as $staff)
+                            <div wire:key="staff-{{ $staff->id }}" 
+                                 class="group border-2 rounded-xl p-4 transition-all duration-200 cursor-pointer hover:shadow-lg
+                                        {{ in_array($staff->id, $selectedHotelStaff) ? 'border-teal-500 bg-teal-50' : 'border-gray-200 hover:border-teal-300' }}">
+                                <label class="flex items-start gap-4 cursor-pointer">
+                                    <input type="checkbox" 
+                                           wire:model.live="selectedHotelStaff" 
+                                           value="{{ $staff->id }}"
+                                           class="w-5 h-5 text-teal-600 rounded mt-1">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            @if($staff->photo)
+                                                <img src="{{ Storage::url($staff->photo) }}" class="w-10 h-10 rounded-full object-cover">
+                                            @else
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-cyan-600 flex items-center justify-center text-white font-bold">
+                                                    {{ strtoupper(substr($staff->name, 0, 2)) }}
+                                                </div>
+                                            @endif
+                                            <div>
+                                                <p class="font-bold text-gray-900">{{ $staff->name }}</p>
+                                                <p class="text-xs text-gray-500">{{ $staff->email }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <span class="px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs font-medium">
+                                                {{ \App\Models\Hotel\Staff::DEPARTMENTS[$staff->department] ?? $staff->department }}
+                                            </span>
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                                                {{ \App\Models\Hotel\Staff::POSITIONS[$staff->position] ?? $staff->position }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Footer --}}
+                <div class="bg-gray-50 px-6 py-4 border-t flex flex-col sm:flex-row gap-3 justify-between items-center">
+                    <div class="text-sm text-gray-600">
+                        <i class="fas fa-users mr-2 text-teal-600"></i>
+                        <span class="font-bold">{{ count($selectedHotelStaff) }}</span> funcionário(s) selecionado(s)
+                    </div>
+                    <div class="flex gap-3">
+                        <button wire:click="closeImportHotelModal" type="button"
+                                class="px-6 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-100 transition">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button wire:click="importFromHotel" wire:loading.attr="disabled"
+                                {{ empty($selectedHotelStaff) ? 'disabled' : '' }}
+                                class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50">
+                            <span wire:loading.remove wire:target="importFromHotel">
+                                <i class="fas fa-file-import mr-2"></i>Importar
+                            </span>
+                            <span wire:loading wire:target="importFromHotel">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Importando...
                             </span>
                         </button>
                     </div>

@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Images URL (Produção)
+    |--------------------------------------------------------------------------
+    |
+    | URL base para imagens de produtos. Use o domínio de produção para garantir
+    | que as imagens sempre sejam carregadas do servidor correto, mesmo em
+    | ambiente local. Exemplo: https://gur.ao
+    |
+    */
+
+    'images_url' => env('IMAGES_URL', env('APP_URL', 'http://localhost')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
