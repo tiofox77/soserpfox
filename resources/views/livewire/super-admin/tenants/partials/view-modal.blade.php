@@ -131,6 +131,62 @@
                         </div>
                     </div>
                     
+                    <!-- Active Modules -->
+                    <div class="mt-6">
+                        <h4 class="font-bold text-gray-800 mb-3 flex items-center">
+                            <i class="fas fa-puzzle-piece mr-2 text-purple-600"></i>Modulos Activos
+                        </h4>
+                        @if($viewingTenant->modules && $viewingTenant->modules->count() > 0)
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($viewingTenant->modules as $module)
+                                    <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold
+                                        {{ $module->pivot->is_active ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-500 border border-gray-200' }}">
+                                        <span class="w-2 h-2 rounded-full {{ $module->pivot->is_active ? 'bg-green-500' : 'bg-gray-400' }} mr-1.5"></span>
+                                        {{ $module->name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400 italic">Nenhum modulo associado</p>
+                        @endif
+                    </div>
+
+                    <!-- Users & Roles -->
+                    <div class="mt-6">
+                        <h4 class="font-bold text-gray-800 mb-3 flex items-center">
+                            <i class="fas fa-users mr-2 text-blue-600"></i>Utilizadores ({{ $viewingTenant->users->count() }})
+                        </h4>
+                        @if($viewingTenant->users && $viewingTenant->users->count() > 0)
+                            <div class="space-y-2">
+                                @foreach($viewingTenant->users as $user)
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                                <span class="text-white text-xs font-bold">{{ strtoupper(substr($user->name, 0, 2)) }}</span>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm font-semibold text-gray-800">{{ $user->name }}</p>
+                                                <p class="text-xs text-gray-500">{{ $user->email }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            @if($user->pivot->is_active)
+                                                <span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-semibold rounded-full">Activo</span>
+                                            @else
+                                                <span class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-semibold rounded-full">Inactivo</span>
+                                            @endif
+                                            @if($user->is_super_admin)
+                                                <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold rounded-full">Super Admin</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400 italic">Nenhum utilizador associado</p>
+                        @endif
+                    </div>
+
                     <!-- Action Footer -->
                     <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
                         <button wire:click="closeViewModal" class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">

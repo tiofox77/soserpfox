@@ -96,4 +96,32 @@ class ReceiptController extends Controller
             'qrCode' => $qrCode,
         ]);
     }
+    
+    public function previewPaged($id)
+    {
+        $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator', 'series', 'items.product', 'warehouse'])
+            ->where('tenant_id', activeTenantId())
+            ->findOrFail($id);
+        
+        $tenant = Tenant::find(activeTenantId());
+        
+        $bankAccounts = \App\Models\Treasury\Account::with('bank')
+            ->where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->where('show_on_invoice', true)
+            ->orderBy('invoice_display_order')
+            ->limit(4)
+            ->get();
+        
+        $qrCode = getAGTQRData($receipt, 80);
+        
+        return view('pdf.invoicing.document-paged', [
+            'document' => $receipt,
+            'documentType' => 'receipt',
+            'tenant' => $tenant,
+            'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
+            'pdfRoute' => route('invoicing.receipts.pdf', $id),
+        ]);
+    }
 }

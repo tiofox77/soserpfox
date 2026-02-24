@@ -1,6 +1,6 @@
 <div>
     <!-- Stats Cards - Modern 2025 Design with Colored Icons -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 stagger-animation">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6 stagger-animation">
         <!-- Total Tenants - Purple -->
         <div class="group relative bg-white rounded-2xl shadow-lg p-6 border border-purple-100 overflow-hidden card-hover card-3d">
             <div class="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-70 transition-opacity"></div>
@@ -59,25 +59,45 @@
             </div>
         </div>
 
-        <!-- Recent Updates - Blue -->
+        <!-- Modules - Indigo -->
+        <div class="group relative bg-white rounded-2xl shadow-lg p-6 border border-indigo-100 overflow-hidden card-hover card-rotate">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-70 transition-opacity"></div>
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/50 icon-float gradient-shift">
+                        <i class="fas fa-puzzle-piece text-white text-2xl"></i>
+                    </div>
+                </div>
+                <p class="text-sm text-indigo-600 font-semibold mb-2">Modulos Activos</p>
+                <p class="text-4xl font-bold text-gray-900 group-hover:scale-110 transition-transform inline-block">{{ $stats['total_modules'] }}</p>
+                <p class="text-xs text-gray-500 mt-2">
+                    <span class="inline-flex items-center px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        Subscrições: {{ $stats['active_subscriptions'] }}
+                    </span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Quick Actions - Blue -->
         <div class="group relative bg-white rounded-2xl shadow-lg p-6 border border-blue-100 overflow-hidden card-hover card-rotate">
             <div class="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-70 transition-opacity"></div>
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-4">
                     <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/50 icon-float gradient-shift">
-                        <i class="fas fa-clock text-white text-2xl"></i>
+                        <i class="fas fa-bolt text-white text-2xl"></i>
                     </div>
                 </div>
-                <p class="text-sm text-blue-600 font-semibold mb-2">Ações Rápidas</p>
-                <div class="space-y-2 mt-4">
+                <p class="text-sm text-blue-600 font-semibold mb-2">Acoes Rapidas</p>
+                <div class="space-y-2 mt-2">
                     <a href="{{ route('superadmin.tenants') }}" class="flex items-center text-sm text-gray-700 hover:text-blue-600 hover:translate-x-2 transition-all duration-300">
-                        <i class="fas fa-plus-circle mr-2 text-blue-500 group-hover:rotate-90 transition-transform"></i>Novo Tenant
+                        <i class="fas fa-plus-circle mr-2 text-blue-500"></i>Novo Tenant
+                    </a>
+                    <a href="{{ route('superadmin.system-commands') }}" class="flex items-center text-sm text-gray-700 hover:text-green-600 hover:translate-x-2 transition-all duration-300">
+                        <i class="fas fa-terminal mr-2 text-green-500"></i>Comandos
                     </a>
                     <a href="{{ route('superadmin.plans') }}" class="flex items-center text-sm text-gray-700 hover:text-purple-600 hover:translate-x-2 transition-all duration-300">
-                        <i class="fas fa-tag mr-2 text-purple-500 group-hover:rotate-12 transition-transform"></i>Gerir Planos
-                    </a>
-                    <a href="{{ route('superadmin.billing') }}" class="flex items-center text-sm text-gray-700 hover:text-green-600 hover:translate-x-2 transition-all duration-300">
-                        <i class="fas fa-file-invoice mr-2 text-green-500 group-hover:scale-110 transition-transform"></i>Ver Faturas
+                        <i class="fas fa-tag mr-2 text-purple-500"></i>Planos
                     </a>
                 </div>
             </div>
@@ -132,13 +152,27 @@
                                     @endif
                                 </div>
                                 
-                                <!-- Date -->
-                                <span class="inline-flex items-center text-xs text-gray-500">
-                                    <span class="w-5 h-5 rounded bg-green-100 flex items-center justify-center mr-1.5">
-                                        <i class="fas fa-calendar text-green-600 text-[10px]"></i>
+                                <!-- Date & Stats -->
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="inline-flex items-center text-xs text-gray-500">
+                                        <span class="w-5 h-5 rounded bg-green-100 flex items-center justify-center mr-1">
+                                            <i class="fas fa-calendar text-green-600 text-[10px]"></i>
+                                        </span>
+                                        {{ $tenant->created_at->format('d/m/Y') }}
                                     </span>
-                                    {{ $tenant->created_at->format('d/m/Y') }}
-                                </span>
+                                    <span class="inline-flex items-center text-xs text-gray-500">
+                                        <span class="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center mr-1">
+                                            <i class="fas fa-puzzle-piece text-indigo-600 text-[10px]"></i>
+                                        </span>
+                                        {{ $tenant->modules->count() }} mod.
+                                    </span>
+                                    <span class="inline-flex items-center text-xs text-gray-500">
+                                        <span class="w-5 h-5 rounded bg-orange-100 flex items-center justify-center mr-1">
+                                            <i class="fas fa-users text-orange-600 text-[10px]"></i>
+                                        </span>
+                                        {{ $tenant->users_count ?? 0 }} users
+                                    </span>
+                                </div>
                             </div>
                             
                             <!-- Status & Actions -->

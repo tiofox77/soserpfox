@@ -144,7 +144,21 @@ class PurchaseInvoiceObserver
                 ])->first();
 
                 if ($stock) {
-                    $stock->decrement('quantity', $item->quantity);
+                    $quantityToRemove = min($item->quantity, $stock->quantity);
+                    
+                    if ($quantityToRemove < $item->quantity) {
+                        \Log::warning('PurchaseInvoiceObserver: Stock insuficiente para reverter totalmente', [
+                            'product_id' => $item->product_id,
+                            'warehouse_id' => $invoice->warehouse_id,
+                            'stock_atual' => $stock->quantity,
+                            'quantidade_a_reverter' => $item->quantity,
+                            'quantidade_revertida' => $quantityToRemove,
+                        ]);
+                    }
+                    
+                    if ($quantityToRemove > 0) {
+                        $stock->decrement('quantity', $quantityToRemove);
+                    }
 
                     // Registra movimento de remoção
                     StockMovement::create([
@@ -154,7 +168,7 @@ class PurchaseInvoiceObserver
                         'type' => 'out',
                         'reference_type' => PurchaseInvoice::class,
                         'reference_id' => $invoice->id,
-                        'quantity' => $item->quantity,
+                        'quantity' => $quantityToRemove,
                         'unit_price' => $item->unit_price,
                         'notes' => "Remoção - Fatura {$invoice->invoice_number} cancelada",
                         'movement_date' => now(),

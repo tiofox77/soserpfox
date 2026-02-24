@@ -4,7 +4,9 @@ namespace App\Livewire\SuperAdmin;
 
 use App\Models\{Plan, Module, Tenant};
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -27,42 +29,127 @@ class SystemCommands extends Component
     // Seeders
     public $selectedSeeder = null;
     public $availableSeeders = [];
+    public $seederCategories = [];
+    public $selectedSeederCategory = 'all';
+    public $seederLogs = [];
+    public $seederStats = ['total' => 0, 'executed' => 0, 'pending' => 0];
 
     public function mount()
     {
         $this->loadExecutionHistory();
+        $this->loadSeederLogs();
         $this->loadAvailableSeeders();
     }
     
     /**
-     * Carregar seeders disponíveis
+     * Carregar logs de execucao de seeders da tabela seeder_logs
+     */
+    private function loadSeederLogs()
+    {
+        $this->seederLogs = [];
+        if (Schema::hasTable('seeder_logs')) {
+            $this->seederLogs = DB::table('seeder_logs')
+                ->pluck('executed_at', 'seeder')
+                ->toArray();
+        }
+    }
+    
+    /**
+     * Carregar seeders disponíveis (incluindo subpastas)
      */
     private function loadAvailableSeeders()
     {
         $seederPath = database_path('seeders');
         $seeders = [];
+        $categories = ['all' => 'Todos'];
         
         if (File::isDirectory($seederPath)) {
-            $files = File::files($seederPath);
-            
-            foreach ($files as $file) {
+            // Root seeders
+            foreach (File::files($seederPath) as $file) {
                 $filename = $file->getFilename();
-                
-                // Pegar apenas arquivos PHP que não sejam DatabaseSeeder
                 if (str_ends_with($filename, '.php') && $filename !== 'DatabaseSeeder.php') {
                     $className = str_replace('.php', '', $filename);
                     $seeders[] = [
                         'class' => $className,
+                        'namespace' => "Database\\Seeders\\{$className}",
                         'name' => $this->formatSeederName($className),
+                        'category' => 'Geral',
+                        'path' => $file->getPathname(),
                     ];
+                }
+            }
+            $categories['Geral'] = 'Geral';
+            
+            // Subdirectory seeders
+            foreach (File::directories($seederPath) as $dir) {
+                $dirName = basename($dir);
+                $categories[$dirName] = $dirName;
+                
+                foreach (File::files($dir) as $file) {
+                    $filename = $file->getFilename();
+                    if (str_ends_with($filename, '.php')) {
+                        $className = str_replace('.php', '', $filename);
+                        $seeders[] = [
+                            'class' => $className,
+                            'namespace' => "Database\\Seeders\\{$dirName}\\{$className}",
+                            'name' => $this->formatSeederName($className),
+                            'category' => $dirName,
+                            'path' => $file->getPathname(),
+                        ];
+                    }
                 }
             }
         }
         
-        // Ordenar alfabeticamente
-        usort($seeders, fn($a, $b) => strcmp($a['name'], $b['name']));
+        // Ordenar por categoria + nome
+        usort($seeders, function($a, $b) {
+            $catCmp = strcmp($a['category'], $b['category']);
+            return $catCmp !== 0 ? $catCmp : strcmp($a['name'], $b['name']);
+        });
+        
+        // Cross-reference com seeder_logs para status
+        foreach ($seeders as &$seeder) {
+            $key = $seeder['class'];
+            // Verificar com prefixo de subpasta (ex: Accounting\AccountSeeder)
+            if ($seeder['category'] !== 'Geral') {
+                $keyWithFolder = $seeder['category'] . '\\' . $seeder['class'];
+                if (isset($this->seederLogs[$keyWithFolder])) {
+                    $seeder['executed'] = true;
+                    $seeder['executed_at'] = $this->seederLogs[$keyWithFolder];
+                    continue;
+                }
+            }
+            if (isset($this->seederLogs[$key])) {
+                $seeder['executed'] = true;
+                $seeder['executed_at'] = $this->seederLogs[$key];
+            } else {
+                $seeder['executed'] = false;
+                $seeder['executed_at'] = null;
+            }
+        }
+        unset($seeder);
         
         $this->availableSeeders = $seeders;
+        $this->seederCategories = $categories;
+        
+        // Calcular stats
+        $executed = count(array_filter($seeders, fn($s) => $s['executed']));
+        $this->seederStats = [
+            'total' => count($seeders),
+            'executed' => $executed,
+            'pending' => count($seeders) - $executed,
+        ];
+    }
+    
+    /**
+     * Filtrar seeders por categoria
+     */
+    public function getFilteredSeedersProperty()
+    {
+        if ($this->selectedSeederCategory === 'all') {
+            return $this->availableSeeders;
+        }
+        return array_filter($this->availableSeeders, fn($s) => $s['category'] === $this->selectedSeederCategory);
     }
     
     /**
@@ -70,12 +157,8 @@ class SystemCommands extends Component
      */
     private function formatSeederName($className)
     {
-        // Remove "Seeder" do final
         $name = str_replace('Seeder', '', $className);
-        
-        // Adiciona espaços antes de maiúsculas
         $name = preg_replace('/([a-z])([A-Z])/', '$1 $2', $name);
-        
         return $name;
     }
 
@@ -85,12 +168,87 @@ class SystemCommands extends Component
     public function getAvailableCommands()
     {
         return [
+            // ── CACHE & PERFORMANCE ──────────────────────
+            'cache_clear' => [
+                'name' => 'Limpar Todo Cache',
+                'description' => 'Limpar cache, config, routes e views de uma só vez',
+                'command' => 'optimize:clear',
+                'icon' => 'broom',
+                'color' => 'orange',
+                'group' => 'Cache & Performance',
+                'params' => [],
+            ],
+            'optimize' => [
+                'name' => 'Otimizar Aplicação',
+                'description' => 'Cachear config, routes e views para máxima performance',
+                'command' => 'optimize',
+                'icon' => 'bolt',
+                'color' => 'yellow',
+                'group' => 'Cache & Performance',
+                'params' => [],
+            ],
+            'config_clear' => [
+                'name' => 'Limpar Cache de Config',
+                'description' => 'Remover cache de configurações (usar após alterar .env)',
+                'command' => 'config:clear',
+                'icon' => 'eraser',
+                'color' => 'gray',
+                'group' => 'Cache & Performance',
+                'params' => [],
+            ],
+            'view_clear' => [
+                'name' => 'Limpar Cache de Views',
+                'description' => 'Remover views compiladas (usar após alterar templates)',
+                'command' => 'view:clear',
+                'icon' => 'eye-slash',
+                'color' => 'gray',
+                'group' => 'Cache & Performance',
+                'params' => [],
+            ],
+
+            // ── BASE DE DADOS ────────────────────────────
+            'migrate' => [
+                'name' => 'Executar Migrations',
+                'description' => 'Executar migrations pendentes do banco de dados',
+                'command' => 'migrate',
+                'icon' => 'database',
+                'color' => 'red',
+                'group' => 'Base de Dados',
+                'params' => [
+                    'force' => [
+                        'label' => 'Forçar execução (produção)',
+                        'type' => 'checkbox',
+                        'required' => false,
+                    ],
+                ],
+            ],
+            'migrate_status' => [
+                'name' => 'Status das Migrations',
+                'description' => 'Ver quais migrations foram executadas e quais estão pendentes',
+                'command' => 'migrate:status',
+                'icon' => 'list-check',
+                'color' => 'gray',
+                'group' => 'Base de Dados',
+                'params' => [],
+            ],
+            'seeders_status' => [
+                'name' => 'Status dos Seeders',
+                'description' => 'Ver quais seeders foram executados e quais estão pendentes',
+                'command' => 'seeders:status',
+                'icon' => 'seedling',
+                'color' => 'green',
+                'group' => 'Base de Dados',
+                'params' => [],
+            ],
+
+            // ── MÓDULOS & PLANOS ─────────────────────────
             'sync_modules' => [
                 'name' => 'Sincronizar Módulos dos Planos',
-                'description' => 'Sincronizar todos os módulos de um plano específico ou todos os planos com os tenants',
+                'description' => 'Sincronizar módulos de um plano com os tenants que têm subscription ativa',
                 'command' => 'plan:sync-modules',
                 'icon' => 'sync-alt',
                 'color' => 'blue',
+                'group' => 'Módulos & Planos',
                 'params' => [
                     'plan_id' => [
                         'label' => 'ID do Plano (opcional)',
@@ -117,6 +275,7 @@ class SystemCommands extends Component
                 'command' => 'module:attach',
                 'icon' => 'link',
                 'color' => 'green',
+                'group' => 'Módulos & Planos',
                 'params' => [
                     'module_slug' => [
                         'label' => 'Slug do Módulo',
@@ -138,6 +297,7 @@ class SystemCommands extends Component
                 'command' => 'module:attach-plan',
                 'icon' => 'layer-group',
                 'color' => 'purple',
+                'group' => 'Módulos & Planos',
                 'params' => [
                     'module_slug' => [
                         'label' => 'Slug do Módulo',
@@ -153,55 +313,85 @@ class SystemCommands extends Component
                     ],
                 ],
             ],
-            'cache_clear' => [
-                'name' => 'Limpar Cache',
-                'description' => 'Limpar todo o cache da aplicação',
-                'command' => 'cache:clear',
-                'icon' => 'trash-alt',
-                'color' => 'orange',
-                'params' => [],
-            ],
-            'config_cache' => [
-                'name' => 'Cachear Configurações',
-                'description' => 'Gerar cache de configurações para performance',
-                'command' => 'config:cache',
-                'icon' => 'cog',
-                'color' => 'indigo',
-                'params' => [],
-            ],
-            'migrate' => [
-                'name' => 'Executar Migrations',
-                'description' => 'Executar migrations pendentes do banco de dados',
-                'command' => 'migrate',
-                'icon' => 'database',
-                'color' => 'red',
-                'params' => [
-                    'force' => [
-                        'label' => 'Forçar execução (produção)',
-                        'type' => 'checkbox',
-                        'required' => false,
-                    ],
-                ],
-            ],
-            'migrate_status' => [
-                'name' => 'Status das Migrations',
-                'description' => 'Ver status de todas as migrations',
-                'command' => 'migrate:status',
-                'icon' => 'list-check',
-                'color' => 'gray',
-                'params' => [],
-            ],
+
+            // ── SEGURANÇA & UTILIZADORES ─────────────────
             'fix_roles_permissions' => [
                 'name' => 'Corrigir Roles e Permissões',
-                'description' => 'Corrige roles e permissões de todos os usuários e tenants. Cria roles padrão, sincroniza permissões e corrige usuários sem roles.',
+                'description' => 'Corrige roles, permissões e utilizadores sem role em todos os tenants',
                 'command' => 'users:fix-roles-permissions',
                 'icon' => 'user-shield',
                 'color' => 'teal',
+                'group' => 'Segurança',
                 'params' => [
                     'dry-run' => [
                         'label' => 'Modo Teste (Dry-Run) - Simula sem fazer alterações',
                         'type' => 'checkbox',
                         'required' => false,
+                    ],
+                ],
+            ],
+
+            // ── SISTEMA ──────────────────────────────────
+            'storage_link' => [
+                'name' => 'Criar Link do Storage',
+                'description' => 'Criar link simbólico public/storage → storage/app/public',
+                'command' => 'storage:link',
+                'icon' => 'folder-open',
+                'color' => 'indigo',
+                'group' => 'Sistema',
+                'params' => [],
+            ],
+
+            // ── DEPLOY ─────────────────────────────────────
+            'patch_deploy' => [
+                'name' => 'Aplicar Patch de Deploy',
+                'description' => 'Executar pipeline completo: migrations, seeders, permissões, cache (v1.3.0)',
+                'command' => 'patch:deploy',
+                'icon' => 'rocket',
+                'color' => 'rose',
+                'group' => 'Deploy',
+                'params' => [
+                    'force' => [
+                        'label' => 'Forçar (sem confirmação)',
+                        'type' => 'checkbox',
+                        'required' => false,
+                    ],
+                    'dry-run' => [
+                        'label' => 'Modo Teste (Dry-Run) — Simula sem alterar nada',
+                        'type' => 'checkbox',
+                        'required' => false,
+                    ],
+                ],
+            ],
+            'patch_deploy_dryrun' => [
+                'name' => 'Simular Patch (Dry-Run)',
+                'description' => 'Ver o que o patch iria fazer sem executar nada — seguro para usar',
+                'command' => 'patch:deploy',
+                'icon' => 'search',
+                'color' => 'amber',
+                'group' => 'Deploy',
+                'params' => [
+                    'dry-run' => [
+                        'label' => 'Dry-Run activado',
+                        'type' => 'hidden',
+                        'required' => false,
+                        'default' => true,
+                    ],
+                ],
+            ],
+            'seeders_run_pending' => [
+                'name' => 'Executar Seeders Pendentes',
+                'description' => 'Executar apenas os seeders que ainda não foram registados em seeder_logs',
+                'command' => 'seeders:status',
+                'icon' => 'seedling',
+                'color' => 'lime',
+                'group' => 'Deploy',
+                'params' => [
+                    'run' => [
+                        'label' => 'Executar pendentes',
+                        'type' => 'hidden',
+                        'required' => false,
+                        'default' => true,
                     ],
                 ],
             ],
@@ -277,7 +467,12 @@ class SystemCommands extends Component
         foreach ($config['params'] as $paramKey => $paramConfig) {
             $value = $this->commandParams[$commandKey][$paramKey] ?? null;
             
-            if ($paramConfig['type'] === 'checkbox') {
+            if ($paramConfig['type'] === 'hidden') {
+                // Hidden params com default são sempre aplicados
+                if (isset($paramConfig['default']) && $paramConfig['default']) {
+                    $params["--{$paramKey}"] = true;
+                }
+            } elseif ($paramConfig['type'] === 'checkbox') {
                 if ($value) {
                     $params["--{$paramKey}"] = true;
                 }
@@ -397,15 +592,19 @@ class SystemCommands extends Component
         $this->isRunning = true;
         
         try {
-            $seederClass = "Database\\Seeders\\{$this->selectedSeeder}";
+            // Usar namespace completo do seeder seleccionado
+            $seederClass = $this->selectedSeeder;
+            $seederName = class_basename(str_replace('\\', '/', $seederClass));
             
-            $this->addOutput("🌱 Iniciando Seeder: {$this->selectedSeeder}", 'info');
+            $this->addOutput("🌱 Iniciando Seeder: {$seederName}", 'info');
+            $this->addOutput("📦 Namespace: {$seederClass}", 'info');
             $this->addOutput("⏳ Executando: php artisan db:seed --class={$seederClass}", 'info');
             $this->addOutput(str_repeat('─', 80), 'separator');
             
             // Executar seeder
             Artisan::call('db:seed', [
-                '--class' => $seederClass
+                '--class' => $seederClass,
+                '--force' => true,
             ], $this->getOutputBuffer());
             
             $output = Artisan::output();
@@ -421,22 +620,28 @@ class SystemCommands extends Component
             
             // Salvar no histórico
             $this->saveToHistory(
-                "seeder_{$this->selectedSeeder}", 
-                "Seeder: {$this->formatSeederName($this->selectedSeeder)}", 
+                "seeder_{$seederName}", 
+                "Seeder: {$this->formatSeederName($seederName)}", 
                 true, 
                 $output ?: 'Executado com sucesso'
             );
             
-            $this->dispatch('success', message: "✅ Seeder '{$this->selectedSeeder}' executado com sucesso!");
+            $this->dispatch('success', message: "✅ Seeder '{$seederName}' executado com sucesso!");
+            
+            // Recarregar status
+            $this->loadSeederLogs();
+            $this->loadAvailableSeeders();
             
         } catch (\Exception $e) {
             $this->addOutput("❌ ERRO: " . $e->getMessage(), 'error');
             $this->addOutput($e->getTraceAsString(), 'error');
             
+            $seederName = class_basename(str_replace('\\', '/', $this->selectedSeeder));
+            
             // Salvar erro no histórico
             $this->saveToHistory(
-                "seeder_{$this->selectedSeeder}", 
-                "Seeder: {$this->formatSeederName($this->selectedSeeder)}", 
+                "seeder_{$seederName}", 
+                "Seeder: {$this->formatSeederName($seederName)}", 
                 false, 
                 $e->getMessage()
             );

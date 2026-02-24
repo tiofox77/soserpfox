@@ -7,6 +7,7 @@ use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use App\Models\HR\Attendance;
 use App\Models\HR\Employee;
+use App\Models\HR\Shift;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -191,6 +192,7 @@ class AttendanceManagement extends Component
         
         $this->attendanceId = $attendance->id;
         $this->employee_id = $attendance->employee_id;
+        $this->shift_id = $attendance->shift_id;
         $this->date = $attendance->date->format('Y-m-d');
         $this->check_in = $attendance->check_in;
         $this->check_out = $attendance->check_out;

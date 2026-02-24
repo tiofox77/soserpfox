@@ -217,12 +217,12 @@
                                     </span>
                                 </button>
                                 
-                                {{-- Preview (ícone PDF abre preview HTML) --}}
-                                <a href="{{ route('invoicing.sales.invoices.preview', $invoice->id) }}" target="_blank"
+                                {{-- Preview Paginado / Imprimir --}}
+                                <a href="{{ route('invoicing.sales.invoices.preview-paged', $invoice->id) }}" target="_blank"
                                    class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-pdf text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Preview
+                                        PDF/Imprimir
                                     </span>
                                 </a>
                                 

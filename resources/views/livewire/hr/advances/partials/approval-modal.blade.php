@@ -48,23 +48,48 @@
                         </div>
                     @endif
 
-                    {{-- Valor a Aprovar --}}
-                    <div class="mb-4">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            <i class="fas fa-money-check-alt mr-2 text-green-600"></i>Valor a Aprovar (Kz) *
-                        </label>
-                        <input type="number" step="0.01" wire:model.live="approved_amount" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
-                               placeholder="0.00">
-                        @error('approved_amount') 
-                            <span class="text-red-500 text-xs mt-1 flex items-center">
-                                <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
-                            </span>
-                        @enderror
-                        <p class="text-xs text-gray-500 mt-1">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Pode aprovar um valor diferente do solicitado
-                        </p>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        {{-- Valor a Aprovar --}}
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-money-check-alt mr-2 text-green-600"></i>Valor Total (Kz) *
+                            </label>
+                            <input type="number" step="0.01" wire:model.live="approved_amount" 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                                   placeholder="0.00">
+                            @error('approved_amount') 
+                                <span class="text-red-500 text-xs mt-1 flex items-center">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
+                                </span>
+                            @enderror
+                        </div>
+
+                        {{-- Valor da Parcela --}}
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-calendar-check mr-2 text-purple-600"></i>Valor por Parcela (Kz) *
+                            </label>
+                            <input type="number" step="0.01" wire:model.live="custom_installment_amount" 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                   placeholder="0.00">
+                            @error('custom_installment_amount') 
+                                <span class="text-red-500 text-xs mt-1 flex items-center">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
+                                </span>
+                            @enderror
+                        </div>
+                    </div>
+
+                    {{-- Info --}}
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-600 mt-0.5 mr-2"></i>
+                            <div class="text-xs text-blue-700">
+                                <p><strong>Valor Total:</strong> Montante total aprovado</p>
+                                <p class="mt-1"><strong>Valor por Parcela:</strong> Deduzido mensalmente da folha de pagamento</p>
+                                <p class="mt-1 text-blue-600 font-semibold">Pode editar ambos os valores conforme necessário</p>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Observações --}}

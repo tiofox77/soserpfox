@@ -12,7 +12,7 @@ class Attendance extends Model
     protected $table = 'hr_attendances';
 
     protected $fillable = [
-        'tenant_id', 'employee_id', 'leave_id', 'date', 'check_in', 'check_out',
+        'tenant_id', 'employee_id', 'shift_id', 'leave_id', 'date', 'check_in', 'check_out',
         'hours_worked', 'overtime_hours', 'is_late', 'late_minutes', 'status', 'notes',
     ];
 
@@ -24,6 +24,11 @@ class Attendance extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     public function leave()

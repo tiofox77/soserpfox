@@ -32,6 +32,13 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
     
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SOS ERP">
+    
     <!-- Canonical URL -->
     <link rel="canonical" href="{{ url()->current() }}">
     
@@ -62,5 +69,12 @@
             <p>&copy; {{ date('Y') }} {{ config('app.name') }}. Todos os direitos reservados.</p>
         </div>
     </div>
+    
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        }
+    </script>
 </body>
 </html>

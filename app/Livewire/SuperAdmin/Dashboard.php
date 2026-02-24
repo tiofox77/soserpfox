@@ -51,15 +51,29 @@ class Dashboard extends Component
 
     public function render()
     {
+        $totalRevenue = 0;
+        $recentInvoices = collect();
+        try {
+            $totalRevenue = \App\Models\Invoice::where('status', 'paid')->sum('total');
+            $recentInvoices = \App\Models\Invoice::with('tenant')->latest()->take(5)->get();
+        } catch (\Exception $e) {
+            // Invoice table may not exist yet
+        }
+
         $stats = [
             'total_tenants' => \App\Models\Tenant::count(),
             'active_tenants' => \App\Models\Tenant::where('is_active', true)->count(),
-            'total_users' => \App\Models\User::count(),
-            'total_revenue' => \App\Models\Invoice::where('status', 'paid')->sum('total'),
+            'total_users' => \App\Models\User::where('is_super_admin', false)->count(),
+            'total_revenue' => $totalRevenue,
+            'total_modules' => \App\Models\Module::where('is_active', true)->count(),
+            'active_subscriptions' => \App\Models\Subscription::where('status', 'active')->count(),
         ];
 
-        $recentTenants = \App\Models\Tenant::latest()->take(5)->get();
-        $recentInvoices = \App\Models\Invoice::with('tenant')->latest()->take(5)->get();
+        $recentTenants = \App\Models\Tenant::with(['activeSubscription.plan', 'modules'])
+            ->withCount('users')
+            ->latest()
+            ->take(5)
+            ->get();
 
         return view('livewire.super-admin.dashboard.dashboard', compact('stats', 'recentTenants', 'recentInvoices'));
     }

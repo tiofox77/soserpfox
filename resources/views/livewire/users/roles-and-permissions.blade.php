@@ -149,7 +149,7 @@
 
     {{-- Modal Create/Edit Role --}}
     @if($showRoleModal)
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" wire:click.self="$set('showRoleModal', false)">
         <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div class="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex items-center justify-between">
                 <h3 class="text-xl font-bold">
@@ -242,7 +242,7 @@
 
     {{-- Modal Assign Roles --}}
     @if($showAssignModal)
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" wire:click.self="$set('showAssignModal', false)">
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
             <div class="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex items-center justify-between">
                 <h3 class="text-xl font-bold">
@@ -281,7 +281,7 @@
 
     {{-- Modal Delete Confirmation --}}
     @if($showDeleteModal)
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" wire:click.self="$set('showDeleteModal', false)">
         <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <div class="text-center mb-4">
                 <i class="fas fa-exclamation-triangle text-6xl text-red-600 mb-4"></i>
@@ -290,6 +290,7 @@
             </div>
 
             <div class="flex gap-2">
+                {{-- BUG-U12 FIX: Chamar método correcto baseado no tipo --}}
                 <button wire:click="deleteRole" class="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-bold">
                     <i class="fas fa-trash mr-2"></i>Sim, Eliminar
                 </button>

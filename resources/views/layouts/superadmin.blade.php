@@ -9,6 +9,13 @@
     <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
     @endif
     
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SOS ERP">
+    
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -264,112 +271,139 @@
 
             <!-- Menu -->
             <nav class="flex-1 overflow-y-auto py-4">
-                <div class="px-3 mb-2">
-                    <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Menu Principal</p>
+                <a href="{{ route('home') }}" class="flex items-center px-4 py-2.5 hover:bg-blue-700/50 transition text-blue-200 hover:text-white">
+                    <i class="fas fa-arrow-left w-6 text-blue-300"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Voltar ao ERP</span>
+                </a>
+                
+                <div class="border-t border-blue-700/50 my-3"></div>
+
+                {{-- GESTAO --}}
+                <div class="px-4 mb-1">
+                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Gestao</p>
                 </div>
                 
-                <a href="{{ route('home') }}" class="flex items-center px-4 py-3 hover:bg-blue-700/50 transition">
-                    <i class="fas fa-home w-6 text-blue-300"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Voltar ao Início</span>
+                <a href="{{ route('superadmin.dashboard') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.dashboard') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-chart-line w-5 text-yellow-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
                 </a>
                 
-                <div class="border-t border-blue-700 my-4"></div>
-                
-                <a href="{{ route('superadmin.dashboard') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.dashboard') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-chart-line w-6 text-yellow-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Dashboard</span>
+                <a href="{{ route('superadmin.tenants') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.tenants') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-building w-5 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Empresas / Tenants</span>
                 </a>
                 
-                <a href="{{ route('superadmin.tenants') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.tenants') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-building w-6 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Tenants</span>
+                <a href="{{ route('superadmin.modules') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.modules') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-puzzle-piece w-5 text-purple-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Modulos</span>
                 </a>
                 
-                <a href="{{ route('superadmin.modules') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.modules') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-puzzle-piece w-6 text-purple-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Módulos</span>
+                <a href="{{ route('superadmin.plans') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.plans') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-tags w-5 text-pink-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Planos</span>
                 </a>
                 
-                <a href="{{ route('superadmin.plans') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.plans') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-tags w-6 text-pink-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Planos</span>
+                <a href="{{ route('superadmin.billing') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.billing') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-file-invoice-dollar w-5 text-emerald-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Faturacao / Billing</span>
                 </a>
                 
-                <a href="{{ route('superadmin.billing') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.billing') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-file-invoice-dollar w-6 text-emerald-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Billing</span>
+                <a href="{{ route('superadmin.contact-messages') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.contact-messages') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-comments w-5 text-cyan-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Mensagens de Contacto</span>
                 </a>
                 
-                <div class="border-t border-blue-700 my-4"></div>
-                
-                <div class="px-3 mb-2">
-                    <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider">Sistema</p>
+                <div class="border-t border-blue-700/50 my-3"></div>
+
+                {{-- SISTEMA --}}
+                <div class="px-4 mb-1">
+                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Sistema</p>
                 </div>
                 
-                <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-cloud-download-alt w-6 text-cyan-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Atualizações</span>
+                <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-cloud-download-alt w-5 text-cyan-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Atualizacoes</span>
                 </a>
                 
-                <a href="{{ route('superadmin.system-commands') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-commands') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-terminal w-6 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Comandos do Sistema</span>
+                <a href="{{ route('superadmin.system-commands') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-commands') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-terminal w-5 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Comandos & Seeders</span>
                 </a>
                 
-                <a href="{{ route('superadmin.system-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-cog w-6 text-purple-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Configurações Gerais</span>
+                <a href="{{ route('superadmin.script-runner') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.script-runner') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-code w-5 text-amber-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Script Runner</span>
                 </a>
                 
-                <a href="{{ route('superadmin.software-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.software-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-shield-alt w-6 text-red-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Configurações do Software</span>
+                <a href="{{ route('superadmin.system-optimization') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-optimization') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-rocket w-5 text-yellow-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Otimizacao</span>
                 </a>
                 
-                <a href="{{ route('superadmin.system-optimization') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-optimization') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-rocket w-6 text-yellow-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Otimização do Sistema</span>
-                </a>
-                
-                <a href="{{ route('superadmin.email-templates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.email-templates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-envelope w-6 text-blue-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Email Templates</span>
-                </a>
-                
-                <a href="{{ route('superadmin.smtp-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.smtp-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-server w-6 text-emerald-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">SMTP Settings</span>
-                </a>
-                
-                <a href="{{ route('superadmin.email-logs') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.email-logs') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-history w-6 text-yellow-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Email Logs</span>
-                </a>
-                
-                <a href="{{ route('superadmin.sms-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.sms-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-sms w-6 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">SMS Settings</span>
-                </a>
-                
-                <a href="{{ route('superadmin.whatsapp-notifications') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.whatsapp-notifications') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fab fa-whatsapp w-6 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">WhatsApp Notificações</span>
-                </a>
-                
-                <div class="border-t border-blue-700 my-4"></div>
-                
-                <div class="px-3 mb-2">
-                    <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider">Integrações</p>
+                <div class="border-t border-blue-700/50 my-3"></div>
+
+                {{-- CONFIGURACOES --}}
+                <div class="px-4 mb-1">
+                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Configuracoes</p>
                 </div>
                 
-                <a href="{{ route('superadmin.saft') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.saft') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-key w-6 text-orange-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">SAFT Configurações</span>
+                <a href="{{ route('superadmin.system-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-cog w-5 text-purple-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Gerais</span>
                 </a>
                 
-                <a href="{{ route('invoicing.agt-documents') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                    <i class="fas fa-certificate w-6 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3">Gerador AGT</span>
+                <a href="{{ route('superadmin.software-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.software-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-shield-alt w-5 text-red-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Software</span>
+                </a>
+                
+                <div class="border-t border-blue-700/50 my-3"></div>
+
+                {{-- COMUNICACOES --}}
+                <div class="px-4 mb-1">
+                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Comunicacoes</p>
+                </div>
+                
+                <a href="{{ route('superadmin.email-templates') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.email-templates') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-envelope w-5 text-blue-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Email Templates</span>
+                </a>
+                
+                <a href="{{ route('superadmin.smtp-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.smtp-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-server w-5 text-emerald-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">SMTP</span>
+                </a>
+                
+                <a href="{{ route('superadmin.email-logs') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.email-logs') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-history w-5 text-yellow-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Email Logs</span>
+                </a>
+                
+                <a href="{{ route('superadmin.sms-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.sms-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-sms w-5 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">SMS</span>
+                </a>
+                
+                <a href="{{ route('superadmin.whatsapp-notifications') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.whatsapp-notifications') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fab fa-whatsapp w-5 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">WhatsApp</span>
+                </a>
+                
+                <div class="border-t border-blue-700/50 my-3"></div>
+
+                {{-- INTEGRACOES --}}
+                <div class="px-4 mb-1">
+                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Integracoes</p>
+                </div>
+                
+                <a href="{{ route('superadmin.saft') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.saft') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-key w-5 text-orange-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">SAFT-AO</span>
+                </a>
+                
+                <a href="{{ route('invoicing.agt-documents') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                    <i class="fas fa-certificate w-5 text-green-400"></i>
+                    <span x-show="sidebarOpen" class="ml-3 text-sm">Gerador AGT</span>
                 </a>
             </nav>
 
@@ -496,6 +530,16 @@
         @if(session()->has('info'))
             toastr.info('{{ session('info') }}');
         @endif
+    </script>
+    
+    <!-- PWA Service Worker -->
+    <script>
+        localStorage.setItem('soserp-last-online', Date.now().toString());
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        }
+        window.addEventListener('offline', () => document.body.classList.add('app-offline'));
+        window.addEventListener('online', () => { document.body.classList.remove('app-offline'); location.reload(); });
     </script>
 </body>
 </html>

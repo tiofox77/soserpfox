@@ -108,18 +108,88 @@ class Subscription extends Model
 
     public function renew()
     {
-        $periodStart = $this->current_period_end ?? now();
-        $periodEnd = $this->billing_cycle === 'yearly' 
-            ? $periodStart->copy()->addYear()
-            : $periodStart->copy()->addMonth();
+        $periodStart = ($this->current_period_end ?? now())->copy();
+        $periodEnd = match($this->billing_cycle) {
+            'yearly' => $periodStart->copy()->addMonths(14),
+            'semiannual' => $periodStart->copy()->addMonths(6),
+            'quarterly' => $periodStart->copy()->addMonths(3),
+            default => $periodStart->copy()->addMonth(),
+        };
 
         $this->update([
             'status' => 'active',
             'current_period_start' => $periodStart,
             'current_period_end' => $periodEnd,
+            'ends_at' => $periodEnd,
         ]);
 
+        // BUG-12 FIX: Propagar renovação para outros tenants do user
+        $this->propagateRenewalToUserTenants($periodStart, $periodEnd);
+
         return $this;
+    }
+    
+    /**
+     * BUG-12 FIX: Propagar renovação para todos os outros tenants do user
+     */
+    protected function propagateRenewalToUserTenants($periodStart, $periodEnd)
+    {
+        try {
+            $tenant = $this->tenant;
+            if (!$tenant) return;
+            
+            // Encontrar o OWNER da subscription (quem criou o pedido/pagou)
+            // Primeiro: procurar na última order aprovada para este plano+tenant
+            $ownerOrder = \App\Models\Order::where('tenant_id', $tenant->id)
+                ->where('plan_id', $this->plan_id)
+                ->where('status', 'approved')
+                ->latest()
+                ->first();
+            
+            if ($ownerOrder && $ownerOrder->user) {
+                $owners = collect([$ownerOrder->user]);
+            } else {
+                // Fallback: usar apenas o primeiro admin do tenant (criador)
+                $owners = $tenant->users()->limit(1)->get();
+            }
+            
+            foreach ($owners as $user) {
+                $otherTenants = $user->tenants()->where('tenants.id', '!=', $tenant->id)->get();
+                
+                foreach ($otherTenants as $otherTenant) {
+                    // Encontrar subscription do mesmo plano no outro tenant
+                    $otherSub = $otherTenant->subscriptions()
+                        ->where('plan_id', $this->plan_id)
+                        ->latest()
+                        ->first();
+                    
+                    if ($otherSub) {
+                        $otherSub->update([
+                            'status' => 'active',
+                            'current_period_start' => $periodStart,
+                            'current_period_end' => $periodEnd,
+                            'ends_at' => $periodEnd,
+                        ]);
+                    } else {
+                        // Criar subscription clone
+                        $otherTenant->subscriptions()->create([
+                            'plan_id'              => $this->plan_id,
+                            'status'               => 'active',
+                            'billing_cycle'        => $this->billing_cycle,
+                            'amount'               => $this->amount,
+                            'current_period_start' => $periodStart,
+                            'current_period_end'   => $periodEnd,
+                            'ends_at'              => $periodEnd,
+                        ]);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Subscription::renew propagation error', [
+                'subscription_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function daysUntilDue()

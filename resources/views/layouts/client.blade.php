@@ -29,6 +29,13 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     @endif
     
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SOS ERP">
+    
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -201,5 +208,15 @@
     
     {{-- Alpine.js --}}
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- PWA Service Worker -->
+    <script>
+        localStorage.setItem('soserp-last-online', Date.now().toString());
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        }
+        window.addEventListener('offline', () => document.body.classList.add('app-offline'));
+        window.addEventListener('online', () => { document.body.classList.remove('app-offline'); location.reload(); });
+    </script>
 </body>
 </html>

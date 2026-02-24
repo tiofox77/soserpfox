@@ -218,18 +218,29 @@ class User extends Authenticatable
             return PHP_INT_MAX;
         }
         
-        // Pegar o plano de qualquer tenant ativo do usuário
-        $activeTenant = $this->activeTenant();
-        if (!$activeTenant) {
-            return 1; // Padrão
+        // BUG-04 FIX: Procurar subscription activa em QUALQUER tenant do user
+        $maxCompanies = 1; // Default
+        
+        foreach ($this->tenants as $tenant) {
+            $subscription = $tenant->subscriptions()
+                ->with('plan')
+                ->whereIn('status', ['active', 'trial'])
+                ->where(function($q) {
+                    $q->whereNull('current_period_end')
+                      ->orWhere('current_period_end', '>=', now());
+                })
+                ->latest()
+                ->first();
+            
+            if ($subscription && $subscription->plan) {
+                $planMax = $subscription->plan->max_companies ?? 1;
+                if ($planMax > $maxCompanies) {
+                    $maxCompanies = $planMax;
+                }
+            }
         }
         
-        $subscription = $activeTenant->activeSubscription;
-        if (!$subscription) {
-            return 1; // Padrão se não tiver subscription
-        }
-        
-        return $subscription->plan->max_companies ?? 1;
+        return $maxCompanies;
     }
     
     /**

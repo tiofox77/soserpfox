@@ -54,7 +54,10 @@ class RolesAndPermissions extends Component
         $permissions = Permission::all()->groupBy(function($permission) {
             return explode('.', $permission->name)[0]; // Group by module
         });
-        $users = User::with('roles')->where('tenant_id', $tenantId)->get();
+        // BUG-U01 FIX: Usar pivot tenant_user em vez de tenant_id directo
+        $users = User::with('roles')
+            ->whereHas('tenants', fn($q) => $q->where('tenants.id', $tenantId))
+            ->get();
         $allPermissions = Permission::orderBy('name')->get();
 
         return view('livewire.users.roles-and-permissions', [
@@ -237,13 +240,17 @@ class RolesAndPermissions extends Component
 
     public function savePermission()
     {
+        // BUG-U09 FIX: Validar formato modulo.acção e adicionar guard_name
         $this->validate([
-            'permissionName' => 'required|unique:permissions,name',
+            'permissionName' => ['required', 'unique:permissions,name', 'regex:/^[a-z_]+\.[a-z_]+$/'],
             'permissionDescription' => 'nullable',
+        ], [
+            'permissionName.regex' => 'Formato inválido. Use: modulo.accao (ex: users.view)',
         ]);
 
         Permission::create([
             'name' => $this->permissionName,
+            'guard_name' => 'web',
             'description' => $this->permissionDescription,
         ]);
 
@@ -277,8 +284,9 @@ class RolesAndPermissions extends Component
     public function assignRoles()
     {
         $tenantId = activeTenantId();
+        // BUG-U02 FIX: Usar pivot em vez de tenant_id directo
         $user = User::where('id', $this->selectedUser)
-            ->where('tenant_id', $tenantId)
+            ->whereHas('tenants', fn($q) => $q->where('tenants.id', $tenantId))
             ->firstOrFail();
         
         // Definir o tenant_id para as operações do Spatie Permission

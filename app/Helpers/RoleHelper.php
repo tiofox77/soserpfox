@@ -42,6 +42,57 @@ if (!function_exists('createDefaultRolesForTenant')) {
                     return str_contains($perm->name, '.view');
                 })->pluck('name')->toArray(),
             ],
+            // ── Roles especializados ─────────────────────────────
+            'Administrador Faturação' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    return str_starts_with($perm->name, 'invoicing.')
+                        || str_starts_with($perm->name, 'treasury.')
+                        || str_starts_with($perm->name, 'customers.')
+                        || str_starts_with($perm->name, 'products.')
+                        || $perm->name === 'settings.view';
+                })->pluck('name')->toArray(),
+            ],
+            'Vendedor' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    return in_array($perm->name, [
+                        'customers.view', 'customers.create', 'customers.edit',
+                        'products.view',
+                        'invoicing.sales.invoices.create', 'invoicing.sales.invoices.view',
+                        'invoicing.sales.proformas.create', 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.edit',
+                        'invoicing.pos.access', 'invoicing.pos.sell',
+                        'invoicing.receipts.view', 'invoicing.receipts.create',
+                        'invoicing.stock.view',
+                    ]);
+                })->pluck('name')->toArray(),
+            ],
+            'Caixa' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    return in_array($perm->name, [
+                        'invoicing.pos.access', 'invoicing.pos.sell',
+                        'invoicing.receipts.view', 'invoicing.receipts.create',
+                        'invoicing.sales.invoices.view',
+                        'customers.view', 'products.view', 'invoicing.stock.view',
+                        'treasury.cash-registers.view', 'treasury.transactions.create',
+                    ]);
+                })->pluck('name')->toArray(),
+            ],
+            'Contabilista' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    return str_starts_with($perm->name, 'accounting.')
+                        || $perm->name === 'invoicing.saft.view'
+                        || (str_starts_with($perm->name, 'treasury.') && str_contains($perm->name, '.view'));
+                })->pluck('name')->toArray(),
+            ],
+            'Operador Stock' => [
+                'permissions' => $allPermissions->filter(function($perm) {
+                    return str_starts_with($perm->name, 'invoicing.stock.')
+                        || str_starts_with($perm->name, 'invoicing.warehouse')
+                        || str_starts_with($perm->name, 'invoicing.inter-company-transfer.')
+                        || str_starts_with($perm->name, 'invoicing.imports.')
+                        || $perm->name === 'products.view'
+                        || $perm->name === 'invoicing.suppliers.view';
+                })->pluck('name')->toArray(),
+            ],
         ];
         
         // Criar cada role com suas permissões

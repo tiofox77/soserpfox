@@ -143,6 +143,16 @@
                                     <i class="fas fa-database mr-1.5"></i>
                                     {{ $tenant->max_storage_mb }}MB storage
                                 </span>
+                                @if($tenant->modules->count() > 0)
+                                    <span class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
+                                        <i class="fas fa-puzzle-piece mr-1.5"></i>
+                                        {{ $tenant->modules->where('pivot.is_active', true)->count() }} modulos
+                                    </span>
+                                @endif
+                                <span class="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                                    <i class="fas fa-users mr-1.5"></i>
+                                    {{ $tenant->users_count ?? 0 }} users
+                                </span>
                             </div>
                             
                             <!-- Actions -->

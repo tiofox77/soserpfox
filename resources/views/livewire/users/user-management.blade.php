@@ -11,19 +11,12 @@
                     <p class="text-purple-100 text-sm">Criar e gerenciar utilizadores com acesso multi-empresa</p>
                 </div>
             </div>
-            @php
-                $tenant = \App\Models\Tenant::find(activeTenantId());
-                $currentUsers = $tenant->users()->count();
-                $maxUsers = $tenant->getMaxUsers();
-                $canAdd = $tenant->canAddUser();
-            @endphp
-            
             <button wire:click="create" 
-                    class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl {{ !$canAdd ? 'opacity-50 cursor-not-allowed' : '' }}"
-                    {{ !$canAdd ? 'disabled' : '' }}>
+                    class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl {{ !$canAddUser ? 'opacity-50 cursor-not-allowed' : '' }}"
+                    {{ !$canAddUser ? 'disabled' : '' }}>
                 <i class="fas fa-user-plus mr-2"></i>Novo Utilizador
                 <span class="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-lg">
-                    {{ $currentUsers }}/{{ $maxUsers }}
+                    {{ $currentUsersCount }}/{{ $maxUsersCount }}
                 </span>
             </button>
         </div>
@@ -242,11 +235,8 @@
                         {{-- Indicador de Limite de Usuários --}}
                         @if(!$editingUserId)
                             @php
-                                $tenant = \App\Models\Tenant::find(activeTenantId());
-                                $currentUsers = $tenant->users()->count();
-                                $maxUsers = $tenant->getMaxUsers();
-                                $remainingUsers = $maxUsers - $currentUsers;
-                                $percentage = ($currentUsers / $maxUsers) * 100;
+                                $remainingUsers = $maxUsersCount - $currentUsersCount;
+                                $percentage = $maxUsersCount > 0 ? ($currentUsersCount / $maxUsersCount) * 100 : 0;
                             @endphp
                             
                             <div class="mb-6 p-4 rounded-xl {{ $remainingUsers > 0 ? 'bg-blue-50 border-2 border-blue-200' : 'bg-red-50 border-2 border-red-200' }}">
@@ -254,7 +244,7 @@
                                     <div class="flex items-center">
                                         <i class="fas fa-users {{ $remainingUsers > 0 ? 'text-blue-600' : 'text-red-600' }} mr-2"></i>
                                         <span class="font-semibold {{ $remainingUsers > 0 ? 'text-blue-900' : 'text-red-900' }}">
-                                            Limite do Plano: {{ $currentUsers }} / {{ $maxUsers }} utilizadores
+                                            Limite do Plano: {{ $currentUsersCount }} / {{ $maxUsersCount }} utilizadores
                                         </span>
                                     </div>
                                     @if($remainingUsers > 0)
@@ -452,7 +442,8 @@
                                             <select wire:model="inviteRole" 
                                                     class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                                                 <option value="">Selecione o perfil...</option>
-                                                @foreach($roles as $role)
+                                                {{-- BUG-U10 FIX: Filtrar roles do tenant activo --}}
+                                                @foreach($roles->where('tenant_id', activeTenantId()) as $role)
                                                     <option value="{{ $role->id }}">{{ $role->name }}</option>
                                                 @endforeach
                                             </select>

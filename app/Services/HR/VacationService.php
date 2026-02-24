@@ -95,11 +95,15 @@ class VacationService
      */
     public function calculateVacationPay(Employee $employee, int $requestedDays): array
     {
+        // Tentar buscar contrato ativo
         $contract = $employee->contracts()
             ->where('status', 'active')
             ->first();
 
-        if (!$contract) {
+        // Se não tiver contrato, usar salário do funcionário
+        $baseSalary = $contract ? $contract->base_salary : ($employee->salary ?? 0);
+
+        if ($baseSalary == 0) {
             return [
                 'daily_rate' => 0,
                 'vacation_pay' => 0,
@@ -107,9 +111,6 @@ class VacationService
                 'total_amount' => 0,
             ];
         }
-
-        // Salário base mensal
-        $baseSalary = $contract->base_salary;
 
         // Taxa diária (salário / 22 dias úteis)
         $dailyRate = $baseSalary / 22;

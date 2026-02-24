@@ -1,342 +1,405 @@
-<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-gradient-info text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-info-circle me-2"></i>Detalhes da Solicitação de Férias
-                </h5>
-                <button type="button" class="btn-close btn-close-white" wire:click="closeModal"></button>
+{{-- Modal Details - Detalhes da Solicitação de Férias --}}
+<div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        {{-- Backdrop --}}
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="closeModal"></div>
+
+        {{-- Modal Panel --}}
+        <div class="relative inline-block w-full max-w-6xl p-6 my-8 text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
+            {{-- Header --}}
+            <div class="flex items-center justify-between pb-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-info-circle text-white"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900">Detalhes da Solicitação de Férias</h3>
+                </div>
+                <button wire:click="closeModal" class="text-gray-400 hover:text-gray-600 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
             </div>
 
-            <div class="modal-body">
+            {{-- Body --}}
+            <div class="mt-4 space-y-4">
                 @if($selectedVacation)
-                    <div class="row g-4">
-                        <!-- Informações do Funcionário -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-user me-2"></i>Informações do Funcionário</h6>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {{-- Informações do Funcionário --}}
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-user mr-2 text-gray-600"></i>Informações do Funcionário
+                                </h6>
+                            </div>
+                            <div class="p-4 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Nome:</span>
+                                    <span class="text-sm text-gray-900">{{ $selectedVacation->employee->full_name ?? '-' }}</span>
                                 </div>
-                                <div class="card-body">
-                                    <table class="table table-sm mb-0">
-                                        <tr>
-                                            <th width="40%">Nome:</th>
-                                            <td>{{ $selectedVacation->employee->full_name }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Nº Funcionário:</th>
-                                            <td><span class="badge bg-secondary">{{ $selectedVacation->employee->employee_number }}</span></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Departamento:</th>
-                                            <td>{{ $selectedVacation->employee->department->name ?? '-' }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Cargo:</th>
-                                            <td>{{ $selectedVacation->employee->position->title ?? '-' }}</td>
-                                        </tr>
-                                    </table>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Nº Funcionário:</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-semibold">
+                                        {{ $selectedVacation->employee->employee_number ?? '-' }}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Departamento:</span>
+                                    <span class="text-sm text-gray-900">{{ $selectedVacation->employee->department->name ?? '-' }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Cargo:</span>
+                                    <span class="text-sm text-gray-900">{{ $selectedVacation->employee->position->title ?? '-' }}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Informações das Férias -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-umbrella-beach me-2"></i>Informações das Férias</h6>
-                                </div>
-                                <div class="card-body">
-                                    <table class="table table-sm mb-0">
-                                        <tr>
-                                            <th width="40%">Nº Férias:</th>
-                                            <td><span class="badge bg-primary">{{ $selectedVacation->vacation_number }}</span></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Ano Referência:</th>
-                                            <td>{{ $selectedVacation->reference_year }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Tipo:</th>
-                                            <td>
-                                                @if($selectedVacation->vacation_type === 'normal')
-                                                    <span class="badge bg-primary">Normal</span>
-                                                @elseif($selectedVacation->vacation_type === 'accumulated')
-                                                    <span class="badge bg-info">Acumuladas</span>
-                                                @elseif($selectedVacation->vacation_type === 'advance')
-                                                    <span class="badge bg-warning">Antecipadas</span>
-                                                @else
-                                                    <span class="badge bg-purple">Coletivas</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <th>Período Aquisitivo:</th>
-                                            <td>{{ $selectedVacation->period_start->format('d/m/Y') }} a {{ $selectedVacation->period_end->format('d/m/Y') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Status:</th>
-                                            <td>
-                                                @if($selectedVacation->status === 'pending')
-                                                    <span class="badge bg-warning">Pendente</span>
-                                                @elseif($selectedVacation->status === 'approved')
-                                                    <span class="badge bg-info">Aprovada</span>
-                                                @elseif($selectedVacation->status === 'rejected')
-                                                    <span class="badge bg-danger">Rejeitada</span>
-                                                @elseif($selectedVacation->status === 'in_progress')
-                                                    <span class="badge bg-primary">Em Andamento</span>
-                                                @elseif($selectedVacation->status === 'completed')
-                                                    <span class="badge bg-success">Concluída</span>
-                                                @else
-                                                    <span class="badge bg-secondary">Cancelada</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </div>
+                        {{-- Informações das Férias --}}
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-umbrella-beach mr-2 text-gray-600"></i>Informações das Férias
+                                </h6>
                             </div>
-                        </div>
-
-                        <!-- Período de Férias -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Período de Férias</h6>
+                            <div class="p-4 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Nº Férias:</span>
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+                                        {{ $selectedVacation->vacation_number }}
+                                    </span>
                                 </div>
-                                <div class="card-body">
-                                    <table class="table table-sm mb-0">
-                                        <tr>
-                                            <th width="40%">Data de Início:</th>
-                                            <td><i class="fas fa-calendar-alt text-primary"></i> {{ $selectedVacation->start_date->format('d/m/Y') }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Data de Término:</th>
-                                            <td><i class="fas fa-calendar-check text-success"></i> {{ $selectedVacation->end_date->format('d/m/Y') }}</td>
-                                        </tr>
-                                        @if($selectedVacation->expected_return_date)
-                                        <tr>
-                                            <th>Retorno Previsto:</th>
-                                            <td><i class="fas fa-calendar-day text-info"></i> {{ $selectedVacation->expected_return_date->format('d/m/Y') }}</td>
-                                        </tr>
-                                        @endif
-                                        <tr>
-                                            <th>Dias Corridos:</th>
-                                            <td><strong>{{ $selectedVacation->requested_days }}</strong> dias</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Dias Úteis:</th>
-                                            <td><strong class="text-primary">{{ $selectedVacation->working_days }}</strong> dias úteis</td>
-                                        </tr>
-                                        @if($selectedVacation->split_number)
-                                        <tr>
-                                            <th>Divisão:</th>
-                                            <td><span class="badge bg-info">{{ $selectedVacation->split_number }}ª parcela de {{ $selectedVacation->total_splits }}</span></td>
-                                        </tr>
-                                        @endif
-                                    </table>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Ano Referência:</span>
+                                    <span class="text-sm text-gray-900">{{ $selectedVacation->reference_year }}</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Direito e Valores -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-money-bill-wave me-2"></i>Cálculos Financeiros</h6>
-                                </div>
-                                <div class="card-body">
-                                    <table class="table table-sm mb-0">
-                                        <tr>
-                                            <th width="40%">Dias com Direito:</th>
-                                            <td>{{ $selectedVacation->entitled_days }} dias ({{ $selectedVacation->working_months }} meses)</td>
-                                        </tr>
-                                        @if($selectedVacation->previous_balance > 0)
-                                        <tr>
-                                            <th>Saldo Anterior:</th>
-                                            <td><span class="badge bg-warning">+{{ $selectedVacation->previous_balance }} dias</span></td>
-                                        </tr>
-                                        @endif
-                                        @if($selectedVacation->accumulated_days > 0)
-                                        <tr>
-                                            <th>Dias Acumulados:</th>
-                                            <td><span class="badge bg-info">{{ $selectedVacation->accumulated_days }} dias</span></td>
-                                        </tr>
-                                        @endif
-                                        @if($selectedVacation->days_remaining > 0)
-                                        <tr>
-                                            <th>Dias Restantes:</th>
-                                            <td><span class="badge bg-secondary">{{ $selectedVacation->days_remaining }} dias</span></td>
-                                        </tr>
-                                        @endif
-                                        <tr>
-                                            <th>Taxa Diária:</th>
-                                            <td>{{ number_format($selectedVacation->daily_rate, 2, ',', '.') }} Kz</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Pagamento Férias:</th>
-                                            <td class="text-success"><strong>{{ number_format($selectedVacation->vacation_pay, 2, ',', '.') }} Kz</strong></td>
-                                        </tr>
-                                        <tr>
-                                            <th>Subsídio (14º):</th>
-                                            <td class="text-success"><strong>{{ number_format($selectedVacation->subsidy_amount, 2, ',', '.') }} Kz</strong></td>
-                                        </tr>
-                                        <tr class="table-active">
-                                            <th>Total a Receber:</th>
-                                            <td><strong class="text-success fs-5">{{ number_format($selectedVacation->total_amount, 2, ',', '.') }} Kz</strong></td>
-                                        </tr>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Aprovação/Rejeição -->
-                        @if($selectedVacation->status === 'approved' || $selectedVacation->status === 'rejected')
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">
-                                            @if($selectedVacation->status === 'approved')
-                                                <i class="fas fa-check-circle text-success me-2"></i>Aprovação
-                                            @else
-                                                <i class="fas fa-times-circle text-danger me-2"></i>Rejeição
-                                            @endif
-                                        </h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <strong>{{ $selectedVacation->status === 'approved' ? 'Aprovado por:' : 'Rejeitado por:' }}</strong>
-                                                {{ $selectedVacation->status === 'approved' ? ($selectedVacation->approvedBy->name ?? '-') : ($selectedVacation->rejectedBy->name ?? '-') }}
-                                            </div>
-                                            <div class="col-md-6">
-                                                <strong>Data:</strong>
-                                                {{ $selectedVacation->status === 'approved' ? $selectedVacation->approved_at->format('d/m/Y H:i') : $selectedVacation->rejected_at->format('d/m/Y H:i') }}
-                                            </div>
-                                            @if($selectedVacation->rejection_reason)
-                                                <div class="col-12 mt-2">
-                                                    <strong>Motivo da Rejeição:</strong>
-                                                    <p class="mb-0 text-muted">{{ $selectedVacation->rejection_reason }}</p>
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-
-                        <!-- Adiantamento (Subsídio de Férias) -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Adiantamento (14º)</h6>
-                                </div>
-                                <div class="card-body">
-                                    @if($selectedVacation->advance_paid)
-                                        <div class="alert alert-success mb-0">
-                                            <i class="fas fa-check-circle me-2"></i>
-                                            <strong>Pago em:</strong> {{ $selectedVacation->advance_paid_date->format('d/m/Y') }}
-                                            <br>
-                                            <strong>Autorizado por:</strong> {{ $selectedVacation->advancePaidBy->name ?? '-' }}
-                                        </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Tipo:</span>
+                                    @if($selectedVacation->vacation_type === 'normal')
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">Normal</span>
+                                    @elseif($selectedVacation->vacation_type === 'accumulated')
+                                        <span class="px-2 py-1 bg-cyan-100 text-cyan-700 rounded text-xs font-semibold">Acumuladas</span>
+                                    @elseif($selectedVacation->vacation_type === 'advance')
+                                        <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-semibold">Antecipadas</span>
                                     @else
-                                        <div class="alert alert-warning mb-0">
-                                            <i class="fas fa-exclamation-triangle me-2"></i>
-                                            Adiantamento não pago
-                                            @if($selectedVacation->advance_payment_date)
-                                                <br><small>Data limite: {{ $selectedVacation->advance_payment_date->format('d/m/Y') }}</small>
-                                            @endif
-                                        </div>
+                                        <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">Coletivas</span>
+                                    @endif
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Período Aquisitivo:</span>
+                                    <span class="text-sm text-gray-900">
+                                        {{ $selectedVacation->period_start ? $selectedVacation->period_start->format('d/m/Y') : '-' }} a 
+                                        {{ $selectedVacation->period_end ? $selectedVacation->period_end->format('d/m/Y') : '-' }}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Status:</span>
+                                    @if($selectedVacation->status === 'pending')
+                                        <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-semibold">Pendente</span>
+                                    @elseif($selectedVacation->status === 'approved')
+                                        <span class="px-2 py-1 bg-cyan-100 text-cyan-700 rounded text-xs font-semibold">Aprovada</span>
+                                    @elseif($selectedVacation->status === 'rejected')
+                                        <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">Rejeitada</span>
+                                    @elseif($selectedVacation->status === 'in_progress')
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">Em Andamento</span>
+                                    @elseif($selectedVacation->status === 'completed')
+                                        <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-semibold">Concluída</span>
+                                    @else
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-semibold">Cancelada</span>
                                     @endif
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Pagamento Final -->
-                        <div class="col-md-6">
-                            <div class="card h-100">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-money-check me-2"></i>Pagamento Final</h6>
+                        {{-- Período de Férias --}}
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-calendar-alt mr-2 text-gray-600"></i>Período de Férias
+                                </h6>
+                            </div>
+                            <div class="p-4 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Data de Início:</span>
+                                    <span class="text-sm text-blue-600">
+                                        <i class="fas fa-calendar-alt mr-1"></i>
+                                        {{ $selectedVacation->start_date->format('d/m/Y') }}
+                                    </span>
                                 </div>
-                                <div class="card-body">
-                                    @if($selectedVacation->paid)
-                                        <div class="alert alert-success mb-0">
-                                            <i class="fas fa-check-circle me-2"></i>
-                                            <strong>Pago em:</strong> {{ $selectedVacation->paid_date->format('d/m/Y') }}
-                                            <br>
-                                            <strong>Pago por:</strong> {{ $selectedVacation->paidBy->name ?? '-' }}
-                                            @if($selectedVacation->processed_in_payroll)
-                                                <br><span class="badge bg-success mt-1">Processado em folha</span>
-                                            @endif
-                                        </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Data de Término:</span>
+                                    <span class="text-sm text-green-600">
+                                        <i class="fas fa-calendar-check mr-1"></i>
+                                        {{ $selectedVacation->end_date->format('d/m/Y') }}
+                                    </span>
+                                </div>
+                                @if($selectedVacation->expected_return_date ?? null)
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Retorno Previsto:</span>
+                                    <span class="text-sm text-cyan-600">
+                                        <i class="fas fa-calendar-day mr-1"></i>
+                                        {{ $selectedVacation->expected_return_date->format('d/m/Y') }}
+                                    </span>
+                                </div>
+                                @endif
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Dias Corridos:</span>
+                                    <span class="text-sm font-bold text-gray-900">{{ $selectedVacation->requested_days }} dias</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Dias Úteis:</span>
+                                    <span class="text-sm font-bold text-purple-600">{{ $selectedVacation->working_days }} dias úteis</span>
+                                </div>
+                                @if($selectedVacation->split_number)
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Divisão:</span>
+                                    <span class="px-2 py-1 bg-cyan-100 text-cyan-700 rounded text-xs font-semibold">
+                                        {{ $selectedVacation->split_number }}ª parcela de {{ $selectedVacation->total_splits }}
+                                    </span>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Direito e Valores --}}
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-money-bill-wave mr-2 text-gray-600"></i>Cálculos Financeiros
+                                </h6>
+                            </div>
+                            <div class="p-4 space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Dias com Direito:</span>
+                                    <span class="text-sm text-gray-900">
+                                        {{ $selectedVacation->entitled_days }} dias ({{ $selectedVacation->working_months }} meses)
+                                    </span>
+                                </div>
+                                @if(($selectedVacation->previous_balance ?? 0) > 0)
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Saldo Anterior:</span>
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-semibold">
+                                        +{{ $selectedVacation->previous_balance }} dias
+                                    </span>
+                                </div>
+                                @endif
+                                @if(($selectedVacation->accumulated_days ?? 0) > 0)
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Dias Acumulados:</span>
+                                    <span class="px-2 py-1 bg-cyan-100 text-cyan-700 rounded text-xs font-semibold">
+                                        {{ $selectedVacation->accumulated_days }} dias
+                                    </span>
+                                </div>
+                                @endif
+                                @if(($selectedVacation->days_remaining ?? 0) > 0)
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Dias Restantes:</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-semibold">
+                                        {{ $selectedVacation->days_remaining }} dias
+                                    </span>
+                                </div>
+                                @endif
+                                <div class="flex justify-between border-t pt-2">
+                                    <span class="text-sm font-semibold text-gray-600">Taxa Diária:</span>
+                                    <span class="text-sm text-gray-900">{{ number_format($selectedVacation->daily_rate, 2, ',', '.') }} Kz</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Pagamento Férias:</span>
+                                    <span class="text-sm font-bold text-green-600">{{ number_format($selectedVacation->vacation_pay, 2, ',', '.') }} Kz</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-semibold text-gray-600">Subsídio (14º):</span>
+                                    <span class="text-sm font-bold text-green-600">{{ number_format($selectedVacation->subsidy_amount, 2, ',', '.') }} Kz</span>
+                                </div>
+                                <div class="flex justify-between bg-green-50 -mx-4 px-4 py-2 mt-2">
+                                    <span class="text-sm font-bold text-gray-900">Total a Receber:</span>
+                                    <span class="text-lg font-bold text-green-600">{{ number_format($selectedVacation->total_amount, 2, ',', '.') }} Kz</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Aprovação/Rejeição --}}
+                    @if($selectedVacation->status === 'approved' || $selectedVacation->status === 'rejected')
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="px-4 py-3 border-b {{ $selectedVacation->status === 'approved' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                                <h6 class="font-semibold {{ $selectedVacation->status === 'approved' ? 'text-green-900' : 'text-red-900' }}">
+                                    @if($selectedVacation->status === 'approved')
+                                        <i class="fas fa-check-circle mr-2"></i>Aprovação
                                     @else
-                                        <div class="alert alert-warning mb-0">
-                                            <i class="fas fa-exclamation-triangle me-2"></i>
-                                            Pagamento ainda não realizado
+                                        <i class="fas fa-times-circle mr-2"></i>Rejeição
+                                    @endif
+                                </h6>
+                            </div>
+                            <div class="p-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-600">
+                                            {{ $selectedVacation->status === 'approved' ? 'Aprovado por:' : 'Rejeitado por:' }}
+                                        </span>
+                                        <p class="text-sm text-gray-900">
+                                            {{ $selectedVacation->status === 'approved' ? ($selectedVacation->approvedBy->name ?? '-') : ($selectedVacation->rejectedBy->name ?? '-') }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-600">Data:</span>
+                                        <p class="text-sm text-gray-900">
+                                            {{ $selectedVacation->status === 'approved' ? $selectedVacation->approved_at->format('d/m/Y H:i') : $selectedVacation->rejected_at->format('d/m/Y H:i') }}
+                                        </p>
+                                    </div>
+                                    @if($selectedVacation->rejection_reason)
+                                        <div class="col-span-2">
+                                            <span class="text-sm font-semibold text-gray-600">Motivo da Rejeição:</span>
+                                            <p class="text-sm text-gray-700 mt-1">{{ $selectedVacation->rejection_reason }}</p>
                                         </div>
                                     @endif
                                 </div>
                             </div>
                         </div>
+                    @endif
 
-                        <!-- Controle de Retorno -->
-                        @if($selectedVacation->actual_return_date || $selectedVacation->status === 'completed')
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Retorno ao Trabalho</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        @if($selectedVacation->actual_return_date)
-                                        <div class="col-md-6">
-                                            <strong>Data de Retorno:</strong> {{ $selectedVacation->actual_return_date->format('d/m/Y') }}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {{-- Adiantamento (Subsídio) --}}
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-hand-holding-usd mr-2 text-gray-600"></i>Adiantamento (14º)
+                                </h6>
+                            </div>
+                            <div class="p-4">
+                                @if($selectedVacation->advance_paid)
+                                    <div class="bg-green-50 border border-green-200 rounded-xl p-3">
+                                        <div class="flex items-start">
+                                            <i class="fas fa-check-circle text-green-600 text-lg mr-2 mt-0.5"></i>
+                                            <div class="text-sm">
+                                                <p class="font-semibold text-green-900">Pago em:</p>
+                                                <p class="text-green-700">{{ $selectedVacation->advance_paid_date ? $selectedVacation->advance_paid_date->format('d/m/Y') : '-' }}</p>
+                                                <p class="font-semibold text-green-900 mt-2">Autorizado por:</p>
+                                                <p class="text-green-700">{{ $selectedVacation->advancePaidBy->name ?? '-' }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                                        <div class="flex items-start">
+                                            <i class="fas fa-exclamation-triangle text-yellow-600 text-lg mr-2 mt-0.5"></i>
+                                            <div class="text-sm">
+                                                <p class="font-semibold text-yellow-900">Adiantamento não pago</p>
+                                                @if($selectedVacation->advance_payment_date ?? null)
+                                                    <p class="text-yellow-700 text-xs mt-1">
+                                                        Data limite: {{ $selectedVacation->advance_payment_date->format('d/m/Y') }}
+                                                    </p>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Pagamento Final --}}
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-money-check mr-2 text-gray-600"></i>Pagamento Final
+                                </h6>
+                            </div>
+                            <div class="p-4">
+                                @if($selectedVacation->paid)
+                                    <div class="bg-green-50 border border-green-200 rounded-xl p-3">
+                                        <div class="flex items-start">
+                                            <i class="fas fa-check-circle text-green-600 text-lg mr-2 mt-0.5"></i>
+                                            <div class="text-sm">
+                                                <p class="font-semibold text-green-900">Pago em:</p>
+                                                <p class="text-green-700">{{ $selectedVacation->paid_date ? $selectedVacation->paid_date->format('d/m/Y') : '-' }}</p>
+                                                <p class="font-semibold text-green-900 mt-2">Pago por:</p>
+                                                <p class="text-green-700">{{ $selectedVacation->paidBy->name ?? '-' }}</p>
+                                                @if($selectedVacation->processed_in_payroll ?? false)
+                                                    <span class="inline-block mt-2 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-semibold">
+                                                        Processado em folha
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                                        <div class="flex items-start">
+                                            <i class="fas fa-exclamation-triangle text-yellow-600 text-lg mr-2 mt-0.5"></i>
+                                            <div class="text-sm">
+                                                <p class="font-semibold text-yellow-900">Pagamento ainda não realizado</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Retorno ao Trabalho --}}
+                    @if($selectedVacation->actual_return_date || $selectedVacation->status === 'completed')
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-calendar-check mr-2 text-gray-600"></i>Retorno ao Trabalho
+                                </h6>
+                            </div>
+                            <div class="p-4">
+                                @if($selectedVacation->actual_return_date)
+                                    <div class="space-y-2">
+                                        <div>
+                                            <span class="text-sm font-semibold text-gray-600">Data de Retorno:</span>
+                                            <span class="text-sm text-gray-900 ml-2">
+                                                {{ $selectedVacation->actual_return_date->format('d/m/Y') }}
+                                            </span>
                                             @if($selectedVacation->returned_on_time !== null)
                                                 @if($selectedVacation->returned_on_time)
-                                                    <span class="badge bg-success ms-2">No Prazo</span>
+                                                    <span class="ml-2 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-semibold">No Prazo</span>
                                                 @else
-                                                    <span class="badge bg-danger ms-2">Com Atraso</span>
+                                                    <span class="ml-2 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">Com Atraso</span>
                                                 @endif
                                             @endif
                                         </div>
-                                        @endif
                                         @if($selectedVacation->return_notes)
-                                        <div class="col-12 mt-2">
-                                            <strong>Observações do Retorno:</strong>
-                                            <p class="mb-0 text-muted">{{ $selectedVacation->return_notes }}</p>
-                                        </div>
+                                            <div class="mt-3">
+                                                <span class="text-sm font-semibold text-gray-600">Observações do Retorno:</span>
+                                                <p class="text-sm text-gray-700 mt-1">{{ $selectedVacation->return_notes }}</p>
+                                            </div>
                                         @endif
                                     </div>
-                                </div>
+                                @endif
                             </div>
                         </div>
-                        @endif
+                    @endif
 
-                        <!-- Substituição -->
-                        @if($selectedVacation->replacementEmployee)
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0"><i class="fas fa-user-friends me-2"></i>Funcionário Substituto</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <strong>{{ $selectedVacation->replacementEmployee->full_name }}</strong>
-                                        ({{ $selectedVacation->replacementEmployee->employee_number }})
-                                        - {{ $selectedVacation->replacementEmployee->position->title ?? '-' }}
-                                    </div>
-                                </div>
+                    {{-- Funcionário Substituto --}}
+                    @if($selectedVacation->replacementEmployee ?? null)
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-user-friends mr-2 text-gray-600"></i>Funcionário Substituto
+                                </h6>
                             </div>
-                        @endif
+                            <div class="p-4">
+                                <p class="text-sm text-gray-900">
+                                    <strong>{{ $selectedVacation->replacementEmployee->full_name }}</strong>
+                                    ({{ $selectedVacation->replacementEmployee->employee_number }})
+                                    - {{ $selectedVacation->replacementEmployee->position->title ?? '-' }}
+                                </p>
+                            </div>
+                        </div>
+                    @endif
 
-                        <!-- Férias Coletivas -->
-                        @if($selectedVacation->is_collective)
-                            <div class="col-12">
-                                <div class="card border-purple">
-                                    <div class="card-header bg-purple text-white">
-                                        <h6 class="mb-0"><i class="fas fa-users me-2"></i>Férias Coletivas</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="alert alert-info mb-0">
-                                            <i class="fas fa-info-circle me-2"></i>
+                    {{-- Férias Coletivas --}}
+                    @if($selectedVacation->is_collective ?? false)
+                        <div class="bg-purple-50 border border-purple-200 rounded-xl overflow-hidden">
+                            <div class="bg-purple-600 px-4 py-3 border-b border-purple-700">
+                                <h6 class="font-semibold text-white">
+                                    <i class="fas fa-users mr-2"></i>Férias Coletivas
+                                </h6>
+                            </div>
+                            <div class="p-4">
+                                <div class="bg-cyan-50 border border-cyan-200 rounded-xl p-3">
+                                    <div class="flex items-start">
+                                        <i class="fas fa-info-circle text-cyan-600 text-lg mr-2 mt-0.5"></i>
+                                        <div class="text-sm text-cyan-900">
                                             Esta é uma solicitação de <strong>férias coletivas</strong>
                                             @if($selectedVacation->collective_group)
                                                 para: <strong>{{ $selectedVacation->collective_group }}</strong>
@@ -345,47 +408,55 @@
                                     </div>
                                 </div>
                             </div>
-                        @endif
+                        </div>
+                    @endif
 
-                        <!-- Documento Anexo -->
-                        @if($selectedVacation->attachment_path)
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0"><i class="fas fa-paperclip me-2"></i>Documento Anexo</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <a href="{{ asset('storage/' . $selectedVacation->attachment_path) }}" 
-                                           target="_blank" 
-                                           class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-download me-1"></i>
-                                            Baixar Documento
-                                        </a>
-                                    </div>
-                                </div>
+                    {{-- Documento Anexo --}}
+                    @if($selectedVacation->attachment_path ?? null)
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-paperclip mr-2 text-gray-600"></i>Documento Anexo
+                                </h6>
                             </div>
-                        @endif
+                            <div class="p-4">
+                                <a href="{{ asset('storage/' . $selectedVacation->attachment_path) }}" 
+                                   target="_blank" 
+                                   class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all">
+                                    <i class="fas fa-download mr-2"></i>Baixar Documento
+                                </a>
+                            </div>
+                        </div>
+                    @endif
 
-                        <!-- Observações -->
-                        @if($selectedVacation->notes)
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0"><i class="fas fa-sticky-note me-2"></i>Observações</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="mb-0">{{ $selectedVacation->notes }}</p>
-                                    </div>
-                                </div>
+                    {{-- Observações --}}
+                    @if($selectedVacation->notes)
+                        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                <h6 class="font-semibold text-gray-900">
+                                    <i class="fas fa-sticky-note mr-2 text-gray-600"></i>Observações
+                                </h6>
                             </div>
-                        @endif
+                            <div class="p-4">
+                                <p class="text-sm text-gray-700">{{ $selectedVacation->notes }}</p>
+                            </div>
+                        </div>
+                    @endif
+                @else
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-spinner fa-spin text-gray-400 text-2xl"></i>
+                        </div>
+                        <p class="text-gray-500">A carregar detalhes...</p>
                     </div>
                 @endif
             </div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" wire:click="closeModal">
-                    <i class="fas fa-times me-1"></i>Fechar
+            {{-- Footer --}}
+            <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end sticky bottom-0 bg-white">
+                <button type="button" wire:click="closeModal"
+                        class="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all">
+                    <i class="fas fa-times mr-2"></i>Fechar
                 </button>
             </div>
         </div>

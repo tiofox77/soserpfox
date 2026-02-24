@@ -53,7 +53,9 @@ class SAFTHelper
                     // Assinar com RSA-SHA256
                     openssl_sign($dataToSign, $signature, $pkeyid, OPENSSL_ALGO_SHA256);
                     $signedHash = base64_encode($signature);
-                    openssl_free_key($pkeyid);
+                    if (PHP_MAJOR_VERSION < 8) {
+                        openssl_free_key($pkeyid);
+                    }
                     
                     return $signedHash;
                 }
@@ -102,7 +104,9 @@ class SAFTHelper
             
             $result = openssl_verify($dataToVerify, $signatureDecoded, $pubkeyid, OPENSSL_ALGO_SHA256);
             
-            openssl_free_key($pubkeyid);
+            if (PHP_MAJOR_VERSION < 8) {
+                openssl_free_key($pubkeyid);
+            }
             
             return $result === 1;
             

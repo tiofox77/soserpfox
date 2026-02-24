@@ -543,17 +543,23 @@
         </div>
 
         {{-- Footer --}}
-        <div class="bg-gray-50 px-6 py-4 flex items-center justify-end space-x-3 border-t border-gray-200">
-            <button wire:click="closeEditItemModal" 
-                    type="button"
-                    class="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all">
-                <i class="fas fa-times mr-2"></i>Cancelar
-            </button>
-            <button wire:click="saveItem" 
-                    type="button"
-                    class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
-                <i class="fas fa-save mr-2"></i>Salvar Alterações
-            </button>
+        <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+            <a href="{{ route('hr.payroll.payslip.pdf', $editingItemId) }}" target="_blank"
+               class="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
+                <i class="fas fa-file-pdf mr-2"></i>Imprimir Recibo
+            </a>
+            <div class="flex items-center space-x-3">
+                <button wire:click="closeEditItemModal" 
+                        type="button"
+                        class="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all">
+                    <i class="fas fa-times mr-2"></i>Cancelar
+                </button>
+                <button wire:click="saveItem" 
+                        type="button"
+                        class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
+                    <i class="fas fa-save mr-2"></i>Salvar Alterações
+                </button>
+            </div>
         </div>
     </div>
 </div>

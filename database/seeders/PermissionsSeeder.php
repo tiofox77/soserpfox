@@ -32,162 +32,162 @@ class PermissionsSeeder extends Seeder
         $createPermission('invoicing.dashboard.view', 'Ver Dashboard de Faturação');
 
         // Clientes
-        Permission::create(['name' => 'invoicing.clients.view', 'description' => 'Ver Clientes']);
-        Permission::create(['name' => 'invoicing.clients.create', 'description' => 'Criar Clientes']);
-        Permission::create(['name' => 'invoicing.clients.edit', 'description' => 'Editar Clientes']);
-        Permission::create(['name' => 'invoicing.clients.delete', 'description' => 'Eliminar Clientes']);
-        Permission::create(['name' => 'invoicing.clients.export', 'description' => 'Exportar Clientes']);
+        $createPermission('invoicing.clients.view', 'Ver Clientes');
+        $createPermission('invoicing.clients.create', 'Criar Clientes');
+        $createPermission('invoicing.clients.edit', 'Editar Clientes');
+        $createPermission('invoicing.clients.delete', 'Eliminar Clientes');
+        $createPermission('invoicing.clients.export', 'Exportar Clientes');
 
         // Fornecedores
-        Permission::create(['name' => 'invoicing.suppliers.view', 'description' => 'Ver Fornecedores']);
-        Permission::create(['name' => 'invoicing.suppliers.create', 'description' => 'Criar Fornecedores']);
-        Permission::create(['name' => 'invoicing.suppliers.edit', 'description' => 'Editar Fornecedores']);
-        Permission::create(['name' => 'invoicing.suppliers.delete', 'description' => 'Eliminar Fornecedores']);
+        $createPermission('invoicing.suppliers.view', 'Ver Fornecedores');
+        $createPermission('invoicing.suppliers.create', 'Criar Fornecedores');
+        $createPermission('invoicing.suppliers.edit', 'Editar Fornecedores');
+        $createPermission('invoicing.suppliers.delete', 'Eliminar Fornecedores');
 
         // Produtos
-        Permission::create(['name' => 'invoicing.products.view', 'description' => 'Ver Produtos']);
-        Permission::create(['name' => 'invoicing.products.create', 'description' => 'Criar Produtos']);
-        Permission::create(['name' => 'invoicing.products.edit', 'description' => 'Editar Produtos']);
-        Permission::create(['name' => 'invoicing.products.delete', 'description' => 'Eliminar Produtos']);
-        Permission::create(['name' => 'invoicing.products.import', 'description' => 'Importar Produtos']);
+        $createPermission('invoicing.products.view', 'Ver Produtos');
+        $createPermission('invoicing.products.create', 'Criar Produtos');
+        $createPermission('invoicing.products.edit', 'Editar Produtos');
+        $createPermission('invoicing.products.delete', 'Eliminar Produtos');
+        $createPermission('invoicing.products.import', 'Importar Produtos');
 
         // Categorias
-        Permission::create(['name' => 'invoicing.categories.view', 'description' => 'Ver Categorias']);
-        Permission::create(['name' => 'invoicing.categories.create', 'description' => 'Criar Categorias']);
-        Permission::create(['name' => 'invoicing.categories.edit', 'description' => 'Editar Categorias']);
-        Permission::create(['name' => 'invoicing.categories.delete', 'description' => 'Eliminar Categorias']);
+        $createPermission('invoicing.categories.view', 'Ver Categorias');
+        $createPermission('invoicing.categories.create', 'Criar Categorias');
+        $createPermission('invoicing.categories.edit', 'Editar Categorias');
+        $createPermission('invoicing.categories.delete', 'Eliminar Categorias');
 
         // Marcas
-        Permission::create(['name' => 'invoicing.brands.view', 'description' => 'Ver Marcas']);
-        Permission::create(['name' => 'invoicing.brands.create', 'description' => 'Criar Marcas']);
-        Permission::create(['name' => 'invoicing.brands.edit', 'description' => 'Editar Marcas']);
-        Permission::create(['name' => 'invoicing.brands.delete', 'description' => 'Eliminar Marcas']);
+        $createPermission('invoicing.brands.view', 'Ver Marcas');
+        $createPermission('invoicing.brands.create', 'Criar Marcas');
+        $createPermission('invoicing.brands.edit', 'Editar Marcas');
+        $createPermission('invoicing.brands.delete', 'Eliminar Marcas');
 
         // Faturas de Venda
-        Permission::create(['name' => 'invoicing.sales.invoices.view', 'description' => 'Ver Faturas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.invoices.create', 'description' => 'Criar Faturas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.invoices.edit', 'description' => 'Editar Faturas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.invoices.delete', 'description' => 'Eliminar Faturas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.invoices.pdf', 'description' => 'Gerar PDF Faturas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.invoices.cancel', 'description' => 'Cancelar Faturas de Venda']);
+        $createPermission('invoicing.sales.invoices.view', 'Ver Faturas de Venda');
+        $createPermission('invoicing.sales.invoices.create', 'Criar Faturas de Venda');
+        $createPermission('invoicing.sales.invoices.edit', 'Editar Faturas de Venda');
+        $createPermission('invoicing.sales.invoices.delete', 'Eliminar Faturas de Venda');
+        $createPermission('invoicing.sales.invoices.pdf', 'Gerar PDF Faturas de Venda');
+        $createPermission('invoicing.sales.invoices.cancel', 'Cancelar Faturas de Venda');
 
         // Proformas de Venda
-        Permission::create(['name' => 'invoicing.sales.proformas.view', 'description' => 'Ver Proformas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.proformas.create', 'description' => 'Criar Proformas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.proformas.edit', 'description' => 'Editar Proformas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.proformas.delete', 'description' => 'Eliminar Proformas de Venda']);
-        Permission::create(['name' => 'invoicing.sales.proformas.convert', 'description' => 'Converter Proformas em Faturas']);
+        $createPermission('invoicing.sales.proformas.view', 'Ver Proformas de Venda');
+        $createPermission('invoicing.sales.proformas.create', 'Criar Proformas de Venda');
+        $createPermission('invoicing.sales.proformas.edit', 'Editar Proformas de Venda');
+        $createPermission('invoicing.sales.proformas.delete', 'Eliminar Proformas de Venda');
+        $createPermission('invoicing.sales.proformas.convert', 'Converter Proformas em Faturas');
 
         // Faturas de Compra
-        Permission::create(['name' => 'invoicing.purchases.invoices.view', 'description' => 'Ver Faturas de Compra']);
-        Permission::create(['name' => 'invoicing.purchases.invoices.create', 'description' => 'Criar Faturas de Compra']);
-        Permission::create(['name' => 'invoicing.purchases.invoices.edit', 'description' => 'Editar Faturas de Compra']);
-        Permission::create(['name' => 'invoicing.purchases.invoices.delete', 'description' => 'Eliminar Faturas de Compra']);
+        $createPermission('invoicing.purchases.invoices.view', 'Ver Faturas de Compra');
+        $createPermission('invoicing.purchases.invoices.create', 'Criar Faturas de Compra');
+        $createPermission('invoicing.purchases.invoices.edit', 'Editar Faturas de Compra');
+        $createPermission('invoicing.purchases.invoices.delete', 'Eliminar Faturas de Compra');
 
         // Proformas de Compra
-        Permission::create(['name' => 'invoicing.purchases.proformas.view', 'description' => 'Ver Proformas de Compra']);
-        Permission::create(['name' => 'invoicing.purchases.proformas.create', 'description' => 'Criar Proformas de Compra']);
-        Permission::create(['name' => 'invoicing.purchases.proformas.edit', 'description' => 'Editar Proformas de Compra']);
-        Permission::create(['name' => 'invoicing.purchases.proformas.delete', 'description' => 'Eliminar Proformas de Compra']);
+        $createPermission('invoicing.purchases.proformas.view', 'Ver Proformas de Compra');
+        $createPermission('invoicing.purchases.proformas.create', 'Criar Proformas de Compra');
+        $createPermission('invoicing.purchases.proformas.edit', 'Editar Proformas de Compra');
+        $createPermission('invoicing.purchases.proformas.delete', 'Eliminar Proformas de Compra');
 
         // Recibos
-        Permission::create(['name' => 'invoicing.receipts.view', 'description' => 'Ver Recibos']);
-        Permission::create(['name' => 'invoicing.receipts.create', 'description' => 'Criar Recibos']);
-        Permission::create(['name' => 'invoicing.receipts.edit', 'description' => 'Editar Recibos']);
-        Permission::create(['name' => 'invoicing.receipts.delete', 'description' => 'Eliminar Recibos']);
-        Permission::create(['name' => 'invoicing.receipts.cancel', 'description' => 'Cancelar Recibos']);
+        $createPermission('invoicing.receipts.view', 'Ver Recibos');
+        $createPermission('invoicing.receipts.create', 'Criar Recibos');
+        $createPermission('invoicing.receipts.edit', 'Editar Recibos');
+        $createPermission('invoicing.receipts.delete', 'Eliminar Recibos');
+        $createPermission('invoicing.receipts.cancel', 'Cancelar Recibos');
 
         // Notas de Crédito
-        Permission::create(['name' => 'invoicing.credit-notes.view', 'description' => 'Ver Notas de Crédito']);
-        Permission::create(['name' => 'invoicing.credit-notes.create', 'description' => 'Criar Notas de Crédito']);
-        Permission::create(['name' => 'invoicing.credit-notes.edit', 'description' => 'Editar Notas de Crédito']);
-        Permission::create(['name' => 'invoicing.credit-notes.delete', 'description' => 'Eliminar Notas de Crédito']);
+        $createPermission('invoicing.credit-notes.view', 'Ver Notas de Crédito');
+        $createPermission('invoicing.credit-notes.create', 'Criar Notas de Crédito');
+        $createPermission('invoicing.credit-notes.edit', 'Editar Notas de Crédito');
+        $createPermission('invoicing.credit-notes.delete', 'Eliminar Notas de Crédito');
 
         // Notas de Débito
-        Permission::create(['name' => 'invoicing.debit-notes.view', 'description' => 'Ver Notas de Débito']);
-        Permission::create(['name' => 'invoicing.debit-notes.create', 'description' => 'Criar Notas de Débito']);
-        Permission::create(['name' => 'invoicing.debit-notes.edit', 'description' => 'Editar Notas de Débito']);
-        Permission::create(['name' => 'invoicing.debit-notes.delete', 'description' => 'Eliminar Notas de Débito']);
+        $createPermission('invoicing.debit-notes.view', 'Ver Notas de Débito');
+        $createPermission('invoicing.debit-notes.create', 'Criar Notas de Débito');
+        $createPermission('invoicing.debit-notes.edit', 'Editar Notas de Débito');
+        $createPermission('invoicing.debit-notes.delete', 'Eliminar Notas de Débito');
 
         // Adiantamentos
-        Permission::create(['name' => 'invoicing.advances.view', 'description' => 'Ver Adiantamentos']);
-        Permission::create(['name' => 'invoicing.advances.create', 'description' => 'Criar Adiantamentos']);
-        Permission::create(['name' => 'invoicing.advances.edit', 'description' => 'Editar Adiantamentos']);
-        Permission::create(['name' => 'invoicing.advances.delete', 'description' => 'Eliminar Adiantamentos']);
+        $createPermission('invoicing.advances.view', 'Ver Adiantamentos');
+        $createPermission('invoicing.advances.create', 'Criar Adiantamentos');
+        $createPermission('invoicing.advances.edit', 'Editar Adiantamentos');
+        $createPermission('invoicing.advances.delete', 'Eliminar Adiantamentos');
 
         // Importações
-        Permission::create(['name' => 'invoicing.imports.view', 'description' => 'Ver Importações']);
-        Permission::create(['name' => 'invoicing.imports.create', 'description' => 'Criar Importações']);
-        Permission::create(['name' => 'invoicing.imports.edit', 'description' => 'Editar Importações']);
-        Permission::create(['name' => 'invoicing.imports.delete', 'description' => 'Eliminar Importações']);
+        $createPermission('invoicing.imports.view', 'Ver Importações');
+        $createPermission('invoicing.imports.create', 'Criar Importações');
+        $createPermission('invoicing.imports.edit', 'Editar Importações');
+        $createPermission('invoicing.imports.delete', 'Eliminar Importações');
 
         // POS - Ponto de Venda
-        Permission::create(['name' => 'invoicing.pos.access', 'description' => 'Acessar POS']);
-        Permission::create(['name' => 'invoicing.pos.sell', 'description' => 'Realizar Vendas no POS']);
-        Permission::create(['name' => 'invoicing.pos.refund', 'description' => 'Fazer Devoluções no POS']);
-        Permission::create(['name' => 'invoicing.pos.reports', 'description' => 'Ver Relatórios POS']);
-        Permission::create(['name' => 'invoicing.pos.settings', 'description' => 'Configurar POS']);
+        $createPermission('invoicing.pos.access', 'Acessar POS');
+        $createPermission('invoicing.pos.sell', 'Realizar Vendas no POS');
+        $createPermission('invoicing.pos.refund', 'Fazer Devoluções no POS');
+        $createPermission('invoicing.pos.reports', 'Ver Relatórios POS');
+        $createPermission('invoicing.pos.settings', 'Configurar POS');
 
         // Configurações
-        Permission::create(['name' => 'invoicing.settings.view', 'description' => 'Ver Configurações de Faturação']);
-        Permission::create(['name' => 'invoicing.settings.edit', 'description' => 'Editar Configurações de Faturação']);
+        $createPermission('invoicing.settings.view', 'Ver Configurações de Faturação');
+        $createPermission('invoicing.settings.edit', 'Editar Configurações de Faturação');
         
         // AGT Angola
-        Permission::create(['name' => 'invoicing.agt.view', 'description' => 'Ver Configurações AGT Angola']);
-        Permission::create(['name' => 'invoicing.agt.edit', 'description' => 'Editar Configurações AGT Angola']);
+        $createPermission('invoicing.agt.view', 'Ver Configurações AGT Angola');
+        $createPermission('invoicing.agt.edit', 'Editar Configurações AGT Angola');
 
         // Armazéns
-        Permission::create(['name' => 'invoicing.warehouses.view', 'description' => 'Ver Armazéns']);
-        Permission::create(['name' => 'invoicing.warehouses.create', 'description' => 'Criar Armazéns']);
-        Permission::create(['name' => 'invoicing.warehouses.edit', 'description' => 'Editar Armazéns']);
-        Permission::create(['name' => 'invoicing.warehouses.delete', 'description' => 'Eliminar Armazéns']);
+        $createPermission('invoicing.warehouses.view', 'Ver Armazéns');
+        $createPermission('invoicing.warehouses.create', 'Criar Armazéns');
+        $createPermission('invoicing.warehouses.edit', 'Editar Armazéns');
+        $createPermission('invoicing.warehouses.delete', 'Eliminar Armazéns');
 
         // Gestão de Stock
-        Permission::create(['name' => 'invoicing.stock.view', 'description' => 'Ver Gestão de Stock']);
-        Permission::create(['name' => 'invoicing.stock.edit', 'description' => 'Editar Stock']);
+        $createPermission('invoicing.stock.view', 'Ver Gestão de Stock');
+        $createPermission('invoicing.stock.edit', 'Editar Stock');
 
         // Transferências de Armazém
-        Permission::create(['name' => 'invoicing.warehouse-transfer.view', 'description' => 'Ver Transferências de Armazém']);
-        Permission::create(['name' => 'invoicing.warehouse-transfer.create', 'description' => 'Criar Transferências de Armazém']);
+        $createPermission('invoicing.warehouse-transfer.view', 'Ver Transferências de Armazém');
+        $createPermission('invoicing.warehouse-transfer.create', 'Criar Transferências de Armazém');
 
         // Transferências Inter-Empresa
-        Permission::create(['name' => 'invoicing.inter-company-transfer.view', 'description' => 'Ver Transferências Inter-Empresa']);
-        Permission::create(['name' => 'invoicing.inter-company-transfer.create', 'description' => 'Criar Transferências Inter-Empresa']);
+        $createPermission('invoicing.inter-company-transfer.view', 'Ver Transferências Inter-Empresa');
+        $createPermission('invoicing.inter-company-transfer.create', 'Criar Transferências Inter-Empresa');
 
         // Impostos (IVA)
-        Permission::create(['name' => 'invoicing.taxes.view', 'description' => 'Ver Impostos (IVA)']);
-        Permission::create(['name' => 'invoicing.taxes.edit', 'description' => 'Editar Impostos']);
+        $createPermission('invoicing.taxes.view', 'Ver Impostos (IVA)');
+        $createPermission('invoicing.taxes.edit', 'Editar Impostos');
 
         // Séries de Documentos
-        Permission::create(['name' => 'invoicing.series.view', 'description' => 'Ver Séries de Documentos']);
-        Permission::create(['name' => 'invoicing.series.edit', 'description' => 'Editar Séries']);
+        $createPermission('invoicing.series.view', 'Ver Séries de Documentos');
+        $createPermission('invoicing.series.edit', 'Editar Séries');
 
         // SAFT-AO
-        Permission::create(['name' => 'invoicing.saft.view', 'description' => 'Ver Gerador SAFT-AO']);
-        Permission::create(['name' => 'invoicing.saft.generate', 'description' => 'Gerar Ficheiro SAFT']);
+        $createPermission('invoicing.saft.view', 'Ver Gerador SAFT-AO');
+        $createPermission('invoicing.saft.generate', 'Gerar Ficheiro SAFT');
 
         // ==========================================
         // MÓDULO DE TESOURARIA - PERMISSÕES
         // ==========================================
 
         // Contas Bancárias
-        Permission::create(['name' => 'treasury.accounts.view', 'description' => 'Ver Contas Bancárias']);
-        Permission::create(['name' => 'treasury.accounts.create', 'description' => 'Criar Contas Bancárias']);
-        Permission::create(['name' => 'treasury.accounts.edit', 'description' => 'Editar Contas Bancárias']);
-        Permission::create(['name' => 'treasury.accounts.delete', 'description' => 'Eliminar Contas Bancárias']);
+        $createPermission('treasury.accounts.view', 'Ver Contas Bancárias');
+        $createPermission('treasury.accounts.create', 'Criar Contas Bancárias');
+        $createPermission('treasury.accounts.edit', 'Editar Contas Bancárias');
+        $createPermission('treasury.accounts.delete', 'Eliminar Contas Bancárias');
 
         // Movimentos
-        Permission::create(['name' => 'treasury.transactions.view', 'description' => 'Ver Movimentos']);
-        Permission::create(['name' => 'treasury.transactions.create', 'description' => 'Criar Movimentos']);
-        Permission::create(['name' => 'treasury.transactions.edit', 'description' => 'Editar Movimentos']);
-        Permission::create(['name' => 'treasury.transactions.delete', 'description' => 'Eliminar Movimentos']);
+        $createPermission('treasury.transactions.view', 'Ver Movimentos');
+        $createPermission('treasury.transactions.create', 'Criar Movimentos');
+        $createPermission('treasury.transactions.edit', 'Editar Movimentos');
+        $createPermission('treasury.transactions.delete', 'Eliminar Movimentos');
 
         // Transferências
-        Permission::create(['name' => 'treasury.transfers.view', 'description' => 'Ver Transferências']);
-        Permission::create(['name' => 'treasury.transfers.create', 'description' => 'Criar Transferências']);
+        $createPermission('treasury.transfers.view', 'Ver Transferências');
+        $createPermission('treasury.transfers.create', 'Criar Transferências');
 
         // Relatórios
-        Permission::create(['name' => 'treasury.reports.view', 'description' => 'Ver Relatórios de Tesouraria']);
+        $createPermission('treasury.reports.view', 'Ver Relatórios de Tesouraria');
 
         // ==========================================
         // ROLES (PAPÉIS) PREDEFINIDOS

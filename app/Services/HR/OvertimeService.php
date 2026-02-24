@@ -57,14 +57,18 @@ class OvertimeService
      */
     public function calculateOvertimePay(Employee $employee, float $hours, string $overtimeType): array
     {
+        // Tentar buscar contrato ativo
         $contract = $employee->contracts()
             ->where('status', 'active')
             ->first();
 
-        if (!$contract) {
+        // Se não tiver contrato, usar salário do funcionário
+        $baseSalary = $contract ? $contract->base_salary : ($employee->salary ?? 0);
+
+        if ($baseSalary == 0) {
             return [
                 'hourly_rate' => 0,
-                'multiplier' => 0,
+                'multiplier' => self::MULTIPLIERS[$overtimeType] ?? 1.5,
                 'overtime_rate' => 0,
                 'total_amount' => 0,
             ];
@@ -72,7 +76,7 @@ class OvertimeService
 
         // Taxa hora normal (salário mensal / 176 horas mensais)
         $monthlyHours = 176; // 22 dias x 8 horas
-        $hourlyRate = $contract->base_salary / $monthlyHours;
+        $hourlyRate = $baseSalary / $monthlyHours;
 
         // Multiplicador
         $multiplier = self::MULTIPLIERS[$overtimeType] ?? 1.5;

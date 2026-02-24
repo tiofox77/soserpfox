@@ -36,6 +36,14 @@
     <link rel="apple-touch-icon" href="{{ app_favicon() }}">
     @endif
     
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SOS ERP">
+    <link rel="apple-touch-icon" sizes="192x192" href="/pwa/icon-192x192.png">
+    
     <!-- Canonical URL -->
     <link rel="canonical" href="{{ url()->current() }}">
 
@@ -495,7 +503,7 @@
                     </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('invoicing'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('invoicing'))
                         <!-- Invoicing Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ invoicingOpen: {{ request()->routeIs('invoicing.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -774,11 +782,19 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
                                 </a>
                                 @endcan
+                                
+                                @can('invoicing.agt.view')
+                                <a href="{{ route('invoicing.agt-settings') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.agt-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-file-signature w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">AGT Angola</span>
+                                </a>
+                                @endcan
                             </div>
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('invoicing'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('invoicing'))
                         <!-- Tesouraria Module - Collapsible Menu (integrado com Faturação) -->
                         <div class="mt-6" x-data="{ treasuryOpen: {{ request()->routeIs('treasury.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -857,7 +873,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('eventos'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('eventos'))
                         <!-- Events Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ eventsOpen: {{ request()->routeIs('events.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -922,7 +938,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('rh'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('rh'))
                         <!-- HR Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ hrOpen: {{ request()->routeIs('hr.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1029,7 +1045,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('contabilidade'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('contabilidade'))
                         <!-- Accounting Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ accountingOpen: {{ request()->routeIs('accounting.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1144,7 +1160,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('oficina'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('oficina'))
                         <!-- Oficina Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ oficinaOpen: {{ request()->routeIs('workshop.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1209,7 +1225,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('hotel'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('hotel'))
                         <!-- Hotel Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ hotelOpen: {{ request()->routeIs('hotel.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1322,7 +1338,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('salon'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('salon'))
                         <!-- Salon Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ salonOpen: {{ request()->routeIs('salon.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1407,7 +1423,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('notifications'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('notifications'))
                         <!-- Notifications Module -->
                         <div class="mt-6">
                             <a href="{{ route('notifications.settings') }}" 
@@ -1418,7 +1434,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('crm'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('crm'))
                         <!-- CRM Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ crmOpen: {{ request()->routeIs('crm.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1465,7 +1481,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('inventario'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('inventario'))
                         <!-- Inventário Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1512,7 +1528,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('compras'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('compras'))
                         <!-- Compras Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ comprasOpen: {{ request()->routeIs('compras.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1559,7 +1575,7 @@
                         </div>
                     @endif
 
-                    @if(!auth()->user()->isSuperAdmin() && auth()->user()->hasActiveModule('projetos'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('projetos'))
                         <!-- Projetos Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ projetosOpen: {{ request()->routeIs('projetos.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1912,6 +1928,56 @@
     
     <!-- Custom Scripts Stack -->
     @stack('scripts')
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        // Registar último acesso online
+        localStorage.setItem('soserp-last-online', Date.now().toString());
+        
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((reg) => {
+                        console.log('[PWA] Service Worker registado com sucesso. Scope:', reg.scope);
+                        
+                        // Verificar atualizações a cada 60 min
+                        setInterval(() => reg.update(), 60 * 60 * 1000);
+                        
+                        // Notificar quando nova versão disponível
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                                    if (typeof toastr !== 'undefined') {
+                                        toastr.info(
+                                            'Nova versão disponível. <a href="javascript:location.reload()" style="color:#fff;font-weight:bold;text-decoration:underline">Atualizar agora</a>',
+                                            'Atualização SOS ERP',
+                                            { timeOut: 0, extendedTimeOut: 0, closeButton: true, allowHtml: true }
+                                        );
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((err) => console.warn('[PWA] Falha ao registar SW:', err));
+            });
+        }
+
+        // Indicador de status offline/online
+        window.addEventListener('offline', () => {
+            document.body.classList.add('app-offline');
+            if (typeof toastr !== 'undefined') {
+                toastr.warning('Sem conexão à internet. Algumas funcionalidades podem estar limitadas.', 'Offline', { timeOut: 5000 });
+            }
+        });
+        window.addEventListener('online', () => {
+            document.body.classList.remove('app-offline');
+            localStorage.setItem('soserp-last-online', Date.now().toString());
+            if (typeof toastr !== 'undefined') {
+                toastr.success('Conexão restaurada!', 'Online', { timeOut: 3000 });
+            }
+        });
+    </script>
     
     <!-- Componente para enviar email de boas-vindas após redirect -->
     @livewire('send-welcome-email')

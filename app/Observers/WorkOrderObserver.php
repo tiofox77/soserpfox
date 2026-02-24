@@ -50,7 +50,7 @@ class WorkOrderObserver
                 'field_name' => 'status',
                 'old_value' => $oldStatus,
                 'new_value' => $newStatus,
-                'description' => "Status alterado de '{$statusLabels[$oldStatus]}' para '{$statusLabels[$newStatus]}'",
+                'description' => "Status alterado de '" . ($statusLabels[$oldStatus] ?? $oldStatus) . "' para '" . ($statusLabels[$newStatus] ?? $newStatus) . "'",
             ]);
         }
         

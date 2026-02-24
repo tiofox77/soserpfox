@@ -121,7 +121,8 @@ class Plan extends Model
 
     public function hasModule($moduleSlug)
     {
-        return in_array($moduleSlug, $this->included_modules ?? []);
+        // BUG-06 FIX: Usar pivot table plan_module (fonte de verdade) em vez de JSON
+        return $this->modules()->where('slug', $moduleSlug)->exists();
     }
 
     public function getYearlySavings()

@@ -29,6 +29,8 @@ class Tenants extends Component
     
     // User management
     public $showUserModal = false;
+    public $showUsersModal = false;
+    public $showAddUserModal = false;
     public $managingTenantId = null;
     public $selectedUserId = null;
     public $selectedRoleId = null;
@@ -250,7 +252,7 @@ class Tenants extends Component
 
     public function viewDetails($id)
     {
-        $this->viewingTenant = Tenant::findOrFail($id);
+        $this->viewingTenant = Tenant::with(['modules', 'users', 'activeSubscription.plan'])->findOrFail($id);
         $this->showViewModal = true;
     }
 
@@ -564,7 +566,8 @@ class Tenants extends Component
 
     public function render()
     {
-        $tenants = Tenant::with('activeSubscription.plan')
+        $tenants = Tenant::with(['activeSubscription.plan', 'modules'])
+            ->withCount('users')
             ->where('name', 'like', '%' . $this->search . '%')
             ->orWhere('email', 'like', '%' . $this->search . '%')
             ->latest()

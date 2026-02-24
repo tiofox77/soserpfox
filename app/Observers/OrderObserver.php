@@ -140,15 +140,18 @@ class OrderObserver
                 ]);
             }
 
-            // 3. SINCRONIZAR MÓDULOS
+            // 3. SINCRONIZAR MÓDULOS no tenant do pedido
             $this->syncModules($tenant, $oldPlan, $newPlan);
 
-            // 4. Verificar se é upgrade/downgrade e enviar notificação apropriada
+            // 4. BUG-01 FIX: PROPAGAR subscription para TODOS os outros tenants do user
+            $this->propagateToUserTenants($order->user, $tenant, $newSubscription, $newPlan, $oldPlan);
+
+            // 5. Verificar se é upgrade/downgrade e enviar notificação apropriada
             if ($oldPlan && $oldPlan->id !== $newPlan->id) {
                 $this->sendPlanUpdateNotification($order, $tenant, $oldPlan, $newPlan);
             }
 
-            // 5. Atualizar campos de aprovação no pedido (se não foram definidos)
+            // 6. Atualizar campos de aprovação no pedido (se não foram definidos)
             if (!$order->approved_at) {
                 $order->approved_at = now();
             }
@@ -165,7 +168,7 @@ class OrderObserver
                 'new_plan' => $newPlan->name,
             ]);
             
-            // 6. ENVIAR NOTIFICAÇÃO DE PAGAMENTO APROVADO (se for primeiro pagamento)
+            // 7. ENVIAR NOTIFICAÇÃO DE PAGAMENTO APROVADO (se for primeiro pagamento)
             if (!$oldPlan) {
                 $this->sendApprovalNotification($order, $tenant, $newPlan, $newSubscription);
             }
@@ -252,6 +255,74 @@ class OrderObserver
                 'tenant_id' => $tenant->id,
                 'modules_ids' => $modulesToKeep,
             ]);
+        }
+    }
+    
+    /**
+     * BUG-01 FIX: Propagar subscription para TODOS os outros tenants do user
+     */
+    protected function propagateToUserTenants($user, $sourceTenant, $sourceSubscription, $newPlan, $oldPlan): void
+    {
+        if (!$user) return;
+        
+        $otherTenants = $user->tenants()->where('tenants.id', '!=', $sourceTenant->id)->get();
+        
+        if ($otherTenants->isEmpty()) return;
+        
+        $maxCompanies = $newPlan->max_companies ?? 1;
+        $propagatedCount = 0;
+        $maxToPropagate = max(0, $maxCompanies - 1); // source tenant já conta como 1
+        
+        foreach ($otherTenants as $otherTenant) {
+            // Respeitar limite: source tenant + propagated <= maxCompanies
+            if ($propagatedCount >= $maxToPropagate) {
+                \Log::info("Limite de empresas atingido, não propagar mais", [
+                    'max_companies' => $maxCompanies,
+                    'max_to_propagate' => $maxToPropagate,
+                    'propagated' => $propagatedCount,
+                ]);
+                break;
+            }
+            
+            // Cancelar subscription antiga do outro tenant (se existir)
+            $otherTenant->subscriptions()
+                ->whereIn('status', ['active', 'trial'])
+                ->each(function ($sub) {
+                    $sub->update(['status' => 'cancelled', 'ends_at' => now()]);
+                });
+            
+            // Remover subscriptions pendentes
+            $otherTenant->subscriptions()
+                ->where('status', 'pending')
+                ->delete();
+            
+            // Criar subscription clone com MESMAS datas
+            $otherTenant->subscriptions()->create([
+                'plan_id'              => $sourceSubscription->plan_id,
+                'status'               => $sourceSubscription->status,
+                'billing_cycle'        => $sourceSubscription->billing_cycle,
+                'amount'               => $sourceSubscription->amount,
+                'current_period_start' => $sourceSubscription->current_period_start,
+                'current_period_end'   => $sourceSubscription->current_period_end,
+                'ends_at'              => $sourceSubscription->ends_at,
+                'trial_ends_at'        => $sourceSubscription->trial_ends_at,
+            ]);
+            
+            // Sincronizar módulos no outro tenant
+            $this->syncModules($otherTenant, $oldPlan, $newPlan);
+            
+            $propagatedCount++;
+            
+            \Log::info("✅ Subscription propagada para tenant", [
+                'source_tenant' => $sourceTenant->id,
+                'target_tenant' => $otherTenant->id,
+                'target_name' => $otherTenant->name,
+                'plan' => $newPlan->name,
+            ]);
+        }
+        
+        if ($propagatedCount > 0) {
+            \Log::info("📦 Subscription propagada para {$propagatedCount} tenant(s) adicionais");
         }
     }
     
@@ -534,8 +605,8 @@ class OrderObserver
                 'app_name' => config('app.name', 'SOS ERP'),
                 'app_url' => config('app.url'),
                 'support_email' => $smtpSetting->from_email,
-                'support_url' => route('support'),
-                'billing_url' => route('billing'),
+                'support_url' => route('support.tickets', [], false) ? route('support.tickets') : url('/support/tickets'),
+                'billing_url' => url('/my-account'),
             ];
             
             // Renderizar template do BD

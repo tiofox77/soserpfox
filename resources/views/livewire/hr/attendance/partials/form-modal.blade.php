@@ -59,6 +59,28 @@
                         @enderror
                     </div>
 
+                    {{-- Turno --}}
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-business-time mr-1 text-purple-600"></i>
+                            Turno
+                        </label>
+                        <select wire:model.live="shift_id" 
+                                class="w-full px-4 py-2.5 border @error('shift_id') border-red-500 @else border-gray-300 @enderror rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all">
+                            <option value="">Selecione o turno (opcional)</option>
+                            @foreach($shifts as $shift)
+                                <option value="{{ $shift->id }}">
+                                    {{ $shift->name }} - {{ $shift->start_time ? $shift->start_time->format('H:i') : '' }} às {{ $shift->end_time ? $shift->end_time->format('H:i') : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('shift_id')
+                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                        @else
+                            <p class="mt-1 text-xs text-gray-500">Ao selecionar um turno, os horários serão preenchidos automaticamente</p>
+                        @enderror
+                    </div>
+
                     {{-- Data --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">

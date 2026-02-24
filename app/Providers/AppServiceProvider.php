@@ -29,7 +29,9 @@ use App\Observers\PaymentObserver;
 use App\Observers\EventObserver;
 use App\Observers\EventTechnicianObserver;
 use App\Observers\WorkOrderObserver;
+use App\Observers\PlanObserver;
 use App\Models\Workshop\WorkOrder;
+use App\Models\Plan;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -99,8 +101,8 @@ class AppServiceProvider extends ServiceProvider
             \App\Models\Salon\Appointment::observe(\App\Observers\SalonAppointmentObserver::class);
         }
         
-        // Observer para quando técnico é designado (tabela pivot)
-        // Será acionado via helper manual nos controllers
+        // Registrar Observer para sincronizar módulos quando plano muda
+        Plan::observe(PlanObserver::class);
         
         // Definir tenant_id para Spatie Permission em cada requisição
         if (function_exists('setPermissionsTeamId')) {

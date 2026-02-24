@@ -93,4 +93,32 @@ class CreditNoteController extends Controller
             'qrCode' => $qrCode,
         ]);
     }
+    
+    public function previewPaged($id)
+    {
+        $creditNote = CreditNote::with(['client', 'invoice', 'items.product', 'creator', 'series', 'warehouse'])
+            ->where('tenant_id', activeTenantId())
+            ->findOrFail($id);
+        
+        $tenant = Tenant::find(activeTenantId());
+        
+        $bankAccounts = \App\Models\Treasury\Account::with('bank')
+            ->where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->where('show_on_invoice', true)
+            ->orderBy('invoice_display_order')
+            ->limit(4)
+            ->get();
+        
+        $qrCode = getAGTQRData($creditNote, 80);
+        
+        return view('pdf.invoicing.document-paged', [
+            'document' => $creditNote,
+            'documentType' => 'credit_note',
+            'tenant' => $tenant,
+            'bankAccounts' => $bankAccounts,
+            'qrCode' => $qrCode,
+            'pdfRoute' => route('invoicing.credit-notes.pdf', $id),
+        ]);
+    }
 }

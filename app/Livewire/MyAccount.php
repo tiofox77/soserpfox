@@ -227,32 +227,23 @@ class MyAccount extends Component
                 ]);
             }
             
-            // Criar dados padrão de contabilidade
-            \Log::info('Criando dados padrão de contabilidade para nova empresa...');
-            $this->createDefaultAccountingData($tenant->id);
-            \Log::info('Dados de contabilidade criados com sucesso');
-            
-            // Replicar subscription do tenant atual (se existir)
+            // BUG-03 FIX: Replicar subscription com MESMAS datas (sincronizada)
             if ($currentSubscription && $currentSubscription->plan) {
-                $now = now();
-                $nextBillingDate = $currentSubscription->billing_cycle === 'yearly' 
-                    ? $now->copy()->addYear() 
-                    : $now->copy()->addMonth();
-                
                 $tenant->subscriptions()->create([
-                    'plan_id' => $currentSubscription->plan_id,
-                    'status' => $currentSubscription->status,
-                    'billing_cycle' => $currentSubscription->billing_cycle,
-                    'amount' => $currentSubscription->amount,
-                    'current_period_start' => $now,
-                    'current_period_end' => $nextBillingDate,
-                    'ends_at' => $nextBillingDate,
-                    'trial_ends_at' => null,
+                    'plan_id'              => $currentSubscription->plan_id,
+                    'status'               => $currentSubscription->status,
+                    'billing_cycle'        => $currentSubscription->billing_cycle,
+                    'amount'               => $currentSubscription->amount,
+                    'current_period_start' => $currentSubscription->current_period_start,
+                    'current_period_end'   => $currentSubscription->current_period_end,
+                    'ends_at'              => $currentSubscription->ends_at,
+                    'trial_ends_at'        => $currentSubscription->trial_ends_at,
                 ]);
                 
-                \Log::info('Subscription replicada para nova empresa', [
+                \Log::info('Subscription replicada para nova empresa (sincronizada)', [
                     'new_tenant_id' => $tenant->id,
-                    'plan_id' => $currentSubscription->plan_id
+                    'plan_id' => $currentSubscription->plan_id,
+                    'period_end' => $currentSubscription->current_period_end,
                 ]);
             }
             
@@ -560,26 +551,19 @@ class MyAccount extends Component
     {
         $user = auth()->user();
         
-        // Verificar se a empresa está bloqueada pelo limite do plano
+        // BUG-07 FIX: Verificar limite por contagem total (não por índice)
         if (!$user->is_super_admin && $this->hasExceededLimit) {
-            // Verificar qual índice da empresa
-            $tenants = $user->tenants;
-            $index = $tenants->search(fn($t) => $t->id == $tenantId);
-            
-            if ($index !== false && $index >= $this->maxAllowed) {
-                $this->dispatch('error', message: 
-                    "🔒 Empresa bloqueada! Você excedeu o limite de {$this->maxAllowed} empresa(s) do seu plano. " .
-                    "Faça upgrade para acessar esta empresa."
-                );
-                return;
-            }
+            $this->dispatch('error', message: 
+                "🔒 Limite excedido! Seu plano permite {$this->maxAllowed} empresa(s) mas tem {$this->currentCount}. " .
+                "Faça upgrade ou remova uma empresa."
+            );
+            return;
         }
         
         if ($user->switchTenant($tenantId)) {
             $this->dispatch('success', message: 'Empresa alterada com sucesso!');
             $this->loadAccountData();
             
-            // Recarregar página
             return redirect()->to(route('my-account') . '?tab=companies');
         }
         
@@ -733,35 +717,17 @@ class MyAccount extends Component
                 $proofPath = $this->paymentProof->store('payment-proofs', 'public');
             }
             
-            // Criar pedido (sempre começa como pending)
+            // BUG-05 FIX: Criar APENAS o pedido (pending). 
+            // NÃO criar subscription aqui — OrderObserver cria quando admin aprovar.
             $order = \App\Models\Order::create([
                 'tenant_id' => $activeTenant->id,
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
                 'amount' => $amount,
                 'billing_cycle' => $this->upgradeBillingCycle,
-                'status' => 'pending', // Sempre pending - admin aprova manualmente
+                'status' => 'pending',
                 'payment_method' => 'bank_transfer',
                 'payment_proof' => $proofPath,
-            ]);
-            
-            // Criar subscription pendente - calcular data de término
-            $startDate = now();
-            $endDate = match($this->upgradeBillingCycle) {
-                'yearly' => $startDate->copy()->addMonths(14), // 12 meses + 2 meses grátis (promoção)
-                'semiannual' => $startDate->copy()->addMonths(6),
-                'quarterly' => $startDate->copy()->addMonths(3),
-                default => $startDate->copy()->addMonth(),
-            };
-            
-            $subscription = $activeTenant->subscriptions()->create([
-                'plan_id' => $plan->id,
-                'status' => 'pending',
-                'billing_cycle' => $this->upgradeBillingCycle,
-                'amount' => $amount,
-                'current_period_start' => $startDate,
-                'current_period_end' => $endDate,
-                'ends_at' => $endDate,
             ]);
             
             \DB::commit();

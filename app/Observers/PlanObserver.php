@@ -8,14 +8,29 @@ use Illuminate\Support\Facades\Log;
 class PlanObserver
 {
     /**
-     * Quando módulos são atualizados no plano, sincronizar com todos os tenants
+     * Quando o plano é atualizado, sincronizar módulos com tenants
+     * Apenas quando campos relevantes mudam (não em cada update)
      */
     public function updated(Plan $plan)
     {
-        // Verificar se os módulos foram alterados
-        if ($plan->wasChanged('updated_at')) {
+        // Sincronizar apenas quando campos do plano mudam (preço, nome, features, etc.)
+        // Excluir mudanças triviais como apenas updated_at
+        $relevantFields = ['name', 'is_active', 'max_users', 'max_companies', 'features'];
+        $changedFields = array_keys($plan->getChanges());
+        $relevantChanges = array_intersect($changedFields, $relevantFields);
+        
+        if (!empty($relevantChanges)) {
             $this->syncModulesToTenants($plan);
         }
+    }
+    
+    /**
+     * Chamado externamente quando módulos do plano são sincronizados (pivot)
+     * Usar: app(PlanObserver::class)->syncModulesAfterPivotChange($plan)
+     */
+    public function syncModulesAfterPivotChange(Plan $plan): void
+    {
+        $this->syncModulesToTenants($plan);
     }
 
     /**

@@ -28,13 +28,18 @@ Route::get('/subscription-expired', function () {
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
+// PWA Offline Page
+Route::get('/offline', function () {
+    return view('offline');
+})->name('offline');
+
 // My Account Route
 Route::middleware(['auth'])->group(function () {
     Route::get('/my-account', \App\Livewire\MyAccount::class)->name('my-account');
 });
 
-// User Management Routes (Super Admin Only)
-Route::middleware(['auth', 'superadmin'])->prefix('users')->name('users.')->group(function () {
+// User Management Routes (Admin do tenant ou Super Admin)
+Route::middleware(['auth', 'permission:users.manage'])->prefix('users')->name('users.')->group(function () {
     Route::get('/', \App\Livewire\Users\UserManagement::class)->name('index');
     Route::get('/roles-permissions', \App\Livewire\Users\RolesAndPermissions::class)->name('roles-permissions');
     Route::get('/invitations', \App\Livewire\Users\InviteUser::class)->name('invitations');
@@ -80,6 +85,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->name('proformas.preview');
+        Route::get('/proformas/{id}/preview-paged', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewPaged'])->name('proformas.preview-paged');
         
         // Faturas de Venda
         Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
@@ -87,6 +93,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->name('invoices.preview');
+        Route::get('/invoices/{id}/preview-paged', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewPaged'])->name('invoices.preview-paged');
         Route::get('/invoices/{id}/download', [\App\Http\Controllers\Invoicing\InvoiceController::class, 'downloadPdf'])->name('invoices.download');
         
         // TESTE - Template simplificado
@@ -131,6 +138,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/{id}/edit', \App\Livewire\Invoicing\Receipts\ReceiptCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewHtml'])->name('preview');
+        Route::get('/{id}/preview-paged', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewPaged'])->name('preview-paged');
     });
     
     // Notas de Crédito
@@ -140,6 +148,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/{id}/edit', \App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewHtml'])->name('preview');
+        Route::get('/{id}/preview-paged', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewPaged'])->name('preview-paged');
     });
     
     // Notas de Débito
@@ -149,6 +158,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/{id}/edit', \App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
+        Route::get('/{id}/preview-paged', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewPaged'])->name('preview-paged');
     });
     
     // Importações
@@ -288,6 +298,7 @@ Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/dashboard', \App\Livewire\HR\HRDashboard::class)->name('dashboard');
     Route::get('/employees', \App\Livewire\HR\EmployeeManagement::class)->name('employees.index');
     Route::get('/payroll', \App\Livewire\HR\PayrollManagement::class)->name('payroll');
+    Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])->name('payroll.payslip.pdf');
     Route::get('/departments', \App\Livewire\HR\DepartmentManagement::class)->name('departments.index');
     Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
     Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
@@ -295,6 +306,7 @@ Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/advances', \App\Livewire\HR\SalaryAdvanceManagement::class)->name('advances');
     Route::get('/advances/{id}/pdf', [\App\Http\Controllers\HR\SalaryAdvanceController::class, 'generatePDF'])->name('advances.pdf');
     Route::get('/overtime', \App\Livewire\HR\OvertimeManagement::class)->name('overtime');
+    Route::get('/overtime/{id}/pdf', [\App\Http\Controllers\HR\OvertimeController::class, 'generatePDF'])->name('overtime.pdf');
     Route::get('/shifts', \App\Livewire\HR\ShiftsManagement::class)->name('shifts.index');
     Route::get('/settings', \App\Livewire\HR\SettingsManagement::class)->name('settings');
 });

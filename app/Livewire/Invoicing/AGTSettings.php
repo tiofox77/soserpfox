@@ -32,6 +32,8 @@ class AGTSettings extends Component
     public array $complianceReport = [];
     public array $connectionTest = [];
     public string $activeTab = 'config';
+    public bool $isAdmin = false;
+    public ?int $currentTenantId = null;
 
     // Logs
     public $recentLogs = [];
@@ -39,13 +41,22 @@ class AGTSettings extends Component
 
     public function mount()
     {
+        $user = auth()->user();
+        $this->isAdmin = $user && $user->is_super_admin;
+        $this->currentTenantId = activeTenantId();
+        
         $this->loadSettings();
         $this->checkStatus();
     }
 
     private function loadSettings()
     {
-        $settings = InvoicingSettings::where('tenant_id', activeTenantId())->first();
+        // Se não tem tenant, usa valores padrão
+        if (!$this->currentTenantId) {
+            return;
+        }
+        
+        $settings = InvoicingSettings::where('tenant_id', $this->currentTenantId)->first();
 
         if ($settings) {
             $this->agt_environment = $settings->agt_environment ?? 'sandbox';
@@ -69,16 +80,37 @@ class AGTSettings extends Component
     {
         $this->hasKeys = \App\Helpers\SAFTHelper::keysExist();
         
-        $agtService = new AGTService(activeTenantId());
-        $this->complianceReport = $agtService->getComplianceReport();
-        
-        $this->loadLogs();
-        $this->loadPendingSubmissions();
+        // Só carregar relatório se tiver tenant ativo
+        if ($this->currentTenantId) {
+            $agtService = new AGTService($this->currentTenantId);
+            $this->complianceReport = $agtService->getComplianceReport();
+            $this->loadLogs();
+            $this->loadPendingSubmissions();
+        } else {
+            // Para admin sem tenant, mostrar relatório vazio
+            $this->complianceReport = [
+                'tenant_id' => null,
+                'generated_at' => now()->toDateTimeString(),
+                'keys_configured' => $this->hasKeys,
+                'api_configured' => false,
+                'environment' => 'sandbox',
+                'series' => ['total' => 0, 'registered' => 0, 'pending' => 0],
+                'submissions' => ['total' => 0, 'pending' => 0, 'submitted' => 0, 'validated' => 0, 'rejected' => 0],
+                'invoices_30_days' => ['total' => 0, 'with_hash' => 0, 'with_jws' => 0, 'with_atcud' => 0, 'agt_validated' => 0],
+            ];
+            $this->recentLogs = [];
+            $this->pendingSubmissions = [];
+        }
     }
 
     private function loadLogs()
     {
-        $this->recentLogs = AGTCommunicationLog::where('tenant_id', activeTenantId())
+        if (!$this->currentTenantId) {
+            $this->recentLogs = [];
+            return;
+        }
+        
+        $this->recentLogs = AGTCommunicationLog::where('tenant_id', $this->currentTenantId)
             ->orderBy('created_at', 'desc')
             ->limit(20)
             ->get()
@@ -87,7 +119,12 @@ class AGTSettings extends Component
 
     private function loadPendingSubmissions()
     {
-        $this->pendingSubmissions = AGTSubmission::where('tenant_id', activeTenantId())
+        if (!$this->currentTenantId) {
+            $this->pendingSubmissions = [];
+            return;
+        }
+        
+        $this->pendingSubmissions = AGTSubmission::where('tenant_id', $this->currentTenantId)
             ->whereIn('status', ['pending', 'submitted'])
             ->orderBy('created_at', 'desc')
             ->limit(10)
@@ -97,13 +134,18 @@ class AGTSettings extends Component
 
     public function save()
     {
+        if (!$this->currentTenantId) {
+            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para guardar configurações.');
+            return;
+        }
+        
         $this->validate([
             'agt_environment' => 'required|in:sandbox,production',
             'agt_software_certificate' => 'nullable|string|max:50',
         ]);
 
         $settings = InvoicingSettings::firstOrCreate(
-            ['tenant_id' => activeTenantId()],
+            ['tenant_id' => $this->currentTenantId],
             ['default_currency' => 'AOA']
         );
 
@@ -131,8 +173,13 @@ class AGTSettings extends Component
 
     public function testConnection()
     {
+        if (!$this->currentTenantId) {
+            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para testar a conexão.');
+            return;
+        }
+        
         try {
-            $client = new AGTClient(activeTenantId());
+            $client = new AGTClient($this->currentTenantId);
             $this->connectionTest = $client->testConnection();
             $this->isConnected = $this->connectionTest['success'] ?? false;
 
@@ -149,8 +196,13 @@ class AGTSettings extends Component
 
     public function syncSeries()
     {
+        if (!$this->currentTenantId) {
+            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para sincronizar séries.');
+            return;
+        }
+        
         try {
-            $agtService = new AGTService(activeTenantId());
+            $agtService = new AGTService($this->currentTenantId);
             $result = $agtService->syncAllSeries();
 
             if ($result['success'] > 0) {
@@ -172,10 +224,15 @@ class AGTSettings extends Component
 
     public function retrySubmission(int $submissionId)
     {
+        if (!$this->currentTenantId) {
+            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para reenviar.');
+            return;
+        }
+        
         try {
             $submission = AGTSubmission::find($submissionId);
             
-            if (!$submission || $submission->tenant_id !== activeTenantId()) {
+            if (!$submission || $submission->tenant_id !== $this->currentTenantId) {
                 $this->dispatch('notify', type: 'error', message: 'Submissão não encontrada');
                 return;
             }
@@ -191,7 +248,7 @@ class AGTSettings extends Component
                 return;
             }
 
-            $agtService = new AGTService(activeTenantId());
+            $agtService = new AGTService($this->currentTenantId);
             $result = $agtService->submitToAGT($document);
 
             if ($result['success']) {
@@ -220,12 +277,15 @@ class AGTSettings extends Component
 
     public function render()
     {
-        $series = InvoicingSeries::where('tenant_id', activeTenantId())
-            ->where('is_active', true)
-            ->get();
+        $series = $this->currentTenantId 
+            ? InvoicingSeries::where('tenant_id', $this->currentTenantId)
+                ->where('is_active', true)
+                ->get()
+            : collect();
 
         return view('livewire.invoicing.agt-settings', [
             'series' => $series,
+            'hasTenant' => (bool) $this->currentTenantId,
         ]);
     }
 }

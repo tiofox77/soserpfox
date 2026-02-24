@@ -224,8 +224,8 @@ class UserManagement extends Component
             }
         }
         
-        // Garantir que o usuário tem o tenant_id correto (primeira empresa selecionada)
-        if (!empty($this->selectedTenants) && $user->tenant_id !== $this->selectedTenants[0]) {
+        // BUG-U08 FIX: Só definir tenant_id se user for NOVO (sem tenant_id prévio)
+        if (!empty($this->selectedTenants) && empty($user->tenant_id)) {
             $user->update(['tenant_id' => $this->selectedTenants[0]]);
         }
         
@@ -254,8 +254,8 @@ class UserManagement extends Component
             unset($this->selectedRoles[$tenantId]);
         } else {
             $this->selectedTenants[] = $tenantId;
-            // Definir role padrão (primeiro disponível)
-            $defaultRole = Role::first();
+            // BUG-U06 FIX: Buscar role padrão DESTE tenant (não global)
+            $defaultRole = Role::where('tenant_id', $tenantId)->first();
             if ($defaultRole) {
                 $this->selectedRoles[$tenantId] = $defaultRole->id;
             }
@@ -270,11 +270,11 @@ class UserManagement extends Component
             $allTenants = auth()->user()->tenants;
             $this->selectedTenants = $allTenants->pluck('id')->toArray();
             
-            // Definir role padrão para todos
-            $defaultRole = Role::first();
-            if ($defaultRole) {
-                foreach ($this->selectedTenants as $tenantId) {
-                    if (!isset($this->selectedRoles[$tenantId])) {
+            // BUG-U07 FIX: Buscar role padrão de CADA tenant (não global)
+            foreach ($this->selectedTenants as $tenantId) {
+                if (!isset($this->selectedRoles[$tenantId])) {
+                    $defaultRole = Role::where('tenant_id', $tenantId)->first();
+                    if ($defaultRole) {
                         $this->selectedRoles[$tenantId] = $defaultRole->id;
                     }
                 }
@@ -285,6 +285,25 @@ class UserManagement extends Component
     public function toggleStatus($id)
     {
         $user = User::findOrFail($id);
+        
+        // BUG-U03 FIX: Verificações de segurança
+        if ($user->is_super_admin) {
+            $this->dispatch('error', message: 'Não é possível alterar o status de um Super Admin!');
+            return;
+        }
+        
+        if ($user->id === auth()->id()) {
+            $this->dispatch('error', message: 'Não pode desactivar a sua própria conta!');
+            return;
+        }
+        
+        // Verificar se user pertence ao tenant activo
+        $tenantId = activeTenantId();
+        if (!auth()->user()->is_super_admin && !$user->tenants()->where('tenants.id', $tenantId)->exists()) {
+            $this->dispatch('error', message: 'Sem permissão para alterar este utilizador.');
+            return;
+        }
+        
         $user->update(['is_active' => !$user->is_active]);
         $status = $user->is_active ? 'ativado' : 'desativado';
         $this->dispatch('success', message: "Utilizador {$status} com sucesso!");
@@ -320,23 +339,48 @@ class UserManagement extends Component
         try {
             $user = User::with(['roles', 'tenants'])->findOrFail($this->deletingUserId);
             
-            // Verificar se tem documentos criados
-            $hasDocuments = DB::table('invoicing_sales_invoices')->where('created_by', $user->id)->exists()
-                || DB::table('invoicing_sales_proformas')->where('created_by', $user->id)->exists()
-                || DB::table('invoicing_purchase_invoices')->where('created_by', $user->id)->exists();
-            
-            if ($hasDocuments) {
-                $this->dispatch('error', message: 'Não é possível excluir! Este utilizador tem documentos associados.');
+            // BUG-U04 FIX: Verificações de segurança
+            if ($user->is_super_admin) {
+                $this->dispatch('error', message: 'Não é possível excluir um Super Admin!');
                 $this->closeDeleteModal();
                 return;
             }
             
-            // Remover roles e relações
+            if ($user->id === auth()->id()) {
+                $this->dispatch('error', message: 'Não pode excluir a sua própria conta!');
+                $this->closeDeleteModal();
+                return;
+            }
+            
+            // BUG-U04 FIX: Verificação expandida de documentos associados
+            $tablesToCheck = [
+                'invoicing_sales_invoices' => 'created_by',
+                'invoicing_sales_proformas' => 'created_by',
+                'invoicing_purchase_invoices' => 'created_by',
+                'invoicing_credit_notes' => 'created_by',
+                'invoicing_debit_notes' => 'created_by',
+                'invoicing_receipts' => 'created_by',
+                'orders' => 'user_id',
+            ];
+            
+            $hasDocuments = false;
+            foreach ($tablesToCheck as $table => $column) {
+                if (DB::getSchemaBuilder()->hasTable($table) && DB::table($table)->where($column, $user->id)->exists()) {
+                    $hasDocuments = true;
+                    break;
+                }
+            }
+            
+            if ($hasDocuments) {
+                $this->dispatch('error', message: 'Não é possível excluir! Este utilizador tem documentos associados. Pode desactivá-lo em vez de excluir.');
+                $this->closeDeleteModal();
+                return;
+            }
+            
+            // BUG-U04 FIX: Usar soft delete em vez de forceDelete
             $user->roles()->detach();
             $user->tenants()->detach();
-            
-            // Forçar exclusão permanente
-            $user->forceDelete();
+            $user->delete(); // Soft delete — mantém dados no sistema
             
             $this->dispatch('success', message: 'Utilizador excluído com sucesso!');
             $this->closeDeleteModal();
@@ -509,6 +553,15 @@ class UserManagement extends Component
             
         $inactiveUsers = $totalUsers - $activeUsers;
         
-        return view('livewire.users.user-management', compact('users', 'myTenants', 'roles', 'totalUsers', 'activeUsers', 'inactiveUsers'));
+        // BUG-U11 FIX: Passar stats do tenant para a view (evitar queries no Blade)
+        $tenant = Tenant::find($currentTenantId);
+        $currentUsersCount = $tenant ? $tenant->users()->count() : 0;
+        $maxUsersCount = $tenant ? $tenant->getMaxUsers() : 3;
+        $canAddUser = $tenant ? $tenant->canAddUser() : false;
+        
+        return view('livewire.users.user-management', compact(
+            'users', 'myTenants', 'roles', 'totalUsers', 'activeUsers', 'inactiveUsers',
+            'currentUsersCount', 'maxUsersCount', 'canAddUser'
+        ));
     }
 }

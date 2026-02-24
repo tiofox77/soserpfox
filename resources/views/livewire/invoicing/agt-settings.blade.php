@@ -6,6 +6,24 @@
             <p class="mt-1 text-sm text-gray-500">Decreto Presidencial n.º 71/25 - Sistema de Faturação Eletrónica</p>
         </div>
 
+        {{-- Aviso Admin sem Tenant --}}
+        @if(!$hasTenant)
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <div class="flex">
+                <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-blue-800">Nenhuma empresa selecionada</h3>
+                    <p class="mt-1 text-sm text-blue-700">
+                        Para configurar as opções AGT, selecione uma empresa no menu de troca de empresas (canto superior).
+                        As chaves RSA são configurações globais e podem ser geridas em <a href="{{ route('superadmin.saft') }}" class="font-medium underline">SuperAdmin > SAFT</a>.
+                    </p>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Status Cards --}}
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             {{-- Chaves SAFT --}}

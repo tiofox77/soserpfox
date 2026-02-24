@@ -75,6 +75,12 @@ class SalesInvoiceObserver
                             'status' => 'confirmed',
                         ]);
                     }
+                } else {
+                    \Log::warning('SalesInvoiceObserver: Alocação FIFO falhou, stock reduzido sem lote', [
+                        'invoice_id' => $invoice->id,
+                        'product_id' => $item->product_id,
+                        'quantity' => $item->quantity,
+                    ]);
                 }
                 
                 // Atualiza stock (total)
@@ -86,7 +92,18 @@ class SalesInvoiceObserver
                     'quantity' => 0,
                 ]);
 
-                $stock->decrement('quantity', $item->quantity);
+                $quantityToReduce = min($item->quantity, $stock->quantity);
+                if ($quantityToReduce > 0) {
+                    $stock->decrement('quantity', $quantityToReduce);
+                }
+                if ($quantityToReduce < $item->quantity) {
+                    \Log::warning('SalesInvoiceObserver: Stock insuficiente', [
+                        'invoice_id' => $invoice->id,
+                        'product_id' => $item->product_id,
+                        'stock_disponivel' => $stock->quantity + $quantityToReduce,
+                        'quantidade_solicitada' => $item->quantity,
+                    ]);
+                }
 
                 // Registra movimento
                 $notes = "Venda - Fatura {$invoice->invoice_number}";

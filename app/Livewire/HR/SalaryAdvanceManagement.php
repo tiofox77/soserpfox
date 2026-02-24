@@ -46,6 +46,7 @@ class SalaryAdvanceManagement extends Component
     // Approval
     public $approvalAdvanceId;
     public $approved_amount = '';
+    public $custom_installment_amount = '';
     public $approval_notes = '';
     public $rejection_reason = '';
     public $approval_action = 'approve';
@@ -168,6 +169,7 @@ class SalaryAdvanceManagement extends Component
         $advance = SalaryAdvance::findOrFail($id);
         $this->selectedAdvance = $advance;
         $this->approved_amount = $advance->requested_amount;
+        $this->custom_installment_amount = round($advance->requested_amount / $advance->installments, 2);
         
         if ($action === 'approve') {
             $this->showApprovalModal = true;
@@ -189,11 +191,21 @@ class SalaryAdvanceManagement extends Component
     {
         $this->validate([
             'approved_amount' => 'required|numeric|min:1',
+            'custom_installment_amount' => 'required|numeric|min:1',
         ]);
 
         try {
             $advance = SalaryAdvance::findOrFail($this->approvalAdvanceId);
-            $advance->approve(Auth::id(), $this->approved_amount);
+            
+            // Aprovar com valor customizado
+            $advance->update([
+                'status' => 'approved',
+                'approved_amount' => $this->approved_amount,
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+                'balance' => $this->approved_amount,
+                'installment_amount' => $this->custom_installment_amount, // Valor customizado
+            ]);
             
             $this->dispatch('notify', type: 'success', message: 'Adiantamento aprovado com sucesso!');
             $this->showApprovalModal = false;

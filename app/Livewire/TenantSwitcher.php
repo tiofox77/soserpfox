@@ -39,54 +39,23 @@ class TenantSwitcher extends Component
     
     public function switchTenant($tenantId)
     {
-        \Log::info('TenantSwitcher: Iniciando troca de tenant', [
-            'from' => auth()->user()->activeTenantId(),
-            'to' => $tenantId,
-            'user_id' => auth()->id(),
-        ]);
-        
         $user = auth()->user();
         
-        // Verificar se a empresa está bloqueada pelo limite do plano
+        // BUG-07 FIX: Verificar limite por contagem total vs max_companies do plano
+        // (não mais por índice da collection)
         if (!$user->is_super_admin && $this->hasExceededLimit) {
-            // Verificar qual índice da empresa
-            $tenants = $user->tenants;
-            $index = $tenants->search(fn($t) => $t->id == $tenantId);
-            
-            if ($index !== false && $index >= $this->maxAllowed) {
-                \Log::warning('TenantSwitcher: Empresa bloqueada por limite de plano', [
-                    'tenant_id' => $tenantId,
-                    'index' => $index,
-                    'max_allowed' => $this->maxAllowed,
-                ]);
-                
-                $this->dispatch('error', message: 
-                    "🔒 Empresa bloqueada! Você excedeu o limite de {$this->maxAllowed} empresa(s) do seu plano. " .
-                    "Faça upgrade para acessar esta empresa."
-                );
-                return;
-            }
+            $this->dispatch('error', message: 
+                "🔒 Limite excedido! Seu plano permite {$this->maxAllowed} empresa(s) mas tem {$this->currentCount}. " .
+                "Faça upgrade ou remova uma empresa para alternar."
+            );
+            return;
         }
         
         if ($user->switchTenant($tenantId)) {
-            \Log::info('TenantSwitcher: Troca bem-sucedida', [
-                'new_tenant' => $tenantId,
-                'session' => session('active_tenant_id'),
-            ]);
-            
             $this->loadTenants();
-            
-            \Log::info('TenantSwitcher: Despachando evento para reload');
-            
-            // Despachar evento para JavaScript fazer o reload
             $this->dispatch('tenant-switched-reload');
             $this->dispatch('success', message: 'Empresa alterada com sucesso!');
         } else {
-            \Log::warning('TenantSwitcher: Falha na troca de tenant', [
-                'tenant_id' => $tenantId,
-                'user_id' => auth()->id(),
-            ]);
-            
             $this->dispatch('error', message: 'Você não tem permissão para acessar esta empresa!');
         }
     }

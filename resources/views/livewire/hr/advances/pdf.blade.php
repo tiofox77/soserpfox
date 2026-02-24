@@ -12,10 +12,10 @@
         }
         body {
             font-family: 'Arial', sans-serif;
-            font-size: 10px;
-            line-height: 1.3;
+            font-size: 9px;
+            line-height: 1.2;
             color: #1f2937;
-            padding: 15px;
+            padding: 10px 15px;
             max-width: 210mm;
             margin: 0 auto;
         }
@@ -23,66 +23,66 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 3px solid #2563eb;
+            margin-bottom: 6px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #2563eb;
         }
         .logo {
-            max-width: 120px;
-            max-height: 50px;
+            max-width: 100px;
+            max-height: 40px;
         }
         .company-info {
             text-align: right;
             flex: 1;
         }
         .company-info h1 {
-            font-size: 16px;
+            font-size: 13px;
             color: #2563eb;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
             font-weight: bold;
         }
         .company-info p {
-            font-size: 8px;
+            font-size: 7px;
             color: #6b7280;
-            margin: 1px 0;
+            margin: 0;
         }
         .document-title {
             text-align: center;
-            margin: 8px 0;
-            padding: 8px;
+            margin: 4px 0;
+            padding: 5px;
             background: #eff6ff;
-            border-left: 4px solid #2563eb;
+            border-left: 3px solid #2563eb;
         }
         .document-title h2 {
-            font-size: 14px;
+            font-size: 12px;
             color: #1e40af;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
         .document-title p {
-            font-size: 8px;
+            font-size: 7px;
             color: #6b7280;
         }
         .info-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 8px 0;
-            font-size: 9px;
+            margin: 4px 0;
+            font-size: 8px;
         }
         .info-table th {
             background: #f3f4f6;
             color: #374151;
             font-weight: bold;
             text-align: left;
-            padding: 6px 8px;
+            padding: 3px 5px;
             border: 1px solid #d1d5db;
-            font-size: 9px;
+            font-size: 8px;
             text-transform: uppercase;
         }
         .info-table td {
-            padding: 5px 8px;
+            padding: 3px 5px;
             border: 1px solid #e5e7eb;
             color: #1f2937;
         }
@@ -98,29 +98,29 @@
         }
         .amount-box {
             background: #dbeafe;
-            border: 3px solid #2563eb;
-            border-radius: 8px;
-            padding: 10px;
+            border: 2px solid #2563eb;
+            border-radius: 6px;
+            padding: 6px;
             text-align: center;
-            margin: 8px 0;
+            margin: 4px 0;
         }
         .amount-box .label {
-            font-size: 9px;
+            font-size: 8px;
             color: #1e40af;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             font-weight: bold;
             text-transform: uppercase;
         }
         .amount-box .value {
-            font-size: 22px;
+            font-size: 16px;
             color: #1e3a8a;
             font-weight: bold;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
         .amount-box .installments {
-            font-size: 9px;
+            font-size: 8px;
             color: #1e40af;
-            margin-top: 3px;
+            margin-top: 2px;
             font-weight: 600;
         }
         .payment-table {
@@ -165,65 +165,65 @@
             color: #1e40af;
         }
         .signature-section {
-            margin-top: 10px;
+            margin-top: 6px;
             page-break-inside: avoid;
         }
         .signatures {
             display: flex;
             justify-content: space-between;
-            gap: 30px;
-            margin-top: 8px;
+            gap: 15px;
+            margin-top: 4px;
         }
         .signature-box {
             flex: 1;
             text-align: center;
-            border: 2px solid #d1d5db;
-            padding: 10px;
-            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            padding: 6px;
+            border-radius: 4px;
             background: #f9fafb;
-            min-height: 85px;
+            min-height: 60px;
         }
         .signature-title {
-            font-size: 9px;
+            font-size: 7px;
             color: #2563eb;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
             text-transform: uppercase;
         }
         .signature-line {
-            border-top: 2px solid #374151;
-            margin-top: 30px;
-            padding-top: 4px;
+            border-top: 1px solid #374151;
+            margin-top: 20px;
+            padding-top: 3px;
         }
         .signature-label {
-            font-size: 8px;
+            font-size: 7px;
             color: #6b7280;
-            margin-top: 3px;
+            margin-top: 2px;
             font-weight: 600;
             text-transform: uppercase;
         }
         .signature-name {
             font-weight: bold;
-            margin-top: 2px;
-            font-size: 10px;
+            margin-top: 1px;
+            font-size: 8px;
             color: #111827;
         }
         .footer {
-            margin-top: 8px;
-            padding-top: 6px;
+            margin-top: 4px;
+            padding-top: 3px;
             border-top: 1px solid #d1d5db;
             text-align: center;
-            font-size: 7px;
+            font-size: 6px;
             color: #9ca3af;
         }
         .section-title {
-            font-size: 10px;
+            font-size: 9px;
             color: #2563eb;
             font-weight: bold;
-            margin: 8px 0 4px 0;
-            padding: 4px 8px;
+            margin: 4px 0 2px 0;
+            padding: 3px 6px;
             background: #eff6ff;
-            border-left: 3px solid #2563eb;
+            border-left: 2px solid #2563eb;
             text-transform: uppercase;
         }
         .two-column {
@@ -233,22 +233,22 @@
         }
         .notes {
             background: #fef3c7;
-            border-left: 3px solid #f59e0b;
-            padding: 6px 10px;
-            margin: 6px 0;
-            border-radius: 4px;
+            border-left: 2px solid #f59e0b;
+            padding: 4px 6px;
+            margin: 3px 0;
+            border-radius: 3px;
         }
         .notes-title {
             font-weight: bold;
             color: #92400e;
-            margin-bottom: 3px;
-            font-size: 9px;
+            margin-bottom: 2px;
+            font-size: 7px;
             text-transform: uppercase;
         }
         .notes-content {
-            font-size: 8px;
+            font-size: 7px;
             color: #78350f;
-            line-height: 1.3;
+            line-height: 1.2;
         }
         @media print {
             body {
@@ -370,30 +370,29 @@
 
     {{-- Termos e Condições --}}
     <div class="section-title">Termos e Condições</div>
-    <div style="font-size: 8px; line-height: 1.4; padding: 4px 8px;">
-        <p style="margin-bottom: 3px;">
-            <strong>1.</strong> Desconto automático em {{ $advance->installments }}x de {{ number_format($advance->installment_amount, 2, ',', '.') }} Kz. 
-            <strong>2.</strong> Primeiro desconto na folha subsequente. 
-            <strong>3.</strong> Saldo remanescente descontado das verbas rescisórias.
+    <div style="font-size: 7px; line-height: 1.3; padding: 2px 4px;">
+        <p style="margin: 0;">
+            <strong>1.</strong> Desconto em {{ $advance->installments }}x de {{ number_format($advance->installment_amount, 2, ',', '.') }} Kz • 
+            <strong>2.</strong> Primeiro desconto na folha seguinte • 
+            <strong>3.</strong> Saldo descontado das verbas rescisórias
         </p>
     </div>
 
     {{-- Assinaturas --}}
-    <div class="section-title" style="text-align: center;">Assinaturas</div>
-    <table style="width: 100%; margin-top: 10px; border-collapse: collapse;">
+    <div class="section-title" style="text-align: center; margin-top: 6px;">Assinaturas</div>
+    <table style="width: 100%; margin-top: 4px; border-collapse: collapse;">
         <tr>
-            <td style="width: 48%; vertical-align: top; padding: 0 5px;">
+            <td style="width: 48%; vertical-align: top; padding: 0 3px;">
                 <div class="signature-box">
                     <div class="signature-title">QUEM RECEBE</div>
                     <div class="signature-line">
                         <div class="signature-name">{{ $advance->employee->full_name }}</div>
-                        <div class="signature-label">Funcionário</div>
-                        <div class="signature-label" style="font-size: 7px;">{{ $advance->employee->employee_number }}</div>
+                        <div class="signature-label">Funcionário • {{ $advance->employee->employee_number }}</div>
                     </div>
                 </div>
             </td>
             <td style="width: 4%;"></td>
-            <td style="width: 48%; vertical-align: top; padding: 0 5px;">
+            <td style="width: 48%; vertical-align: top; padding: 0 3px;">
                 <div class="signature-box">
                     <div class="signature-title">QUEM APROVA</div>
                     <div class="signature-line">
@@ -401,7 +400,7 @@
                             <div class="signature-name">{{ $advance->approvedBy->name }}</div>
                             <div class="signature-label">Aprovado em {{ $advance->approved_at->format('d/m/Y') }}</div>
                         @else
-                            <div class="signature-name">_________________________________</div>
+                            <div class="signature-name">_____________________________</div>
                             <div class="signature-label">Recursos Humanos</div>
                         @endif
                     </div>
