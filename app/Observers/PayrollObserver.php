@@ -19,8 +19,9 @@ class PayrollObserver
             
             Log::info('PayrollObserver: Payslip notification triggered', [
                 'payroll_id' => $payroll->id,
-                'employee_id' => $payroll->employee_id,
                 'tenant_id' => $payroll->tenant_id,
+                'month' => $payroll->month,
+                'year' => $payroll->year,
             ]);
         } catch (\Exception $e) {
             Log::error('PayrollObserver: Failed to send notification', [
@@ -35,7 +36,6 @@ class PayrollObserver
      */
     public function updated(Payroll $payroll): void
     {
-        // Se mudou para pago, pode enviar notificação também
         if ($payroll->isDirty('status') && $payroll->status === 'paid') {
             try {
                 $notificationService = new ImmediateNotificationService($payroll->tenant_id);
@@ -43,8 +43,8 @@ class PayrollObserver
                 
                 Log::info('PayrollObserver: Payslip paid notification triggered', [
                     'payroll_id' => $payroll->id,
-                    'employee_id' => $payroll->employee_id,
                     'tenant_id' => $payroll->tenant_id,
+                    'total_employees' => $payroll->total_employees,
                 ]);
             } catch (\Exception $e) {
                 Log::error('PayrollObserver: Failed to send paid notification', [

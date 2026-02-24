@@ -52,6 +52,8 @@ class Payroll extends Model
         
         $this->update([
             'total_gross_salary' => $items->sum('gross_salary'),
+            'total_allowances' => $items->sum('total_allowances'),
+            'total_bonuses' => $items->sum('total_bonuses'),
             'total_deductions' => $items->sum('total_deductions'),
             'total_irt' => $items->sum('irt_amount'),
             'total_inss_employee' => $items->sum('inss_employee'),

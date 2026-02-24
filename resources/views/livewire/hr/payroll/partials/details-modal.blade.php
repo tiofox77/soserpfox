@@ -221,12 +221,12 @@
                 </div>
             @endif
 
-            @if($selectedPayroll->paid_at)
+            @if($selectedPayroll->payment_date)
                 <div class="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                     <div class="flex items-center">
                         <i class="fas fa-check-circle text-emerald-600 text-xl mr-3"></i>
                         <div class="text-sm">
-                            <p class="text-emerald-900"><strong>Paga em:</strong> {{ $selectedPayroll->paid_at->format('d/m/Y') }}</p>
+                            <p class="text-emerald-900"><strong>Paga em:</strong> {{ $selectedPayroll->payment_date->format('d/m/Y') }}</p>
                         </div>
                     </div>
                 </div>

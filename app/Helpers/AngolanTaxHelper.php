@@ -164,13 +164,20 @@ if (!function_exists('calculateNetSalary')) {
         // Total bruto
         $totalGross = $grossSalary + $foodAllowance + $transportAllowance + $housingAllowance + $otherAllowances;
         
-        // Calcular INSS
+        // Calcular INSS (Decreto 227/18 — base = remuneração total)
         $inss = calculateINSS($grossSalary, [
-            'include_allowances' => false, // Normalmente INSS só sobre salário base
+            'include_allowances' => true,
+            'food_allowance' => $foodAllowance,
+            'transport_allowance' => $transportAllowance,
+            'housing_allowance' => $housingAllowance,
         ]);
         
-        // Calcular IRT
-        $irt = calculateIRT($totalGross, [
+        // Calcular IRT — subsídios isentos até 30.000 Kz cada
+        $taxableFoodAllowance = max(0, $foodAllowance - 30000);
+        $taxableTransportAllowance = max(0, $transportAllowance - 30000);
+        $irtBase = $grossSalary + $taxableFoodAllowance + $taxableTransportAllowance + $housingAllowance + $otherAllowances;
+        
+        $irt = calculateIRT($irtBase, [
             'inss_employee' => $inss['inss_employee'],
             'other' => $deductions['other'] ?? 0,
         ]);

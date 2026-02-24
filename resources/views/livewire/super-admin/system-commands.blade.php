@@ -68,7 +68,7 @@
     {{-- TAB: COMANDOS --}}
     <div x-show="activeTab === 'commands'" x-cloak>
         @php
-            $groupedCommands = collect($commands)->groupBy('group');
+            $groupedCommands = collect($commands)->groupBy('group', preserveKeys: true);
         @endphp
 
         @foreach($groupedCommands as $groupName => $groupCommands)

@@ -79,10 +79,26 @@
             
             get irtAmount() {
                 let base = this.irtBase;
-                // Tabela progressiva de IRT (Angola)
-                if (base > 70000) return (base - 70000) * 0.175 + 2675;
-                if (base > 50000) return (base - 50000) * 0.125 + 625;
-                if (base > 20000) return (base - 20000) * 0.065;
+                if (base <= 0) return 0;
+                // Tabela progressiva IRT 2025 Angola (isenção 100k)
+                // IRT = (Base × Taxa%) - Parcela a Abater
+                const tabela = [
+                    { max: 100000,   rate: 0,    deduction: 0 },
+                    { max: 150000,   rate: 10,   deduction: 10000 },
+                    { max: 200000,   rate: 13,   deduction: 14500 },
+                    { max: 300000,   rate: 16,   deduction: 20000 },
+                    { max: 500000,   rate: 18,   deduction: 26000 },
+                    { max: 1000000,  rate: 19,   deduction: 31000 },
+                    { max: 1500000,  rate: 20,   deduction: 41000 },
+                    { max: 2000000,  rate: 21,   deduction: 56000 },
+                    { max: 2500000,  rate: 22,   deduction: 76000 },
+                    { max: Infinity, rate: 23,   deduction: 101000 },
+                ];
+                for (const escalao of tabela) {
+                    if (base <= escalao.max) {
+                        return Math.max(0, (base * escalao.rate / 100) - escalao.deduction);
+                    }
+                }
                 return 0;
             },
             
@@ -544,7 +560,7 @@
 
         {{-- Footer --}}
         <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
-            <a href="{{ route('hr.payroll.payslip.pdf', $editingItemId) }}" target="_blank"
+            <a href="{{ route('hr.payroll.payslip.pdf', $editingItem->id) }}" target="_blank"
                class="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                 <i class="fas fa-file-pdf mr-2"></i>Imprimir Recibo
             </a>

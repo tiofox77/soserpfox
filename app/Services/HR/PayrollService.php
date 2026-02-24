@@ -513,30 +513,20 @@ class PayrollService
         $inssEmployee = $inssBase * 0.03; // 3% do empregado
         $inssEmployer = $inssBase * 0.08; // 8% do empregador
         
-        // ===== CÁLCULO IRT (Código IRT) =====
+        // ===== CÁLCULO IRT (Código IRT 2025) =====
         // Subsídios isentos de IRT (até 30.000 Kz CADA)
         // Apenas o EXCEDENTE de 30k é tributável
         $taxableFoodAllowance = max(0, $foodAllowance - 30000);
         $taxableTransportAllowance = max(0, $transportAllowance - 30000);
         $totalTaxableAllowances = $taxableFoodAllowance + $taxableTransportAllowance;
         
-        // Base IRT = Remuneração Total - INSS - Subsídios Isentos
         // Base IRT = Salário + Bônus + Horas Extras + Subsídios Tributáveis - INSS
         $irtBase = $baseSalary + $overtimePay + $bonus + $totalTaxableAllowances - $inssEmployee;
         
-        // Tabela progressiva de IRT (Angola)
-        $irt = 0;
-        $irtRate = 0;
-        if ($irtBase > 70000) {
-            $irt = ($irtBase - 70000) * 0.175 + 2675;
-            $irtRate = 17.5;
-        } elseif ($irtBase > 50000) {
-            $irt = ($irtBase - 50000) * 0.125 + 625;
-            $irtRate = 12.5;
-        } elseif ($irtBase > 20000) {
-            $irt = ($irtBase - 20000) * 0.065;
-            $irtRate = 6.5;
-        }
+        // Usar helper com tabela IRT 2025 actualizada (isenção 100k)
+        $irtResult = calculateIRT($irtBase);
+        $irt = $irtResult['irt_amount'];
+        $irtRate = $irtResult['irt_rate'];
         
         // Total deduções
         $totalDeductions = $inssEmployee + $irt + 
