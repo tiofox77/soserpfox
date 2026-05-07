@@ -12,8 +12,11 @@
                 </div>
             </div>
             <a href="{{ route('invoicing.receipts.index') }}" 
-               class="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-arrow-left mr-2"></i>Voltar
+               x-data="{ loading: false }" @click="loading = true"
+               :class="loading && 'opacity-70 pointer-events-none scale-95'"
+               class="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95">
+                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
             </a>
         </div>
     </div>

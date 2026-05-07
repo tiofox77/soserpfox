@@ -33,7 +33,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-end">
                         <!-- From -->
                         <div class="bg-white rounded-xl p-4 border-2 border-red-200">
                             <label class="block text-sm font-bold text-gray-700 mb-3">
@@ -50,7 +50,7 @@
                         </div>
 
                         <!-- Arrow -->
-                        <div class="hidden md:flex items-center justify-center absolute left-1/2 transform -translate-x-1/2 top-1/2 -translate-y-1/2">
+                        <div class="hidden md:flex items-center justify-center px-2 pb-2">
                             <i class="fas fa-arrow-right text-purple-600 text-3xl"></i>
                         </div>
 

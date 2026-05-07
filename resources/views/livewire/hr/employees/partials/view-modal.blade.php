@@ -245,26 +245,24 @@
                         </div>
                         @endif
 
-                        @if($viewingEmployee->transport_allowance)
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase"><i class="fas fa-car text-blue-500 mr-1"></i>Subsídio Transporte</label>
-                            <p class="font-bold text-blue-700 text-lg">{{ number_format($viewingEmployee->transport_allowance, 2, ',', '.') }} Kz</p>
+                            <p class="font-bold text-blue-700 text-lg">{{ number_format((float)\App\Models\HR\HRSetting::get('monthly_transport_allowance', 0), 2, ',', '.') }} Kz</p>
+                            <p class="text-xs text-amber-600 mt-1">Definido nas Configurações RH</p>
                         </div>
-                        @endif
 
-                        @if($viewingEmployee->meal_allowance)
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase"><i class="fas fa-utensils text-orange-500 mr-1"></i>Subsídio Alimentação</label>
-                            <p class="font-bold text-orange-700 text-lg">{{ number_format($viewingEmployee->meal_allowance, 2, ',', '.') }} Kz</p>
+                            <p class="font-bold text-orange-700 text-lg">{{ number_format((float)\App\Models\HR\HRSetting::get('monthly_food_allowance', 0), 2, ',', '.') }} Kz</p>
+                            <p class="text-xs text-amber-600 mt-1">Definido nas Configurações RH</p>
                         </div>
-                        @endif
 
                         {{-- Total --}}
                         <div class="md:col-span-2 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-bold text-gray-700"><i class="fas fa-calculator text-green-600 mr-2"></i>Remuneração Total Mensal</label>
                                 <p class="text-2xl font-bold text-green-700">
-                                    {{ number_format(($viewingEmployee->salary ?? 0) + ($viewingEmployee->bonus ?? 0) + ($viewingEmployee->transport_allowance ?? 0) + ($viewingEmployee->meal_allowance ?? 0), 2, ',', '.') }} Kz
+                                    {{ number_format(($viewingEmployee->salary ?? 0) + ($viewingEmployee->bonus ?? 0) + (float)\App\Models\HR\HRSetting::get('monthly_transport_allowance', 0) + (float)\App\Models\HR\HRSetting::get('monthly_food_allowance', 0), 2, ',', '.') }} Kz
                                 </p>
                             </div>
                         </div>
@@ -315,6 +313,59 @@
                 </div>
                 @endif
 
+                {{-- Contratos --}}
+                <div class="mb-6">
+                    <h4 class="text-lg font-bold text-teal-700 mb-4 flex items-center border-b-2 border-teal-200 pb-2">
+                        <i class="fas fa-file-contract mr-2"></i>Histórico de Contratos
+                    </h4>
+                    @php $contracts = $viewingEmployee->contracts()->orderByDesc('start_date')->get(); @endphp
+                    @if($contracts->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-teal-50 text-teal-800">
+                                    <th class="px-3 py-2 text-left font-bold rounded-tl-lg">Nº Contrato</th>
+                                    <th class="px-3 py-2 text-left font-bold">Tipo</th>
+                                    <th class="px-3 py-2 text-center font-bold">Início</th>
+                                    <th class="px-3 py-2 text-center font-bold">Fim</th>
+                                    <th class="px-3 py-2 text-right font-bold">Salário Base</th>
+                                    <th class="px-3 py-2 text-right font-bold">Sub. Habitação</th>
+                                    <th class="px-3 py-2 text-center font-bold rounded-tr-lg">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($contracts as $contract)
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                                    <td class="px-3 py-2 font-semibold text-gray-800">{{ $contract->contract_number ?? '—' }}</td>
+                                    <td class="px-3 py-2 text-gray-700">{{ ucfirst($contract->contract_type ?? '—') }}</td>
+                                    <td class="px-3 py-2 text-center text-gray-700">{{ $contract->start_date?->format('d/m/Y') ?? '—' }}</td>
+                                    <td class="px-3 py-2 text-center text-gray-700">{{ $contract->end_date?->format('d/m/Y') ?? 'Indeterminado' }}</td>
+                                    <td class="px-3 py-2 text-right font-semibold text-gray-800">{{ number_format($contract->base_salary ?? 0, 2, ',', '.') }} Kz</td>
+                                    <td class="px-3 py-2 text-right text-gray-700">{{ number_format($contract->housing_allowance ?? 0, 2, ',', '.') }} Kz</td>
+                                    <td class="px-3 py-2 text-center">
+                                        @if($contract->status === 'active')
+                                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Activo</span>
+                                        @elseif($contract->status === 'expired')
+                                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">Expirado</span>
+                                        @elseif($contract->status === 'terminated')
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold">Terminado</span>
+                                        @else
+                                            <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">{{ ucfirst($contract->status ?? 'N/A') }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @else
+                    <div class="bg-gray-50 p-6 rounded-xl text-center">
+                        <i class="fas fa-file-contract text-gray-300 text-3xl mb-2"></i>
+                        <p class="text-gray-500 text-sm">Nenhum contrato registado</p>
+                    </div>
+                    @endif
+                </div>
+
                 {{-- Notas --}}
                 @if($viewingEmployee->notes)
                 <div class="mb-6">
@@ -336,6 +387,10 @@
                     Criado em {{ $viewingEmployee->created_at->format('d/m/Y H:i') }}
                 </div>
                 <div class="flex gap-3">
+                    <a href="{{ route('hr.employees.sheet', $viewingEmployee->id) }}" target="_blank"
+                       class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold hover:shadow-lg transition inline-flex items-center">
+                        <i class="fas fa-print mr-2"></i>Ficha
+                    </a>
                     <button wire:click="closeViewModal" 
                             class="px-6 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-100 transition">
                         <i class="fas fa-times mr-2"></i>Fechar

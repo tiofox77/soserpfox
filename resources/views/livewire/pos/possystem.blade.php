@@ -11,7 +11,17 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
         
         {{-- Produtos (2 colunas) --}}
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-xl p-2 flex flex-col" style="height: calc(100vh - 140px);">
+        <div class="pos-products-panel lg:col-span-2 bg-white rounded-2xl shadow-xl p-2 flex flex-col">
+            <style>
+                @media (min-width: 1024px) {
+                    .pos-products-panel { height: calc(100vh - 140px) !important; max-height: none !important; }
+                    .pos-cart-panel { height: calc(100vh - 140px) !important; max-height: none !important; }
+                }
+                @media (max-width: 1023px) {
+                    .pos-products-panel { height: auto !important; max-height: 55vh !important; }
+                    .pos-cart-panel { height: auto !important; max-height: none !important; }
+                }
+            </style>
             {{-- Header POS --}}
             <div class="mb-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow p-1.5 text-white flex-shrink-0">
                 <div class="flex items-center justify-between">
@@ -58,8 +68,10 @@
             {{-- Grid de Produtos --}}
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 overflow-y-auto flex-1 px-1 pb-1 auto-rows-min content-start">
                 @forelse($products as $product)
-                <button wire:click="addToCart({{ $product->id }})" 
-                        class="group relative bg-white border border-gray-200 rounded-lg p-1.5 hover:border-indigo-500 hover:shadow transition {{ $product->stock_quantity <= 0 ? 'opacity-50 cursor-not-allowed' : '' }} h-fit">
+                <button wire:click="addToCart({{ $product->id }})"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="scale-95 opacity-70"
+                        class="group relative bg-white border border-gray-200 rounded-lg p-1.5 hover:border-indigo-500 hover:shadow transition-all duration-200 {{ $product->stock_quantity <= 0 ? 'opacity-50 cursor-not-allowed' : '' }} h-fit disabled:cursor-wait">
                     
                     {{-- Imagem --}}
                     <div class="aspect-square bg-gray-100 rounded mb-0.5 overflow-hidden">
@@ -121,7 +133,7 @@
         </div>
 
         {{-- Carrinho (1 coluna) --}}
-        <div class="lg:col-span-1 bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden" style="height: calc(100vh - 140px);">
+        <div class="pos-cart-panel lg:col-span-1 bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
             {{-- Cliente --}}
             <div class="p-1.5 border-b border-gray-200 flex-shrink-0">
                 @if($selectedClient)
@@ -160,21 +172,25 @@
                             <div class="flex-1">
                                 <p class="font-bold text-xs text-gray-800 line-clamp-1">{{ $item->name }}</p>
                             </div>
-                            <button wire:click="removeFromCart({{ $item->id }})" 
-                                    class="text-red-500 hover:text-red-700 text-xs ml-1">
-                                <i class="fas fa-trash"></i>
+                            <button wire:click="removeFromCart({{ $item->id }})"
+                                wire:loading.attr="disabled"
+                                class="text-red-500 hover:text-red-700 text-xs ml-1 disabled:opacity-50 transition">
+                                <i class="fas fa-trash" wire:loading.remove></i>
+                                <i class="fas fa-spinner fa-spin" wire:loading></i>
                             </button>
                         </div>
 
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-1">
-                                <button wire:click="decreaseQuantity({{ $item->id }})" 
-                                        class="w-6 h-6 bg-gray-300 hover:bg-gray-400 rounded text-xs font-bold transition">
+                                <button wire:click="decreaseQuantity({{ $item->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="w-6 h-6 bg-gray-300 hover:bg-gray-400 rounded text-xs font-bold transition-all duration-200 active:scale-90 disabled:opacity-50">
                                     -
                                 </button>
                                 <span class="w-8 text-center text-sm font-bold">{{ $item->quantity }}</span>
-                                <button wire:click="increaseQuantity({{ $item->id }})" 
-                                        class="w-6 h-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold transition">
+                                <button wire:click="increaseQuantity({{ $item->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="w-6 h-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold transition-all duration-200 active:scale-90 disabled:opacity-50">
                                     +
                                 </button>
                             </div>
@@ -254,14 +270,24 @@
 
                 {{-- Botões de Ação --}}
                 <div class="flex gap-2">
-                    <button wire:click="clearCart" 
-                            class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition text-sm shadow-lg shadow-red-500/30">
-                        <i class="fas fa-trash"></i>
+                    <button wire:click="clearCart"
+                            wire:loading.attr="disabled"
+                            wire:confirm="Limpar todo o carrinho?"
+                            class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all duration-300 text-sm shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95 disabled:opacity-50">
+                        <i class="fas fa-trash" wire:loading.remove></i>
+                        <i class="fas fa-spinner fa-spin" wire:loading></i>
                     </button>
-                    <button wire:click="openPaymentModal" 
-                            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition text-sm"
+                    <button wire:click="openPaymentModal"
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all duration-300 text-sm hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             {{ $cartItems->isEmpty() ? 'disabled' : '' }}>
-                        <i class="fas fa-cash-register mr-2"></i>Finalizar Venda
+                        <span wire:loading.remove>
+                            <i class="fas fa-cash-register mr-2"></i>Finalizar Venda
+                        </span>
+                        <span wire:loading>
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                        </span>
                     </button>
                 </div>
             </div>

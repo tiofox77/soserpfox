@@ -28,7 +28,7 @@ class DefaultClientSeeder extends Seeder
                     'name' => 'Consumidor Final',
                     'nif' => '999999999', // NIF genérico Angola
                     'type' => 'pessoa_fisica',
-                    'email' => 'consumidor.final@sistema.ao',
+                    'email' => 'consumidor.final@sistema.vip',
                     'phone' => '999999999',
                     'address' => 'Angola',
                     'city' => 'Luanda',

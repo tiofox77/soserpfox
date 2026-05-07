@@ -193,7 +193,7 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // SAFT
     Route::get('/saft-generator', \App\Livewire\Invoicing\SAFTGenerator::class)->name('saft-generator');
-    Route::get('/agt-documents', \App\Livewire\Invoicing\AGTDocumentGenerator::class)->name('agt-documents');
+    Route::middleware('permission:invoicing.agt.view')->get('/agt-documents', \App\Livewire\Invoicing\AGTDocumentGenerator::class)->name('agt-documents');
     
     // POS
     Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');
@@ -297,8 +297,12 @@ Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(fun
 Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/dashboard', \App\Livewire\HR\HRDashboard::class)->name('dashboard');
     Route::get('/employees', \App\Livewire\HR\EmployeeManagement::class)->name('employees.index');
+    Route::get('/employees/{id}/sheet', [\App\Http\Controllers\HR\EmployeeController::class, 'employeeSheet'])->name('employees.sheet');
+    Route::get('/vacations/{id}/pdf', [\App\Http\Controllers\HR\VacationController::class, 'generatePDF'])->name('vacations.pdf');
+    Route::get('/leaves/{id}/pdf', [\App\Http\Controllers\HR\LeaveController::class, 'generatePDF'])->name('leaves.pdf');
     Route::get('/payroll', \App\Livewire\HR\PayrollManagement::class)->name('payroll');
     Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])->name('payroll.payslip.pdf');
+    Route::get('/payroll/{id}/payslips-pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generateAllPayslipsPDF'])->name('payroll.payslips-all.pdf');
     Route::get('/departments', \App\Livewire\HR\DepartmentManagement::class)->name('departments.index');
     Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
     Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
@@ -307,7 +311,11 @@ Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/advances/{id}/pdf', [\App\Http\Controllers\HR\SalaryAdvanceController::class, 'generatePDF'])->name('advances.pdf');
     Route::get('/overtime', \App\Livewire\HR\OvertimeManagement::class)->name('overtime');
     Route::get('/overtime/{id}/pdf', [\App\Http\Controllers\HR\OvertimeController::class, 'generatePDF'])->name('overtime.pdf');
+    Route::get('/overtime-night-shift', \App\Livewire\HR\OvertimeNightShiftManagement::class)->name('overtime-night-shift');
+    Route::get('/salary-discounts', \App\Livewire\HR\SalaryDiscountManagement::class)->name('salary-discounts');
+    Route::get('/salary-discounts/{id}/pdf', [\App\Http\Controllers\HR\SalaryDiscountController::class, 'generatePDF'])->name('salary-discounts.pdf');
     Route::get('/shifts', \App\Livewire\HR\ShiftsManagement::class)->name('shifts.index');
+    Route::get('/reports', \App\Livewire\HR\HRReports::class)->name('reports');
     Route::get('/settings', \App\Livewire\HR\SettingsManagement::class)->name('settings');
 });
 
@@ -398,7 +406,20 @@ Route::middleware(['auth'])->prefix('hotel')->name('hotel.')->group(function () 
     Route::get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
     Route::get('/packages', \App\Livewire\Hotel\PackageManagement::class)->name('packages');
     Route::get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
+
+    // Folio (consumos por reserva)
+    Route::get('/reservations/{id}/folio', \App\Livewire\Hotel\ReservationFolio::class)->name('reservations.folio');
+
+    // Documents (PDF/HTML print-friendly)
+    Route::get('/reservations/{id}/voucher', [\App\Http\Controllers\Hotel\ReservationController::class, 'voucher'])->name('reservations.voucher');
+    Route::get('/reservations/{id}/folio-pdf', [\App\Http\Controllers\Hotel\ReservationController::class, 'folio'])->name('reservations.folio.pdf');
+    Route::get('/reservations/{id}/sef', [\App\Http\Controllers\Hotel\ReservationController::class, 'sef'])->name('reservations.sef');
+    Route::get('/reservations/{id}/qr', [\App\Http\Controllers\Hotel\ReservationController::class, 'qr'])->name('reservations.qr');
 });
+
+// Hotel Express Check-in (Public via QR Code - no auth required)
+Route::get('/hotel/reservations/{id}/checkin/{code}', [\App\Http\Controllers\Hotel\ReservationController::class, 'expressCheckIn'])->name('hotel.express-checkin');
+Route::post('/hotel/reservations/{id}/checkin/{code}/confirm', [\App\Http\Controllers\Hotel\ReservationController::class, 'confirmExpressCheckIn'])->name('hotel.express-checkin.confirm');
 
 // Hotel Booking Online (Public)
 Route::get('/booking/{tenant?}', \App\Livewire\Hotel\BookingOnline::class)->name('booking.online');

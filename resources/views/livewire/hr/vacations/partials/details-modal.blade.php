@@ -453,7 +453,15 @@
             </div>
 
             {{-- Footer --}}
-            <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end sticky bottom-0 bg-white">
+            <div class="mt-6 pt-4 border-t border-gray-200 flex justify-between sticky bottom-0 bg-white">
+                <div>
+                    @if($selectedVacation)
+                    <a href="{{ route('hr.vacations.pdf', $selectedVacation->id) }}" target="_blank"
+                       class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center">
+                        <i class="fas fa-print mr-2"></i>Imprimir Comprovativo
+                    </a>
+                    @endif
+                </div>
                 <button type="button" wire:click="closeModal"
                         class="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-all">
                     <i class="fas fa-times mr-2"></i>Fechar

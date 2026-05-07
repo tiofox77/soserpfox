@@ -316,7 +316,7 @@
                             <div class="text-sm">
                                 <div class="font-bold text-blue-900 mb-2">Formato AGT Angola</div>
                                 <div class="text-blue-800 space-y-1">
-                                    <p><strong>Prefixos AGT (fixos):</strong> FT, FR, PR, RC, NC, ND</p>
+                                    <p><strong>Prefixos AGT (fixos):</strong> FT, FR, PR, RC, NC, ND, FC, AD</p>
                                     <p><strong>Série personalizável:</strong> A, B, C, D...</p>
                                     <p><strong>Formato:</strong> <span class="font-mono">[TIPO] [SÉRIE] [ANO]/[NÚMERO]</span></p>
                                     <p class="text-xs mt-1">Exemplo: <strong>FT A 2025/000001</strong></p>
@@ -336,6 +336,7 @@
                                 'credit_note' => ['name' => 'Nota de Crédito', 'prefix' => 'NC', 'icon' => 'file-excel', 'color' => 'orange'],
                                 'debit_note' => ['name' => 'Nota de Débito', 'prefix' => 'ND', 'icon' => 'file-alt', 'color' => 'red'],
                                 'purchase' => ['name' => 'Fatura de Compra', 'prefix' => 'FC', 'icon' => 'shopping-cart', 'color' => 'indigo'],
+                                'advance' => ['name' => 'Adiantamento', 'prefix' => 'AD', 'icon' => 'hand-holding-usd', 'color' => 'cyan'],
                             ];
                             
                             $allSeries = \App\Models\Invoicing\InvoicingSeries::where('tenant_id', activeTenantId())

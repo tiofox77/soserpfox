@@ -190,16 +190,17 @@
                 <div class="flex space-x-3 pt-4 border-t">
                     <button wire:click="openShift" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50">
-                        <span wire:loading.remove wire:target="openShift">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-check mr-2"></i>Abrir Turno
                         </span>
-                        <span wire:loading wire:target="openShift">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
                         </span>
                     </button>
                     <button wire:click="$set('showOpenShiftModal', false)" 
-                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
                         Cancelar
                     </button>
                 </div>
@@ -287,16 +288,17 @@
                 <div class="flex space-x-3 pt-4 border-t">
                     <button wire:click="closeShift" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50">
-                        <span wire:loading.remove wire:target="closeShift">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-lock mr-2"></i>Fechar Turno
                         </span>
-                        <span wire:loading wire:target="closeShift">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-2"></i>Fechando...
                         </span>
                     </button>
                     <button wire:click="$set('showCloseShiftModal', false)" 
-                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
                         Cancelar
                     </button>
                 </div>

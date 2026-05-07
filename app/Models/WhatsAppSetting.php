@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class WhatsAppSetting extends Model
 {
+    protected $table = 'whatsapp_settings';
+
     protected $fillable = [
         'twilio_account_sid',
         'twilio_auth_token',

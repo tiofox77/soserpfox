@@ -175,31 +175,84 @@ class NotificationSettings extends Component
     {
         $this->validate([
             'smtp_host' => 'required',
-            'smtp_port' => 'required',
+            'smtp_port' => 'required|numeric',
             'smtp_username' => 'required',
             'smtp_password' => 'required',
+            'from_email' => 'required|email',
         ]);
 
         try {
-            // Configure mailer temporarily
-            config([
-                'mail.mailers.smtp.host' => $this->smtp_host,
-                'mail.mailers.smtp.port' => $this->smtp_port,
-                'mail.mailers.smtp.username' => $this->smtp_username,
-                'mail.mailers.smtp.password' => $this->smtp_password,
-                'mail.mailers.smtp.encryption' => $this->smtp_encryption,
-                'mail.from.address' => $this->from_email,
-                'mail.from.name' => $this->from_name,
+            $port = $this->smtp_port ?? 587;
+            $encryption = $this->smtp_encryption;
+            if (!$encryption) {
+                $encryption = ($port == 465) ? 'ssl' : 'tls';
+            }
+
+            config(['mail.default' => 'smtp']);
+            config(['mail.mailers.smtp' => [
+                'transport' => 'smtp',
+                'host' => $this->smtp_host,
+                'port' => $port,
+                'encryption' => $encryption,
+                'username' => $this->smtp_username,
+                'password' => $this->smtp_password,
+                'timeout' => 15,
+                'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) config('app.url', 'http://localhost'), PHP_URL_HOST)),
+                'verify_peer' => false,
+            ]]);
+            config(['mail.from.address' => $this->from_email]);
+            config(['mail.from.name' => $this->from_name ?? config('app.name')]);
+
+            // Purge cached mailer so new config takes effect
+            app('mail.manager')->purge('smtp');
+
+            // Send a real test email to from_email
+            $fromName = $this->from_name ?? config('app.name');
+            $testSubject = '[TESTE] Conexão SMTP - ' . config('app.name');
+            $testBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>' .
+                '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">' .
+                '<h2 style="color:#2563eb;">Teste de Conexão SMTP</h2>' .
+                '<p>Este email confirma que a configuração SMTP está funcionando correctamente.</p>' .
+                '<table style="width:100%;border-collapse:collapse;margin:15px 0;">' .
+                '<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;">Host</td><td style="padding:8px;border:1px solid #e5e7eb;">' . e($this->smtp_host) . '</td></tr>' .
+                '<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;">Porta</td><td style="padding:8px;border:1px solid #e5e7eb;">' . e($port) . '</td></tr>' .
+                '<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;">Encriptação</td><td style="padding:8px;border:1px solid #e5e7eb;">' . e($encryption) . '</td></tr>' .
+                '<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;">Remetente</td><td style="padding:8px;border:1px solid #e5e7eb;">' . e($this->from_email) . '</td></tr>' .
+                '<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;">Data</td><td style="padding:8px;border:1px solid #e5e7eb;">' . now()->format('d/m/Y H:i:s') . '</td></tr>' .
+                '</table>' .
+                '<p style="color:#6b7280;font-size:12px;">Enviado automaticamente pelo sistema ' . e(config('app.name')) . '</p>' .
+                '</div></body></html>';
+
+            \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($testSubject, $testBody, $fromName) {
+                $message->to($this->from_email, $fromName)
+                        ->subject($testSubject)
+                        ->html($testBody);
+
+                if ($this->from_email) {
+                    $message->from($this->from_email, $fromName);
+                    $message->replyTo($this->from_email, $fromName);
+                }
+            });
+
+            \Log::info('✅ Teste de email SMTP enviado com sucesso', [
+                'host' => $this->smtp_host,
+                'port' => $port,
+                'to' => $this->from_email,
             ]);
 
             $this->dispatch('show-toast', [
                 'type' => 'success',
-                'message' => 'Configurações de email validadas com sucesso!'
+                'message' => 'Email de teste enviado com sucesso para ' . $this->from_email . '! Verifique a caixa de entrada.'
             ]);
         } catch (\Exception $e) {
+            \Log::error('❌ Teste de email SMTP falhou', [
+                'host' => $this->smtp_host,
+                'error' => $e->getMessage(),
+            ]);
+
             $this->dispatch('show-toast', [
                 'type' => 'error',
-                'message' => 'Erro ao testar email: ' . $e->getMessage()
+                'message' => 'Erro ao testar SMTP: ' . $e->getMessage()
             ]);
         }
     }

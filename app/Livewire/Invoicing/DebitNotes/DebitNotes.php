@@ -43,6 +43,16 @@ class DebitNotes extends Component
 
     public function deleteDebitNote()
     {
+        // Verificar bloqueio de eliminação via Software Settings
+        if (isDeleteBlocked('credit_note')) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'A eliminação de Notas de Débito está bloqueada pelo administrador. Apenas anulações são permitidas.'
+            ]);
+            $this->showDeleteModal = false;
+            return;
+        }
+
         $debitNote = DebitNote::where('tenant_id', activeTenantId())->findOrFail($this->debitNoteToDelete);
         $debitNote->delete();
         

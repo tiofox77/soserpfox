@@ -59,6 +59,16 @@ class HotelSettings extends Model
         'featured_rooms',
         'payment_methods',
         'currency',
+        'overbooking_enabled',
+        'overbooking_percent',
+        'loyalty_enabled',
+        'loyalty_points_per_kz',
+        'loyalty_tier_silver',
+        'loyalty_tier_gold',
+        'loyalty_tier_platinum',
+        'notify_reservation_confirmed',
+        'notify_pre_arrival',
+        'notify_post_stay',
     ];
 
     protected $casts = [
@@ -81,6 +91,16 @@ class HotelSettings extends Model
         'amenities_list' => 'array',
         'featured_rooms' => 'array',
         'payment_methods' => 'array',
+        'overbooking_enabled' => 'boolean',
+        'overbooking_percent' => 'integer',
+        'loyalty_enabled' => 'boolean',
+        'loyalty_points_per_kz' => 'decimal:4',
+        'loyalty_tier_silver' => 'integer',
+        'loyalty_tier_gold' => 'integer',
+        'loyalty_tier_platinum' => 'integer',
+        'notify_reservation_confirmed' => 'boolean',
+        'notify_pre_arrival' => 'boolean',
+        'notify_post_stay' => 'boolean',
     ];
 
     public static function getForTenant($tenantId = null)

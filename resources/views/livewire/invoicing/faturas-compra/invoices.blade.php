@@ -1,17 +1,20 @@
-<div class="p-6">
+<div class="p-3 sm:p-6">
     {{-- Header --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-invoice mr-3 text-orange-600"></i>
+                <h2 class="text-xl sm:text-3xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-file-invoice mr-2 sm:mr-3 text-orange-600"></i>
                     Faturas de Compra
                 </h2>
-                <p class="text-gray-600 mt-1">Faturas e compras de fornecedores</p>
+                <p class="text-gray-600 mt-1 text-xs sm:text-base">Faturas e compras de fornecedores</p>
             </div>
             <a href="{{ route('invoicing.purchases.invoices.create') }}" 
-               class="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
-                <i class="fas fa-plus mr-2"></i>Nova Fatura
+               x-data="{ loading: false }" @click="loading = true"
+               :class="loading && 'opacity-70 pointer-events-none scale-95'"
+               class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 text-sm sm:text-base text-center">
+                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>Nova Fatura</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Carregando...</span>
             </a>
         </div>
     </div>
@@ -29,7 +32,7 @@
     @endif
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div class="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
@@ -92,9 +95,9 @@
     </div>
 
     {{-- Filters --}}
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="md:col-span-2">
+    <div class="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+            <div class="col-span-2">
                 <input type="text" wire:model.live.debounce.300ms="search" 
                        placeholder="🔍 Pesquisar número ou fornecedor..." 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500">
@@ -123,7 +126,7 @@
         <div class="bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4">
             <h3 class="text-white font-bold text-lg flex items-center">
                 <i class="fas fa-list mr-2"></i>
-                Lista de Proformas
+                Lista de Faturas de Compra
             </h3>
         </div>
 
@@ -244,13 +247,16 @@
                                 </button>
                                 @endif
 
+                                @if($invoice->status !== 'paid' && $invoice->status !== 'cancelled')
                                 <button wire:click="markAsPaid({{ $invoice->id }})"
+                                        wire:confirm="Tem certeza que deseja marcar esta fatura como paga?"
                                         class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-check-circle text-green-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Marcar como Pago
                                     </span>
                                 </button>
+                                @endif
 
                                 <button wire:click="confirmDelete({{ $invoice->id }})"
                                         class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
@@ -269,8 +275,8 @@
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-file-invoice text-gray-300 text-4xl"></i>
                                 </div>
-                                <p class="text-gray-500 text-lg font-semibold">Nenhuma proforma encontrada</p>
-                                <p class="text-gray-400 text-sm mt-2">Crie a sua primeira proforma de compra</p>
+                                <p class="text-gray-500 text-lg font-semibold">Nenhuma fatura encontrada</p>
+                                <p class="text-gray-400 text-sm mt-2">Crie a sua primeira fatura de compra</p>
                             </div>
                         </td>
                     </tr>

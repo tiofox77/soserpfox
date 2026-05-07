@@ -1,24 +1,32 @@
 <div>
     <!-- Header -->
-    <div class="mb-6 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
-                    <i class="fas fa-folder text-2xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-folder text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Categorias</h2>
-                    <p class="text-cyan-100 text-sm">Gerir categorias e subcategorias</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">Categorias</h2>
+                    <p class="text-cyan-100 text-xs sm:text-sm">Gerir categorias e subcategorias</p>
                 </div>
             </div>
-            <button wire:click="create" class="bg-white text-cyan-600 hover:bg-cyan-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Nova Categoria
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-white text-cyan-600 hover:bg-cyan-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create">
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Nova Categoria
+                </span>
+                <span wire:loading wire:target="create">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
         </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 stagger-animation">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6 stagger-animation">
         <!-- Total Categorias -->
         <div class="bg-white rounded-2xl shadow-lg p-6 border border-cyan-100 overflow-hidden card-hover card-3d">
             <div class="flex items-center justify-between mb-4">
@@ -78,7 +86,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live="search" type="text" placeholder="Nome da categoria..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome da categoria..." 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -127,23 +135,24 @@
         </div>
         
         <!-- Table Header -->
-        <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase">
-            <div class="col-span-4 flex items-center">
+        <div class="overflow-x-auto">
+        <div class="grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase min-w-[500px]">
+            <div class="col-span-5 sm:col-span-4 flex items-center">
                 <i class="fas fa-folder mr-2 text-cyan-500"></i>Categoria
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden md:flex items-center">
                 <i class="fas fa-palette mr-2 text-purple-500"></i>Cor
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden lg:flex items-center">
                 <i class="fas fa-icons mr-2 text-orange-500"></i>Ícone
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden sm:flex items-center">
                 <i class="fas fa-sort-numeric-up mr-2 text-blue-500"></i>Ordem
             </div>
-            <div class="col-span-1 flex items-center">
+            <div class="col-span-3 sm:col-span-1 flex items-center">
                 <i class="fas fa-check-circle mr-2 text-green-500"></i>Status
             </div>
-            <div class="col-span-1 flex items-center justify-end">
+            <div class="col-span-2 sm:col-span-1 flex items-center justify-end">
                 <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
             </div>
         </div>
@@ -151,9 +160,9 @@
         <!-- Table Body -->
         <div class="divide-y divide-gray-100">
             @forelse($categories as $category)
-                <div class="group grid grid-cols-12 gap-4 px-6 py-4 hover:bg-cyan-50 transition-all duration-300 items-center">
+                <div class="group grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-cyan-50 transition-all duration-300 items-center min-w-[500px]">
                     <!-- Categoria -->
-                    <div class="col-span-4 flex items-center space-x-3">
+                    <div class="col-span-5 sm:col-span-4 flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0" style="background: {{ $category->color }}">
                             <i class="fas {{ $category->icon }}"></i>
                         </div>
@@ -168,7 +177,7 @@
                     </div>
                     
                     <!-- Cor -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden md:block">
                         <div class="flex items-center space-x-2">
                             <div class="w-8 h-8 rounded-lg shadow-md border-2 border-gray-200" style="background: {{ $category->color }}"></div>
                             <span class="text-xs font-mono text-gray-600">{{ $category->color }}</span>
@@ -176,21 +185,21 @@
                     </div>
                     
                     <!-- Ícone -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden lg:block">
                         <span class="inline-flex items-center px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-semibold">
                             <i class="fas {{ $category->icon }} mr-1"></i>{{ $category->icon }}
                         </span>
                     </div>
                     
                     <!-- Ordem -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden sm:block">
                         <span class="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold">
                             <i class="fas fa-sort-numeric-up mr-1"></i>{{ $category->order }}
                         </span>
                     </div>
                     
                     <!-- Status -->
-                    <div class="col-span-1">
+                    <div class="col-span-3 sm:col-span-1">
                         @if($category->is_active)
                             <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
                                 <i class="fas fa-check mr-1"></i>Ativa
@@ -203,12 +212,18 @@
                     </div>
                     
                     <!-- Ações -->
-                    <div class="col-span-1 flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button wire:click="edit({{ $category->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Editar">
-                            <i class="fas fa-edit text-xs"></i>
+                    <div class="col-span-2 sm:col-span-1 flex items-center justify-end space-x-1">
+                        <button wire:click="edit({{ $category->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
+                            <i class="fas fa-edit text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
-                        <button wire:click="confirmDelete({{ $category->id }})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Excluir">
-                            <i class="fas fa-trash text-xs"></i>
+                        <button wire:click="confirmDelete({{ $category->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
+                            <i class="fas fa-trash text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
                     </div>
                 </div>
@@ -224,10 +239,11 @@
         </div>
 
         @if($categories->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-t border-gray-200">
                 {{ $categories->links() }}
             </div>
         @endif
+        </div>
     </div>
 
     <!-- Modals -->

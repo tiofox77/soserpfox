@@ -28,6 +28,12 @@ Schedule::command('orders:reject-expired --days=7')
     ->onOneServer()
     ->emailOutputOnFailure(config('mail.from.address'));
 
+// Hotel: lembretes de pré-chegada (2 dias antes) - diariamente às 10h
+Schedule::command('hotel:send-prearrival --days=2')
+    ->dailyAt('10:00')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Expirar subscriptions vencidas - Executar a cada hora
 Schedule::command('subscriptions:expire')
     ->hourly()

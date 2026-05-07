@@ -1,96 +1,96 @@
-<div class="p-6">
+<div class="p-2 sm:p-4 lg:p-6">
     <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">📅 Dashboard - Gestão de Eventos</h1>
-        <p class="text-gray-600 mt-1">Visão geral dos eventos e equipamentos</p>
+    <div class="mb-4 sm:mb-6">
+        <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">📅 Dashboard - Gestão de Eventos</h1>
+        <p class="text-gray-600 mt-1 text-sm sm:text-base">Visão geral dos eventos e equipamentos</p>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
         <!-- Eventos deste Mês -->
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-blue-100 text-sm">Eventos Este Mês</p>
-                    <p class="text-3xl font-bold mt-2">{{ $stats['events_month'] }}</p>
+                    <p class="text-blue-100 text-xs sm:text-sm">Eventos Este Mês</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{{ $stats['events_month'] }}</p>
                 </div>
-                <div class="bg-white/20 rounded-full p-4">
-                    <i class="fas fa-calendar-alt text-2xl"></i>
+                <div class="bg-white/20 rounded-full p-2.5 sm:p-4">
+                    <i class="fas fa-calendar-alt text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
         <!-- Eventos Confirmados -->
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-green-100 text-sm">Confirmados</p>
-                    <p class="text-3xl font-bold mt-2">{{ $stats['confirmed_events'] }}</p>
+                    <p class="text-green-100 text-xs sm:text-sm">Confirmados</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{{ $stats['confirmed_events'] }}</p>
                 </div>
-                <div class="bg-white/20 rounded-full p-4">
-                    <i class="fas fa-check-circle text-2xl"></i>
+                <div class="bg-white/20 rounded-full p-2.5 sm:p-4">
+                    <i class="fas fa-check-circle text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
         <!-- Em Progresso -->
-        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-yellow-100 text-sm">Em Progresso</p>
-                    <p class="text-3xl font-bold mt-2">{{ $stats['in_progress'] }}</p>
+                    <p class="text-yellow-100 text-xs sm:text-sm">Em Progresso</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{{ $stats['in_progress'] }}</p>
                 </div>
-                <div class="bg-white/20 rounded-full p-4">
-                    <i class="fas fa-cog fa-spin text-2xl"></i>
+                <div class="bg-white/20 rounded-full p-2.5 sm:p-4">
+                    <i class="fas fa-cog fa-spin text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
         <!-- Equipamentos em Uso -->
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-4 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-purple-100 text-sm">Equipamentos em Uso</p>
-                    <p class="text-3xl font-bold mt-2">{{ $stats['equipment_in_use'] }}</p>
+                    <p class="text-purple-100 text-xs sm:text-sm">Equip. em Uso</p>
+                    <p class="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{{ $stats['equipment_in_use'] }}</p>
                 </div>
-                <div class="bg-white/20 rounded-full p-4">
-                    <i class="fas fa-tools text-2xl"></i>
+                <div class="bg-white/20 rounded-full p-2.5 sm:p-4">
+                    <i class="fas fa-tools text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Próximos Eventos -->
-    <div class="bg-white rounded-xl shadow-lg p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-900">
+    <div class="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-2">
+            <h2 class="text-lg sm:text-2xl font-bold text-gray-900">
                 <i class="fas fa-calendar-day text-blue-500 mr-2"></i>
                 Próximos Eventos
             </h2>
-            <a href="{{ route('events.calendar') }}" class="text-blue-600 hover:text-blue-800 font-medium">
+            <a href="{{ route('events.calendar') }}" class="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base">
                 Ver Calendário <i class="fas fa-arrow-right ml-1"></i>
             </a>
         </div>
 
         @if($upcomingEvents->isEmpty())
-            <div class="text-center py-12 text-gray-500">
-                <i class="fas fa-calendar-times text-5xl mb-4"></i>
-                <p class="text-lg">Nenhum evento próximo</p>
+            <div class="text-center py-8 sm:py-12 text-gray-500">
+                <i class="fas fa-calendar-times text-4xl sm:text-5xl mb-3 sm:mb-4"></i>
+                <p class="text-base sm:text-lg">Nenhum evento próximo</p>
             </div>
         @else
-            <div class="space-y-4">
+            <div class="space-y-3 sm:space-y-4">
                 @foreach($upcomingEvents as $event)
-                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                <div class="border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-md transition">
                     <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-2">
-                                <h3 class="text-lg font-bold text-gray-900">{{ $event->name }}</h3>
-                                <span class="px-3 py-1 rounded-full text-xs font-medium bg-{{ $event->status_color }}-100 text-{{ $event->status_color }}-800">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                <h3 class="text-base sm:text-lg font-bold text-gray-900 truncate">{{ $event->name }}</h3>
+                                <span class="px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium bg-{{ $event->status_color }}-100 text-{{ $event->status_color }}-800 whitespace-nowrap">
                                     {{ $event->status_label }}
                                 </span>
                             </div>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600">
                                 <div class="flex items-center">
                                     <i class="fas fa-calendar text-blue-500 w-5"></i>
                                     <span>{{ $event->start_date->format('d/m/Y H:i') }}</span>
@@ -98,19 +98,19 @@
                                 @if($event->client)
                                 <div class="flex items-center">
                                     <i class="fas fa-user text-green-500 w-5"></i>
-                                    <span>{{ $event->client->name }}</span>
+                                    <span class="truncate">{{ $event->client->name }}</span>
                                 </div>
                                 @endif
                                 @if($event->venue)
                                 <div class="flex items-center">
                                     <i class="fas fa-map-marker-alt text-red-500 w-5"></i>
-                                    <span>{{ $event->venue->name }}</span>
+                                    <span class="truncate">{{ $event->venue->name }}</span>
                                 </div>
                                 @endif
                             </div>
                         </div>
 
-                        <a href="{{ route('events.calendar') }}" class="ml-4 text-blue-600 hover:text-blue-800">
+                        <a href="{{ route('events.calendar') }}" class="ml-2 sm:ml-4 text-blue-600 hover:text-blue-800 flex-shrink-0">
                             <i class="fas fa-eye"></i>
                         </a>
                     </div>

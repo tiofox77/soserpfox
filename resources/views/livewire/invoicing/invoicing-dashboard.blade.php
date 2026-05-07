@@ -1,16 +1,16 @@
-<div class="p-6">
+<div class="p-3 sm:p-6">
     {{-- Header --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-chart-line mr-3 text-blue-600"></i>
+                <h2 class="text-xl sm:text-3xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-chart-line mr-2 sm:mr-3 text-blue-600"></i>
                     Dashboard de Faturação
                 </h2>
-                <p class="text-gray-600 mt-1">Visão geral do módulo de faturação - {{ \Carbon\Carbon::now()->format('F Y') }}</p>
+                <p class="text-gray-600 mt-1 text-xs sm:text-base">Visão geral do módulo de faturação - {{ \Carbon\Carbon::now()->format('F Y') }}</p>
             </div>
             <div>
-                <select wire:model.live="selectedPeriod" class="rounded-lg border-gray-300 shadow-sm">
+                <select wire:model.live="selectedPeriod" class="rounded-lg border-gray-300 shadow-sm text-sm sm:text-base">
                     <option value="week">Esta Semana</option>
                     <option value="month">Este Mês</option>
                     <option value="year">Este Ano</option>
@@ -20,20 +20,20 @@
     </div>
 
     {{-- Cards de Estatísticas Principais --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
         {{-- Faturação do Mês --}}
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
+            <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-blue-200 text-sm font-medium uppercase">Faturação do Mês</p>
+                    <p class="text-blue-200 text-xs sm:text-sm font-medium uppercase">Faturação do Mês</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-file-invoice-dollar text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-file-invoice-dollar text-base sm:text-2xl"></i>
                 </div>
             </div>
             <div>
-                <p class="text-3xl font-bold">{{ number_format($stats['total_invoiced'], 2) }}</p>
-                <p class="text-blue-200 text-sm mt-1">AOA</p>
+                <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_invoiced'], 2) }}</p>
+                <p class="text-blue-200 text-xs sm:text-sm mt-1">AOA</p>
                 @if($stats['growth'] > 0)
                     <p class="text-green-200 text-xs mt-2">
                         <i class="fas fa-arrow-up mr-1"></i>{{ number_format($stats['growth'], 1) }}% vs mês anterior
@@ -51,18 +51,18 @@
         </div>
 
         {{-- Recebimentos --}}
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
+            <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-green-200 text-sm font-medium uppercase">Recebimentos</p>
+                    <p class="text-green-200 text-xs sm:text-sm font-medium uppercase">Recebimentos</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-money-bill-wave text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-money-bill-wave text-base sm:text-2xl"></i>
                 </div>
             </div>
             <div>
-                <p class="text-3xl font-bold">{{ number_format($stats['total_received'], 2) }}</p>
-                <p class="text-green-200 text-sm mt-1">AOA</p>
+                <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_received'], 2) }}</p>
+                <p class="text-green-200 text-xs sm:text-sm mt-1">AOA</p>
                 <p class="text-green-200 text-xs mt-2">
                     <i class="fas fa-check-circle mr-1"></i>Pagamentos recebidos
                 </p>
@@ -70,18 +70,18 @@
         </div>
 
         {{-- Valores Pendentes --}}
-        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
+            <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-yellow-200 text-sm font-medium uppercase">Valores Pendentes</p>
+                    <p class="text-yellow-200 text-xs sm:text-sm font-medium uppercase">Valores Pendentes</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-hourglass-half text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-hourglass-half text-base sm:text-2xl"></i>
                 </div>
             </div>
             <div>
-                <p class="text-3xl font-bold">{{ number_format($stats['total_pending'], 2) }}</p>
-                <p class="text-yellow-200 text-sm mt-1">AOA</p>
+                <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_pending'], 2) }}</p>
+                <p class="text-yellow-200 text-xs sm:text-sm mt-1">AOA</p>
                 <p class="text-yellow-200 text-xs mt-2">
                     <i class="fas fa-clock mr-1"></i>Aguardando pagamento
                 </p>
@@ -89,18 +89,18 @@
         </div>
 
         {{-- Valores Vencidos --}}
-        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
+            <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-red-200 text-sm font-medium uppercase">Valores Vencidos</p>
+                    <p class="text-red-200 text-xs sm:text-sm font-medium uppercase">Valores Vencidos</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full">
+                    <i class="fas fa-exclamation-triangle text-base sm:text-2xl"></i>
                 </div>
             </div>
             <div>
-                <p class="text-3xl font-bold">{{ number_format($stats['total_overdue'], 2) }}</p>
-                <p class="text-red-200 text-sm mt-1">AOA</p>
+                <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_overdue'], 2) }}</p>
+                <p class="text-red-200 text-xs sm:text-sm mt-1">AOA</p>
                 <p class="text-red-200 text-xs mt-2">
                     <i class="fas fa-bell mr-1"></i>Requer atenção
                 </p>
@@ -109,18 +109,18 @@
     </div>
 
     {{-- Gráfico de Vendas --}}
-    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-gray-800 flex items-center">
+    <div class="bg-white rounded-xl shadow-lg p-3 sm:p-6 mb-4 sm:mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-4">
+            <h3 class="text-sm sm:text-lg font-bold text-gray-800 flex items-center">
                 <i class="fas fa-chart-area mr-2 text-blue-600"></i>
                 Evolução de Vendas - {{ ucfirst($selectedPeriod == 'week' ? 'Esta Semana' : ($selectedPeriod == 'year' ? 'Este Ano' : 'Este Mês')) }}
             </h3>
             <div class="flex gap-2">
-                <button onclick="exportToPDF()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm">
-                    <i class="fas fa-file-pdf mr-2"></i>Exportar PDF
+                <button onclick="exportToPDF()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300 hover:scale-105 text-xs sm:text-sm">
+                    <i class="fas fa-file-pdf sm:mr-2"></i><span class="hidden sm:inline">Exportar PDF</span>
                 </button>
-                <button onclick="exportToExcel()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm">
-                    <i class="fas fa-file-excel mr-2"></i>Excel
+                <button onclick="exportToExcel()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 hover:scale-105 text-xs sm:text-sm">
+                    <i class="fas fa-file-excel sm:mr-2"></i><span class="hidden sm:inline">Excel</span>
                 </button>
             </div>
         </div>

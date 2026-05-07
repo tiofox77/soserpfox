@@ -1,8 +1,8 @@
 {{-- Modal Impressão de Ticket --}}
 @if($showPrintModal && $lastInvoice)
 <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-        <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full" style="max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
             <h3 class="text-xl font-bold text-white">
                 <i class="fas fa-receipt mr-2"></i>Impressão de Ticket
             </h3>
@@ -12,16 +12,35 @@
         </div>
         
         {{-- Ticket Preview --}}
-        <div id="ticket-print" class="p-6 bg-white" style="font-family: 'Courier New', monospace;">
-            {{-- Cabeçalho Empresa --}}
-            <div class="text-center border-b-2 border-dashed border-gray-400 pb-3 mb-3">
-                @if(app_logo())
-                    <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-12 w-auto mx-auto mb-2">
+        <div id="ticket-print" class="p-6 bg-white" style="font-family: 'Courier New', monospace; overflow-y: auto; flex: 1; min-height: 0;">
+            {{-- QR Code AGT (gerar antes do cabeçalho) --}}
+            @php
+                try {
+                    $ticketQR = getAGTQRData($lastInvoice, 100);
+                } catch (\Exception $e) {
+                    $ticketQR = ['data' => '', 'image' => null, 'atcud' => ''];
+                }
+            @endphp
+
+            {{-- Cabeçalho: Logo à esquerda + QR à direita --}}
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px dashed #9ca3af; padding-bottom: 10px; margin-bottom: 10px;">
+                <div style="flex: 1;">
+                    @if(app_logo())
+                        <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 48px; width: auto; margin-bottom: 6px;">
+                    @endif
+                    <h2 style="font-size: 16px; font-weight: bold;">{{ app_name() }}</h2>
+                    <p style="font-size: 11px;">NIF: {{ auth()->user()->activeTenant()->nif ?? 'N/A' }}</p>
+                    <p style="font-size: 11px;">{{ auth()->user()->activeTenant()->address ?? 'Endereço' }}</p>
+                    <p style="font-size: 11px;">Tel: {{ auth()->user()->activeTenant()->phone ?? 'Telefone' }}</p>
+                </div>
+                @if(!empty($ticketQR['image']))
+                <div style="flex-shrink: 0; text-align: center; margin-left: 10px;">
+                    <img src="{{ $ticketQR['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
+                    @if(!empty($ticketQR['atcud']))
+                    <p style="font-size: 8px; color: #666; margin-top: 2px;">ATCUD: {{ $ticketQR['atcud'] }}</p>
+                    @endif
+                </div>
                 @endif
-                <h2 class="text-lg font-bold">{{ app_name() }}</h2>
-                <p class="text-xs">NIF: {{ auth()->user()->activeTenant()->nif ?? 'N/A' }}</p>
-                <p class="text-xs">{{ auth()->user()->activeTenant()->address ?? 'Endereço' }}</p>
-                <p class="text-xs">Tel: {{ auth()->user()->activeTenant()->phone ?? 'Telefone' }}</p>
             </div>
 
             {{-- Dados Fatura --}}
@@ -185,14 +204,16 @@
                 <p class="font-bold">Processado por programa validado</p>
                 <p class="font-bold">Certificado AGT Nº {{ auth()->user()->activeTenant()->agt_certificate ?? 'xxxxxxxx/AGT/xxxx' }}</p>
                 <p class="mt-1">Software: {{ config('app.name', 'SOS ERP') }}</p>
-                <p class="mt-2 font-mono text-[9px]">HASH: {{ strtoupper(substr(md5($lastInvoice->invoice_number . $lastInvoice->total . $lastInvoice->invoice_date), 0, 32)) }}</p>
-                <p class="mt-2 font-bold">{{ $lastInvoice->notes ? 'Obrigado pela sua preferência!' : ($lastInvoice->notes ?? 'Obrigado pela sua preferência!') }}</p>
+                @if($lastInvoice->saft_hash)
+                <p class="mt-2 font-mono text-[8px] break-all">HASH: {{ substr($lastInvoice->saft_hash, 0, 4) }}-{{ $lastInvoice->hash_control ?? '1' }}</p>
+                @endif
+                <p class="mt-2 font-bold">Obrigado pela sua preferência!</p>
                 <p class="mt-3 text-[9px] italic">Este documento não serve de fatura</p>
             </div>
         </div>
 
         {{-- Botões --}}
-        <div class="px-6 pb-6 flex space-x-3">
+        <div class="px-6 py-4 flex space-x-3 flex-shrink-0 border-t border-gray-200">
             <button wire:click="$set('showPrintModal', false)" 
                     class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
                 <i class="fas fa-times mr-2"></i>Fechar

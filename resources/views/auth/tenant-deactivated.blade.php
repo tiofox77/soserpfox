@@ -99,7 +99,7 @@
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-envelope text-blue-600 mr-2 mt-0.5"></i>
-                            <span>Envie um e-mail para suporte@soserp.ao</span>
+                            <span>Envie um e-mail para suporte@soserp.vip</span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-comments text-blue-600 mr-2 mt-0.5"></i>
@@ -118,7 +118,7 @@
                        class="flex-1 inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all">
                         <i class="fas fa-sign-in-alt mr-2"></i>Voltar ao Login
                     </a>
-                    <a href="mailto:suporte@soserp.ao" 
+                    <a href="mailto:suporte@soserp.vip" 
                        class="flex-1 inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all">
                         <i class="fas fa-envelope mr-2"></i>Contatar Suporte
                     </a>

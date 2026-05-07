@@ -114,10 +114,35 @@ class PayrollManagement extends Component
             
             // Processar deduções de adiantamentos
             $payrollService->processAdvanceDeductions($payroll);
+            
+            // Processar deduções de descontos salariais
+            $payrollService->processDiscountDeductions($payroll);
 
-            $this->dispatch('notify', type: 'success', message: 'Folha marcada como paga e adiantamentos atualizados!');
+            $this->dispatch('notify', type: 'success', message: 'Folha marcada como paga e deduções processadas!');
         } catch (\Exception $e) {
             $this->dispatch('notify', type: 'error', message: 'Erro: ' . $e->getMessage());
+        }
+    }
+
+    public function recalculatePayroll($id)
+    {
+        try {
+            $payroll = Payroll::findOrFail($id);
+            
+            if ($payroll->status === 'paid') {
+                $this->dispatch('notify', type: 'error', message: 'Não é possível recalcular uma folha já paga.');
+                return;
+            }
+
+            $payrollService = new PayrollService();
+            $payrollService->processPayroll($payroll);
+
+            // Recarregar os dados da modal
+            $this->viewDetails($payroll->id);
+
+            $this->dispatch('notify', type: 'success', message: 'Folha recalculada com sucesso! Todos os valores foram atualizados.');
+        } catch (\Exception $e) {
+            $this->dispatch('notify', type: 'error', message: 'Erro ao recalcular: ' . $e->getMessage());
         }
     }
 
@@ -158,21 +183,54 @@ class PayrollManagement extends Component
             ->get();
     }
 
+    public function getActiveDiscountsProperty()
+    {
+        if (!$this->editingItem) {
+            return collect();
+        }
+        
+        return \App\Models\HR\SalaryDiscount::where('employee_id', $this->editingItem->employee_id)
+            ->where('status', 'approved')
+            ->where('remaining_installments', '>', 0)
+            ->get();
+    }
+
+    public function getActiveLoansProperty()
+    {
+        if (!$this->editingItem) {
+            return collect();
+        }
+        
+        return \App\Models\HR\SalaryDiscount::where('employee_id', $this->editingItem->employee_id)
+            ->where('discount_type', 'loan')
+            ->where('status', 'approved')
+            ->where('remaining_installments', '>', 0)
+            ->get();
+    }
+
+    public function getOtherActiveDiscountsProperty()
+    {
+        if (!$this->editingItem) {
+            return collect();
+        }
+        
+        return \App\Models\HR\SalaryDiscount::where('employee_id', $this->editingItem->employee_id)
+            ->where('discount_type', '!=', 'loan')
+            ->where('status', 'approved')
+            ->where('remaining_installments', '>', 0)
+            ->get();
+    }
+
     public function saveItem()
     {
-        // Validar apenas os campos editáveis manualmente (Empréstimo e Outros Descontos)
-        // Adiantamento é automático e não deve ser alterado manualmente
-        $this->validate([
-            'itemLoanDeduction' => 'nullable|numeric|min:0',
-            'itemOtherDeductions' => 'nullable|numeric|min:0',
-        ]);
-
         try {
-            // Atualizar APENAS os descontos manuais
-            // Adiantamento não é atualizado pois é calculado automaticamente
+            // Empréstimo e Outros Descontos são puxados automaticamente da BD
+            $loanTotal = $this->activeLoans->sum('installment_amount');
+            $otherTotal = $this->otherActiveDiscounts->sum('installment_amount');
+
             $this->editingItem->update([
-                'loan_deduction' => $this->itemLoanDeduction ?? 0,
-                'other_deductions' => $this->itemOtherDeductions ?? 0,
+                'loan_deduction' => $loanTotal,
+                'other_deductions' => $otherTotal,
             ]);
 
             // Recalcular IRT, INSS e líquido com os novos descontos

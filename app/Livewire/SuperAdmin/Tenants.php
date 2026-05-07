@@ -60,7 +60,7 @@ class Tenants extends Component
     
     // Form fields
     public $name, $slug, $email, $phone, $company_name, $nif;
-    public $address, $city, $postal_code, $country = 'Portugal';
+    public $address, $city, $postal_code, $country = 'Angola';
     public $max_users = 5, $max_storage_mb = 1000;
     public $is_active = true;
 
@@ -242,11 +242,20 @@ class Tenants extends Component
     public function confirmDelete()
     {
         try {
-            Tenant::findOrFail($this->deletingTenantId)->delete();
+            $tenant = Tenant::findOrFail($this->deletingTenantId);
+            
+            $check = $tenant->canBeDeleted();
+            if (!$check['can_delete']) {
+                $this->dispatch('error', message: $check['reason']);
+                $this->closeDeleteModal();
+                return;
+            }
+            
+            $tenant->delete();
             $this->dispatch('success', message: 'Tenant excluído com sucesso!');
             $this->closeDeleteModal();
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir tenant!');
+            $this->dispatch('error', message: 'Erro ao excluir tenant: ' . $e->getMessage());
         }
     }
 
@@ -278,7 +287,7 @@ class Tenants extends Component
     {
         $this->reset(['name', 'slug', 'email', 'phone', 'company_name', 'nif', 
                      'address', 'city', 'postal_code', 'editingTenantId']);
-        $this->country = 'Portugal';
+        $this->country = 'Angola';
         $this->max_users = 5;
         $this->max_storage_mb = 1000;
         $this->is_active = true;
@@ -504,6 +513,13 @@ class Tenants extends Component
             // Atualizar ou criar subscription
             $subscription = $tenant->activeSubscription;
             
+            $periodEnd = match($this->billingCycle) {
+                'yearly' => now()->addMonths(14),
+                'semiannual' => now()->addMonths(6),
+                'quarterly' => now()->addMonths(3),
+                default => now()->addMonth(),
+            };
+            
             if ($subscription) {
                 // Atualizar subscription existente
                 $subscription->update([
@@ -511,7 +527,8 @@ class Tenants extends Component
                     'billing_cycle' => $this->billingCycle,
                     'amount' => $plan->getPrice($this->billingCycle),
                     'status' => 'active',
-                    'current_period_end' => now()->addMonth(),
+                    'current_period_start' => now(),
+                    'current_period_end' => $periodEnd,
                 ]);
             } else {
                 // Criar nova subscription
@@ -521,7 +538,7 @@ class Tenants extends Component
                     'amount' => $plan->getPrice($this->billingCycle),
                     'status' => 'active',
                     'current_period_start' => now(),
-                    'current_period_end' => now()->addMonth(),
+                    'current_period_end' => $periodEnd,
                 ]);
             }
             
@@ -547,20 +564,22 @@ class Tenants extends Component
     
     private function syncPlanModules($tenant, $plan)
     {
-        // Remover todos os módulos antigos
+        // Usar pivot table plan_module como fonte de verdade (BUG-06 FIX)
+        $planModuleIds = $plan->modules()->pluck('modules.id')->toArray();
+        
+        // Remover módulos que não estão no novo plano
         $tenant->modules()->detach();
         
-        // Adicionar módulos do novo plano
-        if ($plan->included_modules && is_array($plan->included_modules)) {
-            foreach ($plan->included_modules as $moduleSlug) {
-                $module = \App\Models\Module::where('slug', $moduleSlug)->first();
-                if ($module) {
-                    $tenant->modules()->attach($module->id, [
-                        'is_active' => true,
-                        'activated_at' => now(),
-                    ]);
-                }
+        // Adicionar módulos do novo plano via pivot
+        if (!empty($planModuleIds)) {
+            $syncData = [];
+            foreach ($planModuleIds as $moduleId) {
+                $syncData[$moduleId] = [
+                    'is_active' => true,
+                    'activated_at' => now(),
+                ];
             }
+            $tenant->modules()->attach($syncData);
         }
     }
 
@@ -568,8 +587,14 @@ class Tenants extends Component
     {
         $tenants = Tenant::with(['activeSubscription.plan', 'modules'])
             ->withCount('users')
-            ->where('name', 'like', '%' . $this->search . '%')
-            ->orWhere('email', 'like', '%' . $this->search . '%')
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%')
+                      ->orWhere('email', 'like', '%' . $this->search . '%')
+                      ->orWhere('company_name', 'like', '%' . $this->search . '%')
+                      ->orWhere('nif', 'like', '%' . $this->search . '%');
+                });
+            })
             ->latest()
             ->paginate(10);
 
@@ -604,7 +629,15 @@ class Tenants extends Component
                 ->get();
         }
 
-        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'tenantUsers', 'availableUsers', 'roles'));
+        // Para modal de plano
+        $allPlans = collect();
+        $managingPlanTenant = null;
+        if ($this->managingPlanTenantId) {
+            $allPlans = \App\Models\Plan::where('is_active', true)->orderBy('order')->get();
+            $managingPlanTenant = Tenant::with('activeSubscription.plan')->find($this->managingPlanTenantId);
+        }
+
+        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant'));
     }
     
     protected function sendSuspensionNotification($tenant)

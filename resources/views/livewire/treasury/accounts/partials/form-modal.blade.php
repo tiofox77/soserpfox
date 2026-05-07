@@ -137,7 +137,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                             <input type="email" wire:model="form.manager_email" 
                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                                   placeholder="gestor@empresa.ao">
+                                   placeholder="gestor@empresa.vip">
                             @error('form.manager_email') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
 

@@ -9,10 +9,17 @@
             <p class="text-sm sm:text-base text-gray-600">Gerencie categorias personalizadas</p>
         </div>
         <div class="flex items-center space-x-2 sm:space-x-3">
-            <button wire:click="create" 
-                    class="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
-                Novo Tipo
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create">
+                    <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
+                    Novo Tipo
+                </span>
+                <span wire:loading wire:target="create">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
         </div>
     </div>
@@ -84,8 +91,11 @@
                 {{-- Badge Status --}}
                 <div class="absolute top-2 right-2">
                     <button wire:click="toggleStatus({{ $type->id }})"
-                            class="px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg transition-all duration-300 {{ $type->is_active ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600' }}">
-                        {{ $type->is_active ? '✓ Ativo' : 'Inativo' }}
+                            wire:loading.attr="disabled"
+                            wire:target="toggleStatus({{ $type->id }})"
+                            class="px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg transition-all duration-300 disabled:opacity-50 {{ $type->is_active ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600' }}">
+                        <span wire:loading.remove wire:target="toggleStatus({{ $type->id }})">{{ $type->is_active ? '✓ Ativo' : 'Inativo' }}</span>
+                        <span wire:loading wire:target="toggleStatus({{ $type->id }})"><i class="fas fa-spinner fa-spin"></i></span>
                     </button>
                 </div>
                 
@@ -119,15 +129,19 @@
                 <div class="space-y-2">
                     <div class="flex gap-2">
                         <button wire:click="edit({{ $type->id }})"
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center">
-                            <i class="fas fa-edit mr-2"></i>
-                            Editar
+                                wire:loading.attr="disabled"
+                                wire:target="edit({{ $type->id }})"
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center disabled:opacity-50">
+                            <span wire:loading.remove wire:target="edit({{ $type->id }})"><i class="fas fa-edit mr-2"></i>Editar</span>
+                            <span wire:loading wire:target="edit({{ $type->id }})"><i class="fas fa-spinner fa-spin mr-2"></i>...</span>
                         </button>
                         <button wire:click="delete({{ $type->id }})"
-                                onclick="return confirm('Tem certeza que deseja excluir este tipo?')"
-                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center">
-                            <i class="fas fa-trash mr-2"></i>
-                            Excluir
+                                wire:loading.attr="disabled"
+                                wire:target="delete({{ $type->id }})"
+                                wire:confirm="Tem certeza que deseja excluir este tipo?"
+                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center disabled:opacity-50">
+                            <span wire:loading.remove wire:target="delete({{ $type->id }})"><i class="fas fa-trash mr-2"></i>Excluir</span>
+                            <span wire:loading wire:target="delete({{ $type->id }})"><i class="fas fa-spinner fa-spin mr-2"></i>...</span>
                         </button>
                     </div>
                 </div>
@@ -240,17 +254,18 @@
                 <div class="flex gap-3 pt-4">
                     <button wire:click="save" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition">
-                        <span wire:loading.remove wire:target="save">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 hover:scale-105 transition-all duration-300 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-save mr-2"></i>{{ $editingId ? 'Atualizar' : 'Salvar' }}
                         </span>
-                        <span wire:loading wire:target="save">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
                         </span>
                     </button>
-                    <button wire:click="closeModal" 
-                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition">
-                        Cancelar
+                    <button wire:click="closeModal"
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-50 hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
                 </div>
             </div>

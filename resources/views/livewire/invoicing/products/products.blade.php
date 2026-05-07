@@ -1,26 +1,34 @@
 <div>
     <!-- Header -->
-    <div class="mb-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl shadow-lg p-6 text-white">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
-                    <i class="fas fa-box text-2xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-box text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Produtos/Serviços</h2>
-                    <p class="text-purple-100 text-sm">Gerir catálogo de produtos</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">Produtos/Serviços</h2>
+                    <p class="text-purple-100 text-xs sm:text-sm">Gerir catálogo de produtos</p>
                 </div>
             </div>
             @can('invoicing.products.create')
-            <button wire:click="create" class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Novo Produto
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-white text-purple-600 hover:bg-purple-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create">
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Novo Produto
+                </span>
+                <span wire:loading wire:target="create">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
             @endcan
         </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 stagger-animation">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6 stagger-animation">
         <!-- Total Produtos -->
         <div class="bg-white rounded-2xl shadow-lg p-6 border border-purple-100 overflow-hidden card-hover card-3d">
             <div class="flex items-center justify-between mb-4">
@@ -70,9 +78,9 @@
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
             <!-- Search -->
-            <div class="md:col-span-2">
+            <div class="col-span-2">
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
                     <i class="fas fa-search mr-1"></i>Pesquisar
                 </label>
@@ -80,7 +88,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live="search" type="text" placeholder="Nome, código, descrição..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome, código, descrição..." 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -211,26 +219,27 @@
         </div>
         
         <!-- Table Header -->
-        <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase">
-            <div class="col-span-3 flex items-center">
+        <div class="overflow-x-auto">
+        <div class="grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase min-w-[600px]">
+            <div class="col-span-4 sm:col-span-3 flex items-center">
                 <i class="fas fa-box mr-2 text-purple-500"></i>Produto
             </div>
-            <div class="col-span-1 flex items-center">
+            <div class="col-span-2 sm:col-span-1 hidden sm:flex items-center">
                 <i class="fas fa-tag mr-2 text-pink-500"></i>Tipo
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden md:flex items-center">
                 <i class="fas fa-barcode mr-2 text-blue-500"></i>Código
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-3 sm:col-span-2 flex items-center">
                 <i class="fas fa-money-bill-wave mr-2 text-green-500"></i>Preço
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden lg:flex items-center">
                 <i class="fas fa-percent mr-2 text-orange-500"></i>IVA
             </div>
-            <div class="col-span-1 flex items-center">
+            <div class="col-span-1 hidden lg:flex items-center">
                 <i class="fas fa-cube mr-2 text-cyan-500"></i>Unidade
             </div>
-            <div class="col-span-1 flex items-center justify-end">
+            <div class="col-span-3 sm:col-span-2 lg:col-span-1 flex items-center justify-end">
                 <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
             </div>
         </div>
@@ -238,9 +247,9 @@
         <!-- Table Body -->
         <div class="divide-y divide-gray-100">
             @forelse($products as $product)
-                <div class="group grid grid-cols-12 gap-4 px-6 py-4 hover:bg-purple-50 transition-all duration-300 items-center">
+                <div class="group grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-purple-50 transition-all duration-300 items-center min-w-[600px]">
                     <!-- Produto -->
-                    <div class="col-span-3 flex items-center space-x-3">
+                    <div class="col-span-4 sm:col-span-3 flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
                             {{ strtoupper(substr($product->name, 0, 2)) }}
                         </div>
@@ -255,7 +264,7 @@
                     </div>
                     
                     <!-- Tipo -->
-                    <div class="col-span-1">
+                    <div class="col-span-2 sm:col-span-1 hidden sm:block">
                         @if($product->type === 'produto')
                             <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold">
                                 <i class="fas fa-box mr-1"></i>Produto
@@ -268,14 +277,14 @@
                     </div>
                     
                     <!-- Código -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden md:block">
                         <span class="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
                             <i class="fas fa-barcode mr-1"></i>{{ $product->code }}
                         </span>
                     </div>
                     
                     <!-- Preço -->
-                    <div class="col-span-2">
+                    <div class="col-span-3 sm:col-span-2">
                         <p class="text-sm font-bold text-green-600">{{ number_format($product->price, 2) }} Kz</p>
                         @if($product->cost > 0)
                             <p class="text-xs text-gray-500">Custo: {{ number_format($product->cost, 2) }} Kz</p>
@@ -283,36 +292,45 @@
                     </div>
                     
                     <!-- IVA -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden lg:block">
                         <span class="inline-flex items-center px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">
                             <i class="fas fa-percent mr-1"></i>{{ $product->tax_rate }}%
                         </span>
                     </div>
                     
                     <!-- Unidade -->
-                    <div class="col-span-1">
+                    <div class="col-span-1 hidden lg:block">
                         <span class="inline-flex items-center px-2 py-1 bg-cyan-100 text-cyan-700 rounded-lg text-xs font-semibold">
                             {{ $product->unit }}
                         </span>
                     </div>
                     
                     <!-- Ações -->
-                    <div class="col-span-1 flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="col-span-3 sm:col-span-2 lg:col-span-1 flex items-center justify-end space-x-1">
                         @can('invoicing.products.view')
-                        <button wire:click="view({{ $product->id }})" class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Visualizar">
-                            <i class="fas fa-eye text-xs"></i>
+                        <button wire:click="view({{ $product->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Visualizar">
+                            <i class="fas fa-eye text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
                         @endcan
                         
                         @can('invoicing.products.edit')
-                        <button wire:click="edit({{ $product->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Editar">
-                            <i class="fas fa-edit text-xs"></i>
+                        <button wire:click="edit({{ $product->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
+                            <i class="fas fa-edit text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
                         @endcan
                         
                         @can('invoicing.products.delete')
-                        <button wire:click="confirmDelete({{ $product->id }})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Excluir">
-                            <i class="fas fa-trash text-xs"></i>
+                        <button wire:click="confirmDelete({{ $product->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
+                            <i class="fas fa-trash text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
                         @endcan
                     </div>
@@ -329,10 +347,11 @@
         </div>
 
         @if($products->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-t border-gray-200">
                 {{ $products->links() }}
             </div>
         @endif
+        </div>
     </div>
 
     <!-- Modals -->

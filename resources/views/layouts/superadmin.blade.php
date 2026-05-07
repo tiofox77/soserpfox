@@ -133,7 +133,7 @@
         }
         
         .card-hover {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
         }
@@ -161,7 +161,7 @@
         }
         
         .card-3d {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             transform-style: preserve-3d;
         }
         
@@ -180,7 +180,7 @@
         }
         
         .card-glow {
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             position: relative;
         }
         
@@ -212,7 +212,7 @@
         }
         
         .card-rotate {
-            transition: all 0.4s ease;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
         }
         
         .card-rotate:hover {
@@ -452,13 +452,9 @@
                     </div>
                     
                     <div class="flex items-center space-x-4">
-                        <button class="relative text-gray-600 hover:text-gray-900 transition">
-                            <i class="fas fa-bell text-xl"></i>
-                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center animate-pulse">3</span>
-                        </button>
-                        <button class="text-gray-600 hover:text-gray-900 transition">
-                            <i class="fas fa-search text-xl"></i>
-                        </button>
+                        @if(auth()->check())
+                            <livewire:notifications />
+                        @endif
                     </div>
                 </div>
             </header>

@@ -82,7 +82,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" wire:model.live="search" placeholder="Pesquisar importação..." 
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar importação..." 
                        class="pl-10 w-full rounded-lg border-gray-300 focus:border-cyan-500 focus:ring-cyan-500 transition-all">
             </div>
             

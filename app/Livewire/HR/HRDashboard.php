@@ -7,6 +7,9 @@ use App\Models\HR\Employee;
 use App\Models\HR\Attendance;
 use App\Models\HR\Vacation;
 use App\Models\HR\Department;
+use App\Models\HR\Payroll;
+use App\Models\HR\Leave;
+use App\Models\HR\SalaryAdvance;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -102,6 +105,34 @@ class HRDashboard extends Component
             ];
         }
 
+        // Resumo Folha de Pagamento
+        $currentMonth = Carbon::now()->month;
+        $currentYear = Carbon::now()->year;
+
+        $latestPayroll = Payroll::where('tenant_id', $tenantId)
+            ->orderByDesc('year')->orderByDesc('month')
+            ->first();
+
+        $payrollSummary = [
+            'latest_month' => $latestPayroll ? $latestPayroll->month . '/' . $latestPayroll->year : '—',
+            'latest_status' => $latestPayroll->status ?? null,
+            'total_net' => $latestPayroll->total_net_salary ?? 0,
+            'total_gross' => $latestPayroll->total_gross_salary ?? 0,
+            'total_deductions' => $latestPayroll->total_deductions ?? 0,
+            'total_employees' => $latestPayroll->processed_employees ?? 0,
+            'pending_payrolls' => Payroll::where('tenant_id', $tenantId)->where('status', 'draft')->count(),
+        ];
+
+        // Adiantamentos pendentes
+        $pendingAdvances = SalaryAdvance::whereHas('employee', fn($q) => $q->where('tenant_id', $tenantId))
+            ->where('status', 'pending')
+            ->count();
+
+        // Licenças pendentes
+        $pendingLeaves = Leave::where('tenant_id', $tenantId)
+            ->where('status', 'pending')
+            ->count();
+
         // Alertas
         $alerts = [];
 
@@ -135,6 +166,39 @@ class HRDashboard extends Component
             ];
         }
 
+        if ($pendingAdvances > 0) {
+            $alerts[] = [
+                'type' => 'info',
+                'icon' => 'fa-hand-holding-usd',
+                'title' => 'Adiantamentos Pendentes',
+                'message' => "$pendingAdvances adiantamento(s) aguardando aprovação",
+                'action' => route('hr.advances'),
+                'action_text' => 'Ver Adiantamentos',
+            ];
+        }
+
+        if ($pendingLeaves > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'fa-calendar-times',
+                'title' => 'Licenças Pendentes',
+                'message' => "$pendingLeaves licença(s)/falta(s) aguardando aprovação",
+                'action' => route('hr.leaves'),
+                'action_text' => 'Ver Licenças',
+            ];
+        }
+
+        if ($payrollSummary['pending_payrolls'] > 0) {
+            $alerts[] = [
+                'type' => 'info',
+                'icon' => 'fa-money-check-alt',
+                'title' => 'Folhas em Rascunho',
+                'message' => $payrollSummary['pending_payrolls'] . " folha(s) de pagamento em rascunho",
+                'action' => route('hr.payroll'),
+                'action_text' => 'Ver Folhas',
+            ];
+        }
+
         return view('livewire.hr.dashboard', [
             'stats' => $stats,
             'attendanceToday' => $attendanceToday,
@@ -144,6 +208,7 @@ class HRDashboard extends Component
             'recentHires' => $recentHires,
             'upcomingVacations' => $upcomingVacations,
             'weekAttendance' => $weekAttendance,
+            'payrollSummary' => $payrollSummary,
             'alerts' => $alerts,
         ])->layout('layouts.app', ['title' => 'Dashboard RH']);
     }

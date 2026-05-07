@@ -68,6 +68,13 @@ class InvoicingSettings extends Model
         'agt_auto_submit',
         'agt_require_validation',
         'agt_software_certificate',
+        // AGT v1.2
+        'agt_product_id',
+        'agt_product_version',
+        'agt_software_validation_number',
+        'agt_schema_version',
+        'agt_establishment_number',
+        'agt_eac_code',
     ];
 
     protected $casts = [

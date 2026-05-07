@@ -41,7 +41,8 @@
                                     
                                     <!-- Info -->
                                     <div class="flex-1">
-                                        <div class="text-sm text-gray-500">{{ $user->email }}</div>
+                                        <div class="text-sm font-semibold text-gray-900">{{ $user->name }}</div>
+                                        <div class="text-xs text-gray-500">{{ $user->email }}</div>
                                     </div>
                                     
                                     <!-- Role -->

@@ -22,7 +22,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Pesquisar</label>
-                <input type="text" wire:model.live="search" 
+                <input type="text" wire:model.live.debounce.300ms="search" 
                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
                        placeholder="🔍 Buscar por nome ou código...">
             </div>
@@ -32,10 +32,13 @@
                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
                     <option value="">Todos os tipos</option>
                     <option value="invoice">Faturas (FT)</option>
-                    <option value="proforma">Proformas (PRF)</option>
+                    <option value="proforma">Proformas (PR)</option>
+                    <option value="pos">Fatura-Recibo POS (FR)</option>
                     <option value="receipt">Recibos (RC)</option>
                     <option value="credit_note">Notas de Crédito (NC)</option>
                     <option value="debit_note">Notas de Débito (ND)</option>
+                    <option value="purchase">Faturas de Compra (FC)</option>
+                    <option value="advance">Adiantamentos (AD)</option>
                 </select>
             </div>
         </div>
@@ -74,27 +77,22 @@
                     @forelse($series as $item)
                     <tr class="hover:bg-purple-50 transition-all duration-200">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @if($item->document_type === 'invoice')
-                                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-file-invoice mr-1"></i>Fatura
-                                </span>
-                            @elseif($item->document_type === 'proforma')
-                                <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-file-alt mr-1"></i>Proforma
-                                </span>
-                            @elseif($item->document_type === 'receipt')
-                                <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-receipt mr-1"></i>Recibo
-                                </span>
-                            @elseif($item->document_type === 'credit_note')
-                                <span class="px-3 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-file-minus mr-1"></i>N. Crédito
-                                </span>
-                            @else
-                                <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-file-plus mr-1"></i>N. Débito
-                                </span>
-                            @endif
+                            @php
+                                $typeBadges = [
+                                    'invoice' => ['bg' => 'bg-blue-100', 'text' => 'text-blue-800', 'icon' => 'fa-file-invoice-dollar', 'label' => 'Fatura (FT)'],
+                                    'proforma' => ['bg' => 'bg-purple-100', 'text' => 'text-purple-800', 'icon' => 'fa-file-alt', 'label' => 'Proforma (PR)'],
+                                    'pos' => ['bg' => 'bg-emerald-100', 'text' => 'text-emerald-800', 'icon' => 'fa-cash-register', 'label' => 'POS (FR)'],
+                                    'receipt' => ['bg' => 'bg-green-100', 'text' => 'text-green-800', 'icon' => 'fa-receipt', 'label' => 'Recibo (RC)'],
+                                    'credit_note' => ['bg' => 'bg-orange-100', 'text' => 'text-orange-800', 'icon' => 'fa-file-invoice', 'label' => 'N. Crédito (NC)'],
+                                    'debit_note' => ['bg' => 'bg-red-100', 'text' => 'text-red-800', 'icon' => 'fa-file-invoice', 'label' => 'N. Débito (ND)'],
+                                    'purchase' => ['bg' => 'bg-indigo-100', 'text' => 'text-indigo-800', 'icon' => 'fa-shopping-cart', 'label' => 'Compra (FC)'],
+                                    'advance' => ['bg' => 'bg-cyan-100', 'text' => 'text-cyan-800', 'icon' => 'fa-hand-holding-usd', 'label' => 'Adiantamento (AD)'],
+                                ];
+                                $badge = $typeBadges[$item->document_type] ?? ['bg' => 'bg-gray-100', 'text' => 'text-gray-800', 'icon' => 'fa-file', 'label' => $item->document_type];
+                            @endphp
+                            <span class="px-3 py-1 {{ $badge['bg'] }} {{ $badge['text'] }} text-xs font-bold rounded-full">
+                                <i class="fas {{ $badge['icon'] }} mr-1"></i>{{ $badge['label'] }}
+                            </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="text-lg font-bold text-purple-600">{{ $item->series_code }}</span>
@@ -187,10 +185,13 @@
                     <select wire:model="document_type" 
                             class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
                         <option value="invoice">Fatura (FT)</option>
-                        <option value="proforma">Proforma (PRF)</option>
+                        <option value="proforma">Proforma (PR)</option>
+                        <option value="pos">Fatura-Recibo POS (FR)</option>
                         <option value="receipt">Recibo (RC)</option>
                         <option value="credit_note">Nota de Crédito (NC)</option>
                         <option value="debit_note">Nota de Débito (ND)</option>
+                        <option value="purchase">Fatura de Compra (FC)</option>
+                        <option value="advance">Adiantamento (AD)</option>
                     </select>
                     @error('document_type') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
@@ -309,7 +310,7 @@
                         <i class="fas fa-eye mr-2"></i>Pré-visualização:
                     </p>
                     <p class="text-lg font-mono font-bold text-blue-700">
-                        {{ $prefix }} {{ $series_code }}{{ $include_year ? '/' . date('Y') : '' }}/{{ str_pad($next_number, $number_padding, '0', STR_PAD_LEFT) }}
+                        {{ $prefix }} {{ $series_code }} {{ $include_year ? date('Y') . '/' : '' }}{{ str_pad($next_number, $number_padding, '0', STR_PAD_LEFT) }}
                     </p>
                 </div>
 

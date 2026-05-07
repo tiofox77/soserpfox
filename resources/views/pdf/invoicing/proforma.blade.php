@@ -14,7 +14,7 @@
         
         body {
             font-family: Arial, sans-serif;
-            font-size: 10px;
+            font-size: 9px;
             line-height: 1.1;
             color: #000;
             background: #f5f5f5;
@@ -29,12 +29,14 @@
         .page-wrapper {
             width: 210mm;
             min-height: 297mm;
+            max-height: 297mm;
             background: white;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             margin: 0 auto;
-            padding: 15mm;
+            padding: 10mm 12mm;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         
         .main-content {
@@ -45,7 +47,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
         
         .company-info {
@@ -56,14 +58,14 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            margin-bottom: 15px;
+            margin-bottom: 6px;
         }
         
         .logo {
-            width: 120px;
-            height: 80px;
+            width: 100px;
+            height: 60px;
             border-radius: 5px;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             position: relative;
             background-color: transparent;
         }
@@ -98,9 +100,9 @@
         }
         
         .company-details {
-            font-size: 8px;
+            font-size: 7.5px;
             line-height: 1.3;
-            margin-top: 8px;
+            margin-top: 4px;
         }
         
         .right-section {
@@ -109,14 +111,14 @@
             flex-direction: column;
             align-items: flex-end;
             position: relative;
-            margin-top: 30px;
+            margin-top: 0;
         }
         
         .client-info {
             text-align: left;
             width: 100%;
-            margin-bottom: 25px;
-            padding: 10px;
+            margin-bottom: 8px;
+            padding: 6px 8px;
             background-color: #f8f9fa;
             border-left: 4px solid #2c5aa0;
         }
@@ -149,8 +151,8 @@
         }
         
         .qr-code {
-            width: 80px;
-            height: 80px;
+            width: 100px;
+            height: 100px;
             display: block;
             margin-left: auto;
             background: white;
@@ -164,9 +166,9 @@
         
         .doc-header {
             text-align: center;
-            margin: 15px 0;
+            margin: 6px 0;
             border-bottom: 2px solid #2c5aa0;
-            padding-bottom: 8px;
+            padding-bottom: 4px;
         }
         
         .doc-title {
@@ -178,14 +180,14 @@
         .doc-info-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 9px;
+            margin-bottom: 6px;
+            font-size: 8px;
         }
         
         .doc-info-table th,
         .doc-info-table td {
             border: 1px solid #ddd;
-            padding: 4px;
+            padding: 3px;
             text-align: center;
         }
         
@@ -198,14 +200,14 @@
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
-            font-size: 9px;
+            margin-bottom: 0;
+            font-size: 8px;
         }
         
         .items-table th,
         .items-table td {
             border: 1px solid #ddd;
-            padding: 4px;
+            padding: 2px 3px;
             text-align: center;
         }
         
@@ -227,42 +229,42 @@
         
         .footer-section {
             margin-top: auto;
-            padding-top: 30px;
+            padding-top: 8px;
         }
         
         .bottom-section {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 30px;
+            margin-bottom: 8px;
         }
         
         .left-bottom {
             flex: 1;
-            margin-right: 30px;
+            margin-right: 15px;
         }
         
         .tax-section {
-            margin-bottom: 15px;
+            margin-bottom: 6px;
         }
         
         .tax-title {
             font-weight: bold;
-            font-size: 10px;
-            margin-bottom: 5px;
+            font-size: 9px;
+            margin-bottom: 3px;
             color: #2c5aa0;
         }
         
         .tax-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9px;
-            margin-bottom: 10px;
+            font-size: 8px;
+            margin-bottom: 4px;
         }
         
         .tax-table th,
         .tax-table td {
             border: 1px solid #ddd;
-            padding: 4px;
+            padding: 2px 3px;
             text-align: center;
         }
         
@@ -278,7 +280,7 @@
         }
         
         .regime-section {
-            margin-bottom: 12px;
+            margin-bottom: 4px;
         }
         
         .regime-title {
@@ -289,26 +291,26 @@
         }
         
         .bank-section {
-            margin-bottom: 12px;
+            margin-bottom: 4px;
         }
         
         .bank-title {
             font-weight: bold;
-            font-size: 9px;
-            margin-bottom: 5px;
+            font-size: 8px;
+            margin-bottom: 3px;
             color: #2c5aa0;
         }
         
         .bank-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8px;
+            font-size: 7.5px;
         }
         
         .bank-table th,
         .bank-table td {
             border: 1px solid #ddd;
-            padding: 3px;
+            padding: 2px;
             text-align: center;
         }
         
@@ -319,9 +321,9 @@
         }
         
         .system-info {
-            font-size: 8px;
+            font-size: 7px;
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 4px;
             color: #666;
         }
         
@@ -331,15 +333,15 @@
         
         .summary-section {
             border: 2px solid #2c5aa0;
-            padding: 10px;
+            padding: 6px 8px;
             background-color: #f9f9f9;
         }
         
         .summary-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 3px;
-            font-size: 9px;
+            margin-bottom: 1px;
+            font-size: 8px;
         }
         
         .summary-total {
@@ -373,10 +375,10 @@
         
         .page-footer {
             text-align: center;
-            font-size: 8px;
+            font-size: 7px;
             border-top: 1px solid #ccc;
-            padding-top: 8px;
-            margin-top: 20px;
+            padding-top: 4px;
+            margin-top: 6px;
             color: #666;
         }
         
@@ -528,10 +530,19 @@
                 padding: 0;
             }
             
+            @page {
+                size: A4;
+                margin: 0;
+            }
+            
             .page-wrapper {
                 box-shadow: none;
                 margin: 0;
-                padding: 15mm;
+                padding: 10mm 12mm;
+                width: 210mm;
+                height: 297mm;
+                max-height: 297mm;
+                overflow: hidden;
             }
         }
     </style>
@@ -582,14 +593,14 @@
                     <div class="qr-section">
                         <div class="qr-code">
                             @if(isset($qrCode) && $qrCode['image'])
-                                <img src="{{ $qrCode['image'] }}" alt="QR Code AGT" style="width: 80px; height: 80px;" />
+                                <img src="{{ $qrCode['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
                                 @if($qrCode['atcud'])
                                     <div style="font-size: 6px; text-align: center; margin-top: 2px;">
                                         ATCUD: {{ $qrCode['atcud'] }}
                                     </div>
                                 @endif
                             @else
-                                <div style="width: 80px; height: 80px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999;">
+                                <div style="width: 100px; height: 100px; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999;">
                                     QR Code
                                 </div>
                             @endif

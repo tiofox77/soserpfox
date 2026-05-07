@@ -34,6 +34,8 @@ class InvoiceCreate extends Component
     public $discount_commercial = 0; // Desconto Comercial (antes IVA)
     public $discount_financial = 0;  // Desconto Financeiro (após IVA)
     public $is_service = false;      // Se é prestação de serviço (sujeito a IRT)
+    public $delivery_date = '';      // Data disponibilização bens (Art. 6º RJF)
+    public $delivery_location = '';  // Local disponibilização bens (Art. 6º RJF)
 
     // Product selection
     public $showProductModal = false;
@@ -580,6 +582,20 @@ class InvoiceCreate extends Component
             return;
         }
 
+        // Decreto 71/25: Aviso se fatura emitida >5 dias após facto tributário
+        if ($this->delivery_date && $status !== 'draft') {
+            $deliveryDate = \Carbon\Carbon::parse($this->delivery_date);
+            $invoiceDate = \Carbon\Carbon::parse($this->invoice_date);
+            $daysDiff = $deliveryDate->diffInDays($invoiceDate, false);
+            
+            if ($daysDiff > 5) {
+                $this->dispatch('notify', [
+                    'type' => 'warning',
+                    'message' => "Atenção: A fatura está a ser emitida {$daysDiff} dias após a data de entrega. O Decreto 71/25 exige emissão até 5 dias após o facto tributário."
+                ]);
+            }
+        }
+
         // Validar descontos antes de salvar
         if ($this->discount_commercial > 0) {
             $validation = DiscountHelper::validateDiscount($this->discount_commercial, 'commercial');
@@ -626,6 +642,16 @@ class InvoiceCreate extends Component
                 if ($invoice->status === 'converted') {
                     throw new \Exception('Não é possível editar uma fatura já convertida.');
                 }
+                
+                // Decreto 71/25: documento finalizado (com hash) não pode ser editado
+                // Apenas rectificação via Nota de Crédito é permitida
+                if ($invoice->invoice_status === 'F' && !empty($invoice->saft_hash)) {
+                    throw new \Exception('Esta fatura já foi finalizada e não pode ser editada. Utilize uma Nota de Crédito para rectificação (Decreto 71/25).');
+                }
+                
+                if (in_array($invoice->status, ['paid', 'cancelled', 'credited'])) {
+                    throw new \Exception('Não é possível editar uma fatura com estado: ' . $invoice->status_label);
+                }
 
                 // Delete old items
                 $invoice->items()->delete();
@@ -639,6 +665,8 @@ class InvoiceCreate extends Component
             $invoice->warehouse_id = $this->warehouse_id;
             $invoice->invoice_date = $this->invoice_date;
             $invoice->due_date = $this->due_date;
+            $invoice->delivery_date = $this->delivery_date ?: null;
+            $invoice->delivery_location = $this->delivery_location ?: null;
             $invoice->status = $status;
             $invoice->is_service = $this->is_service;
             $invoice->discount_amount = $this->discount_amount;
@@ -696,9 +724,20 @@ class InvoiceCreate extends Component
             $invoice->tax_amount = $invoice_tax_amount;
             $invoice->irt_amount = $irt_amount;
             $invoice->total = $total_final;
+            
+            // Campos SAFT-AO obrigatórios (Decreto Presidencial 71/25)
+            $invoice->net_total = $invoice_subtotal - $desconto_comercial_total - ($invoice->discount_financial ?? 0);
+            $invoice->tax_payable = $invoice_tax_amount;
+            $invoice->gross_total = $invoice->net_total + $invoice_tax_amount;
+            $invoice->system_entry_date = $invoice->system_entry_date ?? now();
+            $invoice->invoice_status = ($status === 'draft') ? 'R' : 'F';
+            $invoice->invoice_status_date = now();
+            $invoice->source_id = auth()->id() ?? 'SYSTEM';
+            $invoice->source_billing = 'P';
             $invoice->save();
             
             // Gerar HASH SAFT-AO conforme regulamento Angola
+            // SAFT-AO exige GrossTotal (total bruto com impostos) para o hash
             $previousInvoice = SalesInvoice::where('tenant_id', activeTenantId())
                 ->where('id', '<', $invoice->id)
                 ->whereNotNull('saft_hash')
@@ -707,14 +746,17 @@ class InvoiceCreate extends Component
             
             $hash = \App\Helpers\SAFTHelper::generateHash(
                 $invoice->invoice_date->format('Y-m-d'),
-                $invoice->created_at->format('Y-m-d H:i:s'),
+                $invoice->system_entry_date->format('Y-m-d H:i:s'),
                 $invoice->invoice_number,
-                $invoice->total,
+                $invoice->gross_total,
                 $previousInvoice->saft_hash ?? null
             );
             
             if ($hash) {
                 $invoice->saft_hash = $hash;
+                $invoice->hash = $hash;
+                $invoice->hash_previous = $previousInvoice->saft_hash ?? '';
+                $invoice->hash_control = '1';
                 $invoice->save();
             }
             
@@ -727,9 +769,25 @@ class InvoiceCreate extends Component
             $sessionKey = 'invoice_client_' . activeTenantId() . '_' . auth()->id();
             session()->forget($sessionKey);
 
+            // Auto-submeter à AGT se habilitado e novo (não edição)
+            $agtMessage = '';
+            if (!$this->isEdit) {
+                $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
+                if (!empty($settings->agt_auto_submit)) {
+                    try {
+                        $agtResult = $invoice->submitToAGT();
+                        $agtMessage = ($agtResult['success'] ?? false)
+                            ? ' · AGT requestID: ' . ($agtResult['requestID'] ?? '—')
+                            : ' · AGT erro: ' . ($agtResult['error'] ?? 'desconhecido');
+                    } catch (\Throwable $e) {
+                        $agtMessage = ' · AGT excepção: ' . $e->getMessage();
+                    }
+                }
+            }
+
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Fatura ' . ($this->isEdit ? 'atualizada' : 'criada') . ' com sucesso!'
+                'message' => 'Fatura ' . ($this->isEdit ? 'atualizada' : 'criada') . ' com sucesso!' . $agtMessage,
             ]);
             
             // Verificar se deve imprimir automaticamente

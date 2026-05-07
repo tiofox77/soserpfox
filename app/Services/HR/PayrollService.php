@@ -7,7 +7,11 @@ use App\Models\HR\PayrollItem;
 use App\Models\HR\Employee;
 use App\Models\HR\Attendance;
 use App\Models\HR\SalaryAdvance;
+use App\Models\HR\SalaryDiscount;
+use App\Models\HR\Overtime;
+use App\Models\HR\IRTTaxBracket;
 use App\Models\HR\HRSetting;
+use App\Helpers\PayrollCalculatorHelper;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -103,6 +107,14 @@ class PayrollService
             throw new \Exception("Funcionário {$employee->full_name} não possui contrato ativo");
         }
         
+        // Buscar subsídios das configurações
+        $foodAllowance = (bool) HRSetting::get('meal_allowance_enabled', true)
+            ? (float) HRSetting::get('monthly_food_allowance', 0)
+            : 0;
+        $transportAllowance = (bool) HRSetting::get('transport_allowance_enabled', true)
+            ? (float) HRSetting::get('monthly_transport_allowance', 0)
+            : 0;
+
         // Criar ou atualizar item da folha
         $payrollItem = PayrollItem::updateOrCreate(
             [
@@ -112,8 +124,8 @@ class PayrollService
             [
                 'contract_id' => $contract->id,
                 'base_salary' => $contract->base_salary,
-                'food_allowance' => $contract->food_allowance,
-                'transport_allowance' => $contract->transport_allowance,
+                'food_allowance' => $foodAllowance,
+                'transport_allowance' => $transportAllowance,
                 'housing_allowance' => $contract->housing_allowance,
                 'worked_days' => $this->getWorkedDays($employee, $payroll->period_start, $payroll->period_end),
                 'absence_days' => $this->getAbsenceDays($employee, $payroll->period_start, $payroll->period_end),
@@ -171,8 +183,9 @@ class PayrollService
     {
         // Por padrão, considerar dias úteis do mês
         // Pode ser aprimorado com sistema de presença
-        return $start->diffInDaysFiltered(function (Carbon $date) {
-            return $date->isWeekday(); // Apenas dias úteis
+        $workOnSaturday = (bool) HRSetting::get('work_on_saturday', false);
+        return $start->diffInDaysFiltered(function (Carbon $date) use ($workOnSaturday) {
+            return $date->isWeekday() || ($workOnSaturday && $date->isSaturday());
         }, $end);
     }
     
@@ -198,11 +211,21 @@ class PayrollService
         // Buscar adiantamentos ativos
         $advanceDeduction = $this->calculateAdvanceDeduction($employee->id, $payroll->period_start);
         
+        // Buscar descontos salariais ativos
+        $discountDeduction = $this->calculateDiscountDeduction($employee->id);
+        
         // Valores base do funcionário
-        $baseSalary = $employee->salary ?? 0;
-        $foodAllowance = $employee->meal_allowance ?? 0;
-        $transportAllowance = $employee->transport_allowance ?? 0;
+        $baseSalary = $employee->base_salary ?? $employee->salary ?? 0;
+        $foodAllowance = (bool) HRSetting::get('meal_allowance_enabled', true)
+            ? (float) HRSetting::get('monthly_food_allowance', 0)
+            : 0;
+        $transportAllowance = (bool) HRSetting::get('transport_allowance_enabled', true)
+            ? (float) HRSetting::get('monthly_transport_allowance', 0)
+            : 0;
         $baseBonus = $employee->bonus ?? 0;
+        $familyAllowance = $employee->family_allowance ?? 0;
+        $positionSubsidy = $employee->position_subsidy ?? 0;
+        $performanceSubsidy = $employee->performance_subsidy ?? 0;
         
         // Ajustar salário base com base nos dias trabalhados (deduzir faltas injustificadas)
         $adjustedBaseSalary = $this->calculateProportionalSalary($baseSalary, $attendanceData);
@@ -211,14 +234,34 @@ class PayrollService
         $adjustedFoodAllowance = $this->adjustAllowance($foodAllowance, $attendanceData, 'meal');
         $adjustedTransportAllowance = $this->adjustAllowance($transportAllowance, $attendanceData, 'transport');
         
-        // Calcular pagamento de horas extras (150% do valor hora)
-        $overtimePay = $this->calculateOvertimeBonus($baseSalary, $attendanceData['overtime_hours']);
+        // Horas extras aprovadas do período (excluindo noturno)
+        $overtimeData = $this->getApprovedOvertimeData($employee->id, $payroll->tenant_id, $payroll->period_start, $payroll->period_end);
+        $overtimePay = $overtimeData['amount'];
+        $overtimeHours = $overtimeData['hours'];
+        
+        // Turno noturno aprovado do período
+        $nightShiftData = $this->getApprovedNightShiftData($employee->id, $payroll->tenant_id, $payroll->period_start, $payroll->period_end);
         
         // Calcular dedução por faltas
         $absenceDeduction = $baseSalary - $adjustedBaseSalary;
         
+        // Subsídios 13º/14º (auto-detect)
+        $hasChristmas = ((int) $payroll->month === (int) HRSetting::get('christmas_bonus_month', 12));
+        $christmasPct = (float) HRSetting::get('christmas_subsidy_percentage', 50) / 100;
+        $christmasAmount = $hasChristmas ? round($baseSalary * $christmasPct, 2) : 0;
+        
+        // Subsídio de férias auto-detect (mês do aniversário de contratação)
+        $hasVacation = false;
+        if ($employee->hire_date) {
+            $hasVacation = ((int) $employee->hire_date->month === (int) $payroll->month);
+        }
+        $vacationPct = (float) HRSetting::get('vacation_subsidy_percentage', 50) / 100;
+        $vacationAmount = $hasVacation ? round($baseSalary * $vacationPct, 2) : 0;
+        
         // Calcular gross_salary (total de vencimentos)
-        $grossSalary = $adjustedBaseSalary + $adjustedFoodAllowance + $adjustedTransportAllowance + $overtimePay + $baseBonus;
+        $grossSalary = $adjustedBaseSalary + $adjustedFoodAllowance + $adjustedTransportAllowance 
+            + $overtimePay + $baseBonus + $familyAllowance + $positionSubsidy + $performanceSubsidy
+            + $nightShiftData['amount'] + $christmasAmount + $vacationAmount;
         
         $item = PayrollItem::create([
             'payroll_id' => $payroll->id,
@@ -227,19 +270,36 @@ class PayrollService
             'food_allowance' => $adjustedFoodAllowance,
             'transport_allowance' => $adjustedTransportAllowance,
             'overtime_pay' => $overtimePay,
+            'overtime_hours' => $overtimeHours,
+            'overtime_amount' => $overtimePay,
             'bonus' => $baseBonus,
+            'family_allowance' => $familyAllowance,
+            'position_subsidy' => $positionSubsidy,
+            'performance_subsidy' => $performanceSubsidy,
+            'night_shift_pay' => $nightShiftData['amount'],
+            'night_shift_allowance' => $nightShiftData['amount'],
+            'night_shift_days' => $nightShiftData['days'],
+            'has_christmas_subsidy' => $hasChristmas,
+            'christmas_subsidy_amount' => $christmasAmount,
+            'has_vacation_subsidy' => $hasVacation,
+            'vacation_subsidy_amount' => $vacationAmount,
             'gross_salary' => $grossSalary,
             
             // Deduções
             'absence_deduction' => $absenceDeduction,
             'advance_payment' => $advanceDeduction,
-            'loan_deduction' => 0, // TODO: Implementar quando houver módulo de empréstimos
+            'discount_deduction' => $discountDeduction,
+            'food_deduction' => 0,
+            'loan_deduction' => 0,
             'other_deductions' => 0,
             
             // Dados de presença
             'worked_days' => $attendanceData['worked_days'],
+            'present_days' => $attendanceData['worked_days'],
             'absence_days' => $attendanceData['unjustified_absences'],
-            'overtime_hours' => $attendanceData['overtime_hours'],
+            'late_days' => $attendanceData['late_count'],
+            'total_working_days' => $attendanceData['working_days'],
+            'night_hours' => $nightShiftData['days'] * ((float) HRSetting::get('working_hours_per_day', 8)),
             
             'status' => 'pending',
             'notes' => $this->generateAttendanceNotes($attendanceData),
@@ -347,6 +407,8 @@ class PayrollService
      */
     private function countWorkingDays(Carbon $start, Carbon $end): int
     {
+        $workOnSaturday = (bool) HRSetting::get('work_on_saturday', false);
+
         // Buscar configuração de dias úteis por mês
         $configuredWorkingDays = HRSetting::get('working_days_per_month', null);
         
@@ -355,13 +417,12 @@ class PayrollService
             return (int) $configuredWorkingDays;
         }
         
-        // Caso contrário, calcular excluindo fins de semana
+        // Caso contrário, calcular dinamicamente
         $workingDays = 0;
         $current = $start->copy();
         
         while ($current->lte($end)) {
-            // Excluir fins de semana (6 = sábado, 0 = domingo)
-            if ($current->dayOfWeek !== 6 && $current->dayOfWeek !== 0) {
+            if ($current->isWeekday() || ($workOnSaturday && $current->isSaturday())) {
                 $workingDays++;
             }
             $current->addDay();
@@ -498,45 +559,54 @@ class PayrollService
      */
     private function calculateTaxes(PayrollItem $item): void
     {
-        // Valores já ajustados por faltas (salário proporcional)
         $baseSalary = $item->base_salary;
         $foodAllowance = $item->food_allowance;
         $transportAllowance = $item->transport_allowance;
         $overtimePay = $item->overtime_pay;
         $bonus = $item->bonus;
+        $vacationSubsidy = $item->vacation_subsidy_amount ?? 0;
         
         // ===== CÁLCULO INSS (Decreto 227/18) =====
-        // Base INSS = Remuneração Total (tudo que o trabalhador recebe)
-        // Inclui: Salário + Todos Subsídios + Horas Extras + Bônus
-        // NÃO deduz faltas (base sobre o que foi efetivamente pago)
-        $inssBase = $baseSalary + $foodAllowance + $transportAllowance + $overtimePay + $bonus;
-        $inssEmployee = $inssBase * 0.03; // 3% do empregado
-        $inssEmployer = $inssBase * 0.08; // 8% do empregador
+        $inssEmployeeRate = (float) HRSetting::get('inss_employee_rate', 3) / 100;
+        $inssEmployerRate = (float) HRSetting::get('inss_employer_rate', 8) / 100;
+        // INSS base excludes vacation subsidy
+        $inssBase = $item->gross_salary - $vacationSubsidy;
+        $inssEmployee = round($inssBase * $inssEmployeeRate, 2);
+        $inssEmployer = round($inssBase * $inssEmployerRate, 2);
         
-        // ===== CÁLCULO IRT (Código IRT 2025) =====
-        // Subsídios isentos de IRT (até 30.000 Kz CADA)
-        // Apenas o EXCEDENTE de 30k é tributável
-        $taxableFoodAllowance = max(0, $foodAllowance - 30000);
-        $taxableTransportAllowance = max(0, $transportAllowance - 30000);
-        $totalTaxableAllowances = $taxableFoodAllowance + $taxableTransportAllowance;
+        // ===== CÁLCULO IRT (Código IRT — escalões DB) =====
+        $foodExempt = (float) HRSetting::get('food_tax_exempt', 30000);
+        $transportExempt = (float) HRSetting::get('transport_tax_exempt', 30000);
+        $foodExemption = min($foodAllowance, $foodExempt);
+        $transportExemption = min($transportAllowance, $transportExempt);
         
-        // Base IRT = Salário + Bônus + Horas Extras + Subsídios Tributáveis - INSS
-        $irtBase = $baseSalary + $overtimePay + $bonus + $totalTaxableAllowances - $inssEmployee;
+        // Base IRT = Gross - isenções alimentação/transporte - INSS empregado
+        $irtBase = $item->gross_salary - $foodExemption - $transportExemption - $inssEmployee;
+        $irtBase = max(0, round($irtBase, 2));
         
-        // Usar helper com tabela IRT 2025 actualizada (isenção 100k)
-        $irtResult = calculateIRT($irtBase);
-        $irt = $irtResult['irt_amount'];
-        $irtRate = $irtResult['irt_rate'];
+        // IRT from database brackets (fallback to global helper if brackets empty)
+        $tenantId = $item->payroll->tenant_id ?? null;
+        $irt = IRTTaxBracket::calculateIRT($irtBase, $tenantId);
+        
+        // If no brackets found, fallback to legacy helper
+        if ($irt == 0 && $irtBase > 70000 && function_exists('calculateIRT')) {
+            $irtResult = calculateIRT($irtBase);
+            $irt = $irtResult['irt_amount'] ?? 0;
+        }
+        
+        $irtRate = $irtBase > 0 ? round(($irt / $irtBase) * 100, 2) : 0;
         
         // Total deduções
         $totalDeductions = $inssEmployee + $irt + 
                           ($item->absence_deduction ?? 0) +
                           ($item->advance_payment ?? 0) + 
+                          ($item->discount_deduction ?? 0) +
+                          ($item->food_deduction ?? 0) +
                           ($item->loan_deduction ?? 0) + 
                           ($item->other_deductions ?? 0);
         
         // Salário líquido = Gross Salary - Deduções
-        $netSalary = $item->gross_salary - $totalDeductions;
+        $netSalary = max(0, round($item->gross_salary - $totalDeductions, 2));
         
         // Atualizar item
         $item->update([
@@ -629,6 +699,77 @@ class PayrollService
         }
     }
     
+    /**
+     * Calcular dedução de descontos salariais para o mês
+     */
+    private function calculateDiscountDeduction(int $employeeId): float
+    {
+        $discounts = SalaryDiscount::where('employee_id', $employeeId)
+            ->where('status', 'approved')
+            ->where('remaining_installments', '>', 0)
+            ->get();
+
+        return (float) $discounts->sum('installment_amount');
+    }
+
+    /**
+     * Buscar horas extras aprovadas do período (excluindo noturno)
+     */
+    private function getApprovedOvertimeData(int $employeeId, int $tenantId, Carbon $start, Carbon $end): array
+    {
+        $records = Overtime::where('employee_id', $employeeId)
+            ->where('tenant_id', $tenantId)
+            ->whereBetween('date', [$start, $end])
+            ->where('status', 'approved')
+            ->where(function ($q) {
+                $q->where('is_night_shift', false)->orWhereNull('is_night_shift');
+            })
+            ->get();
+
+        return [
+            'amount' => (float) $records->sum(fn($r) => $r->amount ?? $r->total_amount ?? 0),
+            'hours' => (float) $records->sum(fn($r) => $r->total_hours ?? $r->direct_hours ?? 0),
+        ];
+    }
+
+    /**
+     * Buscar dados de turno noturno aprovados do período
+     */
+    private function getApprovedNightShiftData(int $employeeId, int $tenantId, Carbon $start, Carbon $end): array
+    {
+        $records = Overtime::where('employee_id', $employeeId)
+            ->where('tenant_id', $tenantId)
+            ->whereBetween('date', [$start, $end])
+            ->where('status', 'approved')
+            ->where('is_night_shift', true)
+            ->get();
+
+        return [
+            'amount' => (float) $records->sum(fn($r) => $r->amount ?? $r->total_amount ?? 0),
+            'days' => (int) $records->sum('direct_hours'),
+        ];
+    }
+
+    /**
+     * Processar deduções de descontos salariais após pagamento
+     */
+    public function processDiscountDeductions(Payroll $payroll): void
+    {
+        foreach ($payroll->items as $item) {
+            if (($item->discount_deduction ?? 0) > 0) {
+                $discounts = SalaryDiscount::where('employee_id', $item->employee_id)
+                    ->where('status', 'approved')
+                    ->where('remaining_installments', '>', 0)
+                    ->orderBy('created_at')
+                    ->get();
+
+                foreach ($discounts as $discount) {
+                    $discount->registerPayment();
+                }
+            }
+        }
+    }
+
     /**
      * Gerar recibos de pagamento (PDF)
      */

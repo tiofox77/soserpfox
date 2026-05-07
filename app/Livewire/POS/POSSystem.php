@@ -32,6 +32,7 @@ class POSSystem extends Component
     public $showPaymentModal = false;
     public $showPrintModal = false;
     public $lastInvoice = null;
+    public $lastInvoiceQR = null;
     
     // Pagamento
     public $paymentMethod = 'cash';
@@ -600,7 +601,15 @@ class POSSystem extends Component
             DB::commit();
 
             // Guardar fatura para impressão
-            $this->lastInvoice = $invoice->load(['client', 'items.product']);
+            $this->lastInvoice = $invoice->load(['client', 'items.product', 'tenant']);
+
+            // Gerar QR Code AGT
+            try {
+                $this->lastInvoiceQR = getAGTQRData($this->lastInvoice, 120);
+            } catch (\Exception $e) {
+                \Log::error('POS: Erro ao gerar QR Code', ['error' => $e->getMessage()]);
+                $this->lastInvoiceQR = ['data' => '', 'image' => null, 'atcud' => ''];
+            }
 
             $this->dispatch('notify', [
                 'type' => 'success',

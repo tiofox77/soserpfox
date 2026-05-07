@@ -233,64 +233,264 @@
 
         {{-- TAB: SEO --}}
         @if($activeTab === 'seo')
-        <div class="space-y-6">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <i class="fas fa-search mr-3 text-purple-600"></i>
-                SEO e Meta Tags
-            </h3>
+        <div class="space-y-8" x-data="{
+            title: @js($seo_title ?? ''),
+            description: @js($seo_description ?? ''),
+            get titleLen() { return this.title ? this.title.length : 0 },
+            get descLen() { return this.description ? this.description.length : 0 },
+            get titleColor() { return this.titleLen >= 50 && this.titleLen <= 60 ? 'text-green-600' : (this.titleLen > 60 ? 'text-red-600' : 'text-amber-600') },
+            get descColor() { return this.descLen >= 150 && this.descLen <= 160 ? 'text-green-600' : (this.descLen > 160 ? 'text-red-600' : 'text-amber-600') },
+        }">
 
-            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
-                <p class="text-sm text-blue-800">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    <strong>Dica:</strong> Estas configurações aparecem nos resultados de busca do Google e quando o site é compartilhado em redes sociais.
-                </p>
+            {{-- ===== SECÇÃO 1: Meta Tags Principais ===== --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-1 flex items-center">
+                    <i class="fas fa-search mr-3 text-purple-600"></i>
+                    Meta Tags Principais
+                </h3>
+                <p class="text-sm text-gray-500 mb-4 ml-9">Definem como o site aparece nos resultados de pesquisa</p>
+
+                <div class="space-y-5">
+                    {{-- SEO Title --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-heading mr-1"></i>Título SEO *
+                        </label>
+                        <input type="text" wire:model.live="seo_title" x-model="title"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                               placeholder="SOS ERP - Sistema de Gestão Empresarial" maxlength="70">
+                        <div class="flex items-center justify-between mt-1">
+                            <p class="text-xs text-gray-500">Recomendado: 50-60 caracteres</p>
+                            <p class="text-xs font-bold" :class="titleColor">
+                                <span x-text="titleLen"></span>/60
+                                <i class="fas ml-1" :class="titleLen >= 50 && titleLen <= 60 ? 'fa-check-circle text-green-500' : (titleLen > 60 ? 'fa-exclamation-circle text-red-500' : 'fa-info-circle text-amber-500')"></i>
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- SEO Description --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-align-left mr-1"></i>Descrição SEO *
+                        </label>
+                        <textarea wire:model.live="seo_description" x-model="description" rows="3"
+                                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                                  placeholder="Sistema ERP completo para gestão empresarial em Angola..." maxlength="200"></textarea>
+                        <div class="flex items-center justify-between mt-1">
+                            <p class="text-xs text-gray-500">Recomendado: 150-160 caracteres</p>
+                            <p class="text-xs font-bold" :class="descColor">
+                                <span x-text="descLen"></span>/160
+                                <i class="fas ml-1" :class="descLen >= 150 && descLen <= 160 ? 'fa-check-circle text-green-500' : (descLen > 160 ? 'fa-exclamation-circle text-red-500' : 'fa-info-circle text-amber-500')"></i>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {{-- SEO Keywords --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-tags mr-1"></i>Palavras-chave
+                            </label>
+                            <input type="text" wire:model="seo_keywords" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                                   placeholder="ERP, Angola, Faturação, Gestão, Software">
+                            <p class="text-xs text-gray-500 mt-1">Separadas por vírgula</p>
+                        </div>
+
+                        {{-- SEO Author --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-user-edit mr-1"></i>Autor
+                            </label>
+                            <input type="text" wire:model="seo_author" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                                   placeholder="SOS ERP Team">
+                        </div>
+
+                        {{-- Canonical URL --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-link mr-1"></i>URL Canónica
+                            </label>
+                            <input type="url" wire:model="seo_canonical_url" 
+                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
+                                   placeholder="https://soserp.vip">
+                            <p class="text-xs text-gray-500 mt-1">URL principal do site (evita conteúdo duplicado)</p>
+                        </div>
+
+                        {{-- Robots --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-robot mr-1"></i>Robots Meta
+                            </label>
+                            <select wire:model="seo_robots" 
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500">
+                                <option value="index, follow">index, follow (Recomendado)</option>
+                                <option value="index, nofollow">index, nofollow</option>
+                                <option value="noindex, follow">noindex, follow</option>
+                                <option value="noindex, nofollow">noindex, nofollow (Bloquear tudo)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Controla como os motores de busca indexam o site</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="space-y-6">
-                {{-- SEO Title --}}
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-heading mr-1"></i>Título SEO *
-                    </label>
-                    <input type="text" wire:model="seo_title" 
-                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
-                           placeholder="SOS ERP - Sistema de Gestão Empresarial">
-                    <p class="text-xs text-gray-500 mt-1">Recomendado: 50-60 caracteres</p>
-                </div>
+            {{-- ===== SECÇÃO 2: Preview Google ===== --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-1 flex items-center">
+                    <i class="fab fa-google mr-3 text-blue-500"></i>
+                    Preview no Google
+                </h3>
+                <p class="text-sm text-gray-500 mb-4 ml-9">Assim será exibido nos resultados de pesquisa</p>
 
-                {{-- SEO Description --}}
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-align-left mr-1"></i>Descrição SEO *
-                    </label>
-                    <textarea wire:model="seo_description" rows="3"
-                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
-                              placeholder="Sistema ERP completo para gestão empresarial em Angola..."></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Recomendado: 150-160 caracteres</p>
-                </div>
-
-                {{-- SEO Keywords --}}
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-tags mr-1"></i>Palavras-chave (separadas por vírgula)
-                    </label>
-                    <input type="text" wire:model="seo_keywords" 
-                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
-                           placeholder="ERP, Angola, Faturação, Gestão, Software">
-                </div>
-
-                {{-- SEO Author --}}
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-user-edit mr-1"></i>Autor
-                    </label>
-                    <input type="text" wire:model="seo_author" 
-                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
-                           placeholder="SOS ERP Team">
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6 max-w-2xl">
+                    <div class="flex items-center gap-2 mb-1">
+                        <img src="https://www.google.com/favicon.ico" alt="" class="w-4 h-4">
+                        <span class="text-xs text-gray-600" x-text="'{{ $seo_canonical_url ?? 'https://soserp.vip' }}'"></span>
+                    </div>
+                    <h4 class="text-xl text-blue-700 hover:underline cursor-pointer font-normal leading-snug" 
+                        x-text="title || 'SOSERP - Sistema de Gestão Empresarial'"></h4>
+                    <p class="text-sm text-gray-600 mt-1 leading-relaxed line-clamp-2" 
+                       x-text="description || 'Sistema completo de gestão empresarial em Angola. Gerencie eventos, inventário, CRM, faturação, RH e contabilidade.'"></p>
                 </div>
             </div>
 
-            <div class="flex justify-end">
+            {{-- ===== SECÇÃO 3: Open Graph / Social ===== --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-1 flex items-center">
+                    <i class="fas fa-share-alt mr-3 text-indigo-500"></i>
+                    Open Graph (Redes Sociais)
+                </h3>
+                <p class="text-sm text-gray-500 mb-4 ml-9">Como aparece ao partilhar no Facebook, WhatsApp e Twitter</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {{-- OG Image Upload --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-image mr-1"></i>Imagem OG (Open Graph)
+                        </label>
+                        @if($current_og_image)
+                        <div class="mb-3 p-3 bg-gray-50 rounded-xl border-2 border-gray-200">
+                            <p class="text-xs text-gray-600 mb-2">Imagem actual:</p>
+                            <img src="{{ Storage::url($current_og_image) }}" alt="OG Image" class="max-h-24 rounded-lg">
+                        </div>
+                        @endif
+                        <input type="file" wire:model="seo_og_image" accept="image/*"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 text-sm">
+                        <p class="text-xs text-gray-500 mt-1">Recomendado: 1200x630px (PNG/JPG)</p>
+                        @if($seo_og_image)
+                        <p class="text-xs text-green-600 mt-1">
+                            <i class="fas fa-check-circle mr-1"></i>Novo ficheiro: {{ $seo_og_image->getClientOriginalName() }}
+                        </p>
+                        @endif
+                    </div>
+
+                    {{-- Social Preview --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fab fa-facebook mr-1 text-blue-600"></i>Preview Social
+                        </label>
+                        <div class="border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+                            <div class="h-32 bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
+                                @if($current_og_image)
+                                    <img src="{{ Storage::url($current_og_image) }}" alt="OG" class="w-full h-full object-cover">
+                                @else
+                                    <div class="text-center text-gray-400">
+                                        <i class="fas fa-image text-3xl mb-1"></i>
+                                        <p class="text-xs">Sem imagem OG</p>
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="p-3">
+                                <p class="text-[10px] text-gray-400 uppercase">{{ $seo_canonical_url ?? 'soserp.vip' }}</p>
+                                <p class="text-sm font-bold text-gray-800 leading-tight mt-0.5" x-text="title || 'SOSERP'"></p>
+                                <p class="text-xs text-gray-500 mt-0.5 line-clamp-2" x-text="description || 'Sistema de Gestão Empresarial'"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- ===== SECÇÃO 4: Tracking & Analytics ===== --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-1 flex items-center">
+                    <i class="fas fa-chart-line mr-3 text-green-500"></i>
+                    Tracking e Analytics
+                </h3>
+                <p class="text-sm text-gray-500 mb-4 ml-9">Códigos de rastreamento para análise de tráfego</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {{-- Google Analytics --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fab fa-google mr-1 text-orange-500"></i>Google Analytics ID
+                        </label>
+                        <input type="text" wire:model="google_analytics_id" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                               placeholder="G-XXXXXXXXXX">
+                        <p class="text-xs text-gray-500 mt-1">Formato: G-XXXXXXXXXX (GA4)</p>
+                    </div>
+
+                    {{-- Google Tag Manager --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fas fa-tags mr-1 text-blue-500"></i>Google Tag Manager ID
+                        </label>
+                        <input type="text" wire:model="gtm_id" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                               placeholder="GTM-XXXXXXX">
+                        <p class="text-xs text-gray-500 mt-1">Formato: GTM-XXXXXXX</p>
+                    </div>
+
+                    {{-- Facebook Pixel --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fab fa-facebook mr-1 text-blue-600"></i>Facebook Pixel ID
+                        </label>
+                        <input type="text" wire:model="facebook_pixel_id" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                               placeholder="000000000000000">
+                        <p class="text-xs text-gray-500 mt-1">ID numérico do Pixel do Facebook</p>
+                    </div>
+                </div>
+            </div>
+
+            {{-- ===== SECÇÃO 5: Verificação de Propriedade ===== --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-1 flex items-center">
+                    <i class="fas fa-shield-alt mr-3 text-teal-500"></i>
+                    Verificação de Propriedade
+                </h3>
+                <p class="text-sm text-gray-500 mb-4 ml-9">Meta tags para verificar propriedade nos motores de busca</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {{-- Google Search Console --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fab fa-google mr-1 text-green-600"></i>Google Search Console
+                        </label>
+                        <input type="text" wire:model="google_site_verification" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                               placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        <p class="text-xs text-gray-500 mt-1">Conteúdo da meta tag google-site-verification</p>
+                    </div>
+
+                    {{-- Bing Webmaster --}}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                            <i class="fab fa-microsoft mr-1 text-cyan-600"></i>Bing Webmaster Tools
+                        </label>
+                        <input type="text" wire:model="bing_site_verification" 
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                               placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        <p class="text-xs text-gray-500 mt-1">Conteúdo da meta tag msvalidate.01</p>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Botão Salvar --}}
+            <div class="flex justify-end pt-4 border-t border-gray-200">
                 <button wire:click="saveSEO" 
                         wire:loading.attr="disabled"
                         class="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold shadow-lg transition">

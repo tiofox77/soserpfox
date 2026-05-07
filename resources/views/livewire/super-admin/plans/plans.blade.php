@@ -17,24 +17,37 @@
         </div>
     </div>
 
+    <!-- Search -->
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center space-x-4">
+            <div class="flex-1 relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Pesquisar planos por nome, slug ou descrição..."
+                       class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all">
+            </div>
+        </div>
+    </div>
+
     <!-- Plans Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 stagger-animation">
-        @foreach($plans as $plan)
-            <div class="group bg-white rounded-2xl shadow-lg overflow-hidden {{ $plan->is_featured ? 'ring-2 ring-blue-500 scale-105 card-glow' : '' }} card-hover card-zoom">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        @forelse($plans as $plan)
+            <div class="group bg-white rounded-2xl shadow-lg overflow-hidden {{ $plan->is_featured ? 'ring-2 ring-blue-500' : '' }} hover:shadow-xl transition-all">
                 @if($plan->is_featured)
-                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center py-3 text-sm font-bold tracking-wide flex items-center justify-center gradient-shift animate-pulse">
-                        <i class="fas fa-star mr-2 animate-spin"></i>RECOMENDADO
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center py-2.5 text-sm font-bold tracking-wide flex items-center justify-center">
+                        <i class="fas fa-star mr-2"></i>RECOMENDADO
                     </div>
                 @endif
                 
                 <div class="p-6">
                     <!-- Plan Icon & Name -->
                     <div class="text-center mb-6">
-                        <div class="w-16 h-16 mx-auto bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/50 mb-4 icon-float card-bounce gradient-shift">
+                        <div class="w-16 h-16 mx-auto bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/30 mb-4">
                             <i class="fas fa-crown text-white text-2xl"></i>
                         </div>
                         <h3 class="text-2xl font-bold text-gray-900 mb-2">{{ $plan->name }}</h3>
-                        <p class="text-sm text-gray-600">{{ $plan->description }}</p>
+                        <p class="text-sm text-gray-600 line-clamp-2">{{ $plan->description }}</p>
                     </div>
                     
                     <!-- Pricing -->
@@ -55,7 +68,7 @@
                     </div>
                     
                     <!-- Features -->
-                    @if($plan->features)
+                    @if($plan->features && count($plan->features) > 0)
                         <div class="space-y-2 mb-6">
                             @foreach($plan->features as $feature)
                                 <div class="flex items-start">
@@ -101,7 +114,13 @@
                                 </span>
                                 Storage
                             </span>
-                            <span class="text-sm font-bold text-gray-900">{{ number_format($plan->max_storage_mb / 1000, 1) }}GB</span>
+                            <span class="text-sm font-bold text-gray-900">
+                                @if($plan->max_storage_mb >= 1024)
+                                    {{ number_format($plan->max_storage_mb / 1024, 1) }}GB
+                                @else
+                                    {{ $plan->max_storage_mb }}MB
+                                @endif
+                            </span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="inline-flex items-center text-xs text-gray-600">
@@ -112,13 +131,22 @@
                             </span>
                             <span class="text-sm font-bold text-gray-900">{{ $plan->trial_days }} dias</span>
                         </div>
+                        <div class="flex items-center justify-between">
+                            <span class="inline-flex items-center text-xs text-gray-600">
+                                <span class="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center mr-2">
+                                    <i class="fas fa-puzzle-piece text-indigo-600 text-[10px]"></i>
+                                </span>
+                                Módulos
+                            </span>
+                            <span class="text-sm font-bold text-gray-900">{{ $plan->modules->count() }}</span>
+                        </div>
                     </div>
                     
                     <!-- Auto Activate Badge -->
                     @if($plan->auto_activate)
-                        <div class="mt-3 mb-2">
+                        <div class="mb-4">
                             <div class="inline-flex items-center px-3 py-2 bg-gradient-to-r from-green-100 to-emerald-100 border border-green-300 rounded-lg text-xs font-semibold text-green-800 w-full justify-center">
-                                <i class="fas fa-bolt text-green-600 mr-2 animate-pulse"></i>
+                                <i class="fas fa-bolt text-green-600 mr-2"></i>
                                 <span>Ativação Automática</span>
                             </div>
                         </div>
@@ -128,29 +156,51 @@
                     <div class="pt-4 border-t border-gray-200">
                         <div class="flex items-center justify-between mb-3">
                             <span class="text-xs text-gray-500">
-                                <strong class="text-gray-900">{{ $plan->subscriptions()->where('status', 'active')->count() }}</strong> subscrições ativas
+                                <strong class="text-gray-900">{{ $plan->active_subscriptions_count }}</strong> subscrições ativas
                             </span>
                         </div>
                         
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between mb-2">
                             <span wire:click="toggleStatus({{ $plan->id }})" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer {{ $plan->is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }} transition">
                                 <span class="w-1.5 h-1.5 rounded-full {{ $plan->is_active ? 'bg-green-500' : 'bg-gray-500' }} mr-1.5"></span>
                                 {{ $plan->is_active ? 'Disponível' : 'Indisponível' }}
                             </span>
-                            
-                            <button wire:click="edit({{ $plan->id }})" class="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100">
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button wire:click="edit({{ $plan->id }})" class="flex-1 inline-flex items-center justify-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors">
                                 <i class="fas fa-edit mr-1"></i>Editar
                             </button>
+                            @if($plan->active_subscriptions_count == 0)
+                            <button wire:click="delete({{ $plan->id }})"
+                                    wire:confirm="Tem certeza que deseja excluir o plano '{{ $plan->name }}'? Esta ação não pode ser desfeita."
+                                    class="flex-1 inline-flex items-center justify-center px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors">
+                                <i class="fas fa-trash mr-1"></i>Excluir
+                            </button>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
-        @endforeach
+        @empty
+            <div class="col-span-full">
+                <div class="bg-white rounded-2xl shadow-lg p-12 text-center">
+                    <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-tags text-gray-400 text-3xl"></i>
+                    </div>
+                    <p class="text-gray-500 font-medium text-lg">Nenhum plano encontrado</p>
+                    @if($search)
+                        <p class="text-gray-400 text-sm mt-1">Tente uma pesquisa diferente</p>
+                    @else
+                        <p class="text-gray-400 text-sm mt-1">Comece criando um novo plano</p>
+                    @endif
+                </div>
+            </div>
+        @endforelse
     </div>
 
-    <!-- Modals -->
-    {{-- @include('livewire.super-admin.plans.partials.form-modal') --}}
-    {{-- Modal temporariamente inline até criar arquivo parcial --}}
+    <!-- Modal -->
     @if($showModal)
         <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showModal') }" x-show="show" x-cloak>
             <div class="flex items-center justify-center min-h-screen px-4 py-6">
@@ -248,7 +298,7 @@
                                 @error('max_storage_mb') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                             </div>
                             
-                            <div class="col-span-2">
+                            <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                                     <i class="fas fa-gift text-pink-500 mr-2"></i>Trial (dias) *
                                 </label>
@@ -328,6 +378,7 @@
                             <div class="col-span-2">
                                 <label class="block text-sm font-semibold text-gray-700 mb-3">
                                     <i class="fas fa-puzzle-piece text-purple-500 mr-2"></i>Módulos Incluídos
+                                    <span class="text-xs text-gray-500 font-normal ml-1">({{ count($selectedModules) }} selecionados)</span>
                                 </label>
                                 <div class="grid grid-cols-2 gap-3 p-4 bg-gray-50 rounded-xl max-h-60 overflow-y-auto">
                                     @forelse($modules as $module)
@@ -337,29 +388,13 @@
                                                 <span class="block text-sm font-semibold text-gray-900">
                                                     <i class="fas fa-{{ $module->icon }} text-blue-600 mr-2"></i>{{ $module->name }}
                                                 </span>
-                                                <span class="block text-xs text-gray-500 mt-0.5">{{ $module->description }}</span>
+                                                <span class="block text-xs text-gray-500 mt-0.5 line-clamp-1">{{ $module->description }}</span>
                                             </span>
                                         </label>
                                     @empty
                                         <p class="col-span-2 text-sm text-gray-500 text-center py-4">Nenhum módulo disponível</p>
                                     @endforelse
                                 </div>
-                            </div>
-                            
-                            <div class="col-span-2 flex space-x-4">
-                                <label class="flex-1 flex items-center px-4 py-3 bg-green-50 rounded-xl cursor-pointer hover:bg-green-100 transition">
-                                    <input wire:model="is_active" type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 w-5 h-5">
-                                    <span class="ml-3 text-sm font-semibold text-gray-700">
-                                        <i class="fas fa-power-off text-green-500 mr-2"></i>Ativo
-                                    </span>
-                                </label>
-                                
-                                <label class="flex-1 flex items-center px-4 py-3 bg-blue-50 rounded-xl cursor-pointer hover:bg-blue-100 transition">
-                                    <input wire:model="is_featured" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-5 h-5">
-                                    <span class="ml-3 text-sm font-semibold text-gray-700">
-                                        <i class="fas fa-star text-blue-500 mr-2"></i>Destaque
-                                    </span>
-                                </label>
                             </div>
                         </div>
                         
@@ -378,9 +413,4 @@
             </div>
         </div>
     @endif
-    {{-- TODO: Criar arquivos parciais:
-        @include('livewire.super-admin.plans.partials.form-modal')
-        @include('livewire.super-admin.plans.partials.delete-modal')
-        @include('livewire.super-admin.plans.partials.view-modal')
-    --}}
 </div>

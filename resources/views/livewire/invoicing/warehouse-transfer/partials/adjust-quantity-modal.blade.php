@@ -35,7 +35,7 @@
             <!-- Quantity Input -->
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-3">
-                    Nova Quantidade *
+                    Quantidade a Ajustar *
                 </label>
                 <input type="number" 
                        wire:model="adjustProductQuantity" 
@@ -66,7 +66,7 @@
                 </div>
                 
                 <p class="text-xs text-gray-600 mt-3 text-center">
-                    💡 Esta será a quantidade final no armazém
+                    💡 Esta quantidade será adicionada ou retirada do stock actual
                 </p>
             </div>
         </div>

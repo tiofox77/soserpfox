@@ -200,7 +200,7 @@
                                     </label>
                                     <input wire:model="email" type="email" required
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition @error('email') border-red-500 @enderror"
-                                           placeholder="joao@empresa.ao">
+                                           placeholder="joao@empresa.vip">
                                     @error('email')
                                         <p class="mt-2 text-sm text-red-600 flex items-center">
                                             <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
@@ -301,7 +301,7 @@
                                         </label>
                                         <input wire:model="company_email" type="email"
                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
-                                               placeholder="contato@empresa.ao">
+                                               placeholder="contato@empresa.vip">
                                     </div>
                                 </div>
                             </div>

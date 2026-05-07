@@ -9,15 +9,27 @@
             <p class="text-sm sm:text-base text-gray-600">Equipe técnica e especialidades</p>
         </div>
         <div class="flex items-center space-x-2 sm:space-x-3">
-            <button wire:click="openImportModal" 
-                    class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-                <i class="fas fa-file-import mr-2 group-hover:translate-x-1 transition-transform duration-300"></i>
-                Importar de RH
+            <button wire:click="openImportModal"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="openImportModal">
+                    <i class="fas fa-file-import mr-2 group-hover:translate-x-1 transition-transform duration-300"></i>Importar de RH
+                </span>
+                <span wire:loading wire:target="openImportModal">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Carregando...
+                </span>
             </button>
-            <button wire:click="create" 
-                    class="group bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
-                Novo Técnico
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create">
+                    <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Novo Técnico
+                </span>
+                <span wire:loading wire:target="create">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
         </div>
     </div>
@@ -85,12 +97,12 @@
     </div>
 
     {{-- Grid de Técnicos --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         @forelse($technicians as $tech)
         <div class="group bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border-2 border-gray-100 hover:border-cyan-400">
             
             {{-- Foto/Ícone --}}
-            <div class="relative h-48 bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center overflow-hidden">
+            <div class="relative h-36 sm:h-48 bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center overflow-hidden">
                 @if($tech->photo)
                     <img src="{{ asset('storage/' . $tech->photo) }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="{{ $tech->name }}">
                 @else
@@ -184,15 +196,19 @@
                 <div class="space-y-2">
                     <div class="flex gap-2">
                         <button wire:click="edit({{ $tech->id }})"
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center">
-                            <i class="fas fa-edit mr-2"></i>
-                            Editar
+                                wire:loading.attr="disabled"
+                                wire:target="edit({{ $tech->id }})"
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center disabled:opacity-50">
+                            <span wire:loading.remove wire:target="edit({{ $tech->id }})"><i class="fas fa-edit mr-2"></i>Editar</span>
+                            <span wire:loading wire:target="edit({{ $tech->id }})"><i class="fas fa-spinner fa-spin mr-2"></i>...</span>
                         </button>
                         <button wire:click="delete({{ $tech->id }})"
-                                onclick="return confirm('Tem certeza que deseja excluir este técnico?')"
-                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center">
-                            <i class="fas fa-trash mr-2"></i>
-                            Excluir
+                                wire:loading.attr="disabled"
+                                wire:target="delete({{ $tech->id }})"
+                                wire:confirm="Tem certeza que deseja excluir este técnico?"
+                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center disabled:opacity-50">
+                            <span wire:loading.remove wire:target="delete({{ $tech->id }})"><i class="fas fa-trash mr-2"></i>Excluir</span>
+                            <span wire:loading wire:target="delete({{ $tech->id }})"><i class="fas fa-spinner fa-spin mr-2"></i>...</span>
                         </button>
                     </div>
                 </div>
@@ -353,19 +369,20 @@
                 <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                     <button wire:click="save" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span wire:loading.remove wire:target="save">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-save mr-2"></i>
                             {{ $editingId ? 'Atualizar' : 'Salvar' }} Técnico
                         </span>
-                        <span wire:loading wire:target="save">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-2"></i>
                             Salvando...
                         </span>
                     </button>
                     <button wire:click="closeModal" 
                             type="button"
-                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50 transition">
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
                         <i class="fas fa-times mr-2"></i>
                         Cancelar
                     </button>
@@ -523,13 +540,14 @@
                         
                         <button wire:click="importSelected" 
                                 wire:loading.attr="disabled"
+                                wire:loading.class="opacity-70 scale-95"
                                 {{ empty($selectedEmployees) ? 'disabled' : '' }}
-                                class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                            <span wire:loading.remove wire:target="importSelected">
+                                class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span wire:loading.remove>
                                 <i class="fas fa-file-import mr-2"></i>
                                 Importar Selecionados
                             </span>
-                            <span wire:loading wire:target="importSelected">
+                            <span wire:loading>
                                 <i class="fas fa-spinner fa-spin mr-2"></i>
                                 Importando...
                             </span>

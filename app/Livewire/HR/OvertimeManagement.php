@@ -30,8 +30,10 @@ class OvertimeManagement extends Component
     // Form Fields
     public $employee_id = '';
     public $date = '';
+    public $input_type = 'time_range'; // time_range | daily_hours | monthly_hours
     public $start_time = '';
     public $end_time = '';
+    public $direct_hours = '';
     public $overtime_type = 'weekday';
     public $description = '';
     public $notes = '';
@@ -49,15 +51,26 @@ class OvertimeManagement extends Component
     public $totalAmount = 0;
     public $overtimeRate = 0;
 
-    protected $rules = [
-        'employee_id' => 'required|exists:hr_employees,id',
-        'date' => 'required|date',
-        'start_time' => 'required',
-        'end_time' => 'required',
-        'overtime_type' => 'required|in:weekday,weekend,holiday,night',
-        'description' => 'nullable|string|max:500',
-        'notes' => 'nullable|string|max:500',
-    ];
+    protected function rules()
+    {
+        $rules = [
+            'employee_id' => 'required|exists:hr_employees,id',
+            'date' => 'required|date',
+            'input_type' => 'required|in:time_range,daily_hours,monthly_hours',
+            'overtime_type' => 'required|in:regular,weekday,weekend,holiday,night',
+            'description' => 'nullable|string|max:500',
+            'notes' => 'nullable|string|max:500',
+        ];
+
+        if ($this->input_type === 'time_range') {
+            $rules['start_time'] = 'required';
+            $rules['end_time'] = 'required';
+        } else {
+            $rules['direct_hours'] = 'required|numeric|min:0.5|max:744';
+        }
+
+        return $rules;
+    }
 
     public function mount()
     {
@@ -81,20 +94,34 @@ class OvertimeManagement extends Component
             $this->end_time = date('H:i', strtotime($this->end_time));
         }
         
-        if ($propertyName === 'start_time' || $propertyName === 'end_time' || $propertyName === 'employee_id' || $propertyName === 'overtime_type') {
+        if (in_array($propertyName, ['start_time', 'end_time', 'employee_id', 'overtime_type', 'direct_hours', 'input_type'])) {
             $this->calculateOvertime();
         }
     }
 
     private function calculateOvertime()
     {
-        if ($this->start_time && $this->end_time && $this->employee_id) {
+        if (!$this->employee_id) return;
+
+        $canCalculate = false;
+        $hours = 0;
+
+        if ($this->input_type === 'time_range' && $this->start_time && $this->end_time) {
+            $canCalculate = true;
+        } elseif (in_array($this->input_type, ['daily_hours', 'monthly_hours']) && $this->direct_hours > 0) {
+            $canCalculate = true;
+            $hours = (float) $this->direct_hours;
+        }
+
+        if ($canCalculate) {
             try {
                 $overtimeService = new OvertimeService();
                 $employee = Employee::find($this->employee_id);
                 
                 if ($employee) {
-                    $hours = $overtimeService->calculateHours($this->start_time, $this->end_time);
+                    if ($this->input_type === 'time_range') {
+                        $hours = $overtimeService->calculateHours($this->start_time, $this->end_time);
+                    }
                     $this->totalHours = $hours;
                     
                     $calculations = $overtimeService->calculateOvertimePay($employee, $hours, $this->overtime_type);
@@ -106,6 +133,10 @@ class OvertimeManagement extends Component
                 $this->totalAmount = 0;
                 $this->overtimeRate = 0;
             }
+        } else {
+            $this->totalHours = 0;
+            $this->totalAmount = 0;
+            $this->overtimeRate = 0;
         }
     }
 
@@ -127,8 +158,11 @@ class OvertimeManagement extends Component
                 'tenant_id' => auth()->user()->activeTenantId(),
                 'employee_id' => $this->employee_id,
                 'date' => $this->date,
-                'start_time' => $this->start_time,
-                'end_time' => $this->end_time,
+                'input_type' => $this->input_type,
+                'start_time' => $this->input_type === 'time_range' ? $this->start_time : null,
+                'end_time' => $this->input_type === 'time_range' ? $this->end_time : null,
+                'direct_hours' => in_array($this->input_type, ['daily_hours', 'monthly_hours']) ? (float) $this->direct_hours : null,
+                'period_type' => $this->input_type === 'monthly_hours' ? 'monthly' : 'daily',
                 'overtime_type' => $this->overtime_type,
                 'description' => $this->description,
                 'notes' => $this->notes,
@@ -257,8 +291,10 @@ class OvertimeManagement extends Component
         $this->overtimeId = null;
         $this->employee_id = '';
         $this->date = '';
+        $this->input_type = 'time_range';
         $this->start_time = '';
         $this->end_time = '';
+        $this->direct_hours = '';
         $this->overtime_type = 'weekday';
         $this->description = '';
         $this->notes = '';

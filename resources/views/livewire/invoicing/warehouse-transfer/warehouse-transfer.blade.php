@@ -109,8 +109,11 @@
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm font-bold text-gray-900">
-                                @if($movement->products_count > 1)
-                                    {{ $movement->products_count }} produto(s)
+                                @php
+                                    $realCount = $movement->type == 'transfer' ? intval($movement->products_count / 2) : $movement->products_count;
+                                @endphp
+                                @if($realCount > 1)
+                                    {{ $realCount }} produto(s)
                                 @else
                                     {{ $movement->product->name ?? 'N/A' }}
                                 @endif
@@ -130,8 +133,11 @@
                             {{ $movement->warehouse->name }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            @php
+                                $realQty = $movement->type == 'transfer' ? $movement->total_quantity / 2 : $movement->total_quantity;
+                            @endphp
                             <span class="text-lg font-bold text-purple-600">
-                                {{ number_format($movement->total_quantity, 2) }}
+                                {{ number_format($realQty, 2) }}
                             </span>
                             <div class="text-xs text-gray-500">total</div>
                         </td>

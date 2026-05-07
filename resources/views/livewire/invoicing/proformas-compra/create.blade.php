@@ -10,8 +10,11 @@
                 <p class="text-gray-600 mt-1">Crie orçamentos de compras de fornecedores</p>
             </div>
             <a href="{{ route('invoicing.purchases.proformas') }}" 
-               class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                <i class="fas fa-arrow-left mr-2"></i>Voltar
+               x-data="{ loading: false }" @click="loading = true"
+               :class="loading && 'opacity-70 pointer-events-none scale-95'"
+               class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95">
+                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
             </a>
         </div>
     </div>
@@ -52,7 +55,9 @@
                                 </div>
                                 <button type="button" 
                                         wire:click="$set('showQuickSupplierModal', true)"
-                                        class="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition shadow-lg whitespace-nowrap">
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-70 scale-95"
+                                        class="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg whitespace-nowrap hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
                                     <i class="fas fa-plus mr-2"></i>Novo Fornecedor
                                 </button>
                             </div>
@@ -150,7 +155,9 @@
                             Produtos ({{ $cartItems->count() }})
                         </h3>
                         <button type="button" wire:click="$set('showProductModal', true)"
-                                class="px-4 py-2 bg-white hover:bg-gray-100 text-orange-600 rounded-lg font-semibold transition">
+                                wire:loading.attr="disabled"
+                                wire:loading.class="opacity-70 scale-95"
+                                class="px-4 py-2 bg-white hover:bg-gray-100 text-orange-600 rounded-lg font-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
                             <i class="fas fa-plus mr-2"></i>Adicionar Produto
                         </button>
                     </div>
@@ -245,8 +252,10 @@
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         <button type="button" wire:click="removeProduct({{ $item->id }})"
-                                                class="p-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-lg transition">
-                                            <i class="fas fa-trash"></i>
+                                                wire:loading.attr="disabled"
+                                                class="p-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-lg transition-all duration-300 hover:scale-110 disabled:opacity-50">
+                                            <i class="fas fa-trash" wire:loading.remove></i>
+                                            <i class="fas fa-spinner fa-spin" wire:loading></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -410,12 +419,26 @@
                 {{-- Actions --}}
                 <div class="bg-white rounded-2xl shadow-xl p-6 space-y-3">
                     <button type="button" wire:click="save('draft')"
-                            class="w-full px-6 py-3 border-2 border-orange-600 text-orange-600 hover:bg-orange-50 rounded-xl font-bold transition">
-                        <i class="fas fa-save mr-2"></i>Salvar Rascunho
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-70 scale-95"
+                            class="w-full px-6 py-3 border-2 border-orange-600 text-orange-600 hover:bg-orange-50 rounded-xl font-bold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="save('draft')">
+                            <i class="fas fa-save mr-2"></i>Salvar Rascunho
+                        </span>
+                        <span wire:loading wire:target="save('draft')">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
+                        </span>
                     </button>
                     <button type="button" wire:click="save('sent')"
-                            class="w-full px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg">
-                        <i class="fas fa-paper-plane mr-2"></i>Salvar e Enviar
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-70 scale-95"
+                            class="w-full px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="save('sent')">
+                            <i class="fas fa-paper-plane mr-2"></i>Salvar e Enviar
+                        </span>
+                        <span wire:loading wire:target="save('sent')">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
+                        </span>
                     </button>
                 </div>
             </div>
@@ -473,7 +496,7 @@
                             </label>
                             <input type="email" wire:model="quickSupplierEmail"
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
-                                   placeholder="email@exemplo.ao">
+                                   placeholder="email@exemplo.vip">
                             @error('quickClientEmail') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                         </div>
 
@@ -502,12 +525,19 @@
 
                 <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end gap-3 border-t border-gray-200">
                     <button type="button" wire:click="$set('showQuickSupplierModal', false)"
-                            class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
+                            class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95">
                         Cancelar
                     </button>
                     <button type="submit"
-                            class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition shadow-lg">
-                        <i class="fas fa-save mr-2"></i>Criar Fornecedor
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-70 scale-95"
+                            class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
+                            <i class="fas fa-save mr-2"></i>Criar Fornecedor
+                        </span>
+                        <span wire:loading>
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Criando...
+                        </span>
                     </button>
                 </div>
             </form>
@@ -591,6 +621,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     @forelse($products as $product)
                     <div wire:click="addProduct({{ $product->id }})"
+                         wire:loading.class="opacity-50 scale-95 pointer-events-none"
                          class="p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-orange-400 hover:shadow-lg bg-white hover:scale-105 transition-all duration-200">
                         <div class="flex flex-col h-full">
                             <div class="mb-3">
@@ -692,12 +723,19 @@
             
             <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                 <button wire:click="closeBatchModal" 
-                        class="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition">
+                        class="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all duration-300 hover:scale-105 active:scale-95">
                     <i class="fas fa-times mr-2"></i>Cancelar
                 </button>
-                <button wire:click="confirmBatchAndAddProduct" 
-                        class="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-semibold hover:shadow-lg transition">
-                    <i class="fas fa-check mr-2"></i>Confirmar e Adicionar
+                <button wire:click="confirmBatchAndAddProduct"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="opacity-70 scale-95"
+                        class="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span wire:loading.remove>
+                        <i class="fas fa-check mr-2"></i>Confirmar e Adicionar
+                    </span>
+                    <span wire:loading>
+                        <i class="fas fa-spinner fa-spin mr-2"></i>Adicionando...
+                    </span>
                 </button>
             </div>
         </div>

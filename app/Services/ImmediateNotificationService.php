@@ -23,7 +23,7 @@ class ImmediateNotificationService
         if ($this->tenantId) {
             $this->settings = TenantNotificationSetting::getForTenant($this->tenantId);
             
-            if ($this->settings->whatsapp_enabled) {
+            if ($this->settings && $this->settings->whatsapp_enabled) {
                 $this->whatsappService = new WhatsAppService(
                     $this->settings->whatsapp_account_sid,
                     $this->settings->whatsapp_auth_token,
@@ -32,7 +32,7 @@ class ImmediateNotificationService
             }
             
             // Inicializar serviço SMS baseado no provedor
-            if ($this->settings->sms_enabled) {
+            if ($this->settings && $this->settings->sms_enabled) {
                 $this->initializeSmsService();
             }
         }
@@ -442,6 +442,10 @@ class ImmediateNotificationService
      */
     protected function sendToUser($user, string $message, string $notificationType)
     {
+        if (!$this->settings) {
+            return;
+        }
+        
         // WhatsApp
         if ($this->settings->whatsapp_enabled && $this->isChannelEnabled('whatsapp', $notificationType)) {
             $phone = PhoneHelper::normalizeAngolanPhone($user->phone);
@@ -620,6 +624,10 @@ class ImmediateNotificationService
      */
     protected function sendToUserWithTemplates($user, array $templates, $record, string $notificationType)
     {
+        if (!$this->settings) {
+            return;
+        }
+        
         // WhatsApp
         if (isset($templates['whatsapp']) && $this->settings->whatsapp_enabled && $this->isChannelEnabled('whatsapp', $notificationType)) {
             $template = $templates['whatsapp'];
@@ -715,8 +723,8 @@ class ImmediateNotificationService
             // Processar corpo do SMS com variáveis
             $message = $template->getSmsBody($record);
             
-            // Enviar SMS real via Twilio
-            if ($this->whatsappService) {
+            // Enviar SMS via provedor configurado (D7 ou Twilio)
+            if ($this->smsService) {
                 $result = $this->sendSMS($phone, $message);
                 
                 Log::info('SMS sent with template', [
@@ -798,19 +806,29 @@ class ImmediateNotificationService
             }
             
             // Enviar email usando HTML DO TEMPLATE (MÉTODO EXATO DO RegisterWizard)
-            Mail::send([], [], function ($message) use ($email, $recipientName, $rendered) {
-                // IMPORTANTE: Passar nome do destinatário (mesmo método do RegisterWizard)
+            $fromEmail = $this->settings->from_email;
+            $fromName = $this->settings->from_name ?? $this->settings->from_email;
+            $appName = config('app.name', 'SOSERP');
+            $appUrl = config('app.url', 'http://localhost');
+            $domain = parse_url($appUrl, PHP_URL_HOST) ?: 'localhost';
+            
+            Mail::send([], [], function ($message) use ($email, $recipientName, $rendered, $fromEmail, $fromName, $appName, $domain) {
                 $message->to($email, $recipientName)
                         ->subject($rendered['subject'])
                         ->html($rendered['body_html']);
                 
-                // Configurar from usando settings do tenant
-                if ($this->settings->from_email) {
-                    $message->from(
-                        $this->settings->from_email,
-                        $this->settings->from_name ?? $this->settings->from_email
-                    );
+                if ($fromEmail) {
+                    $message->from($fromEmail, $fromName);
+                    $message->replyTo($fromEmail, $fromName);
                 }
+                
+                // Anti-spam headers
+                $symfony = $message->getSymfonyMessage();
+                $headers = $symfony->getHeaders();
+                $headers->addTextHeader('X-Mailer', $appName);
+                $headers->addTextHeader('X-Priority', '3');
+                $messageId = uniqid('soserp-', true) . '@' . $domain;
+                $headers->addIdHeader('Message-ID', $messageId);
             });
             
             Log::info('✅ Email enviado via template do BD', [
@@ -856,13 +874,21 @@ class ImmediateNotificationService
                 'username' => $this->settings->smtp_username,
                 'password' => $this->settings->smtp_password,
                 'timeout' => null,
-                'verify_peer' => false, // Para desenvolvimento
+                'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) config('app.url', 'http://localhost'), PHP_URL_HOST)),
+                'verify_peer' => false,
             ],
             'mail.from' => [
                 'address' => $this->settings->from_email,
                 'name' => $this->settings->from_name ?? $this->settings->from_email,
             ],
         ]);
+        
+        // Purge cached SMTP transport so new config takes effect
+        try {
+            app('mail.manager')->purge('smtp');
+        } catch (\Exception $e) {
+            Log::warning('Could not purge mail manager: ' . $e->getMessage());
+        }
         
         Log::info('SMTP configured', [
             'host' => $this->settings->smtp_host,

@@ -11,8 +11,12 @@
                     <p class="text-blue-100 text-sm">Gerir faturas e documentos</p>
                 </div>
             </div>
-            <button wire:click="create" class="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Nova Fatura
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create"><i class="fas fa-plus mr-2"></i>Nova Fatura</span>
+                <span wire:loading wire:target="create"><i class="fas fa-spinner fa-spin mr-2"></i>Carregando...</span>
             </button>
         </div>
     </div>
@@ -24,7 +28,7 @@
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input wire:model.live="search" type="text" placeholder="Pesquisar faturas..." 
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Pesquisar faturas..." 
                        class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
             </div>
             <div class="relative">

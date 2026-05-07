@@ -39,6 +39,13 @@ class Overtime extends Model
         'paid_date',
         'paid_by',
         'payroll_id',
+        'input_type',
+        'direct_hours',
+        'period_type',
+        'is_night_shift',
+        'rate',
+        'amount',
+        'created_by',
     ];
 
     protected $casts = [
@@ -52,6 +59,10 @@ class Overtime extends Model
         'hourly_rate' => 'decimal:2',
         'overtime_rate' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'direct_hours' => 'decimal:2',
+        'is_night_shift' => 'boolean',
+        'rate' => 'decimal:2',
+        'amount' => 'decimal:2',
     ];
 
     // Relationships
@@ -90,6 +101,11 @@ class Overtime extends Model
         return $this->belongsTo(Payroll::class);
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     // Scopes
     public function scopePending($query)
     {
@@ -115,10 +131,10 @@ class Overtime extends Model
     public function getOvertimeTypeNameAttribute()
     {
         return match($this->overtime_type) {
-            'weekday' => 'Dia Útil (50%)',
-            'weekend' => 'Fim de Semana (100%)',
-            'holiday' => 'Feriado (100%)',
-            'night' => 'Noturno (25%)',
+            'weekday' => 'Dia Útil',
+            'weekend' => 'Fim de Semana (+100%)',
+            'holiday' => 'Feriado (+150%)',
+            'night' => 'Noturno (+25%)',
             default => 'Indefinido',
         };
     }

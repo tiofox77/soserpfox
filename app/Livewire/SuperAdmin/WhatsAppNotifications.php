@@ -7,7 +7,7 @@ use App\Models\WhatsAppSetting;
 use App\Services\WhatsAppService;
 use Livewire\Attributes\Layout;
 
-#[Layout('layouts.app')]
+#[Layout('layouts.superadmin')]
 class WhatsAppNotifications extends Component
 {
     public $twilio_account_sid;
@@ -72,7 +72,7 @@ class WhatsAppNotifications extends Component
             'notification_settings' => $this->notification_settings,
         ]);
 
-        session()->flash('success', 'Configurações WhatsApp salvas com sucesso!');
+        $this->dispatch('success', message: '✅ Configurações WhatsApp salvas com sucesso!');
     }
 
     public function testConnection()
@@ -83,9 +83,9 @@ class WhatsAppNotifications extends Component
         $this->connectionStatus = $result;
         
         if ($result['success']) {
-            session()->flash('success', $result['message']);
+            $this->dispatch('success', message: $result['message']);
         } else {
-            session()->flash('error', $result['message']);
+            $this->dispatch('error', message: $result['message']);
         }
     }
 
@@ -94,7 +94,7 @@ class WhatsAppNotifications extends Component
         $service = new WhatsAppService();
         $this->availableTemplates = $service->fetchTemplates();
         
-        session()->flash('success', count($this->availableTemplates) . ' templates encontrados!');
+        $this->dispatch('success', message: count($this->availableTemplates) . ' templates encontrados!');
     }
 
     public function addTemplate($template)
@@ -121,11 +121,11 @@ class WhatsAppNotifications extends Component
         $result = $service->sendMessage($this->testNumber, $this->testMessage);
         
         if ($result) {
-            session()->flash('success', 'Mensagem de teste enviada! SID: ' . $result);
+            $this->dispatch('success', message: '✅ Mensagem de teste enviada! SID: ' . $result);
             $this->testNumber = '';
             $this->testMessage = '';
         } else {
-            session()->flash('error', 'Falha ao enviar mensagem de teste');
+            $this->dispatch('error', message: '❌ Falha ao enviar mensagem de teste');
         }
     }
 

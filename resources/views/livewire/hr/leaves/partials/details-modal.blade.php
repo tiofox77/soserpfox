@@ -241,7 +241,11 @@
             </div>
 
             {{-- Footer --}}
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end">
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                <a href="{{ route('hr.leaves.pdf', $selectedLeave->id) }}" target="_blank"
+                   class="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center">
+                    <i class="fas fa-print mr-2"></i>Imprimir Comprovativo
+                </a>
                 <button wire:click="$set('showDetailsModal', false)"
                         class="px-6 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg">
                     <i class="fas fa-times mr-2"></i>Fechar

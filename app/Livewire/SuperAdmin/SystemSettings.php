@@ -38,6 +38,15 @@ class SystemSettings extends Component
     public $seo_description;
     public $seo_keywords;
     public $seo_author;
+    public $seo_canonical_url;
+    public $seo_robots;
+    public $seo_og_image;
+    public $current_og_image;
+    public $google_analytics_id;
+    public $gtm_id;
+    public $facebook_pixel_id;
+    public $google_site_verification;
+    public $bing_site_verification;
     
     // Features
     public $enable_registration;
@@ -89,6 +98,14 @@ class SystemSettings extends Component
         $this->seo_description = SystemSetting::get('seo_description');
         $this->seo_keywords = SystemSetting::get('seo_keywords');
         $this->seo_author = SystemSetting::get('seo_author');
+        $this->seo_canonical_url = SystemSetting::get('seo_canonical_url');
+        $this->seo_robots = SystemSetting::get('seo_robots', 'index, follow');
+        $this->current_og_image = SystemSetting::get('seo_og_image');
+        $this->google_analytics_id = SystemSetting::get('google_analytics_id');
+        $this->gtm_id = SystemSetting::get('gtm_id');
+        $this->facebook_pixel_id = SystemSetting::get('facebook_pixel_id');
+        $this->google_site_verification = SystemSetting::get('google_site_verification');
+        $this->bing_site_verification = SystemSetting::get('bing_site_verification');
         
         // Features
         $this->enable_registration = SystemSetting::get('enable_registration', 'true') === 'true';
@@ -174,12 +191,30 @@ class SystemSettings extends Component
         SystemSetting::set('seo_description', $this->seo_description);
         SystemSetting::set('seo_keywords', $this->seo_keywords);
         SystemSetting::set('seo_author', $this->seo_author);
+        SystemSetting::set('seo_canonical_url', $this->seo_canonical_url);
+        SystemSetting::set('seo_robots', $this->seo_robots);
+        SystemSetting::set('google_analytics_id', $this->google_analytics_id);
+        SystemSetting::set('gtm_id', $this->gtm_id);
+        SystemSetting::set('facebook_pixel_id', $this->facebook_pixel_id);
+        SystemSetting::set('google_site_verification', $this->google_site_verification);
+        SystemSetting::set('bing_site_verification', $this->bing_site_verification);
+        
+        // Upload OG Image
+        if ($this->seo_og_image) {
+            if ($this->current_og_image) {
+                Storage::disk('public')->delete($this->current_og_image);
+            }
+            $ogPath = $this->seo_og_image->store('settings', 'public');
+            SystemSetting::set('seo_og_image', $ogPath);
+            $this->current_og_image = $ogPath;
+            $this->seo_og_image = null;
+        }
         
         SystemSetting::clearCache();
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => '✅ Configurações SEO salvas com sucesso!'
+            'message' => 'Configurações SEO salvas com sucesso!'
         ]);
     }
 

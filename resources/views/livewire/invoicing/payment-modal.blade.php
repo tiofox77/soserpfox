@@ -245,19 +245,19 @@
         </div>
 
         {{-- Footer --}}
-        <div class="bg-gray-50 px-6 py-4 border-t-2 border-gray-200 flex gap-3">
+        <div class="bg-gray-50 px-4 sm:px-6 py-4 border-t-2 border-gray-200 flex gap-3">
             <button wire:click="close" 
-                    class="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition">
+                    class="flex-1 px-4 sm:px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition-all duration-300 hover:scale-105 active:scale-95">
                 <i class="fas fa-times mr-2"></i>Cancelar
             </button>
             <button wire:click="registerPayment" 
                     wire:loading.attr="disabled"
-                    wire:loading.class="opacity-50 cursor-not-allowed"
-                    class="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg">
-                <span wire:loading.remove wire:target="registerPayment">
+                    wire:loading.class="opacity-70 scale-95"
+                    class="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span wire:loading.remove>
                     <i class="fas fa-check-circle mr-2"></i>Registrar Pagamento
                 </span>
-                <span wire:loading wire:target="registerPayment">
+                <span wire:loading>
                     <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
                 </span>
             </button>

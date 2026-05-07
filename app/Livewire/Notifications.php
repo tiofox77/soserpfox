@@ -127,10 +127,10 @@ class Notifications extends Component
         // 2. SUBSCRIPTION EXPIRANDO (15 dias ou menos)
         if ($tenant) {
             $subscription = $tenant->activeSubscription;
-            if ($subscription && $subscription->ends_at) {
-                $daysRemaining = $subscription->ends_at->diffInDays(now());
+            if ($subscription && $subscription->ends_at && $subscription->ends_at->isFuture()) {
+                $daysRemaining = (int) round(abs(now()->diffInDays($subscription->ends_at)));
                 
-                if ($subscription->ends_at->isFuture() && $daysRemaining <= 15) {
+                if ($daysRemaining <= 15) {
                     $color = $daysRemaining <= 3 ? 'red' : ($daysRemaining <= 7 ? 'orange' : 'yellow');
                     $icon = $daysRemaining <= 3 ? 'fa-exclamation-triangle' : 'fa-clock';
                     

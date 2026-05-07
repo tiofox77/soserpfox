@@ -11,6 +11,7 @@ use Livewire\Attributes\Title;
 #[Title('Gestão de Planos')]
 class Plans extends Component
 {
+    public $search = '';
     public $showModal = false;
     public $editingPlanId = null;
     
@@ -168,24 +169,37 @@ class Plans extends Component
     public function toggleStatus($id)
     {
         $plan = Plan::findOrFail($id);
+        $activeSubsCount = $plan->subscriptions()->where('status', 'active')->count();
+        
+        if ($plan->is_active && $activeSubsCount > 0) {
+            $plan->update(['is_active' => !$plan->is_active]);
+            $this->dispatch('warning', message: "Plano '{$plan->name}' desativado. Atenção: {$activeSubsCount} subscrição(ões) ativa(s) continuarão a funcionar, mas não será possível novos registos.");
+            return;
+        }
+        
         $plan->update(['is_active' => !$plan->is_active]);
         $status = $plan->is_active ? 'ativado' : 'desativado';
-        $this->dispatch('success', message: "Plano {$status} com sucesso!");
+        $this->dispatch('success', message: "Plano '{$plan->name}' {$status} com sucesso!");
     }
 
     public function delete($id)
     {
         try {
             $plan = Plan::findOrFail($id);
-            // Verificar se tem subscrições ativas
-            if ($plan->subscriptions()->where('status', 'active')->count() > 0) {
-                $this->dispatch('error', message: 'Não é possível excluir um plano com subscrições ativas!');
+            
+            // Verificar se tem subscrições ativas ou em trial
+            $subsCount = $plan->subscriptions()->whereIn('status', ['active', 'trial', 'pending'])->count();
+            if ($subsCount > 0) {
+                $this->dispatch('error', message: "Não é possível excluir o plano '{$plan->name}'. Possui {$subsCount} subscrição(ões) ativa(s)/em trial. Cancele-as primeiro.");
                 return;
             }
+            
+            // Desvincular módulos antes de excluir
+            $plan->modules()->detach();
             $plan->delete();
-            $this->dispatch('success', message: 'Plano excluído com sucesso!');
+            $this->dispatch('success', message: "Plano '{$plan->name}' excluído com sucesso!");
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir plano!');
+            $this->dispatch('error', message: 'Erro ao excluir plano: ' . $e->getMessage());
         }
     }
 
@@ -212,7 +226,19 @@ class Plans extends Component
 
     public function render()
     {
-        $plans = Plan::with('modules')->orderBy('order')->get();
+        $plans = Plan::with('modules')
+            ->withCount(['subscriptions as active_subscriptions_count' => function ($q) {
+                $q->where('status', 'active');
+            }])
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%')
+                      ->orWhere('slug', 'like', '%' . $this->search . '%')
+                      ->orWhere('description', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->orderBy('order')
+            ->get();
         $modules = Module::active()->orderBy('order')->get();
 
         return view('livewire.super-admin.plans.plans', compact('plans', 'modules'));

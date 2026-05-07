@@ -31,9 +31,19 @@ class Payroll extends Model
         'processed_at' => 'datetime',
     ];
 
+    public function tenant()
+    {
+        return $this->belongsTo(\App\Models\Tenant::class);
+    }
+
     public function items()
     {
         return $this->hasMany(PayrollItem::class);
+    }
+
+    public function scopeForTenant($query, $tenantId)
+    {
+        return $query->where('tenant_id', $tenantId);
     }
 
     public function approvedBy()

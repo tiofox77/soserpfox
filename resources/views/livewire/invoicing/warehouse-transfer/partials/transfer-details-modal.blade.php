@@ -35,10 +35,10 @@
             
             <!-- Transfer Summary -->
             <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center">
                     <!-- From Warehouse -->
                     <div class="bg-white rounded-xl p-4 border-2 border-red-200">
-                        <div class="flex items-center mb-3">
+                        <div class="flex items-center">
                             <div class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center mr-3">
                                 <i class="fas fa-warehouse text-white"></i>
                             </div>
@@ -49,13 +49,13 @@
                         </div>
                     </div>
 
-                    <div class="hidden md:flex items-center justify-center">
+                    <div class="hidden md:flex items-center justify-center px-2">
                         <i class="fas fa-arrow-right text-blue-600 text-4xl"></i>
                     </div>
 
                     <!-- To Warehouse -->
                     <div class="bg-white rounded-xl p-4 border-2 border-green-200">
-                        <div class="flex items-center mb-3">
+                        <div class="flex items-center">
                             <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mr-3">
                                 <i class="fas fa-warehouse text-white"></i>
                             </div>

@@ -86,11 +86,17 @@ class AttendanceManagement extends Component
 
     public function create()
     {
-        logger('🆕 Método create() chamado - Abrindo modal');
         $this->resetForm();
         $this->editMode = false;
         $this->showModal = true;
-        logger('✅ showModal definido como true');
+    }
+
+    public function createForDate($date)
+    {
+        $this->resetForm();
+        $this->date = $date;
+        $this->editMode = false;
+        $this->showModal = true;
     }
 
     public function checkIn($employeeId)
@@ -244,28 +250,148 @@ class AttendanceManagement extends Component
     public function processImport()
     {
         $this->validate([
-            'importFile' => 'required|file|mimes:xlsx,xls|max:5120', // 5MB max
+            'importFile' => 'required|file|mimes:xlsx,xls,csv|max:5120',
             'biometricSystem' => 'required|in:zkteco,hikvision',
         ]);
 
         try {
-            // TODO: Implementar lógica de importação
-            // 1. Ler arquivo Excel usando PhpSpreadsheet
-            // 2. Validar estrutura das colunas
-            // 3. Mapear dados conforme sistema biométrico
-            // 4. Validar se funcionários existem
-            // 5. Criar/atualizar registros de presença
-            // 6. Retornar estatísticas (importados, erros, duplicados)
+            $filePath = $this->importFile->getRealPath();
+            $tenantId = auth()->user()->activeTenantId();
 
-            session()->flash('success', 'Funcionalidade de importação será implementada em breve!');
-            $this->closeImportModal();
+            // Load spreadsheet
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray(null, true, true, true);
+
+            // Column mapping per biometric system
+            $map = $this->getBiometricColumnMap($this->biometricSystem);
+
+            $imported = 0;
+            $skipped = 0;
+            $errors = [];
+            $headerSkipped = false;
+
+            foreach ($rows as $rowIndex => $row) {
+                // Skip header row
+                if (!$headerSkipped) {
+                    $headerSkipped = true;
+                    continue;
+                }
+
+                // Skip empty rows
+                $empIdentifier = trim($row[$map['employee']] ?? '');
+                if (empty($empIdentifier)) continue;
+
+                // Find employee by employee_number or name
+                $employee = Employee::where('tenant_id', $tenantId)
+                    ->where(function ($q) use ($empIdentifier) {
+                        $q->where('employee_number', $empIdentifier)
+                          ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), $empIdentifier)
+                          ->orWhere('first_name', $empIdentifier);
+                    })
+                    ->first();
+
+                if (!$employee) {
+                    $skipped++;
+                    $errors[] = "Linha {$rowIndex}: Funcionário '{$empIdentifier}' não encontrado";
+                    continue;
+                }
+
+                // Parse date
+                $rawDate = $row[$map['date']] ?? '';
+                $date = $this->parseImportDate($rawDate);
+                if (!$date) {
+                    $skipped++;
+                    $errors[] = "Linha {$rowIndex}: Data inválida '{$rawDate}'";
+                    continue;
+                }
+
+                // Parse times
+                $checkIn = $this->parseImportTime($row[$map['check_in']] ?? '');
+                $checkOut = $this->parseImportTime($row[$map['check_out']] ?? '');
+
+                // Calculate hours worked
+                $hoursWorked = null;
+                if ($checkIn && $checkOut) {
+                    $in = Carbon::parse($date . ' ' . $checkIn);
+                    $out = Carbon::parse($date . ' ' . $checkOut);
+                    if ($out->lt($in)) $out->addDay();
+                    $hoursWorked = round($in->diffInMinutes($out) / 60, 2);
+                }
+
+                // Determine status
+                $status = 'present';
+                if (!$checkIn && !$checkOut) {
+                    $status = 'absent';
+                }
+
+                // Check for late arrival (> 15 min)
+                $isLate = false;
+                $lateMinutes = 0;
+                $shiftStart = '08:00';
+                if ($employee->shift) {
+                    $shiftStart = $employee->shift->start_time ?? '08:00';
+                }
+                if ($checkIn && $checkIn > $shiftStart) {
+                    $diff = Carbon::parse($date . ' ' . $shiftStart)->diffInMinutes(Carbon::parse($date . ' ' . $checkIn));
+                    if ($diff > 15) {
+                        $isLate = true;
+                        $lateMinutes = $diff;
+                        $status = 'late';
+                    }
+                }
+
+                // Calculate overtime
+                $workingHoursPerDay = (float) \App\Models\HR\HRSetting::get('working_hours_per_day', 8);
+                $overtimeHours = ($hoursWorked && $hoursWorked > $workingHoursPerDay) 
+                    ? round($hoursWorked - $workingHoursPerDay, 2) 
+                    : 0;
+
+                // Create or update attendance record
+                Attendance::updateOrCreate(
+                    [
+                        'tenant_id' => $tenantId,
+                        'employee_id' => $employee->id,
+                        'date' => $date,
+                    ],
+                    [
+                        'check_in' => $checkIn,
+                        'check_out' => $checkOut,
+                        'time_in' => $checkIn,
+                        'time_out' => $checkOut,
+                        'hours_worked' => $hoursWorked,
+                        'overtime_hours' => $overtimeHours,
+                        'status' => $status,
+                        'is_late' => $isLate,
+                        'late_minutes' => $lateMinutes,
+                        'affects_payroll' => true,
+                        'remarks' => 'Importado via ' . strtoupper($this->biometricSystem),
+                    ]
+                );
+
+                $imported++;
+            }
+
+            $message = "Importação concluída: {$imported} registos importados";
+            if ($skipped > 0) {
+                $message .= ", {$skipped} ignorados";
+            }
+
+            session()->flash('success', $message);
             
-            logger()->info('Import solicitado', [
+            if (!empty($errors) && count($errors) <= 10) {
+                session()->flash('import_errors', $errors);
+            }
+
+            $this->closeImportModal();
+
+            logger()->info('Importação de presenças concluída', [
                 'file' => $this->importFile->getClientOriginalName(),
                 'system' => $this->biometricSystem,
-                'size' => $this->importFile->getSize(),
+                'imported' => $imported,
+                'skipped' => $skipped,
             ]);
-            
+
         } catch (\Exception $e) {
             session()->flash('error', 'Erro ao processar arquivo: ' . $e->getMessage());
             logger()->error('Erro na importação', [
@@ -273,6 +399,67 @@ class AttendanceManagement extends Component
                 'trace' => $e->getTraceAsString()
             ]);
         }
+    }
+
+    /**
+     * Column mapping for biometric systems
+     */
+    private function getBiometricColumnMap(string $system): array
+    {
+        return match ($system) {
+            'hikvision' => ['employee' => 'A', 'date' => 'B', 'check_in' => 'C', 'check_out' => 'D'],
+            default     => ['employee' => 'A', 'date' => 'B', 'check_in' => 'C', 'check_out' => 'D'], // zkteco
+        };
+    }
+
+    /**
+     * Parse date from various import formats
+     */
+    private function parseImportDate($value): ?string
+    {
+        if (empty($value)) return null;
+
+        // Numeric Excel serial date
+        if (is_numeric($value)) {
+            try {
+                $date = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((int) $value);
+                return $date->format('Y-m-d');
+            } catch (\Exception $e) {}
+        }
+
+        // Try common date formats
+        foreach (['Y-m-d', 'd/m/Y', 'd-m-Y', 'm/d/Y', 'Y/m/d'] as $fmt) {
+            try {
+                $parsed = Carbon::createFromFormat($fmt, trim($value));
+                if ($parsed) return $parsed->format('Y-m-d');
+            } catch (\Exception $e) {}
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse time from various import formats
+     */
+    private function parseImportTime($value): ?string
+    {
+        if (empty($value)) return null;
+
+        // Numeric Excel time fraction (e.g. 0.354167 = 08:30)
+        if (is_numeric($value) && (float) $value < 1) {
+            $totalMinutes = round((float) $value * 24 * 60);
+            $hours = intdiv((int) $totalMinutes, 60);
+            $minutes = $totalMinutes % 60;
+            return sprintf('%02d:%02d', $hours, $minutes);
+        }
+
+        // String time
+        $value = trim($value);
+        if (preg_match('/^\d{1,2}:\d{2}(:\d{2})?$/', $value)) {
+            return substr($value, 0, 5);
+        }
+
+        return null;
     }
 
     private function resetForm()
@@ -376,22 +563,44 @@ class AttendanceManagement extends Component
             ->get();
 
         // Dados para o calendário
-        $calendarData = [];
+        $calendarData = collect();
+        $calendarStats = ['present' => 0, 'absent' => 0, 'late' => 0, 'half_day' => 0, 'total_hours' => 0];
         if ($this->view === 'calendar') {
-            $calendarData = Attendance::where('tenant_id', $tenantId)
+            $calQuery = Attendance::where('tenant_id', $tenantId)
                 ->whereYear('date', $this->selectedYear)
                 ->whereMonth('date', $this->selectedMonth)
-                ->with('employee')
-                ->get()
-                ->groupBy(function($item) {
-                    return $item->date->format('Y-m-d');
-                });
+                ->with('employee');
+
+            if ($this->employeeFilter) {
+                $calQuery->where('employee_id', $this->employeeFilter);
+            }
+
+            $allRecords = $calQuery->get();
+
+            $calendarData = $allRecords->groupBy(function($item) {
+                return $item->date->format('Y-m-d');
+            });
+
+            $calendarStats = [
+                'present' => $allRecords->where('status', 'present')->count(),
+                'absent'  => $allRecords->where('status', 'absent')->count(),
+                'late'    => $allRecords->where('is_late', true)->count(),
+                'half_day'=> $allRecords->where('status', 'half_day')->count(),
+                'total_hours' => round($allRecords->sum('hours_worked'), 1),
+            ];
         }
+
+        $shifts = Shift::where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
 
         return view('livewire.hr.attendance.attendance', [
             'attendances' => $attendances,
             'employees' => $employees,
+            'shifts' => $shifts,
             'calendarData' => $calendarData,
+            'calendarStats' => $calendarStats,
         ])->layout('layouts.app', ['title' => 'Gestão de Presenças']);
     }
 }

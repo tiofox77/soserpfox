@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Invoicing;
 
+use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
@@ -11,6 +12,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Illuminate\Support\Facades\DB;
 
 #[Layout('layouts.app')]
 #[Title('Transferências Inter-Empresas')]
@@ -20,33 +22,29 @@ class InterCompanyTransfer extends Component
 
     public $showTransferModal = false;
 
-    // Transfer Form
-    public $productId;
-    public $warehouseFromId;
-    public $tenantToId;
-    public $warehouseToId;
-    public $quantity;
-    public $notes;
-    public $unitCost;
+    // Warehouses & Tenant
+    public $warehouseFromId = '';
+    public $tenantToId = '';
+    public $warehouseToId = '';
+    public $notes = '';
 
-    public $availableQuantity = 0;
+    // Product search
+    public $productSearch = '';
 
-    protected function rules()
-    {
-        return [
-            'productId' => 'required|exists:invoicing_products,id',
-            'warehouseFromId' => 'required|exists:invoicing_warehouses,id',
-            'tenantToId' => 'required|exists:tenants,id',
-            'warehouseToId' => 'required|exists:invoicing_warehouses,id',
-            'quantity' => 'required|numeric|min:0.001|max:' . $this->availableQuantity,
-            'unitCost' => 'nullable|numeric|min:0',
-            'notes' => 'required|string|max:500',
-        ];
-    }
+    // Quantity modal
+    public $showQuantityModal = false;
+    public $selectedProduct = '';
+    public $selectedProductName = '';
+    public $selectedProductCode = '';
+    public $productQuantity = '';
+    public $availableStock = 0;
+    public $selectedUnitCost = 0;
+
+    // Cart
+    public $transferItems = [];
 
     public function render()
     {
-        // Apenas empresas que o usuário tem acesso
         $myTenants = auth()->user()->tenants()
             ->where('tenants.id', '!=', activeTenantId())
             ->get();
@@ -62,11 +60,16 @@ class InterCompanyTransfer extends Component
             ->with('stocks')
             ->get();
 
-        // Histórico de transferências
         $transfers = StockMovement::where('tenant_id', activeTenantId())
-            ->where('type', 'transfer')
             ->where('reference_type', 'inter_company')
-            ->with(['product', 'warehouse', 'toWarehouse', 'user'])
+            ->whereIn('type', ['transfer', 'in'])
+            ->with([
+                'product',
+                'warehouse',
+                'toWarehouse' => fn($q) => $q->withoutGlobalScope('tenant'),
+                'fromWarehouse' => fn($q) => $q->withoutGlobalScope('tenant'),
+                'user',
+            ])
             ->latest()
             ->paginate(10);
 
@@ -78,38 +81,19 @@ class InterCompanyTransfer extends Component
         ]);
     }
 
-    public function updatedProductId()
+    public function updatedTenantToId()
     {
-        $this->updateAvailableQuantity();
-    }
-
-    public function updatedWarehouseFromId()
-    {
-        $this->updateAvailableQuantity();
-    }
-
-    private function updateAvailableQuantity()
-    {
-        if ($this->productId && $this->warehouseFromId) {
-            $stock = Stock::where('product_id', $this->productId)
-                ->where('warehouse_id', $this->warehouseFromId)
-                ->where('tenant_id', activeTenantId())
-                ->first();
-
-            $this->availableQuantity = $stock ? $stock->available_quantity : 0;
-            $this->unitCost = $stock ? $stock->unit_cost : null;
-        } else {
-            $this->availableQuantity = 0;
-        }
+        $this->warehouseToId = '';
     }
 
     public function getWarehousesForTenant()
     {
         if (!$this->tenantToId) {
-            return [];
+            return collect();
         }
 
-        return Warehouse::where('tenant_id', $this->tenantToId)
+        return Warehouse::withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->tenantToId)
             ->where('is_active', true)
             ->get();
     }
@@ -120,76 +104,319 @@ class InterCompanyTransfer extends Component
         $this->showTransferModal = true;
     }
 
+    public function selectProduct($productId)
+    {
+        if (!$this->warehouseFromId) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione o armazém de origem primeiro.']);
+            return;
+        }
+
+        $product = Product::find($productId);
+        if (!$product) return;
+
+        $this->selectedProduct = $productId;
+        $this->selectedProductName = $product->name;
+        $this->selectedProductCode = $product->code;
+
+        $stock = Stock::where('tenant_id', activeTenantId())
+            ->where('warehouse_id', $this->warehouseFromId)
+            ->where('product_id', $productId)
+            ->first();
+
+        $this->availableStock = $stock ? $stock->available_quantity : 0;
+        $this->selectedUnitCost = $stock ? $stock->unit_cost : 0;
+        $this->productQuantity = '';
+        $this->showQuantityModal = true;
+    }
+
+    public function addProductToTransfer()
+    {
+        if (!$this->selectedProduct || !$this->productQuantity || $this->productQuantity <= 0) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione um produto e quantidade válida.']);
+            return;
+        }
+
+        if ($this->productQuantity > $this->availableStock) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Quantidade maior que o stock disponível.']);
+            return;
+        }
+
+        // Check if product already in cart
+        $exists = false;
+        foreach ($this->transferItems as $index => $item) {
+            if ($item['product_id'] == $this->selectedProduct) {
+                $newQty = $this->transferItems[$index]['quantity'] + $this->productQuantity;
+                if ($newQty > $this->availableStock) {
+                    $this->dispatch('notify', ['type' => 'error', 'message' => 'Quantidade total excede o stock disponível.']);
+                    return;
+                }
+                $this->transferItems[$index]['quantity'] = $newQty;
+                $exists = true;
+                break;
+            }
+        }
+
+        if (!$exists) {
+            $this->transferItems[] = [
+                'product_id' => $this->selectedProduct,
+                'product_name' => $this->selectedProductName,
+                'product_code' => $this->selectedProductCode,
+                'quantity' => $this->productQuantity,
+                'unit_cost' => $this->selectedUnitCost,
+            ];
+        }
+
+        $this->reset(['selectedProduct', 'selectedProductName', 'selectedProductCode', 'productQuantity', 'availableStock', 'selectedUnitCost']);
+        $this->showQuantityModal = false;
+        $this->dispatch('notify', ['type' => 'success', 'message' => 'Produto adicionado!']);
+    }
+
+    public function removeProduct($index)
+    {
+        unset($this->transferItems[$index]);
+        $this->transferItems = array_values($this->transferItems);
+    }
+
     public function saveTransfer()
     {
-        $this->validate();
+        if (!$this->warehouseFromId) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione o armazém de origem.']);
+            return;
+        }
+        if (!$this->tenantToId) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione a empresa destino.']);
+            return;
+        }
+        if (!$this->warehouseToId) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione o armazém destino.']);
+            return;
+        }
+        if (empty($this->transferItems)) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Adicione pelo menos um produto.']);
+            return;
+        }
+        if (!$this->notes) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Informe o motivo da transferência.']);
+            return;
+        }
 
         try {
-            \DB::beginTransaction();
+            DB::beginTransaction();
 
-            // 1. Remove stock da empresa origem
-            Stock::removeStock($this->warehouseFromId, $this->productId, $this->quantity);
+            $tenantTo = Tenant::find($this->tenantToId);
+            if (!$tenantTo) {
+                throw new \Exception('Empresa destino não encontrada.');
+            }
 
-            // 2. Cria movimento na empresa origem (saída)
-            StockMovement::create([
-                'tenant_id' => activeTenantId(),
-                'warehouse_id' => $this->warehouseFromId,
-                'product_id' => $this->productId,
-                'type' => 'transfer',
-                'quantity' => $this->quantity,
-                'unit_cost' => $this->unitCost,
-                'reference_type' => 'inter_company',
-                'reference_id' => $this->tenantToId,
-                'to_warehouse_id' => $this->warehouseToId,
-                'user_id' => auth()->id(),
-                'notes' => $this->notes . ' (Transferência para: ' . Tenant::find($this->tenantToId)->name . ')',
-            ]);
+            $batchId = time() . rand(1000, 9999);
+            $originTenantName = activeTenant()->name;
 
-            // 3. Adiciona stock na empresa destino
-            Stock::create([
-                'tenant_id' => $this->tenantToId,
-                'warehouse_id' => $this->warehouseToId,
-                'product_id' => $this->productId,
-                'quantity' => $this->quantity,
-                'unit_cost' => $this->unitCost,
-            ]);
+            foreach ($this->transferItems as $item) {
+                $sourceProduct = Product::find($item['product_id']);
+                if (!$sourceProduct) {
+                    throw new \Exception('Produto não encontrado: ' . $item['product_name']);
+                }
 
-            // 4. Cria movimento na empresa destino (entrada)
-            StockMovement::create([
-                'tenant_id' => $this->tenantToId,
-                'warehouse_id' => $this->warehouseToId,
-                'product_id' => $this->productId,
-                'type' => 'in',
-                'quantity' => $this->quantity,
-                'unit_cost' => $this->unitCost,
-                'reference_type' => 'inter_company',
-                'reference_id' => activeTenantId(),
-                'from_warehouse_id' => $this->warehouseFromId,
-                'user_id' => auth()->id(),
-                'notes' => $this->notes . ' (Recebido de: ' . activeTenant()->name . ')',
-            ]);
+                $unitCost = $item['unit_cost'] ?? 0;
 
-            \DB::commit();
+                // 1. Encontrar ou criar o produto no tenant destino
+                $destProduct = $this->findOrCreateProductInTenant($sourceProduct, $this->tenantToId);
 
-            session()->flash('message', 'Transferência entre empresas realizada com sucesso!');
+                // 2. Remover stock da empresa origem
+                Stock::removeStock($this->warehouseFromId, $sourceProduct->id, $item['quantity']);
+
+                // 3. Adicionar stock na empresa destino (usando o product_id do destino)
+                $destStock = Stock::withoutGlobalScope('tenant')
+                    ->where('tenant_id', $this->tenantToId)
+                    ->where('warehouse_id', $this->warehouseToId)
+                    ->where('product_id', $destProduct->id)
+                    ->first();
+
+                if ($destStock) {
+                    if ($unitCost > 0) {
+                        $totalCost = ($destStock->quantity * $destStock->unit_cost) + ($item['quantity'] * $unitCost);
+                        $totalQty = $destStock->quantity + $item['quantity'];
+                        $destStock->unit_cost = $totalQty > 0 ? $totalCost / $totalQty : $unitCost;
+                    }
+                    $destStock->quantity += $item['quantity'];
+                    $destStock->save();
+                } else {
+                    $newStock = new Stock();
+                    $newStock->tenant_id = $this->tenantToId;
+                    $newStock->warehouse_id = $this->warehouseToId;
+                    $newStock->product_id = $destProduct->id;
+                    $newStock->quantity = $item['quantity'];
+                    $newStock->reserved_quantity = 0;
+                    $newStock->unit_cost = $unitCost;
+                    $newStock->saveQuietly();
+                }
+
+                // 4. Transferir lotes se o produto rastreia lotes
+                if ($sourceProduct->track_batches) {
+                    $this->transferBatchesInterCompany(
+                        $sourceProduct->id,
+                        $destProduct->id,
+                        $this->warehouseFromId,
+                        $this->warehouseToId,
+                        $this->tenantToId,
+                        $item['quantity']
+                    );
+                }
+
+                // 5. Registrar movimentos sem disparar boot
+                StockMovement::withoutEvents(function () use ($item, $tenantTo, $unitCost, $batchId, $sourceProduct, $destProduct, $originTenantName) {
+                    // Movimento saída (origem) - usa product_id da origem
+                    StockMovement::create([
+                        'tenant_id' => activeTenantId(),
+                        'warehouse_id' => $this->warehouseFromId,
+                        'product_id' => $sourceProduct->id,
+                        'type' => 'transfer',
+                        'quantity' => -$item['quantity'],
+                        'unit_cost' => $unitCost,
+                        'reference_type' => 'inter_company',
+                        'reference_id' => $batchId,
+                        'to_warehouse_id' => $this->warehouseToId,
+                        'user_id' => auth()->id(),
+                        'notes' => $this->notes . ' (Transferido para: ' . $tenantTo->name . ')',
+                    ]);
+
+                    // Movimento entrada (destino) - usa product_id do destino
+                    StockMovement::create([
+                        'tenant_id' => $this->tenantToId,
+                        'warehouse_id' => $this->warehouseToId,
+                        'product_id' => $destProduct->id,
+                        'type' => 'in',
+                        'quantity' => $item['quantity'],
+                        'unit_cost' => $unitCost,
+                        'reference_type' => 'inter_company',
+                        'reference_id' => $batchId,
+                        'from_warehouse_id' => $this->warehouseFromId,
+                        'user_id' => auth()->id(),
+                        'notes' => $this->notes . ' (Recebido de: ' . $originTenantName . ')',
+                    ]);
+                });
+            }
+
+            DB::commit();
+
+            $count = count($this->transferItems);
+            $this->dispatch('notify', ['type' => 'success', 'message' => $count . ' produto(s) transferido(s) para ' . $tenantTo->name . '!']);
             $this->showTransferModal = false;
             $this->resetForm();
         } catch (\Exception $e) {
-            \DB::rollBack();
-            session()->flash('error', 'Erro: ' . $e->getMessage());
+            DB::rollBack();
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Erro: ' . $e->getMessage()]);
+        }
+    }
+
+    private function findOrCreateProductInTenant(Product $sourceProduct, $tenantId): Product
+    {
+        // Procurar produto existente no tenant destino por nome exacto
+        $existing = Product::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where(function ($q) use ($sourceProduct) {
+                $q->where('name', $sourceProduct->name);
+                if ($sourceProduct->sku) {
+                    $q->orWhere('sku', $sourceProduct->sku);
+                }
+                if ($sourceProduct->barcode) {
+                    $q->orWhere('barcode', $sourceProduct->barcode);
+                }
+            })
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        // Criar cópia do produto no tenant destino
+        $newProduct = new Product();
+        $newProduct->tenant_id = $tenantId;
+        $newProduct->name = $sourceProduct->name;
+        $newProduct->description = $sourceProduct->description;
+        $newProduct->type = $sourceProduct->type ?? 'produto';
+        $newProduct->sku = $sourceProduct->sku;
+        $newProduct->barcode = $sourceProduct->barcode;
+        $newProduct->price = $sourceProduct->price;
+        $newProduct->cost = $sourceProduct->cost;
+        $newProduct->tax_type = $sourceProduct->tax_type;
+        $newProduct->tax_rate_id = $sourceProduct->tax_rate_id;
+        $newProduct->exemption_reason = $sourceProduct->exemption_reason;
+        $newProduct->unit = $sourceProduct->unit;
+        $newProduct->manage_stock = $sourceProduct->manage_stock;
+        $newProduct->track_batches = $sourceProduct->track_batches;
+        $newProduct->track_expiry = $sourceProduct->track_expiry;
+        $newProduct->is_active = true;
+        $newProduct->featured_image = $sourceProduct->featured_image;
+        $newProduct->save();
+
+        return $newProduct;
+    }
+
+    private function transferBatchesInterCompany($sourceProductId, $destProductId, $fromWarehouseId, $toWarehouseId, $tenantToId, $quantity)
+    {
+        $remaining = $quantity;
+
+        // FEFO: buscar lotes do armazém origem, ordenados por validade
+        $sourceBatches = ProductBatch::where('tenant_id', activeTenantId())
+            ->where('product_id', $sourceProductId)
+            ->where('warehouse_id', $fromWarehouseId)
+            ->where('quantity_available', '>', 0)
+            ->orderBy('expiry_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($sourceBatches as $sourceBatch) {
+            if ($remaining <= 0) break;
+
+            $take = min($remaining, $sourceBatch->quantity_available);
+
+            // Diminuir quantidade no lote origem
+            $sourceBatch->quantity_available -= $take;
+            $sourceBatch->updateStatus();
+
+            // Criar lote no tenant destino (sem global scope)
+            $destBatch = ProductBatch::withoutGlobalScopes()
+                ->where('tenant_id', $tenantToId)
+                ->where('product_id', $destProductId)
+                ->where('warehouse_id', $toWarehouseId)
+                ->where('batch_number', $sourceBatch->batch_number)
+                ->first();
+
+            if ($destBatch) {
+                $destBatch->quantity += $take;
+                $destBatch->quantity_available += $take;
+                $destBatch->updateStatus();
+            } else {
+                $newBatch = new ProductBatch();
+                $newBatch->tenant_id = $tenantToId;
+                $newBatch->product_id = $destProductId;
+                $newBatch->warehouse_id = $toWarehouseId;
+                $newBatch->batch_number = $sourceBatch->batch_number;
+                $newBatch->manufacturing_date = $sourceBatch->manufacturing_date;
+                $newBatch->expiry_date = $sourceBatch->expiry_date;
+                $newBatch->quantity = $take;
+                $newBatch->quantity_available = $take;
+                $newBatch->cost_price = $sourceBatch->cost_price;
+                $newBatch->alert_days = $sourceBatch->alert_days;
+                $newBatch->status = 'active';
+                $newBatch->notes = 'Transferência inter-empresas';
+                $newBatch->save();
+            }
+
+            $remaining -= $take;
         }
     }
 
     private function resetForm()
     {
-        $this->productId = null;
-        $this->warehouseFromId = null;
-        $this->tenantToId = null;
-        $this->warehouseToId = null;
-        $this->quantity = null;
+        $this->warehouseFromId = '';
+        $this->tenantToId = '';
+        $this->warehouseToId = '';
         $this->notes = '';
-        $this->unitCost = null;
-        $this->availableQuantity = 0;
+        $this->productSearch = '';
+        $this->transferItems = [];
+        $this->reset(['selectedProduct', 'selectedProductName', 'selectedProductCode', 'productQuantity', 'availableStock', 'selectedUnitCost']);
         $this->resetErrorBag();
     }
 }

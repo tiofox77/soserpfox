@@ -7,28 +7,40 @@
     <title>{{ $settings['seo_title'] ?? 'SOSERP - Sistema de Gestão Empresarial' }}</title>
     <meta name="description" content="{{ $settings['seo_description'] ?? 'Sistema completo de gestão empresarial em Angola. Gerencie eventos, inventário, CRM, faturação, RH e contabilidade. Solução profissional multi-tenant.' }}">
     <meta name="keywords" content="{{ $settings['seo_keywords'] ?? 'ERP Angola, sistema gestão empresarial, gestão eventos, CRM, faturação, inventário, contabilidade Angola' }}">
-    <meta name="author" content="{{ $settings['schema_creator_name'] ?? 'SOSERP' }}">
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-    <meta name="googlebot" content="index, follow">
+    <meta name="author" content="{{ $settings['seo_author'] ?? $settings['schema_creator_name'] ?? 'SOSERP' }}">
+    <meta name="robots" content="{{ $settings['seo_robots'] ?? 'index, follow' }}, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="{{ $settings['seo_robots'] ?? 'index, follow' }}">
+    @if(!empty($settings['google_site_verification']))
+    <meta name="google-site-verification" content="{{ $settings['google_site_verification'] }}">
+    @endif
+    @if(!empty($settings['bing_site_verification']))
+    <meta name="msvalidate.01" content="{{ $settings['bing_site_verification'] }}">
+    @endif
     <meta name="language" content="Portuguese">
     <meta name="geo.region" content="AO">
     <meta name="geo.placename" content="Angola">
     
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
+    <meta property="og:url" content="{{ $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
     <meta property="og:title" content="{{ $settings['seo_title'] ?? 'SOS ERP - Sistema de Gestão Empresarial' }}">
     <meta property="og:description" content="{{ $settings['seo_description'] ?? 'Plataforma completa de gestão empresarial em Angola.' }}">
     <meta property="og:site_name" content="{{ $settings['app_name'] ?? 'SOS ERP' }}">
     <meta property="og:locale" content="pt_AO">
-    @if($settings['app_logo'])
+    @if(!empty($settings['seo_og_image']))
+    <meta property="og:image" content="{{ asset('storage/' . $settings['seo_og_image']) }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    @elseif(!empty($settings['app_logo']))
     <meta property="og:image" content="{{ asset('storage/' . $settings['app_logo']) }}">
     @endif
     
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $settings['seo_title'] ?? 'SOSERP - Sistema de Gestão Empresarial' }}">
     <meta name="twitter:description" content="{{ $settings['seo_description'] ?? 'Sistema completo de gestão empresarial em Angola.' }}">
-    @if($settings['app_logo'])
+    @if(!empty($settings['seo_og_image']))
+    <meta name="twitter:image" content="{{ asset('storage/' . $settings['seo_og_image']) }}">
+    @elseif(!empty($settings['app_logo']))
     <meta name="twitter:image" content="{{ asset('storage/' . $settings['app_logo']) }}">
     @endif
     
@@ -37,7 +49,41 @@
     @else
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     @endif
-    <link rel="canonical" href="{{ $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
+    <link rel="canonical" href="{{ $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
+    
+    @if(!empty($settings['google_analytics_id']))
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ $settings['google_analytics_id'] }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ $settings['google_analytics_id'] }}');
+    </script>
+    @endif
+    
+    @if(!empty($settings['gtm_id']))
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','{{ $settings['gtm_id'] }}');</script>
+    @endif
+    
+    @if(!empty($settings['facebook_pixel_id']))
+    <!-- Facebook Pixel -->
+    <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '{{ $settings['facebook_pixel_id'] }}');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id={{ $settings['facebook_pixel_id'] }}&ev=PageView&noscript=1"/></noscript>
+    @endif
     
     <!-- Preconnect para Performance -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
@@ -836,7 +882,7 @@
             <!-- Header -->
             <div class="text-center mb-16">
                 <span class="inline-block px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-bold rounded-full mb-4">
-                    <i class="fas fa-road mr-2"></i>v6.0.0
+                    <i class="fas fa-road mr-2"></i>v6.2.0
                 </span>
                 <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
                     Roadmap do Projeto
@@ -865,77 +911,119 @@
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Multi-Tenancy</p>
-                                <p class="text-xs text-gray-600">Sistema multi-empresa</p>
+                                <p class="text-xs text-gray-600">Sistema multi-empresa completo</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Faturação AGT</p>
-                                <p class="text-xs text-gray-600">Conforme normas angolanas</p>
+                                <p class="text-xs text-gray-600">Vendas, Compras, Proformas, Recibos</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">SAFT-AO Compliant</p>
+                                <p class="text-xs text-gray-600">RSA-SHA256, QR Code, ATCUD, JWS</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Contabilidade</p>
+                                <p class="text-xs text-gray-600">Plano de contas, Diários, Lançamentos, Orçamentos</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Recursos Humanos</p>
+                                <p class="text-xs text-gray-600">Folha, Presenças, Turnos, Férias, Horas Extra</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Tesouraria</p>
-                                <p class="text-xs text-gray-600">Gestão de caixa e bancos</p>
+                                <p class="text-xs text-gray-600">Caixa, Bancos, Reconciliação</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">POS</p>
-                                <p class="text-xs text-gray-600">Ponto de venda moderno</p>
+                                <p class="font-bold text-sm text-gray-900">POS (Ponto de Venda)</p>
+                                <p class="text-xs text-gray-600">Turnos, Impressão, Integração Faturação</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">SAFT-AO</p>
-                                <p class="text-xs text-gray-600">Gerador completo</p>
+                                <p class="font-bold text-sm text-gray-900">Gestão Hoteleira</p>
+                                <p class="text-xs text-gray-600">Reservas, Quartos, Check-in/out, Housekeeping</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Clientes & Produtos</p>
-                                <p class="text-xs text-gray-600">Gestão completa</p>
+                                <p class="font-bold text-sm text-gray-900">Salão de Beleza</p>
+                                <p class="text-xs text-gray-600">Agendamentos, Profissionais, Serviços, POS</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Sistema de Atualizações</p>
-                                <p class="text-xs text-gray-600">Inteligente com seeders únicos</p>
+                                <p class="font-bold text-sm text-gray-900">Oficina / Workshop</p>
+                                <p class="text-xs text-gray-600">Veículos, Ordens de Serviço, Mecânicos, Peças</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Séries de Faturação</p>
-                                <p class="text-xs text-gray-600">Numeração automática AGT</p>
+                                <p class="font-bold text-sm text-gray-900">Módulo de Eventos</p>
+                                <p class="text-xs text-gray-600">Calendário, Equipamentos, SETS, QR Code</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Integrações Automáticas</p>
-                                <p class="text-xs text-gray-600">POS → Faturação → Treasury</p>
+                                <p class="font-bold text-sm text-gray-900">Gestão de Compras</p>
+                                <p class="text-xs text-gray-600">Fornecedores, Facturas, Proformas</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Inventário & Stock</p>
+                                <p class="text-xs text-gray-600">Armazéns, Transferências, Lotes, Validade</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Notas de Crédito/Débito</p>
-                                <p class="text-xs text-gray-600">Gestão completa</p>
+                                <p class="text-xs text-gray-600">Conforme Decreto 71/25</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Portal do Cliente</p>
+                                <p class="text-xs text-gray-600">Facturas, Proformas, Extracto, Eventos</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Relatórios Financeiros</p>
-                                <p class="text-xs text-gray-600">DRE, Fluxo de Caixa, A Receber/Pagar</p>
+                                <p class="text-xs text-gray-600">DRE, Fluxo de Caixa, Balancete, Razão</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">SEO & Analytics</p>
+                                <p class="text-xs text-gray-600">Google Analytics, GTM, Facebook Pixel, Schema.org</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
@@ -949,35 +1037,28 @@
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Planos & Assinaturas</p>
-                                <p class="text-xs text-gray-600">Sistema de billing completo</p>
+                                <p class="text-xs text-gray-600">Billing, Módulos dinâmicos por plano</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Validação de Tenants</p>
-                                <p class="text-xs text-gray-600">Controle de acesso por status</p>
+                                <p class="font-bold text-sm text-gray-900">Notificações</p>
+                                <p class="text-xs text-gray-600">Email, SMS, WhatsApp, Dashboard</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Módulo de Eventos</p>
-                                <p class="text-xs text-gray-600">Calendário + Gestão de Equipamentos</p>
+                                <p class="font-bold text-sm text-gray-900">Suporte / Tickets</p>
+                                <p class="text-xs text-gray-600">Sistema de suporte integrado</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">SETS de Equipamentos</p>
-                                <p class="text-xs text-gray-600">Conjuntos reutilizáveis</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-                            <i class="fas fa-check text-green-600 mt-1"></i>
-                            <div>
-                                <p class="font-bold text-sm text-gray-900">QR Code Equipamentos</p>
-                                <p class="text-xs text-gray-600">Rastreamento completo</p>
+                                <p class="font-bold text-sm text-gray-900">Booking Online</p>
+                                <p class="text-xs text-gray-600">Reservas online Hotel & Salão</p>
                             </div>
                         </div>
                     </div>
@@ -991,7 +1072,7 @@
                                 <i class="fas fa-spinner fa-pulse text-yellow-500 mr-3"></i>
                                 Em Desenvolvimento
                             </h3>
-                            <span class="px-3 py-1 bg-yellow-500 text-white rounded-full text-sm font-bold">50%</span>
+                            <span class="px-3 py-1 bg-yellow-500 text-white rounded-full text-sm font-bold">60%</span>
                         </div>
                         <p class="text-gray-600">Funcionalidades em construção</p>
                     </div>
@@ -999,18 +1080,8 @@
                         <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
                             <i class="fas fa-code text-yellow-600 mt-1"></i>
                             <div class="flex-1">
-                                <p class="font-bold text-sm text-gray-900">Integração Eventos-Faturação</p>
-                                <p class="text-xs text-gray-600">Orçamentos de equipamentos</p>
-                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 30%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
-                            <i class="fas fa-code text-yellow-600 mt-1"></i>
-                            <div class="flex-1">
                                 <p class="font-bold text-sm text-gray-900">Integrações Bancárias</p>
-                                <p class="text-xs text-gray-600">Multicaixa, BAI, BFA</p>
+                                <p class="text-xs text-gray-600">Multicaixa Express, BAI, BFA</p>
                                 <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
                                     <div class="bg-yellow-500 h-2 rounded-full" style="width: 40%"></div>
                                 </div>
@@ -1019,8 +1090,18 @@
                         <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
                             <i class="fas fa-code text-yellow-600 mt-1"></i>
                             <div class="flex-1">
-                                <p class="font-bold text-sm text-gray-900">Gestão de Compras</p>
-                                <p class="text-xs text-gray-600">Fornecedores e ordens</p>
+                                <p class="font-bold text-sm text-gray-900">E-commerce</p>
+                                <p class="text-xs text-gray-600">Loja online integrada com stock</p>
+                                <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 25%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
+                            <i class="fas fa-code text-yellow-600 mt-1"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-900">API REST Pública</p>
+                                <p class="text-xs text-gray-600">Integrações externas com OAuth 2.0</p>
                                 <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
                                     <div class="bg-yellow-500 h-2 rounded-full" style="width: 30%"></div>
                                 </div>
@@ -1029,10 +1110,10 @@
                         <div class="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
                             <i class="fas fa-code text-yellow-600 mt-1"></i>
                             <div class="flex-1">
-                                <p class="font-bold text-sm text-gray-900">Módulos Dinâmicos</p>
-                                <p class="text-xs text-gray-600">Ativação por plano</p>
+                                <p class="font-bold text-sm text-gray-900">CRM</p>
+                                <p class="text-xs text-gray-600">Gestão de leads e pipeline de vendas</p>
                                 <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 60%"></div>
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 20%"></div>
                                 </div>
                             </div>
                         </div>
@@ -1047,7 +1128,7 @@
                                 <i class="fas fa-lightbulb text-blue-500 mr-3"></i>
                                 Planejado
                             </h3>
-                            <span class="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">Q1 2025</span>
+                            <span class="px-3 py-1 bg-blue-500 text-white rounded-full text-sm font-bold">2026</span>
                         </div>
                         <p class="text-gray-600">Próximas funcionalidades</p>
                     </div>
@@ -1055,50 +1136,36 @@
                         <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
                             <i class="fas fa-clock text-blue-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">Recursos Humanos</p>
-                                <p class="text-xs text-gray-600">Folha de pagamento</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                            <i class="fas fa-clock text-blue-600 mt-1"></i>
-                            <div>
-                                <p class="font-bold text-sm text-gray-900">CRM</p>
-                                <p class="text-xs text-gray-600">Gestão de leads</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                            <i class="fas fa-clock text-blue-600 mt-1"></i>
-                            <div>
-                                <p class="font-bold text-sm text-gray-900">Gestão de Projetos</p>
-                                <p class="text-xs text-gray-600">Tarefas e timesheets</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                            <i class="fas fa-clock text-blue-600 mt-1"></i>
-                            <div>
-                                <p class="font-bold text-sm text-gray-900">E-commerce</p>
-                                <p class="text-xs text-gray-600">Loja online integrada</p>
-                            </div>
-                        </div>
-                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                            <i class="fas fa-clock text-blue-600 mt-1"></i>
-                            <div>
                                 <p class="font-bold text-sm text-gray-900">Mobile App</p>
-                                <p class="text-xs text-gray-600">Android & iOS</p>
+                                <p class="text-xs text-gray-600">Android & iOS (React Native)</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
                             <i class="fas fa-clock text-blue-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">API REST</p>
-                                <p class="text-xs text-gray-600">Integrações externas</p>
+                                <p class="font-bold text-sm text-gray-900">BI & Dashboards Avançados</p>
+                                <p class="text-xs text-gray-600">Business Intelligence com gráficos interactivos</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
                             <i class="fas fa-clock text-blue-600 mt-1"></i>
                             <div>
-                                <p class="font-bold text-sm text-gray-900">BI & Dashboards</p>
-                                <p class="text-xs text-gray-600">Business Intelligence</p>
+                                <p class="font-bold text-sm text-gray-900">Gestão de Projectos</p>
+                                <p class="text-xs text-gray-600">Tarefas, Kanban e Timesheets</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Inteligência Artificial</p>
+                                <p class="text-xs text-gray-600">Previsões de vendas e análise preditiva</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <i class="fas fa-clock text-blue-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Marketplace de Módulos</p>
+                                <p class="text-xs text-gray-600">Plugins e extensões de terceiros</p>
                             </div>
                         </div>
                     </div>
@@ -1109,7 +1176,7 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-6 text-white text-center">
                     <i class="fas fa-check-circle text-5xl mb-3 opacity-50"></i>
-                    <p class="text-4xl font-bold mb-1">13</p>
+                    <p class="text-4xl font-bold mb-1">22</p>
                     <p class="text-sm opacity-90">Concluído</p>
                 </div>
                 <div class="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl p-6 text-white text-center">
@@ -1119,12 +1186,12 @@
                 </div>
                 <div class="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6 text-white text-center">
                     <i class="fas fa-lightbulb text-5xl mb-3 opacity-50"></i>
-                    <p class="text-4xl font-bold mb-1">8</p>
+                    <p class="text-4xl font-bold mb-1">5</p>
                     <p class="text-sm opacity-90">Planejado</p>
                 </div>
                 <div class="bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl p-6 text-white text-center">
                     <i class="fas fa-chart-line text-5xl mb-3 opacity-50"></i>
-                    <p class="text-4xl font-bold mb-1">75%</p>
+                    <p class="text-4xl font-bold mb-1">90%</p>
                     <p class="text-sm opacity-90">Progresso Total</p>
                 </div>
             </div>
@@ -1168,8 +1235,8 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-gray-900 mb-1">Email</h3>
-                                <p class="text-gray-600">suporte@soserp.ao</p>
-                                <p class="text-gray-600">comercial@soserp.ao</p>
+                                <p class="text-gray-600">suporte@soserp.vip</p>
+                                <p class="text-gray-600">comercial@soserp.vip</p>
                             </div>
                         </div>
                         
@@ -1179,8 +1246,8 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-gray-900 mb-1">Telefone</h3>
-                                <p class="text-gray-600">+244 923 000 000</p>
-                                <p class="text-gray-600">+244 934 000 000</p>
+                                <p class="text-gray-600">+244 939 729 902</p>
+                                <p class="text-gray-600">+244 942 705 533</p>
                             </div>
                         </div>
                         
@@ -1247,7 +1314,7 @@
                             </label>
                             <input type="tel" name="phone"
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                                   placeholder="+244 923 000 000">
+                                   placeholder="+244 939 729 902">
                         </div>
                         
                         <div>
@@ -1313,7 +1380,7 @@
                         <li><a href="#recursos" class="hover:text-white">Recursos</a></li>
                         <li><a href="#planos" class="hover:text-white">Planos</a></li>
                         <li><a href="#roadmap" class="hover:text-white">Roadmap</a></li>
-                        <li><a href="https://docs.soserp.ao" target="_blank" class="hover:text-white">Documentação</a></li>
+                        <li><a href="https://docs.soserp.vip" target="_blank" class="hover:text-white">Documentação</a></li>
                     </ul>
                 </div>
                 

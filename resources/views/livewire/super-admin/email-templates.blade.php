@@ -27,7 +27,7 @@
 
     <!-- Search -->
     <div class="mb-6">
-        <input type="text" wire:model.live="search" placeholder="🔍 Pesquisar templates..." 
+        <input type="text" wire:model.live.debounce.300ms="search" placeholder="🔍 Pesquisar templates..." 
                class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
     </div>
 

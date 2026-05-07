@@ -1,24 +1,32 @@
 <div>
     <!-- Header -->
-    <div class="mb-6 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
-                    <i class="fas fa-users text-2xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-users text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Clientes</h2>
-                    <p class="text-green-100 text-sm">Gerir clientes</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">Clientes</h2>
+                    <p class="text-green-100 text-xs sm:text-sm">Gerir clientes</p>
                 </div>
             </div>
-            <button wire:click="create" class="bg-white text-green-600 hover:bg-green-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Novo Cliente
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-white text-green-600 hover:bg-green-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create">
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Novo Cliente
+                </span>
+                <span wire:loading wire:target="create">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
         </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 stagger-animation">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6 stagger-animation">
         <!-- Total Clientes -->
         <div class="bg-white rounded-2xl shadow-lg p-6 border border-green-100 overflow-hidden card-hover card-3d">
             <div class="flex items-center justify-between mb-4">
@@ -68,9 +76,9 @@
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
             <!-- Search -->
-            <div class="md:col-span-2">
+            <div class="col-span-2">
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
                     <i class="fas fa-search mr-1"></i>Pesquisar
                 </label>
@@ -78,7 +86,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live="search" type="text" placeholder="Nome, NIF, email, telefone..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome, NIF, email, telefone..." 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -205,23 +213,24 @@
         </div>
         
         <!-- Table Header -->
-        <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase">
-            <div class="col-span-3 flex items-center">
+        <div class="overflow-x-auto">
+        <div class="grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase min-w-[600px]">
+            <div class="col-span-4 sm:col-span-3 flex items-center">
                 <i class="fas fa-user mr-2 text-green-500"></i>Cliente
             </div>
             <div class="col-span-2 flex items-center">
                 <i class="fas fa-id-card mr-2 text-blue-500"></i>NIF
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden md:flex items-center">
                 <i class="fas fa-envelope mr-2 text-purple-500"></i>Contato
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden lg:flex items-center">
                 <i class="fas fa-map-marker-alt mr-2 text-red-500"></i>Localização
             </div>
-            <div class="col-span-2 flex items-center">
+            <div class="col-span-2 hidden sm:flex items-center">
                 <i class="fas fa-tag mr-2 text-orange-500"></i>Tipo
             </div>
-            <div class="col-span-1 flex items-center justify-end">
+            <div class="col-span-4 sm:col-span-2 lg:col-span-1 flex items-center justify-end">
                 <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
             </div>
         </div>
@@ -229,9 +238,9 @@
         <!-- Table Body -->
         <div class="divide-y divide-gray-100">
             @forelse($clients as $client)
-                <div class="group grid grid-cols-12 gap-4 px-6 py-4 hover:bg-green-50 transition-all duration-300 items-center">
+                <div class="group grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-green-50 transition-all duration-300 items-center min-w-[600px]">
                     <!-- Cliente -->
-                    <div class="col-span-3 flex items-center space-x-3">
+                    <div class="col-span-4 sm:col-span-3 flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
                             {{ strtoupper(substr($client->name, 0, 2)) }}
                         </div>
@@ -249,7 +258,7 @@
                     </div>
                     
                     <!-- Contato -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden md:block">
                         @if($client->email)
                             <p class="text-sm text-gray-700 flex items-center mb-1">
                                 <i class="fas fa-envelope text-purple-500 mr-1.5"></i>
@@ -266,7 +275,7 @@
                     </div>
                     
                     <!-- Localização -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden lg:block">
                         @if($client->city)
                             <p class="text-sm text-gray-700 flex items-center">
                                 <i class="fas fa-map-marker-alt text-red-500 mr-1.5"></i>{{ $client->city }}
@@ -277,7 +286,7 @@
                     </div>
                     
                     <!-- Tipo -->
-                    <div class="col-span-2">
+                    <div class="col-span-2 hidden sm:block">
                         <span class="inline-flex items-center px-2.5 py-1 {{ $client->type === 'pessoa_juridica' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700' }} rounded-lg text-xs font-bold">
                             <i class="fas {{ $client->type === 'pessoa_juridica' ? 'fa-building' : 'fa-user' }} mr-1"></i>
                             {{ $client->type === 'pessoa_juridica' ? 'Empresa' : 'Pessoa Física' }}
@@ -285,12 +294,18 @@
                     </div>
                     
                     <!-- Ações -->
-                    <div class="col-span-1 flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button wire:click="edit({{ $client->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Editar">
-                            <i class="fas fa-edit text-xs"></i>
+                    <div class="col-span-4 sm:col-span-2 lg:col-span-1 flex items-center justify-end space-x-1">
+                        <button wire:click="edit({{ $client->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
+                            <i class="fas fa-edit text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
-                        <button wire:click="confirmDelete({{ $client->id }})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Excluir">
-                            <i class="fas fa-trash text-xs"></i>
+                        <button wire:click="confirmDelete({{ $client->id }})"
+                                wire:loading.attr="disabled"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
+                            <i class="fas fa-trash text-xs" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
                     </div>
                 </div>
@@ -306,10 +321,11 @@
         </div>
 
         @if($clients->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200">
+            <div class="px-4 sm:px-6 py-4 border-t border-gray-200">
                 {{ $clients->links() }}
             </div>
         @endif
+        </div>
     </div>
 
     <!-- Modals -->

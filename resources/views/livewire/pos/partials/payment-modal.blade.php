@@ -107,17 +107,18 @@
             {{-- Botões --}}
             <div class="flex gap-3">
                 <button wire:click="$set('showPaymentModal', false)" 
-                        class="flex-1 px-6 py-4 bg-gray-500 hover:bg-gray-600 text-white rounded-xl font-bold text-lg transition">
+                        class="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gray-500 hover:bg-gray-600 text-white rounded-xl font-bold text-base sm:text-lg transition-all duration-300 hover:scale-105 active:scale-95">
                     <i class="fas fa-times mr-2"></i>Cancelar
                 </button>
                 <button wire:click="completeSale" 
                         wire:loading.attr="disabled"
-                        class="flex-1 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-lg shadow-lg transition {{ $change < 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
+                        wire:loading.class="opacity-70 scale-95"
+                        class="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {{ $change < 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
                         @if($change < 0) disabled @endif>
-                    <span wire:loading.remove wire:target="completeSale">
+                    <span wire:loading.remove>
                         <i class="fas fa-check-circle mr-2"></i>Confirmar Venda
                     </span>
-                    <span wire:loading wire:target="completeSale">
+                    <span wire:loading>
                         <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
                     </span>
                 </button>

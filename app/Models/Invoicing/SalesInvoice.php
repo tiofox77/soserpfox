@@ -33,6 +33,8 @@ class SalesInvoice extends Model
         'warehouse_id',
         'invoice_date',
         'due_date',
+        'delivery_date',
+        'delivery_location',
         'status',
         'is_service',
         'subtotal',
@@ -53,15 +55,22 @@ class SalesInvoice extends Model
         'created_by',
         'saft_hash',
         'jws_signature',
+        'jws_document_signature',
         'agt_status',
         'agt_reference',
+        'agt_request_id',
+        'agt_submission_uuid',
         'agt_submitted_at',
         'agt_validated_at',
+        'eac_code',
+        'document_status_code',
+        'series_id',
     ];
 
     protected $casts = [
         'invoice_date' => 'date',
         'due_date' => 'date',
+        'delivery_date' => 'date',
         'invoice_status_date' => 'datetime',
         'system_entry_date' => 'datetime',
         'is_service' => 'boolean',
@@ -242,22 +251,26 @@ class SalesInvoice extends Model
     {
         $previousHash = self::where('tenant_id', $this->tenant_id)
             ->where('id', '<', $this->id)
+            ->whereNotNull('saft_hash')
             ->orderBy('id', 'desc')
-            ->value('hash') ?? '';
+            ->value('saft_hash') ?? '';
         
-        $dataToHash = sprintf(
-            "%s;%s;%s;%.2f;%s",
+        // Usar SAFTHelper com assinatura RSA-SHA256 (conforme SAFT-AO)
+        $hash = \App\Helpers\SAFTHelper::generateHash(
             $this->invoice_date->format('Y-m-d'),
-            ($this->system_entry_date ?? now())->format('Y-m-dTH:i:s'),
+            ($this->system_entry_date ?? now())->format('Y-m-d H:i:s'),
             $this->invoice_number,
             $this->gross_total ?? $this->total,
-            $previousHash
+            $previousHash ?: null
         );
         
-        $this->hash = hash('sha256', $dataToHash);
-        $this->hash_previous = $previousHash;
-        $this->hash_control = '1';
-        $this->save();
+        if ($hash) {
+            $this->hash = $hash;
+            $this->saft_hash = $hash;
+            $this->hash_previous = $previousHash;
+            $this->hash_control = '1';
+            $this->save();
+        }
     }
 
     public function finalizeInvoice()

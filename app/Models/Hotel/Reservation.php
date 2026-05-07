@@ -334,6 +334,16 @@ class Reservation extends Model
         if ($this->room) {
             $this->room->update(['status' => Room::STATUS_CLEANING]);
         }
+
+        // Notificação de pós-estadia (thank you)
+        try {
+            $settings = HotelSettings::getForTenant($this->tenant_id);
+            if (($settings->notify_post_stay ?? true) && $this->guest && $this->guest->email) {
+                $this->guest->notify(new \App\Notifications\Hotel\PostStayThankYou($this));
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Post-stay notification failed', ['reservation' => $this->id, 'error' => $e->getMessage()]);
+        }
     }
 
     public function cancel($reason = null, $userId = null)
@@ -354,5 +364,22 @@ class Reservation extends Model
     {
         $this->status = self::STATUS_CONFIRMED;
         $this->save();
+
+        try {
+            $settings = HotelSettings::getForTenant($this->tenant_id);
+            if (($settings->notify_reservation_confirmed ?? true) && $this->guest && $this->guest->email) {
+                $this->guest->notify(new \App\Notifications\Hotel\ReservationConfirmed($this));
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Reservation confirmed notification failed', ['reservation' => $this->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Returns QR URL for check-in (used in voucher / email).
+     */
+    public function getCheckInQrUrlAttribute(): string
+    {
+        return url('/hotel/reservations/' . $this->id . '/checkin/' . $this->confirmation_code);
     }
 }

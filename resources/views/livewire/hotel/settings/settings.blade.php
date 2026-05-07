@@ -65,6 +65,7 @@
                     'amenities' => ['icon' => 'concierge-bell', 'label' => 'Comodidades'],
                     'social' => ['icon' => 'share-alt', 'label' => 'Redes Sociais'],
                     'policies' => ['icon' => 'file-contract', 'label' => 'Políticas'],
+                    'loyalty' => ['icon' => 'star', 'label' => 'Fidelidade'],
                 ] as $tab => $info)
                     <button wire:click="setTab('{{ $tab }}')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition whitespace-nowrap
@@ -113,6 +114,11 @@
             {{-- Tab: Redes Sociais --}}
             @if($activeTab === 'social')
             @include('livewire.hotel.settings.partials.tab-social')
+            @endif
+
+            {{-- Tab: Fidelidade --}}
+            @if($activeTab === 'loyalty')
+            @include('livewire.hotel.settings.partials.tab-loyalty')
             @endif
 
             {{-- Tab: Políticas --}}

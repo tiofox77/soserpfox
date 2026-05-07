@@ -18,6 +18,7 @@ class SalesInvoiceItem extends Model
         'quantity',
         'unit',
         'unit_price',
+        'unit_price_base',
         'discount_percent',
         'discount_amount',
         'subtotal',
@@ -26,6 +27,15 @@ class SalesInvoiceItem extends Model
         'tax_amount',
         'total',
         'order',
+        // AGT v1.2
+        'debit_amount',
+        'credit_amount',
+        'settlement_amount',
+        'eac_code',
+        'tax_country_region',
+        'tax_code',
+        'tax_exemption_code',
+        'tax_exemption_reason',
     ];
 
     protected $casts = [

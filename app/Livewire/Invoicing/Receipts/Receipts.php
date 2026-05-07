@@ -45,6 +45,16 @@ class Receipts extends Component
 
     public function deleteReceipt()
     {
+        // Verificar bloqueio de eliminação via Software Settings
+        if (isDeleteBlocked('receipt')) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'A eliminação de Recibos está bloqueada pelo administrador. Apenas anulações são permitidas.'
+            ]);
+            $this->showDeleteModal = false;
+            return;
+        }
+
         $receipt = Receipt::where('tenant_id', activeTenantId())->findOrFail($this->receiptToDelete);
         $receipt->delete();
         

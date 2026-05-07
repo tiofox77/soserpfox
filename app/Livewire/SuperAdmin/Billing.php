@@ -55,6 +55,9 @@ class Billing extends Component
     public function create()
     {
         $this->resetForm();
+        $this->invoice_number = Invoice::generateInvoiceNumber();
+        $this->invoice_date = now()->format('Y-m-d');
+        $this->due_date = now()->addDays(30)->format('Y-m-d');
         $this->showModal = true;
     }
 
@@ -93,7 +96,7 @@ class Billing extends Component
         $this->validate([
             'tenant_id' => 'required|exists:tenants,id',
             'plan_id' => 'required|exists:plans,id',
-            'billing_cycle' => 'required|in:monthly,yearly',
+            'billing_cycle' => 'required|in:monthly,quarterly,semiannual,yearly',
         ]);
 
         $tenant = Tenant::findOrFail($this->tenant_id);
@@ -104,26 +107,26 @@ class Billing extends Component
             ->where('status', 'active')
             ->first();
 
+        $amount = $plan->getPrice($this->billing_cycle);
+        $periodEnd = match($this->billing_cycle) {
+            'yearly' => now()->addMonths(14),
+            'semiannual' => now()->addMonths(6),
+            'quarterly' => now()->addMonths(3),
+            default => now()->addMonth(),
+        };
+
         if ($existingSubscription) {
-            // Se já existe subscrição ativa, renovar/atualizar
-            $amount = $this->billing_cycle === 'yearly' ? $plan->price_yearly : $plan->price_monthly;
-            $periodStart = $existingSubscription->current_period_end ?? now();
-            $periodEnd = $this->billing_cycle === 'yearly' ? $periodStart->copy()->addYear() : $periodStart->copy()->addMonth();
-            
             $existingSubscription->update([
                 'plan_id' => $this->plan_id,
                 'billing_cycle' => $this->billing_cycle,
                 'amount' => $amount,
+                'current_period_start' => now(),
                 'current_period_end' => $periodEnd,
             ]);
             
             $subscription = $existingSubscription;
             $message = 'Subscrição renovada/atualizada com sucesso!';
         } else {
-            // Criar nova subscription
-            $amount = $this->billing_cycle === 'yearly' ? $plan->price_yearly : $plan->price_monthly;
-            $periodEnd = $this->billing_cycle === 'yearly' ? now()->addYear() : now()->addMonth();
-            
             $subscription = Subscription::create([
                 'tenant_id' => $this->tenant_id,
                 'plan_id' => $this->plan_id,
@@ -139,18 +142,14 @@ class Billing extends Component
         }
 
         // Sincronizar módulos do plano para o tenant
-        $moduleIds = $plan->modules->pluck('id')->toArray();
-        
-        // Remover módulos que não estão mais no plano
-        $tenant->modules()->sync([]);
-        
-        // Adicionar módulos do novo plano
+        $syncData = [];
         foreach ($plan->modules as $module) {
-            $tenant->modules()->attach($module->id, [
+            $syncData[$module->id] = [
                 'is_active' => true,
                 'activated_at' => now(),
-            ]);
+            ];
         }
+        $tenant->modules()->sync($syncData);
 
         $this->dispatch('success', message: $message . ' Módulos sincronizados.');
         $this->showSubscriptionModal = false;
@@ -173,18 +172,17 @@ class Billing extends Component
     public function deleteSubscription($id)
     {
         try {
-            $subscription = Subscription::findOrFail($id);
-            $tenant = $subscription->tenant;
+            $subscription = Subscription::with(['tenant', 'plan.modules'])->findOrFail($id);
             
-            // Remover módulos do tenant
-            foreach ($subscription->plan->modules as $module) {
-                $tenant->modules()->detach($module->id);
+            if ($subscription->status === 'active') {
+                $this->dispatch('error', message: "Não é possível excluir uma subscrição ativa. Cancele-a primeiro.");
+                return;
             }
             
             $subscription->delete();
-            $this->dispatch('success', message: 'Subscrição excluída com sucesso! Módulos desativados.');
+            $this->dispatch('success', message: 'Subscrição excluída com sucesso!');
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir subscrição!');
+            $this->dispatch('error', message: 'Erro ao excluir subscrição: ' . $e->getMessage());
         }
     }
 
@@ -238,7 +236,7 @@ class Billing extends Component
     public function markAsPaid($id)
     {
         $invoice = Invoice::findOrFail($id);
-        $invoice->update(['status' => 'paid']);
+        $invoice->markAsPaid();
         $this->dispatch('success', message: 'Fatura marcada como paga!');
     }
 
@@ -286,10 +284,12 @@ class Billing extends Component
     {
         $invoices = Invoice::with('tenant')
             ->when($this->search, function ($query) {
-                $query->where('invoice_number', 'like', '%' . $this->search . '%')
-                    ->orWhereHas('tenant', function ($q) {
-                        $q->where('name', 'like', '%' . $this->search . '%');
-                    });
+                $query->where(function ($q) {
+                    $q->where('invoice_number', 'like', '%' . $this->search . '%')
+                      ->orWhereHas('tenant', function ($sub) {
+                          $sub->where('name', 'like', '%' . $this->search . '%');
+                      });
+                });
             })
             ->when($this->statusFilter, function ($query) {
                 $query->where('status', $this->statusFilter);
@@ -305,10 +305,12 @@ class Billing extends Component
         // Subscriptions com filtros
         $subscriptions = Subscription::with(['tenant', 'plan.modules'])
             ->when($this->subscriptionSearch, function ($query) {
-                $query->whereHas('tenant', function ($q) {
-                    $q->where('name', 'like', '%' . $this->subscriptionSearch . '%');
-                })->orWhereHas('plan', function ($q) {
-                    $q->where('name', 'like', '%' . $this->subscriptionSearch . '%');
+                $query->where(function ($q) {
+                    $q->whereHas('tenant', function ($sub) {
+                        $sub->where('name', 'like', '%' . $this->subscriptionSearch . '%');
+                    })->orWhereHas('plan', function ($sub) {
+                        $sub->where('name', 'like', '%' . $this->subscriptionSearch . '%');
+                    });
                 });
             })
             ->when($this->subscriptionStatusFilter, function ($query) {

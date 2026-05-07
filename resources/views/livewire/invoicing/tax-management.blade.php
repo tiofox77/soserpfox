@@ -22,7 +22,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Pesquisar</label>
-                <input type="text" wire:model.live="search" 
+                <input type="text" wire:model.live.debounce.300ms="search" 
                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200"
                        placeholder="🔍 Buscar por nome ou código...">
             </div>

@@ -43,7 +43,13 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-icons text-blue-500 mr-2"></i>Ícone * (FontAwesome)
                             </label>
-                            <input wire:model="icon" type="text" placeholder="puzzle-piece" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow flex-shrink-0">
+                                    <i class="fas fa-{{ $icon }} text-white text-lg"></i>
+                                </div>
+                                <input wire:model.live="icon" type="text" placeholder="puzzle-piece" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Ex: building, users, chart-bar, cog, shopping-cart</p>
                             @error('icon') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
                         

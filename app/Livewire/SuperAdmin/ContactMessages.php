@@ -54,6 +54,6 @@ class ContactMessages extends Component
             
         return view('livewire.super-admin.contact-messages', [
             'messages' => $messages
-        ])->layout('layouts.app');
+        ])->layout('layouts.superadmin');
     }
 }

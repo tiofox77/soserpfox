@@ -19,23 +19,18 @@
                 
                 {{-- Body --}}
                 <form wire:submit.prevent="updateTenantPlan" class="p-6">
-                    @php
-                        $tenant = \App\Models\Tenant::with('activeSubscription.plan')->find($managingPlanTenantId);
-                        $allPlans = \App\Models\Plan::where('is_active', true)->orderBy('order')->get();
-                    @endphp
-                    
                     {{-- Plano Atual --}}
-                    @if($tenant && $tenant->activeSubscription)
+                    @if($managingPlanTenant && $managingPlanTenant->activeSubscription)
                     <div class="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="text-sm font-semibold text-blue-900">Plano Atual</p>
-                                <p class="text-2xl font-bold text-blue-700">{{ $tenant->activeSubscription->plan->name }}</p>
+                                <p class="text-2xl font-bold text-blue-700">{{ $managingPlanTenant->activeSubscription->plan->name }}</p>
                             </div>
                             <div class="text-right">
-                                <p class="text-sm text-blue-600">{{ ucfirst($tenant->activeSubscription->billing_cycle) }}</p>
+                                <p class="text-sm text-blue-600">{{ ucfirst($managingPlanTenant->activeSubscription->billing_cycle) }}</p>
                                 <p class="text-xl font-bold text-blue-700">
-                                    {{ number_format($tenant->activeSubscription->amount, 2) }} Kz
+                                    {{ number_format($managingPlanTenant->activeSubscription->amount, 2) }} Kz
                                 </p>
                             </div>
                         </div>
@@ -179,7 +174,7 @@
                     @if($selectedPlanId)
                     @php
                         $selectedPlan = $allPlans->firstWhere('id', $selectedPlanId);
-                        $currentPlan = $tenant && $tenant->activeSubscription ? $tenant->activeSubscription->plan : null;
+                        $currentPlan = $managingPlanTenant && $managingPlanTenant->activeSubscription ? $managingPlanTenant->activeSubscription->plan : null;
                         
                         // Formatar storage
                         $storageMB = $selectedPlan->max_storage_mb;
@@ -201,7 +196,40 @@
                             'yearly' => 'ano',
                             default => 'mês',
                         };
+                        
+                        // Preço anterior
+                        $currentPrice = $currentPlan && $managingPlanTenant->activeSubscription 
+                            ? $managingPlanTenant->activeSubscription->amount 
+                            : 0;
+                        $priceDiff = $price - $currentPrice;
                     @endphp
+                    
+                    {{-- Total Box --}}
+                    <div class="mb-6 p-5 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-xl shadow-lg text-white">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <p class="text-purple-200 text-xs font-semibold uppercase tracking-wide">Total a Pagar</p>
+                                <p class="text-sm text-purple-200 mt-0.5">{{ $selectedPlan->name }} • {{ ucfirst($cycleName) }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-3xl font-bold">{{ number_format($price, 2) }} <span class="text-lg">Kz</span></p>
+                                <p class="text-purple-200 text-xs">/ {{ $cycleName }}</p>
+                            </div>
+                        </div>
+                        @if($currentPlan)
+                        <div class="pt-3 border-t border-white/20 flex items-center justify-between">
+                            <span class="text-purple-200 text-xs">Valor anterior: {{ number_format($currentPrice, 2) }} Kz</span>
+                            @if($priceDiff > 0)
+                                <span class="px-2 py-0.5 bg-red-500/30 text-red-200 text-xs font-semibold rounded-full">+{{ number_format($priceDiff, 2) }} Kz</span>
+                            @elseif($priceDiff < 0)
+                                <span class="px-2 py-0.5 bg-green-500/30 text-green-200 text-xs font-semibold rounded-full">{{ number_format($priceDiff, 2) }} Kz</span>
+                            @else
+                                <span class="px-2 py-0.5 bg-white/20 text-purple-200 text-xs font-semibold rounded-full">Sem alteração</span>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+                    
                     <div class="mb-6 p-4 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl shadow-sm">
                         <h4 class="font-bold text-yellow-900 mb-3 flex items-center text-base">
                             <i class="fas fa-info-circle mr-2 text-yellow-600"></i>

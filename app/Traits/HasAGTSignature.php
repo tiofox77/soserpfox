@@ -20,9 +20,17 @@ trait HasAGTSignature
     protected static function bootHasAGTSignature()
     {
         // Antes de criar - gerar hash e assinar
+        // NOTA: Pular se gross_total não estiver definido (hash será gerado manualmente
+        // após cálculo de totais em InvoiceCreate/CreditNoteCreate/etc.)
         static::creating(function ($model) {
             if (config('app.agt_auto_sign', true)) {
-                $model->generateHashAndSign();
+                $grossTotal = $model->gross_total ?? $model->total ?? null;
+                $hasNumber = !empty($model->invoice_number ?? $model->credit_note_number ?? $model->debit_note_number);
+                
+                // Só assinar automaticamente se o documento tiver totais e número
+                if ($grossTotal && $grossTotal > 0 && $hasNumber) {
+                    $model->generateHashAndSign();
+                }
             }
         });
 
@@ -33,7 +41,6 @@ trait HasAGTSignature
                     'invoice_number', 'credit_note_number', 'debit_note_number',
                     'invoice_date', 'issue_date', 'gross_total', 'total',
                     'net_total', 'subtotal', 'tax_amount', 'client_id',
-                    'hash', 'saft_hash', 'jws_signature', 'atcud',
                 ];
 
                 foreach ($protectedFields as $field) {

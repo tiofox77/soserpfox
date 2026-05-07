@@ -265,9 +265,7 @@ EOD;
     
     public function regenerateKeys()
     {
-        if (!confirm('Atenção! Regenerar as chaves invalidará todos os documentos assinados. Deseja continuar?')) {
-            return;
-        }
+        // Confirmação feita via wire:confirm no Blade
         
         // Fazer backup das chaves antigas
         if ($this->publicKeyExists) {

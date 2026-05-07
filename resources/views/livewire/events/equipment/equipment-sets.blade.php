@@ -27,8 +27,16 @@
             </h2>
             <p class="text-sm sm:text-base text-gray-600">Crie kits de equipamentos para eventos</p>
         </div>
-        <button wire:click="openModal" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-            <i class="fas fa-plus-circle mr-2"></i>Novo SET
+        <button wire:click="openModal"
+                wire:loading.attr="disabled"
+                wire:loading.class="opacity-70 scale-95"
+                class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center disabled:cursor-not-allowed">
+            <span wire:loading.remove wire:target="openModal">
+                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Novo SET
+            </span>
+            <span wire:loading wire:target="openModal">
+                <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+            </span>
         </button>
     </div>
 
@@ -71,14 +79,27 @@
             </div>
 
             <div class="flex gap-2">
-                <button wire:click="openItemsModal({{ $set->id }})" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition">
-                    <i class="fas fa-cog"></i> Gerenciar
+                <button wire:click="openItemsModal({{ $set->id }})"
+                        wire:loading.attr="disabled"
+                        wire:target="openItemsModal({{ $set->id }})"
+                        class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-50">
+                    <span wire:loading.remove wire:target="openItemsModal({{ $set->id }})"><i class="fas fa-cog"></i> Gerenciar</span>
+                    <span wire:loading wire:target="openItemsModal({{ $set->id }})"><i class="fas fa-spinner fa-spin"></i></span>
                 </button>
-                <button wire:click="edit({{ $set->id }})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm transition">
-                    <i class="fas fa-edit"></i>
+                <button wire:click="edit({{ $set->id }})"
+                        wire:loading.attr="disabled"
+                        wire:target="edit({{ $set->id }})"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm transition-all duration-300 hover:scale-105 disabled:opacity-50">
+                    <i class="fas fa-edit" wire:loading.remove wire:target="edit({{ $set->id }})"></i>
+                    <i class="fas fa-spinner fa-spin" wire:loading wire:target="edit({{ $set->id }})"></i>
                 </button>
-                <button wire:click="delete({{ $set->id }})" onclick="return confirm('Excluir este SET?')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm transition">
-                    <i class="fas fa-trash"></i>
+                <button wire:click="delete({{ $set->id }})"
+                        wire:loading.attr="disabled"
+                        wire:target="delete({{ $set->id }})"
+                        wire:confirm="Excluir este SET?"
+                        class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm transition-all duration-300 hover:scale-105 disabled:opacity-50">
+                    <i class="fas fa-trash" wire:loading.remove wire:target="delete({{ $set->id }})"></i>
+                    <i class="fas fa-spinner fa-spin" wire:loading wire:target="delete({{ $set->id }})"></i>
                 </button>
             </div>
         </div>
@@ -132,11 +153,16 @@
                 </div>
 
                 <div class="flex space-x-3 pt-4 border-t">
-                    <button wire:click="save" wire:loading.attr="disabled" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition">
-                        <i class="fas fa-save mr-2"></i>Salvar
+                    <button wire:click="save"
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 disabled:cursor-not-allowed">
+                        <span wire:loading.remove><i class="fas fa-save mr-2"></i>Salvar</span>
+                        <span wire:loading><i class="fas fa-spinner fa-spin mr-2"></i>Salvando...</span>
                     </button>
-                    <button wire:click="closeModal" class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
-                        Cancelar
+                    <button wire:click="closeModal"
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
                 </div>
             </div>
@@ -171,8 +197,12 @@
                         <div class="w-24">
                             <input type="number" wire:model="quantity" min="1" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg" placeholder="Qtd">
                         </div>
-                        <button wire:click="addEquipment" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold">
-                            <i class="fas fa-plus"></i> Adicionar
+                        <button wire:click="addEquipment"
+                                wire:loading.attr="disabled"
+                                wire:loading.class="opacity-70 scale-95"
+                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105 disabled:cursor-not-allowed">
+                            <span wire:loading.remove><i class="fas fa-plus"></i> Adicionar</span>
+                            <span wire:loading><i class="fas fa-spinner fa-spin"></i></span>
                         </button>
                     </div>
                 </div>
@@ -190,8 +220,11 @@
                             <p class="font-semibold text-gray-900">{{ $eq->name }}</p>
                             <p class="text-sm text-gray-600">Quantidade: {{ $eq->pivot->quantity }}x</p>
                         </div>
-                        <button wire:click="removeEquipment({{ $currentSet->id }}, {{ $eq->id }})" class="text-red-600 hover:text-red-800 px-3 py-1">
-                            <i class="fas fa-trash"></i>
+                        <button wire:click="removeEquipment({{ $currentSet->id }}, {{ $eq->id }})"
+                                wire:loading.attr="disabled"
+                                class="text-red-600 hover:text-red-800 px-3 py-1 transition-all duration-300 disabled:opacity-50">
+                            <i class="fas fa-trash" wire:loading.remove></i>
+                            <i class="fas fa-spinner fa-spin" wire:loading></i>
                         </button>
                     </div>
                     @endforeach
@@ -201,8 +234,8 @@
                 @endif
 
                 <div class="mt-6 pt-4 border-t">
-                    <button wire:click="closeModal" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold transition">
-                        Fechar
+                    <button wire:click="closeModal" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-times mr-2"></i>Fechar
                     </button>
                 </div>
             </div>

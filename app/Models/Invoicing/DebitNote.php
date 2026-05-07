@@ -19,19 +19,30 @@ class DebitNote extends Model
 
     protected $fillable = [
         'tenant_id',
+        'series_id',
         'debit_note_number',
         'invoice_id',
         'client_id',
         'warehouse_id',
         'issue_date',
+        'system_entry_date',
         'due_date',
         'reason',
         'notes',
         'subtotal',
+        'net_total',
         'tax_amount',
+        'tax_payable',
         'total',
+        'gross_total',
         'status',
+        'invoice_status',
+        'source_billing',
+        'atcud',
         'saft_hash',
+        'hash',
+        'hash_previous',
+        'hash_control',
         'jws_signature',
         'agt_status',
         'agt_reference',
@@ -41,9 +52,13 @@ class DebitNote extends Model
     protected $casts = [
         'issue_date' => 'date',
         'due_date' => 'date',
+        'system_entry_date' => 'datetime',
         'subtotal' => 'decimal:2',
+        'net_total' => 'decimal:2',
         'tax_amount' => 'decimal:2',
+        'tax_payable' => 'decimal:2',
         'total' => 'decimal:2',
+        'gross_total' => 'decimal:2',
     ];
 
     // Relacionamentos
@@ -122,19 +137,30 @@ class DebitNote extends Model
         });
     }
 
-    // Gerar número de nota de débito
+    // Gerar número de nota de débito (formato AGT: ND A 2025/000001)
     public static function generateDebitNoteNumber()
     {
-        $year = date('Y');
+        $tenantId = activeTenantId();
         
-        $lastDebitNote = self::where('tenant_id', activeTenantId())
-            ->whereYear('created_at', $year)
+        // Usar sistema de séries AGT (Decreto Presidencial 71/25)
+        $series = InvoicingSeries::getDefaultSeries($tenantId, 'debit_note');
+        
+        if ($series) {
+            return $series->getNextNumber();
+        }
+        
+        // Fallback: formato AGT manual
+        $year = date('Y');
+        $prefix = 'ND A ' . $year . '/';
+        
+        $lastDebitNote = self::where('tenant_id', $tenantId)
+            ->where('debit_note_number', 'like', $prefix . '%')
             ->orderBy('id', 'desc')
             ->first();
 
-        $nextNumber = $lastDebitNote ? ((int) substr($lastDebitNote->debit_note_number, -4)) + 1 : 1;
+        $nextNumber = $lastDebitNote ? ((int) substr($lastDebitNote->debit_note_number, -6)) + 1 : 1;
 
-        return sprintf('ND/%s/%04d', $year, $nextNumber);
+        return $prefix . str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
     }
 
     // Atualizar saldo da fatura

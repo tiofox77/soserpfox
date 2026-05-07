@@ -23,7 +23,7 @@
             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <i class="fas fa-search text-gray-400"></i>
             </div>
-            <input wire:model.live="search" type="text" placeholder="Pesquisar produtos..." 
+            <input wire:model.live.debounce.300ms="search" type="text" placeholder="Pesquisar produtos..." 
                    class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
         </div>
     </div>

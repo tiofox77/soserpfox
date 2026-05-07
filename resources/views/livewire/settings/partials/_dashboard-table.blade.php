@@ -68,18 +68,18 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['salary_advance_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($email_notifications['salary_advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['advance_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($email_notifications['advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['salary_advance_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($sms_notifications['salary_advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['advance_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($sms_notifications['advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['salary_advance_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($whatsapp_notifications['salary_advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['advance_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($whatsapp_notifications['advance_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                     </tr>
@@ -97,18 +97,18 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['salary_advance_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($email_notifications['salary_advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['advance_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($email_notifications['advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['salary_advance_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($sms_notifications['salary_advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['advance_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($sms_notifications['advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['salary_advance_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($whatsapp_notifications['salary_advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['advance_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($whatsapp_notifications['advance_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                     </tr>
@@ -126,18 +126,18 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['vacation_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($email_notifications['vacation_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['leave_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($email_notifications['leave_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['vacation_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($sms_notifications['vacation_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['leave_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($sms_notifications['leave_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['vacation_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($whatsapp_notifications['vacation_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['leave_approved'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($whatsapp_notifications['leave_approved'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                     </tr>
@@ -155,18 +155,18 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['vacation_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($email_notifications['vacation_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($email_notifications['leave_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($email_notifications['leave_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['vacation_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($sms_notifications['vacation_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($sms_notifications['leave_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($sms_notifications['leave_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['vacation_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                {{ ($whatsapp_notifications['vacation_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($whatsapp_notifications['leave_rejected'] ?? false) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($whatsapp_notifications['leave_rejected'] ?? false) ? 'Ativo' : 'Inativo' }}
                             </span>
                         </td>
                     </tr>

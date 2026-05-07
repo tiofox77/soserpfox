@@ -82,14 +82,81 @@ document.addEventListener('livewire:init', () => {
     });
 });
 
-// Função de impressão de ticket
+// Função de impressão de ticket via iframe (não destrói o DOM)
 function printTicket() {
-    const printContents = document.getElementById('ticket-print').innerHTML;
-    const originalContents = document.body.innerHTML;
-    
-    document.body.innerHTML = printContents;
-    window.print();
-    document.body.innerHTML = originalContents;
-    window.location.reload();
+    const ticketEl = document.getElementById('ticket-print');
+    if (!ticketEl) return;
+
+    const printContents = ticketEl.innerHTML;
+
+    // Remover iframe anterior se existir
+    let oldFrame = document.getElementById('print-frame');
+    if (oldFrame) oldFrame.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    iframe.style.width = '80mm';
+    iframe.style.height = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: 'Courier New', monospace; font-size: 12px; padding: 5mm; width: 80mm; }
+                img { max-width: 100%; height: auto; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { padding: 2px 0; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .text-left { text-align: left; }
+                .font-bold { font-weight: bold; }
+                .text-xs { font-size: 11px; }
+                .text-lg { font-size: 16px; }
+                .text-base { font-size: 14px; }
+                .border-b { border-bottom: 1px dashed #999; }
+                .border-b-2 { border-bottom: 2px dashed #666; }
+                .border-t-2 { border-top: 2px solid #333; }
+                .mb-1 { margin-bottom: 2px; }
+                .mb-2 { margin-bottom: 4px; }
+                .mb-3 { margin-bottom: 8px; }
+                .mt-1 { margin-top: 2px; }
+                .mt-2 { margin-top: 4px; }
+                .pb-2 { padding-bottom: 4px; }
+                .pb-3 { padding-bottom: 8px; }
+                .pt-1 { padding-top: 2px; }
+                .pt-2 { padding-top: 4px; }
+                .py-1 { padding-top: 2px; padding-bottom: 2px; }
+                .pl-2 { padding-left: 4px; }
+                .space-y-1 > * + * { margin-top: 2px; }
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .mx-auto { margin-left: auto; margin-right: auto; display: block; }
+                .w-auto { width: auto; }
+                .h-12 { height: 48px; }
+                .uppercase { text-transform: uppercase; }
+                .break-all { word-break: break-all; }
+                p { margin: 0; }
+                @media print { body { padding: 0; } }
+            </style>
+        </head>
+        <body>${printContents}</body>
+        </html>
+    `);
+    doc.close();
+
+    iframe.contentWindow.focus();
+    setTimeout(() => {
+        iframe.contentWindow.print();
+        setTimeout(() => { iframe.remove(); }, 1000);
+    }, 300);
 }
 </script>

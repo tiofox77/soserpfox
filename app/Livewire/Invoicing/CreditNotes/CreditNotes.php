@@ -43,6 +43,16 @@ class CreditNotes extends Component
 
     public function deleteCreditNote()
     {
+        // Verificar bloqueio de eliminação via Software Settings
+        if (isDeleteBlocked('credit_note')) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'A eliminação de Notas de Crédito está bloqueada pelo administrador. Apenas anulações são permitidas.'
+            ]);
+            $this->showDeleteModal = false;
+            return;
+        }
+
         $creditNote = CreditNote::where('tenant_id', activeTenantId())->findOrFail($this->creditNoteToDelete);
         $creditNote->delete();
         

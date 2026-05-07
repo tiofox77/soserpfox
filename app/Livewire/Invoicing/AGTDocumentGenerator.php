@@ -193,7 +193,7 @@ class AGTDocumentGenerator extends Component
                 'tenant_id' => activeTenantId(),
                 'name' => 'Cliente Teste AGT',
                 'nif' => '123456789',
-                'email' => 'cliente.agt@teste.ao',
+                'email' => 'cliente.agt@teste.vip',
                 'phone' => '923456789',
                 'address' => 'Rua Teste AGT, 123',
                 'city' => 'Luanda',

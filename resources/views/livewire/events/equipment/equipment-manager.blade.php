@@ -52,10 +52,17 @@
                 </button>
             </div>
             
-            <button wire:click="openModal" 
-                    class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
-                Novo Equipamento
+            <button wire:click="openModal"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="openModal">
+                    <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
+                    Novo Equipamento
+                </span>
+                <span wire:loading wire:target="openModal">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
         </div>
     </div>
@@ -247,20 +254,29 @@
                         {{-- Ações --}}
                         <div class="space-y-2">
                             <div class="flex gap-2">
-                                <button wire:click="edit({{ $item->id }})" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition">
-                                    <i class="fas fa-edit"></i>
-                                    <span class="hidden sm:inline ml-1">Editar</span>
+                                <button wire:click="edit({{ $item->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="edit({{ $item->id }})"
+                                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-50">
+                                    <span wire:loading.remove wire:target="edit({{ $item->id }})"><i class="fas fa-edit"></i><span class="hidden sm:inline ml-1">Editar</span></span>
+                                    <span wire:loading wire:target="edit({{ $item->id }})"><i class="fas fa-spinner fa-spin"></i></span>
                                 </button>
                                 
                                 @if($item->status === 'disponivel')
-                                <button wire:click="openBorrowModal({{ $item->id }})" class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition">
-                                    <i class="fas fa-hand-holding"></i>
-                                    <span class="hidden sm:inline ml-1">Emprestar</span>
+                                <button wire:click="openBorrowModal({{ $item->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="openBorrowModal({{ $item->id }})"
+                                        class="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-50">
+                                    <span wire:loading.remove wire:target="openBorrowModal({{ $item->id }})"><i class="fas fa-hand-holding"></i><span class="hidden sm:inline ml-1">Emprestar</span></span>
+                                    <span wire:loading wire:target="openBorrowModal({{ $item->id }})"><i class="fas fa-spinner fa-spin"></i></span>
                                 </button>
                                 @elseif($item->status === 'emprestado')
-                                <button wire:click="returnEquipment({{ $item->id }})" class="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition">
-                                    <i class="fas fa-undo"></i>
-                                    <span class="hidden sm:inline ml-1">Devolver</span>
+                                <button wire:click="returnEquipment({{ $item->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="returnEquipment({{ $item->id }})"
+                                        class="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-50">
+                                    <span wire:loading.remove wire:target="returnEquipment({{ $item->id }})"><i class="fas fa-undo"></i><span class="hidden sm:inline ml-1">Devolver</span></span>
+                                    <span wire:loading wire:target="returnEquipment({{ $item->id }})"><i class="fas fa-spinner fa-spin"></i></span>
                                 </button>
                                 @endif
                             </div>
@@ -282,51 +298,65 @@
         </div>
     @else
         {{-- Visualização em Lista --}}
-        <div class="bg-white rounded-xl shadow-xl overflow-hidden">
+        <div class="bg-white rounded-xl shadow-xl">
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
                         <tr>
-                            <th class="px-6 py-4 text-left">Equipamento</th>
-                            <th class="px-6 py-4 text-left">Categoria</th>
-                            <th class="px-6 py-4 text-left">Serial</th>
-                            <th class="px-6 py-4 text-left">Localização</th>
-                            <th class="px-6 py-4 text-left">Status</th>
-                            <th class="px-6 py-4 text-left">Usos</th>
-                            <th class="px-6 py-4 text-right">Ações</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">Equipamento</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm hidden sm:table-cell">Categoria</th>
+                            <th class="px-6 py-4 text-left hidden lg:table-cell">Serial</th>
+                            <th class="px-6 py-4 text-left hidden lg:table-cell">Localização</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">Status</th>
+                            <th class="px-6 py-4 text-left hidden md:table-cell">Usos</th>
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-right text-xs sm:text-sm">Ações</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         @forelse($equipment as $item)
                         <tr class="hover:bg-purple-50 transition">
-                            <td class="px-6 py-4">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
                                 <div class="flex items-center">
                                     @if($item->image_path)
-                                        <img src="{{ asset('storage/' . $item->image_path) }}" class="w-12 h-12 rounded-lg object-cover mr-3" alt="{{ $item->name }}">
+                                        <img src="{{ asset('storage/' . $item->image_path) }}" class="w-8 h-8 sm:w-12 sm:h-12 rounded-lg object-cover mr-2 sm:mr-3" alt="{{ $item->name }}">
                                     @else
-                                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                                            <i class="fas fa-box text-purple-600"></i>
+                                        <div class="w-8 h-8 sm:w-12 sm:h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-2 sm:mr-3">
+                                            <i class="fas fa-box text-purple-600 text-xs sm:text-base"></i>
                                         </div>
                                     @endif
-                                    <span class="font-semibold text-gray-900">{{ $item->name }}</span>
+                                    <div class="min-w-0">
+                                        <span class="font-semibold text-gray-900 text-sm sm:text-base block truncate">{{ $item->name }}</span>
+                                        <span class="text-xs text-gray-500 sm:hidden">{{ $item->category?->display_name ?? '' }}</span>
+                                    </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 text-gray-600">{{ $item->category?->display_name ?? '-' }}</td>
-                            <td class="px-6 py-4 text-gray-600">{{ $item->serial_number ?? '-' }}</td>
-                            <td class="px-6 py-4 text-gray-600">{{ $item->location ?? '-' }}</td>
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 rounded-full text-xs font-bold text-white" style="background-color: {{ $item->status_color }}">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-600 text-sm hidden sm:table-cell">{{ $item->category?->display_name ?? '-' }}</td>
+                            <td class="px-6 py-4 text-gray-600 hidden lg:table-cell">{{ $item->serial_number ?? '-' }}</td>
+                            <td class="px-6 py-4 text-gray-600 hidden lg:table-cell">{{ $item->location ?? '-' }}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <span class="px-2 sm:px-3 py-1 rounded-full text-xs font-bold text-white" style="background-color: {{ $item->status_color }}">
                                     {{ $item->status_label }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-gray-600">{{ $item->total_uses }}</td>
-                            <td class="px-6 py-4 text-right">
-                                <button wire:click="edit({{ $item->id }})" class="text-blue-600 hover:text-blue-800 mx-1">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button wire:click="delete({{ $item->id }})" class="text-red-600 hover:text-red-800 mx-1">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                            <td class="px-6 py-4 text-gray-600 hidden md:table-cell">{{ $item->total_uses }}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    <button wire:click="edit({{ $item->id }})"
+                                            wire:loading.attr="disabled"
+                                            wire:target="edit({{ $item->id }})"
+                                            class="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg hover:bg-blue-50 transition-all duration-300 disabled:opacity-50">
+                                        <i class="fas fa-edit" wire:loading.remove wire:target="edit({{ $item->id }})"></i>
+                                        <i class="fas fa-spinner fa-spin" wire:loading wire:target="edit({{ $item->id }})"></i>
+                                    </button>
+                                    <button wire:click="delete({{ $item->id }})"
+                                            wire:loading.attr="disabled"
+                                            wire:target="delete({{ $item->id }})"
+                                            wire:confirm="Excluir este equipamento?"
+                                            class="text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 transition-all duration-300 disabled:opacity-50">
+                                        <i class="fas fa-trash" wire:loading.remove wire:target="delete({{ $item->id }})"></i>
+                                        <i class="fas fa-spinner fa-spin" wire:loading wire:target="delete({{ $item->id }})"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         @empty
@@ -483,18 +513,20 @@
                 <div class="flex space-x-3 pt-4 border-t">
                     <button wire:click="save" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span wire:loading.remove wire:target="save">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-save mr-2"></i>
                             Salvar
                         </span>
-                        <span wire:loading wire:target="save">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-2"></i>
                             Salvando...
                         </span>
                     </button>
-                    <button wire:click="closeModal" class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
-                        Cancelar
+                    <button wire:click="closeModal"
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
                 </div>
             </div>
@@ -595,18 +627,20 @@
                 <div class="flex space-x-3 pt-4 border-t">
                     <button wire:click="saveBorrow" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span wire:loading.remove wire:target="saveBorrow">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-check mr-2"></i>
                             Confirmar Empréstimo
                         </span>
-                        <span wire:loading wire:target="saveBorrow">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-2"></i>
                             Processando...
                         </span>
                     </button>
-                    <button wire:click="closeModal" class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
-                        Cancelar
+                    <button wire:click="closeModal"
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
                 </div>
             </div>
@@ -680,11 +714,12 @@
                 <div class="flex gap-2 pt-3">
                     <button wire:click="saveCategory" 
                             wire:loading.attr="disabled"
-                            class="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
-                        <span wire:loading.remove wire:target="saveCategory">
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-all duration-300 disabled:cursor-not-allowed">
+                        <span wire:loading.remove>
                             <i class="fas fa-save mr-1"></i>Salvar
                         </span>
-                        <span wire:loading wire:target="saveCategory">
+                        <span wire:loading>
                             <i class="fas fa-spinner fa-spin mr-1"></i>Salvando...
                         </span>
                     </button>

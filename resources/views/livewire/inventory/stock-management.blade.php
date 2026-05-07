@@ -68,7 +68,7 @@
     <div class="bg-white rounded-xl shadow p-4 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-                <input type="text" wire:model.live="search" placeholder="Pesquisar produto..." 
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar produto..." 
                        class="w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
             </div>
             <div>

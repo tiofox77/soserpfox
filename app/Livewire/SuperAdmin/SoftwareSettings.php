@@ -4,6 +4,10 @@ namespace App\Livewire\SuperAdmin;
 
 use Livewire\Component;
 use App\Models\SoftwareSetting;
+use App\Models\Tenant;
+use App\Models\Invoicing\InvoicingSettings;
+use App\Models\Invoicing\InvoicingSeries;
+use App\Helpers\SAFTHelper;
 use Illuminate\Support\Facades\Cache;
 
 class SoftwareSettings extends Component
@@ -80,9 +84,39 @@ class SoftwareSettings extends Component
         session()->flash('message-type', 'info');
     }
     
+    public function getTenantAgtStatusProperty(): array
+    {
+        $tenants = Tenant::orderBy('name')->get();
+        $status = [];
+
+        foreach ($tenants as $tenant) {
+            $settings = InvoicingSettings::where('tenant_id', $tenant->id)->first();
+            $seriesCount = InvoicingSeries::where('tenant_id', $tenant->id)->where('is_active', true)->count();
+
+            $status[] = [
+                'id' => $tenant->id,
+                'name' => $tenant->name,
+                'nif' => $tenant->nif ?? null,
+                'environment' => $settings->agt_environment ?? 'sandbox',
+                'api_configured' => $settings && !empty($settings->agt_client_id) && !empty($settings->agt_client_secret),
+                'series_count' => $seriesCount,
+                'auto_submit' => $settings->agt_auto_submit ?? false,
+            ];
+        }
+
+        return $status;
+    }
+
+    public function getHasRsaKeysProperty(): bool
+    {
+        return SAFTHelper::keysExist();
+    }
+
     public function render()
     {
-        return view('livewire.super-admin.software-settings')
-            ->layout('layouts.app', ['title' => 'Configurações do Software']);
+        return view('livewire.super-admin.software-settings', [
+            'tenantAgtStatus' => $this->tenantAgtStatus,
+            'hasRsaKeys' => $this->hasRsaKeys,
+        ])->layout('layouts.app', ['title' => 'Configurações do Software']);
     }
 }

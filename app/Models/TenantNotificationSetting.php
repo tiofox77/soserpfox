@@ -80,11 +80,17 @@ class TenantNotificationSetting extends Model
     {
         return [
             'employee_created' => true,
-            'salary_advance_approved' => true,
-            'salary_advance_rejected' => true,
-            'vacation_approved' => true,
-            'vacation_rejected' => true,
+            'advance_approved' => true,
+            'advance_rejected' => true,
+            'leave_approved' => true,
+            'leave_rejected' => true,
             'payslip_ready' => true,
+            'event_created' => false,
+            'event_reminder' => false,
+            'technician_assigned' => false,
+            'event_cancelled' => false,
+            'task_assigned' => false,
+            'meeting_scheduled' => false,
         ];
     }
 
@@ -95,11 +101,17 @@ class TenantNotificationSetting extends Model
     {
         return [
             'employee_created' => false,
-            'salary_advance_approved' => false,
-            'salary_advance_rejected' => false,
-            'vacation_approved' => false,
-            'vacation_rejected' => false,
+            'advance_approved' => false,
+            'advance_rejected' => false,
+            'leave_approved' => false,
+            'leave_rejected' => false,
             'payslip_ready' => false,
+            'event_created' => false,
+            'event_reminder' => false,
+            'technician_assigned' => false,
+            'event_cancelled' => false,
+            'task_assigned' => false,
+            'meeting_scheduled' => false,
         ];
     }
 
@@ -110,11 +122,17 @@ class TenantNotificationSetting extends Model
     {
         return [
             'employee_created' => false,
-            'salary_advance_approved' => false,
-            'salary_advance_rejected' => false,
-            'vacation_approved' => false,
-            'vacation_rejected' => false,
+            'advance_approved' => false,
+            'advance_rejected' => false,
+            'leave_approved' => false,
+            'leave_rejected' => false,
             'payslip_ready' => false,
+            'event_created' => false,
+            'event_reminder' => false,
+            'technician_assigned' => false,
+            'event_cancelled' => false,
+            'task_assigned' => false,
+            'meeting_scheduled' => false,
         ];
     }
 
@@ -160,28 +178,41 @@ class TenantNotificationSetting extends Model
             return;
         }
 
+        $port = $this->smtp_port ?? 587;
+        $encryption = $this->smtp_encryption;
+        
+        if (!$encryption) {
+            $encryption = ($port == 465) ? 'ssl' : 'tls';
+        }
+
         $config = [
-            'driver' => 'smtp',
+            'transport' => 'smtp',
             'host' => $this->smtp_host,
-            'port' => $this->smtp_port ?? 587,
-            'encryption' => $this->smtp_encryption ?? 'tls',
+            'port' => $port,
+            'encryption' => $encryption,
             'username' => $this->smtp_username,
             'password' => $this->smtp_password,
             'timeout' => null,
-            'local_domain' => env('MAIL_EHLO_DOMAIN'),
-            'from' => [
-                'address' => $this->from_email,
-                'name' => $this->from_name ?? config('app.name'),
-            ],
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) config('app.url', 'http://localhost'), PHP_URL_HOST)),
+            'verify_peer' => false,
         ];
 
+        config(['mail.default' => 'smtp']);
         config(['mail.mailers.smtp' => $config]);
         config(['mail.from.address' => $this->from_email]);
         config(['mail.from.name' => $this->from_name ?? config('app.name')]);
 
+        // Purge cached SMTP transport so new config takes effect
+        try {
+            app('mail.manager')->purge('smtp');
+        } catch (\Exception $e) {
+            \Log::warning('Could not purge mail manager: ' . $e->getMessage());
+        }
+
         \Log::info('✅ SMTP do tenant configurado', [
             'host' => $this->smtp_host,
-            'port' => $this->smtp_port,
+            'port' => $port,
+            'encryption' => $encryption,
             'from' => $this->from_email,
         ]);
     }

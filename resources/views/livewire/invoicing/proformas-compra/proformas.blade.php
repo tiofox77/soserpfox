@@ -10,8 +10,11 @@
                 <p class="text-gray-600 mt-1">Orçamentos e propostas de fornecedores</p>
             </div>
             <a href="{{ route('invoicing.purchases.proformas.create') }}" 
-               class="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
-                <i class="fas fa-plus mr-2"></i>Nova Proforma
+               x-data="{ loading: false }" @click="loading = true"
+               :class="loading && 'opacity-70 pointer-events-none scale-95'"
+               class="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95">
+                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>Nova Proforma</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Carregando...</span>
             </a>
         </div>
     </div>
@@ -212,7 +215,9 @@
                             <div class="flex items-center justify-center space-x-2">
                                 {{-- Ver Proforma --}}
                                 <button wire:click="viewProforma({{ $proforma->id }})"
-                                        class="group relative p-2 bg-orange-100 hover:bg-orange-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 scale-90"
+                                        class="group relative p-2 bg-orange-100 hover:bg-orange-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:cursor-wait">
                                     <i class="fas fa-eye text-orange-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Visualizar
@@ -221,6 +226,8 @@
                                 
                                 {{-- Preview (ícone PDF abre preview HTML) --}}
                                 <a href="{{ route('invoicing.purchases.proformas.preview', $proforma->id) }}" target="_blank"
+                                   x-data="{ loading: false }" @click="loading = true; setTimeout(() => loading = false, 2000)"
+                                   :class="loading && 'opacity-50 pointer-events-none scale-90'"
                                    class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-pdf text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
@@ -229,6 +236,8 @@
                                 </a>
                                 
                                 <a href="{{ route('invoicing.purchases.proformas.edit', $proforma->id) }}"
+                                   x-data="{ loading: false }" @click="loading = true"
+                                   :class="loading && 'opacity-50 pointer-events-none scale-90'"
                                    class="group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
@@ -237,7 +246,9 @@
                                 </a>
 
                                 <button wire:click="convertToInvoice({{ $proforma->id }})"
-                                        class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 scale-90"
+                                        class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:cursor-wait">
                                     <i class="fas fa-file-invoice text-green-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Converter em Fatura
@@ -245,7 +256,9 @@
                                 </button>
                                 
                                 <button wire:click="showHistory({{ $proforma->id }})"
-                                        class="group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 scale-90"
+                                        class="group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:cursor-wait">
                                     <i class="fas fa-history text-purple-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Histórico de Conversões
@@ -253,7 +266,9 @@
                                 </button>
 
                                 <button wire:click="confirmDelete({{ $proforma->id }})"
-                                        class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 scale-90"
+                                        class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:cursor-wait">
                                     <i class="fas fa-trash text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Eliminar

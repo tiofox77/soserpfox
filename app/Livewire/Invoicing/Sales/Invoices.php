@@ -111,6 +111,16 @@ class Invoices extends Component
     public function deleteInvoice()
     {
         if ($this->invoiceToDelete) {
+            // Verificar bloqueio de eliminação via Software Settings
+            if (isDeleteBlocked('sales_invoice')) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'A eliminação de Faturas de Venda está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                ]);
+                $this->showDeleteModal = false;
+                return;
+            }
+
             $invoice = SalesInvoice::where('tenant_id', activeTenantId())
                 ->findOrFail($this->invoiceToDelete);
 

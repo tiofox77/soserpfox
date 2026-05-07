@@ -37,6 +37,15 @@ class LandingController extends Controller
                 'seo_title' => SystemSetting::get('seo_title', 'SOSERP - Sistema de Gestão Empresarial'),
                 'seo_description' => SystemSetting::get('seo_description'),
                 'seo_keywords' => SystemSetting::get('seo_keywords'),
+                'seo_author' => SystemSetting::get('seo_author'),
+                'seo_canonical_url' => SystemSetting::get('seo_canonical_url'),
+                'seo_robots' => SystemSetting::get('seo_robots', 'index, follow'),
+                'seo_og_image' => SystemSetting::get('seo_og_image'),
+                'google_analytics_id' => SystemSetting::get('google_analytics_id'),
+                'gtm_id' => SystemSetting::get('gtm_id'),
+                'facebook_pixel_id' => SystemSetting::get('facebook_pixel_id'),
+                'google_site_verification' => SystemSetting::get('google_site_verification'),
+                'bing_site_verification' => SystemSetting::get('bing_site_verification'),
                 
                 // Schema.org
                 'schema_app_name' => SystemSetting::get('schema_app_name', 'SOSERP'),

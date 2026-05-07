@@ -74,6 +74,29 @@
     
     <style>
         [x-cloak] { display: none !important; }
+
+        /* Disable transitions/animations during SPA navigation morph */
+        body.is-navigating *:not(.spa-progress) {
+            transition-duration: 0s !important;
+            animation-duration: 0s !important;
+            animation-delay: 0s !important;
+        }
+
+        /* SPA Navigation Progress Bar */
+        .spa-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+            z-index: 99999;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+        }
+        .spa-progress.done {
+            transition: width 0.1s ease, opacity 0.4s ease 0.1s;
+            opacity: 0;
+        }
         
         /* Prevenir FOUC (Flash of Unstyled Content) em imagens */
         img[src*="/storage/"] {
@@ -226,33 +249,31 @@
             }
         }
         
-        /* Aplicar animação à sidebar */
-        aside {
+        /* Sidebar animations - only on first load, not on SPA navigation */
+        aside.first-load {
             animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         
-        /* Animação do logo */
-        aside .logo-container {
+        aside.first-load .logo-container {
             animation: logoEntry 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         
-        /* Animação sequencial dos itens de menu */
-        aside nav a {
+        aside.first-load nav a {
             opacity: 0;
             animation: fadeInStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         
-        aside nav a:nth-child(1) { animation-delay: 0.1s; }
-        aside nav a:nth-child(2) { animation-delay: 0.15s; }
-        aside nav a:nth-child(3) { animation-delay: 0.2s; }
-        aside nav a:nth-child(4) { animation-delay: 0.25s; }
-        aside nav a:nth-child(5) { animation-delay: 0.3s; }
-        aside nav a:nth-child(6) { animation-delay: 0.35s; }
-        aside nav a:nth-child(7) { animation-delay: 0.4s; }
-        aside nav a:nth-child(8) { animation-delay: 0.45s; }
-        aside nav a:nth-child(9) { animation-delay: 0.5s; }
-        aside nav a:nth-child(10) { animation-delay: 0.55s; }
-        aside nav a:nth-child(n+11) { animation-delay: 0.6s; }
+        aside.first-load nav a:nth-child(1) { animation-delay: 0.1s; }
+        aside.first-load nav a:nth-child(2) { animation-delay: 0.15s; }
+        aside.first-load nav a:nth-child(3) { animation-delay: 0.2s; }
+        aside.first-load nav a:nth-child(4) { animation-delay: 0.25s; }
+        aside.first-load nav a:nth-child(5) { animation-delay: 0.3s; }
+        aside.first-load nav a:nth-child(6) { animation-delay: 0.35s; }
+        aside.first-load nav a:nth-child(7) { animation-delay: 0.4s; }
+        aside.first-load nav a:nth-child(8) { animation-delay: 0.45s; }
+        aside.first-load nav a:nth-child(9) { animation-delay: 0.5s; }
+        aside.first-load nav a:nth-child(10) { animation-delay: 0.55s; }
+        aside.first-load nav a:nth-child(n+11) { animation-delay: 0.6s; }
         
         /* Animação do conteúdo principal - Fade In */
         @keyframes fadeInContent {
@@ -266,7 +287,7 @@
             }
         }
         
-        main {
+        main.first-load {
             animation: fadeInContent 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards;
         }
         
@@ -292,7 +313,7 @@
         }
         
         .card-hover {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
         }
@@ -320,7 +341,7 @@
         }
         
         .card-3d {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             transform-style: preserve-3d;
         }
         
@@ -339,7 +360,7 @@
         }
         
         .card-glow {
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
             position: relative;
         }
         
@@ -371,23 +392,23 @@
         }
         
         .card-rotate {
-            transition: all 0.4s ease;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
         }
         
         .card-rotate:hover {
             transform: rotate(-2deg) scale(1.05);
         }
         
-        .stagger-animation > * {
+        main.first-load .stagger-animation > * {
             animation: fadeInUp 0.6s ease-out backwards;
         }
         
-        .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
-        .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
-        .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
-        .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
-        .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
-        .stagger-animation > *:nth-child(6) { animation-delay: 0.6s; }
+        main.first-load .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+        main.first-load .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+        main.first-load .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
+        main.first-load .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
+        main.first-load .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
+        main.first-load .stagger-animation > *:nth-child(6) { animation-delay: 0.6s; }
         
         .icon-float {
             transition: transform 0.3s ease;
@@ -437,9 +458,50 @@
 <body class="bg-gray-50">
     @auth
         <!-- Layout with Sidebar -->
-        <div x-data="{ sidebarOpen: true }" class="flex h-screen overflow-hidden">
+        <div x-data="{
+            sidebarOpen: window.innerWidth >= 1024,
+            isMobile: window.innerWidth < 768,
+            isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
+            firstLoad: true,
+            init() {
+                this.handleResize();
+                window.addEventListener('resize', () => this.handleResize());
+                setTimeout(() => { this.firstLoad = false; }, 1200);
+            },
+            handleResize() {
+                this.isMobile = window.innerWidth < 768;
+                this.isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+                if (this.isMobile) {
+                    this.sidebarOpen = false;
+                } else if (this.isTablet) {
+                    this.sidebarOpen = false;
+                }
+            },
+            closeMobileSidebar() {
+                if (this.isMobile) this.sidebarOpen = false;
+            }
+        }" class="flex h-screen overflow-hidden">
+            <!-- Mobile Backdrop -->
+            <div x-show="sidebarOpen && isMobile"
+                 x-transition:enter="transition-opacity ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition-opacity ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 @click="sidebarOpen = false"
+                 class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+                 x-cloak></div>
+
             <!-- Sidebar -->
-            <aside :class="sidebarOpen ? 'w-64' : 'w-20'" class="bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 flex flex-col shadow-2xl">
+            <aside id="app-sidebar" :class="{
+                    'first-load': firstLoad,
+                    'w-64': sidebarOpen,
+                    'w-20': !sidebarOpen && !isMobile,
+                    'w-0 -translate-x-full': !sidebarOpen && isMobile,
+                    'w-64 translate-x-0': sidebarOpen && isMobile,
+                    'fixed inset-y-0 left-0 z-50': isMobile
+                }" class="bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-[width,transform] duration-300 flex flex-col shadow-2xl overflow-hidden">
                 <!-- Logo -->
                 <div class="flex items-center justify-between p-4 border-b border-blue-700 logo-container">
                     <div class="flex items-center justify-center" :class="sidebarOpen ? 'w-full' : ''">
@@ -447,16 +509,17 @@
                             <img src="{{ app_logo() }}" 
                                  alt="{{ app_name() }}" 
                                  style="max-height: 4rem; max-width: 200px;"
-                                 class="w-auto object-contain transition-all duration-300"
+                                 class="w-auto object-contain transition-[height,width] duration-300"
                                  :class="sidebarOpen ? 'h-16' : 'h-12 w-12'">
                         @else
-                            <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg transition-all duration-300">
-                                <i class="fas fa-crown text-white transition-all duration-300" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
+                            <div :class="sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center shadow-lg transition-[width,height] duration-300">
+                                <i class="fas fa-crown text-white transition-[font-size] duration-300" :class="sidebarOpen ? 'text-2xl' : 'text-xl'"></i>
                             </div>
                         @endif
                     </div>
-                    <button @click="sidebarOpen = !sidebarOpen" class="text-blue-300 hover:text-white transition ml-2">
-                        <i class="fas" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'"></i>
+                    <!-- Close button on mobile -->
+                    <button @click="sidebarOpen = false" x-show="isMobile" class="text-blue-300 hover:text-white transition ml-2 p-1">
+                        <i class="fas fa-times text-lg"></i>
                     </button>
                 </div>
 
@@ -692,16 +755,16 @@
                                         </a>
                                         @endcan
                                         
-                                        @if(auth()->user()->email === 'carlosfox1782@gmail.com')
+                                        @can('invoicing.agt.view')
                                         <div class="my-2 border-t border-blue-700/50"></div>
                                         
-                                        {{-- Gerador de Documentos AGT (Teste) - Apenas para desenvolvedor --}}
+                                        {{-- Gerador de Documentos AGT - Por tenant --}}
                                         <a href="{{ route('invoicing.agt-documents') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-gradient-to-r from-yellow-600 to-orange-600 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                                            <i class="fas fa-flask w-5 text-yellow-400 text-sm animate-pulse"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-bold">🧪 Gerador AGT</span>
+                                            <i class="fas fa-file-signature w-5 text-yellow-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-bold">Gerador AGT</span>
                                         </a>
-                                        @endif
+                                        @endcan
                                     </div>
                                 </div>
                                 
@@ -999,9 +1062,21 @@
                                 </a>
                                 
                                 <a href="{{ route('hr.overtime') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.overtime*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.overtime') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-business-time w-5 text-pink-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Horas Extras</span>
+                                </a>
+
+                                <a href="{{ route('hr.overtime-night-shift') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.overtime-night-shift') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-moon w-5 text-indigo-300 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Turno Noturno</span>
+                                </a>
+
+                                <a href="{{ route('hr.salary-discounts') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.salary-discounts') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-percentage w-5 text-red-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Descontos Salariais</span>
                                 </a>
 
                                 @php
@@ -1035,6 +1110,12 @@
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
+
+                                <a href="{{ route('hr.reports') }}" 
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.reports*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-chart-pie w-5 text-violet-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                </a>
                                 
                                 <a href="{{ route('hr.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.settings*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
@@ -1679,6 +1760,11 @@
                             <i class="fas fa-key w-6 text-orange-400"></i>
                             <span x-show="sidebarOpen" class="ml-3">SAFT Configurações</span>
                         </a>
+                        
+                        <a href="{{ route('superadmin.system-optimization') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-optimization') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                            <i class="fas fa-tachometer-alt w-6 text-cyan-400"></i>
+                            <span x-show="sidebarOpen" class="ml-3">Optimização & OPcache</span>
+                        </a>
                     @endif
                 </nav>
 
@@ -1763,30 +1849,61 @@
                 </div>
             </aside>
 
+            <!-- Add wire:navigate to all internal sidebar links (runs before Livewire boots) -->
+            <script>
+                (function() {
+                    function addWireNavigate() {
+                        document.querySelectorAll('#sidebar-menu a[href], aside a[href]').forEach(function(link) {
+                            if (!link.href || !link.href.startsWith(window.location.origin)) return;
+                            if (link.closest('form')) return;
+                            if (link.getAttribute('href') === '#') return;
+                            if (link.hasAttribute('wire:navigate')) return;
+                            link.setAttribute('wire:navigate', '');
+                        });
+                    }
+                    addWireNavigate();
+                    document.addEventListener('livewire:navigated', addWireNavigate);
+                })();
+            </script>
+
             <!-- Main Content -->
-            <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="flex-1 flex flex-col overflow-hidden" :class="{ 'ml-0': isMobile }">
                 <!-- Top Bar -->
                 <header class="bg-white shadow-sm border-b border-gray-200">
-                    <div class="flex items-center justify-between px-6 py-4">
-                        <div>
-                            <h1 class="text-2xl font-bold text-gray-900">@yield('page-title', 'Dashboard')</h1>
-                            <p class="text-sm text-gray-600">@yield('page-subtitle', 'Bem-vindo ao sistema')</p>
+                    <div class="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4">
+                        <div class="flex items-center gap-3">
+                            <!-- Hamburger Button (Mobile/Tablet) -->
+                            <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition">
+                                <i class="fas fa-bars text-xl"></i>
+                            </button>
+                            <!-- Desktop sidebar toggle -->
+                            <button @click="sidebarOpen = !sidebarOpen" class="hidden lg:block text-gray-400 hover:text-gray-600 p-1 rounded transition">
+                                <i class="fas" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'"></i>
+                            </button>
+                            <div>
+                                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">@yield('page-title', 'Dashboard')</h1>
+                                <p class="text-xs sm:text-sm text-gray-600 hidden sm:block">@yield('page-subtitle', 'Bem-vindo ao sistema')</p>
+                            </div>
                         </div>
                         
-                        <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2 sm:space-x-4">
                             <!-- Tenant Switcher (Sempre mostra empresa ativa) -->
                             @if(auth()->check() && !auth()->user()->isSuperAdmin())
-                                <livewire:tenant-switcher />
+                                <div class="hidden sm:block">
+                                    <livewire:tenant-switcher />
+                                </div>
                             @endif
                             
                             <!-- Subscription Timer -->
                             @if(auth()->check())
-                                <livewire:subscription-timer />
+                                <div class="hidden md:block">
+                                    <livewire:subscription-timer />
+                                </div>
                             @endif
                             
                             <!-- Easter Egg: Fox Paw in Header (FOX Friendly Only) -->
                             @if($isFoxFriendly ?? false)
-                                <div class="ml-3" 
+                                <div class="ml-3 hidden sm:block" 
                                      x-data="{ showFoxMessage: false }"
                                      @mouseenter="showFoxMessage = true"
                                      @mouseleave="showFoxMessage = false"
@@ -1809,15 +1926,12 @@
                             @if(auth()->check())
                                 <livewire:notifications />
                             @endif
-                            <button class="text-gray-600 hover:text-gray-900">
-                                <i class="fas fa-search text-xl"></i>
-                            </button>
                         </div>
                     </div>
                 </header>
 
                 <!-- Page Content -->
-                <main class="flex-1 overflow-y-auto bg-gray-50 p-6">
+                <main id="app-main" :class="{ 'first-load': firstLoad }" class="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6">
                     {{ $slot ?? '' }}
                     @yield('content')
                 </main>
@@ -1894,36 +2008,98 @@
     
     <!-- Sidebar Scroll Memory -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const sidebarMenu = document.getElementById('sidebar-menu');
+        (function() {
             const scrollKey = 'sidebar-scroll-position';
-            
-            if (!sidebarMenu) return;
-            
-            // Restaurar posição do scroll ao carregar
-            const savedScrollPosition = localStorage.getItem(scrollKey);
-            if (savedScrollPosition !== null) {
-                sidebarMenu.scrollTop = parseInt(savedScrollPosition, 10);
+
+            function initSidebarScroll() {
+                const sidebarMenu = document.getElementById('sidebar-menu');
+                if (!sidebarMenu) return;
+
+                // Restaurar posição do scroll
+                const saved = localStorage.getItem(scrollKey);
+                if (saved !== null) {
+                    sidebarMenu.scrollTop = parseInt(saved, 10);
+                }
+
+                // Salvar posição do scroll (debounced)
+                let scrollTimeout;
+                sidebarMenu.addEventListener('scroll', function() {
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(function() {
+                        localStorage.setItem(scrollKey, sidebarMenu.scrollTop);
+                    }, 100);
+                });
             }
+
+            // On initial page load
+            document.addEventListener('DOMContentLoaded', function() {
+                initSidebarScroll();
+            });
+
+            // After SPA navigation: restore sidebar scroll
+            document.addEventListener('livewire:navigated', function() {
+                initSidebarScroll();
+            });
+        })();
+    </script>
+    
+    <!-- SPA Navigation Progress Bar -->
+    <div id="spa-progress" class="spa-progress" style="width: 0%;"></div>
+    
+    <!-- SPA Navigation (wire:navigate) - Progress Bar & Transition Control -->
+    <script>
+        (function() {
+            const bar = document.getElementById('spa-progress');
+            let progressInterval;
             
-            // Salvar posição do scroll quando rolar
-            let scrollTimeout;
-            sidebarMenu.addEventListener('scroll', function() {
-                // Debounce para não salvar a cada pixel
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(function() {
-                    localStorage.setItem(scrollKey, sidebarMenu.scrollTop);
-                }, 100);
+            // Show progress bar + disable transitions on navigation start
+            document.addEventListener('livewire:navigate:start', () => {
+                // Disable all transitions during morph to prevent visual glitches
+                document.body.classList.add('is-navigating');
+                
+                // Save sidebar scroll position
+                const sidebarMenu = document.getElementById('sidebar-menu');
+                if (sidebarMenu) {
+                    localStorage.setItem('sidebar-scroll-position', sidebarMenu.scrollTop);
+                }
+                
+                // Progress bar
+                bar.classList.remove('done');
+                bar.style.width = '0%';
+                let w = 0;
+                clearInterval(progressInterval);
+                progressInterval = setInterval(() => {
+                    w += (95 - w) * 0.1;
+                    bar.style.width = w + '%';
+                    if (w >= 94) clearInterval(progressInterval);
+                }, 80);
             });
             
-            // Também salvar quando clicar em qualquer link da sidebar
-            const sidebarLinks = sidebarMenu.querySelectorAll('a, button');
-            sidebarLinks.forEach(function(link) {
-                link.addEventListener('click', function() {
-                    localStorage.setItem(scrollKey, sidebarMenu.scrollTop);
+            // Complete progress bar + re-enable transitions after morph
+            document.addEventListener('livewire:navigated', () => {
+                clearInterval(progressInterval);
+                bar.style.width = '100%';
+                bar.classList.add('done');
+                setTimeout(() => { bar.style.width = '0%'; bar.classList.remove('done'); }, 500);
+                
+                // Re-enable transitions after morph completes (next frame)
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        document.body.classList.remove('is-navigating');
+                    });
                 });
             });
-        });
+
+            // Close mobile sidebar on SPA navigation
+            document.addEventListener('livewire:navigate:start', () => {
+                if (window.innerWidth < 768) {
+                    const wrapper = document.querySelector('[x-data]');
+                    if (wrapper && wrapper._x_dataStack) {
+                        wrapper._x_dataStack[0].sidebarOpen = false;
+                    }
+                }
+            });
+        })();
     </script>
     
     <!-- Custom Scripts Stack -->

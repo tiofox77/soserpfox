@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Hotel\Reservation;
 use App\Models\Hotel\Room;
 use App\Models\Hotel\Guest;
+use App\Models\Hotel\ReservationItem;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesInvoiceItem;
 use App\Models\Treasury\PaymentMethod;
@@ -60,7 +61,7 @@ class Checkout extends Component
 
     protected function loadPaymentMethods()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $this->paymentMethods = PaymentMethod::where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->orderBy('name')
@@ -69,7 +70,7 @@ class Checkout extends Component
 
     public function loadReservation($id)
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $this->reservation = Reservation::where('tenant_id', $tenantId)
             ->where('id', $id)
@@ -157,10 +158,25 @@ class Checkout extends Component
             return;
         }
 
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         try {
             DB::beginTransaction();
+
+            // Persistir extras adicionados no modal como ReservationItems
+            foreach ($this->extras as $extra) {
+                ReservationItem::create([
+                    'reservation_id' => $this->reservation->id,
+                    'type' => 'other',
+                    'category' => 'other',
+                    'description' => $extra['description'],
+                    'quantity' => $extra['quantity'],
+                    'unit_price' => $extra['unit_price'],
+                    'date' => now()->toDateString(),
+                    'charged_at' => now(),
+                    'charged_by' => auth()->id(),
+                ]);
+            }
 
             // Atualizar reserva
             $this->reservation->update([
@@ -171,6 +187,11 @@ class Checkout extends Component
                 'paid_amount' => $this->paidAmount + $this->paymentAmount,
                 'payment_status' => ($this->paidAmount + $this->paymentAmount) >= $this->grandTotal ? 'paid' : 'partial',
             ]);
+
+            // Award loyalty points if guest is linked
+            if ($this->reservation->guest_id && $this->reservation->guest) {
+                $this->reservation->guest->awardLoyalty($this->grandTotal);
+            }
 
             // Marcar quarto para limpeza
             if ($this->reservation->room_id) {
@@ -199,7 +220,7 @@ class Checkout extends Component
 
     protected function createInvoice()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         // Criar fatura
         $invoice = SalesInvoice::create([
@@ -252,7 +273,7 @@ class Checkout extends Component
 
     protected function generateInvoiceNumber()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $year = now()->format('Y');
         $count = SalesInvoice::where('tenant_id', $tenantId)
             ->whereYear('created_at', $year)
@@ -272,7 +293,7 @@ class Checkout extends Component
 
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         // Reservas prontas para check-out (checked_in)
         $reservations = Reservation::where('tenant_id', $tenantId)

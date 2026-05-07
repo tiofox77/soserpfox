@@ -21,6 +21,7 @@ class Invoices extends Component
     public $statusFilter = '';
     public $warehouseFilter = '';
     public $dateFrom = '';
+    public $dateTo = '';
     public $perPage = 15;
 
     // Delete Modal
@@ -108,6 +109,16 @@ class Invoices extends Component
     public function deleteInvoice()
     {
         if ($this->invoiceToDelete) {
+            // Verificar bloqueio de eliminação via Software Settings
+            if (isDeleteBlocked('sales_invoice')) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'A eliminação de Faturas está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                ]);
+                $this->showDeleteModal = false;
+                return;
+            }
+
             $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
                 ->findOrFail($this->invoiceToDelete);
 
@@ -137,8 +148,17 @@ class Invoices extends Component
         $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
             ->findOrFail($invoiceId);
 
+        if (in_array($invoice->status, ['paid', 'cancelled'])) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Esta fatura já está ' . ($invoice->status === 'paid' ? 'paga' : 'cancelada') . '.'
+            ]);
+            return;
+        }
+
         try {
             $invoice->status = 'paid';
+            $invoice->paid_amount = $invoice->total;
             $invoice->save();
             
             $this->dispatch('notify', [

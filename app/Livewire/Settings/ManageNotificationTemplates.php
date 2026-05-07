@@ -64,6 +64,11 @@ class ManageNotificationTemplates extends Component
     public $testEmail;
     public $testVariables = [];
     public $detectedChannels = [];
+    public $testTemplateName = '';
+    public $testTemplateModule = '';
+    public $testPreviewSubject = '';
+    public $testPreviewBody = '';
+    public $testPreviewSms = '';
     
     public function mount()
     {
@@ -446,6 +451,8 @@ class ManageNotificationTemplates extends Component
         $this->testPhone = '';
         $this->testEmail = '';
         $this->testVariables = [];
+        $this->testTemplateName = $template->name;
+        $this->testTemplateModule = $template->module;
         
         // Detectar canais habilitados
         $this->detectedChannels = [];
@@ -453,29 +460,234 @@ class ManageNotificationTemplates extends Component
         if ($template->sms_enabled) $this->detectedChannels[] = 'sms';
         if ($template->whatsapp_enabled) $this->detectedChannels[] = 'whatsapp';
         
-        // Inicializar variáveis do template
+        // Detectar TODAS as variáveis do template (de mapeamentos + corpo do email/sms)
+        $allVars = [];
+        
         if ($template->variable_mappings) {
-            foreach (array_keys($template->variable_mappings) as $var) {
-                $this->testVariables[$var] = '';
+            $allVars = array_merge($allVars, array_keys($template->variable_mappings));
+        }
+        
+        // Detectar variáveis no corpo do SMS
+        if ($template->sms_body) {
+            preg_match_all('/\{\{\s*(\w+)\s*\}\}/', $template->sms_body, $matches);
+            $allVars = array_merge($allVars, $matches[1] ?? []);
+        }
+        
+        // Detectar variáveis no email
+        if ($template->email_subject) {
+            preg_match_all('/\{\{\s*(\w+)\s*\}\}/', $template->email_subject, $matches);
+            $allVars = array_merge($allVars, $matches[1] ?? []);
+        }
+        if ($template->email_body) {
+            preg_match_all('/\{\{\s*(\w+)\s*\}\}/', $template->email_body, $matches);
+            $allVars = array_merge($allVars, $matches[1] ?? []);
+        }
+        
+        // Inicializar variáveis vazias (sem duplicatas)
+        foreach (array_unique($allVars) as $var) {
+            $this->testVariables[$var] = '';
+        }
+        
+        // Auto preencher com dados demo
+        $this->fillDemoData($template->module);
+        
+        // Pre-fill email from settings
+        if (in_array('email', $this->detectedChannels)) {
+            $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
+            $settings = TenantNotificationSetting::getForTenant($tenantId);
+            if ($settings && $settings->from_email) {
+                $this->testEmail = $settings->from_email;
             }
         }
         
+        $this->updateTestPreview();
         $this->showTestModal = true;
+    }
+    
+    /**
+     * Dados demo realistas por módulo
+     */
+    public static function getDemoData(string $module): array
+    {
+        $demoData = [
+            'events' => [
+                'event' => 'Conferência de Tecnologia 2026',
+                'date' => now()->addDays(7)->format('d/m/Y'),
+                'end_date' => now()->addDays(7)->format('d/m/Y'),
+                'local' => 'Hotel Épic Sana, Luanda',
+                'cliente' => 'João Silva',
+                'responsavel' => 'Maria Santos',
+                'tipo' => 'Conferência',
+                'participantes' => '150',
+                'valor' => '1.500.000,00 Kz',
+                'status' => 'Confirmado',
+                'fase' => 'Preparação',
+            ],
+            'hr' => [
+                'funcionario' => 'Carlos Mendes',
+                'cargo' => 'Desenvolvedor Sénior',
+                'departamento' => 'Tecnologia da Informação',
+                'data_admissao' => now()->format('d/m/Y'),
+                'salario' => '350.000,00 Kz',
+                'email' => 'carlos.mendes@empresa.vip',
+                'telefone' => '+244 939 729 902',
+                'licenca_inicio' => now()->addDays(14)->format('d/m/Y'),
+                'licenca_fim' => now()->addDays(28)->format('d/m/Y'),
+                'tipo_licenca' => 'Férias Anuais',
+            ],
+            'calendar' => [
+                'titulo' => 'Reunião de Planeamento Q1',
+                'data_inicio' => now()->addDays(3)->format('d/m/Y H:i'),
+                'data_fim' => now()->addDays(3)->addHours(2)->format('d/m/Y H:i'),
+                'descricao' => 'Revisão dos objectivos trimestrais',
+                'local' => 'Sala de Reuniões 3A',
+                'organizador' => 'Ana Ferreira',
+            ],
+            'finance' => [
+                'documento' => 'FT 2026/000123',
+                'cliente' => 'Empresa ABC, Lda.',
+                'valor' => '2.450.000,00 Kz',
+                'data_emissao' => now()->format('d/m/Y'),
+                'data_vencimento' => now()->addDays(30)->format('d/m/Y'),
+                'status' => 'Pendente',
+                'descricao' => 'Serviços de consultoria TI',
+                'metodo_pagamento' => 'Transferência Bancária',
+            ],
+            'crm' => [
+                'cliente' => 'Pedro Neto',
+                'empresa' => 'TechAngola, SA',
+                'email' => 'pedro.neto@techangola.vip',
+                'telefone' => '+244 942 705 533',
+                'responsavel' => 'Sofia Rodrigues',
+                'status' => 'Em Negociação',
+                'oportunidade' => '5.000.000,00 Kz',
+                'proxima_acao' => 'Enviar proposta comercial',
+            ],
+            'projects' => [
+                'projeto' => 'Implementação ERP v3.0',
+                'cliente' => 'Grupo Sonangol',
+                'gerente' => 'António Costa',
+                'data_inicio' => now()->format('d/m/Y'),
+                'data_fim' => now()->addMonths(6)->format('d/m/Y'),
+                'orcamento' => '15.000.000,00 Kz',
+                'status' => 'Em Andamento',
+                'progresso' => '35%',
+            ],
+            'tasks' => [
+                'tarefa' => 'Configurar módulo de notificações',
+                'descricao' => 'Implementar envio automático de emails e SMS',
+                'responsavel' => 'Ricardo Almeida',
+                'data_vencimento' => now()->addDays(5)->format('d/m/Y'),
+                'prioridade' => 'Alta',
+                'status' => 'Em Progresso',
+                'projeto' => 'Implementação ERP v3.0',
+            ],
+        ];
+        
+        return $demoData[$module] ?? [];
+    }
+    
+    /**
+     * Preencher variáveis de teste com dados demo
+     */
+    public function fillDemoData(?string $module = null)
+    {
+        $module = $module ?? $this->testTemplateModule;
+        $demo = self::getDemoData($module);
+        
+        foreach ($this->testVariables as $var => $value) {
+            if (isset($demo[$var])) {
+                $this->testVariables[$var] = $demo[$var];
+            }
+        }
+        
+        $this->updateTestPreview();
+    }
+    
+    /**
+     * Limpar dados demo das variáveis
+     */
+    public function clearDemoData()
+    {
+        foreach ($this->testVariables as $var => $value) {
+            $this->testVariables[$var] = '';
+        }
+        $this->testPreviewSubject = '';
+        $this->testPreviewBody = '';
+        $this->testPreviewSms = '';
+    }
+    
+    /**
+     * Atualizar preview do template com variáveis atuais
+     */
+    public function updateTestPreview()
+    {
+        if (!$this->testTemplateId) return;
+        
+        try {
+            $template = NotificationTemplate::find($this->testTemplateId);
+            if (!$template) return;
+            
+            // Preview Email
+            if ($template->email_subject) {
+                $subject = $template->email_subject;
+                foreach ($this->testVariables as $key => $value) {
+                    $val = $value ?: '[' . $key . ']';
+                    $subject = str_replace('{{' . $key . '}}', $val, $subject);
+                    $subject = str_replace('{{ ' . $key . ' }}', $val, $subject);
+                }
+                $this->testPreviewSubject = $subject;
+            }
+            
+            if ($template->email_body) {
+                $body = $template->email_body;
+                foreach ($this->testVariables as $key => $value) {
+                    $val = $value ?: '[' . $key . ']';
+                    $body = str_replace('{{' . $key . '}}', $val, $body);
+                    $body = str_replace('{{ ' . $key . ' }}', $val, $body);
+                }
+                $this->testPreviewBody = $body;
+            }
+            
+            // Preview SMS
+            if ($template->sms_body) {
+                $sms = $template->sms_body;
+                foreach ($this->testVariables as $key => $value) {
+                    $val = $value ?: '[' . $key . ']';
+                    $sms = str_replace('{{' . $key . '}}', $val, $sms);
+                    $sms = str_replace('{{ ' . $key . ' }}', $val, $sms);
+                }
+                $this->testPreviewSms = $sms;
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Preview update failed: ' . $e->getMessage());
+        }
+    }
+    
+    public function updatedTestVariables()
+    {
+        $this->updateTestPreview();
     }
     
     public function sendTest()
     {
+        \Log::info('🚀 sendTest() INICIADO', [
+            'testTemplateId' => $this->testTemplateId,
+            'testEmail' => $this->testEmail,
+            'testPhone' => $this->testPhone,
+            'detectedChannels' => $this->detectedChannels,
+            'testVariables' => $this->testVariables,
+        ]);
+        
         $template = NotificationTemplate::findOrFail($this->testTemplateId);
         $settings = TenantNotificationSetting::getForTenant($template->tenant_id);
         $sentChannels = [];
         $errors = [];
         
         try {
-            // ===== CONFIGURAR SMTP DO TENANT (módulo notificação) =====
-            $tenantNotificationSettings = TenantNotificationSetting::getForTenant($template->tenant_id);
-            
-            if ($tenantNotificationSettings && $tenantNotificationSettings->email_enabled) {
-                $tenantNotificationSettings->configureSMTP();
+            // ===== CONFIGURAR SMTP DO TENANT =====
+            if ($settings && $settings->email_enabled) {
+                $settings->configureSMTP();
                 \Log::info('✅ SMTP do tenant configurado para teste');
             } else {
                 \Log::warning('⚠️ Configuração SMTP do tenant não encontrada ou email não habilitado');
@@ -486,35 +698,67 @@ class ManageNotificationTemplates extends Component
                 $this->validate(['testEmail' => 'required|email']);
                 
                 try {
-                    // Substituir variáveis no email
                     $subject = $template->email_subject ?? 'Teste de Template';
                     $body = $template->email_body ?? 'Corpo do email de teste';
                     
+                    \Log::info('📝 Template antes de substituir', ['subject' => $subject, 'body_length' => strlen($body)]);
+                    
+                    // Substituir variáveis (todos os formatos: {{var}}, {{ var }}, {{  var  }})
                     foreach ($this->testVariables as $key => $value) {
-                        $subject = str_replace('{{' . $key . '}}', $value, $subject);
-                        $body = str_replace('{{' . $key . '}}', $value, $body);
+                        $pattern = '/\{\{\s*' . preg_quote($key, '/') . '\s*\}\}/';
+                        $subject = preg_replace($pattern, $value, $subject);
+                        $body = preg_replace($pattern, $value, $body);
                     }
                     
-                    // Adicionar marcação de teste
                     $subject = '[TESTE] ' . $subject;
                     
-                    // Capturar variáveis para usar na closure
+                    \Log::info('📝 Template após substituir', ['subject' => $subject, 'body_preview' => mb_substr($body, 0, 100)]);
+                    
+                    // Construir HTML bonito
+                    $fromName = config('mail.from.name', 'SOSERP');
+                    try {
+                        $bodyHtml = $this->buildHtmlEmail($subject, $body, $fromName);
+                    } catch (\Exception $htmlEx) {
+                        \Log::warning('⚠️ buildHtmlEmail falhou, usando body simples', ['error' => $htmlEx->getMessage()]);
+                        $bodyHtml = '<html><body style="font-family:Arial,sans-serif;padding:20px;">'
+                            . '<div style="background:#fef3c7;padding:10px;border-radius:8px;margin-bottom:20px;color:#92400e;font-weight:bold;">⚠️ EMAIL DE TESTE</div>'
+                            . '<div style="line-height:1.7;">' . nl2br(e($body)) . '</div>'
+                            . '<hr style="margin-top:30px;border:none;border-top:1px solid #e5e7eb;">'
+                            . '<p style="color:#9ca3af;font-size:12px;">Enviado por ' . e($fromName) . '</p>'
+                            . '</body></html>';
+                    }
+                    
                     $testEmail = $this->testEmail;
                     
-                    // Usar mesmo método do convite: Mail::send()
-                    \Illuminate\Support\Facades\Mail::send([], [], function($message) use ($testEmail, $subject, $body) {
+                    \Log::info('📧 Preparando envio de email', [
+                        'to' => $testEmail,
+                        'subject' => $subject,
+                        'html_length' => strlen($bodyHtml),
+                        'from_config' => config('mail.from.address'),
+                    ]);
+                    
+                    \Illuminate\Support\Facades\Mail::send([], [], function($message) use ($testEmail, $subject, $bodyHtml) {
                         $message->to($testEmail)
                                 ->subject($subject)
-                                ->html($body);
+                                ->html($bodyHtml);
                     });
                     
-                    \Log::info('📧 Email de teste enviado', ['to' => $testEmail, 'subject' => $subject]);
+                    \Log::info('📧 Email de teste enviado COM SUCESSO', ['to' => $testEmail, 'subject' => $subject]);
                     
                     $sentChannels[] = '📧 Email';
                 } catch (\Exception $e) {
                     $errors[] = 'Email: ' . $e->getMessage();
-                    \Log::error('❌ Erro ao enviar email de teste', ['error' => $e->getMessage()]);
+                    \Log::error('❌ Erro ao enviar email de teste', [
+                        'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]);
                 }
+            } else {
+                \Log::warning('⚠️ Email não enviado', [
+                    'email_enabled' => $template->email_enabled,
+                    'testEmail' => $this->testEmail,
+                ]);
             }
             
             // ===== ENVIAR POR SMS =====
@@ -527,10 +771,10 @@ class ManageNotificationTemplates extends Component
                     if (!PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
                         $errors[] = 'SMS: Número inválido';
                     } else {
-                        // Substituir variáveis no SMS
                         $smsBody = $template->sms_body;
                         foreach ($this->testVariables as $key => $value) {
-                            $smsBody = str_replace('{{' . $key . '}}', $value, $smsBody);
+                            $pattern = '/\{\{\s*' . preg_quote($key, '/') . '\s*\}\}/';
+                            $smsBody = preg_replace($pattern, $value, $smsBody);
                         }
                         
                         // TODO: Implementar envio SMS via provider (Twilio, etc)
@@ -606,6 +850,95 @@ class ManageNotificationTemplates extends Component
     public function closeTestModal()
     {
         $this->showTestModal = false;
+    }
+    
+    /**
+     * Construir HTML bonito para email de teste
+     */
+    protected function buildHtmlEmail(string $subject, string $body, string $fromName): string
+    {
+        $appName = e($fromName);
+        $year = date('Y');
+        $date = now()->format('d/m/Y H:i');
+        
+        // Converter quebras de linha em <br> e preservar parágrafos
+        $bodyHtml = nl2br(e($body));
+        
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{$subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f3f4f6;padding:30px 0;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);padding:30px 40px;border-radius:16px 16px 0 0;text-align:center;">
+                            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px 0;letter-spacing:-0.5px;">{$appName}</h1>
+                            <p style="color:rgba(255,255,255,0.8);font-size:12px;margin:0;letter-spacing:0.5px;">NOTIFICAÇÃO DO SISTEMA</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Test Badge -->
+                    <tr>
+                        <td style="background-color:#fef3c7;padding:12px 40px;border-bottom:1px solid #fcd34d;">
+                            <p style="margin:0;font-size:13px;color:#92400e;font-weight:600;text-align:center;">
+                                ⚠️ Esta é uma mensagem de TESTE — enviada a partir do painel de templates
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Body -->
+                    <tr>
+                        <td style="background-color:#ffffff;padding:35px 40px;">
+                            <div style="font-size:15px;line-height:1.7;color:#374151;">
+                                {$bodyHtml}
+                            </div>
+                        </td>
+                    </tr>
+                    
+                    <!-- Divider -->
+                    <tr>
+                        <td style="background-color:#ffffff;padding:0 40px;">
+                            <hr style="border:none;border-top:1px solid #e5e7eb;margin:0;">
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color:#ffffff;padding:25px 40px;border-radius:0 0 16px 16px;">
+                            <p style="margin:0 0 8px 0;font-size:12px;color:#9ca3af;text-align:center;">
+                                Enviado por <strong style="color:#6366f1;">{$appName}</strong> em {$date}
+                            </p>
+                            <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">
+                                &copy; {$year} {$appName}. Todos os direitos reservados.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Spacer -->
+                    <tr>
+                        <td style="padding:20px;text-align:center;">
+                            <p style="margin:0;font-size:11px;color:#9ca3af;">
+                                Este email foi enviado automaticamente. Por favor, não responda directamente.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
     }
     
     public function render()

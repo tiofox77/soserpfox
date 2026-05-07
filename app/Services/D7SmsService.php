@@ -44,12 +44,11 @@ class D7SmsService
                         'recipients' => [$to],
                         'content' => $message,
                         'msg_type' => 'text',
-                        'data_coding' => 'text',
+                        'data_coding' => 'auto',
                     ]
                 ],
                 'message_globals' => [
                     'originator' => $this->senderId ?? 'SofteAngola',
-                    'report_url' => null,
                 ]
             ]);
             

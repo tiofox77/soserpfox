@@ -1,0 +1,259 @@
+{
+    "schemaVersion": "1.2",
+    "submissionUUID": "ee0a2af1-f74b-4ee2-8130-1a6cebe20a52",
+    "taxRegistrationNumber": "5001363476",
+    "submissionTimeStamp": "2026-05-07T14:20:23Z",
+    "softwareInfo": {
+        "softwareInfoDetail": {
+            "productId": "SOS ERP - SOLUÇÕES EMPRESARIAIS",
+            "productVersion": "1.0",
+            "softwareValidationNumber": "C_PENDING"
+        },
+        "jwsSoftwareSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJwcm9kdWN0SWQiOiJTT1MgRVJQIC0gU09MVcOHw5VFUyBFTVBSRVNBUklBSVMiLCJwcm9kdWN0VmVyc2lvbiI6IjEuMCIsInNvZnR3YXJlVmFsaWRhdGlvbk51bWJlciI6IkNfUEVORElORyJ9.ZMYwVyJG4L9le8BHK2qTBzXQ1VWIp2ZMQh5XFfotCdCBYbpxbH6vQHw48V0FK5pYTLiJRGmGrLGCtHe-mnyqjWXYnoiuFoOBpPXZOY2ApmpM_MgvhUufxdCdQt1A34MA8Th6B9nvK4MXMnbRbDpqdOP0xaPg59T-5MZnDTs0tJ4LWic7-rxxybbUpxVZalASlZSWxRA_XdP_ayOA5BndsJkZG4SEuAv-AoV5tHn6N3ii3mslUFySvBGpnyVPcuNGpFYb1X9O38jpcqDfX6bOwrvzRqDgUyRO8dpbIGUzBL95DnsjdtUuvgSIZOejKz3aHShgRy9Scrg-zZ3fDTW3gA"
+    },
+    "numberOfEntries": 5,
+    "documents": [
+        {
+            "documentNo": "NC 2026/000001",
+            "documentStatus": "N",
+            "documentDate": "2026-05-07",
+            "documentType": "NC",
+            "eacCode": "62010",
+            "systemEntryDate": "2026-05-07T14:20:23Z",
+            "customerTaxID": "5000815462",
+            "customerCountry": "AO",
+            "companyName": "GUR DISTRIBUIÇÃO, LDA",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "SRV001",
+                    "productDescription": "Serviço de consultoria informática",
+                    "quantity": 1,
+                    "unitOfMeasure": "UN",
+                    "unitPriceBase": 100000,
+                    "unitPrice": 100000,
+                    "referenceInfo": {
+                        "reference": "FT 2026/000001",
+                        "referenceItemLineNo": 1,
+                        "reason": "Devolução parcial / correcção de valor"
+                    },
+                    "debitAmount": 100000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxPercentage": 14,
+                            "taxContribution": 14000
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 14000,
+                "netTotal": 100000,
+                "grossTotal": 114000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiTkMgMjAyNi8wMDAwMDEiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA1LTA3IiwiY3VzdG9tZXJUYXhJRCI6IjUwMDA4MTU0NjIiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiR1VSIERJU1RSSUJVScOHw4NPLCBMREEifQ.kDzVwtoItiW7xWdcT6o53SwxvQQkbMALiAbK2pA3f-nkMrsVCbKEibLV5AyVtBY5DyzI4ztGrgFiV-nOpLs5b5Uc3-hH9Uay3WzF-WvXRroBCbBCQLvaGccMJIxNNnkzev4Eui69Qiqg7MCk23a-ils5LhukbIF8R4OVjo_vgIS8nEq9OWjgUN7h_3eeXzFYauMINbvowpmm8I-IAW6Yd-Uc8yOaiwiASAQygeXaqm3n-0FXRb8wBf_xzPQvQTI0AUUznaG0n5Np8Cq_qJuxJd7qAITtJDh9TCkZ3O1JlKmii3k8NWC586AWWn2VLoLcCtY4uNUM8Cz3mRzX-0KLxg"
+        },
+        {
+            "documentNo": "NC 2026/000002",
+            "documentStatus": "N",
+            "documentDate": "2026-05-07",
+            "documentType": "NC",
+            "eacCode": "46900",
+            "systemEntryDate": "2026-05-07T14:35:23Z",
+            "customerTaxID": "5000815462",
+            "customerCountry": "AO",
+            "companyName": "GUR DISTRIBUIÇÃO, LDA",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "PRD002",
+                    "productDescription": "Equipamento eléctrico (regime Cabinda)",
+                    "quantity": 2,
+                    "unitOfMeasure": "UN",
+                    "unitPriceBase": 50000,
+                    "unitPrice": 50000,
+                    "referenceInfo": {
+                        "reference": "FT 2026/000002",
+                        "referenceItemLineNo": 1,
+                        "reason": "Devolução parcial / correcção de valor"
+                    },
+                    "debitAmount": 100000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO-CAB",
+                            "taxCode": "RED",
+                            "taxPercentage": 1,
+                            "taxContribution": 1000
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 1000,
+                "netTotal": 100000,
+                "grossTotal": 101000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiTkMgMjAyNi8wMDAwMDIiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA1LTA3IiwiY3VzdG9tZXJUYXhJRCI6IjUwMDA4MTU0NjIiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiR1VSIERJU1RSSUJVScOHw4NPLCBMREEifQ.PzX92NBvO6kDWX1kH5nU_rLCpBVowv5U-5oGNJRcWjglgz8v_6CQTihUe4EW9Ey-vy2UQ8dS9gh-ALmEbIk-_AIQSnFf3TRO3Sq5OG33Mm7Ymk8ilKoitZsm1A6GkdDPgBZnD-TGL_61NA1z3Pz0VNrG9zCO-TY4qjLd_pij-aFY3RMZJr-qqFWCLCXtPuhHT5NekzfqrElqn_V-37vwkRnDNx3Ph4hdieNJmABluLr5CRrAx8fViHM92nRezBo-HFSrOSP692tMJ4u5gE85Uka4OUX-izPwEem2O_AehZHy1HUQXWQRXLBarte6OMXe38RQXvksgSdoD7nktbIvww"
+        },
+        {
+            "documentNo": "NC 2026/000003",
+            "documentStatus": "N",
+            "documentDate": "2026-05-07",
+            "documentType": "NC",
+            "eacCode": "47190",
+            "systemEntryDate": "2026-05-07T14:50:23Z",
+            "customerTaxID": "5000815462",
+            "customerCountry": "AO",
+            "companyName": "GUR DISTRIBUIÇÃO, LDA",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "PRD003",
+                    "productDescription": "Bebida alcoólica (com IEC)",
+                    "quantity": 10,
+                    "unitOfMeasure": "UN",
+                    "unitPriceBase": 5000,
+                    "unitPrice": 5000,
+                    "referenceInfo": {
+                        "reference": "FT 2026/000003",
+                        "referenceItemLineNo": 1,
+                        "reason": "Devolução parcial / correcção de valor"
+                    },
+                    "debitAmount": 50000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxPercentage": 14,
+                            "taxContribution": 8400
+                        },
+                        {
+                            "taxType": "IEC",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxPercentage": 20,
+                            "taxContribution": 10000
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 18400,
+                "netTotal": 50000,
+                "grossTotal": 68400
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiTkMgMjAyNi8wMDAwMDMiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA1LTA3IiwiY3VzdG9tZXJUYXhJRCI6IjUwMDA4MTU0NjIiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiR1VSIERJU1RSSUJVScOHw4NPLCBMREEifQ.KAdUkbyCDyY1M6cyaXs8YkJbMpTu5bEW1wJvxPh0uDLDskVbMo-uIGVtUyeo878R4F9HCFmvXSg1u20M5XWBTDuwd6kEuwIOLNAW-S03ju_v8JYKb1Tjeu-tHUxJ9uvDiY8HGr8hcHSe8vnNLuDCU-4c_RNVDw088Pps5NHYePBdVbQWz1GtaAe61bRheM-_B8V8pZKuzEIYHkWf0jlqaJ5K_BpmxvtmwzV8D3EH2eWZupUqvFP4IHTSzYrZKveMSf-EeKEYlmoLtr5Kmari7OCfDksN8Ps5trDkQHRZ5LssONfgyXQxkfNXMoS589pDJXeRMsYqHKEBod5rUJtbqw"
+        },
+        {
+            "documentNo": "NC 2026/000004",
+            "documentStatus": "N",
+            "documentDate": "2026-05-07",
+            "documentType": "NC",
+            "eacCode": "62010",
+            "systemEntryDate": "2026-05-07T15:05:23Z",
+            "customerTaxID": "999999999",
+            "customerCountry": "PT",
+            "companyName": "Foreign Client Ltd",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "SRV004",
+                    "productDescription": "Exportação de serviços (isento IVA)",
+                    "quantity": 1,
+                    "unitOfMeasure": "UN",
+                    "unitPriceBase": 200000,
+                    "unitPrice": 200000,
+                    "referenceInfo": {
+                        "reference": "FT 2026/000004",
+                        "referenceItemLineNo": 1,
+                        "reason": "Devolução parcial / correcção de valor"
+                    },
+                    "debitAmount": 200000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "ISE",
+                            "taxPercentage": 0,
+                            "taxContribution": 0,
+                            "taxExemptionCode": "M30",
+                            "taxExemptionReason": "Exportação de serviços - Art. 12º CIVA"
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 0,
+                "netTotal": 200000,
+                "grossTotal": 200000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiTkMgMjAyNi8wMDAwMDQiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA1LTA3IiwiY3VzdG9tZXJUYXhJRCI6Ijk5OTk5OTk5OSIsImN1c3RvbWVyQ291bnRyeSI6IlBUIiwiY29tcGFueU5hbWUiOiJGb3JlaWduIENsaWVudCBMdGQifQ.AYev_eixZLRsGq4OuiMrIoqT9mP4tvkH-Ah5VnnnoZnFv7Q8n0we4p5GlqQtB0LyyngreJc4Aj5hdINqLO_zrClu53G4t7zXGvcKexIZ9RM_O5UarogoqhcNlpD83xK-RRbssuePcafCt9GupFiDR2sxedPFBH5QBWUreE7AhYgqOLCFvs1roYA6IdCazPfbnVnd0lgAA0TIx_cTjS66VEXJQDOJt36lyXmKL-DaQ17FutaKeeODF44xapKr6wVXtC6JXGJErw-ksIiUoyOMJSoSpS_ukErygzMUnEYfaqqcAqGLXOyGz6tSWIYWDff65m3a8nemYb-fHijcT6NDSQ"
+        },
+        {
+            "documentNo": "NC 2026/000005",
+            "documentStatus": "N",
+            "documentDate": "2026-05-07",
+            "documentType": "NC",
+            "eacCode": "62010",
+            "systemEntryDate": "2026-05-07T15:20:23Z",
+            "customerTaxID": "5000815462",
+            "customerCountry": "AO",
+            "companyName": "GUR DISTRIBUIÇÃO, LDA",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "SRV005",
+                    "productDescription": "Serviço técnico (sujeito a retenção IRT)",
+                    "quantity": 1,
+                    "unitOfMeasure": "UN",
+                    "unitPriceBase": 500000,
+                    "unitPrice": 500000,
+                    "referenceInfo": {
+                        "reference": "FT 2026/000005",
+                        "referenceItemLineNo": 1,
+                        "reason": "Devolução parcial / correcção de valor"
+                    },
+                    "debitAmount": 500000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxPercentage": 14,
+                            "taxContribution": 70000
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 70000,
+                "netTotal": 500000,
+                "grossTotal": 570000
+            },
+            "withholdingTaxList": [
+                {
+                    "withholdingTaxType": "IRT",
+                    "withholdingTaxDescription": "Imposto sobre o Rendimento do Trabalho - Prestação de serviços",
+                    "withholdingTaxAmount": 32500
+                }
+            ],
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiTkMgMjAyNi8wMDAwMDUiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA1LTA3IiwiY3VzdG9tZXJUYXhJRCI6IjUwMDA4MTU0NjIiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiR1VSIERJU1RSSUJVScOHw4NPLCBMREEifQ.BcuHSUWkWGqQdRxhYv4Kftg_YBNihFX1RcCoWEC_Yve1xoND0Dj-O2w0TDYaODDiUlf3_ZwOzSq8JzJ7FQ8RfmeT_ssW6cJfwcfjB8Yp-ByxiIsvaQXYtVkmH6FQ2gBXVrO5YsBDsMvRN3Go5iAyTBbCVKofGwdvVBZYcTSIVmxoNjqiAI0rvl5TfbjGM25kSjliNhZWiQ04NfzKXIz0K-U6u3RRDtXGVcKlN0dTG2ceGtPDLQfGtOjNnoDvvxhbhnBGpmft5QjarRo1kzOGuQMpRsXuACOfrxyjo5EwSZS_CcCL7eWyEQWHCaSK3bgOrbA7ox-usFtBS1Dd5HKoYw"
+        }
+    ],
+    "jwsSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwibnVtYmVyT2ZFbnRyaWVzIjoiNSIsInN1Ym1pc3Npb25UaW1lU3RhbXAiOiIyMDI2LTA1LTA3VDE0OjIwOjIzWiJ9.nf6xafU_jqhvwGtFLquTSttqFkWnRH3XqGpXOvtlsJAYx69z5oW2DKp38CFhOp35MKCVWAcAKmQw5aDhtJpQPCYxRgBWt6Sm8m0rpMy4LOd2vJya55aVAw-9ZT5MzqWDmeB_pvzd7oX0z083G4E9-lw7v0OPldxYSvDCQSFL-9FO6QtJA7CKtu4xbx2aZhqXvsAHtUFXaIbhUJ02l1q3OP7PkR6-UEDgB7_ork8dnS4184Pqn1hGcyvxTNKbz0PN4Qk9epK1whAqBhIhuKySDAniKTOczd2cxdNl-he7eeN0kUM_oesaKCZ1EMLn9iapp7xEY8zULovXCmaL3rsu_A"
+}

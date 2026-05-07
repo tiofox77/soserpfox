@@ -426,10 +426,16 @@ class SystemCommands extends Component
             // Construir parâmetros
             $params = $this->buildCommandParams($commandKey, $commandConfig);
             
-            // Capturar output
-            Artisan::call($commandName, $params, $this->getOutputBuffer());
+            // Forçar --force em comandos executados via web (sem terminal interactivo)
+            if (isset($commandConfig['params']['force']) && !isset($params['--force'])) {
+                $params['--force'] = true;
+            }
             
-            $output = Artisan::output();
+            // Capturar output (usar buffer directo para não perder output de sub-comandos)
+            $buffer = $this->getOutputBuffer();
+            Artisan::call($commandName, $params, $buffer);
+            
+            $output = $buffer->fetch();
             
             if ($output) {
                 $this->addOutput($output, 'success');
@@ -502,7 +508,7 @@ class SystemCommands extends Component
             default => 'text-gray-700',
         };
         
-        $this->output .= "<div class='{$color}'>" . htmlspecialchars($text) . "</div>";
+        $this->output .= "<div class='{$color}'>" . htmlspecialchars($text ?? '') . "</div>";
     }
 
     /**
@@ -518,28 +524,32 @@ class SystemCommands extends Component
      */
     private function saveToHistory($commandKey, $commandName, $success, $output)
     {
-        $historyFile = storage_path('logs/command_history.json');
-        
-        $history = [];
-        if (File::exists($historyFile)) {
-            $history = json_decode(File::get($historyFile), true) ?? [];
+        try {
+            $historyFile = storage_path('logs/command_history.json');
+            
+            $history = [];
+            if (File::exists($historyFile)) {
+                $history = json_decode(File::get($historyFile), true) ?? [];
+            }
+            
+            $history[] = [
+                'command_key' => $commandKey,
+                'command_name' => $commandName,
+                'success' => $success,
+                'output' => substr($output ?? '', 0, 1000),
+                'executed_by' => auth()->user()?->name ?? 'Sistema',
+                'executed_at' => now()->toDateTimeString(),
+            ];
+            
+            // Manter apenas últimas 50 execuções
+            $history = array_slice($history, -50);
+            
+            File::put($historyFile, json_encode($history, JSON_PRETTY_PRINT));
+            
+            $this->loadExecutionHistory();
+        } catch (\Exception $e) {
+            \Log::warning('Falha ao salvar histórico de comandos: ' . $e->getMessage());
         }
-        
-        $history[] = [
-            'command_key' => $commandKey,
-            'command_name' => $commandName,
-            'success' => $success,
-            'output' => substr($output, 0, 1000), // Limitar tamanho
-            'executed_by' => auth()->user()->name,
-            'executed_at' => now()->toDateTimeString(),
-        ];
-        
-        // Manter apenas últimas 50 execuções
-        $history = array_slice($history, -50);
-        
-        File::put($historyFile, json_encode($history, JSON_PRETTY_PRINT));
-        
-        $this->loadExecutionHistory();
     }
 
     /**

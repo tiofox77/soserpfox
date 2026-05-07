@@ -585,7 +585,11 @@ class InvoiceCreate extends Component
             $invoice->warehouse_id = $this->warehouse_id;
             $invoice->invoice_date = $this->invoice_date;
             $invoice->due_date = $this->due_date;
-            $invoice->status = $status;
+            // Para novos: salvar como draft primeiro (items ainda não existem)
+            // Para edições: manter status original para evitar re-criar stock
+            if (!$this->isEdit) {
+                $invoice->status = 'draft';
+            }
             $invoice->is_service = $this->is_service;
             $invoice->discount_amount = $this->discount_amount;
             $invoice->discount_commercial = $this->discount_commercial;
@@ -646,9 +650,15 @@ class InvoiceCreate extends Component
             $invoice->tax_amount = $invoice_tax_amount;
             $invoice->irt_amount = $irt_amount;
             $invoice->total = $total_final;
+            
+            // Campos SAFT-AO obrigatórios (Decreto 71/25)
+            $invoice->net_total = $invoice_subtotal - $desconto_comercial_total - ($invoice->discount_financial ?? 0);
+            $invoice->tax_payable = $invoice_tax_amount;
+            $invoice->gross_total = $invoice->net_total + $invoice_tax_amount;
+            $invoice->system_entry_date = $invoice->system_entry_date ?? now();
             $invoice->save();
             
-            // Gerar HASH SAFT-AO conforme regulamento Angola
+            // Gerar HASH SAFT-AO conforme regulamento Angola (usar gross_total)
             $previousProforma = PurchaseInvoice::where('tenant_id', activeTenantId())
                 ->where('id', '<', $invoice->id)
                 ->whereNotNull('saft_hash')
@@ -657,16 +667,23 @@ class InvoiceCreate extends Component
             
             $hash = \App\Helpers\SAFTHelper::generateHash(
                 $invoice->invoice_date->format('Y-m-d'),
-                $invoice->created_at->format('Y-m-d H:i:s'),
+                ($invoice->system_entry_date ?? $invoice->created_at)->format('Y-m-d H:i:s'),
                 $invoice->invoice_number,
-                $invoice->total,
+                $invoice->gross_total,
                 $previousProforma->saft_hash ?? null
             );
             
             if ($hash) {
                 $invoice->saft_hash = $hash;
-                $invoice->save();
+                $invoice->hash = $hash;
+                $invoice->hash_previous = $previousProforma->saft_hash ?? '';
+                $invoice->hash_control = '1';
             }
+            
+            // Definir status final AGORA (items e totais já existem)
+            // O observer vai detectar a mudança draft→$status e criar stock + lotes
+            $invoice->status = $status;
+            $invoice->save();
             
             DB::commit();
 

@@ -99,7 +99,11 @@ class SAFTHelper
                 return false;
             }
             
-            $dataToVerify = $documentData . ';' . $previousHash;
+            // Reconstruir dados exactamente como em generateHash()
+            $dataToVerify = $documentData;
+            if (!empty($previousHash)) {
+                $dataToVerify .= ';' . $previousHash;
+            }
             $signatureDecoded = base64_decode($signature);
             
             $result = openssl_verify($dataToVerify, $signatureDecoded, $pubkeyid, OPENSSL_ALGO_SHA256);

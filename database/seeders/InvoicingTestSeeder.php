@@ -18,7 +18,7 @@ class InvoicingTestSeeder extends Seeder
             ['slug' => 'empresa-faturacao-test'],
             [
                 'name' => 'Empresa Teste Faturação Angola',
-                'email' => 'faturacao@empresaangola.ao',
+                'email' => 'faturacao@empresaangola.vip',
                 'company_name' => 'Empresa Faturação Angola Lda',
                 'nif' => '5000000001',
                 'phone' => '+244 923 456 789',
@@ -30,7 +30,7 @@ class InvoicingTestSeeder extends Seeder
 
         // 2. Criar ou atualizar usuário admin vinculado ao tenant
         $user = User::updateOrCreate(
-            ['email' => 'admin@faturacao.ao'],
+            ['email' => 'admin@faturacao.vip'],
             [
                 'name' => 'Admin Faturação',
                 'password' => Hash::make('password'),
@@ -49,7 +49,7 @@ class InvoicingTestSeeder extends Seeder
         
         // Criar usuário adicional
         $user2 = User::updateOrCreate(
-            ['email' => 'user@faturacao.ao'],
+            ['email' => 'user@faturacao.vip'],
             [
                 'name' => 'Utilizador Faturação',
                 'password' => Hash::make('password'),
@@ -66,9 +66,9 @@ class InvoicingTestSeeder extends Seeder
             ]);
         }
 
-        // Criar usuário faturacao@empresaangola.ao
+        // Criar usuário faturacao@empresaangola.vip
         $user3 = User::updateOrCreate(
-            ['email' => 'faturacao@empresaangola.ao'],
+            ['email' => 'faturacao@empresaangola.vip'],
             [
                 'name' => 'Faturação Angola',
                 'password' => Hash::make('password'),
@@ -86,8 +86,8 @@ class InvoicingTestSeeder extends Seeder
         }
 
         $this->command->info('✅ Tenant criado/atualizado: ' . $tenant->name);
-        $this->command->info('👤 Admin: admin@faturacao.ao / password');
-        $this->command->info('👤 User: user@faturacao.ao / password');
+        $this->command->info('👤 Admin: admin@faturacao.vip / password');
+        $this->command->info('👤 User: user@faturacao.vip / password');
         $this->command->info('🔗 Usuários vinculados ao tenant');
 
         // 2.1 Criar e vincular módulo de faturação ao tenant
@@ -143,7 +143,7 @@ class InvoicingTestSeeder extends Seeder
                 'tenant_id' => $tenant->id,
                 'type' => 'pessoa_fisica',
                 'name' => 'João Manuel Silva',
-            'email' => 'joao.silva@email.ao',
+            'email' => 'joao.silva@email.vip',
             'phone' => '+244 924 555 666',
             'address' => 'Bairro Maculusso, Luanda',
             'city' => 'Luanda',
@@ -234,8 +234,8 @@ class InvoicingTestSeeder extends Seeder
         $this->command->info('═══════════════════════════════════════════════════════');
         $this->command->info('');
         $this->command->info('👥 USUÁRIOS:');
-        $this->command->info('   📧 Admin: admin@faturacao.ao / password');
-        $this->command->info('   📧 User:  user@faturacao.ao / password');
+        $this->command->info('   📧 Admin: admin@faturacao.vip / password');
+        $this->command->info('   📧 User:  user@faturacao.vip / password');
         $this->command->info('');
         $this->command->info('🏢 Tenant: ' . $tenant->name);
         $this->command->info('📋 NIF Empresa: ' . $tenant->nif);

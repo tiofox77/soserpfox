@@ -136,12 +136,55 @@ class AGTService
     }
 
     /**
-     * Submeter documento à AGT
+     * Submeter documento à AGT (v1.2 — usa RegisterService).
+     *
+     * Faz mapping Eloquent → payload v1.2, submete e persiste:
+     *   - jws_document_signature
+     *   - agt_request_id
+     *   - agt_submission_uuid
+     *   - agt_status, agt_submitted_at
      */
     public function submitToAGT($document): array
     {
-        $documentType = $this->getDocumentTypeCode($document);
-        return $this->getClient()->registerInvoice($document, $documentType);
+        try {
+            $settings = \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenantId);
+            $register = new RegisterService($settings);
+            $mapper   = new DocumentMapper();
+
+            $docPayload = $mapper->map($document);
+            $result     = $register->register([$docPayload]);
+
+            // Persistir resposta no documento
+            $sentDoc = $result['payload']['documents'][0] ?? null;
+
+            $document->forceFill([
+                'jws_document_signature' => $sentDoc['jwsDocumentSignature'] ?? null,
+                'agt_submission_uuid'    => $result['submissionUUID'],
+                'agt_request_id'         => $result['requestID'],
+                'agt_status'             => $result['ok'] ? 'submitted' : 'rejected',
+                'agt_submitted_at'       => now(),
+                'agt_reference'          => $result['requestID'] ?? $document->agt_reference,
+            ]);
+            $document->save();
+
+            return [
+                'success'        => $result['ok'],
+                'requestID'      => $result['requestID'],
+                'submissionUUID' => $result['submissionUUID'],
+                'error'          => $result['error'],
+                'payload'        => $result['payload'],
+                'response'       => $result['response'],
+            ];
+        } catch (\Throwable $e) {
+            Log::error('AGTService::submitToAGT (v1.2) falhou', [
+                'document_id' => $document->id ?? null,
+                'error'       => $e->getMessage(),
+            ]);
+            return [
+                'success' => false,
+                'error'   => $e->getMessage(),
+            ];
+        }
     }
 
     /**

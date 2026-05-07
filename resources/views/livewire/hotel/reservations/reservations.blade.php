@@ -272,6 +272,18 @@
                             <i class="fas fa-eye text-xs"></i>
                         </button>
 
+                        <a href="{{ route('hotel.reservations.folio', $reservation->id) }}"
+                           class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg"
+                           title="Folio (Consumos)">
+                            <i class="fas fa-file-invoice-dollar text-xs"></i>
+                        </a>
+
+                        <a href="{{ route('hotel.reservations.voucher', $reservation->id) }}" target="_blank"
+                           class="w-8 h-8 flex items-center justify-center bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition shadow-md hover:shadow-lg"
+                           title="Voucher PDF">
+                            <i class="fas fa-ticket-alt text-xs"></i>
+                        </a>
+
                         @if($reservation->status === 'pending')
                             <button wire:click="confirm({{ $reservation->id }})" 
                                     wire:loading.attr="disabled"

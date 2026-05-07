@@ -59,7 +59,7 @@
         }
         
         .card-hover {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .card-hover:hover {
@@ -84,15 +84,15 @@
             animation: pulse-glow 2s ease-in-out infinite;
         }
         
-        .stagger-animation > * {
+        .stagger-animation.animate-in > * {
             opacity: 0;
             animation: fadeInUp 0.6s ease-out forwards;
         }
         
-        .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
-        .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
-        .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
-        .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
+        .stagger-animation.animate-in > *:nth-child(1) { animation-delay: 0.1s; }
+        .stagger-animation.animate-in > *:nth-child(2) { animation-delay: 0.2s; }
+        .stagger-animation.animate-in > *:nth-child(3) { animation-delay: 0.3s; }
+        .stagger-animation.animate-in > *:nth-child(4) { animation-delay: 0.4s; }
         
         @keyframes fadeInUp {
             from {
@@ -105,10 +105,6 @@
             }
         }
         
-        /* Smooth Transitions */
-        * {
-            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        }
     </style>
     
     @livewireStyles

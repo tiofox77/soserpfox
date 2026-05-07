@@ -1,79 +1,87 @@
 <div>
     <!-- Header com Gradient -->
-    <div class="mb-6 bg-gradient-to-r from-red-600 to-pink-600 rounded-2xl shadow-lg p-6 text-white">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6 bg-gradient-to-r from-red-600 to-pink-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
-                    <i class="fas fa-map-marker-alt text-2xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-map-marker-alt text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Locais de Eventos</h2>
-                    <p class="text-red-100 text-sm">Gestão de locais e salas para eventos</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">Locais de Eventos</h2>
+                    <p class="text-red-100 text-xs sm:text-sm">Gestão de locais e salas para eventos</p>
                 </div>
             </div>
-            <button wire:click="create" class="bg-white text-red-600 hover:bg-red-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Novo Local
+            <button wire:click="create"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-white text-red-600 hover:bg-red-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="create">
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Novo Local
+                </span>
+                <span wire:loading wire:target="create">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                </span>
             </button>
         </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 stagger-animation">
-        <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-zoom">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6 stagger-animation">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 card-hover card-zoom">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-4 shadow-lg shadow-blue-500/50 icon-float">
-                    <i class="fas fa-map-marked-alt text-white text-xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-3 sm:mr-4 shadow-lg shadow-blue-500/50 icon-float">
+                    <i class="fas fa-map-marked-alt text-white text-sm sm:text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600">Total de Locais</p>
-                    <p class="text-2xl font-bold text-gray-900 counter-animation">{{ $venues->total() }}</p>
+                    <p class="text-xs sm:text-sm text-gray-600">Total</p>
+                    <p class="text-xl sm:text-2xl font-bold text-gray-900">{{ $venues->total() }}</p>
                 </div>
             </div>
         </div>
         
-        <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-zoom">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 card-hover card-zoom">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mr-4 shadow-lg shadow-green-500/50 icon-float">
-                    <i class="fas fa-check-circle text-white text-xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mr-3 sm:mr-4 shadow-lg shadow-green-500/50 icon-float">
+                    <i class="fas fa-check-circle text-white text-sm sm:text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600">Ativos</p>
-                    <p class="text-2xl font-bold text-gray-900 counter-animation">{{ $venues->where('is_active', true)->count() }}</p>
+                    <p class="text-xs sm:text-sm text-gray-600">Ativos</p>
+                    <p class="text-xl sm:text-2xl font-bold text-gray-900">{{ $venues->where('is_active', true)->count() }}</p>
                 </div>
             </div>
         </div>
         
-        <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-zoom">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 card-hover card-zoom">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mr-4 shadow-lg shadow-purple-500/50 icon-float">
-                    <i class="fas fa-users text-white text-xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mr-3 sm:mr-4 shadow-lg shadow-purple-500/50 icon-float">
+                    <i class="fas fa-users text-white text-sm sm:text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600">Capacidade Total</p>
-                    <p class="text-2xl font-bold text-gray-900 counter-animation">{{ number_format($venues->sum('capacity')) }}</p>
+                    <p class="text-xs sm:text-sm text-gray-600">Capacidade</p>
+                    <p class="text-xl sm:text-2xl font-bold text-gray-900">{{ number_format($venues->sum('capacity')) }}</p>
                 </div>
             </div>
         </div>
         
-        <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-zoom">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 card-hover card-zoom">
             <div class="flex items-center">
-                <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mr-4 shadow-lg shadow-orange-500/50 icon-float">
-                    <i class="fas fa-calendar-alt text-white text-xl"></i>
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mr-3 sm:mr-4 shadow-lg shadow-orange-500/50 icon-float">
+                    <i class="fas fa-calendar-alt text-white text-sm sm:text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600">Total de Eventos</p>
-                    <p class="text-2xl font-bold text-gray-900 counter-animation">{{ $venues->sum('events_count') }}</p>
+                    <p class="text-xs sm:text-sm text-gray-600">Eventos</p>
+                    <p class="text-xl sm:text-2xl font-bold text-gray-900">{{ $venues->sum('events_count') }}</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Search & Filters -->
-    <div class="bg-white rounded-2xl shadow-lg p-4 mb-6">
-        <div class="flex items-center gap-4">
+    <div class="bg-white rounded-2xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             <div class="flex-1 relative">
                 <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input wire:model.live="search" type="text" 
+                <input wire:model.live.debounce.300ms="search" type="text" 
                        placeholder="Buscar por nome, cidade ou morada..." 
                        class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition">
             </div>
@@ -98,7 +106,7 @@
         </button>
     </div>
     @else
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-animation">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 stagger-animation">
         @foreach($venues as $venue)
         <div class="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 card-hover card-zoom card-bounce">
             <!-- Header do Card -->
@@ -187,20 +195,13 @@
                             </svg>
                         </span>
                     </button>
-                    <button wire:click="delete({{ $venue->id }})" 
-                            onclick="return confirm('Tem certeza que deseja excluir este local?')"
+                    <button wire:click="delete({{ $venue->id }})"
                             wire:loading.attr="disabled"
                             wire:target="delete({{ $venue->id }})"
-                            class="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2.5 rounded-xl hover:from-red-600 hover:to-red-700 transition font-semibold text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed relative">
-                        <span wire:loading.remove wire:target="delete({{ $venue->id }})">
-                            <i class="fas fa-trash"></i>
-                        </span>
-                        <span wire:loading wire:target="delete({{ $venue->id }})" class="flex items-center justify-center">
-                            <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        </span>
+                            wire:confirm="Tem certeza que deseja excluir este local?"
+                            class="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2.5 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 hover:scale-105 font-semibold text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-trash" wire:loading.remove wire:target="delete({{ $venue->id }})"></i>
+                        <i class="fas fa-spinner fa-spin" wire:loading wire:target="delete({{ $venue->id }})"></i>
                     </button>
                 </div>
             </div>
@@ -317,19 +318,19 @@
                     
                     <!-- Modal Footer -->
                     <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
-                        <button type="button" wire:click="$set('showModal', false)" class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
+                        <button type="button" wire:click="$set('showModal', false)"
+                                class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 hover:scale-105 transition-all duration-300">
                             <i class="fas fa-times mr-2"></i>Cancelar
                         </button>
-                        <button type="submit" class="relative px-6 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-semibold hover:from-red-700 hover:to-pink-700 shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed" wire:loading.attr="disabled" wire:target="save">
-                            <span wire:loading.remove wire:target="save">
+                        <button type="submit"
+                                wire:loading.attr="disabled"
+                                wire:loading.class="opacity-70 scale-95"
+                                class="px-6 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-semibold hover:from-red-700 hover:to-pink-700 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span wire:loading.remove>
                                 <i class="fas fa-save mr-2"></i>{{ $editMode ? 'Atualizar' : 'Salvar' }}
                             </span>
-                            <span wire:loading wire:target="save" class="flex items-center">
-                                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                {{ $editMode ? 'Atualizando...' : 'Salvando...' }}
+                            <span wire:loading>
+                                <i class="fas fa-spinner fa-spin mr-2"></i>{{ $editMode ? 'Atualizando...' : 'Salvando...' }}
                             </span>
                         </button>
                     </div>

@@ -79,7 +79,7 @@ class CreditNoteCreate extends Component
         // Limpar carrinho atual
         Cart::session($this->cartInstance)->clear();
         
-        // Adicionar todos os items da fatura ao carrinho
+        // Adicionar todos os items da fatura ao carrinho — preservar referência AGT (NC obrig.)
         foreach ($invoice->items as $index => $item) {
             // Usar um ID único para cada item (product_id ou índice)
             $itemId = $item->product_id ?? 'item_' . $index;
@@ -92,6 +92,9 @@ class CreditNoteCreate extends Component
                 'attributes' => [
                     'tax_rate' => $item->tax_rate ?? 14,
                     'discount_percent' => $item->discount_percent ?? 0,
+                    // AGT v1.2 — referenceInfo da linha original
+                    'reference_invoice_no'   => $invoice->invoice_number,
+                    'reference_item_line_no' => $item->order ?? ($index + 1),
                 ]
             ]);
         }
@@ -158,30 +161,73 @@ class CreditNoteCreate extends Component
                 false // não é serviço
             );
 
+            // Expressão obrigatória conforme Art. 12º RJF (Decreto 71/25)
+            $reasonExpression = ($this->type === 'total') ? 'Anulação' : 'Rectificação';
+
             // Criar nota de crédito
+            // Campos SAFT-AO obrigatórios (Decreto 71/25)
+            $netTotal = $totals['subtotal_original'];
+            $taxPayable = $totals['tax_amount'];
+            $grossTotal = $netTotal + $taxPayable;
+
             $creditNote = CreditNote::create([
                 'tenant_id' => activeTenantId(),
                 'client_id' => $this->client_id,
                 'invoice_id' => $this->invoice_id ?: null,
                 'issue_date' => $this->issue_date,
+                'system_entry_date' => now(),
                 'reason' => $this->reason,
+                'reason_text' => $reasonExpression,
                 'type' => $this->type,
                 'notes' => $this->notes,
                 'subtotal' => $totals['subtotal_original'],
+                'net_total' => $netTotal,
                 'tax_amount' => $totals['tax_amount'],
+                'tax_payable' => $taxPayable,
                 'total' => $totals['total'],
+                'gross_total' => $grossTotal,
                 'status' => 'issued',
+                'invoice_status' => 'F',
+                'source_billing' => 'P',
                 'created_by' => auth()->id(),
             ]);
 
+            // Gerar HASH SAFT-AO conforme Decreto 71/25 (usar gross_total)
+            $previousCN = CreditNote::where('tenant_id', activeTenantId())
+                ->where('id', '<', $creditNote->id)
+                ->whereNotNull('saft_hash')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $hash = \App\Helpers\SAFTHelper::generateHash(
+                $creditNote->issue_date->format('Y-m-d'),
+                $creditNote->system_entry_date->format('Y-m-d H:i:s'),
+                $creditNote->credit_note_number,
+                $creditNote->gross_total,
+                $previousCN->saft_hash ?? null
+            );
+
+            if ($hash) {
+                $creditNote->update([
+                    'saft_hash' => $hash,
+                    'hash' => $hash,
+                    'hash_previous' => $previousCN->saft_hash ?? '',
+                    'hash_control' => '1',
+                ]);
+            }
+
             // Criar items
+            $orderNo = 0;
             foreach ($cartItems as $item) {
+                $orderNo++;
                 $itemTotals = InvoiceCalculationHelper::calculateItemTotals(
                     $item->price,
                     $item->quantity,
                     $item->attributes['discount_percent'],
                     $item->attributes['tax_rate']
                 );
+
+                $netLine = $itemTotals['subtotal'];
 
                 CreditNoteItem::create([
                     'credit_note_id' => $creditNote->id,
@@ -190,12 +236,24 @@ class CreditNoteCreate extends Component
                     'quantity' => $item->quantity,
                     'unit' => 'un',
                     'unit_price' => $item->price,
+                    'unit_price_base' => $item->price,
                     'discount_percent' => $item->attributes['discount_percent'],
                     'discount_amount' => $itemTotals['discount_amount'],
-                    'subtotal' => $itemTotals['subtotal'],
+                    'subtotal' => $netLine,
                     'tax_rate' => $item->attributes['tax_rate'],
                     'tax_amount' => $itemTotals['tax_amount'],
                     'total' => $itemTotals['total'],
+                    'order' => $orderNo,
+                    // AGT v1.2 — line-level
+                    'debit_amount'         => $netLine,
+                    'credit_amount'        => 0,
+                    'settlement_amount'    => $itemTotals['discount_amount'] ?? 0,
+                    'tax_country_region'   => 'AO',
+                    'tax_code'             => ($item->attributes['tax_rate'] ?? 14) > 0 ? 'NOR' : 'ISE',
+                    // referenceInfo (NC obrigatório)
+                    'reference_invoice_no'   => $item->attributes['reference_invoice_no']   ?? null,
+                    'reference_item_line_no' => $item->attributes['reference_item_line_no'] ?? $orderNo,
+                    'reference_reason'       => $reasonExpression,
                 ]);
             }
 
@@ -204,10 +262,27 @@ class CreditNoteCreate extends Component
 
             DB::commit();
 
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => 'Nota de Crédito criada com sucesso!'
-            ]);
+            // Auto-submeter à AGT se habilitado
+            $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
+            if (!empty($settings->agt_auto_submit)) {
+                $agtResult = $creditNote->submitToAGT();
+                if ($agtResult['success'] ?? false) {
+                    $this->dispatch('notify', [
+                        'type' => 'success',
+                        'message' => 'NC criada e submetida à AGT (requestID: ' . ($agtResult['requestID'] ?? '—') . ')',
+                    ]);
+                } else {
+                    $this->dispatch('notify', [
+                        'type' => 'warning',
+                        'message' => 'NC criada mas erro ao submeter à AGT: ' . ($agtResult['error'] ?? 'desconhecido'),
+                    ]);
+                }
+            } else {
+                $this->dispatch('notify', [
+                    'type' => 'success',
+                    'message' => 'Nota de Crédito criada com sucesso!'
+                ]);
+            }
 
             return redirect()->route('invoicing.credit-notes.index');
 

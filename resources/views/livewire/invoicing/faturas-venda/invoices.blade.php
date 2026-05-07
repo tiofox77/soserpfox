@@ -1,17 +1,20 @@
-<div class="p-6">
+<div class="p-3 sm:p-6">
     {{-- Header --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
+    <div class="mb-4 sm:mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-invoice mr-3 text-purple-600"></i>
+                <h2 class="text-xl sm:text-3xl font-bold text-gray-800 flex items-center">
+                    <i class="fas fa-file-invoice mr-2 sm:mr-3 text-purple-600"></i>
                     Faturas de Venda
                 </h2>
-                <p class="text-gray-600 mt-1">Faturas de vendas para clientes</p>
+                <p class="text-gray-600 mt-1 text-xs sm:text-base">Faturas de vendas para clientes</p>
             </div>
             <a href="{{ route('invoicing.sales.invoices.create') }}" 
-               class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
-                <i class="fas fa-plus mr-2"></i>Nova Fatura
+               x-data="{ loading: false }" @click="loading = true"
+               :class="loading && 'opacity-70 pointer-events-none scale-95'"
+               class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 text-sm sm:text-base text-center">
+                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>Nova Fatura</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Carregando...</span>
             </a>
         </div>
     </div>
@@ -29,7 +32,7 @@
     @endif
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div class="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
@@ -92,9 +95,9 @@
     </div>
 
     {{-- Filters --}}
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="md:col-span-2">
+    <div class="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+            <div class="col-span-2">
                 <input type="text" wire:model.live.debounce.300ms="search" 
                        placeholder="🔍 Pesquisar número ou Cliente..." 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
@@ -210,7 +213,8 @@
                             <div class="flex items-center justify-center space-x-2">
                                 {{-- Ver Proforma --}}
                                 <button wire:click="viewInvoice({{ $invoice->id }})"
-                                        class="group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        class="group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-eye text-purple-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Visualizar
@@ -245,7 +249,9 @@
                                 @endif
 
                                 <button wire:click="markAsPaid({{ $invoice->id }})"
-                                        class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        wire:confirm="Marcar esta fatura como paga?"
+                                        class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-check-circle text-green-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Marcar como Pago
@@ -253,7 +259,8 @@
                                 </button>
 
                                 <button wire:click="confirmDelete({{ $invoice->id }})"
-                                        class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                        wire:loading.attr="disabled"
+                                        class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-trash text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         Eliminar

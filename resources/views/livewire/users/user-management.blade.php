@@ -98,7 +98,7 @@
     <div class="bg-white rounded-2xl shadow-lg p-4 mb-6">
         <div class="flex items-center space-x-4">
             <div class="flex-1">
-                <input wire:model.live="search" type="text" placeholder="🔍 Pesquisar por nome ou email..." 
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="🔍 Pesquisar por nome ou email..." 
                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
             </div>
         </div>
@@ -430,7 +430,7 @@
                                                 <i class="fas fa-envelope text-purple-500 mr-2"></i>Email *
                                             </label>
                                             <input wire:model="inviteEmail" type="email" 
-                                                   placeholder="Ex: joao.silva@empresa.ao"
+                                                   placeholder="Ex: joao.silva@empresa.vip"
                                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                                             @error('inviteEmail') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                                         </div>

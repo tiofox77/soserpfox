@@ -41,7 +41,7 @@ class SeriesManagement extends Component
     public $seriesToDelete = null;
 
     protected $rules = [
-        'document_type' => 'required|in:invoice,proforma,receipt,credit_note,debit_note',
+        'document_type' => 'required|in:invoice,proforma,receipt,credit_note,debit_note,pos,purchase,advance',
         'series_code' => 'required|max:10',
         'name' => 'required|max:100',
         'prefix' => 'required|max:10',

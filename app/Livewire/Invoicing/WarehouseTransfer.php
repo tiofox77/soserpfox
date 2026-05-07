@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Invoicing;
 
+use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
@@ -287,34 +288,47 @@ class WarehouseTransfer extends Component
                 $stockTo->increment('quantity', $item['quantity']);
 
                 $product = Product::find($item['product_id']);
-                
-                // Registrar movimento saída
-                StockMovement::create([
-                    'tenant_id' => activeTenantId(),
-                    'warehouse_id' => $this->transferFromWarehouse,
-                    'product_id' => $item['product_id'],
-                    'type' => 'transfer',
-                    'quantity' => -$item['quantity'],
-                    'unit_cost' => $product->cost,
-                    'reference_type' => 'transfer_batch',
-                    'reference_id' => $batchId,
-                    'notes' => "Transfer para {$warehouseTo->name}. {$this->transferNotes}",
-                    'user_id' => auth()->id(),
-                ]);
 
-                // Registrar movimento entrada
-                StockMovement::create([
-                    'tenant_id' => activeTenantId(),
-                    'warehouse_id' => $this->transferToWarehouse,
-                    'product_id' => $item['product_id'],
-                    'type' => 'transfer',
-                    'quantity' => $item['quantity'],
-                    'unit_cost' => $product->cost,
-                    'reference_type' => 'transfer_batch',
-                    'reference_id' => $batchId,
-                    'notes' => "Transfer de {$warehouseFrom->name}. {$this->transferNotes}",
-                    'user_id' => auth()->id(),
-                ]);
+                // Transferir lotes (FEFO) se o produto rastreia lotes
+                if ($product && $product->track_batches) {
+                    $this->transferBatches(
+                        $item['product_id'],
+                        $this->transferFromWarehouse,
+                        $this->transferToWarehouse,
+                        $item['quantity']
+                    );
+                }
+                
+                // Registrar movimentos sem disparar boot (stock já foi atualizado manualmente)
+                StockMovement::withoutEvents(function() use ($item, $batchId, $product, $warehouseTo, $warehouseFrom) {
+                    // Movimento saída
+                    StockMovement::create([
+                        'tenant_id' => activeTenantId(),
+                        'warehouse_id' => $this->transferFromWarehouse,
+                        'product_id' => $item['product_id'],
+                        'type' => 'transfer',
+                        'quantity' => -$item['quantity'],
+                        'unit_cost' => $product->cost,
+                        'reference_type' => 'transfer_batch',
+                        'reference_id' => $batchId,
+                        'notes' => "Transfer para {$warehouseTo->name}. {$this->transferNotes}",
+                        'user_id' => auth()->id(),
+                    ]);
+
+                    // Movimento entrada
+                    StockMovement::create([
+                        'tenant_id' => activeTenantId(),
+                        'warehouse_id' => $this->transferToWarehouse,
+                        'product_id' => $item['product_id'],
+                        'type' => 'transfer',
+                        'quantity' => $item['quantity'],
+                        'unit_cost' => $product->cost,
+                        'reference_type' => 'transfer_batch',
+                        'reference_id' => $batchId,
+                        'notes' => "Transfer de {$warehouseFrom->name}. {$this->transferNotes}",
+                        'user_id' => auth()->id(),
+                    ]);
+                });
             }
 
             DB::commit();
@@ -363,19 +377,21 @@ class WarehouseTransfer extends Component
                     $stock->decrement('quantity', $item['quantity']);
                 }
 
-                // Registrar movimento
-                StockMovement::create([
-                    'tenant_id' => activeTenantId(),
-                    'warehouse_id' => $this->adjustWarehouse,
-                    'product_id' => $item['product_id'],
-                    'type' => 'adjustment',
-                    'quantity' => $this->adjustType == 'in' ? $item['quantity'] : -$item['quantity'],
-                    'unit_cost' => $product->cost,
-                    'reference_type' => 'adjustment_batch',
-                    'reference_id' => $batchId,
-                    'notes' => "Ajuste manual ({$this->adjustType}): {$this->adjustReason}",
-                    'user_id' => auth()->id(),
-                ]);
+                // Registrar movimento sem disparar boot (stock já foi atualizado manualmente)
+                StockMovement::withoutEvents(function() use ($item, $batchId, $product) {
+                    StockMovement::create([
+                        'tenant_id' => activeTenantId(),
+                        'warehouse_id' => $this->adjustWarehouse,
+                        'product_id' => $item['product_id'],
+                        'type' => 'adjustment',
+                        'quantity' => $this->adjustType == 'in' ? $item['quantity'] : -$item['quantity'],
+                        'unit_cost' => $product->cost,
+                        'reference_type' => 'adjustment_batch',
+                        'reference_id' => $batchId,
+                        'notes' => "Ajuste manual ({$this->adjustType}): {$this->adjustReason}",
+                        'user_id' => auth()->id(),
+                    ]);
+                });
             }
 
             DB::commit();
@@ -387,6 +403,60 @@ class WarehouseTransfer extends Component
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('error', message: 'Erro: ' . $e->getMessage());
+        }
+    }
+
+    private function transferBatches($productId, $fromWarehouseId, $toWarehouseId, $quantity)
+    {
+        $remaining = $quantity;
+
+        // FEFO: buscar lotes do armazém origem, ordenados por validade (mais próximo primeiro)
+        $sourceBatches = ProductBatch::where('tenant_id', activeTenantId())
+            ->where('product_id', $productId)
+            ->where('warehouse_id', $fromWarehouseId)
+            ->where('quantity_available', '>', 0)
+            ->orderBy('expiry_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($sourceBatches as $sourceBatch) {
+            if ($remaining <= 0) break;
+
+            $take = min($remaining, $sourceBatch->quantity_available);
+
+            // Diminuir quantidade no lote origem
+            $sourceBatch->quantity_available -= $take;
+            $sourceBatch->updateStatus();
+
+            // Encontrar ou criar lote no armazém destino
+            $destBatch = ProductBatch::where('tenant_id', activeTenantId())
+                ->where('product_id', $productId)
+                ->where('warehouse_id', $toWarehouseId)
+                ->where('batch_number', $sourceBatch->batch_number)
+                ->first();
+
+            if ($destBatch) {
+                $destBatch->quantity += $take;
+                $destBatch->quantity_available += $take;
+                $destBatch->updateStatus();
+            } else {
+                ProductBatch::create([
+                    'tenant_id' => activeTenantId(),
+                    'product_id' => $productId,
+                    'warehouse_id' => $toWarehouseId,
+                    'batch_number' => $sourceBatch->batch_number,
+                    'manufacturing_date' => $sourceBatch->manufacturing_date,
+                    'expiry_date' => $sourceBatch->expiry_date,
+                    'quantity' => $take,
+                    'quantity_available' => $take,
+                    'cost_price' => $sourceBatch->cost_price,
+                    'alert_days' => $sourceBatch->alert_days,
+                    'status' => 'active',
+                    'notes' => 'Transferido de armazém',
+                ]);
+            }
+
+            $remaining -= $take;
         }
     }
 

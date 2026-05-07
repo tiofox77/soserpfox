@@ -15,15 +15,22 @@ class PayrollItem extends Model
         'payroll_id', 'employee_id', 'contract_id',
         'base_salary', 'food_allowance', 'transport_allowance',
         'housing_allowance', 'overtime_pay', 'night_shift_pay',
+        'night_shift_allowance', 'night_shift_days',
         'holiday_pay', 'commission', 'bonus',
-        'subsidy_13th', 'subsidy_14th', 'other_earnings',
+        'family_allowance', 'position_subsidy', 'performance_subsidy',
+        'subsidy_13th', 'subsidy_14th',
+        'christmas_subsidy_amount', 'vacation_subsidy_amount',
+        'other_earnings', 'additional_bonus',
         'gross_salary', 'irt_amount', 'irt_base', 'irt_rate',
         'inss_employee', 'inss_employer', 'inss_base',
-        'advance_payment', 'loan_deduction', 'absence_deduction',
-        'late_deduction', 'other_deductions', 'total_deductions',
-        'net_salary', 'worked_days', 'absence_days',
-        'overtime_hours', 'night_hours', 'calculation_details',
-        'notes', 'status', 'paid_at',
+        'advance_payment', 'loan_deduction', 'discount_deduction',
+        'absence_deduction', 'late_deduction', 'food_deduction',
+        'other_deductions', 'total_deductions',
+        'net_salary', 'worked_days', 'present_days', 'absence_days',
+        'late_days', 'total_working_days',
+        'overtime_hours', 'overtime_amount', 'night_hours',
+        'calculation_details', 'notes', 'status', 'paid_at',
+        'has_christmas_subsidy', 'has_vacation_subsidy',
     ];
 
     protected $casts = [
@@ -60,49 +67,61 @@ class PayrollItem extends Model
     }
 
     /**
-     * Calcular folha de pagamento do funcionário
+     * Recalcular impostos e salário líquido.
+     * Não sobrescreve vencimentos/subsídios — apenas INSS, IRT, deduções e net.
      */
     public function calculate()
     {
-        $contract = $this->contract ?? $this->employee->activeContract;
-        
-        if (!$contract) {
-            throw new \Exception('Funcionário não possui contrato ativo');
+        $grossSalary = $this->gross_salary ?? 0;
+        $foodAllowance = $this->food_allowance ?? 0;
+        $transportAllowance = $this->transport_allowance ?? 0;
+        $vacationSubsidy = $this->vacation_subsidy_amount ?? 0;
+
+        // INSS (Decreto 227/18)
+        $inssEmployeeRate = (float) \App\Models\HR\HRSetting::get('inss_employee_rate', 3) / 100;
+        $inssEmployerRate = (float) \App\Models\HR\HRSetting::get('inss_employer_rate', 8) / 100;
+        $inssBase = $grossSalary - $vacationSubsidy;
+        $inssEmployee = round($inssBase * $inssEmployeeRate, 2);
+        $inssEmployer = round($inssBase * $inssEmployerRate, 2);
+
+        // IRT — isenções alimentação/transporte
+        $foodExempt = (float) \App\Models\HR\HRSetting::get('food_tax_exempt', 30000);
+        $transportExempt = (float) \App\Models\HR\HRSetting::get('transport_tax_exempt', 30000);
+        $foodExemption = min($foodAllowance, $foodExempt);
+        $transportExemption = min($transportAllowance, $transportExempt);
+
+        $irtBase = max(0, round($grossSalary - $foodExemption - $transportExemption - $inssEmployee, 2));
+
+        $tenantId = $this->payroll->tenant_id ?? null;
+        $irt = \App\Models\HR\IRTTaxBracket::calculateIRT($irtBase, $tenantId);
+
+        if ($irt == 0 && $irtBase > 70000 && function_exists('calculateIRT')) {
+            $irtResult = calculateIRT($irtBase);
+            $irt = $irtResult['irt_amount'] ?? 0;
         }
 
-        // Calcular salário líquido usando helper
-        $calculation = calculateNetSalary(
-            $contract->base_salary,
-            [
-                'food' => $contract->food_allowance,
-                'transport' => $contract->transport_allowance,
-                'housing' => $contract->housing_allowance,
-                'other' => $this->other_earnings,
-            ],
-            [
-                'advance' => $this->advance_payment,
-                'loan' => $this->loan_deduction,
-                'absence' => $this->absence_deduction,
-                'other' => $this->other_deductions,
-            ]
-        );
+        $irtRate = $irtBase > 0 ? round(($irt / $irtBase) * 100, 2) : 0;
 
-        // Atualizar campos
+        // Total deduções
+        $totalDeductions = $inssEmployee + $irt
+            + ($this->absence_deduction ?? 0)
+            + ($this->advance_payment ?? 0)
+            + ($this->discount_deduction ?? 0)
+            + ($this->food_deduction ?? 0)
+            + ($this->loan_deduction ?? 0)
+            + ($this->other_deductions ?? 0);
+
+        $netSalary = max(0, round($grossSalary - $totalDeductions, 2));
+
         $this->update([
-            'base_salary' => $calculation['base_salary'],
-            'food_allowance' => $calculation['food_allowance'],
-            'transport_allowance' => $calculation['transport_allowance'],
-            'housing_allowance' => $calculation['housing_allowance'],
-            'gross_salary' => $calculation['total_gross'],
-            'inss_employee' => $calculation['inss_employee'],
-            'inss_employer' => $calculation['inss_employer'],
-            'inss_base' => $calculation['inss_base'],
-            'irt_amount' => $calculation['irt_amount'],
-            'irt_base' => $calculation['irt_base'],
-            'irt_rate' => $calculation['irt_rate'],
-            'total_deductions' => $calculation['total_deductions'],
-            'net_salary' => $calculation['net_salary'],
-            'calculation_details' => $calculation,
+            'inss_employee' => $inssEmployee,
+            'inss_employer' => $inssEmployer,
+            'inss_base' => $inssBase,
+            'irt_amount' => $irt,
+            'irt_base' => $irtBase,
+            'irt_rate' => $irtRate,
+            'total_deductions' => $totalDeductions,
+            'net_salary' => $netSalary,
             'status' => 'calculated',
         ]);
 

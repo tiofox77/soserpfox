@@ -580,20 +580,20 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-car mr-1 text-blue-600"></i>Subsídio de Transporte (Kz)
                         </label>
-                        <input type="number" wire:model.live="transport_allowance" step="0.01" min="0"
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                               placeholder="0,00">
-                        <p class="text-xs text-gray-500 mt-1">Valor mensal para transporte</p>
+                        <div class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-600">
+                            {{ number_format((float) \App\Models\HR\HRSetting::get('monthly_transport_allowance', 0), 2, ',', '.') }} Kz
+                        </div>
+                        <p class="text-xs text-amber-600 mt-1"><i class="fas fa-info-circle mr-1"></i>Definido em Configurações RH → Subsídios</p>
                     </div>
 
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-utensils mr-1 text-orange-600"></i>Subsídio de Alimentação (Kz)
                         </label>
-                        <input type="number" wire:model.live="meal_allowance" step="0.01" min="0"
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                               placeholder="0,00">
-                        <p class="text-xs text-gray-500 mt-1">Valor mensal para alimentação</p>
+                        <div class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-600">
+                            {{ number_format((float) \App\Models\HR\HRSetting::get('monthly_food_allowance', 0), 2, ',', '.') }} Kz
+                        </div>
+                        <p class="text-xs text-amber-600 mt-1"><i class="fas fa-info-circle mr-1"></i>Definido em Configurações RH → Subsídios</p>
                     </div>
 
                     {{-- Resumo da Remuneração Total --}}
@@ -608,7 +608,7 @@
                                 </div>
                                 <div class="text-right">
                                     <p class="text-3xl font-bold text-green-700">
-                                        {{ number_format((floatval($salary ?? 0)) + (floatval($bonus ?? 0)) + (floatval($transport_allowance ?? 0)) + (floatval($meal_allowance ?? 0)), 2, ',', '.') }} Kz
+                                        {{ number_format((floatval($salary ?? 0)) + (floatval($bonus ?? 0)) + (float) \App\Models\HR\HRSetting::get('monthly_transport_allowance', 0) + (float) \App\Models\HR\HRSetting::get('monthly_food_allowance', 0), 2, ',', '.') }} Kz
                                     </p>
                                 </div>
                             </div>

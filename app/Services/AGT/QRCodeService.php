@@ -2,6 +2,8 @@
 
 namespace App\Services\AGT;
 
+use BaconQrCode\Encoder\Encoder;
+use BaconQrCode\Common\ErrorCorrectionLevel;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -71,9 +73,12 @@ class QRCodeService
 
         // G - Número único do documento (identificador único interno)
         $numeroDocumento = $document->invoice_number 
+            ?? $document->proforma_number
             ?? $document->credit_note_number 
             ?? $document->debit_note_number 
-            ?? $document->receipt_number;
+            ?? $document->receipt_number
+            ?? $document->advance_number
+            ?? '';
         $fields[self::FIELD_NUMERO_DOCUMENTO] = $this->formatDocumentNumber($numeroDocumento);
 
         // H - ATCUD
@@ -151,21 +156,25 @@ class QRCodeService
     }
 
     /**
-     * Gerar imagem QR Code em Base64 (SVG)
+     * Gerar imagem QR Code em Base64 (SVG) com logo AGT
      */
     public function generateQRImage($document, int $size = 150, ?string $certificateNumber = null): ?string
     {
         try {
             $data = $this->generateQRData($document, $certificateNumber);
             
-            // Usar bacon/bacon-qr-code v3
             $renderer = new ImageRenderer(
                 new RendererStyle($size, 1),
                 new SvgImageBackEnd()
             );
             
             $writer = new Writer($renderer);
-            $svg = $writer->writeString($data);
+            $ecLevel = $this->getHighErrorCorrection();
+            $svg = $ecLevel 
+                ? $writer->writeString($data, 'ISO-8859-1', $ecLevel)
+                : $writer->writeString($data);
+            
+            $svg = $this->embedLogoInSvg($svg, $size);
             
             return 'data:image/svg+xml;base64,' . base64_encode($svg);
 
@@ -179,7 +188,7 @@ class QRCodeService
     }
 
     /**
-     * Gerar QR Code como SVG inline
+     * Gerar QR Code como SVG inline com logo AGT
      */
     public function generateQRSvg($document, int $size = 150, ?string $certificateNumber = null): ?string
     {
@@ -192,18 +201,72 @@ class QRCodeService
             );
             
             $writer = new Writer($renderer);
-            return $writer->writeString($data);
+            $ecLevel = $this->getHighErrorCorrection();
+            $svg = $ecLevel 
+                ? $writer->writeString($data, 'ISO-8859-1', $ecLevel)
+                : $writer->writeString($data);
+            
+            return $this->embedLogoInSvg($svg, $size);
 
         } catch (\Exception $e) {
             Log::error('QRCodeService: Erro ao gerar QR SVG', ['error' => $e->getMessage()]);
             return null;
         }
     }
+
+    /**
+     * Obter nível de correção de erro alto (H = 30% redundância)
+     * Necessário para permitir logo no centro sem perder leitura
+     */
+    private function getHighErrorCorrection(): ?ErrorCorrectionLevel
+    {
+        try {
+            return ErrorCorrectionLevel::H;
+        } catch (\Throwable $e) {
+            try {
+                return ErrorCorrectionLevel::H();
+            } catch (\Throwable $e2) {
+                return null;
+            }
+        }
+    }
+
+    /**
+     * Embutir logo AGT no centro do QR Code SVG
+     */
+    private function embedLogoInSvg(string $svg, int $size): string
+    {
+        $logoPath = public_path('images/agt-logo.png');
+        if (!file_exists($logoPath)) {
+            return $svg;
+        }
+        
+        $logoData = file_get_contents($logoPath);
+        
+        $logoSize = $size * 0.22;
+        $logoX = ($size - $logoSize) / 2;
+        $logoY = ($size - $logoSize) / 2;
+        $bgRadius = $logoSize * 0.58;
+        $bgCx = $size / 2;
+        $bgCy = $size / 2;
+        
+        $logoOverlay = sprintf(
+            '<circle cx="%s" cy="%s" r="%s" fill="white"/>' .
+            '<image x="%s" y="%s" width="%s" height="%s" href="data:image/png;base64,%s" />',
+            $bgCx, $bgCy, $bgRadius,
+            $logoX, $logoY, $logoSize, $logoSize,
+            base64_encode($logoData)
+        );
+        
+        $svg = str_replace('</svg>', $logoOverlay . '</svg>', $svg);
+        
+        return $svg;
+    }
     
     /**
      * Gerar QR Code e retornar dados do QR
      */
-    public function generateForDocument($document, int $size = 80): array
+    public function generateForDocument($document, int $size = 120): array
     {
         try {
             $data = $this->generateQRData($document);
@@ -318,8 +381,8 @@ class QRCodeService
         }
 
         // Validar formato NIF
-        if (!empty($fields[self::FIELD_NIF_EMISSOR]) && strlen($fields[self::FIELD_NIF_EMISSOR]) !== 9) {
-            $errors[] = 'NIF Emissor deve ter 9 dígitos';
+        if (!empty($fields[self::FIELD_NIF_EMISSOR]) && !in_array(strlen($fields[self::FIELD_NIF_EMISSOR]), [9, 14])) {
+            $errors[] = 'NIF Emissor deve ter 9 ou 14 dígitos';
         }
 
         // Validar hash (4 caracteres)

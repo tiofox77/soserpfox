@@ -27,65 +27,95 @@
             </h2>
             <p class="text-sm sm:text-base text-gray-600">Gerencie as categorias dos equipamentos</p>
         </div>
-        <button wire:click="openModal" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-            <i class="fas fa-plus-circle mr-2"></i>Nova Categoria
+        <button wire:click="openModal"
+                wire:loading.attr="disabled"
+                wire:loading.class="opacity-70 scale-95"
+                class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center disabled:cursor-not-allowed">
+            <span wire:loading.remove wire:target="openModal">
+                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Nova Categoria
+            </span>
+            <span wire:loading wire:target="openModal">
+                <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+            </span>
         </button>
     </div>
 
     {{-- Lista de Categorias --}}
-    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-        <table class="w-full">
-            <thead class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                <tr>
-                    <th class="px-6 py-4 text-left">Ícone</th>
-                    <th class="px-6 py-4 text-left">Nome</th>
-                    <th class="px-6 py-4 text-left">Cor</th>
-                    <th class="px-6 py-4 text-left">Ordem</th>
-                    <th class="px-6 py-4 text-left">Equipamentos</th>
-                    <th class="px-6 py-4 text-left">Status</th>
-                    <th class="px-6 py-4 text-right">Ações</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                @forelse($categories as $cat)
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 text-2xl">{{ $cat->icon ?: '📦' }}</td>
-                    <td class="px-6 py-4 font-semibold text-gray-900">{{ $cat->name }}</td>
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded" style="background-color: {{ $cat->color }}"></div>
-                            <span class="text-sm text-gray-600">{{ $cat->color }}</span>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-gray-600">{{ $cat->sort_order }}</td>
-                    <td class="px-6 py-4">
-                        <span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
-                            {{ $cat->equipments_count }} equip.
-                        </span>
-                    </td>
-                    <td class="px-6 py-4">
-                        <button wire:click="toggleActive({{ $cat->id }})" class="px-3 py-1 rounded-full text-xs font-bold {{ $cat->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
-                            {{ $cat->is_active ? 'Ativa' : 'Inativa' }}
-                        </button>
-                    </td>
-                    <td class="px-6 py-4 text-right space-x-2">
-                        <button wire:click="edit({{ $cat->id }})" class="text-blue-600 hover:text-blue-800">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button wire:click="delete({{ $cat->id }})" onclick="return confirm('Excluir esta categoria?')" class="text-red-600 hover:text-red-800">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                        Nenhuma categoria criada
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
+    <div class="bg-white rounded-xl shadow-md">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                    <tr>
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">Ícone</th>
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">Nome</th>
+                        <th class="px-6 py-4 text-left hidden md:table-cell">Cor</th>
+                        <th class="px-6 py-4 text-left hidden lg:table-cell">Ordem</th>
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">Equip.</th>
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm">Status</th>
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-right text-xs sm:text-sm">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    @forelse($categories as $cat)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-xl sm:text-2xl">{{ $cat->icon ?: '📦' }}</td>
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900 text-sm sm:text-base">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full flex-shrink-0 md:hidden" style="background-color: {{ $cat->color }}"></div>
+                                {{ $cat->name }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 hidden md:table-cell">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded" style="background-color: {{ $cat->color }}"></div>
+                                <span class="text-sm text-gray-600">{{ $cat->color }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-gray-600 hidden lg:table-cell">{{ $cat->sort_order }}</td>
+                        <td class="px-3 sm:px-6 py-3 sm:py-4">
+                            <span class="px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+                                {{ $cat->equipments_count }}
+                            </span>
+                        </td>
+                        <td class="px-3 sm:px-6 py-3 sm:py-4">
+                            <button wire:click="toggleActive({{ $cat->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="toggleActive({{ $cat->id }})"
+                                    class="px-2 sm:px-3 py-1 rounded-full text-xs font-bold transition-all duration-300 disabled:opacity-50 {{ $cat->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
+                                <span wire:loading.remove wire:target="toggleActive({{ $cat->id }})">{{ $cat->is_active ? 'Ativa' : 'Inativa' }}</span>
+                                <span wire:loading wire:target="toggleActive({{ $cat->id }})"><i class="fas fa-spinner fa-spin"></i></span>
+                            </button>
+                        </td>
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                            <div class="flex items-center justify-end gap-1 sm:gap-2">
+                                <button wire:click="edit({{ $cat->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="edit({{ $cat->id }})"
+                                        class="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg hover:bg-blue-50 transition-all duration-300 disabled:opacity-50">
+                                    <i class="fas fa-edit" wire:loading.remove wire:target="edit({{ $cat->id }})"></i>
+                                    <i class="fas fa-spinner fa-spin" wire:loading wire:target="edit({{ $cat->id }})"></i>
+                                </button>
+                                <button wire:click="delete({{ $cat->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="delete({{ $cat->id }})"
+                                        wire:confirm="Excluir esta categoria?"
+                                        class="text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 transition-all duration-300 disabled:opacity-50">
+                                    <i class="fas fa-trash" wire:loading.remove wire:target="delete({{ $cat->id }})"></i>
+                                    <i class="fas fa-spinner fa-spin" wire:loading wire:target="delete({{ $cat->id }})"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                            Nenhuma categoria criada
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 
     {{-- Modal --}}
@@ -132,11 +162,16 @@
                 </div>
 
                 <div class="flex space-x-3 pt-4 border-t">
-                    <button wire:click="save" class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition">
-                        <i class="fas fa-save mr-2"></i>Salvar
+                    <button wire:click="save"
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-70 scale-95"
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 disabled:cursor-not-allowed">
+                        <span wire:loading.remove><i class="fas fa-save mr-2"></i>Salvar</span>
+                        <span wire:loading><i class="fas fa-spinner fa-spin mr-2"></i>Salvando...</span>
                     </button>
-                    <button wire:click="closeModal" class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
-                        Cancelar
+                    <button wire:click="closeModal"
+                            class="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
                 </div>
             </div>

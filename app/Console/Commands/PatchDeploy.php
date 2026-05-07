@@ -23,7 +23,7 @@ class PatchDeploy extends Command
 
         $this->printBanner();
 
-        if (!$force && !$dryRun) {
+        if (!$force && !$dryRun && app()->runningInConsole() && defined('STDIN')) {
             if (!$this->confirm('⚠️  Deseja aplicar o patch completo agora?')) {
                 $this->warn('Operação cancelada.');
                 return 0;
@@ -47,34 +47,54 @@ class PatchDeploy extends Command
 
         $totalSteps = count($steps);
         $success = true;
+        $maintenanceActivated = false;
 
-        foreach ($steps as $i => [$name, $callback]) {
-            $step = $i + 1;
-            $this->info("━━━ [{$step}/{$totalSteps}] {$name} ━━━");
+        try {
+            foreach ($steps as $i => [$name, $callback]) {
+                $step = $i + 1;
+                $this->info("━━━ [{$step}/{$totalSteps}] {$name} ━━━");
 
-            try {
-                $result = $callback();
-                $this->addLog($name, $result['status'], $result['message']);
+                try {
+                    $result = $callback();
+                    $this->addLog($name, $result['status'], $result['message']);
 
-                if ($result['status'] === 'error') {
-                    $this->error("   ❌ {$result['message']}");
-                    $success = false;
-                    if (!$force) {
-                        $this->error('Pipeline interrompido. Use --force para continuar mesmo com erros.');
-                        break;
+                    // Rastrear se modo manutenção foi activado
+                    if ($name === 'Modo Manutenção (activar)' && $result['status'] === 'ok') {
+                        $maintenanceActivated = true;
                     }
-                } else {
-                    $this->info("   ✅ {$result['message']}");
-                }
-            } catch (\Exception $e) {
-                $msg = $e->getMessage();
-                $this->addLog($name, 'error', $msg);
-                $this->error("   ❌ Exceção: {$msg}");
-                $success = false;
-                if (!$force) break;
-            }
 
-            $this->newLine();
+                    if ($result['status'] === 'error') {
+                        $this->error("   ❌ {$result['message']}");
+                        $success = false;
+                        if (!$force) {
+                            $this->error('Pipeline interrompido. Use --force para continuar mesmo com erros.');
+                            break;
+                        }
+                    } else {
+                        $this->info("   ✅ {$result['message']}");
+                    }
+                } catch (\Exception $e) {
+                    $msg = $e->getMessage();
+                    $this->addLog($name, 'error', $msg);
+                    $this->error("   ❌ Exceção: {$msg}");
+                    $success = false;
+                    if (!$force) break;
+                }
+
+                $this->newLine();
+            }
+        } finally {
+            // SEGURANÇA: garantir que o site volta online mesmo se houver crash
+            if ($maintenanceActivated && !$dryRun) {
+                try {
+                    if (app()->isDownForMaintenance()) {
+                        Artisan::call('up');
+                        $this->info('🔓 Modo manutenção desactivado (safety-net)');
+                    }
+                } catch (\Exception $e) {
+                    $this->error('⚠ Falha ao desactivar manutenção: ' . $e->getMessage());
+                }
+            }
         }
 
         // Resumo final
@@ -294,18 +314,22 @@ class PatchDeploy extends Command
 
     private function saveLog(bool $dryRun): void
     {
-        $suffix = $dryRun ? '_dryrun' : '';
-        $filename = 'patch_deploy_' . now()->format('Y-m-d_His') . $suffix . '.json';
-        $path = storage_path("logs/{$filename}");
+        try {
+            $suffix = $dryRun ? '_dryrun' : '';
+            $filename = 'patch_deploy_' . now()->format('Y-m-d_His') . $suffix . '.json';
+            $path = storage_path("logs/{$filename}");
 
-        File::put($path, json_encode([
-            'version' => '1.3.0',
-            'date' => now()->toDateTimeString(),
-            'dry_run' => $dryRun,
-            'steps' => $this->log,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            File::put($path, json_encode([
+                'version' => '1.3.0',
+                'date' => now()->toDateTimeString(),
+                'dry_run' => $dryRun,
+                'steps' => $this->log,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-        $this->info("📋 Log guardado em: storage/logs/{$filename}");
+            $this->info("📋 Log guardado em: storage/logs/{$filename}");
+        } catch (\Exception $e) {
+            $this->warn('⚠ Falha ao guardar log: ' . $e->getMessage());
+        }
     }
 
     private function printBanner(): void

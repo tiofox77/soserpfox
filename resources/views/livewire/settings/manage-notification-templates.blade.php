@@ -550,121 +550,233 @@
     {{-- Modal de Teste --}}
     @if($showTestModal)
         <div class="fixed inset-0 z-50 overflow-y-auto" 
-             x-data="{ show: true }" 
-             x-show="show">
+             x-data="{ show: true, activePreviewTab: 'email' }" 
+             x-show="show"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100">
             
-            <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                 {{-- Overlay --}}
-                <div class="fixed inset-0 bg-gray-500 bg-opacity-75" 
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 backdrop-blur-sm" 
                      @click="show = false; $wire.closeTestModal()"></div>
 
                 {{-- Modal --}}
-                <div class="inline-block bg-white rounded-2xl shadow-xl sm:max-w-lg sm:w-full z-50">
+                <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full z-50 max-h-[90vh] overflow-y-auto"
+                     x-show="show"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                     x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100">
                     
                     {{-- Header --}}
-                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4 rounded-t-2xl">
+                    <div class="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-xl font-bold text-white flex items-center">
-                                <i class="fas fa-paper-plane mr-2"></i>
-                                Testar Template
-                            </h3>
-                            <button wire:click="closeTestModal" class="text-white hover:text-green-100">
-                                <i class="fas fa-times text-2xl"></i>
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-paper-plane text-white text-lg"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">Testar Template</h3>
+                                    <p class="text-green-100 text-xs">{{ $testTemplateName }}</p>
+                                </div>
+                            </div>
+                            <button wire:click="closeTestModal" class="text-white hover:text-green-100 transition">
+                                <i class="fas fa-times text-xl"></i>
                             </button>
                         </div>
                     </div>
 
                     {{-- Body --}}
-                    <div class="px-6 py-6 space-y-4">
-                        {{-- Canais Detectados --}}
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h4 class="text-sm font-bold text-blue-900 mb-2 flex items-center">
-                                <i class="fas fa-broadcast-tower mr-2"></i>
-                                Canais que receberão o teste:
-                            </h4>
-                            <div class="flex gap-3 text-sm">
-                                @foreach($detectedChannels as $channel)
-                                    @if($channel === 'email')
-                                        <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">📧 Email</span>
-                                    @elseif($channel === 'sms')
-                                        <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">📱 SMS</span>
-                                    @elseif($channel === 'whatsapp')
-                                        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full font-semibold">💬 WhatsApp</span>
-                                    @endif
-                                @endforeach
+                    <div class="px-6 py-5 space-y-5">
+
+                        {{-- Info: Canais + Módulo --}}
+                        <div class="flex items-center justify-between bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500 uppercase mb-2">Canais de Envio</p>
+                                <div class="flex gap-2">
+                                    @foreach($detectedChannels as $channel)
+                                        @if($channel === 'email')
+                                            <span class="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold">
+                                                <i class="fas fa-envelope mr-1.5"></i>Email
+                                            </span>
+                                        @elseif($channel === 'sms')
+                                            <span class="inline-flex items-center px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-bold">
+                                                <i class="fas fa-sms mr-1.5"></i>SMS
+                                            </span>
+                                        @elseif($channel === 'whatsapp')
+                                            <span class="inline-flex items-center px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
+                                                <i class="fab fa-whatsapp mr-1.5"></i>WhatsApp
+                                            </span>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs font-semibold text-gray-500 uppercase mb-2">Módulo</p>
+                                <span class="inline-flex items-center px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold">
+                                    <i class="fas fa-cube mr-1.5"></i>{{ ucfirst($testTemplateModule) }}
+                                </span>
                             </div>
                         </div>
 
-                        {{-- Campo de Email (se email_enabled) --}}
-                        @if(in_array('email', $detectedChannels))
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-envelope text-blue-600 mr-2"></i>
-                                    Email de Teste * 
-                                </label>
-                                <input type="email" wire:model="testEmail" 
-                                       placeholder="exemplo@email.com"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                @error('testEmail') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                            </div>
-                        @endif
+                        {{-- Destinatários --}}
+                        <div class="grid grid-cols-1 {{ (in_array('email', $detectedChannels) && (in_array('sms', $detectedChannels) || in_array('whatsapp', $detectedChannels))) ? 'md:grid-cols-2' : '' }} gap-4">
+                            @if(in_array('email', $detectedChannels))
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                                        <i class="fas fa-envelope text-blue-500 mr-1"></i>Email de Teste
+                                    </label>
+                                    <input type="email" wire:model="testEmail" 
+                                           placeholder="exemplo@email.com"
+                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
+                                    @error('testEmail') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                </div>
+                            @endif
 
-                        {{-- Campo de Telefone (se sms_enabled ou whatsapp_enabled) --}}
-                        @if(in_array('sms', $detectedChannels) || in_array('whatsapp', $detectedChannels))
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-phone text-green-600 mr-2"></i>
-                                    Número de Teste * 
-                                    <span class="text-xs text-gray-500 font-normal">(Angola)</span>
-                                </label>
-                                <input type="text" wire:model="testPhone" 
-                                       placeholder="939729902 ou +244939729902"
-                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                                <p class="text-xs text-gray-500 mt-1">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Aceita: 939729902, +244939729902 ou 244939729902
-                                </p>
-                                @error('testPhone') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                            </div>
-                        @endif
+                            @if(in_array('sms', $detectedChannels) || in_array('whatsapp', $detectedChannels))
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                                        <i class="fas fa-phone text-green-500 mr-1"></i>Telefone de Teste
+                                        <span class="text-xs text-gray-400 font-normal">(Angola)</span>
+                                    </label>
+                                    <input type="text" wire:model="testPhone" 
+                                           placeholder="+244 939 729 902"
+                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm">
+                                    @error('testPhone') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                </div>
+                            @endif
+                        </div>
 
                         {{-- Variáveis do Template --}}
                         @if(!empty($testVariables))
                             <div class="border-t border-gray-200 pt-4">
-                                <h4 class="text-sm font-bold text-gray-900 mb-3">
-                                    <i class="fas fa-code text-indigo-600 mr-2"></i>
-                                    Variáveis do Template
-                                </h4>
-                                @foreach($testVariables as $var => $value)
-                                    <div class="mb-3">
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                                            @{{ $var }}
-                                        </label>
-                                        <input type="text" wire:model="testVariables.{{ $var }}" 
-                                               placeholder="Valor para {{ $var }}"
-                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-bold text-gray-900 flex items-center">
+                                        <i class="fas fa-code text-indigo-500 mr-2"></i>
+                                        Variáveis do Template
+                                        <span class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded-full text-xs">{{ count($testVariables) }}</span>
+                                    </h4>
+                                    <div class="flex gap-2">
+                                        <button type="button" wire:click="fillDemoData"
+                                                class="inline-flex items-center px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition">
+                                            <i class="fas fa-magic mr-1.5"></i>Dados Demo
+                                        </button>
+                                        <button type="button" wire:click="clearDemoData"
+                                                class="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold hover:bg-gray-200 transition">
+                                            <i class="fas fa-eraser mr-1.5"></i>Limpar
+                                        </button>
                                     </div>
-                                @endforeach
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    @foreach($testVariables as $var => $value)
+                                        <div class="relative">
+                                            <label class="block text-xs font-semibold text-gray-600 mb-1 flex items-center">
+                                                <code class="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-xs mr-1">@{{ $var }}</code>
+                                            </label>
+                                            <input type="text" wire:model.live.debounce.300ms="testVariables.{{ $var }}" 
+                                                   placeholder="Valor para {{ $var }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm {{ $value ? 'bg-green-50 border-green-300' : '' }}">
+                                            @if($value)
+                                                <div class="absolute right-2 top-7 text-green-500">
+                                                    <i class="fas fa-check-circle text-xs"></i>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Preview --}}
+                        @if($testPreviewSubject || $testPreviewBody || $testPreviewSms)
+                            <div class="border-t border-gray-200 pt-4">
+                                <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                    <i class="fas fa-eye text-emerald-500 mr-2"></i>
+                                    Preview em Tempo Real
+                                </h4>
+
+                                {{-- Preview Tabs --}}
+                                @if($testPreviewSubject || $testPreviewBody)
+                                    @if($testPreviewSms)
+                                        <div class="flex gap-2 mb-3">
+                                            <button type="button" @click="activePreviewTab = 'email'"
+                                                    :class="activePreviewTab === 'email' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                                                    class="px-4 py-1.5 rounded-lg text-xs font-bold transition">
+                                                <i class="fas fa-envelope mr-1"></i>Email
+                                            </button>
+                                            <button type="button" @click="activePreviewTab = 'sms'"
+                                                    :class="activePreviewTab === 'sms' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                                                    class="px-4 py-1.5 rounded-lg text-xs font-bold transition">
+                                                <i class="fas fa-sms mr-1"></i>SMS
+                                            </button>
+                                        </div>
+                                    @endif
+                                @endif
+
+                                {{-- Email Preview --}}
+                                @if($testPreviewSubject || $testPreviewBody)
+                                    <div x-show="activePreviewTab === 'email'" class="bg-white border-2 border-blue-200 rounded-xl overflow-hidden">
+                                        @if($testPreviewSubject)
+                                            <div class="bg-blue-50 px-4 py-2.5 border-b border-blue-200">
+                                                <p class="text-xs text-gray-500 font-semibold uppercase mb-0.5">Assunto</p>
+                                                <p class="text-sm font-semibold text-gray-900">[TESTE] {{ $testPreviewSubject }}</p>
+                                            </div>
+                                        @endif
+                                        @if($testPreviewBody)
+                                            <div class="px-4 py-3">
+                                                <p class="text-xs text-gray-500 font-semibold uppercase mb-1.5">Corpo</p>
+                                                <div class="text-sm text-gray-700 leading-relaxed max-h-32 overflow-y-auto prose prose-sm">
+                                                    {!! nl2br(e($testPreviewBody)) !!}
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                {{-- SMS Preview --}}
+                                @if($testPreviewSms)
+                                    <div x-show="activePreviewTab === 'sms' || !@json($testPreviewSubject || $testPreviewBody)" 
+                                         class="bg-white border-2 border-purple-200 rounded-xl overflow-hidden">
+                                        <div class="bg-purple-50 px-4 py-2 border-b border-purple-200">
+                                            <p class="text-xs text-purple-600 font-bold flex items-center">
+                                                <i class="fas fa-sms mr-1.5"></i>Preview SMS
+                                                <span class="ml-auto text-gray-400 font-normal">{{ strlen($testPreviewSms) }}/160 chars</span>
+                                            </p>
+                                        </div>
+                                        <div class="px-4 py-3">
+                                            <div class="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-gray-800 max-w-sm">
+                                                {{ $testPreviewSms }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
 
                     {{-- Footer --}}
-                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-2xl">
-                        <button type="button" wire:click="closeTestModal"
-                                class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
-                            <i class="fas fa-times mr-2"></i>Cancelar
-                        </button>
-                        <button type="button" wire:click="sendTest"
-                                wire:loading.attr="disabled"
-                                class="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition shadow-lg disabled:opacity-50">
-                            <span wire:loading.remove wire:target="sendTest">
-                                <i class="fas fa-paper-plane mr-2"></i>Enviar Teste
-                            </span>
-                            <span wire:loading wire:target="sendTest">
-                                <i class="fas fa-spinner fa-spin mr-2"></i>Enviando...
-                            </span>
-                        </button>
+                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                        <p class="text-xs text-gray-400">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            O email será enviado com prefixo [TESTE]
+                        </p>
+                        <div class="flex gap-3">
+                            <button type="button" wire:click="closeTestModal"
+                                    class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-semibold text-sm">
+                                Cancelar
+                            </button>
+                            <button type="button" wire:click="sendTest"
+                                    wire:loading.attr="disabled"
+                                    class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition shadow-lg disabled:opacity-50 font-semibold text-sm">
+                                <span wire:loading.remove wire:target="sendTest">
+                                    <i class="fas fa-paper-plane mr-2"></i>Enviar Teste
+                                </span>
+                                <span wire:loading wire:target="sendTest">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>Enviando...
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

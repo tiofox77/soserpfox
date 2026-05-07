@@ -71,7 +71,7 @@
     {{-- Filtros --}}
     <div class="bg-white rounded-xl shadow p-4 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <input type="text" wire:model.live="search" placeholder="Pesquisar..." 
+            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." 
                    class="rounded-lg border-gray-300">
             
             <select wire:model.live="filterType" class="rounded-lg border-gray-300">

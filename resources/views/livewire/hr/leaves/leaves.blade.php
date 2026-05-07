@@ -111,7 +111,7 @@
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
                     <i class="fas fa-search mr-1"></i>Pesquisar
                 </label>
-                <input wire:model.live="search" type="text"
+                <input wire:model.live.debounce.300ms="search" type="text"
                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 appearance-none bg-white text-sm"
                        placeholder="Número, funcionário...">
             </div>

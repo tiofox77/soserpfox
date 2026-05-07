@@ -287,7 +287,7 @@
                                             </div>
                                             <div class="bg-green-50 rounded-lg p-3">
                                                 <p class="text-xs text-green-600 mb-1">Storage</p>
-                                                <p class="text-lg font-bold text-green-700">{{ number_format($subscription->plan->max_storage_mb / 1000, 1) }} GB</p>
+                                                <p class="text-lg font-bold text-green-700">{{ $subscription->plan->max_storage_mb >= 1024 ? number_format($subscription->plan->max_storage_mb / 1024, 1) . ' GB' : $subscription->plan->max_storage_mb . ' MB' }}</p>
                                             </div>
                                             <div class="bg-orange-50 rounded-lg p-3">
                                                 <p class="text-xs text-orange-600 mb-1">Trial</p>
@@ -312,6 +312,24 @@
                                         </div>
                                     </div>
                                     @endif
+
+                                    {{-- Ações --}}
+                                    <div class="flex space-x-2 pt-4 border-t border-gray-200">
+                                        @if($subscription->status === 'active')
+                                            <button wire:click="cancelSubscription({{ $subscription->id }})"
+                                                    wire:confirm="Cancelar esta subscrição? O tenant perderá acesso ao plano no final do período."
+                                                    class="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition">
+                                                <i class="fas fa-ban mr-1"></i>Cancelar Subscrição
+                                            </button>
+                                        @endif
+                                        @if($subscription->status !== 'active')
+                                            <button wire:click="deleteSubscription({{ $subscription->id }})"
+                                                    wire:confirm="Excluir esta subscrição permanentemente?"
+                                                    class="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition">
+                                                <i class="fas fa-trash mr-1"></i>Excluir
+                                            </button>
+                                        @endif
+                                    </div>
 
                                     {{-- Features --}}
                                     @if($subscription->plan->features && count($subscription->plan->features) > 0)
@@ -355,7 +373,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-search text-gray-400"></i>
                         </div>
-                        <input wire:model.live="search" type="text" placeholder="Pesquisar faturas..." 
+                        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Pesquisar faturas..." 
                                class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
                     
@@ -454,41 +472,99 @@
                         </button>
                     </div>
                     
-                    <form wire:submit.prevent="save" class="p-6">
-                        <div class="grid grid-cols-2 gap-4 mb-4">
+                    <form wire:submit.prevent="save" class="p-6 max-h-[75vh] overflow-y-auto">
+                        <div class="grid grid-cols-2 gap-4">
                             <div class="col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Tenant *</label>
-                                <select wire:model="tenant_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-building text-blue-500 mr-2"></i>Tenant *
+                                </label>
+                                <select wire:model="tenant_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                                     <option value="">Selecione um tenant</option>
                                     @foreach($tenants as $tenant)
                                         <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
                                     @endforeach
                                 </select>
-                                @error('tenant_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                @error('tenant_id') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Nº Fatura *</label>
-                                <input wire:model="invoice_number" type="text" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                @error('invoice_number') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-hashtag text-orange-500 mr-2"></i>Nº Fatura *
+                                </label>
+                                <input wire:model="invoice_number" type="text" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-gray-50" readonly>
+                                <p class="text-xs text-gray-500 mt-1">Gerado automaticamente</p>
+                                @error('invoice_number') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
-                                <select wire:model="status" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-info-circle text-purple-500 mr-2"></i>Status *
+                                </label>
+                                <select wire:model="status" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                                     <option value="pending">Pendente</option>
                                     <option value="paid">Pago</option>
                                     <option value="overdue">Atrasado</option>
                                     <option value="cancelled">Cancelado</option>
                                 </select>
                             </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-calendar text-green-500 mr-2"></i>Data Emissão *
+                                </label>
+                                <input wire:model="invoice_date" type="date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                                @error('invoice_date') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-calendar-check text-red-500 mr-2"></i>Data Vencimento *
+                                </label>
+                                <input wire:model="due_date" type="date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition">
+                                @error('due_date') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-align-left text-gray-500 mr-2"></i>Descrição *
+                                </label>
+                                <textarea wire:model="description" rows="2" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="Descrição da fatura..."></textarea>
+                                @error('description') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-money-bill text-green-500 mr-2"></i>Subtotal (Kz) *
+                                </label>
+                                <input wire:model.live="subtotal" type="number" step="0.01" min="0" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                                @error('subtotal') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-percentage text-yellow-500 mr-2"></i>Imposto (Kz) *
+                                </label>
+                                <input wire:model.live="tax" type="number" step="0.01" min="0" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition">
+                                @error('tax') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div class="col-span-2">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-calculator text-blue-500 mr-2"></i>Total (Kz)
+                                </label>
+                                <input wire:model="total" type="number" step="0.01" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-blue-50 font-bold text-lg text-blue-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" readonly>
+                                <p class="text-xs text-gray-500 mt-1">Calculado automaticamente (Subtotal + Imposto)</p>
+                                @error('total') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
                         </div>
                         
-                        <div class="flex justify-end space-x-3">
-                            <button type="button" wire:click="closeModal" class="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition">
-                                Cancelar
+                        <!-- Modal Footer -->
+                        <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
+                            <button type="button" wire:click="closeModal" class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
+                                <i class="fas fa-times mr-2"></i>Cancelar
                             </button>
-                            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                            <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition">
+                                <i class="fas {{ $editingInvoiceId ? 'fa-save' : 'fa-plus' }} mr-2"></i>
                                 {{ $editingInvoiceId ? 'Atualizar' : 'Criar' }}
                             </button>
                         </div>

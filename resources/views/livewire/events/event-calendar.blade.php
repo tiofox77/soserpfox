@@ -1,118 +1,125 @@
-<div class="p-6">
+<div class="p-2 sm:p-4 lg:p-6">
     {{-- Header --}}
-    <div class="mb-6 flex items-center justify-between">
+    <div class="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h2 class="text-2xl font-bold text-gray-800 flex items-center">
-                <i class="fas fa-calendar-alt text-purple-600 mr-3"></i>
+            <h2 class="text-lg sm:text-2xl font-bold text-gray-800 flex items-center">
+                <i class="fas fa-calendar-alt text-purple-600 mr-2 sm:mr-3"></i>
                 Calendário de Eventos
             </h2>
-            <p class="text-gray-600">Visualização interativa e gestão de fases</p>
+            <p class="text-gray-600 text-xs sm:text-base">Visualização interativa e gestão de fases</p>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
             {{-- Abas de Visualização --}}
             <div class="flex bg-gray-100 rounded-lg p-1">
                 <button wire:click="switchView('calendar')" 
-                        class="px-4 py-2 rounded-md font-semibold transition-all duration-300 flex items-center {{ $viewMode === 'calendar' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-600 hover:text-gray-900' }}">
-                    <i class="fas fa-calendar-alt mr-2"></i>
-                    Calendário
+                        class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md font-semibold transition-all duration-300 flex items-center text-sm sm:text-base {{ $viewMode === 'calendar' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-600 hover:text-gray-900' }}">
+                    <i class="fas fa-calendar-alt sm:mr-2"></i>
+                    <span class="hidden sm:inline">Calendário</span>
                 </button>
                 <button wire:click="switchView('list')" 
-                        class="px-4 py-2 rounded-md font-semibold transition-all duration-300 flex items-center {{ $viewMode === 'list' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-600 hover:text-gray-900' }}">
-                    <i class="fas fa-list mr-2"></i>
-                    Lista
+                        class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-md font-semibold transition-all duration-300 flex items-center text-sm sm:text-base {{ $viewMode === 'list' ? 'bg-white text-purple-600 shadow-md' : 'text-gray-600 hover:text-gray-900' }}">
+                    <i class="fas fa-list sm:mr-2"></i>
+                    <span class="hidden sm:inline">Lista</span>
                 </button>
             </div>
             
-            <button wire:click="openQuickCreate" 
-                    class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center">
-                <i class="fas fa-plus-circle mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
-                Criar Evento
-                <i class="fas fa-arrow-right ml-2 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+            <button wire:click="openQuickCreate"
+                    wire:loading.attr="disabled"
+                    wire:loading.class="opacity-70 scale-95"
+                    class="group bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center text-sm sm:text-base disabled:cursor-not-allowed">
+                <span wire:loading.remove wire:target="openQuickCreate">
+                    <i class="fas fa-plus-circle sm:mr-2 group-hover:rotate-90 transition-transform duration-300"></i>
+                    <span class="hidden sm:inline">Criar Evento</span>
+                </span>
+                <span wire:loading wire:target="openQuickCreate">
+                    <i class="fas fa-spinner fa-spin sm:mr-2"></i>
+                    <span class="hidden sm:inline">Abrindo...</span>
+                </span>
             </button>
         </div>
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
-        <div class="bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg shadow-lg p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 lg:gap-6 mb-4 sm:mb-6">
+        <div class="bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-200 text-sm font-medium flex items-center">
-                        <i class="fas fa-chart-line mr-2 group-hover:animate-pulse"></i>
-                        Total de Eventos
+                    <p class="text-gray-200 text-xs sm:text-sm font-medium flex items-center">
+                        <i class="fas fa-chart-line mr-1 sm:mr-2 group-hover:animate-pulse"></i>
+                        Total
                     </p>
-                    <p class="text-3xl font-bold mt-1 group-hover:scale-110 transition-transform">{{ $stats['total'] }}</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['total'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full group-hover:rotate-12 transition-transform">
-                    <i class="fas fa-calendar-check text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full hidden sm:block">
+                    <i class="fas fa-calendar-check text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-blue-200 text-sm font-medium flex items-center">
-                        <i class="fas fa-file-alt mr-2 group-hover:animate-pulse"></i>
+                    <p class="text-blue-200 text-xs sm:text-sm font-medium flex items-center">
+                        <i class="fas fa-file-alt mr-1 sm:mr-2 group-hover:animate-pulse"></i>
                         Orçamentos
                     </p>
-                    <p class="text-3xl font-bold mt-1 group-hover:scale-110 transition-transform">{{ $stats['orcamento'] }}</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['orcamento'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full group-hover:rotate-12 transition-transform">
-                    <i class="fas fa-file-invoice-dollar text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full hidden sm:block">
+                    <i class="fas fa-file-invoice-dollar text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-green-200 text-sm font-medium flex items-center">
-                        <i class="fas fa-check mr-2 group-hover:animate-pulse"></i>
+                    <p class="text-green-200 text-xs sm:text-sm font-medium flex items-center">
+                        <i class="fas fa-check mr-1 sm:mr-2 group-hover:animate-pulse"></i>
                         Confirmados
                     </p>
-                    <p class="text-3xl font-bold mt-1 group-hover:scale-110 transition-transform">{{ $stats['confirmados'] }}</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['confirmados'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full group-hover:rotate-12 transition-transform">
-                    <i class="fas fa-check-double text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full hidden sm:block">
+                    <i class="fas fa-check-double text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
+        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-orange-200 text-sm font-medium flex items-center">
-                        <i class="fas fa-play mr-2 group-hover:animate-pulse"></i>
+                    <p class="text-orange-200 text-xs sm:text-sm font-medium flex items-center">
+                        <i class="fas fa-play mr-1 sm:mr-2 group-hover:animate-pulse"></i>
                         Em Andamento
                     </p>
-                    <p class="text-3xl font-bold mt-1 group-hover:scale-110 transition-transform">{{ $stats['em_andamento'] }}</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['em_andamento'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full group-hover:rotate-12 transition-transform">
-                    <i class="fas fa-spinner fa-spin text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full hidden sm:block">
+                    <i class="fas fa-spinner fa-spin text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-3 sm:p-6 text-white col-span-2 sm:col-span-1 transform hover:scale-105 hover:shadow-2xl transition duration-300 cursor-pointer group">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-purple-200 text-sm font-medium flex items-center">
-                        <i class="fas fa-award mr-2 group-hover:animate-pulse"></i>
+                    <p class="text-purple-200 text-xs sm:text-sm font-medium flex items-center">
+                        <i class="fas fa-award mr-1 sm:mr-2 group-hover:animate-pulse"></i>
                         Concluídos (mês)
                     </p>
-                    <p class="text-3xl font-bold mt-1 group-hover:scale-110 transition-transform">{{ $stats['concluidos_mes'] }}</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['concluidos_mes'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full group-hover:rotate-12 transition-transform">
-                    <i class="fas fa-trophy text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full hidden sm:block">
+                    <i class="fas fa-trophy text-lg sm:text-2xl"></i>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Filtros --}}
-    <div class="bg-white rounded-lg shadow-md p-4 mb-6 border-l-4 border-purple-600">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-lg shadow-md p-3 sm:p-4 mb-4 sm:mb-6 border-l-4 border-purple-600">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-3 flex items-center">
                     <i class="fas fa-filter text-blue-600 mr-2"></i>
@@ -223,14 +230,14 @@
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 transform scale-95"
              x-transition:enter-end="opacity-100 transform scale-100">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
-                <h3 class="text-white font-bold text-lg flex items-center">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 sm:px-6 py-3 sm:py-4">
+                <h3 class="text-white font-bold text-sm sm:text-lg flex items-center">
                     <i class="fas fa-calendar-alt mr-2"></i>
                     Calendário de Eventos
                 </h3>
             </div>
-            <div class="p-6">
-                <div id="calendar" wire:ignore></div>
+            <div class="p-1 sm:p-4 lg:p-6 overflow-x-auto">
+                <div id="calendar" wire:ignore class="min-w-0"></div>
             </div>
         </div>
         
@@ -239,22 +246,22 @@
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 transform scale-95"
              x-transition:enter-end="opacity-100 transform scale-100">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
-                <h3 class="text-white font-bold text-lg flex items-center">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 sm:px-6 py-3 sm:py-4">
+                <h3 class="text-white font-bold text-sm sm:text-lg flex items-center">
                     <i class="fas fa-list mr-2"></i>
                     Lista de Eventos ({{ $eventsList->count() }})
                 </h3>
             </div>
-            <div class="p-6">
+            <div class="p-3 sm:p-6">
                 @if($eventsList->count() > 0)
-                    <div class="space-y-4">
+                    <div class="space-y-3 sm:space-y-4">
                         @foreach($eventsList as $event)
                             <div wire:click="viewEvent({{ $event->id }})" 
-                                 class="group border-2 border-gray-200 rounded-xl p-5 hover:border-purple-400 hover:shadow-lg transition-all duration-300 cursor-pointer bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50">
+                                 class="group border-2 border-gray-200 rounded-xl p-3 sm:p-5 hover:border-purple-400 hover:shadow-lg transition-all duration-300 cursor-pointer bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50">
                                 <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center gap-3 mb-2">
-                                            <span class="text-2xl">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 sm:gap-3 mb-2">
+                                            <span class="text-lg sm:text-2xl">
                                                 @if($event->status === 'orcamento') 📄
                                                 @elseif($event->status === 'confirmado') ✅
                                                 @elseif($event->status === 'em_montagem') 🔨
@@ -263,51 +270,51 @@
                                                 @else 📌
                                                 @endif
                                             </span>
-                                            <div>
-                                                <h4 class="text-lg font-bold text-gray-900 group-hover:text-purple-700 transition">
+                                            <div class="min-w-0">
+                                                <h4 class="text-sm sm:text-lg font-bold text-gray-900 group-hover:text-purple-700 transition truncate">
                                                     {{ $event->name }}
                                                 </h4>
-                                                <p class="text-sm text-gray-500">{{ $event->event_number }}</p>
+                                                <p class="text-xs sm:text-sm text-gray-500">{{ $event->event_number }}</p>
                                             </div>
                                         </div>
                                         
-                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                                            <div class="flex items-center text-sm text-gray-600">
-                                                <i class="fas fa-calendar text-purple-600 mr-2"></i>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-3 mt-2 sm:mt-3">
+                                            <div class="flex items-center text-xs sm:text-sm text-gray-600">
+                                                <i class="fas fa-calendar text-purple-600 mr-1.5 sm:mr-2"></i>
                                                 {{ $event->start_date->format('d/m/Y H:i') }}
                                             </div>
-                                            <div class="flex items-center text-sm text-gray-600">
-                                                <i class="fas fa-user text-indigo-600 mr-2"></i>
-                                                {{ $event->client?->name ?? 'Sem cliente' }}
+                                            <div class="flex items-center text-xs sm:text-sm text-gray-600">
+                                                <i class="fas fa-user text-indigo-600 mr-1.5 sm:mr-2"></i>
+                                                <span class="truncate">{{ $event->client?->name ?? 'Sem cliente' }}</span>
                                             </div>
-                                            <div class="flex items-center text-sm text-gray-600">
-                                                <i class="fas fa-map-marker-alt text-red-600 mr-2"></i>
-                                                {{ $event->venue?->name ?? 'Sem local' }}
+                                            <div class="flex items-center text-xs sm:text-sm text-gray-600">
+                                                <i class="fas fa-map-marker-alt text-red-600 mr-1.5 sm:mr-2"></i>
+                                                <span class="truncate">{{ $event->venue?->name ?? 'Sem local' }}</span>
                                             </div>
-                                            <div class="flex items-center text-sm">
-                                                <i class="{{ $event->phase_icon }} text-green-600 mr-2"></i>
+                                            <div class="flex items-center text-xs sm:text-sm">
+                                                <i class="{{ $event->phase_icon }} text-green-600 mr-1.5 sm:mr-2"></i>
                                                 <span class="font-semibold">{{ $event->phase_label }}</span>
                                             </div>
                                         </div>
                                         
-                                        <div class="mt-3 flex items-center gap-4">
+                                        <div class="mt-2 sm:mt-3 flex items-center gap-3 sm:gap-4">
                                             <div class="flex-1">
                                                 <div class="flex items-center justify-between mb-1">
                                                     <span class="text-xs font-semibold text-gray-600">Progresso</span>
                                                     <span class="text-xs font-bold text-purple-600">{{ $event->checklist_progress }}%</span>
                                                 </div>
-                                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 h-2 rounded-full transition-all duration-300" 
+                                                <div class="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
+                                                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 h-1.5 sm:h-2 rounded-full transition-all duration-300" 
                                                          style="width: {{ $event->checklist_progress }}%"></div>
                                                 </div>
                                             </div>
-                                            <span class="px-3 py-1 rounded-full text-xs font-bold text-white" 
+                                            <span class="px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-bold text-white whitespace-nowrap" 
                                                   style="background-color: {{ $event->calendar_color }}">
                                                 {{ $event->status_label }}
                                             </span>
                                         </div>
                                     </div>
-                                    <i class="fas fa-chevron-right text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all ml-4"></i>
+                                    <i class="fas fa-chevron-right text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all ml-2 sm:ml-4"></i>
                                 </div>
                             </div>
                         @endforeach
@@ -325,35 +332,37 @@
 
     {{-- Modal de Visualização do Evento --}}
     @if($showEventModal && $selectedEvent)
-    <div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4 animate-fade-in-up" 
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4 animate-fade-in-up" 
          style="backdrop-filter: blur(4px);">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
-            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
-                <div>
-                    <h3 class="text-xl font-bold text-white">{{ $selectedEvent->name }}</h3>
-                    <p class="text-purple-100 text-sm">{{ $selectedEvent->event_number }}</p>
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto animate-scale-in">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+                <div class="min-w-0 flex-1 mr-3">
+                    <h3 class="text-base sm:text-xl font-bold text-white truncate">{{ $selectedEvent->name }}</h3>
+                    <p class="text-purple-100 text-xs sm:text-sm">{{ $selectedEvent->event_number }}</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button wire:click="editEvent({{ $selectedEvent->id }})" 
-                            class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg font-semibold transition">
-                        <i class="fas fa-edit mr-2"></i>Editar
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <button wire:click="editEvent({{ $selectedEvent->id }})"
+                            wire:loading.attr="disabled"
+                            class="bg-white/20 hover:bg-white/30 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold transition-all duration-300 text-sm disabled:opacity-50">
+                        <span wire:loading.remove><i class="fas fa-edit sm:mr-2"></i><span class="hidden sm:inline">Editar</span></span>
+                        <span wire:loading><i class="fas fa-spinner fa-spin"></i></span>
                     </button>
-                    <button wire:click="closeModal" class="text-white hover:text-gray-200">
-                        <i class="fas fa-times text-xl"></i>
+                    <button wire:click="closeModal" class="text-white hover:text-gray-200 hover:rotate-90 transition-all duration-300">
+                        <i class="fas fa-times text-lg sm:text-xl"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="p-6">
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-                        <p class="text-sm text-blue-700 font-semibold">Status</p>
-                        <p class="text-xl font-bold text-blue-900">{{ $selectedEvent->status_label }}</p>
+            <div class="p-4 sm:p-6">
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                    <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-blue-700 font-semibold">Status</p>
+                        <p class="text-base sm:text-xl font-bold text-blue-900">{{ $selectedEvent->status_label }}</p>
                     </div>
-                    <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-4">
-                        <p class="text-sm text-purple-700 font-semibold">Fase</p>
-                        <p class="text-xl font-bold text-purple-900">
-                            <i class="{{ $selectedEvent->phase_icon }} mr-2"></i>
+                    <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-3 sm:p-4">
+                        <p class="text-xs sm:text-sm text-purple-700 font-semibold">Fase</p>
+                        <p class="text-base sm:text-xl font-bold text-purple-900">
+                            <i class="{{ $selectedEvent->phase_icon }} mr-1 sm:mr-2"></i>
                             {{ $selectedEvent->phase_label }}
                         </p>
                     </div>
@@ -372,10 +381,18 @@
 
                 @if($selectedEvent->phase !== 'concluido')
                 <button wire:click="advancePhase({{ $selectedEvent->id }})"
-                        class="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg transition mb-6
+                        wire:loading.attr="disabled"
+                        wire:loading.class="opacity-70 scale-95"
+                        class="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white px-6 py-3 rounded-lg font-bold hover:shadow-lg hover:scale-105 transition-all duration-300 mb-6 disabled:cursor-not-allowed
                                {{ !$selectedEvent->canAdvancePhase() ? 'opacity-50 cursor-not-allowed' : '' }}">
-                    <i class="fas fa-arrow-right mr-2"></i>
-                    Avançar para Próxima Fase
+                    <span wire:loading.remove>
+                        <i class="fas fa-arrow-right mr-2"></i>
+                        Avançar para Próxima Fase
+                    </span>
+                    <span wire:loading>
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Avançando...
+                    </span>
                 </button>
                 @endif
 
@@ -415,7 +432,7 @@
                     @endif
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 text-sm border-t pt-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm border-t pt-4">
                     <div>
                         <p class="text-gray-600 font-semibold">Cliente</p>
                         <p class="text-gray-900">{{ $selectedEvent->client?->name ?? 'Não definido' }}</p>
@@ -522,6 +539,47 @@
         color: #6b21a8 !important;
         padding: 1rem !important;
     }
+
+    /* Mobile responsive FullCalendar */
+    @media (max-width: 640px) {
+        .fc .fc-toolbar {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+        .fc .fc-toolbar-title {
+            font-size: 1rem !important;
+        }
+        .fc .fc-button {
+            padding: 0.3rem 0.6rem !important;
+            font-size: 0.75rem !important;
+        }
+        .fc-col-header-cell {
+            padding: 0.4rem !important;
+            font-size: 0.6rem !important;
+        }
+        .fc-daygrid-day-number {
+            font-size: 0.75rem !important;
+            padding: 2px 4px !important;
+        }
+        .fc-event {
+            font-size: 0.65rem !important;
+            padding: 1px 3px !important;
+        }
+        .fc-day-today .fc-daygrid-day-number {
+            width: 1.5rem;
+            height: 1.5rem;
+            font-size: 0.7rem;
+        }
+        .fc .fc-daygrid-body-natural .fc-daygrid-day-events {
+            margin-bottom: 0 !important;
+        }
+        .fc .fc-daygrid-event {
+            margin-top: 1px !important;
+        }
+        .fc .fc-list-event-title a {
+            font-size: 0.8rem !important;
+        }
+    }
     
     /* Animações */
     @keyframes fadeInUp {
@@ -563,12 +621,26 @@ document.addEventListener('livewire:initialized', () => {
         const calendarEl = document.getElementById('calendar');
         if (!calendarEl) return;
 
+        const isMobile = window.innerWidth < 640;
+        
         calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            headerToolbar: {
+            initialView: isMobile ? 'listWeek' : 'dayGridMonth',
+            headerToolbar: isMobile ? {
+                left: 'prev,next',
+                center: 'title',
+                right: 'listWeek,dayGridMonth'
+            } : {
                 left: 'prev,next today',
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            windowResize: function(view) {
+                const nowMobile = window.innerWidth < 640;
+                if (nowMobile && calendar.view.type === 'dayGridMonth') {
+                    calendar.changeView('listWeek');
+                } else if (!nowMobile && calendar.view.type === 'listWeek') {
+                    calendar.changeView('dayGridMonth');
+                }
             },
             locale: 'pt-br',
             buttonText: {

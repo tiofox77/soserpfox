@@ -31,23 +31,28 @@
     @if(count($alerts) > 0)
         <div class="grid grid-cols-1 gap-4">
             @foreach($alerts as $alert)
-                <div class="bg-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-50 border-l-4 border-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-500 p-4 rounded-lg shadow-md">
+                @php
+                    $color = match($alert['type']) {
+                        'warning' => 'yellow',
+                        'danger' => 'red',
+                        'info' => 'blue',
+                        'success' => 'green',
+                        default => 'gray',
+                    };
+                @endphp
+                <div class="bg-{{ $color }}-50 border-l-4 border-{{ $color }}-500 p-4 rounded-lg shadow-md">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
-                                <i class="fas {{ $alert['icon'] }} text-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-600 text-2xl"></i>
+                                <i class="fas {{ $alert['icon'] }} text-{{ $color }}-600 text-2xl"></i>
                             </div>
                             <div class="ml-4">
-                                <h3 class="text-sm font-bold text-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-900">
-                                    {{ $alert['title'] }}
-                                </h3>
-                                <p class="text-sm text-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-700 mt-1">
-                                    {{ $alert['message'] }}
-                                </p>
+                                <h3 class="text-sm font-bold text-{{ $color }}-900">{{ $alert['title'] }}</h3>
+                                <p class="text-sm text-{{ $color }}-700 mt-1">{{ $alert['message'] }}</p>
                             </div>
                         </div>
                         <a href="{{ $alert['action'] }}" 
-                           class="px-4 py-2 bg-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-600 hover:bg-{{ $alert['type'] === 'warning' ? 'yellow' : 'red' }}-700 text-white rounded-lg font-semibold text-sm transition-all">
+                           class="px-4 py-2 bg-{{ $color }}-600 hover:bg-{{ $color }}-700 text-white rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
                             {{ $alert['action_text'] }}
                         </a>
                     </div>
@@ -126,6 +131,49 @@
             </div>
         </div>
     </div>
+
+    {{-- Resumo Folha de Pagamento --}}
+    @if($payrollSummary['latest_status'])
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-emerald-100">
+        <div class="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white flex items-center">
+                <i class="fas fa-money-check-alt mr-2"></i>Última Folha de Pagamento — {{ $payrollSummary['latest_month'] }}
+            </h3>
+            <div class="flex items-center gap-2">
+                @if($payrollSummary['latest_status'] === 'paid')
+                    <span class="px-3 py-1 bg-green-400/30 text-white rounded-full text-xs font-bold">Paga</span>
+                @elseif($payrollSummary['latest_status'] === 'approved')
+                    <span class="px-3 py-1 bg-blue-400/30 text-white rounded-full text-xs font-bold">Aprovada</span>
+                @else
+                    <span class="px-3 py-1 bg-yellow-400/30 text-white rounded-full text-xs font-bold">Rascunho</span>
+                @endif
+                <a href="{{ route('hr.payroll') }}" class="px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition">
+                    <i class="fas fa-external-link-alt mr-1"></i>Ver
+                </a>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-3 bg-gray-50 rounded-xl">
+                    <p class="text-xs text-gray-500 uppercase font-semibold">Funcionários</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-1">{{ $payrollSummary['total_employees'] }}</p>
+                </div>
+                <div class="text-center p-3 bg-emerald-50 rounded-xl">
+                    <p class="text-xs text-emerald-600 uppercase font-semibold">Salário Bruto</p>
+                    <p class="text-2xl font-bold text-emerald-700 mt-1">{{ number_format($payrollSummary['total_gross'], 0, ',', '.') }} <span class="text-sm">Kz</span></p>
+                </div>
+                <div class="text-center p-3 bg-red-50 rounded-xl">
+                    <p class="text-xs text-red-600 uppercase font-semibold">Deduções</p>
+                    <p class="text-2xl font-bold text-red-700 mt-1">{{ number_format($payrollSummary['total_deductions'], 0, ',', '.') }} <span class="text-sm">Kz</span></p>
+                </div>
+                <div class="text-center p-3 bg-blue-50 rounded-xl border-2 border-blue-200">
+                    <p class="text-xs text-blue-600 uppercase font-semibold">Líquido a Pagar</p>
+                    <p class="text-2xl font-bold text-blue-700 mt-1">{{ number_format($payrollSummary['total_net'], 0, ',', '.') }} <span class="text-sm">Kz</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- Conteúdo Principal --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

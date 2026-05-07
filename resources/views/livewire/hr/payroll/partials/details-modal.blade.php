@@ -168,19 +168,20 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    @if($selectedPayroll->status === 'draft')
-                                        <button wire:click="editItem({{ $item->id }})" 
-                                                class="opacity-0 group-hover:opacity-100 w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-110"
-                                                title="Editar Item">
-                                            <i class="fas fa-edit text-xs"></i>
-                                        </button>
-                                    @else
-                                        <button class="w-8 h-8 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed" 
-                                                title="Não editável"
-                                                disabled>
-                                            <i class="fas fa-lock text-xs"></i>
-                                        </button>
-                                    @endif
+                                    <div class="flex items-center justify-center gap-1">
+                                        <a href="{{ route('hr.payroll.payslip.pdf', $item->id) }}" target="_blank"
+                                           class="w-8 h-8 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-110 inline-flex items-center justify-center"
+                                           title="Recibo PDF">
+                                            <i class="fas fa-file-pdf text-xs"></i>
+                                        </a>
+                                        @if($selectedPayroll->status === 'draft')
+                                            <button wire:click="editItem({{ $item->id }})" 
+                                                    class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg transform hover:scale-110"
+                                                    title="Editar Item">
+                                                <i class="fas fa-edit text-xs"></i>
+                                            </button>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -236,16 +237,28 @@
         {{-- Footer --}}
         <div class="bg-gray-50 px-6 py-4 flex items-center justify-between space-x-3 border-t border-gray-200">
             <div class="flex items-center space-x-2">
-                <button type="button"
-                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg">
-                    <i class="fas fa-file-pdf mr-2"></i>Exportar PDF
-                </button>
+                <a href="{{ route('hr.payroll.payslips-all.pdf', $selectedPayroll->id) }}" target="_blank"
+                   class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center">
+                    <i class="fas fa-file-pdf mr-2"></i>Recibos (Todos)
+                </a>
                 <button type="button"
                         class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg">
                     <i class="fas fa-file-excel mr-2"></i>Exportar Excel
                 </button>
                 
                 @if($selectedPayroll->status !== 'paid')
+                    <button wire:click="recalculatePayroll({{ $selectedPayroll->id }})" 
+                            type="button"
+                            wire:loading.attr="disabled"
+                            wire:target="recalculatePayroll"
+                            class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg">
+                        <span wire:loading.remove wire:target="recalculatePayroll">
+                            <i class="fas fa-sync-alt mr-2"></i>Recalcular Folha
+                        </span>
+                        <span wire:loading wire:target="recalculatePayroll">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Recalculando...
+                        </span>
+                    </button>
                     <button wire:click="deletePayroll({{ $selectedPayroll->id }})" 
                             type="button"
                             class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg">

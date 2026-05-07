@@ -109,6 +109,16 @@ class Proformas extends Component
     public function deleteProforma()
     {
         if ($this->proformaToDelete) {
+            // Verificar bloqueio de eliminação via Software Settings
+            if (isDeleteBlocked('proforma')) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'A eliminação de Proformas está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                ]);
+                $this->showDeleteModal = false;
+                return;
+            }
+
             $proforma = SalesProforma::where('tenant_id', activeTenantId())
                 ->findOrFail($this->proformaToDelete);
 

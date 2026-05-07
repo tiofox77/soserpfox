@@ -136,7 +136,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live="search" type="text" placeholder="Nome, número funcionário..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome, número funcionário..." 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -184,20 +184,10 @@
     </div>
 
     {{-- Content --}}
-    <div class="bg-white rounded-2xl shadow-lg overflow-hidden" 
-         x-data="{ currentView: @entangle('view') }"
-         x-effect="if (currentView === 'calendar') { 
-             setTimeout(() => { 
-                 window.dispatchEvent(new CustomEvent('render-attendance-calendar'));
-                 console.log('🔄 Alpine detectou mudança para calendário de presenças');
-             }, 200);
-         }">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
         
         {{-- List View --}}
-        <div x-show="currentView === 'list'"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform scale-95"
-             x-transition:enter-end="opacity-100 transform scale-100">
+        <div @if($view !== 'list') style="display:none" @endif>
             {{-- Header --}}
             <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                 <div class="flex items-center justify-between">
@@ -367,12 +357,9 @@
         </div>
         
         {{-- Calendar View --}}
-        <div x-show="currentView === 'calendar'"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform scale-95"
-             x-transition:enter-end="opacity-100 transform scale-100">
+        @if($view === 'calendar')
             @include('livewire.hr.attendance.partials.calendar')
-        </div>
+        @endif
     </div>
 
     {{-- Modals --}}

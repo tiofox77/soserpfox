@@ -78,6 +78,22 @@ class HotelSettingsManagement extends Component
     public $amenities = [];
     public $featured_rooms = [];
 
+    // Overbooking
+    public $overbooking_enabled = false;
+    public $overbooking_percent = 10;
+
+    // Fidelidade
+    public $loyalty_enabled = true;
+    public $loyalty_points_per_kz = 0.01;
+    public $loyalty_tier_silver = 500;
+    public $loyalty_tier_gold = 2000;
+    public $loyalty_tier_platinum = 5000;
+
+    // Notificações
+    public $notify_reservation_confirmed = true;
+    public $notify_pre_arrival = true;
+    public $notify_post_stay = true;
+
     protected function rules()
     {
         return [
@@ -140,6 +156,18 @@ class HotelSettingsManagement extends Component
         $this->welcome_message = $settings->welcome_message ?? '';
         $this->amenities = $settings->amenities_list ?? [];
         $this->featured_rooms = $settings->featured_rooms ?? [];
+
+        // Overbooking / Fidelidade / Notificações
+        $this->overbooking_enabled = (bool) ($settings->overbooking_enabled ?? false);
+        $this->overbooking_percent = (int) ($settings->overbooking_percent ?? 10);
+        $this->loyalty_enabled = (bool) ($settings->loyalty_enabled ?? true);
+        $this->loyalty_points_per_kz = (float) ($settings->loyalty_points_per_kz ?? 0.01);
+        $this->loyalty_tier_silver = (int) ($settings->loyalty_tier_silver ?? 500);
+        $this->loyalty_tier_gold = (int) ($settings->loyalty_tier_gold ?? 2000);
+        $this->loyalty_tier_platinum = (int) ($settings->loyalty_tier_platinum ?? 5000);
+        $this->notify_reservation_confirmed = (bool) ($settings->notify_reservation_confirmed ?? true);
+        $this->notify_pre_arrival = (bool) ($settings->notify_pre_arrival ?? true);
+        $this->notify_post_stay = (bool) ($settings->notify_post_stay ?? true);
         
         // Atualizar slug e URL (já gerado no modelo)
         $this->booking_slug = $settings->booking_slug;
@@ -210,6 +238,16 @@ class HotelSettingsManagement extends Component
             'welcome_message' => $this->welcome_message,
             'amenities_list' => $this->amenities,
             'featured_rooms' => $this->featured_rooms,
+            'overbooking_enabled' => $this->overbooking_enabled,
+            'overbooking_percent' => $this->overbooking_percent,
+            'loyalty_enabled' => $this->loyalty_enabled,
+            'loyalty_points_per_kz' => $this->loyalty_points_per_kz,
+            'loyalty_tier_silver' => $this->loyalty_tier_silver,
+            'loyalty_tier_gold' => $this->loyalty_tier_gold,
+            'loyalty_tier_platinum' => $this->loyalty_tier_platinum,
+            'notify_reservation_confirmed' => $this->notify_reservation_confirmed,
+            'notify_pre_arrival' => $this->notify_pre_arrival,
+            'notify_post_stay' => $this->notify_post_stay,
         ]);
 
         // Gerar slug se não existir

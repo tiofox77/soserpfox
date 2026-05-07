@@ -5,20 +5,34 @@ namespace App\Services\HR;
 use App\Models\HR\Overtime;
 use App\Models\HR\Employee;
 use App\Models\HR\Attendance;
+use App\Models\HR\HRSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class OvertimeService
 {
     /**
-     * Multiplicadores segundo legislação angolana
+     * Obter multiplicadores da legislação angolana via HRSetting (fallback hardcoded)
      */
-    const MULTIPLIERS = [
-        'weekday' => 1.5,  // 50% adicional
-        'weekend' => 2.0,  // 100% adicional
-        'holiday' => 2.0,  // 100% adicional
-        'night' => 1.25,   // 25% adicional
-    ];
+    public function getMultipliers(): array
+    {
+        $weekdayRate = 1 + ((float) HRSetting::get('overtime_weekday_rate', 50) / 100);
+        return [
+            'regular' => $weekdayRate,
+            'weekday' => $weekdayRate,
+            'weekend' => 1 + ((float) HRSetting::get('overtime_weekend_rate', 100) / 100),
+            'holiday' => 1 + ((float) HRSetting::get('overtime_holiday_rate', 100) / 100),
+            'night'   => 1 + ((float) HRSetting::get('overtime_night_rate', 25) / 100),
+        ];
+    }
+
+    /**
+     * Limite legal mensal de horas extras (Angola: 40h/mês por defeito)
+     */
+    public function getMonthlyLimit(): float
+    {
+        return (float) HRSetting::get('overtime_monthly_limit', 40);
+    }
 
     /**
      * Calcular horas entre dois horários
@@ -40,14 +54,20 @@ class OvertimeService
      */
     public function determineOvertimeType(Carbon $date): string
     {
-        if ($date->isWeekend()) {
+        $workOnSaturday = (bool) HRSetting::get('work_on_saturday', false);
+
+        if ($date->isSunday()) {
             return 'weekend';
         }
 
-        // Aqui você pode adicionar lógica para verificar feriados
-        // if ($this->isHoliday($date)) {
-        //     return 'holiday';
-        // }
+        if ($date->isSaturday() && !$workOnSaturday) {
+            return 'weekend';
+        }
+
+        // Verificar feriados angolanos
+        if (\App\Helpers\PayrollCalculatorHelper::isAngolanHoliday($date)) {
+            return 'holiday';
+        }
 
         return 'weekday';
     }
@@ -63,23 +83,27 @@ class OvertimeService
             ->first();
 
         // Se não tiver contrato, usar salário do funcionário
-        $baseSalary = $contract ? $contract->base_salary : ($employee->salary ?? 0);
+        $baseSalary = $contract ? $contract->base_salary : ($employee->base_salary ?? $employee->salary ?? 0);
+
+        $multipliers = $this->getMultipliers();
 
         if ($baseSalary == 0) {
             return [
                 'hourly_rate' => 0,
-                'multiplier' => self::MULTIPLIERS[$overtimeType] ?? 1.5,
+                'multiplier' => $multipliers[$overtimeType] ?? 1.5,
                 'overtime_rate' => 0,
                 'total_amount' => 0,
             ];
         }
 
-        // Taxa hora normal (salário mensal / 176 horas mensais)
-        $monthlyHours = 176; // 22 dias x 8 horas
+        // Taxa hora normal (salário mensal / horas mensais via HRSetting)
+        $workingDays = (float) HRSetting::get('monthly_working_days', 22);
+        $hoursPerDay = (float) HRSetting::get('working_hours_per_day', 8);
+        $monthlyHours = $workingDays * $hoursPerDay;
         $hourlyRate = $baseSalary / $monthlyHours;
 
         // Multiplicador
-        $multiplier = self::MULTIPLIERS[$overtimeType] ?? 1.5;
+        $multiplier = $multipliers[$overtimeType] ?? 1.5;
 
         // Taxa hora extra
         $overtimeRate = $hourlyRate * $multiplier;
@@ -105,11 +129,23 @@ class OvertimeService
         try {
             $employee = Employee::findOrFail($data['employee_id']);
 
-            // Calcular horas
-            $totalHours = $this->calculateHours($data['start_time'], $data['end_time']);
+            // Calcular horas conforme input_type
+            $inputType = $data['input_type'] ?? 'time_range';
 
-            if ($totalHours <= 0) {
-                throw new \Exception('O horário de término deve ser posterior ao horário de início.');
+            if ($inputType === 'time_range') {
+                if (empty($data['start_time']) || empty($data['end_time'])) {
+                    throw new \Exception('Hora início e hora fim são obrigatórias para intervalo de horas.');
+                }
+                $totalHours = $this->calculateHours($data['start_time'], $data['end_time']);
+                if ($totalHours <= 0) {
+                    throw new \Exception('O horário de término deve ser posterior ao horário de início.');
+                }
+            } else {
+                // daily_hours ou monthly_hours — horas diretas
+                $totalHours = (float) ($data['direct_hours'] ?? 0);
+                if ($totalHours <= 0) {
+                    throw new \Exception('O número de horas deve ser superior a zero.');
+                }
             }
 
             // Determinar tipo de hora extra
@@ -122,6 +158,19 @@ class OvertimeService
             // Gerar número de hora extra
             $overtimeNumber = 'HE-' . date('Y') . '-' . str_pad(Overtime::count() + 1, 5, '0', STR_PAD_LEFT);
 
+            // Verificar limite legal mensal
+            $monthStart = Carbon::parse($data['date'])->startOfMonth();
+            $monthEnd = Carbon::parse($data['date'])->endOfMonth();
+            $existingHours = Overtime::where('employee_id', $data['employee_id'])
+                ->where('tenant_id', $data['tenant_id'])
+                ->whereBetween('date', [$monthStart, $monthEnd])
+                ->whereNotIn('status', ['cancelled', 'rejected'])
+                ->sum('total_hours');
+            $monthlyLimit = $this->getMonthlyLimit();
+            if (($existingHours + $totalHours) > $monthlyLimit) {
+                throw new \Exception("Limite legal mensal de {$monthlyLimit}h extras excedido. Já registadas: {$existingHours}h.");
+            }
+
             // Criar registro
             $overtime = Overtime::create([
                 'tenant_id' => $data['tenant_id'],
@@ -133,13 +182,20 @@ class OvertimeService
                 'end_time' => $data['end_time'],
                 'total_hours' => $totalHours,
                 'overtime_type' => $overtimeType,
+                'input_type' => $data['input_type'] ?? 'time_range',
+                'direct_hours' => $data['direct_hours'] ?? null,
+                'period_type' => $data['period_type'] ?? null,
+                'is_night_shift' => ($overtimeType === 'night') || ($data['is_night_shift'] ?? false),
                 'multiplier' => $calculations['multiplier'],
                 'hourly_rate' => $calculations['hourly_rate'],
                 'overtime_rate' => $calculations['overtime_rate'],
+                'rate' => $calculations['overtime_rate'],
+                'amount' => $calculations['total_amount'],
                 'total_amount' => $calculations['total_amount'],
                 'description' => $data['description'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'status' => 'pending',
+                'created_by' => auth()->id(),
             ]);
 
             DB::commit();

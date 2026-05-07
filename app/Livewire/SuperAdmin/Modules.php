@@ -11,6 +11,7 @@ use Livewire\Attributes\Title;
 #[Title('Gestão de Módulos')]
 class Modules extends Component
 {
+    public $search = '';
     public $showModal = false;
     public $editingModuleId = null;
     
@@ -82,26 +83,57 @@ class Modules extends Component
         $this->closeModal();
     }
 
+    public function updatingSearch()
+    {
+        // Reset any state when searching
+    }
+
     public function toggleStatus($id)
     {
         $module = Module::findOrFail($id);
+        $tenantsCount = $module->tenants()->wherePivot('is_active', true)->count();
+        
+        if ($module->is_active && $tenantsCount > 0) {
+            $module->update(['is_active' => !$module->is_active]);
+            $this->dispatch('warning', message: "Módulo '{$module->name}' desativado. Atenção: {$tenantsCount} tenant(s) estavam a usar este módulo.");
+            return;
+        }
+        
         $module->update(['is_active' => !$module->is_active]);
         $status = $module->is_active ? 'ativado' : 'desativado';
-        $this->dispatch('success', message: "Módulo {$status} com sucesso!");
+        $this->dispatch('success', message: "Módulo '{$module->name}' {$status} com sucesso!");
     }
 
     public function delete($id)
     {
         try {
             $module = Module::findOrFail($id);
+            
             if ($module->is_core) {
                 $this->dispatch('error', message: 'Não é possível excluir um módulo core!');
                 return;
             }
+            
+            $tenantsCount = $module->tenants()->wherePivot('is_active', true)->count();
+            if ($tenantsCount > 0) {
+                $this->dispatch('error', message: "Não é possível excluir o módulo '{$module->name}'. Está a ser usado por {$tenantsCount} tenant(s). Desative-o primeiro nos tenants.");
+                return;
+            }
+            
+            // Check if module is in any plan
+            $plansCount = \App\Models\Plan::whereHas('modules', function ($q) use ($module) {
+                $q->where('modules.id', $module->id);
+            })->count();
+            
+            if ($plansCount > 0) {
+                $this->dispatch('error', message: "Não é possível excluir o módulo '{$module->name}'. Está associado a {$plansCount} plano(s). Remova-o dos planos primeiro.");
+                return;
+            }
+            
             $module->delete();
-            $this->dispatch('success', message: 'Módulo excluído com sucesso!');
+            $this->dispatch('success', message: "Módulo '{$module->name}' excluído com sucesso!");
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir módulo!');
+            $this->dispatch('error', message: 'Erro ao excluir módulo: ' . $e->getMessage());
         }
     }
 
@@ -123,7 +155,18 @@ class Modules extends Component
 
     public function render()
     {
-        $modules = Module::orderBy('order')->get();
+        $modules = Module::withCount(['tenants' => function ($q) {
+                $q->where('tenant_module.is_active', true);
+            }])
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%')
+                      ->orWhere('slug', 'like', '%' . $this->search . '%')
+                      ->orWhere('description', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->orderBy('order')
+            ->get();
 
         return view('livewire.super-admin.modules.modules', compact('modules'));
     }

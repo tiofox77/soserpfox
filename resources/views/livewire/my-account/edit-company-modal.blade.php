@@ -189,7 +189,7 @@
                     </label>
                     <input type="email" wire:model="editCompanyEmail" 
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                           placeholder="empresa@exemplo.ao">
+                           placeholder="empresa@exemplo.vip">
                     @error('editCompanyEmail') 
                         <span class="text-red-500 text-sm mt-1 block">
                             <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}

@@ -31,6 +31,9 @@ class Receipt extends Model
         'notes',
         'status',
         'saft_hash',
+        'hash',
+        'hash_previous',
+        'hash_control',
         'created_by',
     ];
 

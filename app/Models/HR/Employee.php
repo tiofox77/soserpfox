@@ -78,6 +78,14 @@ class Employee extends Model
         // Criminal Record
         'criminal_record_number',
         'criminal_record_issue_date',
+        // Payroll fields (doc Dembena)
+        'base_salary',
+        'food_benefit',
+        'transport_benefit',
+        'family_allowance',
+        'position_subsidy',
+        'performance_subsidy',
+        'employment_status',
     ];
 
     protected $casts = [
@@ -98,6 +106,12 @@ class Employee extends Model
         'bonus' => 'decimal:2',
         'transport_allowance' => 'decimal:2',
         'meal_allowance' => 'decimal:2',
+        'base_salary' => 'decimal:2',
+        'food_benefit' => 'decimal:2',
+        'transport_benefit' => 'decimal:2',
+        'family_allowance' => 'decimal:2',
+        'position_subsidy' => 'decimal:2',
+        'performance_subsidy' => 'decimal:2',
     ];
 
     protected $appends = ['full_name', 'age', 'years_of_service', 'total_compensation'];
@@ -156,6 +170,31 @@ class Employee extends Model
     public function attendances()
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function overtimeRecords()
+    {
+        return $this->hasMany(Overtime::class);
+    }
+
+    public function salaryAdvances()
+    {
+        return $this->hasMany(SalaryAdvance::class);
+    }
+
+    public function salaryDiscounts()
+    {
+        return $this->hasMany(SalaryDiscount::class);
+    }
+
+    public function leaves()
+    {
+        return $this->hasMany(Leave::class);
+    }
+
+    public function vacations()
+    {
+        return $this->hasMany(Vacation::class);
     }
 
     // Accessors

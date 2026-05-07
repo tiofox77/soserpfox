@@ -64,7 +64,7 @@
     <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="md:col-span-2">
-                <input wire:model.live="search" type="text" placeholder="Pesquisar conta..." 
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Pesquisar conta..." 
                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
             </div>
             <div>
