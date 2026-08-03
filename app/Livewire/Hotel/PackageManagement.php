@@ -123,7 +123,7 @@ class PackageManagement extends Component
         ]);
 
         $data = [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'name' => $this->packageName,
             'description' => $this->packageDescription,
             'type' => $this->packageType,
@@ -224,7 +224,7 @@ class PackageManagement extends Component
         ]);
 
         $data = [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'code' => strtoupper($this->promoCode),
             'name' => $this->promoName,
             'description' => $this->promoDescription,
@@ -268,7 +268,7 @@ class PackageManagement extends Component
 
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         $packages = Package::where('tenant_id', $tenantId)
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))

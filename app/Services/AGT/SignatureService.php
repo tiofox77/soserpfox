@@ -17,9 +17,11 @@ class SignatureService
 {
     private ?string $privateKey = null;
     private ?string $publicKey = null;
+    private ?int $tenantId = null;
 
-    public function __construct()
+    public function __construct(?int $tenantId = null)
     {
+        $this->tenantId = $tenantId ?: activeTenantId();
         $this->loadKeys();
     }
 
@@ -29,18 +31,24 @@ class SignatureService
 
     private function loadKeys(): void
     {
-        if (Storage::disk('local')->exists('saft/private_key.pem')) {
-            $this->privateKey = Storage::disk('local')->get('saft/private_key.pem');
+        if (!$this->tenantId) {
+            return;
         }
-        
-        if (Storage::disk('local')->exists('saft/public_key.pem')) {
-            $this->publicKey = Storage::disk('local')->get('saft/public_key.pem');
+
+        // Chaves do AMBIENTE activo (sandbox e producao tem pares diferentes)
+        $priv = AGTKeyStore::privateKeyPath((int) $this->tenantId);
+        $pub  = AGTKeyStore::publicKeyPath((int) $this->tenantId);
+        if (Storage::disk('local')->exists($priv)) {
+            $this->privateKey = Storage::disk('local')->get($priv);
+        }
+        if (Storage::disk('local')->exists($pub)) {
+            $this->publicKey = Storage::disk('local')->get($pub);
         }
     }
 
     public function hasKeys(): bool
     {
-        return SAFTHelper::keysExist();
+        return $this->privateKey !== null && $this->publicKey !== null;
     }
 
     // =========================================
@@ -107,12 +115,13 @@ class SignatureService
      */
     private function buildPayload($document): array
     {
-        $documentNumber = $document->invoice_number 
-            ?? $document->credit_note_number 
-            ?? $document->debit_note_number 
-            ?? $document->receipt_number;
+        $documentNumber = $document->invoice_number
+            ?? $document->credit_note_number
+            ?? $document->debit_note_number
+            ?? $document->receipt_number
+            ?? $document->guide_number;
 
-        $nifEmissor = $document->tenant?->nif 
+        $nifEmissor = $document->tenant?->nif
             ?? $document->tenant?->tax_id 
             ?? '';
 
@@ -152,6 +161,7 @@ class SignatureService
             str_contains($class, 'DebitNote') => 'ND',
             str_contains($class, 'Receipt') => 'RC',
             str_contains($class, 'Proforma') => 'FP',
+            str_contains($class, 'TransportGuide') => ($document->type ?? 'GT'),
             default => 'FT',
         };
     }
@@ -280,10 +290,11 @@ class SignatureService
     {
         $invoiceDate = $document->invoice_date ?? $document->issue_date ?? now();
         $systemEntryDate = $document->system_entry_date ?? now();
-        $documentNumber = $document->invoice_number 
-            ?? $document->credit_note_number 
-            ?? $document->debit_note_number;
-        $grossTotal = $document->gross_total ?? $document->total;
+        $documentNumber = $document->invoice_number
+            ?? $document->credit_note_number
+            ?? $document->debit_note_number
+            ?? $document->guide_number;
+        $grossTotal = $document->gross_total ?? $document->total ?? 0;
         $previousHash = $document->hash_previous ?? '';
 
         return SAFTHelper::generateHash(

@@ -24,7 +24,12 @@ class VacationService
             })
             ->first();
 
-        if (!$contract) {
+        // Fallback: sem contrato formal em hr_contracts, usar a data de CONTRATAÇÃO
+        // do funcionário (hire_date). Assim a acumulação de férias funciona para
+        // qualquer funcionário ativo, mesmo sem um registo de contrato.
+        $contractStart = $contract?->start_date ?? $employee->hire_date;
+
+        if (!$contractStart) {
             return [
                 'entitled_days' => 0,
                 'working_months' => 0,
@@ -35,7 +40,7 @@ class VacationService
         }
 
         // Período aquisitivo (1 ano de trabalho)
-        $periodStart = Carbon::parse($contract->start_date);
+        $periodStart = Carbon::parse($contractStart);
         $periodEnd = $periodStart->copy()->addYear()->subDay();
 
         // Se ano de referência específico
@@ -45,7 +50,7 @@ class VacationService
         }
 
         // Calcular meses trabalhados no período
-        $workingMonths = $this->calculateWorkingMonths($contract->start_date, $periodEnd);
+        $workingMonths = $this->calculateWorkingMonths($contractStart, $periodEnd);
         
         // Cálculo proporcional
         $entitledDays = 22; // Base legal Angola
@@ -68,7 +73,7 @@ class VacationService
         $start = Carbon::parse($startDate);
         $end = Carbon::parse($endDate);
 
-        return max(0, $start->diffInMonths($end));
+        return max(0, (int) $start->diffInMonths($end));
     }
 
     /**
@@ -158,8 +163,8 @@ class VacationService
             // Calcular valores financeiros
             $financials = $this->calculateVacationPay($employee, $workingDays);
 
-            // Gerar número de férias
-            $vacationNumber = 'VAC-' . date('Y') . '-' . str_pad(Vacation::count() + 1, 5, '0', STR_PAD_LEFT);
+            // Número de férias gerado por-tenant (robusto a eliminações/concorrência)
+            $vacationNumber = Vacation::generateTenantNumber('vacation_number', 'VAC-' . date('Y') . '-');
 
             // Criar registro
             $vacation = Vacation::create([
@@ -174,7 +179,7 @@ class VacationService
                 'calculated_days' => $entitlement['calculated_days'],
                 'start_date' => $data['start_date'],
                 'end_date' => $data['end_date'],
-                'requested_days' => $endDate->diffInDays($startDate) + 1,
+                'requested_days' => (int) $startDate->diffInDays($endDate) + 1,
                 'working_days' => $workingDays,
                 'daily_rate' => $financials['daily_rate'],
                 'vacation_pay' => $financials['vacation_pay'],

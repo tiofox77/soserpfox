@@ -4,6 +4,8 @@ namespace App\Livewire\Invoicing;
 
 use App\Models\{Product};
 use App\Models\Invoicing\Tax;
+use App\Models\AGT\AGTTaxExemptionCode;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
@@ -32,6 +34,20 @@ class Products extends Component
     // Filters
     public $typeFilter = '';
     public $stockFilter = '';
+
+    /** Mostrar a lixeira (produtos eliminados, recuperáveis). */
+    public bool $mostrarEliminados = false;
+
+    public function updatingMostrarEliminados()
+    {
+        $this->resetPage();
+    }
+
+    public function alternarEliminados()
+    {
+        $this->mostrarEliminados = !$this->mostrarEliminados;
+        $this->resetPage();
+    }
     public $dateFrom = '';
     public $dateTo = '';
     public $perPage = 15;
@@ -89,12 +105,14 @@ class Products extends Component
             'stock_max' => 'nullable|integer|min:0|gte:stock_min',
         ];
 
-        // Validar código (único para criar e editar)
+        // Validar código: único POR TENANT (suporta o esquema multi-tenant)
+        $tenantId = activeTenantId();
+        $codeUnique = Rule::unique('invoicing_products', 'code')
+            ->where(fn ($q) => $q->where('tenant_id', $tenantId));
         if ($this->editingProductId) {
-            $rules['code'] = 'required|string|max:50|unique:invoicing_products,code,' . $this->editingProductId;
-        } else {
-            $rules['code'] = 'required|string|max:50|unique:invoicing_products,code';
+            $codeUnique = $codeUnique->ignore($this->editingProductId);
         }
+        $rules['code'] = ['required', 'string', 'max:50', $codeUnique];
 
         return $rules;
     }
@@ -138,12 +156,42 @@ class Products extends Component
         }
         
         $this->resetForm();
-        // Gerar código automaticamente para exibição
+        // Gerar código automaticamente para exibição (já protegido contra colisões)
         $this->code = Product::generateProductCode(activeTenantId(), $this->type);
+
+        // Pré-selecionar regime de IVA com base no estado fiscal do tenant.
+        // Triggers que activam "isento por defeito":
+        //  a) tenant.regime ∈ {regime_isencao, regime_nao_sujeicao}
+        //  b) tax DEFAULT do tenant tem saft_type=ISE (regime de exclusão configurado)
+        $tenant = \App\Models\Tenant::find(activeTenantId());
+        if ($tenant) {
+            $defaultIsentTax = Tax::where('tenant_id', $tenant->id)
+                ->where('saft_type', 'ISE')
+                ->where('is_default', true)
+                ->first();
+
+            $isExemptRegime = in_array($tenant->regime, ['regime_isencao', 'regime_nao_sujeicao'], true);
+
+            if ($isExemptRegime || $defaultIsentTax) {
+                $this->tax_type = 'isento';
+                $this->tax_rate_id = null;
+                // O regime (invoicing_taxes) é a fonte canónica: exemption_code é o
+                // CÓDIGO AGT, exemption_reason é a descrição. O produto guarda o
+                // CÓDIGO (o select usa códigos e items.tax_exemption_code é
+                // varchar(10)). Antes copiava-se a descrição → venda falhava com
+                // "Data too long for column 'tax_exemption_code'".
+                if ($defaultIsentTax) {
+                    $this->exemption_reason = $defaultIsentTax->exemption_code
+                        ?: Product::normalizeExemptionCode($defaultIsentTax->exemption_reason)
+                        ?: \App\Services\Tenant\TaxRegimeSyncer::DEFAULT_EXEMPTION_CODE;
+                }
+            }
+        }
+
         $this->showModal = true;
     }
     
-    // Atualizar código quando o tipo mudar
+    // Atualizar cÃ³digo quando o tipo mudar
     public function updatedType($value)
     {
         if (!$this->editingProductId) {
@@ -151,12 +199,103 @@ class Products extends Component
         }
     }
 
+    /** Produto cujo rastreio está aberto. */
+    public $rastreioProdutoId = null;
+
+    /** Período do rastreio, em dias (0 = tudo). */
+    public $rastreioDias = 90;
+
+    public function verRastreio($id): void
+    {
+        $this->rastreioProdutoId = $id;
+        $this->rastreioDias = 90;
+    }
+
+    public function fecharRastreio(): void
+    {
+        $this->rastreioProdutoId = null;
+    }
+
+    /**
+     * Rastreio completo de um artigo: o que foi vendido e como o stock se moveu.
+     *
+     * As duas coisas juntas de propósito. As vendas dizem para quem foi e por
+     * quanto; os movimentos dizem de que armazém saiu e por que documento — e é
+     * a discrepância entre os dois que denuncia problemas (venda sem saída de
+     * stock, saída sem venda, ajuste manual sem justificação).
+     */
+    public function getRastreioProperty(): ?array
+    {
+        if (!$this->rastreioProdutoId) {
+            return null;
+        }
+
+        $produto = Product::withTrashed()
+            ->where('tenant_id', activeTenantId())
+            ->find($this->rastreioProdutoId);
+
+        if (!$produto) {
+            return null;
+        }
+
+        $desde = $this->rastreioDias > 0 ? now()->subDays((int) $this->rastreioDias) : null;
+
+        // ── Linhas de venda ──
+        $vendas = \App\Models\Invoicing\SalesInvoiceItem::query()
+            ->where('product_id', $produto->id)
+            ->whereHas('invoice', function ($q) use ($desde) {
+                $q->where('tenant_id', activeTenantId())
+                  ->when($desde, fn ($s) => $s->where('invoice_date', '>=', $desde));
+            })
+            ->with(['invoice:id,invoice_number,invoice_date,client_id,status,invoice_type', 'invoice.client:id,name'])
+            ->latest('id')
+            ->limit(300)
+            ->get();
+
+        // ── Movimentos de stock ──
+        $movimentos = \App\Models\Invoicing\StockMovement::query()
+            ->where('tenant_id', activeTenantId())
+            ->where('product_id', $produto->id)
+            ->when($desde, fn ($q) => $q->where('created_at', '>=', $desde))
+            ->with(['warehouse:id,name'])
+            ->latest('id')
+            ->limit(300)
+            ->get();
+
+        // ── Stock actual, por armazém ──
+        $porArmazem = \App\Models\Invoicing\Stock::where('tenant_id', activeTenantId())
+            ->where('product_id', $produto->id)
+            ->with('warehouse:id,name')
+            ->get();
+
+        $vendido = (float) $vendas->sum('quantity');
+        $saidas  = (float) $movimentos->where('type', 'out')->sum('quantity');
+
+        return [
+            'produto'    => $produto,
+            'vendas'     => $vendas,
+            'movimentos' => $movimentos,
+            'porArmazem' => $porArmazem,
+            'resumo'     => [
+                'qtd_vendida'   => $vendido,
+                'valor_vendido' => (float) $vendas->sum('total'),
+                'documentos'    => $vendas->pluck('sales_invoice_id')->unique()->count(),
+                'entradas'      => (float) $movimentos->where('type', 'in')->sum('quantity'),
+                'saidas'        => $saidas,
+                'stock_total'   => (float) $porArmazem->sum('quantity'),
+                // Vendido sem saída de stock correspondente é o sintoma de
+                // "produto aparece disponível mas a baixa falha".
+                'divergencia'   => round($vendido - $saidas, 3),
+            ],
+        ];
+    }
+
     public function view($id)
     {
         $product = Product::with(['category.parent', 'brand', 'supplier', 'taxRate'])
             ->findOrFail($id);
-        
-        if ($product->tenant_id !== activeTenantId()) {
+
+        if ((int) $product->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -173,14 +312,14 @@ class Products extends Component
     public function edit($id)
     {
         if (!auth()->user()->can('invoicing.products.edit')) {
-            $this->dispatch('error', message: 'Sem permissão para editar produtos');
+            $this->dispatch('error', message: 'Sem permissÃ£o para editar produtos');
             return;
         }
         
-        $this->closeViewModal(); // Fechar modal de visualização se estiver aberta
+        $this->closeViewModal(); // Fechar modal de visualizaÃ§Ã£o se estiver aberta
         $product = Product::findOrFail($id);
         
-        if ($product->tenant_id !== activeTenantId()) {
+        if ((int) $product->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -226,9 +365,29 @@ class Products extends Component
                 $this->dispatch('error', message: 'Sem permissão para criar produtos');
                 return;
             }
+            // Garantir auto-code: se ficou vazio, regenerar
+            if (empty(trim((string) $this->code))) {
+                $this->code = Product::generateProductCode(activeTenantId(), $this->type ?: 'produto');
+            }
         }
         
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Se o erro for em 'code' (colisão de código auto-gerado), regerar e revalidar uma vez
+            if (!$this->editingProductId && array_key_exists('code', $e->errors())) {
+                $this->code = Product::generateProductCode(activeTenantId(), $this->type ?: 'produto');
+                try {
+                    $this->validate();
+                } catch (\Illuminate\Validation\ValidationException $e2) {
+                    $this->dispatch('focus-first-error', field: array_key_first($e2->errors()));
+                    throw $e2;
+                }
+            } else {
+                $this->dispatch('focus-first-error', field: array_key_first($e->errors()));
+                throw $e;
+            }
+        }
 
         $data = [
             'tenant_id' => activeTenantId(),
@@ -258,9 +417,16 @@ class Products extends Component
         ];
 
         if ($this->editingProductId) {
+            // NUNCA escrever o agregado stock_quantity na edição: é derivado
+            // (StockObserver mantém = SUM(invoicing_stocks)). Escrevê-lo aqui
+            // devolvia o snapshot carregado ao abrir o modal (revertia vendas
+            // concorrentes) e criava "ajustes" fantasma sem linhas nem ledger.
+            // Stock ajusta-se na Gestão de Stock (com movimento registado).
+            unset($data['stock_quantity']);
+
             $product = Product::findOrFail($this->editingProductId);
-            
-            if ($product->tenant_id !== activeTenantId()) {
+
+            if ((int) $product->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -298,6 +464,47 @@ class Products extends Component
         } else {
             // Create product first to get ID
             $newProduct = Product::create($data);
+
+            // Stock inicial: materializar como linha de armazém + movimento no
+            // ledger (senão o agregado nasce "órfão" — sem suporte em
+            // invoicing_stocks — e é zerado pelo StockObserver ao primeiro
+            // movimento Eloquent do produto).
+            $initialQty = (float) ($this->stock_quantity ?: 0);
+            if ($this->manage_stock && $initialQty > 0 && $newProduct->type !== 'servico') {
+                $defaultWh = \App\Models\Invoicing\Warehouse::where('tenant_id', activeTenantId())
+                    ->where('is_default', true)->where('is_active', true)->first()
+                    ?? \App\Models\Invoicing\Warehouse::where('tenant_id', activeTenantId())
+                        ->where('is_active', true)->first();
+                // Empresa ainda sem armazém nenhum (acontece a quem só tem o
+                // módulo Oficina, que não dá acesso à Gestão de Stock): criar o
+                // armazém principal em vez de deixar o agregado órfão.
+                //
+                // O ramo legado "agregado-only" que aqui estava é a origem do
+                // "o produto aparece disponível mas a baixa falha": o produto
+                // nascia com stock_quantity>0 e ZERO linhas, o POS listava-o
+                // como disponível e a saída não encontrava linha nenhuma para
+                // descontar — e o primeiro movimento a sério zerava o agregado.
+                if (!$defaultWh) {
+                    $defaultWh = \App\Models\Invoicing\Warehouse::create([
+                        'tenant_id'  => activeTenantId(),
+                        'name'       => 'Armazém Principal',
+                        'code'       => 'PRINCIPAL',
+                        'is_default' => true,
+                        'is_active'  => true,
+                    ]);
+                }
+
+                // createEntry → Stock::addStock (Eloquent) → StockObserver
+                // ressincroniza o agregado para o MESMO valor, agora com suporte.
+                \App\Models\Invoicing\StockMovement::createEntry([
+                    'warehouse_id' => $defaultWh->id,
+                    'product_id'   => $newProduct->id,
+                    'quantity'     => $initialQty,
+                    'unit_cost'    => $this->cost ?: null,
+                    'notes'        => 'Stock inicial (criação de produto)',
+                ]);
+            }
+
             $productFolder = 'products/' . $newProduct->id;
             
             // Handle featured image upload
@@ -330,7 +537,7 @@ class Products extends Component
     {
         $product = Product::findOrFail($id);
         
-        if ($product->tenant_id !== activeTenantId()) {
+        if ((int) $product->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -342,30 +549,59 @@ class Products extends Component
     public function delete()
     {
         if (!auth()->user()->can('invoicing.products.delete')) {
-            $this->dispatch('error', message: 'Sem permissão para eliminar produtos');
+            $this->dispatch('error', message: 'Sem permissÃ£o para eliminar produtos');
             return;
         }
         
         try {
             $product = Product::findOrFail($this->deletingProductId);
             
-            if ($product->tenant_id !== activeTenantId()) {
+            if ((int) $product->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
-            // Delete product folder and all files (featured + gallery)
-            $productFolder = 'products/' . $product->id;
-            if (\Storage::disk('public')->exists($productFolder)) {
-                \Storage::disk('public')->deleteDirectory($productFolder);
-            }
-            
+            // As imagens NÃO são apagadas: a eliminação é recuperável (soft
+            // delete) e apagar a pasta do disco tornava o restauro inútil — o
+            // produto voltava sem fotografia nenhuma, sem forma de a recuperar.
+            // Os ficheiros só devem desaparecer numa eliminação definitiva.
             $product->delete();
+
             $this->showDeleteModal = false;
             $this->reset(['deletingProductId', 'deletingProductName']);
-            $this->dispatch('success', message: 'Produto excluído com sucesso!');
+            $this->dispatch('success', message: 'Produto eliminado. Pode restaurá-lo no filtro "Eliminados".');
         } catch (\Exception $e) {
+            \Log::error('Products: falha ao eliminar', [
+                'product_id' => $this->deletingProductId,
+                'erro'       => $e->getMessage(),
+            ]);
             $this->dispatch('error', message: 'Erro ao excluir produto!');
         }
+    }
+
+    /**
+     * Restaura um produto eliminado.
+     *
+     * A eliminação sempre foi recuperável (o modelo usa SoftDeletes), mas não
+     * havia forma de o fazer pela aplicação — só com SQL directo.
+     */
+    public function restore($id)
+    {
+        if (!auth()->user()->can('invoicing.products.delete')) {
+            $this->dispatch('error', message: 'Sem permissão para restaurar produtos');
+            return;
+        }
+
+        $product = Product::onlyTrashed()
+            ->where('tenant_id', activeTenantId())
+            ->find($id);
+
+        if (!$product) {
+            $this->dispatch('error', message: 'Produto não encontrado nesta empresa.');
+            return;
+        }
+
+        $product->restore();
+        $this->dispatch('success', message: 'Produto restaurado: ' . $product->name);
     }
 
     public function cancelDelete()
@@ -402,6 +638,10 @@ class Products extends Component
     public function render()
     {
         $products = Product::where('tenant_id', activeTenantId())
+            // Eliminados só aparecem quando pedidos: a eliminação é recuperável
+            // e o administrador precisa de os poder ver para os restaurar.
+            ->when($this->mostrarEliminados, fn ($q) => $q->onlyTrashed())
+            ->withSum('stocks as stocks_total_quantity', 'quantity')
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
@@ -437,6 +677,34 @@ class Products extends Component
             ->orderBy('rate')
             ->get();
 
-        return view('livewire.invoicing.products.products', compact('products', 'taxRates'));
+        // CÃ³digos oficiais de isenÃ§Ã£o AGT (DS.120 Â§9.5 â€” M01â€“M93, S01â€“S03, I01â€“I16)
+        $exemptionCodes = AGTTaxExemptionCode::query()
+            ->where('is_active', true)
+            ->orderBy('tax_type')
+            ->orderBy('code')
+            ->get();
+
+        // Cartões do topo. Estavam a ser calculados DENTRO da blade e os três
+        // estavam errados:
+        //  - "Serviços" contava `unit = 'SRV'`, mas serviço é `type = 'servico'`
+        //    (uma empresa com 13 serviços mostrava 0);
+        //  - "Valor Médio" usava auth()->user()->tenant_id em vez da empresa
+        //    ACTIVA — quem tivesse empresa activa diferente via a média de outra;
+        //  - "Total Produtos" mostrava o total FILTRADO, apesar de dizer
+        //    "No catálogo": com um filtro activo mostrava 0.
+        $catalogo = Product::where('tenant_id', activeTenantId());
+
+        $estatisticas = [
+            'produtos'    => (clone $catalogo)->where('type', 'produto')->count(),
+            'servicos'    => (clone $catalogo)->where('type', 'servico')->count(),
+            'preco_medio' => (float) ((clone $catalogo)->avg('price') ?? 0),
+        ];
+
+        // Rastreio passado explicitamente: aceder a $this->rastreio dentro de um
+        // bloco @php da vista é ambíguo (o $this ali nem sempre é o componente)
+        // e devolvia null depois de o @if ter passado.
+        $rastreio = $this->rastreio;
+
+        return view('livewire.invoicing.products.products', compact('products', 'taxRates', 'exemptionCodes', 'estatisticas', 'rastreio'));
     }
 }

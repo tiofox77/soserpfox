@@ -5,10 +5,11 @@ namespace App\Models\HR;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Cache;
+use App\Traits\BelongsToTenant;
 
 class HRSetting extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $table = 'hr_settings';
 

@@ -5,8 +5,12 @@ namespace App\Models\Accounting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\BelongsToTenant;
+
 class AllocationMatrix extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'tenant_id',
         'account_code',

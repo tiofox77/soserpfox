@@ -92,8 +92,9 @@ class WorkOrderManagement extends Component
 
     public function edit($id)
     {
-        $workOrder = WorkOrder::with(['vehicle', 'mechanic'])->findOrFail($id);
-        
+        $workOrder = WorkOrder::where('tenant_id', activeTenantId())
+            ->with(['vehicle', 'mechanic'])->findOrFail($id);
+
         $this->workOrderId = $workOrder->id;
         $this->vehicle_id = $workOrder->vehicle_id;
         $this->mechanic_id = $workOrder->mechanic_id;
@@ -119,10 +120,15 @@ class WorkOrderManagement extends Component
         $data = [
             'tenant_id' => auth()->user()->activeTenantId(),
             'vehicle_id' => $this->vehicle_id,
-            'mechanic_id' => $this->mechanic_id,
-            'received_at' => $this->received_at,
-            'scheduled_for' => $this->scheduled_for,
-            'mileage_in' => $this->mileage_in,
+            // Campos opcionais vindos de <input>/<select> vazios chegam como ''
+            // e não como null. Gravar '' numa coluna datetime rebenta com
+            // "Incorrect datetime value" (SQL 1292) e numa chave estrangeira
+            // com erro de integridade — na prática, gravar uma OS sem data
+            // agendada ou sem mecânico atribuído falhava sempre.
+            'mechanic_id' => $this->mechanic_id ?: null,
+            'received_at' => $this->received_at ?: null,
+            'scheduled_for' => $this->scheduled_for ?: null,
+            'mileage_in' => $this->mileage_in ?: 0,
             'problem_description' => $this->problem_description,
             'diagnosis' => $this->diagnosis,
             'work_performed' => $this->work_performed,
@@ -133,13 +139,26 @@ class WorkOrderManagement extends Component
         ];
 
         if ($this->editMode) {
-            $workOrder = WorkOrder::findOrFail($this->workOrderId);
+            $workOrder = WorkOrder::where('tenant_id', activeTenantId())->findOrFail($this->workOrderId);
+
+            // A mudança de estado feita AQUI tem de passar pela mesma lógica do
+            // botão de estado. O `update()` cru marcava a OS como Concluída ou
+            // Entregue sem nunca chamar markAsCompleted() — as peças ficavam
+            // para sempre no stock, e cancelar não as devolvia.
+            $novoEstado = $data['status'];
+            unset($data['status']);
+
             $workOrder->update($data);
-            $this->dispatch('success', message: 'Ordem de Serviço atualizada com sucesso!');
+
+            $mensagem = 'Ordem de Serviço atualizada com sucesso!';
+            if ($novoEstado !== $workOrder->status) {
+                $mensagem = $this->aplicarEstado($workOrder, $novoEstado);
+            }
+
+            $this->dispatch('success', message: $mensagem);
         } else {
-            // Gerar número da OS
-            $data['order_number'] = 'OS-' . str_pad(WorkOrder::count() + 1, 5, '0', STR_PAD_LEFT);
-            WorkOrder::create($data);
+            // Número da OS gerado por-tenant, de forma atómica (retry no 1062)
+            WorkOrder::createWithTenantNumber($data, 'order_number', 'OS-');
             $this->dispatch('success', message: 'Ordem de Serviço criada com sucesso!');
         }
 
@@ -148,7 +167,7 @@ class WorkOrderManagement extends Component
 
     public function view($id)
     {
-        $this->viewingWorkOrder = WorkOrder::with([
+        $this->viewingWorkOrder = WorkOrder::where('tenant_id', activeTenantId())->with([
             'vehicle',
             'mechanic',
             'items.service',
@@ -163,10 +182,20 @@ class WorkOrderManagement extends Component
     
     public function delete($id)
     {
-        $workOrder = WorkOrder::findOrFail($id);
+        $workOrder = WorkOrder::where('tenant_id', activeTenantId())->findOrFail($id);
+
+        // Uma OS já facturada não se apaga: a factura é um documento fiscal e
+        // ficaria a apontar para uma OS inexistente.
+        if ($workOrder->invoice_id) {
+            $this->dispatch('error', message: 'Esta OS já foi faturada e não pode ser removida. Anule a fatura primeiro.');
+            return;
+        }
+
+        // Apagar deixava as peças fora do stock para sempre.
+        $workOrder->returnStockMovement();
         $workOrder->delete();
-        
-        $this->dispatch('success', message: 'Ordem de Serviço removida com sucesso!');
+
+        $this->dispatch('success', message: 'Ordem de Serviço removida. Peças devolvidas ao stock.');
     }
     
     public function openItemModal($type = 'service')
@@ -214,7 +243,9 @@ class WorkOrderManagement extends Component
     
     public function deleteItem($itemId)
     {
-        $item = \App\Models\Workshop\WorkOrderItem::findOrFail($itemId);
+        // O item tem de pertencer à OS atualmente aberta (já validada por tenant)
+        $item = \App\Models\Workshop\WorkOrderItem::where('work_order_id', $this->viewingWorkOrder->id)
+            ->findOrFail($itemId);
         $item->delete();
         
         $this->viewingWorkOrder->refresh();
@@ -251,7 +282,7 @@ class WorkOrderManagement extends Component
     public function loadServiceData()
     {
         if ($this->itemServiceId) {
-            $service = \App\Models\Workshop\Service::find($this->itemServiceId);
+            $service = \App\Models\Workshop\Service::where('tenant_id', activeTenantId())->find($this->itemServiceId);
             if ($service) {
                 $this->itemCode = $service->code ?? '';
                 $this->itemName = $service->name;
@@ -265,18 +296,27 @@ class WorkOrderManagement extends Component
     public function loadProductData()
     {
         if ($this->itemProductId) {
-            $product = \App\Models\Product::find($this->itemProductId);
+            $product = \App\Models\Product::where('tenant_id', activeTenantId())->find($this->itemProductId);
             if ($product) {
                 $this->itemCode = $product->sku ?? '';
                 $this->itemName = $product->name;
                 $this->itemDescription = $product->description ?? '';
-                $this->itemUnitPrice = $product->selling_price;
-                
-                // Verificar estoque disponível
+                // A coluna é `price`. `selling_price` não existe (nem coluna, nem
+                // acessor): o Eloquent devolvia null, o campo do preço ficava
+                // vazio e o `required` do addItem() rejeitava a peça — escolher
+                // uma peça nunca trazia o preço dela.
+                $this->itemUnitPrice = $product->price;
+
+                // Stock do armazém de onde a peça VAI SAIR, não a soma de todos.
+                // Somando tudo, uma peça com stock só noutro armazém aparecia
+                // disponível e a baixa rebentava depois com "Stock insuficiente".
+                $warehouse = \App\Models\Invoicing\Warehouse::getDefault(activeTenantId());
+
                 $totalStock = \App\Models\Invoicing\Stock::where('product_id', $product->id)
                     ->where('tenant_id', activeTenantId())
+                    ->when($warehouse, fn ($q) => $q->where('warehouse_id', $warehouse->id))
                     ->sum('quantity');
-                
+
                 $this->productStock = $totalStock;
                 $this->lowStockWarning = ($totalStock < 5 || $totalStock < $this->itemQuantity);
             }
@@ -285,25 +325,55 @@ class WorkOrderManagement extends Component
     
     public function updateStatus($id, $newStatus)
     {
-        $workOrder = WorkOrder::findOrFail($id);
-        
-        // Usar métodos do Model para processar status corretamente
+        $workOrder = WorkOrder::where('tenant_id', activeTenantId())->findOrFail($id);
+
+        $this->dispatch('success', message: $this->aplicarEstado($workOrder, $newStatus));
+    }
+
+    /**
+     * Ponto ÚNICO de mudança de estado de uma OS.
+     *
+     * Existe porque havia dois caminhos (o botão de estado e o formulário de
+     * edição) com regras diferentes: o formulário gravava o estado directamente
+     * e saltava a baixa de stock. Devolve a mensagem a mostrar.
+     */
+    private function aplicarEstado(WorkOrder $workOrder, string $newStatus): string
+    {
+        $falhas = [];
+
         if ($newStatus === 'in_progress') {
             $workOrder->markAsInProgress();
         } elseif ($newStatus === 'completed') {
-            $workOrder->markAsCompleted(); // Isso irá processar baixa de estoque automaticamente
+            $falhas = $workOrder->markAsCompleted(); // dá baixa das peças
         } elseif ($newStatus === 'delivered') {
+            // Entregue sem ter passado por Concluída também consome as peças —
+            // o carro saiu da oficina com elas montadas.
+            $falhas = $workOrder->processStockMovement() ?: [];
             $workOrder->markAsDelivered();
+        } elseif ($newStatus === 'cancelled') {
+            // Anular devolve ao stock o que já tinha saído.
+            $workOrder->returnStockMovement();
+            $workOrder->update(['status' => $newStatus]);
         } else {
-            // Outros status (pending, waiting_parts, cancelled)
+            // Restantes estados (pending, scheduled, waiting_parts)
             $workOrder->update(['status' => $newStatus]);
         }
-        
-        $message = 'Status atualizado com sucesso!';
-        if ($newStatus === 'completed') {
-            $message .= ' Estoque baixado automaticamente.';
+
+        if (!empty($falhas)) {
+            // Antes dizia sempre "Estoque baixado automaticamente", mesmo quando
+            // a baixa rebentava por falta de stock e o erro só ia para o log.
+            return 'Status atualizado, mas houve peças que NÃO saíram do stock: '
+                . implode(' | ', $falhas);
         }
-        $this->dispatch('success', message: $message);
+
+        $message = 'Status atualizado com sucesso!';
+        if (in_array($newStatus, ['completed', 'delivered'], true)) {
+            $message .= ' Estoque baixado automaticamente.';
+        } elseif ($newStatus === 'cancelled') {
+            $message .= ' Peças devolvidas ao stock.';
+        }
+
+        return $message;
     }
 
     public function closeModal()
@@ -329,7 +399,7 @@ class WorkOrderManagement extends Component
         try {
             \Log::info("Workshop: Iniciando geração de fatura para OS ID: {$this->invoiceWorkOrderId}");
             
-            $workOrder = WorkOrder::with(['vehicle', 'items'])->findOrFail($this->invoiceWorkOrderId);
+            $workOrder = WorkOrder::where('tenant_id', activeTenantId())->with(['vehicle', 'items'])->findOrFail($this->invoiceWorkOrderId);
             
             \Log::info("Workshop: OS encontrada: {$workOrder->order_number}");
             
@@ -441,7 +511,7 @@ class WorkOrderManagement extends Component
         try {
             $attachment = WorkOrderAttachment::findOrFail($id);
             
-            if ($attachment->work_order_id !== $this->viewingWorkOrder->id) {
+            if ((int) $attachment->work_order_id !== (int) $this->viewingWorkOrder->id) {
                 $this->dispatch('error', message: 'Anexo não pertence a esta OS.');
                 return;
             }

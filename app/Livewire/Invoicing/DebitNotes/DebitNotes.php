@@ -24,6 +24,9 @@ class DebitNotes extends Component
     public $showDeleteModal = false;
     public $debitNoteToDelete = null;
 
+    public $showViewModal = false;
+    public $selectedDebitNote = null;
+
     protected $queryString = [
         'search' => ['except' => ''],
         'filterStatus' => ['except' => ''],
@@ -35,6 +38,21 @@ class DebitNotes extends Component
         $this->resetPage();
     }
 
+    public function viewDebitNote($debitNoteId)
+    {
+        // Scoped ao tenant: sem isto um id de outra empresa abria o documento.
+        $this->selectedDebitNote = DebitNote::where('tenant_id', activeTenantId())
+            ->with(['client', 'invoice', 'items.product', 'creator'])
+            ->findOrFail($debitNoteId);
+        $this->showViewModal = true;
+    }
+
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->selectedDebitNote = null;
+    }
+
     public function confirmDelete($debitNoteId)
     {
         $this->debitNoteToDelete = $debitNoteId;
@@ -43,8 +61,10 @@ class DebitNotes extends Component
 
     public function deleteDebitNote()
     {
-        // Verificar bloqueio de eliminação via Software Settings
-        if (isDeleteBlocked('credit_note')) {
+        // Verificar bloqueio de eliminação via Software Settings.
+        // Lia a chave da NOTA DE CRÉDITO (copy-paste): são documentos distintos
+        // e cada um tem o seu interruptor em SuperAdmin > Software Settings.
+        if (isDeleteBlocked('debit_note')) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'A eliminação de Notas de Débito está bloqueada pelo administrador. Apenas anulações são permitidas.'

@@ -20,6 +20,8 @@ class Transaction extends Model
         'payment_method_id',
         'invoice_id',
         'purchase_id',
+        'related_type',
+        'related_id',
         'transaction_number',
         'type',
         'category',

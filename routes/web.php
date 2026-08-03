@@ -2,8 +2,43 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Maintenance endpoints (token-protegidos) — para correr migrations/seeders/comandos remotamente
+Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\MaintenanceController::class)->group(function () {
+    Route::get('/', 'index')->name('maintenance.index');
+    Route::get('/migrate', 'migrate')->name('maintenance.migrate');
+    Route::get('/migrate-status', 'migrateStatus')->name('maintenance.migrate.status');
+    Route::get('/seed/{seeder}', 'seed')->name('maintenance.seed');
+    Route::get('/command/{cmd}', 'command')->where('cmd', '[a-z0-9:_-]+')->name('maintenance.command');
+    Route::get('/farmacia-migration', 'farmaciaMigration')->name('maintenance.farmacia-migration');
+    Route::get('/htaccess-fix', 'htaccessFix')->name('maintenance.htaccess-fix');
+    Route::get('/pwa-cleanup', 'pwaCleanup')->name('maintenance.pwa-cleanup');
+    Route::get('/logs', 'logs')->name('maintenance.logs');
+    Route::get('/diag-tenant', 'diagTenant')->name('maintenance.diag-tenant');
+    // Verificação de integridade do deploy (ver o comando deploy:verify).
+    // POST porque o manifesto pode ter milhares de entradas.
+    Route::post('/verify-files', 'verifyFiles')->name('maintenance.verify-files');
+    Route::get('/diag-roles', 'diagRoles')->name('maintenance.diag-roles');
+});
+
+// Analytics tracking (sem auth, sem CSRF — público)
+Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::class, 'track'])->name('analytics.track');
+
+// PWA: manifest dinâmico, ícones a partir do logo do sistema, service worker com versão automática
+Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaController::class, 'manifest'])->name('pwa.manifest');
+Route::get('/manifest.json', [\App\Http\Controllers\PwaController::class, 'manifest']);
+Route::get('/pwa/icon-{size}.png', [\App\Http\Controllers\PwaController::class, 'icon'])->where('size', '[0-9]+')->name('pwa.icon');
+Route::get('/pwa/icon-{size}x{size2}.png', [\App\Http\Controllers\PwaController::class, 'icon'])->where(['size' => '[0-9]+', 'size2' => '[0-9]+']);
+Route::get('/sw.js', [\App\Http\Controllers\PwaController::class, 'serviceWorker'])->name('pwa.sw');
+
+// Página de Changelog / Atualizações do sistema (autenticada para usar layout app)
+Route::middleware(['auth'])->get('/changelog', [\App\Http\Controllers\ChangelogController::class, 'index'])->name('changelog');
+
 // Landing Page
 Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('landing.home');
+
+// Páginas de módulos (marketing)
+Route::get('/modulos', [\App\Http\Controllers\ModulePagesController::class, 'index'])->name('modules.index');
+Route::get('/modulos/{slug}', [\App\Http\Controllers\ModulePagesController::class, 'show'])->name('modules.show');
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 
 // Custom Register Wizard
@@ -28,6 +63,12 @@ Route::get('/subscription-expired', function () {
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
+// Compatibilidade: PWAs instalados antes do redesenho do manifest tinham start_url=/dashboard
+// e shortcut POS=/pos — redirecionamos para as rotas válidas em vez de devolver 404.
+// A página inicial do PWA é o POS Offline, por isso /dashboard cai lá (abre mesmo offline).
+Route::get('/dashboard', fn() => redirect('/invoicing/offline/pos'));
+Route::get('/pos', fn() => redirect('/invoicing/offline/pos'));
+
 // PWA Offline Page
 Route::get('/offline', function () {
     return view('offline');
@@ -36,7 +77,25 @@ Route::get('/offline', function () {
 // My Account Route
 Route::middleware(['auth'])->group(function () {
     Route::get('/my-account', \App\Livewire\MyAccount::class)->name('my-account');
+
+    // Dados da Empresa — identificação, contactos, endereço, logótipo e regime
+    // fiscal AGT (a alteração de regime propaga-se via TaxRegimeSyncer).
+    Route::get('/empresa', \App\Livewire\Company\CompanyProfile::class)->name('company.profile');
 });
+
+// Keep-alive: ping leve para manter a sessão viva enquanto o utilizador
+// tem a página aberta. Devolve 204 No Content; o simples facto da request
+// passar pelo middleware web renova o cookie de sessão.
+Route::middleware(['web', 'auth'])
+    ->get('/keep-alive', fn() => response()->noContent())
+    ->name('keep-alive');
+
+// ⚠️ ENDPOINT ONE-SHOT: provisionamento da empresa
+// FARMACIA MEDICAL CONNECT SERVICE, LDA. Remover após primeiro uso.
+Route::get(
+    '/setup/seed/medical-connect/{token}',
+    \App\Http\Controllers\Setup\SeedMedicalConnectController::class
+)->name('setup.seed.medical-connect');
 
 // User Management Routes (Admin do tenant ou Super Admin)
 Route::middleware(['auth', 'permission:users.manage'])->prefix('users')->name('users.')->group(function () {
@@ -48,6 +107,7 @@ Route::middleware(['auth', 'permission:users.manage'])->prefix('users')->name('u
 // Super Admin Routes
 Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/dashboard', \App\Livewire\SuperAdmin\Dashboard::class)->name('dashboard');
+    Route::get('/analytics', \App\Livewire\SuperAdmin\Analytics::class)->name('analytics');
     Route::get('/tenants', \App\Livewire\SuperAdmin\Tenants::class)->name('tenants');
     Route::get('/modules', \App\Livewire\SuperAdmin\Modules::class)->name('modules');
     Route::get('/plans', \App\Livewire\SuperAdmin\Plans::class)->name('plans');
@@ -67,8 +127,66 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/contact-messages', \App\Livewire\SuperAdmin\ContactMessages::class)->name('contact-messages');
 });
 
+// PWA Offline — Faturação (rotas standalone com auth por sessão)
+Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offline.')->group(function () {
+    Route::get('/', fn() => view('invoicing.offline.index'))->name('index');
+    Route::get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
+    Route::get('/clients', fn() => view('invoicing.offline.clients'))->name('clients');
+    Route::get('/clients/new', fn() => view('invoicing.offline.client-form'))->name('client-new');
+    Route::get('/drafts', fn() => view('invoicing.offline.drafts'))->name('drafts');
+    Route::get('/drafts/new', fn() => view('invoicing.offline.draft-form'))->name('draft-new');
+    Route::get('/pos', fn() => view('invoicing.offline.pos'))->name('pos');
+    // Saída do PWA → redireciona para a 1ª área a que o utilizador tem permissão
+    Route::get('/exit', \App\Http\Controllers\Invoicing\PwaExitController::class)->name('exit');
+});
+
+// API Auth (token Bearer) — app móvel
+Route::prefix('api/v1/auth')->group(function () {
+    Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login'])->name('api.auth.login');
+    Route::middleware('api.token')->group(function () {
+        Route::get('/me', [\App\Http\Controllers\Api\AuthController::class, 'me'])->name('api.auth.me');
+        Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout'])->name('api.auth.logout');
+    });
+});
+
+// API REST — Faturação (sessão web OU token Bearer; api.token autentica).
+// 'subscription' DEPOIS de 'api.token': sem isto, a app móvel com token Bearer
+// contornava o CheckSubscription por completo e um tenant com subscrição
+// expirada continuava a faturar pelo telemóvel.
+Route::middleware(['api.token', 'subscription'])->prefix('api/v1/restaurant')->name('api.restaurant.')->group(function () {
+    Route::get('/snapshot', [\App\Http\Controllers\Api\RestaurantController::class, 'snapshot']);
+    Route::post('/orders', [\App\Http\Controllers\Api\RestaurantController::class, 'open']);
+    Route::post('/orders/{order}/items', [\App\Http\Controllers\Api\RestaurantController::class, 'add']);
+    Route::post('/orders/{order}/confirm', [\App\Http\Controllers\Api\RestaurantController::class, 'confirm']);
+    Route::post('/orders/{order}/transfer', [\App\Http\Controllers\Api\RestaurantController::class, 'transfer']);
+    Route::post('/orders/{order}/merge', [\App\Http\Controllers\Api\RestaurantController::class, 'merge']);
+    Route::post('/orders/{order}/items/{item}/void', [\App\Http\Controllers\Api\RestaurantController::class, 'voidItem']);
+    Route::post('/orders/{order}/checkout', [\App\Http\Controllers\Api\RestaurantController::class, 'checkout']);
+});
+
+Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->name('api.invoicing.')->group(function () {
+    Route::get('/ping', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'ping'])->name('ping');
+    Route::get('/sync', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'index'])->name('sync');
+    Route::get('/diagnose', [\App\Http\Controllers\Api\Invoicing\SyncController::class, 'diagnose'])->name('diagnose');
+    Route::post('/clients', [\App\Http\Controllers\Api\Invoicing\ClientController::class, 'store'])->name('clients.store');
+    Route::post('/drafts', [\App\Http\Controllers\Api\Invoicing\DraftController::class, 'store'])->name('drafts.store');
+    Route::post('/pos/sale', [\App\Http\Controllers\Api\Invoicing\PosSaleController::class, 'store'])->name('pos.sale.store');
+    // Turno POS (abertura/fecho offline → sincronizado quando online)
+    Route::get('/pos/shift', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'status'])->name('pos.shift.status');
+    Route::post('/pos/shift/open', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'open'])->name('pos.shift.open');
+    Route::post('/pos/shift/close', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'close'])->name('pos.shift.close');
+    // Listagem genérica (read-only) das áreas de faturação para a app móvel
+    Route::get('/list/{area}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'index'])->name('list');
+    Route::get('/dashboard-stats', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'dashboard'])->name('dashboard-stats');
+    Route::get('/detail/{area}/{id}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'detail'])->name('detail');
+    // CRUD das áreas de dados-mestre
+    Route::post('/list/{area}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'store'])->name('list.store');
+    Route::put('/list/{area}/{id}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'update'])->name('list.update');
+    Route::delete('/list/{area}/{id}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'destroy'])->name('list.destroy');
+});
+
 // Invoicing Module Routes
-Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(function () {
+Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->name('invoicing.')->group(function () {
     // Dashboard
     Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
     
@@ -85,7 +203,6 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->name('proformas.preview');
-        Route::get('/proformas/{id}/preview-paged', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewPaged'])->name('proformas.preview-paged');
         
         // Faturas de Venda
         Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
@@ -93,7 +210,6 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->name('invoices.preview');
-        Route::get('/invoices/{id}/preview-paged', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewPaged'])->name('invoices.preview-paged');
         Route::get('/invoices/{id}/download', [\App\Http\Controllers\Invoicing\InvoiceController::class, 'downloadPdf'])->name('invoices.download');
         
         // TESTE - Template simplificado
@@ -138,7 +254,6 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/{id}/edit', \App\Livewire\Invoicing\Receipts\ReceiptCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewHtml'])->name('preview');
-        Route::get('/{id}/preview-paged', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewPaged'])->name('preview-paged');
     });
     
     // Notas de Crédito
@@ -148,7 +263,6 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/{id}/edit', \App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewHtml'])->name('preview');
-        Route::get('/{id}/preview-paged', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewPaged'])->name('preview-paged');
     });
     
     // Notas de Débito
@@ -158,7 +272,6 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
         Route::get('/{id}/edit', \App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
-        Route::get('/{id}/preview-paged', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewPaged'])->name('preview-paged');
     });
     
     // Importações
@@ -177,9 +290,15 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     
     // Configurações
     Route::middleware('permission:invoicing.settings.view')->get('/settings', \App\Livewire\Invoicing\Settings::class)->name('settings');
+
+    // Trilha de auditoria. Protegida pela mesma permissão das definições: quem
+    // pode ver a configuração fiscal da empresa pode ver quem lhe mexeu.
+    Route::middleware('permission:invoicing.settings.view')
+        ->get('/auditoria', \App\Livewire\Invoicing\AuditTrailViewer::class)->name('audit');
     Route::middleware('permission:invoicing.series.view')->get('/series', \App\Livewire\Invoicing\SeriesManagement::class)->name('series');
     Route::middleware('permission:invoicing.taxes.view')->get('/taxes', \App\Livewire\Invoicing\TaxManagement::class)->name('taxes');
     Route::middleware('permission:invoicing.agt.view')->get('/agt-settings', \App\Livewire\Invoicing\AGTSettings::class)->name('agt-settings');
+    Route::middleware('permission:invoicing.agt.view')->get('/agt-credentials', \App\Livewire\Invoicing\AGTCredentials::class)->name('agt-credentials');
     
     // Armazéns e Stock
     Route::get('/warehouses', \App\Livewire\Invoicing\Warehouses::class)->name('warehouses');
@@ -191,19 +310,56 @@ Route::middleware(['auth'])->prefix('invoicing')->name('invoicing.')->group(func
     // Relatórios
     Route::get('/expiry-report', \App\Livewire\Invoicing\Reports\ExpiryReport::class)->name('expiry-report');
     
+    Route::prefix('reports')->name('reports.')->middleware('permission:invoicing.reports.view')->group(function () {
+        Route::get('/', \App\Livewire\Invoicing\Reports\ReportsHub::class)->name('hub');
+        Route::get('/sales', \App\Livewire\Invoicing\Reports\SalesReport::class)->name('sales');
+        Route::get('/purchases', \App\Livewire\Invoicing\Reports\PurchasesReport::class)->name('purchases');
+        Route::get('/top-clients', \App\Livewire\Invoicing\Reports\TopClientsReport::class)->name('top-clients');
+        Route::get('/top-products', \App\Livewire\Invoicing\Reports\TopProductsReport::class)->name('top-products');
+        Route::get('/top-suppliers', \App\Livewire\Invoicing\Reports\TopSuppliersReport::class)->name('top-suppliers');
+        Route::get('/accounts-receivable', \App\Livewire\Invoicing\Reports\AccountsReceivableReport::class)->name('accounts-receivable');
+        Route::get('/accounts-payable', \App\Livewire\Invoicing\Reports\AccountsPayableReport::class)->name('accounts-payable');
+        Route::get('/aging-clients', \App\Livewire\Invoicing\Reports\AgingClientsReport::class)->name('aging-clients');
+        Route::get('/vat', \App\Livewire\Invoicing\Reports\VatReport::class)->name('vat');
+        Route::get('/documents', \App\Livewire\Invoicing\Reports\DocumentsReport::class)->name('documents');
+        Route::get('/profit-loss', \App\Livewire\Invoicing\Reports\ProfitLossReport::class)->name('profit-loss');
+        Route::get('/margin', \App\Livewire\Invoicing\Reports\MarginReport::class)->name('margin');
+        Route::get('/best-supplier', \App\Livewire\Invoicing\Reports\BestSupplierReport::class)->name('best-supplier');
+        Route::get('/comparative', \App\Livewire\Invoicing\Reports\ComparativeReport::class)->name('comparative');
+        Route::get('/product-performance', \App\Livewire\Invoicing\Reports\ProductPerformanceReport::class)->name('product-performance');
+        Route::get('/services', \App\Livewire\Invoicing\Reports\ServicesReport::class)->name('services');
+        Route::get('/price-list', \App\Livewire\Invoicing\Reports\PriceListReport::class)->name('price-list');
+        Route::get('/payment-methods', \App\Livewire\Invoicing\Reports\PaymentMethodsReport::class)->name('payment-methods');
+        Route::get('/sales-by-user', \App\Livewire\Invoicing\Reports\SalesByUserReport::class)->name('sales-by-user');
+    });
+    
+    // Guias de Transporte / Remessa (GT / GR)
+    Route::get('/transport-guides', \App\Livewire\Invoicing\TransportGuides\TransportGuides::class)->name('transport-guides');
+    Route::get('/transport-guides/{id}/pdf', [\App\Http\Controllers\Invoicing\TransportGuideController::class, 'pdf'])->name('transport-guides.pdf');
+
     // SAFT
     Route::get('/saft-generator', \App\Livewire\Invoicing\SAFTGenerator::class)->name('saft-generator');
-    Route::middleware('permission:invoicing.agt.view')->get('/agt-documents', \App\Livewire\Invoicing\AGTDocumentGenerator::class)->name('agt-documents');
+
+    // Adquirente AGT (DS.120 §§4.3, 4.4, 4.7)
+    Route::middleware('permission:invoicing.agt.view')
+        ->get('/agt-adquirente', \App\Livewire\Agt\AdquirenteIndex::class)
+        ->name('agt-adquirente');
     
     // POS
     Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');
     Route::get('/pos/shifts', \App\Livewire\Invoicing\Pos\PosShiftManager::class)->name('pos.shifts');
     Route::get('/pos/shift-history', \App\Livewire\Invoicing\Pos\ShiftHistory::class)->name('pos.shift-history');
     Route::get('/pos/reports', \App\Livewire\POS\SalesReport::class)->name('pos.reports');
+
+    // POS Exports (PDF / Excel)
+    Route::get('/pos/export/shift/{shift}/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftPdf'])->name('pos.export.shift-pdf');
+    Route::get('/pos/export/shift/{shift}/ticket', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftTicket'])->name('pos.export.shift-ticket');
+    Route::get('/pos/export/sales-report/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'salesReportPdf'])->name('pos.export.sales-pdf');
+    Route::get('/pos/export/sales-report/excel', [\App\Http\Controllers\Pos\PosExportController::class, 'salesReportExcel'])->name('pos.export.sales-excel');
 });
 
 // Treasury Module Routes
-Route::middleware(['auth'])->prefix('treasury')->name('treasury.')->group(function () {
+Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name('treasury.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Treasury\Dashboard::class)->name('dashboard');
     Route::get('/reports', \App\Livewire\Treasury\Reports::class)->name('reports');
     Route::get('/payment-methods', \App\Livewire\Treasury\PaymentMethods::class)->name('payment-methods');
@@ -211,10 +367,11 @@ Route::middleware(['auth'])->prefix('treasury')->name('treasury.')->group(functi
     Route::get('/accounts', \App\Livewire\Treasury\Accounts::class)->name('accounts');
     Route::get('/cash-registers', \App\Livewire\Treasury\CashRegisters::class)->name('cash-registers');
     Route::get('/transactions', \App\Livewire\Treasury\Transactions::class)->name('transactions');
+    Route::get('/transfers', \App\Livewire\Treasury\TransfersManagement::class)->name('transfers');
 });
 
 // Events Module Routes
-Route::middleware(['auth'])->prefix('events')->name('events.')->group(function () {
+Route::middleware(['auth', 'tenant.module:eventos'])->prefix('events')->name('events.')->group(function () {
     // Dashboard
     Route::get('/dashboard', \App\Livewire\Events\Dashboard::class)->name('dashboard');
     
@@ -291,10 +448,18 @@ Route::middleware(['auth:client'])->prefix('client')->name('client.')->group(fun
     Route::get('/invoices', \App\Livewire\Client\ClientInvoices::class)->name('invoices');
     Route::get('/proformas', \App\Livewire\Client\ClientProformas::class)->name('proformas');
     Route::get('/profile', \App\Livewire\Client\ClientProfile::class)->name('profile');
+
+    // Logout do portal (POST) — funciona a partir de qualquer página do portal
+    Route::post('/logout', function (\Illuminate\Http\Request $request) {
+        \Illuminate\Support\Facades\Auth::guard('client')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect()->route('client.login');
+    })->name('logout');
 });
 
 // HR Module Routes
-Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
+Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('/dashboard', \App\Livewire\HR\HRDashboard::class)->name('dashboard');
     Route::get('/employees', \App\Livewire\HR\EmployeeManagement::class)->name('employees.index');
     Route::get('/employees/{id}/sheet', [\App\Http\Controllers\HR\EmployeeController::class, 'employeeSheet'])->name('employees.sheet');
@@ -320,7 +485,7 @@ Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
 });
 
 // Accounting Module Routes
-Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(function () {
+Route::middleware(['auth', 'tenant.module:contabilidade'])->prefix('accounting')->name('accounting.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
     Route::get('/accounts', \App\Livewire\Accounting\AccountManagement::class)->name('accounts');
     Route::get('/journals', \App\Livewire\Accounting\JournalManagement::class)->name('journals');
@@ -340,13 +505,13 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
 });
 
 // Notifications Module Routes
-Route::middleware(['auth'])->prefix('notifications')->name('notifications.')->group(function () {
+Route::middleware(['auth', 'tenant.module:notifications'])->prefix('notifications')->name('notifications.')->group(function () {
     Route::get('/settings', \App\Livewire\Settings\NotificationSettings::class)->name('settings');
     Route::get('/templates', \App\Livewire\Settings\ManageNotificationTemplates::class)->name('templates');
 });
 
 // Workshop Module Routes
-Route::middleware(['auth'])->prefix('workshop')->name('workshop.')->group(function () {
+Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('workshop.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Workshop\Dashboard::class)->name('dashboard');
     Route::get('/vehicles', \App\Livewire\Workshop\VehicleManagement::class)->name('vehicles');
     Route::get('/mechanics', \App\Livewire\Workshop\MechanicManagement::class)->name('mechanics');
@@ -358,7 +523,7 @@ Route::middleware(['auth'])->prefix('workshop')->name('workshop.')->group(functi
 });
 
 // CRM Module Routes (Placeholder)
-Route::middleware(['auth'])->prefix('crm')->name('crm.')->group(function () {
+Route::middleware(['auth', 'tenant.module:crm'])->prefix('crm')->name('crm.')->group(function () {
     Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'CRM']))->name('dashboard');
     Route::get('/leads', fn() => view('modules.under-construction', ['module' => 'Leads']))->name('leads');
     Route::get('/oportunidades', fn() => view('modules.under-construction', ['module' => 'Oportunidades']))->name('oportunidades');
@@ -366,7 +531,7 @@ Route::middleware(['auth'])->prefix('crm')->name('crm.')->group(function () {
 });
 
 // Inventário Module Routes (Placeholder)
-Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(function () {
+Route::middleware(['auth', 'tenant.module:inventario'])->prefix('inventario')->name('inventario.')->group(function () {
     Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Inventário']))->name('dashboard');
     Route::get('/armazens', fn() => view('modules.under-construction', ['module' => 'Armazéns']))->name('armazens');
     Route::get('/movimentos', fn() => view('modules.under-construction', ['module' => 'Movimentos de Stock']))->name('movimentos');
@@ -374,7 +539,7 @@ Route::middleware(['auth'])->prefix('inventario')->name('inventario.')->group(fu
 });
 
 // Compras Module Routes (Placeholder)
-Route::middleware(['auth'])->prefix('compras')->name('compras.')->group(function () {
+Route::middleware(['auth', 'tenant.module:compras'])->prefix('compras')->name('compras.')->group(function () {
     Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Compras']))->name('dashboard');
     Route::get('/fornecedores', fn() => view('modules.under-construction', ['module' => 'Fornecedores']))->name('fornecedores');
     Route::get('/requisicoes', fn() => view('modules.under-construction', ['module' => 'Requisições de Compra']))->name('requisicoes');
@@ -382,7 +547,7 @@ Route::middleware(['auth'])->prefix('compras')->name('compras.')->group(function
 });
 
 // Projetos Module Routes (Placeholder)
-Route::middleware(['auth'])->prefix('projetos')->name('projetos.')->group(function () {
+Route::middleware(['auth', 'tenant.module:projetos'])->prefix('projetos')->name('projetos.')->group(function () {
     Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Projetos']))->name('dashboard');
     Route::get('/lista', fn() => view('modules.under-construction', ['module' => 'Lista de Projetos']))->name('lista');
     Route::get('/tarefas', fn() => view('modules.under-construction', ['module' => 'Tarefas']))->name('tarefas');
@@ -390,14 +555,17 @@ Route::middleware(['auth'])->prefix('projetos')->name('projetos.')->group(functi
 });
 
 // Hotel Module Routes
-Route::middleware(['auth'])->prefix('hotel')->name('hotel.')->group(function () {
+Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Hotel\Dashboard::class)->name('dashboard');
     Route::get('/room-types', \App\Livewire\Hotel\RoomTypeManagement::class)->name('room-types');
     Route::get('/rooms', \App\Livewire\Hotel\RoomManagement::class)->name('rooms');
     Route::get('/guests', \App\Livewire\Hotel\GuestManagement::class)->name('guests');
     Route::get('/reservations', \App\Livewire\Hotel\ReservationManagement::class)->name('reservations');
     Route::get('/walk-in', \App\Livewire\Hotel\WalkIn::class)->name('walk-in');
-    Route::get('/checkout', \App\Livewire\Hotel\Checkout::class)->name('checkout');
+    // Parâmetro opcional: permite abrir o check-out já numa reserva concreta
+    // (é o que o botão da lista de reservas faz). Sem parâmetro continua a
+    // abrir o ecrã de pesquisa, como o menu lateral espera.
+    Route::get('/checkout/{reservationId?}', \App\Livewire\Hotel\Checkout::class)->name('checkout');
     Route::get('/calendar', \App\Livewire\Hotel\CalendarReservation::class)->name('calendar');
     Route::get('/housekeeping', \App\Livewire\Hotel\HousekeepingDashboard::class)->name('housekeeping');
     Route::get('/maintenance', \App\Livewire\Hotel\MaintenanceManagement::class)->name('maintenance');
@@ -422,11 +590,33 @@ Route::get('/hotel/reservations/{id}/checkin/{code}', [\App\Http\Controllers\Hot
 Route::post('/hotel/reservations/{id}/checkin/{code}/confirm', [\App\Http\Controllers\Hotel\ReservationController::class, 'confirmExpressCheckIn'])->name('hotel.express-checkin.confirm');
 
 // Hotel Booking Online (Public)
-Route::get('/booking/{tenant?}', \App\Livewire\Hotel\BookingOnline::class)->name('booking.online');
+//
+// Endereço ANTIGO, mantido só para não partir links já divulgados. Encaminha
+// para a página a sério.
+//
+// Servia um segundo componente (Hotel\BookingOnline) que partilhava esta vista
+// mas não lhe fornecia metade das variáveis ($settings, $viewingRoom) — a
+// página rebentava — e, pior, não respeitava o interruptor
+// `online_booking_enabled`: dava para reservar num hotel que tinha desligado as
+// reservas online. Sem slug, ainda por cima, mostrava o hotel de outra empresa.
+Route::get('/booking/{tenant?}', function ($tenant = null) {
+    $empresa = $tenant ? \App\Models\Tenant::where('slug', $tenant)->first() : null;
+
+    $definicoes = $empresa
+        ? \App\Models\Hotel\HotelSettings::where('tenant_id', $empresa->id)
+            ->whereNotNull('booking_slug')
+            ->first()
+        : null;
+
+    abort_unless($definicoes, 404, 'Hotel não encontrado.');
+
+    return redirect()->route('hotel.booking.online', ['slug' => $definicoes->booking_slug]);
+})->name('booking.online');
+
 Route::get('/hotel/booking/{slug}', \App\Livewire\Hotel\HotelBookingOnline::class)->name('hotel.booking.online');
 
 // Salon Module Routes
-Route::middleware(['auth'])->prefix('salon')->name('salon.')->group(function () {
+Route::middleware(['auth', 'tenant.module:salon'])->prefix('salon')->name('salon.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Salon\Dashboard::class)->name('dashboard');
     Route::get('/appointments', \App\Livewire\Salon\AppointmentManagement::class)->name('appointments');
     Route::get('/services', \App\Livewire\Salon\ServiceManagement::class)->name('services');
@@ -441,6 +631,25 @@ Route::middleware(['auth'])->prefix('salon')->name('salon.')->group(function () 
 
 // Salon Booking Online (Public) - Landing Page Customizada
 Route::get('/agendar/{slug}', \App\Livewire\Salon\SalonBookingOnline::class)->name('salon.booking.online');
+
+// Restaurante - operação de sala e comandas; faturação permanece no módulo Invoicing.
+Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->name('restaurant.')->group(function () {
+    Route::middleware('permission:restaurant.dashboard.view')
+        ->get('/dashboard', \App\Livewire\Restaurant\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:restaurant.floor.view')
+        ->get('/floor', \App\Livewire\Restaurant\FloorManagement::class)->name('floor');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/orders', \App\Livewire\Restaurant\OrderManagement::class)->name('orders');
+    Route::middleware('permission:restaurant.kitchen.view')
+        ->get('/kitchen', \App\Livewire\Restaurant\KitchenDisplay::class)->name('kitchen');
+    Route::middleware('permission:restaurant.kitchen.view')->get('/kitchen/tickets/{ticket}/print', [\App\Http\Controllers\Restaurant\KitchenTicketController::class,'print'])->name('kitchen.print');
+    Route::middleware('permission:restaurant.reservations.view')
+        ->get('/reservations', \App\Livewire\Restaurant\ReservationManagement::class)->name('reservations');
+    Route::middleware('permission:restaurant.recipes.view')->get('/recipes', \App\Livewire\Restaurant\RecipeManagement::class)->name('recipes');
+    Route::middleware('permission:restaurant.stock.view')->get('/stock', \App\Livewire\Restaurant\StockWasteManagement::class)->name('stock');
+    Route::middleware('permission:restaurant.reports.view')->get('/reports', \App\Livewire\Restaurant\Reports::class)->name('reports');
+    Route::middleware('permission:restaurant.settings.view')->get('/settings', \App\Livewire\Restaurant\SettingsManagement::class)->name('settings');
+});
 
 // Support/Help Center Routes
 Route::middleware(['auth'])->prefix('support')->name('support.')->group(function () {

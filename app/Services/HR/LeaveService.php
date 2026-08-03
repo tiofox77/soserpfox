@@ -41,7 +41,7 @@ class LeaveService
             // Calcular dias
             $startDate = Carbon::parse($data['start_date']);
             $endDate = Carbon::parse($data['end_date']);
-            $totalDays = $endDate->diffInDays($startDate) + 1;
+            $totalDays = (int) $startDate->diffInDays($endDate) + 1;
             $workingDays = $this->calculateWorkingDays($startDate, $endDate);
 
             // Verificar sobreposição com férias
@@ -66,8 +66,8 @@ class LeaveService
                 }
             }
 
-            // Gerar número de licença
-            $leaveNumber = 'LIC-' . date('Y') . '-' . str_pad(Leave::count() + 1, 5, '0', STR_PAD_LEFT);
+            // Número de licença gerado por-tenant (robusto a eliminações/concorrência)
+            $leaveNumber = Leave::generateTenantNumber('leave_number', 'LIC-' . date('Y') . '-');
 
             // Criar registro
             $leave = Leave::create([

@@ -65,7 +65,7 @@ class BudgetManagement extends Component
     
     public function edit($id)
     {
-        $budget = Budget::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $budget = Budget::where('tenant_id', activeTenantId())->findOrFail($id);
         $this->budgetId = $budget->id;
         $this->name = $budget->name;
         $this->year = $budget->year;
@@ -97,7 +97,7 @@ class BudgetManagement extends Component
         
         try {
             $data = [
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'name' => $this->name,
                 'year' => $this->year,
                 'account_id' => $this->accountId,
@@ -119,7 +119,7 @@ class BudgetManagement extends Component
             ];
             
             if ($this->budgetId) {
-                $budget = Budget::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->budgetId);
+                $budget = Budget::where('tenant_id', activeTenantId())->findOrFail($this->budgetId);
                 $budget->update($data);
                 session()->flash('success', 'Orçamento atualizado com sucesso!');
             } else {
@@ -146,7 +146,7 @@ class BudgetManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $budgets = Budget::with(['account', 'costCenter'])
             ->where('tenant_id', $tenantId)

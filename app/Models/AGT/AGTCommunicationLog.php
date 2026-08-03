@@ -15,6 +15,7 @@ class AGTCommunicationLog extends Model
 
     protected $fillable = [
         'tenant_id',
+        'agt_environment',
         'submission_id',
         'service',
         'method',
@@ -103,6 +104,9 @@ class AGTCommunicationLog extends Model
     ): self {
         return self::create([
             'tenant_id' => $tenantId,
+            // Separar homologação de produção — ver AGTSubmission::createForDocument
+            'agt_environment' => \App\Models\Invoicing\InvoicingSettings::forTenant($tenantId)
+                ->agt_environment ?: 'sandbox',
             'submission_id' => $submissionId,
             'service' => $service,
             'method' => $method,

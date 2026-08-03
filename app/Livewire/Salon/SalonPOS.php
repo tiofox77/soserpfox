@@ -24,13 +24,30 @@ class SalonPOS extends POSSystem
     
     public function addServiceToCart($serviceId)
     {
-        $service = Service::find($serviceId);
-        if (!$service) return;
-        
-        // Obter configurações de impostos
-        $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
-        $taxRate = $settings->default_tax_rate ?? 14;
-        
+        // Scope ao tenant: $serviceId vem do browser e um find() sem filtro
+        // deixava vender o serviço de OUTRA empresa — com o preço dela e a
+        // aparecer na factura desta.
+        $service = Service::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->find($serviceId);
+
+        if (!$service) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Serviço não encontrado nesta empresa.',
+            ]);
+            return;
+        }
+
+        // Taxa pela fonte ÚNICA (regime da empresa), como no resto do sistema.
+        // O default_tax_rate das definições ignorava o regime de isenção e,
+        // quando dava 0%, a linha seguia sem código de isenção — a AGT recusa
+        // uma linha sem imposto e sem motivo.
+        // forProduct(null) cai no imposto por omissão da empresa e, quando o
+        // regime é isento, devolve já o código de isenção.
+        $tx = \App\Services\Invoicing\TaxResolver::forProduct(null, activeTenantId());
+        $taxRate = $tx['rate'];
+
         $cartItemId = 'service_' . $service->id;
         $cart = \Darryldecode\Cart\Facades\CartFacade::session(auth()->id());
         
@@ -54,6 +71,8 @@ class SalonPOS extends POSSystem
                     'type' => 'service',
                     'duration' => $service->duration,
                     'tax_rate' => $taxRate,
+                    // A linha isenta TEM de levar motivo, senão a AGT recusa
+                    'exemption_reason' => $tx['exemption_code'] ?? null,
                     'service_id' => $service->id,
                 ]
             ]);
@@ -92,10 +111,27 @@ class SalonPOS extends POSSystem
             ->withCount('services')
             ->get();
         
-        // Produtos do salão (usando modelo base que inclui produtos do invoicing)
-        $productsQuery = \App\Models\Product::where('tenant_id', activeTenantId())
-            ->where('is_active', true)
-            ->where('stock_quantity', '>', 0);
+        // Produtos do salão (usando modelo base que inclui produtos do invoicing).
+        //
+        // O filtro pelo agregado stock_quantity mostrava produtos cujo stock
+        // está TODO noutro armazém — apareciam disponíveis aqui e a venda não
+        // encontrava linha no armazém do salão. Filtrar pela linha do armazém
+        // em uso, com o agregado só como recurso para as empresas que ainda não
+        // têm linhas nenhumas (regime legado).
+        $whId = $this->warehouseId;
+
+        $productsQuery = \App\Models\Product::where('invoicing_products.tenant_id', activeTenantId())
+            ->where('invoicing_products.is_active', true)
+            ->when($whId, function ($q) use ($whId) {
+                $q->where(function ($sub) use ($whId) {
+                    $sub->whereHas('stocks', fn ($s) => $s->where('warehouse_id', $whId)->where('quantity', '>', 0))
+                        // legado: produto sem linha em armazém nenhum
+                        ->orWhere(fn ($leg) => $leg->whereDoesntHave('stocks')
+                            ->where('invoicing_products.stock_quantity', '>', 0));
+                });
+            }, function ($q) {
+                $q->where('invoicing_products.stock_quantity', '>', 0);
+            });
             
         if ($this->search && $this->activeTab === 'products') {
             $productsQuery->where(function($q) {

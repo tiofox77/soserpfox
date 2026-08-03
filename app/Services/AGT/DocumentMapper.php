@@ -20,12 +20,37 @@ class DocumentMapper
     private const DEFAULT_EAC = '00000';
 
     /**
+     * Tradução de nomenclaturas antigas para os tipos que a AGT aceita.
+     * A lista fechada é [IRT, II, IS, IVA, IP, IAC, OU]; 'IPU' e 'IPC' existiam
+     * na aplicação e faziam a validação do payload recusar o pedido inteiro.
+     */
+    public const TIPOS_RETENCAO_AGT = [
+        'IPU' => 'IP',    // Imposto Predial Urbano → Imposto Predial
+        'IPC' => 'IAC',   // Prestação de Capitais → Aplicação de Capitais
+        'IRT' => 'IRT',
+        'II'  => 'II',
+        'IS'  => 'IS',
+        'IVA' => 'IVA',
+        'IP'  => 'IP',
+        'IAC' => 'IAC',
+        'OU'  => 'OU',
+    ];
+
+    /**
      * Mapear um modelo de documento para o array AGT v1.2.
      */
     public function map(Model $document): array
     {
         $type = $this->resolveType($document);
-        $client = $document->client ?? null;
+        $client = $document->client ?? $document->invoice?->client ?? null;
+        if ($client && (int) $client->tenant_id !== (int) $document->tenant_id) {
+            throw new \DomainException('O cliente do documento pertence a outro tenant.');
+        }
+        if ($document instanceof Receipt
+            && $document->invoice
+            && (int) $document->invoice->tenant_id !== (int) $document->tenant_id) {
+            throw new \DomainException('A factura de origem do recibo pertence a outro tenant.');
+        }
         $tenantSettings = $this->getSettings($document);
 
         $eacCode = $document->eac_code
@@ -37,20 +62,35 @@ class DocumentMapper
         $systemEntry  = $this->resolveSystemEntryDate($document);
 
         $companyName = $client?->name ?? $client?->company_name ?? 'Consumidor Final';
-        $customerNif = $client?->nif ?? '999999990';
-        $customerCountry = strtoupper($client?->country ?? 'AO');
+        // DS.120 §4.1: NIF de consumidor anónimo = 999999999 (nove noves).
+        $customerNif = preg_replace('/\D+/', '', (string) ($client?->nif ?? ''));
+        if (!in_array(strlen($customerNif), [9, 10, 14], true) || preg_match('/^0+$/', $customerNif)) {
+            $customerNif = '999999999';
+        }
+        $country = strtoupper(trim((string) ($client?->country ?? 'AO')));
+        $customerCountry = in_array($country, ['ANGOLA', 'AO'], true) ? 'AO' : $country;
 
         $items = $document->items ?? collect();
+        // A NC inverte o sinal (preenche debitAmount); a ND acresce à dívida,
+        // como uma factura, logo mantém creditAmount.
         $isCreditNote = ($type === 'NC');
+        // Ambas são documentos RECTIFICATIVOS (Art. 12º Decreto 71/25) e por
+        // isso ambas têm de referenciar o documento corrigido e o motivo. Antes
+        // só a NC emitia referenceInfo e a ND seguia sem referência.
+        $isRectifying = in_array($type, ['NC', 'ND'], true);
 
         $lines = [];
         $lineNo = 0;
         foreach ($items as $item) {
             $lineNo++;
-            $lines[] = $this->mapLine($item, $lineNo, $isCreditNote, $eacCode);
+            $lines[] = $this->mapLine($item, $lineNo, $isCreditNote, $eacCode, $isRectifying);
         }
 
-        $totals = $this->mapTotals($document);
+        // Os totais derivam das LINHAS já construídas, que é exactamente o que a
+        // AGT valida ("taxPayable não corresponde à soma dos impostos de todas
+        // as linhas"). Antes somava-se o tax_payable gravado MAIS os extras, e o
+        // IEC/IS entrava duas vezes.
+        $totals = $this->mapTotals($document, $lines);
 
         $doc = [
             'documentNo'      => $documentNo,
@@ -66,6 +106,23 @@ class DocumentMapper
             'documentTotals'  => $totals,
         ];
 
+        if ($document instanceof Receipt) {
+            $invoice = $document->invoice;
+            $doc['paymentReceipt'] = [
+                'paymentMechanism' => $this->mapPaymentMechanism($document->payment_method),
+                'paymentAmount' => (float) $document->amount_paid,
+                'paymentDate' => optional($document->payment_date)->format('Y-m-d') ?: now()->format('Y-m-d'),
+                'sourceDocuments' => $invoice ? [[
+                    'lineNo' => 1,
+                    'sourceDocumentID' => [
+                        'originatingON' => (string) $invoice->invoice_number,
+                        'documentDate' => optional($invoice->invoice_date)->format('Y-m-d') ?: now()->format('Y-m-d'),
+                    ],
+                    'creditAmount' => (float) ($invoice->net_total ?? $invoice->subtotal),
+                ]] : [],
+            ];
+        }
+
         // Withholding (IRT/IPU/IPC) se aplicável
         $withholding = $this->mapWithholdings($document);
         if (!empty($withholding)) {
@@ -75,16 +132,29 @@ class DocumentMapper
         return $doc;
     }
 
-    /** Resolver tipo de documento AGT (FT/FR/NC/ND/RC). */
+    /**
+     * Resolver tipo de documento AGT (DS.120 §4.1 — 18 tipos suportados).
+     * Valida contra `AGTDocumentType` enum; tipos desconhecidos caem em FT.
+     */
     private function resolveType(Model $document): string
     {
+        $raw = null;
         if ($document instanceof SalesInvoice) {
-            return strtoupper($document->invoice_type ?? 'FT');
+            $raw = $document->invoice_type ?? 'FT';
+        } elseif ($document instanceof CreditNote) {
+            $raw = 'NC';
+        } elseif ($document instanceof DebitNote) {
+            $raw = 'ND';
+        } elseif ($document instanceof Receipt) {
+            // Pode ser RC (recibo associado), RG (genérico) ou RA (adiantamento) consoante a flag.
+            $raw = $document->receipt_kind ?? 'RC';
+        } elseif ($document instanceof \App\Models\Invoicing\TransportGuide) {
+            // A AGT (DS.120) trata guias de transporte/remessa como GF (Guia de Frete).
+            $raw = 'GF';
         }
-        if ($document instanceof CreditNote) return 'NC';
-        if ($document instanceof DebitNote)  return 'ND';
-        if ($document instanceof Receipt)    return 'RC';
-        return 'FT';
+
+        $resolved = \App\Enums\AGTDocumentType::tryFromCode($raw);
+        return $resolved?->value ?? 'FT';
     }
 
     private function resolveDocumentNumber(Model $document, string $type): string
@@ -94,6 +164,7 @@ class DocumentMapper
             ?? $document->credit_note_number
             ?? $document->debit_note_number
             ?? $document->receipt_number
+            ?? $document->guide_number
             ?? ''
         );
     }
@@ -102,6 +173,7 @@ class DocumentMapper
     {
         $date = $document->invoice_date
             ?? $document->issue_date
+            ?? $document->payment_date
             ?? $document->receipt_date
             ?? now();
         return $date instanceof \DateTimeInterface
@@ -127,19 +199,28 @@ class DocumentMapper
     }
 
     /** Mapear uma linha (item) para a estrutura AGT v1.2. */
-    private function mapLine($item, int $lineNo, bool $isCreditNote, ?string $defaultEac): array
+    private function mapLine($item, int $lineNo, bool $isCreditNote, ?string $defaultEac, bool $isRectifying = false): array
     {
         $unitPrice    = (float) ($item->unit_price ?? 0);
         $unitPriceBase = (float) ($item->unit_price_base ?? $item->unit_price ?? 0);
         $quantity     = (float) ($item->quantity ?? 1);
         $discount     = (float) ($item->discount_amount ?? 0);
-        $netLine      = (float) ($item->subtotal ?? ($unitPrice * $quantity));
+        // Líquido de desconto, para fechar com os totais do documento
+        $netLine      = (float) ($item->subtotal ?? ($unitPrice * $quantity)) - $discount;
         $taxAmount    = (float) ($item->tax_amount ?? 0);
-        $taxRate      = (float) ($item->tax_rate ?? 14);
+        $taxRate      = (float) ($item->tax_rate ?? 0);
 
         $line = [
             'lineNumber'         => $lineNo,
-            'productCode'        => (string) ($item->product?->sku ?? $item->product_id ?? "ITEM{$lineNo}"),
+            // Código do produto tal como o vendedor o identifica: SKU, senão o
+            // código do artigo. O id interno da base de dados era o último
+            // recurso e passava a ser o mais comum, porque a maioria dos
+            // produtos não tem SKU — a AGT recebia um número sem significado.
+            'productCode'        => (string) (
+                $item->product?->sku
+                    ?: ($item->product?->code
+                    ?: ($item->product_id ?? "ITEM{$lineNo}"))
+            ),
             'productDescription' => (string) ($item->description ?? $item->product_name ?? $item->product?->name ?? 'Item'),
             'quantity'           => round($quantity, 4),
             'unitOfMeasure'      => (string) ($item->unit ?? 'UN'),
@@ -147,8 +228,8 @@ class DocumentMapper
             'unitPrice'          => round($unitPrice, 2),
         ];
 
-        // referenceInfo (NC obrigatório)
-        if ($isCreditNote && !empty($item->reference_invoice_no)) {
+        // referenceInfo (obrigatório na NC e na ND)
+        if (($isRectifying || $isCreditNote) && !empty($item->reference_invoice_no)) {
             $line['referenceInfo'] = [
                 'reference'           => (string) $item->reference_invoice_no,
                 'referenceItemLineNo' => (int) ($item->reference_item_line_no ?? $lineNo),
@@ -156,13 +237,18 @@ class DocumentMapper
             ];
         }
 
-        // debitAmount / creditAmount (mutuamente exclusivos; só um pode estar > 0)
-        if ($isCreditNote || (float) ($item->debit_amount ?? 0) > 0) {
-            $line['debitAmount']  = round((float) ($item->debit_amount ?? $netLine), 2);
+        // debitAmount / creditAmount (mutuamente exclusivos; só um pode estar > 0).
+        // As colunas são NOT NULL DEFAULT 0, logo o `??` nunca disparava e TODAS as
+        // linhas seguiam para a AGT com 0 — tratar 0 como "não preenchido".
+        $debitCol  = (float) ($item->debit_amount ?? 0);
+        $creditCol = (float) ($item->credit_amount ?? 0);
+
+        if ($isCreditNote || $debitCol > 0) {
+            $line['debitAmount']  = round($debitCol > 0 ? $debitCol : $netLine, 2);
             $line['creditAmount'] = 0;
         } else {
             $line['debitAmount']  = 0;
-            $line['creditAmount'] = round((float) ($item->credit_amount ?? $netLine), 2);
+            $line['creditAmount'] = round($creditCol > 0 ? $creditCol : $netLine, 2);
         }
 
         // taxes (array)
@@ -179,40 +265,101 @@ class DocumentMapper
         if (!empty($item->tax_exemption_reason)) {
             $tax['taxExemptionReason'] = $item->tax_exemption_reason;
         }
-        $line['taxes'] = [$tax];
+
+        // O IVA vem das colunas da linha; IEC e IS vêm de invoicing_line_taxes.
+        // O IS pertence a taxes[]: a FAQ oficial do SAF-T (modelo que a AGT
+        // segue) confirma IVA, IS e NS como valores de TaxType. As recusas
+        // anteriores vinham do taxCode — a nossa tabela de verbas estava errada.
+        $line['taxes'] = array_merge(
+            [$tax],
+            $item instanceof \Illuminate\Database\Eloquent\Model
+                ? \App\Models\Invoicing\LineTax::agtTaxesForLine($item)
+                : []
+        );
 
         $line['settlementAmount'] = round((float) ($item->settlement_amount ?? $discount ?? 0), 2);
 
         return $line;
     }
 
-    private function mapTotals(Model $document): array
+    /**
+     * @param array $lines Linhas já mapeadas, para os totais derivarem delas.
+     */
+    private function mapTotals(Model $document, array $lines = []): array
     {
-        $taxPayable = (float) ($document->tax_payable ?? $document->tax_amount ?? 0);
-        $netTotal   = (float) ($document->net_total ?? $document->subtotal ?? 0);
-        $grossTotal = (float) ($document->gross_total ?? $document->total ?? ($netTotal + $taxPayable));
+        if ($document instanceof Receipt) {
+            $invoice = $document->invoice;
+            return [
+                'taxPayable' => (float) ($invoice?->tax_payable ?? $invoice?->tax_amount ?? 0),
+                'netTotal' => (float) ($invoice?->net_total ?? $invoice?->subtotal ?? $document->amount_paid),
+                'grossTotal' => (float) ($invoice?->gross_total ?? $invoice?->total ?? $document->amount_paid),
+            ];
+        }
+
+        $netTotal = (float) ($document->net_total ?? $document->subtotal ?? 0);
+
+        // taxPayable = SOMA DOS IMPOSTOS DAS LINHAS. É textualmente o que a AGT
+        // valida; derivar daqui garante que nunca divergem. Antes usava-se o
+        // tax_payable gravado MAIS os extras, e o IEC/IS era contado duas vezes.
+        $taxPayable = 0.0;
+        foreach ($lines as $linha) {
+            foreach ($linha['taxes'] ?? [] as $imposto) {
+                $taxPayable += (float) ($imposto['taxContribution'] ?? 0);
+            }
+        }
+
+        // Sem linhas mapeadas (recibos, chamadas isoladas) usa-se o gravado.
+        if (empty($lines)) {
+            $taxPayable = (float) ($document->tax_payable ?? $document->tax_amount ?? 0);
+        }
 
         return [
             'taxPayable' => round($taxPayable, 2),
             'netTotal'   => round($netTotal, 2),
-            'grossTotal' => round($grossTotal, 2),
+            // grossTotal reconstruído: tem de fechar com os outros dois.
+            'grossTotal' => round($netTotal + $taxPayable, 2),
         ];
+    }
+
+    /** Soma dos impostos extra (IEC/IS) de todas as linhas do documento. */
+    private function extraTaxTotal(Model $document): float
+    {
+        $items = $document->items ?? null;
+        if (!$items || $items->isEmpty()) {
+            return 0.0;
+        }
+
+        $primeira = $items->first();
+        if (!$primeira instanceof Model) {
+            return 0.0;
+        }
+
+        return (float) \App\Models\Invoicing\LineTax::where('line_type', get_class($primeira))
+            ->whereIn('line_id', $items->pluck('id'))
+            ->sum('tax_amount');
+    }
+
+    private function mapPaymentMechanism(?string $method): string
+    {
+        return match (strtolower(trim((string) $method))) {
+            'cash', 'dinheiro' => 'NU',
+            'transfer', 'bank_transfer', 'transferencia' => 'TB',
+            'multicaixa', 'tpa', 'card', 'cartao' => 'CD',
+            'check', 'cheque' => 'CH',
+            default => 'OU',
+        };
     }
 
     /** Mapear retenções na fonte (polimórfico). */
     private function mapWithholdings(Model $document): array
     {
-        // 1) IRT a partir do campo legacy (irt_amount em SalesInvoice)
         $list = [];
-        if (isset($document->irt_amount) && (float) $document->irt_amount > 0) {
-            $list[] = [
-                'withholdingTaxType'        => 'IRT',
-                'withholdingTaxDescription' => 'Imposto sobre Rendimento do Trabalho',
-                'withholdingTaxAmount'      => round((float) $document->irt_amount, 2),
-            ];
-        }
 
-        // 2) Tabela polimórfica invoicing_withholding_taxes
+        // A tabela invoicing_withholding_taxes é a fonte AUTORITÁVEL: guarda o
+        // tipo escolhido (IRT, IPU ou IPC) e a taxa aplicada. O campo legado
+        // irt_amount serve de recurso e só é usado quando a tabela nada tem —
+        // ele guarda o valor de QUALQUER retenção, pelo que emiti-lo sempre
+        // declarava uma retenção IRT a mais nos documentos com IPU ou IPC.
         try {
             $rows = \DB::table('invoicing_withholding_taxes')
                 ->where('document_type', get_class($document))
@@ -220,13 +367,28 @@ class DocumentMapper
                 ->get();
             foreach ($rows as $r) {
                 $list[] = [
-                    'withholdingTaxType'        => $r->withholding_tax_type,
+                    // A AGT só aceita [IRT, II, IS, IVA, IP, IAC, OU]. Dados
+                    // antigos podem ter IPU/IPC — traduzem-se, em vez de fazer
+                    // o payload inteiro ser recusado na validação.
+                    'withholdingTaxType'        => self::TIPOS_RETENCAO_AGT[$r->withholding_tax_type]
+                        ?? (in_array($r->withholding_tax_type, self::TIPOS_RETENCAO_AGT, true)
+                            ? $r->withholding_tax_type
+                            : 'OU'),
                     'withholdingTaxDescription' => $r->withholding_tax_description,
                     'withholdingTaxAmount'      => round((float) $r->withholding_tax_amount, 2),
                 ];
             }
         } catch (\Throwable $e) {
             // ignora se a tabela não existir
+        }
+
+        // Recurso: IRT automático dos serviços, quando nada foi registado.
+        if (empty($list) && isset($document->irt_amount) && (float) $document->irt_amount > 0) {
+            $list[] = [
+                'withholdingTaxType'        => 'IRT',
+                'withholdingTaxDescription' => 'Imposto sobre Rendimento do Trabalho',
+                'withholdingTaxAmount'      => round((float) $document->irt_amount, 2),
+            ];
         }
 
         return $list;

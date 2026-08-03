@@ -67,6 +67,7 @@ class WarehouseTransfer extends Component
 
     public function openTransferModal()
     {
+        abort_unless(auth()->user()?->can('invoicing.warehouse-transfer.create'), 403, 'Sem permissão para criar transferências.');
         $this->reset(['transferFromWarehouse', 'transferToWarehouse', 'transferNotes', 'selectedProduct', 'selectedProductName', 'selectedProductCode', 'productQuantity', 'availableStock', 'transferItems', 'productSearch']);
         $this->showTransferModal = true;
     }
@@ -103,6 +104,14 @@ class WarehouseTransfer extends Component
 
         if (!$this->selectedProduct || !$this->productQuantity) {
             $this->dispatch('error', message: 'Selecione um produto e quantidade.');
+            return;
+        }
+
+        // Quantidade tem de ser numérica e positiva (um valor negativo passava as
+        // validações seguintes e INVERTIA a operação: aumentava a origem e
+        // diminuía o destino).
+        if (!is_numeric($this->productQuantity) || (float) $this->productQuantity <= 0) {
+            $this->dispatch('error', message: 'A quantidade deve ser maior que zero.');
             return;
         }
 
@@ -144,6 +153,7 @@ class WarehouseTransfer extends Component
 
     public function openAdjustModal()
     {
+        abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para ajustar stock.');
         $this->reset(['adjustWarehouse', 'adjustType', 'adjustReason', 'adjustSearch', 'adjustSelectedProduct', 'adjustSelectedProductName', 'adjustSelectedProductCode', 'adjustProductQuantity', 'adjustAvailableStock', 'adjustItems']);
         $this->showAdjustModal = true;
     }
@@ -175,6 +185,12 @@ class WarehouseTransfer extends Component
     {
         if (!$this->adjustSelectedProduct || !$this->adjustProductQuantity) {
             $this->dispatch('error', message: 'Selecione um produto e quantidade.');
+            return;
+        }
+
+        // Quantidade numérica e positiva (negativos invertiam o sentido do ajuste)
+        if (!is_numeric($this->adjustProductQuantity) || (float) $this->adjustProductQuantity <= 0) {
+            $this->dispatch('error', message: 'A quantidade deve ser maior que zero.');
             return;
         }
 
@@ -246,6 +262,7 @@ class WarehouseTransfer extends Component
 
     public function saveTransfer()
     {
+        abort_unless(auth()->user()?->can('invoicing.warehouse-transfer.create'), 403, 'Sem permissão para criar transferências.');
         if (empty($this->transferItems)) {
             $this->dispatch('error', message: 'Adicione pelo menos um produto à transferência.');
             return;
@@ -276,7 +293,11 @@ class WarehouseTransfer extends Component
                     throw new \Exception("Stock insuficiente para {$item['product_name']}");
                 }
 
-                $stockFrom->decrement('quantity', $item['quantity']);
+                // save() Eloquent (NÃO increment/decrement): increment/decrement só dispara
+                // updating/updated — nunca saved — logo o StockObserver não ressincronizava
+                // o agregado e o hook saving não recalculava available_quantity.
+                $stockFrom->quantity = (float) $stockFrom->quantity - (float) $item['quantity'];
+                $stockFrom->save();
 
                 // Aumentar stock destino
                 $stockTo = Stock::firstOrCreate([
@@ -285,7 +306,8 @@ class WarehouseTransfer extends Component
                     'product_id' => $item['product_id'],
                 ], ['quantity' => 0]);
 
-                $stockTo->increment('quantity', $item['quantity']);
+                $stockTo->quantity = (float) $stockTo->quantity + (float) $item['quantity'];
+                $stockTo->save();
 
                 $product = Product::find($item['product_id']);
 
@@ -300,7 +322,7 @@ class WarehouseTransfer extends Component
                 }
                 
                 // Registrar movimentos sem disparar boot (stock já foi atualizado manualmente)
-                StockMovement::withoutEvents(function() use ($item, $batchId, $product, $warehouseTo, $warehouseFrom) {
+                StockMovement::semAplicarStock(function() use ($item, $batchId, $product, $warehouseTo, $warehouseFrom) {
                     // Movimento saída
                     StockMovement::create([
                         'tenant_id' => activeTenantId(),
@@ -345,6 +367,7 @@ class WarehouseTransfer extends Component
 
     public function saveAdjust()
     {
+        abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para ajustar stock.');
         if (empty($this->adjustItems)) {
             $this->dispatch('error', message: 'Adicione pelo menos um produto ao ajuste.');
             return;
@@ -371,14 +394,21 @@ class WarehouseTransfer extends Component
                     'product_id' => $item['product_id'],
                 ], ['quantity' => 0]);
 
+                // save() Eloquent (dispara StockObserver + recálculo de available_quantity);
+                // no ajuste de saída, validar saldo — antes era possível negativar o armazém.
                 if ($this->adjustType == 'in') {
-                    $stock->increment('quantity', $item['quantity']);
+                    $stock->quantity = (float) $stock->quantity + (float) $item['quantity'];
                 } else {
-                    $stock->decrement('quantity', $item['quantity']);
+                    if ((float) $stock->quantity < (float) $item['quantity']) {
+                        $name = $item['product_name'] ?? ('#' . $item['product_id']);
+                        throw new \Exception("Stock insuficiente para {$name} (disponível: {$stock->quantity})");
+                    }
+                    $stock->quantity = (float) $stock->quantity - (float) $item['quantity'];
                 }
+                $stock->save();
 
                 // Registrar movimento sem disparar boot (stock já foi atualizado manualmente)
-                StockMovement::withoutEvents(function() use ($item, $batchId, $product) {
+                StockMovement::semAplicarStock(function() use ($item, $batchId, $product) {
                     StockMovement::create([
                         'tenant_id' => activeTenantId(),
                         'warehouse_id' => $this->adjustWarehouse,

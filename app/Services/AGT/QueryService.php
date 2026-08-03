@@ -51,26 +51,33 @@ class QueryService
         ];
     }
 
-    /** Consulta o estado de um requestID (polling). */
+    /**
+     * Consulta o estado de um requestID (polling) — DS.120 §4.2.
+     *
+     * Usa o builder canónico `buildObterEstado` que assina correctamente
+     * `{taxRegistrationNumber, requestID}` conforme spec.
+     */
     public function consultByRequestId(string $requestID): array
     {
         $taxNumber = $this->resolveTenantNif();
-        $envelope  = $this->builder->buildConsultarFactura($taxNumber, $requestID);
-        // Substitui invoiceNo por requestID para o endpoint de estado
-        $envelope['requestID'] = $requestID;
-        unset($envelope['invoiceNo']);
+        $envelope  = $this->builder->buildObterEstado($taxNumber, $requestID);
 
         $result = $this->http->post(
             AGTHttpClient::ENDPOINT_STATUS,
             $envelope,
-            'EstadoFactura'
+            'ObterEstado'
         );
 
+        $body = $result['response'] ?? [];
+
         return [
-            'ok'        => $result['ok'],
-            'status'    => $result['response']['status'] ?? null,
-            'response'  => $result['response'],
-            'error'     => $result['error'],
+            'ok'                  => $result['ok'],
+            'resultCode'          => $body['resultCode']         ?? null,
+            'documentStatusList'  => $body['documentStatusList'] ?? [],
+            'requestErrorList'    => $body['requestErrorList']   ?? [],
+            'response'            => $body,
+            'error'               => $result['error'],
+            'payload'             => $envelope,
         ];
     }
 

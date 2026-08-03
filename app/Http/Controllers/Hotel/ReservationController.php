@@ -41,9 +41,27 @@ class ReservationController extends Controller
             abort(403, 'Código inválido.');
         }
 
-        if ($reservation->status !== Reservation::STATUS_CHECKED_IN) {
-            $reservation->checkIn();
+        // Já está lá dentro: nada a fazer, mas também não é erro.
+        if ($reservation->status === Reservation::STATUS_CHECKED_IN) {
+            return redirect()->route('hotel.express-checkin', [$id, $code])
+                ->with('success', 'O check-in já tinha sido efectuado.');
         }
+
+        // Só se entra a partir de uma reserva por confirmar ou confirmada.
+        //
+        // A condição anterior era "se ainda não está em checked_in, faz
+        // check-in" — o que deixava passar TODOS os outros estados. Como esta
+        // rota é pública (basta o QR, que fica impresso no voucher), bastava
+        // reler o código para RESSUSCITAR uma reserva cancelada ou reabrir uma
+        // estadia já fechada e facturada, voltando a ocupar o quarto.
+        $permitidos = [Reservation::STATUS_PENDING, Reservation::STATUS_CONFIRMED];
+
+        if (!in_array($reservation->status, $permitidos, true)) {
+            return redirect()->route('hotel.express-checkin', [$id, $code])
+                ->with('error', 'Esta reserva não permite check-in (estado: ' . $reservation->status . '). Dirija-se à recepção.');
+        }
+
+        $reservation->checkIn();
 
         return redirect()->route('hotel.express-checkin', [$id, $code])
             ->with('success', 'Check-in efectuado com sucesso!');

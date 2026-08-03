@@ -205,7 +205,7 @@ class ReservationManagement extends Component
 
         $client = Client::create([
             'tenant_id' => activeTenantId(),
-            'type' => 'individual',
+            'type' => 'pessoa_fisica',
             'name' => $this->client_name,
             'email' => $this->client_email,
             'phone' => $this->client_phone,
@@ -228,6 +228,21 @@ class ReservationManagement extends Component
     {
         $this->resetForm();
         $this->showModal = true;
+    }
+
+    /**
+     * Fecha o formulário e limpa o que lá estava.
+     *
+     * O botão "Cancelar" fazia `$set('showModal', false)` directamente: o modal
+     * fechava mas os campos ficavam preenchidos, e a reserva seguinte abria com
+     * os dados da anterior — incluindo o `editingId`, pelo que gravar
+     * actualizava a reserva errada.
+     */
+    public function closeModal()
+    {
+        $this->showModal = false;
+        $this->resetForm();
+        $this->resetValidation();
     }
 
     public function resetForm()
@@ -294,6 +309,23 @@ class ReservationManagement extends Component
         $this->validate(['client_id' => 'required|exists:invoicing_clients,id']);
         $this->validate();
 
+        // Sobreposição de datas no mesmo quarto (double-booking).
+        //
+        // Room::isAvailableForDates() já existia — e até aceita a reserva a
+        // excluir, para as edições — mas só o site público a usava. Pela
+        // recepção era possível reservar o mesmo quarto duas vezes para as
+        // mesmas noites, e o conflito só aparecia com os dois hóspedes ao
+        // balcão.
+        if ($this->room_id) {
+            $quarto = Room::forTenant()->find($this->room_id);
+
+            if ($quarto && !$quarto->isAvailableForDates($this->check_in_date, $this->check_out_date, $this->editingId)) {
+                $this->addError('room_id', 'O quarto ' . $quarto->number
+                    . ' já está reservado nestas datas. Escolha outro quarto ou outras datas.');
+                return;
+            }
+        }
+
         $nights = $this->calculateNights();
 
         $data = [
@@ -332,7 +364,14 @@ class ReservationManagement extends Component
     public function confirm($id)
     {
         $reservation = Reservation::forTenant()->findOrFail($id);
-        $reservation->confirm();
+
+        try {
+            $reservation->confirm();
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
+            return;
+        }
+
         $this->dispatch('notify', ['type' => 'success', 'message' => 'Reserva confirmada!']);
     }
 
@@ -357,7 +396,13 @@ class ReservationManagement extends Component
             return;
         }
 
-        $this->checkingInReservation->checkIn($roomToAssign);
+        try {
+            $this->checkingInReservation->checkIn($roomToAssign);
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
+            return;
+        }
+
         $this->dispatch('notify', ['type' => 'success', 'message' => 'Check-in realizado com sucesso!']);
         
         $this->checkInModal = false;
@@ -367,14 +412,69 @@ class ReservationManagement extends Component
     public function checkOut($id)
     {
         $reservation = Reservation::forTenant()->findOrFail($id);
-        $reservation->checkOut();
-        $this->dispatch('notify', ['type' => 'success', 'message' => 'Check-out realizado com sucesso!']);
+
+        // Encaminhar para o ecrã de check-out em vez de fechar a estadia aqui.
+        //
+        // Este botão chamava $reservation->checkOut() directamente: a estadia
+        // fechava, o quarto ia para limpeza — e a facturação NÃO acontecia. O
+        // hóspede saía sem documento e, como a reserva já estava em
+        // 'checked_out', o caminho fiscal deixava de estar acessível. Os
+        // consumos por facturar simplesmente evaporavam.
+        return redirect()->route('hotel.checkout', ['reservationId' => $reservation->id]);
+    }
+
+    /**
+     * Hóspede não compareceu.
+     *
+     * O estado existia na lista (com cor e filtro) mas não havia forma de o
+     * atribuir: a reserva ficava "confirmada" para sempre e o quarto continuava
+     * bloqueado para novas datas.
+     */
+    public function marcarNaoCompareceu($id)
+    {
+        $reservation = Reservation::forTenant()->findOrFail($id);
+
+        try {
+            $porRegularizar = $reservation->marcarNaoCompareceu();
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
+            return;
+        }
+
+        $this->dispatch('notify', [
+            'type' => $porRegularizar->isNotEmpty() ? 'warning' : 'success',
+            'message' => 'Marcada como "não compareceu". Quarto libertado.'
+                . ($porRegularizar->isNotEmpty()
+                    ? ' ATENÇÃO: ' . $porRegularizar->count() . ' fatura(s) por regularizar — emita nota de crédito.'
+                    : ''),
+        ]);
     }
 
     public function cancel($id)
     {
         $reservation = Reservation::forTenant()->findOrFail($id);
-        $reservation->cancel('Cancelado pelo usuário');
+
+        try {
+            $porRegularizar = $reservation->cancel('Cancelado pelo utilizador');
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
+            return;
+        }
+
+        // Uma factura emitida não desaparece com o cancelamento da reserva —
+        // só uma nota de crédito a anula. Dizê-lo, em vez de deixar a estadia
+        // cancelada e o documento fiscal vivo sem ninguém dar por isso.
+        if ($porRegularizar->isNotEmpty()) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'Reserva cancelada. ATENÇÃO: ' . $porRegularizar->count()
+                    . ' fatura(s) por regularizar (' . $porRegularizar->pluck('invoice_number')->implode(', ')
+                    . ') — emita nota de crédito.',
+            ]);
+
+            return;
+        }
+
         $this->dispatch('notify', ['type' => 'success', 'message' => 'Reserva cancelada!']);
     }
 
@@ -413,6 +513,20 @@ class ReservationManagement extends Component
             'payment_method_id' => 'required|exists:treasury_payment_methods,id',
         ]);
 
+        // Tecto: não se recebe mais do que o devido.
+        //
+        // Não havia limite nenhum — um erro de digitação (mais um zero) ficava
+        // gravado como pago, punha a reserva em "Pago" com excesso e, se a
+        // caixa de faturar estivesse ligada, emitia um documento fiscal por
+        // esse valor.
+        $saldo = round((float) $this->payingReservation->total - (float) $this->payingReservation->paid_amount, 2);
+
+        if ((float) $this->payment_amount > $saldo + 0.01) {
+            $this->addError('payment_amount', 'O valor excede o saldo em dívida ('
+                . number_format($saldo, 2, ',', '.') . ' Kz).');
+            return;
+        }
+
         $paymentMethod = PaymentMethod::find($this->payment_method_id);
         $newPaidAmount = $this->payingReservation->paid_amount + $this->payment_amount;
         $paymentStatus = $newPaidAmount >= $this->payingReservation->total ? 'paid' : 'partial';
@@ -423,13 +537,23 @@ class ReservationManagement extends Component
             $invoice = $this->createInvoiceForReservation($this->payingReservation, $this->payment_amount);
         }
 
-        // Atualizar reserva
-        $this->payingReservation->update([
-            'paid_amount' => $newPaidAmount,
+        // Atualizar reserva.
+        //
+        // `invoice_id` só é tocado quando há de facto uma factura nova: escrever
+        // `$invoice?->id` sem condição punha NULL sempre que se registava um
+        // pagamento sem gerar factura, apagando a ligação a um documento fiscal
+        // que já existia — a reserva ficava órfã da sua própria factura.
+        $dados = [
+            'paid_amount'    => $newPaidAmount,
             'payment_status' => $paymentStatus,
             'payment_method' => $paymentMethod?->name,
-            'invoice_id' => $invoice?->id,
-        ]);
+        ];
+
+        if ($invoice) {
+            $dados['invoice_id'] = $invoice->id;
+        }
+
+        $this->payingReservation->update($dados);
 
         // Incrementar fidelidade do cliente
         if ($this->payingReservation->client) {
@@ -454,62 +578,60 @@ class ReservationManagement extends Component
         }
     }
 
+    /**
+     * Emite o documento fiscal do ADIANTAMENTO pago sobre uma reserva.
+     *
+     * Passou a usar o emissor único da faturação (ModuleInvoiceService), como
+     * o resto do sistema. A versão anterior era mais uma cópia da fiscalidade e
+     * divergia em tudo o que importa:
+     *  - IVA fixo a 14%, ignorando o regime da empresa (uma empresa isenta
+     *    cobrava imposto que não pode liquidar) e sem código de isenção — a AGT
+     *    recusa uma linha a 0% sem motivo;
+     *  - a linha não apontava para nenhum artigo do catálogo (product_id null);
+     *  - faltavam tax_code, região fiscal do adquirente e o motivo de isenção;
+     *  - e sobretudo: dizia "N noites × preço do quarto" enquanto os totais
+     *    eram só os do sinal pago. O documento descrevia a estadia inteira e
+     *    cobrava uma fracção.
+     *
+     * O valor pago é BRUTO (o hóspede entrega X Kz com imposto incluído), por
+     * isso convertemos para base tributável com a taxa que o regime da empresa
+     * resolver — não com um 14% assumido.
+     */
     protected function createInvoiceForReservation(Reservation $reservation, $amount)
     {
-        $taxRate = 14; // IVA Angola
-        $subtotal = round($amount / (1 + ($taxRate / 100)), 2);
-        $taxAmount = $amount - $subtotal;
+        $tenantId = activeTenantId();
+        $servico  = app(\App\Services\Invoicing\ModuleInvoiceService::class);
 
-        // Criar fatura
-        $invoice = SalesInvoice::create([
-            'tenant_id' => activeTenantId(),
-            'client_id' => $reservation->client_id,
-            'invoice_date' => now(),
-            'due_date' => now(),
-            'status' => 'paid',
-            'invoice_type' => 'FT',
-            'is_service' => true,
-            'subtotal' => $subtotal,
-            'net_total' => $subtotal,
-            'tax_amount' => $taxAmount,
-            'tax_payable' => $taxAmount,
-            'total' => $amount,
-            'gross_total' => $amount,
-            'paid_amount' => $amount,
-            'currency' => 'AOA',
-            'exchange_rate' => 1,
-            'notes' => 'Reserva ' . $reservation->reservation_number . ' - ' . 
-                       $reservation->roomType->name . ' (' . $reservation->nights . ' noite(s))',
-            'created_by' => auth()->id(),
+        $descricao = 'Adiantamento de reserva - ' . ($reservation->roomType->name ?? 'Alojamento');
+
+        // Artigo do catálogo para o adiantamento (mesmo vínculo que os clientes
+        // já têm) e taxa resolvida a partir dele.
+        $artigo = $servico->produtoDoCatalogo($tenantId, $descricao, 0, 'service');
+        $tx     = \App\Services\Invoicing\TaxResolver::forProduct($artigo, $tenantId);
+        $taxa   = (float) $tx['rate'];
+
+        // Bruto -> base tributável, com a taxa REAL (0% num regime isento).
+        $base = $taxa > 0 ? round($amount / (1 + ($taxa / 100)), 2) : (float) $amount;
+
+        return $servico->emitir([
+            'tenant_id'  => $tenantId,
+            'client_id'  => $reservation->client_id,
+            'status'     => 'paid',
+            'origem_modulo' => 'hotel',
+            'origem'     => $reservation->reservation_number,
+            'lines'      => [[
+                'product_id' => $artigo->id,
+                'name'       => $descricao,
+                'quantity'   => 1,
+                'unit_price' => $base,
+                'is_service' => true,
+            ]],
+            'notes' => 'Adiantamento sobre a reserva ' . $reservation->reservation_number
+                . ' | Check-in: ' . $reservation->check_in_date->format('d/m/Y')
+                . ' | Check-out: ' . $reservation->check_out_date->format('d/m/Y')
+                . ' | ' . $reservation->nights . ' noite(s)'
+                . ' | A deduzir na fatura final do check-out.',
         ]);
-
-        // Criar item da fatura (serviço de hospedagem, sem produto físico)
-        $roomName = $reservation->room 
-            ? $reservation->room->number . ' - ' . $reservation->roomType->name
-            : $reservation->roomType->name;
-            
-        SalesInvoiceItem::create([
-            'sales_invoice_id' => $invoice->id,
-            'product_id' => null, // Serviço de hospedagem (não é produto físico)
-            'product_name' => 'Hospedagem: Quarto ' . $roomName,
-            'description' => 'Reserva ' . $reservation->reservation_number . 
-                           ' | Check-in: ' . $reservation->check_in_date->format('d/m/Y') .
-                           ' | Check-out: ' . $reservation->check_out_date->format('d/m/Y') .
-                           ' | ' . $reservation->nights . ' noite(s)',
-            'quantity' => $reservation->nights,
-            'unit' => 'noite',
-            'unit_price' => $reservation->room_rate,
-            'subtotal' => $subtotal,
-            'tax_rate' => $taxRate,
-            'tax_amount' => $taxAmount,
-            'total' => $amount,
-            'order' => 1,
-        ]);
-
-        // Finalizar fatura (gerar hash SAFT)
-        $invoice->finalizeInvoice();
-
-        return $invoice;
     }
 
     public function getAvailableRoomsProperty()
@@ -527,7 +649,9 @@ class ReservationManagement extends Component
     public function render()
     {
         $reservations = Reservation::forTenant()
-            ->with(['client', 'room', 'roomType'])
+            // `invoice` incluída: a lista mostra o número da fatura em cada
+            // linha e sem isto era uma query por reserva (N+1).
+            ->with(['client', 'room', 'roomType', 'invoice'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('reservation_number', 'like', '%' . $this->search . '%')

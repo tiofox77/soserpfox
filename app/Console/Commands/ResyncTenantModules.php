@@ -48,23 +48,27 @@ class ResyncTenantModules extends Command
             $plan = $subscription->plan;
             $this->info("  Plano: {$plan->name}");
             
-            // Remover todos os módulos antigos
-            $tenant->modules()->detach();
-            
-            // Adicionar módulos do plano
-            if ($plan->included_modules && is_array($plan->included_modules)) {
-                foreach ($plan->included_modules as $moduleSlug) {
-                    $module = Module::where('slug', $moduleSlug)->first();
-                    
-                    if ($module) {
-                        $tenant->modules()->attach($module->id, [
-                            'is_active' => true,
-                            'activated_at' => now(),
-                        ]);
-                        $this->info("    ✓ {$module->name} ({$moduleSlug})");
-                    } else {
-                        $this->error("    ✗ Módulo '{$moduleSlug}' não encontrado");
-                    }
+            // Módulos do plano COM dependências (pivot como fonte de verdade;
+            // o JSON included_modules chegou a ter slugs inexistentes, ex.
+            // 'faturacao' em vez de 'invoicing').
+            // Já não se faz detach(): isso apagava o histórico do pivot e tirava
+            // a Tesouraria aos planos que não a listam.
+            $slugs = $plan->moduleSlugsWithDependencies();
+
+            if (!empty($slugs)) {
+                $sync = new \App\Services\Tenant\TenantModuleSyncService();
+
+                // Desactivar o que já não pertence ao plano (o serviço protege
+                // dependências activas)
+                $activos = $tenant->modules()->wherePivot('is_active', true)->pluck('modules.slug')->toArray();
+                foreach (array_diff($activos, $slugs) as $slug) {
+                    $sync->deactivateModule($tenant, $slug);
+                    $this->line("    − {$slug} (fora do plano)");
+                }
+
+                foreach ($slugs as $slug) {
+                    $sync->activateModule($tenant, $slug);
+                    $this->info("    ✓ {$slug}");
                 }
                 $synced++;
             } else {

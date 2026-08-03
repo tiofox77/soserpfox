@@ -73,7 +73,7 @@ class AccountManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $accounts = Account::where('tenant_id', $tenantId)
             ->when($this->search, function($query) {
@@ -205,7 +205,7 @@ class AccountManagement extends Component
         ]);
         
         $data = [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'code' => $this->code,
             'name' => $this->name,
             'type' => $this->type,

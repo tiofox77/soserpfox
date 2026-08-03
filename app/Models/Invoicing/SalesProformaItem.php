@@ -26,6 +26,12 @@ class SalesProformaItem extends Model
         'tax_amount',
         'total',
         'order',
+        // AGT DS.120 — sem estes campos a conversão em fatura perdia o motivo
+        // de isenção e a linha saía a 0% sem código (rejeição da AGT).
+        'tax_country_region',
+        'tax_code',
+        'tax_exemption_code',
+        'tax_exemption_reason',
     ];
 
     protected $casts = [

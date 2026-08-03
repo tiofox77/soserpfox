@@ -7,19 +7,32 @@ use App\Models\AGT\AGTCommunicationLog;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\InvoicingSeries;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
- * Cliente API AGT Angola
+ * @deprecated desde 25/05/2026 — Sprint 1 consolidation.
+ *
+ * Esta classe monolítica (~740 linhas) está a ser substituída pela arquitectura
+ * Services + AGTHttpClient + AGTPayloadBuilder + JwsSigner:
+ *
+ *   AGTClient::requestSeries(...)      ->  SeriesService::request(...)
+ *   AGTClient::registerInvoice(...)    ->  RegisterService::register(...)
+ *   AGTClient::getStatus(...)          ->  QueryService::consultByRequestId(...)
+ *   AGTClient::getInvoice(...)         ->  QueryService::consultByNumber(...)
+ *   AGTClient::listInvoices(...)       ->  (Sprint 2 — ListInvoicesService)
+ *   AGTClient::listSeries(...)         ->  (Sprint 2 — ListSeriesService)
+ *   AGTClient::validateDocument(...)   ->  ValidateService::confirm/reject
+ *
+ * Mantida temporariamente por dependências legacy. Não usar em código novo.
+ *
+ * Cliente API Facturação Electrónica AGT Angola
  * Decreto Presidencial n.º 71/25
- * 
- * Serviços implementados:
- * - SolicitarSerie: Criar nova série na AGT
- * - RegistarFactura: Submeter documento para validação
- * - ObterEstado: Verificar estado de documento
- * - ConsultarFactura: Obter documento validado
- * - ListarFacturas: Listar documentos do período
+ *
+ * Autenticação: Basic Auth (username:password)
+ * Assinatura: JWS RS256 (chave privada do contribuinte)
+ * Modelo: Assíncrono (polling via obterEstado)
  */
 class AGTClient
 {
@@ -27,22 +40,45 @@ class AGTClient
     private int $tenantId;
     private string $environment;
     private string $baseUrl;
-    private ?string $accessToken = null;
+    private ?string $username = null;
+    private ?string $password = null;
 
-    // URLs base por ambiente
-    const SANDBOX_URL = 'https://api-sandbox.agt.minfin.gov.ao/v1';
-    const PRODUCTION_URL = 'https://api.agt.minfin.gov.ao/v1';
+    // URLs e endpoints: uma única fonte, no AGTHttpClient.
+    //
+    // Estavam escritos aqui E lá com os mesmos valores. Duas listas de URLs da
+    // administração fiscal é um problema à espera de acontecer: bastava a AGT
+    // mudar um caminho para metade do sistema (os Services, que usam o
+    // AGTHttpClient) ficar a apontar para um sítio e a outra metade (este
+    // cliente) para outro, sem nada a assinalar.
+    //
+    // A unificação completa — reescrever os fluxos deste cliente sobre o
+    // AGTHttpClient — é um refactor grande num caminho já certificado; fica para
+    // quando houver razão para lhe mexer. O que interessava era eliminar a
+    // divergência silenciosa dos endereços.
+    const SANDBOX_URL = AGTHttpClient::SANDBOX_URL;
+    const PRODUCTION_URL = AGTHttpClient::PRODUCTION_URL;
 
-    // Endpoints
-    const ENDPOINT_TOKEN = '/oauth/token';
-    const ENDPOINT_SERIES = '/series';
-    const ENDPOINT_INVOICES = '/invoices';
-    const ENDPOINT_STATUS = '/invoices/{reference}/status';
+    const ENDPOINT_SOLICITAR_SERIE = AGTHttpClient::ENDPOINT_SERIES;
+    const ENDPOINT_REGISTAR_FACTURA = AGTHttpClient::ENDPOINT_REGISTER;
+    const ENDPOINT_OBTER_ESTADO = AGTHttpClient::ENDPOINT_STATUS;
+    const ENDPOINT_CONSULTAR_FACTURA = AGTHttpClient::ENDPOINT_CONSULT;
+    const ENDPOINT_LISTAR_FACTURAS = AGTHttpClient::ENDPOINT_LIST_INVOICES;
+    const ENDPOINT_LISTAR_SERIES = AGTHttpClient::ENDPOINT_LIST_SERIES;
+    const ENDPOINT_VALIDAR_DOCUMENTO = AGTHttpClient::ENDPOINT_VALIDATE;
 
-    public function __construct(int $tenantId)
+    public function __construct(int $tenantId, ?string $environmentOverride = null)
     {
         $this->tenantId = $tenantId;
         $this->loadSettings();
+
+        // O override é usado apenas pela consola de testes do produtor e não
+        // altera a configuração persistida da empresa.
+        if (in_array($environmentOverride, ['sandbox', 'production'], true)) {
+            $this->environment = $environmentOverride;
+            $this->baseUrl = $environmentOverride === 'production'
+                ? self::PRODUCTION_URL
+                : self::SANDBOX_URL;
+        }
     }
 
     // =========================================
@@ -51,22 +87,25 @@ class AGTClient
 
     private function loadSettings(): void
     {
-        $this->settings = InvoicingSettings::where('tenant_id', $this->tenantId)->first();
-        
-        if (!$this->settings) {
-            throw new \Exception('Configurações de faturação não encontradas para o tenant');
-        }
+        $this->settings = InvoicingSettings::firstOrCreate(
+            ['tenant_id' => $this->tenantId],
+            [
+                'default_currency' => 'AOA',
+                'agt_environment' => 'sandbox',
+                'agt_establishment_number' => 'SEDE',
+            ]
+        );
 
         $this->environment = $this->settings->agt_environment ?? 'sandbox';
-        $this->baseUrl = $this->settings->agt_api_base_url 
-            ?? ($this->environment === 'production' ? self::PRODUCTION_URL : self::SANDBOX_URL);
+        $this->baseUrl = $this->environment === 'production'
+            ? self::PRODUCTION_URL
+            : self::SANDBOX_URL;
     }
 
     public function isConfigured(): bool
     {
-        return $this->settings 
-            && !empty($this->settings->agt_client_id) 
-            && !empty($this->settings->agt_client_secret);
+        return !empty(config('services.agt.username'))
+            && !empty(config('services.agt.password'));
     }
 
     public function getEnvironment(): string
@@ -74,141 +113,109 @@ class AGTClient
         return $this->environment;
     }
 
+    public function getBaseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
     // =========================================
-    // AUTENTICAÇÃO OAUTH 2.0
+    // AUTENTICAÇÃO BASIC AUTH
     // =========================================
+
+    private function loadCredentials(): void
+    {
+        if ($this->username && $this->password) return;
+
+        $this->username = config('services.agt.username');
+        $this->password = config('services.agt.password');
+
+        if (empty($this->username) || empty($this->password)) {
+            throw new \Exception('Credenciais Basic Auth do produtor não configuradas. Contacte o administrador do sistema.');
+        }
+    }
 
     public function authenticate(): bool
     {
         if (!$this->isConfigured()) {
-            throw new \Exception('Credenciais AGT não configuradas');
+            throw new \Exception('Credenciais AGT do produtor não configuradas');
         }
-
-        // Verificar se token ainda é válido
-        if ($this->hasValidToken()) {
-            $this->accessToken = $this->decryptField($this->settings->agt_access_token);
-            return true;
-        }
-
-        $startTime = microtime(true);
-        
-        try {
-            $clientId = $this->decryptField($this->settings->agt_client_id);
-            $clientSecret = $this->decryptField($this->settings->agt_client_secret);
-
-            $response = Http::asForm()
-                ->timeout(30)
-                ->post($this->baseUrl . self::ENDPOINT_TOKEN, [
-                    'grant_type' => 'client_credentials',
-                    'client_id' => $clientId,
-                    'client_secret' => $clientSecret,
-                    'scope' => 'invoicing',
-                ]);
-
-            $responseTime = (microtime(true) - $startTime) * 1000;
-
-            // Log da comunicação
-            AGTCommunicationLog::log(
-                $this->tenantId,
-                'OAuth',
-                'POST',
-                self::ENDPOINT_TOKEN,
-                ['Content-Type' => 'application/x-www-form-urlencoded'],
-                ['grant_type' => 'client_credentials', 'client_id' => '***'],
-                $response->status(),
-                $response->headers(),
-                $response->json(),
-                $responseTime,
-                $response->successful()
-            );
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $this->accessToken = $data['access_token'];
-                
-                // Guardar token encriptado
-                $this->settings->update([
-                    'agt_access_token' => Crypt::encryptString($this->accessToken),
-                    'agt_token_expires_at' => now()->addSeconds($data['expires_in'] ?? 3600),
-                ]);
-
-                return true;
-            }
-
-            Log::error('AGT OAuth falhou', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            return false;
-
-        } catch (\Exception $e) {
-            Log::error('AGT OAuth exception', ['error' => $e->getMessage()]);
-            throw $e;
-        }
+        $this->loadCredentials();
+        return true;
     }
 
-    private function hasValidToken(): bool
+    private function getHttpClient()
     {
-        return $this->settings->agt_access_token 
-            && $this->settings->agt_token_expires_at 
-            && now()->lt($this->settings->agt_token_expires_at);
+        $this->loadCredentials();
+
+        return Http::withBasicAuth($this->username, $this->password)
+            ->withHeaders([
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])
+            ->connectTimeout(15)
+            ->retry(2, 750)
+            ->timeout(30);
     }
 
-    private function decryptField(?string $value): ?string
+    public function getContributorPrivateKey(): ?string
     {
-        if (empty($value)) return null;
-        
-        try {
-            return Crypt::decryptString($value);
-        } catch (\Exception $e) {
-            return $value; // Retorna valor original se não estiver encriptado
+        // Chave do AMBIENTE activo — sandbox e produção têm pares diferentes.
+        $keyPath = AGTKeyStore::privateKeyPath((int) $this->tenantId);
+        if (Storage::disk('local')->exists($keyPath)) {
+            return Storage::disk('local')->get($keyPath);
         }
+        return null;
     }
 
-    private function getAuthHeaders(): array
+    public function hasContributorKey(): bool
     {
-        return [
-            'Authorization' => 'Bearer ' . $this->accessToken,
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-            'X-Software-Certificate' => $this->settings->agt_software_certificate ?? $this->settings->saft_software_cert ?? '',
-        ];
+        return $this->getContributorPrivateKey() !== null;
     }
 
     // =========================================
-    // SOLICITAR SÉRIE
+    // SOLICITAR SÉRIE (solicitarSerie)
     // =========================================
 
     public function requestSeries(InvoicingSeries $series): array
     {
-        $this->ensureAuthenticated();
+        $this->loadCredentials();
 
         $startTime = microtime(true);
-        $endpoint = self::ENDPOINT_SERIES;
+        $endpoint = self::ENDPOINT_SOLICITAR_SERIE;
+
+        $tenant = \App\Models\Tenant::find($this->tenantId);
+        $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
+        $establishment = $this->settings->agt_establishment_number ?? 'SEDE';
 
         $payload = [
-            'document_type' => $series->prefix,
-            'series_code' => $series->series_code,
-            'year' => $series->current_year ?? date('Y'),
-            'establishment_id' => '1', // TODO: Multi-estabelecimento
-            'description' => $series->name,
+            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'submissionUUID' => (string) Str::uuid(),
+            'taxRegistrationNumber' => $taxNumber,
+            'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'softwareInfo' => $this->buildSoftwareInfo(),
+            'seriesYear' => (string) ($series->current_year ?? date('Y')),
+            'documentType' => $series->prefix ?? $series->document_type,
+            'establishmentNumber' => $establishment,
+            'jwsSignature' => $this->signPayload([
+                'taxRegistrationNumber' => $taxNumber,
+                'seriesYear' => (string) ($series->current_year ?? date('Y')),
+                'documentType' => $series->prefix ?? $series->document_type,
+                'establishmentNumber' => $establishment,
+                'seriesContingencyIndicator' => 'N',
+            ]),
+            'seriesContingencyIndicator' => 'N',
         ];
 
         try {
-            $response = Http::withHeaders($this->getAuthHeaders())
-                ->timeout(30)
-                ->post($this->baseUrl . $endpoint, $payload);
-
+            $response = $this->getHttpClient()->post($this->baseUrl . $endpoint, $payload);
             $responseTime = (microtime(true) - $startTime) * 1000;
 
-            // Log
             AGTCommunicationLog::log(
                 $this->tenantId,
                 'SolicitarSerie',
                 'POST',
                 $endpoint,
-                $this->getAuthHeaders(),
+                ['Authorization' => 'Basic ***'],
                 $payload,
                 $response->status(),
                 $response->headers(),
@@ -219,12 +226,50 @@ class AGTClient
 
             if ($response->successful()) {
                 $data = $response->json();
+                $seriesResult = $data['seriesFEResult'] ?? [];
+                $seriesCode = is_array($seriesResult)
+                    ? ($seriesResult['seriesCode'] ?? null)
+                    : null;
+                $errors = collect($data['errorList'] ?? [])
+                    ->filter(function ($error) {
+                        if (is_array($error)) {
+                            return filled($error['idError'] ?? null)
+                                || filled($error['descriptionError'] ?? $error['errorDescription'] ?? null);
+                        }
+
+                        return trim((string) $error) !== '';
+                    })
+                    ->values()
+                    ->all();
+
+                if (!empty($errors) || empty($seriesCode)) {
+                    $error = $this->formatErrorList($errors)
+                        ?: 'A AGT não devolveu o código da série.';
+                    $series->update([
+                        'agt_series_id' => null,
+                        'agt_status' => 'pending',
+                        'agt_environment' => $this->environment,
+                        'agt_response' => $data,
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'error' => $error,
+                        'status' => $response->status(),
+                        'data' => $data,
+                    ];
+                }
                 
-                // Atualizar série com dados da AGT
                 $series->update([
-                    'agt_series_id' => $data['series_id'] ?? $data['id'] ?? null,
-                    'atcud_validation_code' => $data['atcud_validation_code'] ?? $data['validation_code'] ?? null,
+                    'agt_series_id' => $seriesCode,
+                    'atcud_validation_code' => $seriesCode,
                     'agt_status' => 'active',
+                    'agt_series_status' => InvoicingSeries::AGT_STATUS_OPEN,
+                    'series_contingency_indicator' => 'N',
+                    'authorized_quantity' => $seriesResult['authorizedQuantity'] ?? null,
+                    'first_document_no' => $seriesResult['firstDocumentNo'] ?? null,
+                    'last_document_no' => $seriesResult['lastDocumentNo'] ?? null,
+                    'submission_uuid' => $payload['submissionUUID'],
                     'agt_environment' => $this->environment,
                     'agt_registered_at' => now(),
                     'agt_response' => $data,
@@ -237,10 +282,12 @@ class AGTClient
                 ];
             }
 
+            $errorData = $response->json();
             return [
                 'success' => false,
-                'error' => $response->json()['message'] ?? 'Erro ao solicitar série',
+                'error' => $this->formatErrorList($errorData['errorList'] ?? []) ?: 'Erro ao solicitar série',
                 'status' => $response->status(),
+                'data' => $errorData,
             ];
 
         } catch (\Exception $e) {
@@ -253,36 +300,32 @@ class AGTClient
     }
 
     // =========================================
-    // REGISTAR FACTURA
+    // REGISTAR FACTURA (registarFactura)
     // =========================================
 
     public function registerInvoice($document, string $documentTypeCode): array
     {
-        $this->ensureAuthenticated();
+        $this->loadCredentials();
 
         $startTime = microtime(true);
-        $endpoint = self::ENDPOINT_INVOICES;
+        $endpoint = self::ENDPOINT_REGISTAR_FACTURA;
 
-        // Criar submissão
         $submission = AGTSubmission::createForDocument($document, $documentTypeCode);
-
-        // Preparar payload conforme especificação AGT
         $payload = $this->buildInvoicePayload($document, $documentTypeCode);
 
         try {
-            $response = Http::withHeaders($this->getAuthHeaders())
+            $response = $this->getHttpClient()
                 ->timeout(60)
                 ->post($this->baseUrl . $endpoint, $payload);
 
             $responseTime = (microtime(true) - $startTime) * 1000;
 
-            // Log
             AGTCommunicationLog::log(
                 $this->tenantId,
                 'RegistarFactura',
                 'POST',
                 $endpoint,
-                $this->getAuthHeaders(),
+                ['Authorization' => 'Basic ***'],
                 $payload,
                 $response->status(),
                 $response->headers(),
@@ -297,40 +340,37 @@ class AGTClient
 
             if ($response->successful()) {
                 $data = $response->json();
-                
-                $agtReference = $data['reference'] ?? $data['agt_reference'] ?? $data['id'] ?? null;
-                $atcud = $data['atcud'] ?? $this->generateATCUD($document, $documentTypeCode);
+                $requestID = $data['requestID'] ?? null;
 
-                $submission->markAsValidated($agtReference, $atcud, $data);
+                $submission->markAsValidated($requestID, null, $data);
 
                 return [
                     'success' => true,
                     'data' => $data,
                     'submission_id' => $submission->id,
-                    'agt_reference' => $agtReference,
-                    'atcud' => $atcud,
-                    'message' => 'Documento registado na AGT com sucesso',
+                    'request_id' => $requestID,
+                    'message' => 'Documento aceite (processamento assíncrono). Consultar estado com requestID.',
                 ];
             }
 
             $errorData = $response->json();
+            $errorMsg = $this->formatErrorList($errorData['errorList'] ?? []);
             $submission->markAsRejected(
-                $errorData['error_code'] ?? (string)$response->status(),
-                $errorData['message'] ?? 'Erro ao registar documento',
+                $errorData['errorList'][0]['idError'] ?? (string)$response->status(),
+                $errorMsg ?: 'Erro ao registar documento',
                 $errorData
             );
 
             return [
                 'success' => false,
-                'error' => $errorData['message'] ?? 'Erro ao registar documento',
-                'error_code' => $errorData['error_code'] ?? null,
+                'error' => $errorMsg ?: 'Erro ao registar documento',
                 'submission_id' => $submission->id,
                 'status' => $response->status(),
+                'data' => $errorData,
             ];
 
         } catch (\Exception $e) {
             Log::error('AGT RegistarFactura exception', ['error' => $e->getMessage()]);
-            
             $submission->markAsRejected('EXCEPTION', $e->getMessage(), []);
 
             return [
@@ -343,73 +383,113 @@ class AGTClient
 
     private function buildInvoicePayload($document, string $documentTypeCode): array
     {
+        $tenant = \App\Models\Tenant::find($this->tenantId);
+        $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
         $client = $document->client;
-        $items = $document->items ?? [];
+        $items = $document->items ?? collect();
+        $docNo = $document->invoice_number ?? $document->credit_note_number ?? $document->debit_note_number;
 
-        return [
-            'software_certificate' => $this->settings->agt_software_certificate ?? $this->settings->saft_software_cert ?? '',
-            'document_type' => $documentTypeCode,
-            'document_number' => $document->invoice_number ?? $document->credit_note_number ?? $document->debit_note_number,
-            'series_id' => $document->series->agt_series_id ?? null,
-            'issue_date' => $document->invoice_date?->format('Y-m-d') ?? $document->issue_date?->format('Y-m-d'),
-            'system_entry_date' => $document->system_entry_date?->format('Y-m-d\TH:i:s') ?? now()->format('Y-m-d\TH:i:s'),
-            'customer' => [
-                'tax_id' => $client->nif ?? '999999999',
-                'name' => $client->name,
-                'address' => $client->address,
-                'city' => $client->city,
-                'country' => $client->country ?? 'AO',
-            ],
-            'lines' => collect($items)->map(function ($item) {
+        $documents = [[
+            'documentNo' => $docNo,
+            'documentStatus' => 'N',
+            'jwsDocumentSignature' => $this->signPayload([
+                'documentNo' => $docNo,
+                'taxRegistrationNumber' => $taxNumber,
+                'documentType' => $documentTypeCode,
+                'documentDate' => ($document->invoice_date ?? $document->issue_date)?->format('Y-m-d'),
+                'customerTaxID' => $client->nif ?? '999999999',
+                'customerCountry' => $client->country ?? 'AO',
+                'companyName' => $client->name ?? '',
+                'documentTotals' => [
+                    'taxPayable' => round($document->tax_amount ?? 0, 2),
+                    'netTotal' => round($document->net_total ?? $document->subtotal ?? 0, 2),
+                    'grossTotal' => round($document->gross_total ?? $document->total ?? 0, 2),
+                ],
+            ]),
+            'documentDate' => ($document->invoice_date ?? $document->issue_date)?->format('Y-m-d'),
+            'documentType' => $documentTypeCode,
+            'eacCode' => $document->eac_code ?? $this->settings->agt_eac_code ?? '',
+            'systemEntryDate' => ($document->system_entry_date ?? now())->format('Y-m-d\TH:i:s\Z'),
+            'customerTaxID' => $client->nif ?? '999999999',
+            'customerCountry' => $client->country ?? 'AO',
+            'companyName' => $client->name ?? '',
+            'lines' => collect($items)->map(function ($item, $idx) {
                 return [
-                    'line_number' => $item->order ?? $item->id,
-                    'product_code' => $item->product?->sku ?? $item->product_id,
-                    'product_description' => $item->description ?? $item->product_name,
+                    'lineNumber' => $idx + 1,
+                    'productCode' => $item->product?->sku ?? $item->product_id ?? 'ITEM',
+                    'productDescription' => $item->description ?? $item->product_name ?? '',
                     'quantity' => $item->quantity,
-                    'unit_of_measure' => $item->unit ?? 'UN',
-                    'unit_price' => round($item->unit_price, 2),
-                    'tax_rate' => $item->tax_rate ?? 14,
-                    'tax_amount' => round($item->tax_amount, 2),
-                    'net_total' => round($item->subtotal, 2),
-                    'gross_total' => round($item->total, 2),
+                    'unitOfMeasure' => $item->unit ?? 'UN',
+                    'unitPrice' => round($item->unit_price ?? 0, 2),
+                    'unitPriceBase' => round($item->unit_price ?? 0, 2),
+                    'debitAmount' => 0,
+                    'creditAmount' => round(($item->unit_price ?? 0) * $item->quantity, 2),
+                    'taxes' => [[
+                        'taxType' => 'IVA',
+                        'taxCountryRegion' => 'AO',
+                        'taxCode' => ($item->tax_rate ?? 14) > 0 ? 'NOR' : 'ISE',
+                        'taxPercentage' => $item->tax_rate ?? 14,
+                        'taxContribution' => round($item->tax_amount ?? 0, 2),
+                    ]],
+                    'settlementAmount' => 0,
                 ];
             })->toArray(),
-            'totals' => [
-                'net_total' => round($document->net_total ?? $document->subtotal, 2),
-                'tax_amount' => round($document->tax_amount, 2),
-                'gross_total' => round($document->gross_total ?? $document->total, 2),
+            'documentTotals' => [
+                'taxPayable' => round($document->tax_amount ?? 0, 2),
+                'netTotal' => round($document->net_total ?? $document->subtotal ?? 0, 2),
+                'grossTotal' => round($document->gross_total ?? $document->total ?? 0, 2),
             ],
-            'hash' => $document->hash ?? $document->saft_hash,
-            'hash_control' => $document->hash_control ?? '1',
-            'jws_signature' => $document->jws_signature,
+        ]];
+
+        return [
+            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'submissionUUID' => (string) Str::uuid(),
+            'taxRegistrationNumber' => $taxNumber,
+            'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'softwareInfo' => $this->buildSoftwareInfo(),
+            'numberOfEntries' => 1,
+            'documents' => $documents,
         ];
     }
 
     // =========================================
-    // OBTER ESTADO
+    // OBTER ESTADO (obterEstado)
     // =========================================
 
-    public function getStatus(string $agtReference): array
+    public function getStatus(string $requestID): array
     {
-        $this->ensureAuthenticated();
+        $this->loadCredentials();
 
         $startTime = microtime(true);
-        $endpoint = str_replace('{reference}', $agtReference, self::ENDPOINT_STATUS);
+        $endpoint = self::ENDPOINT_OBTER_ESTADO;
+
+        $tenant = \App\Models\Tenant::find($this->tenantId);
+        $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
+
+        $payload = [
+            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'submissionUUID' => (string) Str::uuid(),
+            'taxRegistrationNumber' => $taxNumber,
+            'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'softwareInfo' => $this->buildSoftwareInfo(),
+            'jwsSignature' => $this->signPayload([
+                'taxRegistrationNumber' => $taxNumber,
+                'requestID' => $requestID,
+            ]),
+            'requestID' => $requestID,
+        ];
 
         try {
-            $response = Http::withHeaders($this->getAuthHeaders())
-                ->timeout(30)
-                ->get($this->baseUrl . $endpoint);
-
+            $response = $this->getHttpClient()->post($this->baseUrl . $endpoint, $payload);
             $responseTime = (microtime(true) - $startTime) * 1000;
 
             AGTCommunicationLog::log(
                 $this->tenantId,
                 'ObterEstado',
-                'GET',
+                'POST',
                 $endpoint,
-                $this->getAuthHeaders(),
-                null,
+                ['Authorization' => 'Basic ***'],
+                $payload,
                 $response->status(),
                 $response->headers(),
                 $response->json(),
@@ -418,15 +498,36 @@ class AGTClient
             );
 
             if ($response->successful()) {
+                $body = $response->json() ?? [];
+                $errors = $this->responseErrors($body);
+                if ($errors !== []) {
+                    return [
+                        'success' => false,
+                        'error' => $this->formatErrorList($errors),
+                        'data' => $body,
+                        'status' => $response->status(),
+                    ];
+                }
+
+                $resultCode = data_get($body, 'resultCode')
+                    ?? data_get($body, 'statusResult.resultCode');
+                $documents = data_get($body, 'documentStatusList', []);
+
                 return [
                     'success' => true,
-                    'data' => $response->json(),
+                    'data' => $body,
+                    'status' => $response->status(),
+                    'message' => $documents
+                        ? sprintf('Estado recebido para %d documento(s).', count($documents))
+                        : ($resultCode !== null
+                            ? "Estado do pedido recebido (código {$resultCode})."
+                            : 'Pedido aceite, mas a AGT não devolveu estados de documentos.'),
                 ];
             }
 
             return [
                 'success' => false,
-                'error' => $response->json()['message'] ?? 'Erro ao obter estado',
+                'error' => $this->formatErrorList($response->json()['requestErrorList'] ?? []) ?: 'Erro ao obter estado',
                 'status' => $response->status(),
             ];
 
@@ -439,30 +540,43 @@ class AGTClient
     }
 
     // =========================================
-    // CONSULTAR FACTURA
+    // CONSULTAR FACTURA (consultarFactura)
     // =========================================
 
-    public function getInvoice(string $agtReference): array
+    public function getInvoice(string $documentNo): array
     {
-        $this->ensureAuthenticated();
+        $this->loadCredentials();
 
         $startTime = microtime(true);
-        $endpoint = self::ENDPOINT_INVOICES . '/' . $agtReference;
+        $endpoint = self::ENDPOINT_CONSULTAR_FACTURA;
+
+        $tenant = \App\Models\Tenant::find($this->tenantId);
+        $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
+
+        $payload = [
+            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'submissionUUID' => (string) Str::uuid(),
+            'taxRegistrationNumber' => $taxNumber,
+            'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'softwareInfo' => $this->buildSoftwareInfo(),
+            'jwsSignature' => $this->signPayload([
+                'taxRegistrationNumber' => $taxNumber,
+                'documentNo' => $documentNo,
+            ]),
+            'invoiceNo' => $documentNo,
+        ];
 
         try {
-            $response = Http::withHeaders($this->getAuthHeaders())
-                ->timeout(30)
-                ->get($this->baseUrl . $endpoint);
-
+            $response = $this->getHttpClient()->post($this->baseUrl . $endpoint, $payload);
             $responseTime = (microtime(true) - $startTime) * 1000;
 
             AGTCommunicationLog::log(
                 $this->tenantId,
                 'ConsultarFactura',
-                'GET',
+                'POST',
                 $endpoint,
-                $this->getAuthHeaders(),
-                null,
+                ['Authorization' => 'Basic ***'],
+                $payload,
                 $response->status(),
                 $response->headers(),
                 $response->json(),
@@ -471,15 +585,37 @@ class AGTClient
             );
 
             if ($response->successful()) {
+                $body = $response->json() ?? [];
+                $errors = $this->responseErrors($body);
+                if ($errors !== []) {
+                    return [
+                        'success' => false,
+                        'error' => $this->formatErrorList($errors),
+                        'data' => $body,
+                        'status' => $response->status(),
+                    ];
+                }
+
+                $document = data_get($body, 'document')
+                    ?? data_get($body, 'invoice')
+                    ?? data_get($body, 'invoiceResult');
+
                 return [
-                    'success' => true,
-                    'data' => $response->json(),
+                    'success' => $document !== null,
+                    'data' => $body,
+                    'status' => $response->status(),
+                    'message' => $document !== null
+                        ? 'Documento encontrado na AGT.'
+                        : null,
+                    'error' => $document === null
+                        ? 'A AGT processou a consulta, mas não encontrou o documento informado.'
+                        : null,
                 ];
             }
 
             return [
                 'success' => false,
-                'error' => $response->json()['message'] ?? 'Documento não encontrado',
+                'error' => $this->formatErrorList($response->json()['errorList'] ?? []) ?: 'Documento não encontrado',
                 'status' => $response->status(),
             ];
 
@@ -492,39 +628,47 @@ class AGTClient
     }
 
     // =========================================
-    // LISTAR FACTURAS
+    // LISTAR FACTURAS (listarFacturas)
     // =========================================
 
     public function listInvoices(array $filters = []): array
     {
-        $this->ensureAuthenticated();
+        $this->loadCredentials();
 
         $startTime = microtime(true);
-        $endpoint = self::ENDPOINT_INVOICES;
+        $endpoint = self::ENDPOINT_LISTAR_FACTURAS;
 
-        $queryParams = array_filter([
-            'date_from' => $filters['date_from'] ?? null,
-            'date_to' => $filters['date_to'] ?? null,
-            'document_type' => $filters['document_type'] ?? null,
-            'status' => $filters['status'] ?? null,
-            'page' => $filters['page'] ?? 1,
-            'per_page' => $filters['per_page'] ?? 50,
-        ]);
+        $tenant = \App\Models\Tenant::find($this->tenantId);
+        $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
+        $startDate = $filters['date_from'] ?? now()->subDays(30)->format('Y-m-d');
+        $endDate = $filters['date_to'] ?? now()->format('Y-m-d');
+
+        $payload = [
+            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'submissionUUID' => (string) Str::uuid(),
+            'taxRegistrationNumber' => $taxNumber,
+            'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'softwareInfo' => $this->buildSoftwareInfo(),
+            'jwsSignature' => $this->signPayload([
+                'taxRegistrationNumber' => $taxNumber,
+                'queryStartDate' => $startDate,
+                'queryEndDate' => $endDate,
+            ]),
+            'queryStartDate' => $startDate,
+            'queryEndDate' => $endDate,
+        ];
 
         try {
-            $response = Http::withHeaders($this->getAuthHeaders())
-                ->timeout(30)
-                ->get($this->baseUrl . $endpoint, $queryParams);
-
+            $response = $this->getHttpClient()->post($this->baseUrl . $endpoint, $payload);
             $responseTime = (microtime(true) - $startTime) * 1000;
 
             AGTCommunicationLog::log(
                 $this->tenantId,
                 'ListarFacturas',
-                'GET',
+                'POST',
                 $endpoint,
-                $this->getAuthHeaders(),
-                $queryParams,
+                ['Authorization' => 'Basic ***'],
+                $payload,
                 $response->status(),
                 $response->headers(),
                 $response->json(),
@@ -533,15 +677,44 @@ class AGTClient
             );
 
             if ($response->successful()) {
+                $body = $response->json() ?? [];
+                $errors = $this->responseErrors($body);
+                if ($errors !== []) {
+                    return [
+                        'success' => false,
+                        'error' => $this->formatErrorList($errors),
+                        'data' => $body,
+                        'status' => $response->status(),
+                    ];
+                }
+
+                $entries = data_get($body, 'resultEntryList', []);
+                $count = (int) (
+                    data_get($body, 'documentResultCount')
+                    ?? data_get($body, 'statusResult.documentResultCount')
+                    ?? count(is_array($entries) ? $entries : [])
+                );
+
                 return [
                     'success' => true,
-                    'data' => $response->json(),
+                    'data' => $body,
+                    'status' => $response->status(),
+                    'count' => $count,
+                    'entries' => is_array($entries) ? $entries : [],
+                    // Zero é o resultado normal para quem só emite. O utilizador
+                    // espera ver aqui os documentos que emitiu — que este
+                    // endpoint nunca devolve — por isso a mensagem tem de o dizer.
+                    'message' => $count > 0
+                        ? "{$count} factura(s) recebida(s) encontrada(s) no período."
+                        : 'Consulta executada com sucesso: a AGT não tem facturas em que esta empresa seja o ADQUIRENTE neste período. '
+                          . 'Este endpoint lista apenas documentos recebidos — os documentos que a empresa emitiu não aparecem aqui '
+                          . '(veja o separador Submissões, ou use ConsultarFactura com o número fiscal completo).',
                 ];
             }
 
             return [
                 'success' => false,
-                'error' => $response->json()['message'] ?? 'Erro ao listar documentos',
+                'error' => $this->formatErrorList($response->json()['errorList'] ?? []) ?: 'Erro ao listar documentos',
                 'status' => $response->status(),
             ];
 
@@ -554,23 +727,119 @@ class AGTClient
     }
 
     // =========================================
-    // HELPERS
+    // HELPERS & ASSINATURA
     // =========================================
 
-    private function ensureAuthenticated(): void
+    private function buildSoftwareInfo(): array
     {
-        if (!$this->accessToken) {
-            $this->authenticate();
+        $detail = [
+            'productId' => softwareSetting('invoicing', 'saft_product_id', $this->settings->agt_product_id ?? 'SOS ERP - SOLUÇÕES EMPRESARIAIS'),
+            'productVersion' => softwareSetting('invoicing', 'saft_version', $this->settings->agt_product_version ?? '1.0'),
+            'softwareValidationNumber' => softwareSetting('invoicing', 'saft_software_cert', $this->settings->agt_software_validation_number ?? 'C_PENDING'),
+        ];
+
+        return [
+            'softwareInfoDetail' => $detail,
+            'jwsSoftwareSignature' => $this->signSoftwareInfo($detail),
+        ];
+    }
+
+    private function signSoftwareInfo(array $payload): string
+    {
+        $privateKey = null;
+        if (Storage::disk('local')->exists('saft/private_key.pem')) {
+            $privateKey = Storage::disk('local')->get('saft/private_key.pem');
+        }
+
+        if (!$privateKey) {
+            Log::warning('AGT: Chave privada do produtor não encontrada em saft/private_key.pem');
+            return '';
+        }
+
+        return $this->generateJWS($payload, $privateKey);
+    }
+
+    private function signPayload(array $payload): string
+    {
+        $privateKey = $this->getContributorPrivateKey();
+
+        if (!$privateKey) {
+            Log::warning("AGT: Chave privada do contribuinte não encontrada para tenant {$this->tenantId}");
+            return '';
+        }
+
+        return $this->generateJWS($payload, $privateKey);
+    }
+
+    private function generateJWS(array $payload, string $privateKeyPem): string
+    {
+        try {
+            $header = ['alg' => 'RS256', 'typ' => 'JWT'];
+
+            $headerEncoded = $this->base64UrlEncode(json_encode($header, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $payloadEncoded = $this->base64UrlEncode(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+            $dataToSign = $headerEncoded . '.' . $payloadEncoded;
+
+            $pkeyId = openssl_pkey_get_private($privateKeyPem);
+            if (!$pkeyId) {
+                Log::error('AGT JWS: Erro ao carregar chave privada: ' . openssl_error_string());
+                return '';
+            }
+
+            $signature = '';
+            $signed = openssl_sign($dataToSign, $signature, $pkeyId, OPENSSL_ALGO_SHA256);
+
+            if (!$signed) {
+                Log::error('AGT JWS: Erro ao assinar: ' . openssl_error_string());
+                return '';
+            }
+
+            return $dataToSign . '.' . $this->base64UrlEncode($signature);
+
+        } catch (\Exception $e) {
+            Log::error('AGT JWS exception', ['error' => $e->getMessage()]);
+            return '';
         }
     }
 
-    private function generateATCUD($document, string $documentTypeCode): string
+    private function base64UrlEncode(string $data): string
     {
-        $series = $document->series;
-        $validationCode = $series->atcud_validation_code ?? 'XXXXXXXX';
-        $sequentialNumber = $document->id;
-        
-        return $validationCode . '-' . $sequentialNumber;
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    private function formatErrorList(array $errorList): string
+    {
+        if (empty($errorList)) return '';
+
+        return collect($errorList)->map(function ($err) {
+            if (is_string($err)) {
+                return trim($err);
+            }
+            $code = $err['idError'] ?? $err['errorCode'] ?? '';
+            $desc = $err['descriptionError'] ?? $err['errorDescription'] ?? '';
+            return $code ? "[{$code}] {$desc}" : $desc;
+        })->filter()->implode('; ');
+    }
+
+    private function responseErrors(array $body): array
+    {
+        $errors = $body['errorList']
+            ?? $body['requestErrorList']
+            ?? data_get($body, 'statusResult.requestErrorList', []);
+
+        if (!is_array($errors)) {
+            $errors = [$errors];
+        }
+
+        return array_values(array_filter($errors, function ($error): bool {
+            if (is_string($error)) {
+                return trim($error) !== '';
+            }
+            return is_array($error) && collect($error)
+                ->filter(fn ($value) => trim((string) $value) !== '')
+                ->isNotEmpty();
+        }));
     }
 
     // =========================================
@@ -583,17 +852,49 @@ class AGTClient
             if (!$this->isConfigured()) {
                 return [
                     'success' => false,
-                    'error' => 'Credenciais AGT não configuradas',
+                    'error' => 'Credenciais Basic Auth do produtor não configuradas. Solicite ao administrador em Operação AGT → Configurações.',
                 ];
             }
 
-            $authenticated = $this->authenticate();
+            $this->loadCredentials();
+
+            $tenant = \App\Models\Tenant::find($this->tenantId);
+            $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
+
+            if (empty($taxNumber)) {
+                return [
+                    'success' => false,
+                    'error' => 'NIF do contribuinte não configurado',
+                ];
+            }
+
+            $payload = [
+                'schemaVersion' => '1.2',
+                'taxRegistrationNumber' => $taxNumber,
+                'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+                'softwareInfo' => $this->buildSoftwareInfo(),
+                'jwsSignature' => $this->signPayload(['taxRegistrationNumber' => $taxNumber]),
+            ];
+
+            $response = $this->getHttpClient()->post($this->baseUrl . self::ENDPOINT_LISTAR_SERIES, $payload);
+
+            if ($response->status() === 401 || $response->status() === 403) {
+                return [
+                    'success' => false,
+                    'error' => 'Credenciais rejeitadas pela AGT (HTTP ' . $response->status() . ')',
+                    'environment' => $this->environment,
+                    'base_url' => $this->baseUrl,
+                    'http_status' => $response->status(),
+                ];
+            }
 
             return [
-                'success' => $authenticated,
+                'success' => true,
                 'environment' => $this->environment,
                 'base_url' => $this->baseUrl,
-                'message' => $authenticated ? 'Conexão estabelecida com sucesso' : 'Falha na autenticação',
+                'http_status' => $response->status(),
+                'has_contributor_key' => $this->hasContributorKey(),
+                'message' => 'Credenciais válidas. API AGT respondeu (HTTP ' . $response->status() . ')',
             ];
 
         } catch (\Exception $e) {

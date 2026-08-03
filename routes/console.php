@@ -40,3 +40,18 @@ Schedule::command('subscriptions:expire')
     ->withoutOverlapping()
     ->onOneServer()
     ->emailOutputOnFailure(config('mail.from.address'));
+
+// Arquivar a trilha de auditoria antiga.
+//
+// Uma venda de balcão com três artigos gera 14 linhas — a 50 vendas/dia são
+// ~255 mil linhas e ~120 MB por ano e por empresa. Sem arquivo a tabela cresce
+// para sempre.
+//
+// Não faz nada enquanto AUDIT_RETENTION_DAYS estiver a 0 (o valor por omissão),
+// que é o que se quer até haver política de retenção acordada com o cliente:
+// num ERP fiscal o prazo legal é de anos, não de meses.
+Schedule::command('audit:archive')
+    ->weeklyOn(0, '03:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->emailOutputOnFailure(config('mail.from.address'));

@@ -85,7 +85,7 @@ class LeaveManagement extends Component
                 $start = \Carbon\Carbon::parse($this->start_date);
                 $end = \Carbon\Carbon::parse($this->end_date);
                 
-                $this->totalDays = $end->diffInDays($start) + 1;
+                $this->totalDays = (int) $start->diffInDays($end) + 1;
                 $this->workingDays = $leaveService->calculateWorkingDays($start, $end);
             } catch (\Exception $e) {
                 $this->totalDays = 0;

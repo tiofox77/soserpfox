@@ -282,35 +282,44 @@ class PaymentModal extends Component
     }
 
     // Helpers para integração com Tesouraria
+    /**
+     * Mapa canónico: forma de pagamento do ecrã → método de tesouraria.
+     * O 'type' TEM de ser um dos tipos reais (cash, card, bank_transfer,
+     * digital_wallet, check, other) — é por ele que a tesouraria decide se o
+     * valor entra na caixa. Antes gravava-se 'bank', que não existe.
+     */
+    private const MAPA_METODOS = [
+        'cash'       => ['CASH',       'Dinheiro',               'cash'],
+        'transfer'   => ['TRANSFER',   'Transferência Bancária', 'bank_transfer'],
+        'multicaixa' => ['MULTICAIXA', 'Multicaixa',             'card'],
+        'tpa'        => ['TPA',        'TPA',                    'card'],
+        'check'      => ['CHECK',      'Cheque',                 'check'],
+        'mbway'      => ['MBWAY',      'MB Way',                 'digital_wallet'],
+        'other'      => ['OTHER',      'Outro',                  'other'],
+    ];
+
     private function getTreasuryPaymentMethodId()
     {
-        // Mapear métodos de pagamento para IDs da tesouraria
-        $mapping = [
-            'cash' => 'Dinheiro',
-            'transfer' => 'Transferência Bancária',
-            'multicaixa' => 'Multicaixa',
-            'tpa' => 'TPA',
-            'check' => 'Cheque',
-            'mbway' => 'MB Way',
-            'other' => 'Outro',
-        ];
+        [$code, $methodName, $type] = self::MAPA_METODOS[$this->payment_method]
+            ?? self::MAPA_METODOS['cash'];
 
-        $methodName = $mapping[$this->payment_method] ?? 'Dinheiro';
-        
-        // Buscar ou criar método de pagamento
-        $method = PaymentMethod::where('tenant_id', activeTenantId())
-            ->where('name', $methodName)
+        $tenantId = activeTenantId();
+
+        // Procurar pelo CÓDIGO (é o índice único real: tenant_id + code). Procurar
+        // pelo nome rebentava com "Duplicate entry" assim que o cliente renomeasse
+        // o método — a meio de um pagamento, com a fatura já emitida.
+        $method = PaymentMethod::where('tenant_id', $tenantId)
+            ->where(function ($q) use ($code, $methodName) {
+                $q->where('code', $code)->orWhere('name', $methodName);
+            })
             ->first();
 
         if (!$method) {
-            // Gerar código único
-            $code = strtoupper(str_replace(' ', '_', $this->payment_method));
-            
             $method = PaymentMethod::create([
-                'tenant_id' => activeTenantId(),
-                'code' => $code,
-                'name' => $methodName,
-                'type' => $this->payment_method === 'cash' ? 'cash' : 'bank',
+                'tenant_id' => $tenantId,
+                'code'      => $code,
+                'name'      => $methodName,
+                'type'      => $type,
                 'is_active' => true,
             ]);
         }

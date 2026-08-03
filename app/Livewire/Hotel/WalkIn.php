@@ -116,7 +116,7 @@ class WalkIn extends Component
             return;
         }
 
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $this->availableRooms = Room::where('tenant_id', $tenantId)
             ->where('room_type_id', $this->selectedRoomTypeId)
@@ -128,7 +128,7 @@ class WalkIn extends Component
     public function updatedGuestSearch()
     {
         if (strlen($this->guestSearch) >= 2) {
-            $tenantId = auth()->user()->tenant_id;
+            $tenantId = activeTenantId();
             
             $this->foundGuests = Guest::where('tenant_id', $tenantId)
                 ->where(function($q) {
@@ -232,7 +232,7 @@ class WalkIn extends Component
 
     public function submit()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         try {
             // Criar ou obter hóspede
@@ -265,7 +265,11 @@ class WalkIn extends Component
                 'paid_amount' => $this->paidAmount,
                 'status' => 'checked_in', // Já faz check-in automático
                 'payment_status' => $this->paidAmount >= $this->totalAmount ? 'paid' : ($this->paidAmount > 0 ? 'partial' : 'pending'),
-                'source' => 'walkin',
+                // O ENUM da coluna é 'walk_in' (com underscore). Com 'walkin'
+                // o MySQL rejeitava o INSERT ("Data truncated for column
+                // 'source'") e NENHUM walk-in chegava a ser gravado: o
+                // rececionista via só o erro genérico do catch.
+                'source' => 'walk_in',
                 'special_requests' => $this->specialRequests,
                 'actual_check_in' => now(),
             ]);
@@ -289,7 +293,7 @@ class WalkIn extends Component
 
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         $roomTypes = RoomType::where('tenant_id', $tenantId)
             ->where('is_active', true)

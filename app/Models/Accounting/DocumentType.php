@@ -7,8 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\BelongsToTenant;
+
 class DocumentType extends Model
 {
+    use BelongsToTenant;
+
     use SoftDeletes;
 
     protected $table = 'accounting_document_types';

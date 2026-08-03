@@ -19,11 +19,13 @@ class SuperAdminMiddleware
             return redirect()->route('login');
         }
 
-        // Verificar se é Super Admin (flag ou role do Spatie)
+        // Super Admin DA PLATAFORMA. NÃO usar hasRole('Super Admin'): esse papel
+        // é por empresa (Spatie teams) e todos os donos de tenant o têm — davam
+        // entrada no painel global (todas as empresas, chave privada SAFT,
+        // script runner…).
         $user = auth()->user();
-        $isSuperAdmin = $user->isSuperAdmin() || $user->hasRole('Super Admin');
-        
-        if (!$isSuperAdmin) {
+
+        if (!$user->isPlatformSuperAdmin()) {
             abort(403, 'Acesso negado. Apenas Super Administradores podem acessar esta área.');
         }
 

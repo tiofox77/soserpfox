@@ -155,8 +155,8 @@ class OvertimeService
             // Calcular valores
             $calculations = $this->calculateOvertimePay($employee, $totalHours, $overtimeType);
 
-            // Gerar número de hora extra
-            $overtimeNumber = 'HE-' . date('Y') . '-' . str_pad(Overtime::count() + 1, 5, '0', STR_PAD_LEFT);
+            // Número de hora extra gerado por-tenant (robusto a eliminações/concorrência)
+            $overtimeNumber = Overtime::generateTenantNumber('overtime_number', 'HE-' . date('Y') . '-');
 
             // Verificar limite legal mensal
             $monthStart = Carbon::parse($data['date'])->startOfMonth();

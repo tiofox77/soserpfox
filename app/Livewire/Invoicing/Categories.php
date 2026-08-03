@@ -59,7 +59,7 @@ class Categories extends Component
     {
         $category = Category::findOrFail($id);
         
-        if ($category->tenant_id !== activeTenantId()) {
+        if ((int) $category->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -90,7 +90,7 @@ class Categories extends Component
         if ($this->editingCategoryId) {
             $category = Category::findOrFail($this->editingCategoryId);
             
-            if ($category->tenant_id !== activeTenantId()) {
+            if ((int) $category->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -108,7 +108,7 @@ class Categories extends Component
     {
         $category = Category::findOrFail($id);
         
-        if ($category->tenant_id !== activeTenantId()) {
+        if ((int) $category->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -122,14 +122,14 @@ class Categories extends Component
         try {
             $category = Category::findOrFail($this->deletingCategoryId);
             
-            if ($category->tenant_id !== activeTenantId()) {
+            if ((int) $category->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
             $category->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingCategoryId', 'deletingCategoryName']);
-            $this->dispatch('success', message: 'Categoria excluída com sucesso!');
+            $this->dispatch('success', message: 'Categoria excluÃ­da com sucesso!');
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Erro ao excluir categoria!');
         }

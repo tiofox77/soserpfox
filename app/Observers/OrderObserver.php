@@ -22,12 +22,16 @@ class OrderObserver
             
             try {
                 $this->processApproval($order);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 \Log::error("❌ OrderObserver: Erro ao processar aprovação", [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
+                // NÃO engolir o erro: o pedido ficava 'approved' sem plano e sem
+                // módulos, saía da lista de pendentes e o super admin via
+                // "Pedido aprovado" — o cliente pagava e não recebia nada.
+                throw $e;
             }
         }
         
@@ -41,12 +45,13 @@ class OrderObserver
             
             try {
                 $this->processRejection($order);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 \Log::error("❌ OrderObserver: Erro ao processar rejeição", [
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
+                throw $e;
             }
         }
     }
@@ -185,77 +190,25 @@ class OrderObserver
     }
 
     /**
-     * Sincronizar módulos baseado no upgrade/downgrade
+     * Sincronizar módulos baseado no upgrade/downgrade.
+     *
+     * Delega para TenantModuleSyncService — fonte única de verdade que mantém
+     * coerência entre o pivot tenant_module e as permissões Spatie nos roles
+     * (revoga ao desativar, concede ao ativar conforme mapa canónico).
      */
     protected function syncModules($tenant, $oldPlan, $newPlan): void
     {
-        // Módulos do novo plano
-        $newPlanModuleIds = $newPlan->modules()->pluck('modules.id')->toArray();
-        
-        // Módulos do plano antigo
-        $oldPlanModuleIds = $oldPlan ? $oldPlan->modules()->pluck('modules.id')->toArray() : [];
+        $service = app(\App\Services\Tenant\TenantModuleSyncService::class);
+        $result = $service->syncToPlan($tenant, $newPlan, $oldPlan);
 
-        \Log::info("🔄 Sincronizando módulos", [
-            'tenant_id' => $tenant->id,
-            'old_plan' => $oldPlan->name ?? 'Nenhum',
-            'new_plan' => $newPlan->name,
-            'old_modules' => $oldPlanModuleIds,
-            'new_modules' => $newPlanModuleIds,
+        \Log::info('🔄 OrderObserver::syncModules concluído', [
+            'tenant_id'   => $tenant->id,
+            'old_plan'    => $oldPlan?->name ?? 'Nenhum',
+            'new_plan'    => $newPlan->name,
+            'activated'   => $result['activated'],
+            'deactivated' => $result['deactivated'],
+            'kept'        => $result['kept'],
         ]);
-
-        // UPGRADE: Novos módulos a ativar
-        $modulesToActivate = array_diff($newPlanModuleIds, $oldPlanModuleIds);
-
-        // DOWNGRADE: Módulos a desativar
-        $modulesToDeactivate = array_diff($oldPlanModuleIds, $newPlanModuleIds);
-
-        // MANTER: Módulos em comum
-        $modulesToKeep = array_intersect($oldPlanModuleIds, $newPlanModuleIds);
-
-        // 1. DESATIVAR módulos removidos (downgrade)
-        if (!empty($modulesToDeactivate)) {
-            foreach ($modulesToDeactivate as $moduleId) {
-                $tenant->modules()->updateExistingPivot($moduleId, [
-                    'is_active' => false,
-                    'deactivated_at' => now(),
-                ]);
-            }
-            \Log::info("❌ Módulos desativados (downgrade)", [
-                'tenant_id' => $tenant->id,
-                'modules_ids' => $modulesToDeactivate,
-            ]);
-        }
-
-        // 2. ATIVAR novos módulos (upgrade)
-        if (!empty($modulesToActivate)) {
-            $syncData = [];
-            foreach ($modulesToActivate as $moduleId) {
-                $syncData[$moduleId] = [
-                    'is_active' => true,
-                    'activated_at' => now(),
-                    'deactivated_at' => null,
-                ];
-            }
-            $tenant->modules()->syncWithoutDetaching($syncData);
-            
-            \Log::info("✅ Módulos ativados (upgrade)", [
-                'tenant_id' => $tenant->id,
-                'modules_ids' => $modulesToActivate,
-            ]);
-        }
-
-        // 3. MANTER módulos existentes ativos
-        if (!empty($modulesToKeep)) {
-            foreach ($modulesToKeep as $moduleId) {
-                $tenant->modules()->updateExistingPivot($moduleId, [
-                    'is_active' => true,
-                ]);
-            }
-            \Log::info("✔️ Módulos mantidos ativos", [
-                'tenant_id' => $tenant->id,
-                'modules_ids' => $modulesToKeep,
-            ]);
-        }
     }
     
     /**

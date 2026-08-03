@@ -171,11 +171,8 @@ class OvertimeNightShiftManagement extends Component
                 $record->update($data);
                 $this->dispatch('notify', type: 'success', message: 'Registo de turno noturno atualizado!');
             } else {
-                // Generate overtime_number
-                $lastNum = Overtime::where('tenant_id', $data['tenant_id'])
-                    ->where('is_night_shift', true)
-                    ->max('id');
-                $data['overtime_number'] = 'NS-' . str_pad(($lastNum ?? 0) + 1, 6, '0', STR_PAD_LEFT);
+                // Número de turno noturno gerado por-tenant (robusto a eliminações/concorrência)
+                $data['overtime_number'] = Overtime::generateTenantNumber('overtime_number', 'NS-', 6);
 
                 Overtime::create($data);
                 $this->dispatch('notify', type: 'success', message: 'Turno noturno registado com sucesso!');

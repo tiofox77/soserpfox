@@ -80,16 +80,24 @@ class MyAccount extends Component
     
     public function mount()
     {
+        $user = auth()->user();
+
+        // Áreas administrativas (empresas/plano/faturação) só para quem pode gerir a conta.
+        // Utilizadores de nível baixo entram diretamente no perfil.
+        $canManage = $user->canManageAccount();
+        $restricted = ['companies', 'plan', 'billing'];
+        $this->activeTab = $canManage ? 'companies' : 'profile';
+
         // Aceitar tab via query string
         if (request()->has('tab')) {
             $tab = request()->get('tab');
             if (in_array($tab, ['companies', 'plan', 'billing', 'profile', 'security'])) {
-                $this->activeTab = $tab;
+                // Bloquear acesso direto por URL a áreas restritas
+                $this->activeTab = (in_array($tab, $restricted) && !$canManage) ? 'profile' : $tab;
             }
         }
-        
+
         // Carregar dados do perfil
-        $user = auth()->user();
         $this->userName = $user->name;
         $this->userEmail = $user->email;
         $this->userPhone = $user->phone ?? '';
@@ -97,6 +105,32 @@ class MyAccount extends Component
         $this->currentAvatar = $user->avatar;
         
         $this->loadAccountData();
+
+        // Auto-abrir modal de upgrade quando vem da página /subscription-expired
+        // ou de qualquer link com ?select={planId} (ex.: emails de renovação).
+        if (request()->filled('select')) {
+            $planId = (int) request()->get('select');
+            if ($planId > 0) {
+                $this->activeTab = 'plan';
+                $this->openUpgradeModal($planId);
+
+                // Se já existe uma Order PENDING recente para este plano deste user/tenant,
+                // saltar directo para o step 2 (pagamento) — o user já escolheu antes.
+                $activeTenant = $user->activeTenant();
+                if ($activeTenant) {
+                    $existingPending = \App\Models\Order::where('tenant_id', $activeTenant->id)
+                        ->where('user_id', $user->id)
+                        ->where('plan_id', $planId)
+                        ->where('status', 'pending')
+                        ->where('created_at', '>=', now()->subDays(7))
+                        ->latest()
+                        ->first();
+                    if ($existingPending) {
+                        $this->upgradeStep = 2;
+                    }
+                }
+            }
+        }
     }
     
     public function loadAccountData()
@@ -121,6 +155,11 @@ class MyAccount extends Component
     
     public function setActiveTab($tab)
     {
+        // Bloquear áreas administrativas para utilizadores sem permissão
+        if (in_array($tab, ['companies', 'plan', 'billing']) && !auth()->user()->canManageAccount()) {
+            $this->activeTab = 'profile';
+            return;
+        }
         $this->activeTab = $tab;
     }
     
@@ -159,7 +198,7 @@ class MyAccount extends Component
         $this->validate([
             'newCompanyName' => 'required|min:3|max:255',
             'newCompanyNif' => 'required|min:9|max:14',
-            'newCompanyRegime' => 'required|in:regime_geral,regime_simplificado,regime_isencao,regime_nao_sujeicao,regime_misto',
+            'newCompanyRegime' => 'required|in:' . implode(',', array_merge(array_keys(\App\Models\Tenant::REGIMES), array_keys(\App\Models\Tenant::REGIME_ALIASES))),
             'newCompanyAddress' => 'nullable|max:255',
             'newCompanyPhone' => 'nullable|max:20',
             'newCompanyEmail' => 'nullable|email|max:255',
@@ -247,16 +286,16 @@ class MyAccount extends Component
                 ]);
             }
             
-            // Replicar módulos ativos
+            // Replicar módulos ativos — via serviço, para a nova empresa nascer
+            // com as dependências (Faturação ⇒ Tesouraria), os pré-requisitos
+            // (métodos de pagamento, impostos, armazém) e as permissões.
             if ($activeModules->count() > 0) {
+                $sync = new \App\Services\Tenant\TenantModuleSyncService();
                 foreach ($activeModules as $module) {
-                    $tenant->modules()->attach($module->id, [
-                        'is_active' => true,
-                        'activated_at' => now(),
-                    ]);
+                    $sync->activateModule($tenant, $module->slug);
                 }
-                
-                \Log::info('Módulos replicados para nova empresa', [
+
+                \Log::info('Módulos replicados para nova empresa (com dependências e seeds)', [
                     'new_tenant_id' => $tenant->id,
                     'modules_count' => $activeModules->count()
                 ]);
@@ -445,7 +484,7 @@ class MyAccount extends Component
         $this->validate([
             'editCompanyName' => 'required|min:3|max:255',
             'editCompanyNif' => 'required|min:9|max:14',
-            'editCompanyRegime' => 'required|in:regime_geral,regime_simplificado,regime_isencao,regime_nao_sujeicao,regime_misto',
+            'editCompanyRegime' => 'required|in:' . implode(',', array_merge(array_keys(\App\Models\Tenant::REGIMES), array_keys(\App\Models\Tenant::REGIME_ALIASES))),
             'editCompanyAddress' => 'nullable|max:255',
             'editCompanyPhone' => 'nullable|max:20',
             'editCompanyEmail' => 'nullable|email|max:255',
@@ -472,6 +511,8 @@ class MyAccount extends Component
                 throw new \Exception('Você não tem permissão para editar esta empresa.');
             }
             
+            $previousRegime = $tenant->regime;
+            
             $dataToUpdate = [
                 'name' => $this->editCompanyName,
                 'company_name' => $this->editCompanyName,
@@ -496,11 +537,28 @@ class MyAccount extends Component
             
             $tenant->update($dataToUpdate);
             
+            // Sincronizar taxes / settings / produtos com o novo regime fiscal
+            $syncResult = ['changed' => false];
+            if ($previousRegime !== $this->editCompanyRegime) {
+                $syncResult = (new \App\Services\Tenant\TaxRegimeSyncer())
+                    ->sync($tenant->fresh(), $previousRegime);
+            }
+            
             \DB::commit();
             
             $this->closeEditCompanyModal();
             $this->loadAccountData();
-            $this->dispatch('success', message: 'Empresa atualizada com sucesso!');
+            
+            $msg = 'Empresa atualizada com sucesso!';
+            if (!empty($syncResult['changed'])) {
+                if (($syncResult['mode'] ?? '') === 'apply-exempt') {
+                    $count = $syncResult['products_count'] ?? 0;
+                    $msg .= " Regime de isenção aplicado: tax default ISE marcada e {$count} produto(s) atualizado(s).";
+                } elseif (($syncResult['mode'] ?? '') === 'revert-exempt') {
+                    $msg .= ' Saída do regime isento: tax default ISE removida.';
+                }
+            }
+            $this->dispatch('success', message: $msg);
             
         } catch (\Exception $e) {
             \DB::rollBack();
@@ -650,18 +708,70 @@ class MyAccount extends Component
     }
     
     // ==================== UPGRADE ====================
-    
+
+    /**
+     * Um plano promocional (ex.: FOX Friendly) só pode ser ativado UMA VEZ por
+     * empresa. Devolve true se esta empresa já teve alguma subscrição a este plano
+     * (qualquer estado: trial, ativa, expirada, cancelada).
+     */
+    private function promotionalAlreadyUsed($plan, $tenant = null): bool
+    {
+        if (!$plan || !$plan->is_promotional) {
+            return false;
+        }
+        $tenant = $tenant ?: auth()->user()?->activeTenant();
+        if (!$tenant) {
+            return false;
+        }
+        return $tenant->subscriptions()->where('plan_id', $plan->id)->exists();
+    }
+
+    /**
+     * Só quem gere a conta (dono/Admin) pode mexer no plano e na faturação.
+     * Antes, qualquer utilizador da empresa (caixa, vendedor) podia trocar o plano.
+     */
+    private function guardCanManage(): bool
+    {
+        if (auth()->user()?->canManageAccount()) {
+            return true;
+        }
+
+        $this->dispatch('error', message: 'Sem permissão para gerir o plano/faturação desta conta.');
+        return false;
+    }
+
     public function openUpgradeModal($planId)
     {
+        if (!$this->guardCanManage()) {
+            return;
+        }
+
         $plan = \App\Models\Plan::with('modules')->find($planId);
-        
+
         if (!$plan) {
             $this->dispatch('error', message: 'Plano não encontrado!');
             return;
         }
-        
+
+        // Plano promocional (ex.: FOX Friendly): só 1x por empresa
+        if ($this->promotionalAlreadyUsed($plan)) {
+            $this->dispatch('error', message: "O plano promocional \"{$plan->name}\" só pode ser ativado uma vez por empresa. Esta empresa já o utilizou.");
+            return;
+        }
+
         $this->selectedPlanForUpgrade = $plan;
-        $this->upgradeBillingCycle = 'monthly';
+        // Planos com trial e auto-ativação ficam fixos no ciclo equivalente ao trial
+        // (ex.: FOX Friendly com 180 dias → 'semiannual'). O utilizador não pode escolher outro.
+        if ($plan->auto_activate && (int) $plan->trial_days > 0) {
+            $this->upgradeBillingCycle = match (true) {
+                $plan->trial_days >= 360 => 'yearly',
+                $plan->trial_days >= 150 => 'semiannual',
+                $plan->trial_days >= 80  => 'quarterly',
+                default => 'monthly',
+            };
+        } else {
+            $this->upgradeBillingCycle = 'monthly';
+        }
         $this->showUpgradeModal = true;
     }
     
@@ -686,6 +796,10 @@ class MyAccount extends Component
     
     public function processUpgrade()
     {
+        if (!$this->guardCanManage()) {
+            return;
+        }
+
         if (!$this->selectedPlanForUpgrade) {
             $this->dispatch('error', message: 'Nenhum plano selecionado!');
             return;
@@ -698,7 +812,13 @@ class MyAccount extends Component
             $this->dispatch('error', message: 'Nenhuma empresa ativa encontrada!');
             return;
         }
-        
+
+        // Plano promocional só 1x por empresa (defesa dupla — o modal pode ser contornado)
+        if ($this->promotionalAlreadyUsed($this->selectedPlanForUpgrade, $activeTenant)) {
+            $this->dispatch('error', message: "O plano promocional \"{$this->selectedPlanForUpgrade->name}\" só pode ser ativado uma vez por empresa. Esta empresa já o utilizou.");
+            return;
+        }
+
         \DB::beginTransaction();
         try {
             $plan = $this->selectedPlanForUpgrade;
@@ -717,8 +837,12 @@ class MyAccount extends Component
                 $proofPath = $this->paymentProof->store('payment-proofs', 'public');
             }
             
-            // BUG-05 FIX: Criar APENAS o pedido (pending). 
-            // NÃO criar subscription aqui — OrderObserver cria quando admin aprovar.
+            // Determinar se este plano tem auto-activação (ex.: FOX Friendly trial)
+            $autoActivate = (bool) $plan->auto_activate && (int) $plan->trial_days > 0 && !$proofPath;
+
+            // BUG-05 FIX: Criar pedido. Se tem auto-activação, criar como pending e
+            // imediatamente actualizar para 'approved' — o OrderObserver despacha
+            // toda a lógica de cancelar subscription antiga + criar nova + sync módulos.
             $order = \App\Models\Order::create([
                 'tenant_id' => $activeTenant->id,
                 'user_id' => $user->id,
@@ -728,19 +852,43 @@ class MyAccount extends Component
                 'status' => 'pending',
                 'payment_method' => 'bank_transfer',
                 'payment_proof' => $proofPath,
+                'notes' => $autoActivate
+                    ? "Pedido auto-aprovado. Plano '{$plan->name}' com {$plan->trial_days} dias de trial gratuito (auto_activate=true)."
+                    : null,
             ]);
-            
+
+            if ($autoActivate) {
+                // Disparar OrderObserver::updated → processApproval (renova subscription)
+                $order->update([
+                    'status' => 'approved',
+                    'approved_at' => now(),
+                    'approved_by' => null, // Sistema
+                ]);
+                \Log::info('✅ Order auto-aprovada (plano com auto_activate)', [
+                    'order_id' => $order->id,
+                    'plan' => $plan->name,
+                    'trial_days' => $plan->trial_days,
+                ]);
+            }
+
             \DB::commit();
-            
+
             $this->closeUpgradeModal();
             $this->loadAccountData();
-            
-            $message = $proofPath 
-                ? '✅ Pedido criado! Comprovativo anexado. Aguarde a validação da nossa equipe (até 24h úteis).' 
+
+            if ($autoActivate) {
+                $message = "🎉 Plano '{$plan->name}' activado com {$plan->trial_days} dias gratuitos! Bem-vindo de volta.";
+                $this->dispatch('success', message: $message);
+                // Redirect para home — subscription já renovada
+                return redirect()->route('home');
+            }
+
+            $message = $proofPath
+                ? '✅ Pedido criado! Comprovativo anexado. Aguarde a validação da nossa equipe (até 24h úteis).'
                 : '✅ Pedido criado! Efetue a transferência e anexe o comprovativo clicando em "Pagar".';
-            
+
             $this->dispatch('success', message: $message);
-            
+
             // Mudar para tab de faturas
             $this->activeTab = 'billing';
             
@@ -802,6 +950,16 @@ class MyAccount extends Component
             $this->dispatch('error', message: 'Nenhum comprovativo selecionado!');
             return;
         }
+
+        // O ficheiro ia para o disco PÚBLICO sem qualquer validação de tipo ou
+        // tamanho — qualquer ficheiro (incluindo executável) ficava acessível
+        // por URL. Mesmas regras do wizard de registo.
+        $this->validate([
+            'newPaymentProof' => 'file|mimes:pdf,jpg,jpeg,png|max:5120',
+        ], [
+            'newPaymentProof.mimes' => 'O comprovativo deve ser PDF, JPG ou PNG.',
+            'newPaymentProof.max'   => 'O comprovativo não pode exceder 5 MB.',
+        ]);
         
         try {
             // Upload do arquivo

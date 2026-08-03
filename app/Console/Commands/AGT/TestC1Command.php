@@ -57,9 +57,19 @@ class TestC1Command extends Command
         }
         $this->info("Tipo: {$type} · Output: {$output}");
 
+        // A AGT recusa NIFs que não existam no sistema dela ("Número fiscal
+        // Angolano ... é desconhecido"), por isso os NIFs fictícios 54000000xx
+        // não servem. Por omissão usa-se o NIF da própria empresa: é real e a
+        // AGT já o reconhece, visto que o aceita como emissor.
+        $customerNif = $this->option('customer-nif') ?: ($overrideNif ?: $tenant->nif);
+        if (!$this->option('customer-nif')) {
+            $this->warn("⚠ Clientes AO com o NIF da própria empresa ({$customerNif}) — "
+                . 'NIFs fictícios são recusados pela AGT. Use --customer-nif para outro.');
+        }
+
         $documents = $this->buildScenarios(
             $type,
-            $this->option('customer-nif'),
+            $customerNif,
             $this->option('customer-name')
         );
 
@@ -215,9 +225,11 @@ class TestC1Command extends Command
                 'documentDate'    => $issueDate,
                 'systemEntryDate' => $entry(30),
                 'eacCode'         => '47190',
-                'customerTaxID'   => $customerAONif ?? '999999990',
+                // Consumidor Final: o NIF genérico 999999999 é o correcto e a AGT
+                // aceita-o. Não recebe o override — o cenário é "venda sem NIF".
+                'customerTaxID'   => '999999999',
                 'customerCountry' => 'AO',
-                'companyName'     => $customerAOName ?? 'Consumidor Final',
+                'companyName'     => 'Consumidor Final',
                 'lines' => [[
                     'lineNumber'         => 1,
                     'productCode'        => 'PRD003',
@@ -324,6 +336,51 @@ class TestC1Command extends Command
                     'withholdingTaxDescription' => 'Imposto sobre o Rendimento do Trabalho - Prestação de serviços',
                     'withholdingTaxAmount'      => 32500,
                 ]],
+            ],
+
+            // 6) Imposto de Selo — verba 6 (escritos de quitação), 1%.
+            // A especificação da AGT exige IVA, IEC E IS; o IS faltava. A verba 6
+            // aplica-se a quitações, que é exactamente o que uma Fatura-Recibo é.
+            [
+                'documentNo'      => "{$prefix} {$year}/000006",
+                'documentType'    => $type,
+                'documentDate'    => $issueDate,
+                'systemEntryDate' => $entry(75),
+                'eacCode'         => '64190',
+                'customerTaxID'   => $customerAONif ?? '999999999',
+                'customerCountry' => 'AO',
+                'companyName'     => $customerAOName ?? 'Cliente Operação Financeira',
+                'lines' => [[
+                    'lineNumber'         => 1,
+                    'productCode'        => 'SRV006',
+                    'productDescription' => 'Comissão de quitação (sujeita a Imposto de Selo verba 6)',
+                    'quantity'           => 1,
+                    'unitOfMeasure'      => 'UN',
+                    'unitPrice'          => 300000,
+                    'unitPriceBase'      => 300000,
+                    'creditAmount'       => 300000,
+                    'taxes' => [
+                        [
+                            'taxType'          => 'IVA',
+                            'taxCountryRegion' => 'AO',
+                            'taxCode'          => 'NOR',
+                            'taxPercentage'    => 14,
+                            'taxContribution'  => 42000,
+                        ],
+                        [
+                            'taxType'          => 'IS',
+                            'taxCountryRegion' => 'AO',
+                            'taxCode'          => 'NOR',
+                            'taxPercentage'    => 1,
+                            'taxContribution'  => 3000,
+                        ],
+                    ],
+                ]],
+                'documentTotals' => [
+                    'taxPayable' => 45000,   // 42.000 IVA + 3.000 IS
+                    'netTotal'   => 300000,
+                    'grossTotal' => 345000,
+                ],
             ],
         ];
 

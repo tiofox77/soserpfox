@@ -154,8 +154,13 @@ class HotelBookingOnline extends Component
                 session()->flash('error', 'Selecione as datas');
                 return;
             }
+            // Não deixar avançar se o tipo selecionado não tem quartos livres nas datas
+            if ($this->selectedRoomType && $this->availableRoomsCountForType($this->selectedRoomType->id) < 1) {
+                session()->flash('error', 'Sem disponibilidade para as datas selecionadas. Escolha outras datas ou outro quarto.');
+                return;
+            }
         }
-        
+
         if ($this->step < 4) {
             $this->step++;
         }
@@ -321,6 +326,53 @@ class HotelBookingOnline extends Component
         return $this->selectedRoomType->base_price * $this->nights;
     }
 
+    /**
+     * Nº de quartos de um tipo REALMENTE disponíveis para as datas pedidas.
+     * Disponível = quarto ativo, não em manutenção, e sem reserva a sobrepor-se ao período
+     * (o `status` do quarto é o estado físico ATUAL — não serve para datas futuras).
+     */
+    public function availableRoomsCountForType($roomTypeId): int
+    {
+        if (!$this->checkInDate || !$this->checkOutDate) {
+            return 0;
+        }
+        return Room::where('tenant_id', $this->tenantId)
+            ->where('room_type_id', $roomTypeId)
+            ->where('is_active', true)
+            ->where('status', '!=', Room::STATUS_MAINTENANCE)
+            ->get()
+            ->filter(fn ($room) => $room->isAvailableForDates($this->checkInDate, $this->checkOutDate))
+            ->count();
+    }
+
+    /** Disponibilidade (contagem) do tipo selecionado para as datas atuais — usado na view. */
+    public function getSelectedTypeAvailableCountProperty(): int
+    {
+        return $this->selectedRoomType
+            ? $this->availableRoomsCountForType($this->selectedRoomType->id)
+            : 0;
+    }
+
+    /** Devolve o 1º quarto do tipo selecionado livre para as datas, ou null (sem auto-criar). */
+    protected function findAvailableRoom(): ?Room
+    {
+        if (!$this->selectedRoomType || !$this->checkInDate || !$this->checkOutDate) {
+            return null;
+        }
+        $rooms = Room::where('tenant_id', $this->tenantId)
+            ->where('room_type_id', $this->selectedRoomType->id)
+            ->where('is_active', true)
+            ->where('status', '!=', Room::STATUS_MAINTENANCE)
+            ->orderBy('number')
+            ->get();
+        foreach ($rooms as $room) {
+            if ($room->isAvailableForDates($this->checkInDate, $this->checkOutDate)) {
+                return $room;
+            }
+        }
+        return null;
+    }
+
     public function submit()
     {
         try {
@@ -334,21 +386,18 @@ class HotelBookingOnline extends Component
                 $this->validate();
             }
 
-            // Encontrar quarto disponivel
-            $availableRoom = Room::where('tenant_id', $this->tenantId)
-                ->where('room_type_id', $this->selectedRoomType->id)
-                ->where('status', 'available')
-                ->first();
+            // Validar datas
+            if (!$this->checkInDate || !$this->checkOutDate || $this->nights < 1) {
+                session()->flash('error', 'Selecione datas de check-in e check-out válidas.');
+                return;
+            }
+
+            // Encontrar um quarto REALMENTE livre para as datas pedidas (NÃO auto-criar).
+            $availableRoom = $this->findAvailableRoom();
 
             if (!$availableRoom) {
-                // Se nao houver quarto disponivel, criar um automaticamente
-                $availableRoom = Room::create([
-                    'tenant_id' => $this->tenantId,
-                    'room_type_id' => $this->selectedRoomType->id,
-                    'room_number' => 'AUTO-' . now()->timestamp,
-                    'floor' => '1',
-                    'status' => 'available',
-                ]);
+                session()->flash('error', 'Não há quartos deste tipo disponíveis para as datas selecionadas. Por favor, escolha outras datas ou outro quarto.');
+                return;
             }
 
             $client = null;
@@ -394,11 +443,23 @@ class HotelBookingOnline extends Component
                 'adults' => $this->adults,
                 'children' => $this->children,
                 'nights' => $this->nights,
-                'total_amount' => $totalPrice,
+                // A coluna é `total`; `total_amount` não existe e era
+                // silenciosamente descartada — a reserva ficava a zero.
+                'total' => $totalPrice,
+                // room_rate é NOT NULL e não tinha default: nunca era enviado,
+                // por isso o INSERT falhava sempre. Nenhuma reserva online
+                // chegou alguma vez a ser gravada — o hóspede via o erro
+                // genérico do catch e a reserva não existia.
+                'room_rate' => $this->nights > 0
+                    ? round($totalPrice / $this->nights, 2)
+                    : $totalPrice,
                 'paid_amount' => 0,
                 'status' => 'pending',
                 'payment_status' => 'pending',
-                'source' => 'online',
+                // O ENUM é ('direct','website','booking','airbnb','phone',
+                // 'email','walk_in','other'). 'online' não lá está: o MySQL
+                // rejeitava com "Data truncated for column 'source'".
+                'source' => 'website',
                 'special_requests' => $this->clientNotes,
             ]);
 

@@ -100,7 +100,7 @@ class TechniciansManager extends Component
         ];
 
         if ($this->editingId) {
-            Technician::find($this->editingId)->update($data);
+            Technician::findOrFail($this->editingId)->update($data);
             $message = '✅ Técnico atualizado!';
         } else {
             Technician::create($data);
@@ -168,8 +168,8 @@ class TechniciansManager extends Component
                 'name' => $employee->full_name,
                 'email' => $employee->email,
                 'phone' => $employee->phone,
-                'document' => $employee->document_number,
-                'specialties' => [$employee->position ?? 'Geral'],
+                'document' => $employee->bi_number ?? $employee->nif,
+                'specialties' => [$employee->position?->title ?? 'Geral'],
                 'level' => 'pleno',
                 'hourly_rate' => 0,
                 'daily_rate' => 0,

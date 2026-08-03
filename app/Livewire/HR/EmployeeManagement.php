@@ -334,8 +334,8 @@ class EmployeeManagement extends Component
             $employee->update($data);
             session()->flash('success', 'Funcionário atualizado com sucesso!');
         } else {
-            // Gerar número de funcionário
-            $data['employee_number'] = 'EMP-' . str_pad(Employee::count() + 1, 5, '0', STR_PAD_LEFT);
+            // Número de funcionário gerado por-tenant (robusto a eliminações/concorrência)
+            $data['employee_number'] = Employee::generateTenantNumber('employee_number', 'EMP-');
             $employee = Employee::create($data);
             session()->flash('success', 'Funcionário criado com sucesso!');
         }
@@ -512,13 +512,12 @@ class EmployeeManagement extends Component
             Employee::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $technician->user_id,
-                'employee_number' => 'EMP-' . strtoupper(uniqid()),
+                'employee_number' => Employee::generateTenantNumber('employee_number', 'EMP-'),
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'email' => $technician->email,
                 'phone' => $technician->phone,
-                'document_number' => $technician->document,
-                'position' => $technician->specialties[0] ?? 'Técnico',
+                'bi_number' => $technician->document,
                 'hire_date' => now(),
                 'employment_type' => 'Contrato',
                 'status' => $technician->is_active ? 'active' : 'inactive',
@@ -606,7 +605,7 @@ class EmployeeManagement extends Component
                 'tenant_id' => $tenantId,
                 'user_id' => $staff->user_id,
                 'hotel_staff_id' => $staff->id,
-                'employee_number' => 'EMP-' . strtoupper(uniqid()),
+                'employee_number' => Employee::generateTenantNumber('employee_number', 'EMP-'),
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'email' => $staff->email,

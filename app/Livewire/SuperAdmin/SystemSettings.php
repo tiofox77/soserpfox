@@ -269,9 +269,73 @@ class SystemSettings extends Component
         ]);
     }
 
+    /**
+     * Auditoria SEO — recolhe informação dos ficheiros públicos.
+     */
+    public function getSeoAuditProperty(): array
+    {
+        $audit = [
+            'sitemap'  => ['path' => public_path('sitemap.xml'),  'url' => url('/sitemap.xml')],
+            'robots'   => ['path' => public_path('robots.txt'),   'url' => url('/robots.txt')],
+            'manifest' => ['path' => public_path('manifest.json'),'url' => url('/manifest.json')],
+        ];
+        foreach ($audit as $k => $v) {
+            $exists = is_file($v['path']);
+            $audit[$k]['exists']  = $exists;
+            $audit[$k]['size']    = $exists ? filesize($v['path']) : 0;
+            $audit[$k]['mtime']   = $exists ? \Carbon\Carbon::createFromTimestamp(filemtime($v['path'])) : null;
+            $audit[$k]['preview'] = $exists ? substr(@file_get_contents($v['path']), 0, 600) : null;
+        }
+
+        // Contar URLs no sitemap
+        $audit['sitemap']['url_count'] = 0;
+        if ($audit['sitemap']['exists']) {
+            $xml = @simplexml_load_file($audit['sitemap']['path']);
+            if ($xml) $audit['sitemap']['url_count'] = count($xml->url ?? []);
+        }
+
+        // Analisar landing page
+        $landing = resource_path('views/landing/home.blade.php');
+        $audit['landing'] = ['path' => $landing, 'exists' => is_file($landing), 'checks' => []];
+        if ($audit['landing']['exists']) {
+            $html = file_get_contents($landing);
+            $audit['landing']['checks'] = [
+                'title_tag'          => (bool) preg_match('/<title[^>]*>([^<]+)<\/title>/i', $html, $m1) ? trim($m1[1]) : null,
+                'meta_description'   => (bool) preg_match('/<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)/i', $html, $m2) ? $m2[1] : null,
+                'meta_keywords'      => (bool) preg_match('/<meta\s+name=["\']keywords["\']\s+content=["\']([^"\']+)/i', $html, $m3) ? $m3[1] : null,
+                'canonical'          => (bool) preg_match('/<link\s+rel=["\']canonical["\']\s+href=["\']([^"\']+)/i', $html, $m4) ? $m4[1] : null,
+                'og_title'           => (bool) preg_match('/property=["\']og:title["\']/i', $html),
+                'og_description'     => (bool) preg_match('/property=["\']og:description["\']/i', $html),
+                'og_image'           => (bool) preg_match('/property=["\']og:image["\']/i', $html),
+                'twitter_card'       => (bool) preg_match('/name=["\']twitter:card["\']/i', $html),
+                'geo_region'         => (bool) preg_match('/name=["\']geo\.region["\']\s+content=["\']([^"\']+)/i', $html, $m5) ? $m5[1] : null,
+                'geo_placename'      => (bool) preg_match('/name=["\']geo\.placename["\']\s+content=["\']([^"\']+)/i', $html, $m6) ? $m6[1] : null,
+                'geo_position'       => (bool) preg_match('/name=["\']geo\.position["\']\s+content=["\']([^"\']+)/i', $html, $m7) ? $m7[1] : null,
+                'hreflang_count'     => preg_match_all('/<link\s+rel=["\']alternate["\']\s+hreflang=/i', $html),
+                'jsonld_count'       => preg_match_all('/<script\s+type=["\']application\/ld\+json["\']/i', $html),
+                'favicon'            => (bool) preg_match('/<link\s+rel=["\'](?:icon|shortcut icon)["\']/i', $html),
+                'apple_touch_icon'   => (bool) preg_match('/<link\s+rel=["\']apple-touch-icon["\']/i', $html),
+                'theme_color'        => (bool) preg_match('/<meta\s+name=["\']theme-color["\']/i', $html),
+                'manifest_link'      => (bool) preg_match('/<link\s+rel=["\']manifest["\']/i', $html),
+            ];
+
+            // Detectar tipos de JSON-LD presentes
+            preg_match_all('/<script\s+type=["\']application\/ld\+json["\'][^>]*>([\s\S]*?)<\/script>/i', $html, $jm);
+            $types = [];
+            foreach ($jm[1] ?? [] as $json) {
+                if (preg_match('/"@type"\s*:\s*"([^"]+)"/', $json, $tm)) $types[] = $tm[1];
+            }
+            $audit['landing']['schemas'] = array_values(array_unique($types));
+        }
+
+        return $audit;
+    }
+
     public function render()
     {
-        return view('livewire.super-admin.systemsettings');
+        return view('livewire.super-admin.systemsettings', [
+            'seoAudit' => $this->seoAudit,
+        ]);
     }
 }
 

@@ -31,7 +31,7 @@ class InviteUser extends Component
     public function loadInvitations()
     {
         $this->invitations = UserInvitation::with(['invitedBy', 'user'])
-            ->forTenant(auth()->user()->tenant_id)
+            ->forTenant(activeTenantId())
             ->latest()
             ->get();
     }
@@ -57,7 +57,7 @@ class InviteUser extends Component
         try {
             // Verificar se o email já está em uso
             $existingUser = User::where('email', $this->email)
-                ->where('tenant_id', auth()->user()->tenant_id)
+                ->where('tenant_id', activeTenantId())
                 ->first();
                 
             if ($existingUser) {
@@ -69,7 +69,7 @@ class InviteUser extends Component
             
             // Verificar se já existe um convite pendente
             $pendingInvitation = UserInvitation::where('email', $this->email)
-                ->where('tenant_id', auth()->user()->tenant_id)
+                ->where('tenant_id', activeTenantId())
                 ->where('status', 'pending')
                 ->where('expires_at', '>', now())
                 ->first();
@@ -85,7 +85,7 @@ class InviteUser extends Component
             
             // Criar convite
             $invitation = UserInvitation::create([
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'invited_by' => auth()->id(),
                 'email' => $this->email,
                 'name' => $this->name,
@@ -123,7 +123,7 @@ class InviteUser extends Component
             $invitation = UserInvitation::findOrFail($invitationId);
             
             // Verificar se pertence ao tenant
-            if ($invitation->tenant_id !== auth()->user()->tenant_id) {
+            if ((int) $invitation->tenant_id !== (int) activeTenantId()) {
                 session()->flash('error', 'Convite não encontrado.');
                 return;
             }
@@ -146,7 +146,7 @@ class InviteUser extends Component
             $invitation = UserInvitation::findOrFail($invitationId);
             
             // Verificar se pertence ao tenant
-            if ($invitation->tenant_id !== auth()->user()->tenant_id) {
+            if ((int) $invitation->tenant_id !== (int) activeTenantId()) {
                 session()->flash('error', 'Convite não encontrado.');
                 return;
             }

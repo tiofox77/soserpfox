@@ -42,6 +42,11 @@ class SeriesService
         $establishmentNumber ??= $series->establishment_number
             ?? $this->settings->agt_establishment_number ?? 'SEDE';
 
+        // DS.120 §4.5 — Validação da janela temporal de seriesYear:
+        //   - Janeiro até 15 de Dezembro: apenas ano corrente
+        //   - 16 a 31 de Dezembro: ano corrente ou seguinte
+        $this->validateSeriesYearWindow($year);
+
         $documentType = $series->document_type ?? 'FT';
         $taxNumber    = $this->resolveTenantNif();
         $uuid         = (string) Str::uuid();
@@ -69,16 +74,40 @@ class SeriesService
             'series_contingency_indicator' => $contingency,
         ]);
 
-        if ($result['ok']) {
-            $body = $result['response'];
-            $fe   = $body['seriesFEResult'] ?? [];
+        $body = $result['response'];
+        $fe = is_array($body['seriesFEResult'] ?? null) ? $body['seriesFEResult'] : [];
+        $seriesCode = $fe['seriesCode'] ?? null;
+        $errors = collect($body['errorList'] ?? [])
+            ->filter(function ($error) {
+                if (is_array($error)) {
+                    return filled($error['idError'] ?? null)
+                        || filled($error['descriptionError'] ?? $error['errorDescription'] ?? null);
+                }
+                return trim((string) $error) !== '';
+            })
+            ->values()
+            ->all();
+        $semanticError = collect($errors)->map(function ($error) {
+            if (is_array($error)) {
+                $code = $error['idError'] ?? '';
+                $description = $error['descriptionError'] ?? $error['errorDescription'] ?? '';
+                return trim(($code ? "[{$code}] " : '') . $description);
+            }
+            return trim((string) $error);
+        })->filter()->implode('; ');
+        $accepted = $result['ok'] && filled($seriesCode) && $errors === [];
+
+        if ($accepted) {
             $series->forceFill([
-                'series_code'         => $fe['seriesCode'] ?? null,
                 'authorized_quantity' => $fe['authorizedQuantity'] ?? null,
                 'first_document_no'   => $fe['firstDocumentNo'] ?? null,
                 'last_document_no'    => $fe['lastDocumentNo'] ?? null,
-                'agt_series_id'       => $fe['seriesCode'] ?? null,
+                'agt_series_id'       => $seriesCode,
+                'atcud_validation_code' => $seriesCode,
                 'agt_status'          => 'active',
+                // DS.120 §4.6 — série recém-registada começa como "Aberta"
+                'agt_series_status'   => InvoicingSeries::AGT_STATUS_OPEN,
+                'agt_series_start_ts' => now(),
                 'agt_registered_at'   => now(),
                 'agt_response'        => $body,
             ]);
@@ -89,18 +118,20 @@ class SeriesService
             ]);
             Log::warning('AGT SolicitarSerie falhou', [
                 'series_id' => $series->id,
-                'error'     => $result['error'],
+                'error'     => $semanticError ?: $result['error'] ?: 'A AGT não devolveu o código da série.',
             ]);
         }
 
         $series->save();
 
         return [
-            'ok'         => $result['ok'],
-            'seriesCode' => $series->series_code,
+            'ok'         => $accepted,
+            'seriesCode' => $seriesCode,
             'requestID'  => $result['requestID'],
             'response'   => $result['response'],
-            'error'      => $result['error'],
+            'error'      => $accepted
+                ? null
+                : ($semanticError ?: $result['error'] ?: 'A AGT não devolveu o código da série.'),
             'payload'    => $payload,
         ];
     }
@@ -115,6 +146,37 @@ class SeriesService
             $series->establishment_number ?? $this->settings->agt_establishment_number ?? 'SEDE',
             $series->series_contingency_indicator ?? 'N'
         );
+    }
+
+    /**
+     * Valida a janela temporal de `seriesYear` conforme DS.120 §4.5:
+     *   - Jan a 15-Dez: apenas ano corrente
+     *   - 16 a 31-Dez: ano corrente ou ano seguinte
+     *
+     * @throws \InvalidArgumentException quando o ano está fora da janela.
+     */
+    public function validateSeriesYearWindow(int $year, ?\DateTimeInterface $now = null): void
+    {
+        $now ??= now();
+        $currentYear = (int) $now->format('Y');
+        $month       = (int) $now->format('n');
+        $day         = (int) $now->format('j');
+
+        // Após 15-Dez (i.e. dia >= 16 em Dezembro): aceita corrente ou seguinte
+        $afterCutoff = ($month === 12 && $day >= 16);
+
+        $allowed = $afterCutoff
+            ? [$currentYear, $currentYear + 1]
+            : [$currentYear];
+
+        if (!in_array($year, $allowed, true)) {
+            throw new \InvalidArgumentException(sprintf(
+                'seriesYear inválido: %d. DS.120 §4.5 — em %s só são aceites: %s.',
+                $year,
+                $afterCutoff ? 'período pós-15Dez' : 'período pré-16Dez',
+                implode(', ', $allowed)
+            ));
+        }
     }
 
     private function resolveTenantNif(): string

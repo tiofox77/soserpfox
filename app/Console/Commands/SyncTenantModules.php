@@ -81,7 +81,9 @@ class SyncTenantModules extends Command
         $this->info("📦 Plano: {$plan->name}");
 
         // Módulos do plano
-        $planModuleIds = $plan->modules()->pluck('modules.id')->toArray();
+        // Com dependências: os planos Business/Enterprise não listam a
+        // Tesouraria e este comando chegou a DESACTIVÁ-LA aos clientes.
+        $planModuleIds = $plan->moduleIdsWithDependencies();
         
         // Módulos ativos atualmente
         $currentActiveIds = $tenant->modules()->wherePivot('is_active', true)->pluck('modules.id')->toArray();

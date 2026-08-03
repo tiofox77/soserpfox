@@ -564,22 +564,23 @@ class Tenants extends Component
     
     private function syncPlanModules($tenant, $plan)
     {
-        // Usar pivot table plan_module como fonte de verdade (BUG-06 FIX)
-        $planModuleIds = $plan->modules()->pluck('modules.id')->toArray();
-        
-        // Remover módulos que não estão no novo plano
-        $tenant->modules()->detach();
-        
-        // Adicionar módulos do novo plano via pivot
-        if (!empty($planModuleIds)) {
-            $syncData = [];
-            foreach ($planModuleIds as $moduleId) {
-                $syncData[$moduleId] = [
-                    'is_active' => true,
-                    'activated_at' => now(),
-                ];
-            }
-            $tenant->modules()->attach($syncData);
+        // Módulos do plano JÁ COM dependências (Faturação ⇒ Tesouraria).
+        // O detach()+attach() anterior destruía o pivot inteiro e, nos planos
+        // que não listam a Tesouraria (Business/Enterprise), deixava o cliente
+        // sem métodos de pagamento — sem forma de gravar uma Fatura-Recibo.
+        $slugsDoPlano = $plan->moduleSlugsWithDependencies();
+        $sync = new \App\Services\Tenant\TenantModuleSyncService();
+
+        // 1) Desactivar (sem apagar histórico) o que já não pertence ao plano.
+        //    O serviço recusa desactivar módulos de que outro activo dependa.
+        $activos = $tenant->modules()->wherePivot('is_active', true)->pluck('modules.slug')->toArray();
+        foreach (array_diff($activos, $slugsDoPlano) as $slug) {
+            $sync->deactivateModule($tenant, $slug);
+        }
+
+        // 2) Activar os do plano (idempotente: pivot + pré-requisitos + permissões)
+        foreach ($slugsDoPlano as $slug) {
+            $sync->activateModule($tenant, $slug);
         }
     }
 

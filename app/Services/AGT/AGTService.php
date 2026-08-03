@@ -29,7 +29,7 @@ class AGTService
     public function __construct(int $tenantId)
     {
         $this->tenantId = $tenantId;
-        $this->signatureService = new SignatureService();
+        $this->signatureService = new SignatureService($tenantId);
         $this->qrCodeService = new QRCodeService();
     }
 
@@ -65,6 +65,9 @@ class AGTService
         ];
 
         try {
+            if ((int) ($document->tenant_id ?? 0) !== $this->tenantId) {
+                throw new \DomainException('O documento nao pertence ao tenant da operacao AGT.');
+            }
             // 1. Verificar se tem chaves
             if (!$this->signatureService->hasKeys()) {
                 $results['errors'][] = 'Chaves SAFT não configuradas. Configure em SuperAdmin > SAFT.';
@@ -147,25 +150,111 @@ class AGTService
     public function submitToAGT($document): array
     {
         try {
+            if ((int) ($document->tenant_id ?? 0) !== $this->tenantId) {
+                throw new \DomainException('O documento nao pertence ao tenant da operacao AGT.');
+            }
+            if ($document->relationLoaded('series') || method_exists($document, 'series')) {
+                $series = $document->series;
+                if ($series && (int) $series->tenant_id !== $this->tenantId) {
+                    throw new \DomainException('A serie fiscal nao pertence ao tenant do documento.');
+                }
+            }
             $settings = \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenantId);
             $register = new RegisterService($settings);
             $mapper   = new DocumentMapper();
 
             $docPayload = $mapper->map($document);
+            $submission = AGTSubmission::where('tenant_id', $this->tenantId)
+                ->where('document_type', get_class($document))
+                ->where('document_id', $document->id)
+                ->orderByRaw("CASE status
+                    WHEN 'validated' THEN 1
+                    WHEN 'submitted' THEN 2
+                    WHEN 'pending' THEN 3
+                    ELSE 4 END")
+                ->latest('id')
+                ->first();
+
+            // Uma tentativa técnica não pode criar várias "submissões" para o
+            // mesmo documento. Se a AGT já validou, nunca reenviar.
+            if ($submission?->status === AGTSubmission::STATUS_VALIDATED) {
+                $validatedFields = [
+                    'agt_status' => 'validated',
+                    'agt_reference' => $submission->agt_reference,
+                    'agt_validated_at' => $submission->validated_at,
+                ];
+                $documentColumns = \Illuminate\Support\Facades\Schema::getColumnListing($document->getTable());
+                $document->forceFill(array_intersect_key($validatedFields, array_flip($documentColumns)));
+                if ($document->isDirty()) {
+                    $document->save();
+                }
+
+                return [
+                    'success' => true,
+                    'requestID' => $submission->agt_reference,
+                    'submissionUUID' => null,
+                    'error' => null,
+                    'payload' => $submission->request_payload ?? [],
+                    'response' => $submission->response_payload ?? [],
+                    'alreadyValidated' => true,
+                ];
+            }
+
+            if (!$submission) {
+                $submission = AGTSubmission::createForDocument(
+                    $document,
+                    (string) ($docPayload['documentType'] ?? '')
+                );
+            } else {
+                $submission->forceFill([
+                    'status' => AGTSubmission::STATUS_PENDING,
+                    'error_code' => null,
+                    'error_message' => null,
+                    'rejected_at' => null,
+                ])->save();
+            }
             $result     = $register->register([$docPayload]);
 
             // Persistir resposta no documento
             $sentDoc = $result['payload']['documents'][0] ?? null;
 
-            $document->forceFill([
+            $documentFields = [
                 'jws_document_signature' => $sentDoc['jwsDocumentSignature'] ?? null,
                 'agt_submission_uuid'    => $result['submissionUUID'],
                 'agt_request_id'         => $result['requestID'],
                 'agt_status'             => $result['ok'] ? 'submitted' : 'rejected',
                 'agt_submitted_at'       => now(),
                 'agt_reference'          => $result['requestID'] ?? $document->agt_reference,
-            ]);
+            ];
+            $columns = \Illuminate\Support\Facades\Schema::getColumnListing($document->getTable());
+            $document->forceFill(array_intersect_key($documentFields, array_flip($columns)));
             $document->save();
+
+            // Sprint 3: enfileira polling de obterEstado (DS.120 §4.2).
+            if ($result['ok'] && !empty($result['requestID'])) {
+                $submission->markAsSubmitted($result['payload']);
+                $submission->update([
+                    'agt_reference' => $result['requestID'],
+                    'response_payload' => $result['response'],
+                ]);
+                try {
+                    \App\Jobs\AGT\PollAGTStatusJob::start(
+                        $this->tenantId,
+                        $submission->id,
+                        $result['requestID']
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('AGTService::submitToAGT: polling não enfileirado', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            } else {
+                $submission->markAsRejected(
+                    'AGT_REGISTER',
+                    (string) ($result['error'] ?: 'Submissao rejeitada pela AGT'),
+                    $result['response'] ?? []
+                );
+            }
 
             return [
                 'success'        => $result['ok'],
@@ -196,6 +285,51 @@ class AGTService
     }
 
     // =========================================
+    // VALIDAR DOCUMENTO (Adquirente — DS.120 §4.7)
+    // =========================================
+
+    /**
+     * Confirmar documento recebido (Adquirente).
+     *
+     * @param string $documentNo Identificador AGT do documento
+     * @param float|null $deductibleVATPercentage % IVA dedutível (exclusivo com $nonDeductibleAmount)
+     * @param float|null $nonDeductibleAmount     Valor IVA não dedutível (exclusivo)
+     */
+    public function confirmReceivedDocument(
+        string $documentNo,
+        ?float $deductibleVATPercentage = null,
+        ?float $nonDeductibleAmount = null
+    ): array {
+        try {
+            $settings = \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenantId);
+            $service  = new ValidateService($settings);
+            return $service->confirm($documentNo, $deductibleVATPercentage, $nonDeductibleAmount);
+        } catch (\Throwable $e) {
+            Log::error('AGTService::confirmReceivedDocument falhou', [
+                'documentNo' => $documentNo,
+                'error'      => $e->getMessage(),
+            ]);
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /** Rejeitar documento recebido (Adquirente). */
+    public function rejectReceivedDocument(string $documentNo): array
+    {
+        try {
+            $settings = \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenantId);
+            $service  = new ValidateService($settings);
+            return $service->reject($documentNo);
+        } catch (\Throwable $e) {
+            Log::error('AGTService::rejectReceivedDocument falhou', [
+                'documentNo' => $documentNo,
+                'error'      => $e->getMessage(),
+            ]);
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    // =========================================
     // GESTÃO DE SÉRIES
     // =========================================
 
@@ -204,6 +338,19 @@ class AGTService
      */
     public function registerSeries(InvoicingSeries $series): array
     {
+        if ((int) $series->tenant_id !== $this->tenantId) {
+            return [
+                'success' => false,
+                'error' => 'A série não pertence à empresa activa.',
+            ];
+        }
+        if (!$series->isAGTEligible()) {
+            return [
+                'success' => false,
+                'error' => 'Este tipo documental não utiliza série fiscal AGT.',
+            ];
+        }
+
         return $this->getClient()->requestSeries($series);
     }
 
@@ -212,8 +359,23 @@ class AGTService
      */
     public function syncAllSeries(): array
     {
+        InvoicingSeries::where('tenant_id', $this->tenantId)
+            ->where('is_active', true)
+            ->whereIn('prefix', InvoicingSeries::AGT_DOCUMENT_TYPES)
+            ->whereNotNull('agt_series_id')
+            ->whereNull('atcud_validation_code')
+            ->get()
+            ->each(function (InvoicingSeries $series): void {
+                $series->forceFill([
+                    'atcud_validation_code' => $series->agt_series_id,
+                    'agt_status' => 'active',
+                    'agt_series_status' => $series->agt_series_status ?: InvoicingSeries::AGT_STATUS_OPEN,
+                ])->save();
+            });
+
         $series = InvoicingSeries::where('tenant_id', $this->tenantId)
             ->where('is_active', true)
+            ->whereIn('prefix', InvoicingSeries::AGT_DOCUMENT_TYPES)
             ->whereNull('agt_series_id')
             ->get();
 
@@ -225,6 +387,29 @@ class AGTService
         ];
 
         foreach ($series as $s) {
+            $storedSeriesCode = data_get($s->agt_response, 'seriesFEResult.seriesCode');
+            if (filled($storedSeriesCode)) {
+                $s->forceFill([
+                    'agt_series_id' => $storedSeriesCode,
+                    'atcud_validation_code' => $storedSeriesCode,
+                    'agt_status' => 'active',
+                    'agt_series_status' => InvoicingSeries::AGT_STATUS_OPEN,
+                    'agt_registered_at' => $s->agt_registered_at ?: now(),
+                ])->save();
+
+                $results['success']++;
+                $results['details'][] = [
+                    'series' => $s->prefix . ' ' . $s->series_code,
+                    'result' => [
+                        'success' => true,
+                        'recovered' => true,
+                        'seriesCode' => $storedSeriesCode,
+                        'message' => 'Código recuperado da resposta AGT já recebida.',
+                    ],
+                ];
+                continue;
+            }
+
             $result = $this->registerSeries($s);
             
             if ($result['success']) {
@@ -329,7 +514,11 @@ class AGTService
     /**
      * Gerar relatório de conformidade AGT para o tenant
      */
-    public function getComplianceReport(): array
+    /**
+     * @param string|null $ambienteOverride Ambiente a reportar. Serve para o
+     *   ecrã reflectir o seletor antes de este ser guardado.
+     */
+    public function getComplianceReport(?string $ambienteOverride = null): array
     {
         $report = [
             'tenant_id' => $this->tenantId,
@@ -339,16 +528,30 @@ class AGTService
             'environment' => $this->getClient()->getEnvironment(),
         ];
 
+        // Tudo o que segue é POR AMBIENTE: uma série registada em homologação
+        // não conta como registada em produção, e os cartões do topo diziam
+        // "8/8 registadas" mesmo com o ecrã em Produção.
+        $ambiente = in_array($ambienteOverride, AGTKeyStore::AMBIENTES, true)
+            ? $ambienteOverride
+            : AGTKeyStore::ambiente((int) $this->tenantId);
+
         // Estatísticas de séries
-        $series = InvoicingSeries::where('tenant_id', $this->tenantId)->get();
+        $series = InvoicingSeries::where('tenant_id', $this->tenantId)
+            ->whereIn('prefix', InvoicingSeries::AGT_DOCUMENT_TYPES)
+            ->get();
+        $registadas = $series->filter(
+            fn ($s) => !empty($s->agt_series_id) && $s->agt_environment === $ambiente
+        );
         $report['series'] = [
             'total' => $series->count(),
-            'registered' => $series->whereNotNull('agt_series_id')->count(),
-            'pending' => $series->whereNull('agt_series_id')->count(),
+            'registered' => $registadas->count(),
+            'pending' => $series->count() - $registadas->count(),
         ];
 
         // Estatísticas de submissões
-        $submissions = AGTSubmission::where('tenant_id', $this->tenantId)->get();
+        $submissions = AGTSubmission::where('tenant_id', $this->tenantId)
+            ->where('agt_environment', $ambiente)
+            ->get();
         $report['submissions'] = [
             'total' => $submissions->count(),
             'pending' => $submissions->where('status', 'pending')->count(),

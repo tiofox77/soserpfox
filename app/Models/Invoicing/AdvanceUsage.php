@@ -9,16 +9,20 @@ class AdvanceUsage extends Model
 {
     protected $table = 'invoicing_advance_usages';
 
+    // Alinhado com o schema real (a coluna chama-se usage_date, não used_date —
+    // o valor antigo rebentava o INSERT e abortava o pagamento inteiro).
     protected $fillable = [
         'advance_id',
         'invoice_id',
+        'invoice_type',
         'amount_used',
-        'used_date',
+        'usage_date',
+        'notes',
     ];
 
     protected $casts = [
         'amount_used' => 'decimal:2',
-        'used_date' => 'datetime',
+        'usage_date' => 'date',
     ];
 
     public $timestamps = true;

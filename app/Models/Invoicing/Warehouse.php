@@ -126,4 +126,50 @@ class Warehouse extends Model
     {
         return $this->is_default;
     }
+
+    /**
+     * Garante que o tenant tem um armazém principal/default.
+     * Scope-safe: ignora o global scope de tenant (usado em hooks de criação
+     * de tenant e em backfills, onde activeTenantId() pode não ser o alvo).
+     *
+     * @return static O armazém default do tenant.
+     */
+    public static function ensureDefaultForTenant(int $tenantId): self
+    {
+        // Já existe um default activo?
+        $default = static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+        if ($default) {
+            return $default;
+        }
+
+        // Existe algum armazém activo? Promover o primeiro a default.
+        $any = static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->first();
+        if ($any) {
+            static::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('id', '!=', $any->id)
+                ->update(['is_default' => false]);
+            $any->update(['is_default' => true]);
+            return $any;
+        }
+
+        // Nenhum armazém — criar o principal.
+        return static::create([
+            'tenant_id'   => $tenantId,
+            'name'        => 'Armazém Principal',
+            'code'        => 'ARM-001-' . $tenantId,
+            'location'    => 'Sede',
+            'description' => 'Armazém principal padrão',
+            'is_active'   => true,
+            'is_default'  => true,
+        ]);
+    }
 }

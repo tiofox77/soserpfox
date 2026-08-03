@@ -7,6 +7,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 #[Layout('layouts.client')]
 #[Title('Meu Perfil')]
@@ -29,13 +30,19 @@ class ClientProfile extends Component
 
     public function updateProfile()
     {
+        $client = Auth::guard('client')->user();
+
         $this->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'email' => [
+                'required', 'email', 'max:255',
+                Rule::unique('invoicing_clients', 'email')
+                    ->ignore($client->id)
+                    ->where(fn ($q) => $q->where('tenant_id', $client->tenant_id)),
+            ],
             'phone' => 'nullable|string|max:20',
         ]);
 
-        $client = Auth::guard('client')->user();
         $client->update([
             'name' => $this->name,
             'email' => $this->email,

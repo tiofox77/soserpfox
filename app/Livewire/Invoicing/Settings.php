@@ -63,11 +63,6 @@ class Settings extends Component
     public $show_company_logo = true;
     public $invoice_footer_text;
     
-    // SAFT
-    public $saft_software_cert;
-    public $saft_product_id;
-    public $saft_version = '1.0.0';
-    
     // Observações
     public $default_notes;
     public $default_terms;
@@ -77,6 +72,7 @@ class Settings extends Component
     public $pos_play_sounds = true;
     public $pos_validate_stock = true;
     public $pos_allow_negative_stock = false;
+    public $pos_hide_out_of_stock = true;
     public $pos_show_product_images = true;
     public $pos_products_per_page = 12;
     public $pos_auto_complete_sale = false;
@@ -95,12 +91,58 @@ class Settings extends Component
     public function mount()
     {
         $this->settings = InvoicingSettings::forTenant(activeTenantId());
-        
+
+        // Pré-preencher os defaults essenciais (armazém, cliente, fornecedor,
+        // imposto) com o que já está marcado noutros sítios, para aparecerem
+        // aqui já selecionados.
+        $this->ensureEssentialDefaults();
+
         // Carregar valores
         foreach ($this->settings->toArray() as $key => $value) {
             if (property_exists($this, $key) && $key !== 'settings') {
                 $this->$key = $value;
             }
+        }
+    }
+
+    /**
+     * Resolve e persiste os defaults essenciais quando ainda não estão definidos,
+     * usando os registos já marcados como padrão (ou o primeiro disponível).
+     */
+    protected function ensureEssentialDefaults(): void
+    {
+        $tid = activeTenantId();
+        $changes = [];
+
+        // Armazém padrão (is_default marcado na gestão de armazéns)
+        if (empty($this->settings->default_warehouse_id)) {
+            $w = \App\Models\Invoicing\Warehouse::where('tenant_id', $tid)->where('is_default', true)->first()
+                ?? \App\Models\Invoicing\Warehouse::where('tenant_id', $tid)->orderBy('id')->first();
+            if ($w) { $changes['default_warehouse_id'] = $w->id; }
+        }
+
+        // Imposto padrão (Tax is_default)
+        if (empty($this->settings->default_tax_id)) {
+            $t = \App\Models\Invoicing\Tax::getDefaultTax($tid)
+                ?? \App\Models\Invoicing\Tax::where('tenant_id', $tid)->where('is_active', true)->orderBy('id')->first();
+            if ($t) { $changes['default_tax_id'] = $t->id; }
+        }
+
+        // Cliente padrão (Consumidor Final, senão o primeiro)
+        if (empty($this->settings->default_client_id)) {
+            $c = \App\Models\Client::where('tenant_id', $tid)->where('nif', '999999999')->first()
+                ?? \App\Models\Client::where('tenant_id', $tid)->orderBy('id')->first();
+            if ($c) { $changes['default_client_id'] = $c->id; }
+        }
+
+        // Fornecedor padrão (o primeiro disponível)
+        if (empty($this->settings->default_supplier_id)) {
+            $s = \App\Models\Supplier::where('tenant_id', $tid)->orderBy('id')->first();
+            if ($s) { $changes['default_supplier_id'] = $s->id; }
+        }
+
+        if (!empty($changes)) {
+            $this->settings->update($changes);
         }
     }
     
@@ -117,6 +159,11 @@ class Settings extends Component
             'max_discount_percent' => 'required|numeric|min:0|max:100',
             'proforma_validity_days' => 'required|integer|min:1',
             'invoice_due_days' => 'required|integer|min:1',
+            // As colunas são string(20)/tinyInteger: sem validação, um valor
+            // fora da lista rebentava com "Data too long" em vez de avisar.
+            'number_format' => 'nullable|string|max:20',
+            'decimal_places' => 'nullable|integer|min:0|max:4',
+            'rounding_mode' => 'nullable|string|max:20',
         ]);
         
         $this->settings->update([
@@ -127,6 +174,12 @@ class Settings extends Component
             'default_currency' => $this->default_currency,
             'default_exchange_rate' => $this->default_exchange_rate,
             'default_payment_method' => $this->default_payment_method,
+            // Estes três estavam no formulário e no $fillable mas faltavam
+            // aqui: o utilizador alterava-os, via "Configurações salvas com
+            // sucesso!" e ao recarregar a página estava tudo como antes.
+            'number_format' => $this->number_format,
+            'decimal_places' => $this->decimal_places,
+            'rounding_mode' => $this->rounding_mode,
             'proforma_series' => $this->proforma_series,
             'invoice_series' => $this->invoice_series,
             'receipt_series' => $this->receipt_series,
@@ -145,15 +198,13 @@ class Settings extends Component
             'auto_print_after_save' => $this->auto_print_after_save,
             'show_company_logo' => $this->show_company_logo,
             'invoice_footer_text' => $this->invoice_footer_text,
-            'saft_software_cert' => $this->saft_software_cert,
-            'saft_product_id' => $this->saft_product_id,
-            'saft_version' => $this->saft_version,
             'default_notes' => $this->default_notes,
             'default_terms' => $this->default_terms,
             'pos_auto_print' => $this->pos_auto_print,
             'pos_play_sounds' => $this->pos_play_sounds,
             'pos_validate_stock' => $this->pos_validate_stock,
             'pos_allow_negative_stock' => $this->pos_allow_negative_stock,
+            'pos_hide_out_of_stock' => $this->pos_hide_out_of_stock,
             'pos_show_product_images' => $this->pos_show_product_images,
             'pos_products_per_page' => $this->pos_products_per_page,
             'pos_auto_complete_sale' => $this->pos_auto_complete_sale,
@@ -178,9 +229,11 @@ class Settings extends Component
     
     public function editSeries($seriesId)
     {
-        $series = InvoicingSeries::find($seriesId);
-        
-        if ($series && $series->tenant_id == activeTenantId()) {
+        // Scope na própria consulta, em vez de find() + comparação: é o mesmo
+        // resultado mas não depende de ninguém se lembrar da verificação.
+        $series = InvoicingSeries::where('tenant_id', activeTenantId())->find($seriesId);
+
+        if ($series) {
             $this->editingSeriesId = $series->id;
             $this->seriesDocumentType = $series->document_type;
             $this->seriesCode = $series->series_code;
@@ -200,8 +253,26 @@ class Settings extends Component
         ]);
         
         if ($this->editingSeriesId) {
-            // Editar série existente
-            $series = InvoicingSeries::find($this->editingSeriesId);
+            // Editar série existente.
+            //
+            // O scope ao tenant é OBRIGATÓRIO: $editingSeriesId é propriedade
+            // pública, logo definível a partir do browser. Sem ele, um
+            // utilizador da empresa A podia renomear a SÉRIE FISCAL da empresa
+            // B — a numeração dos documentos dela. O editSeries() valida o
+            // tenant, mas essa validação não protege este método, que é
+            // invocável directamente. E um id inexistente dava erro 500.
+            $series = InvoicingSeries::where('tenant_id', activeTenantId())
+                ->find($this->editingSeriesId);
+
+            if (!$series) {
+                $this->showSeriesModal = false;
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'Série não encontrada nesta empresa.',
+                ]);
+                return;
+            }
+
             $series->update([
                 'series_code' => $this->seriesCode,
                 'name' => $this->seriesName ?: "Série {$this->seriesPrefix} {$this->seriesCode}",
@@ -239,9 +310,9 @@ class Settings extends Component
     
     public function setDefaultSeries($seriesId)
     {
-        $series = InvoicingSeries::find($seriesId);
-        
-        if ($series && $series->tenant_id == activeTenantId()) {
+        $series = InvoicingSeries::where('tenant_id', activeTenantId())->find($seriesId);
+
+        if ($series) {
             // Remover padrão de todas as séries do mesmo tipo
             InvoicingSeries::where('tenant_id', activeTenantId())
                 ->where('document_type', $series->document_type)
@@ -294,4 +365,3 @@ class Settings extends Component
         ]);
     }
 }
-

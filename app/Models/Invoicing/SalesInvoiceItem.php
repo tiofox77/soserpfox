@@ -76,13 +76,28 @@ class SalesInvoiceItem extends Model
     public function calculateTotals()
     {
         $this->subtotal = $this->quantity * $this->unit_price;
-        
+
         if ($this->discount_percent > 0) {
             $this->discount_amount = ($this->subtotal * $this->discount_percent) / 100;
         }
-        
+
         $subtotalAfterDiscount = $this->subtotal - $this->discount_amount;
-        $this->tax_amount = ($subtotalAfterDiscount * $this->tax_rate) / 100;
-        $this->total = $subtotalAfterDiscount + $this->tax_amount;
+
+        // O IVA incide sobre o líquido ACRESCIDO do IEC (Imposto Especial de
+        // Consumo), que vive em invoicing_line_taxes. Sem isto o hook 'saving'
+        // recalculava o IVA só sobre o líquido e sobrepunha o valor correcto
+        // que a emissão tinha apurado — a AGT recusava com "taxContribution
+        // não corresponde ao imposto apurado". O Imposto de Selo não entra
+        // nesta base.
+        $iec = 0.0;
+        if ($this->exists) {
+            $iec = (float) LineTax::where('line_type', static::class)
+                ->where('line_id', $this->id)
+                ->where('tax_type', LineTax::TIPO_IEC)
+                ->sum('tax_amount');
+        }
+
+        $this->tax_amount = (($subtotalAfterDiscount + $iec) * $this->tax_rate) / 100;
+        $this->total = $subtotalAfterDiscount + $this->tax_amount + $iec;
     }
 }

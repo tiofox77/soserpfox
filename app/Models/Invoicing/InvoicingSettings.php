@@ -54,6 +54,7 @@ class InvoicingSettings extends Model
         'pos_play_sounds',
         'pos_validate_stock',
         'pos_allow_negative_stock',
+        'pos_hide_out_of_stock',
         'pos_show_product_images',
         'pos_products_per_page',
         'pos_auto_complete_sale',
@@ -67,6 +68,7 @@ class InvoicingSettings extends Model
         'agt_token_expires_at',
         'agt_auto_submit',
         'agt_require_validation',
+        'agt_notification_emails',
         'agt_software_certificate',
         // AGT v1.2
         'agt_product_id',
@@ -98,6 +100,7 @@ class InvoicingSettings extends Model
         'pos_play_sounds' => 'boolean',
         'pos_validate_stock' => 'boolean',
         'pos_allow_negative_stock' => 'boolean',
+        'pos_hide_out_of_stock' => 'boolean',
         'pos_show_product_images' => 'boolean',
         'pos_products_per_page' => 'integer',
         'pos_auto_complete_sale' => 'boolean',
@@ -134,7 +137,41 @@ class InvoicingSettings extends Model
     }
 
     // Helper methods
+    /** Memória do pedido: forTenant() é chamado 2 a 4 vezes por pedido. */
+    protected static array $memoria = [];
+
+    protected static function booted(): void
+    {
+        // Qualquer gravação invalida a memória, para o mesmo pedido não
+        // continuar a ler valores antigos depois de os alterar.
+        static::saved(fn ($m) => static::esquecerMemoria($m->tenant_id));
+        static::deleted(fn ($m) => static::esquecerMemoria($m->tenant_id));
+    }
+
     public static function forTenant($tenantId)
+    {
+        // Um firstOrCreate é sempre pelo menos um SELECT. Dentro do mesmo
+        // pedido as definições não mudam — e quando mudam, quem as grava
+        // chama esquecerMemoria().
+        if (isset(static::$memoria[$tenantId])) {
+            return static::$memoria[$tenantId];
+        }
+
+        return static::$memoria[$tenantId] = static::resolverParaTenant($tenantId);
+    }
+
+    /** Esquece a memória do pedido (chamar depois de gravar definições). */
+    public static function esquecerMemoria($tenantId = null): void
+    {
+        if ($tenantId === null) {
+            static::$memoria = [];
+            return;
+        }
+
+        unset(static::$memoria[$tenantId]);
+    }
+
+    protected static function resolverParaTenant($tenantId)
     {
         return static::firstOrCreate(
             ['tenant_id' => $tenantId],
@@ -184,6 +221,7 @@ class InvoicingSettings extends Model
                 'pos_play_sounds' => true,
                 'pos_validate_stock' => true,
                 'pos_allow_negative_stock' => false,
+                'pos_hide_out_of_stock' => true,
                 'pos_show_product_images' => true,
                 'pos_products_per_page' => 12,
                 'pos_auto_complete_sale' => false,

@@ -42,9 +42,26 @@ function getAGTQRData($document, int $size = 80): array
  */
 function generateATCUD($document): string
 {
+    // Se já está gravado, é esse que vale — é o que foi para a AGT.
+    if (!empty($document->atcud)) {
+        return $document->atcud;
+    }
+
     $series = $document->series ?? null;
-    $validationCode = $series?->atcud_validation_code ?? '0';
-    $sequentialNumber = $document->id ?? 1;
-    
-    return $validationCode . '-' . $sequentialNumber;
+    if (!$series) {
+        return '';
+    }
+
+    // Sequencial = posição na série (o /000003 do número fiscal). Usar o id da
+    // base de dados gerava um ATCUD que a AGT não reconhece.
+    $numero = $document->invoice_number
+        ?? $document->receipt_number
+        ?? $document->credit_note_number
+        ?? $document->debit_note_number
+        ?? $document->document_number
+        ?? '';
+
+    return $series->generateATCUD(
+        $numero !== '' ? $series->nextSequentialFromDocumentNumber($numero) : 1
+    );
 }

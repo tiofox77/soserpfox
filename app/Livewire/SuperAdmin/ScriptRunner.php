@@ -8,7 +8,7 @@ use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
 
-#[Layout('layouts.app')]
+#[Layout('layouts.superadmin')]
 #[Title('Executar Scripts')]
 class ScriptRunner extends Component
 {
@@ -33,9 +33,12 @@ class ScriptRunner extends Component
             File::makeDirectory($scriptsPath, 0755, true);
         }
         
-        $files = File::files($scriptsPath);
-        
-        $this->scripts = collect($files)->map(function ($file) {
+        // Apenas scripts PHP executáveis (a página corre via `require`).
+        // Ficheiros de infra (ftp_*.ps1), dados (.json) e docs (.md) são ignorados.
+        $files = collect(File::files($scriptsPath))
+            ->filter(fn ($file) => strtolower($file->getExtension()) === 'php');
+
+        $this->scripts = $files->map(function ($file) {
             return [
                 'name' => $file->getFilename(),
                 'path' => $file->getPathname(),

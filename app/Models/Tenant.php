@@ -11,6 +11,101 @@ class Tenant extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /*
+    |--------------------------------------------------------------------------
+    | Regimes de IVA (AGT — Código do IVA angolano)
+    |--------------------------------------------------------------------------
+    | A AGT prevê TRÊS regimes. Cada empresa escolhe um e ele determina como os
+    | produtos e os documentos são tributados:
+    |
+    |  • GERAL       — liquida IVA (14% normal; 7%/5% reduzidas; 0% exportação)
+    |  • SIMPLIFICADO— liquida 7% sobre as transmissões (dedução limitada)
+    |  • NÃO SUJEIÇÃO/EXCLUSÃO — não liquida IVA; documentos saem isentos e
+    |                  OBRIGAM a motivo de isenção com código AGT (M04)
+    |
+    | Valores legados na BD (`regime_isencao`, `regime_misto`) são mapeados para
+    | o regime canónico equivalente por canonicalRegime() — nunca se perde dados.
+    */
+    public const REGIME_GERAL         = 'regime_geral';
+    public const REGIME_SIMPLIFICADO  = 'regime_simplificado';
+    public const REGIME_NAO_SUJEICAO  = 'regime_nao_sujeicao';
+
+    /** Metadados dos 3 regimes AGT (fonte única de verdade para UI e sincronização). */
+    public const REGIMES = [
+        self::REGIME_GERAL => [
+            'label'          => 'Regime Geral',
+            'short'          => 'Geral',
+            'description'    => 'Liquida IVA nas vendas (14% taxa normal; 7% e 5% reduzidas; 0% exportação).',
+            'turnover'       => 'Volume de negócios superior a 350.000.000 Kz (ou por opção).',
+            'default_rate'   => 14.00,
+            'tax_code'       => 'IVA14',
+            'saft_type'      => 'NOR',
+            'exempt'         => false,
+            'exemption_code' => null,
+        ],
+        self::REGIME_SIMPLIFICADO => [
+            'label'          => 'Regime Simplificado',
+            'short'          => 'Simplificado',
+            'description'    => 'Liquida 7% sobre as transmissões de bens e serviços, com dedução limitada.',
+            'turnover'       => 'Volume de negócios entre 10.000.000 Kz e 350.000.000 Kz.',
+            'default_rate'   => 7.00,
+            'tax_code'       => 'IVA7',
+            'saft_type'      => 'RED',
+            'exempt'         => false,
+            'exemption_code' => null,
+        ],
+        self::REGIME_NAO_SUJEICAO => [
+            'label'          => 'Regime de Não Sujeição (Exclusão)',
+            'short'          => 'Não Sujeição',
+            'description'    => 'Não liquida IVA. Os documentos saem isentos com o motivo de isenção obrigatório (M04 — Regime Especial de Isenção, Artigo 53.º).',
+            'turnover'       => 'Volume de negócios até 10.000.000 Kz.',
+            'default_rate'   => 0.00,
+            'tax_code'       => 'ISENTO-EXCL',
+            'saft_type'      => 'ISE',
+            'exempt'         => true,
+            'exemption_code' => 'M04',
+        ],
+    ];
+
+    /** Valores legados → regime canónico. */
+    public const REGIME_ALIASES = [
+        'regime_isencao' => self::REGIME_NAO_SUJEICAO,  // isenção = exclusão de IVA
+        'regime_misto'   => self::REGIME_GERAL,         // misto liquida IVA
+    ];
+
+    /** Normaliza qualquer valor histórico para um dos 3 regimes AGT. */
+    public static function canonicalRegime(?string $regime): string
+    {
+        $regime = trim((string) $regime);
+        if (isset(self::REGIMES[$regime])) {
+            return $regime;
+        }
+        return self::REGIME_ALIASES[$regime] ?? self::REGIME_GERAL;
+    }
+
+    /** Metadados do regime (já canonicalizado). */
+    public function regimeMeta(): array
+    {
+        return self::REGIMES[self::canonicalRegime($this->regime)];
+    }
+
+    public function regimeLabel(): string
+    {
+        return $this->regimeMeta()['label'];
+    }
+
+    /** True se o regime não liquida IVA (documentos isentos com motivo obrigatório). */
+    public function isExemptRegime(): bool
+    {
+        return $this->regimeMeta()['exempt'];
+    }
+
+    /** Taxa de IVA a aplicar por omissão neste regime. */
+    public function regimeDefaultRate(): float
+    {
+        return (float) $this->regimeMeta()['default_rate'];
+    }
+
     protected $fillable = [
         'name',
         'slug',
@@ -76,6 +171,21 @@ class Tenant extends Model
             
             // Popular métodos de pagamento padrão
             self::populatePaymentMethods($tenant);
+
+            // Garantir armazém principal/default
+            self::populateDefaultWarehouse($tenant);
+
+            // A Fatura-Recibo (FR) é o documento principal do POS. Todo tenant
+            // precisa da série local desde a criação; após configurar as chaves,
+            // ela será registada/sincronizada com a conta AGT dessa empresa.
+            try {
+                \App\Models\Invoicing\InvoicingSeries::getDefaultSeries($tenant->id, 'pos');
+            } catch (\Throwable $e) {
+                \Log::error('Tenant: falha ao criar série FR padrão', [
+                    'tenant_id' => $tenant->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         });
         
         static::deleting(function ($tenant) {
@@ -505,6 +615,21 @@ class Tenant extends Model
         }
     }
 
+    /**
+     * Garante que o tenant tem um armazém principal/default.
+     */
+    protected static function populateDefaultWarehouse($tenant)
+    {
+        try {
+            \App\Models\Invoicing\Warehouse::ensureDefaultForTenant($tenant->id);
+        } catch (\Throwable $e) {
+            \Log::warning('Falha ao criar armazém principal do tenant', [
+                'tenant_id' => $tenant->id,
+                'error'     => $e->getMessage(),
+            ]);
+        }
+    }
+
     // Relacionamentos
     public function users()
     {
@@ -583,6 +708,17 @@ class Tenant extends Model
         // Se tenant está inativo, não tem acesso a nenhum módulo
         if (!$this->is_active) {
             return false;
+        }
+
+        // Regra de negócio: a TESOURARIA acompanha sempre a FATURAÇÃO.
+        // Os métodos de pagamento/caixas dependem da tesouraria, logo qualquer
+        // tenant com faturação ativa tem também acesso à tesouraria, mesmo que
+        // o plano/pivot não a tenha explicitamente.
+        if ($moduleSlug === 'treasury') {
+            return $this->modules()
+                    ->whereIn('slug', ['treasury', 'invoicing'])
+                    ->wherePivot('is_active', true)
+                    ->exists();
         }
         
         return $this->modules()

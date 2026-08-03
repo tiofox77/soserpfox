@@ -127,7 +127,22 @@ class CreditNote extends Model
 
         static::creating(function ($creditNote) {
             if (empty($creditNote->credit_note_number)) {
-                $creditNote->credit_note_number = self::generateCreditNoteNumber();
+                $creditNote->credit_note_number = self::generateCreditNoteNumber(
+                    (int) $creditNote->tenant_id,
+                    $creditNote
+                );
+            }
+            if ($creditNote->series_id) {
+                $series = InvoicingSeries::getIssuanceSeries(
+                    (int) $creditNote->tenant_id,
+                    'credit_note',
+                    (int) $creditNote->series_id
+                );
+                if ($series->isAGTRegistered() && empty($creditNote->atcud)) {
+                    $creditNote->atcud = $series->generateATCUD(
+                        $series->nextSequentialFromDocumentNumber($creditNote->credit_note_number)
+                    );
+                }
             }
         });
 
@@ -140,15 +155,24 @@ class CreditNote extends Model
     }
 
     // Gerar número de nota de crédito (formato AGT: NC A 2025/000001)
-    public static function generateCreditNoteNumber()
+    public static function generateCreditNoteNumber(?int $tenantId = null, ?self $creditNote = null)
     {
-        $tenantId = activeTenantId();
+        $tenantId = $tenantId ?: (int) activeTenantId();
         
         // Usar sistema de séries AGT (Decreto Presidencial 71/25)
-        $series = InvoicingSeries::getDefaultSeries($tenantId, 'credit_note');
+        $series = InvoicingSeries::getIssuanceSeries($tenantId, 'credit_note');
         
         if ($series) {
-            return $series->getNextNumber();
+            if ($creditNote && empty($creditNote->series_id)) {
+                $creditNote->series_id = $series->id;
+            }
+            $number = $series->getNextNumber();
+            if ($creditNote && $series->isAGTRegistered() && empty($creditNote->atcud)) {
+                $creditNote->atcud = $series->generateATCUD(
+                    $series->nextSequentialFromDocumentNumber($number)
+                );
+            }
+            return $number;
         }
         
         // Fallback: formato AGT manual

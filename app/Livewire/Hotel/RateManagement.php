@@ -101,7 +101,7 @@ class RateManagement extends Component
         $this->validate();
 
         $data = [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'name' => $this->seasonName,
             'color' => $this->seasonColor,
             'start_date' => $this->seasonStartDate,
@@ -128,7 +128,7 @@ class RateManagement extends Component
     public function deleteSeason($id)
     {
         RateSeason::where('id', $id)
-            ->where('tenant_id', auth()->user()->tenant_id)
+            ->where('tenant_id', activeTenantId())
             ->delete();
         session()->flash('success', 'Temporada eliminada!');
     }
@@ -157,7 +157,7 @@ class RateManagement extends Component
             return;
         }
 
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $existing = DB::table('hotel_weekday_rates')
             ->where('tenant_id', $tenantId)
             ->where('room_type_id', $this->selectedRoomTypeId)
@@ -182,7 +182,7 @@ class RateManagement extends Component
             return;
         }
 
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         // Apagar existentes e inserir novos
         DB::table('hotel_weekday_rates')
@@ -226,7 +226,7 @@ class RateManagement extends Component
             'specialPrice' => 'required|numeric|min:0',
         ]);
 
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         DB::table('hotel_special_rates')->updateOrInsert(
             [
@@ -250,7 +250,7 @@ class RateManagement extends Component
     {
         DB::table('hotel_special_rates')
             ->where('id', $id)
-            ->where('tenant_id', auth()->user()->tenant_id)
+            ->where('tenant_id', activeTenantId())
             ->delete();
         session()->flash('success', 'Tarifa especial eliminada!');
     }
@@ -308,7 +308,7 @@ class RateManagement extends Component
 
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         $seasons = RateSeason::where('tenant_id', $tenantId)
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))

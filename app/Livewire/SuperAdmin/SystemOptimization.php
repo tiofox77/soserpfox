@@ -7,7 +7,7 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
-#[Layout('layouts.app')]
+#[Layout('layouts.superadmin')]
 #[Title('Otimização do Sistema')]
 class SystemOptimization extends Component
 {

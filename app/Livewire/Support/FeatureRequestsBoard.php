@@ -42,7 +42,7 @@ class FeatureRequestsBoard extends Component
         // Processar imagens
         $imagePaths = [];
         if ($this->images && count($this->images) > 0) {
-            $tenantId = auth()->user()->tenant_id;
+            $tenantId = activeTenantId();
             $userId = auth()->id();
             $requestId = 'REQ-' . time();
             
@@ -53,7 +53,7 @@ class FeatureRequestsBoard extends Component
         }
         
         FeatureRequest::create([
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'user_id' => auth()->id(),
             'title' => $this->title,
             'description' => $this->description,
@@ -89,7 +89,7 @@ class FeatureRequestsBoard extends Component
     public function render()
     {
         $query = FeatureRequest::with('user', 'votes')
-            ->where('tenant_id', auth()->user()->tenant_id);
+            ->where('tenant_id', activeTenantId());
             
         if ($this->filter === 'popular') {
             $query->orderBy('votes_count', 'desc');

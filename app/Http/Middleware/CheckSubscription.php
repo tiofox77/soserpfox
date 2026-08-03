@@ -194,7 +194,29 @@ class CheckSubscription
             if ($existing) {
                 return $existing;
             }
-            
+
+            // Respeitar o limite de empresas do plano (o OrderObserver já o faz;
+            // aqui não era aplicado, pelo que UM plano cobria empresas sem fim).
+            $plan = $sourceSubscription->plan;
+            $maxCompanies = (int) ($plan->max_companies ?? 1);
+
+            $cobertas = 0;
+            foreach (auth()->user()?->tenants()->get() ?? collect() as $t) {
+                if ($this->findActiveSubscription($t)) {
+                    $cobertas++;
+                }
+            }
+
+            if ($maxCompanies > 0 && $cobertas >= $maxCompanies) {
+                \Log::warning('CheckSubscription: limite de empresas do plano atingido — propagação recusada', [
+                    'target_tenant' => $targetTenant->id,
+                    'plan'          => $plan->name ?? $sourceSubscription->plan_id,
+                    'max_companies' => $maxCompanies,
+                    'cobertas'      => $cobertas,
+                ]);
+                return null;
+            }
+
             // Criar subscription clone com MESMAS datas
             $newSubscription = $targetTenant->subscriptions()->create([
                 'plan_id'              => $sourceSubscription->plan_id,
@@ -207,19 +229,16 @@ class CheckSubscription
                 'trial_ends_at'        => $sourceSubscription->trial_ends_at,
             ]);
             
-            // Sincronizar módulos do plano no target tenant
-            $plan = $sourceSubscription->plan;
+            // Sincronizar módulos do plano no target tenant — via serviço, para
+            // levar dependências (Faturação ⇒ Tesouraria), pré-requisitos
+            // (métodos de pagamento, impostos, armazém) e permissões.
             if ($plan) {
-                $moduleIds = $plan->modules()->pluck('modules.id')->toArray();
-                if (!empty($moduleIds)) {
-                    $syncData = [];
-                    foreach ($moduleIds as $moduleId) {
-                        $syncData[$moduleId] = [
-                            'is_active' => true,
-                            'activated_at' => now(),
-                        ];
+                $slugs = $plan->modules()->pluck('modules.slug')->toArray();
+                if (!empty($slugs)) {
+                    $sync = new \App\Services\Tenant\TenantModuleSyncService();
+                    foreach ($slugs as $slug) {
+                        $sync->activateModule($targetTenant, $slug);
                     }
-                    $targetTenant->modules()->syncWithoutDetaching($syncData);
                 }
             }
             

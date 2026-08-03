@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User;
 use App\Models\Tenant;
+use App\Traits\BelongsToTenant;
+use App\Traits\HasTenantNumber;
 
 class Employee extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToTenant, HasTenantNumber;
 
     protected $table = 'hr_employees';
 

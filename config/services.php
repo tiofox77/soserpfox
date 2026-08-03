@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'agt' => [
+        'username' => env('AGT_API_USERNAME'),
+        'password' => env('AGT_API_PASSWORD'),
+    ],
+
 ];

@@ -7,8 +7,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\User;
 
+use App\Traits\BelongsToTenant;
+
 class Move extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'accounting_moves';
     
     protected $fillable = [

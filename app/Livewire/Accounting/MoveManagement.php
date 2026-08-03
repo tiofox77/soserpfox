@@ -54,7 +54,7 @@ class MoveManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $moves = Move::where('tenant_id', $tenantId)
             ->when($this->search, function($query) {
@@ -153,7 +153,7 @@ class MoveManagement extends Component
         
         DB::transaction(function() use ($totalDebit, $totalCredit) {
             $move = Move::create([
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'journal_id' => $this->journal_id,
                 'period_id' => $this->period_id,
                 'document_type_id' => $this->document_type_id,
@@ -168,7 +168,7 @@ class MoveManagement extends Component
             
             foreach ($this->lines as $line) {
                 MoveLine::create([
-                    'tenant_id' => auth()->user()->tenant_id,
+                    'tenant_id' => activeTenantId(),
                     'move_id' => $move->id,
                     'account_id' => $line['account_id'],
                     'debit' => $line['debit'],
@@ -211,7 +211,7 @@ class MoveManagement extends Component
      */
     private function setCurrentPeriod()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $currentMonth = now()->format('Y-m');
         
         // Buscar período do mês atual

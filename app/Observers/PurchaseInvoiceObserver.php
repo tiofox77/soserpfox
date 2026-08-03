@@ -165,7 +165,28 @@ class PurchaseInvoiceObserver
                     ]);
                 }
 
-                $stock->decrement('quantity', $quantityToRemove);
+                // save() Eloquent (NÃO decrement): decrement só dispara
+                // updating/updated — nunca saved — pelo que o StockObserver não
+                // ressincronizava products.stock_quantity e o agregado ficava
+                // acima da realidade após anular uma compra.
+                $stock->quantity = (float) $stock->quantity - (float) $quantityToRemove;
+                $stock->save();
+
+                // Ledger da reversão (semAplicarStock: o stock já foi corrigido acima)
+                StockMovement::semAplicarStock(function () use ($invoice, $item, $quantityToRemove) {
+                    StockMovement::create([
+                        'tenant_id'      => $invoice->tenant_id,
+                        'warehouse_id'   => $invoice->warehouse_id,
+                        'product_id'     => $item->product_id,
+                        'type'           => 'out',
+                        'quantity'       => $quantityToRemove,
+                        'unit_cost'      => $item->unit_price,
+                        'reference_type' => PurchaseInvoice::class,
+                        'reference_id'   => $invoice->id,
+                        'user_id'        => auth()->id() ?? $invoice->created_by,
+                        'notes'          => 'Anulação de compra - ' . $invoice->invoice_number,
+                    ]);
+                });
             }
 
             // Reverter lotes associados

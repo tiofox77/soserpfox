@@ -6,8 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\BelongsToTenant;
+
 class Tax extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'accounting_taxes';
     
     protected $fillable = [

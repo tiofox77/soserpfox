@@ -19,6 +19,8 @@ class Invoices extends Component
     // Filters
     public $search = '';
     public $statusFilter = '';
+    /** Tipo de documento AGT: '' = todos, FT = Fatura, FR = Fatura-Recibo */
+    public $typeFilter = '';
     public $warehouseFilter = '';
     public $dateFrom = '';
     public $dateTo = '';
@@ -37,7 +39,8 @@ class Invoices extends Component
     public $invoiceHistory = null;
     public $relatedDocuments = [];
 
-    protected $queryString = ['search', 'statusFilter'];
+    // 'type' na URL permite ligar o menu directamente às Faturas-Recibo (?type=FR)
+    protected $queryString = ['search', 'statusFilter', 'typeFilter' => ['as' => 'type']];
     
     protected $listeners = ['paymentRegistered' => '$refresh'];
 
@@ -65,6 +68,11 @@ class Invoices extends Component
         // Status Filter
         if ($this->statusFilter) {
             $query->where('status', $this->statusFilter);
+        }
+
+        // Tipo de documento (FT / FR)
+        if ($this->typeFilter) {
+            $query->where('invoice_type', $this->typeFilter);
         }
 
         // Warehouse Filter
@@ -124,8 +132,24 @@ class Invoices extends Component
             $invoice = SalesInvoice::where('tenant_id', activeTenantId())
                 ->findOrFail($this->invoiceToDelete);
 
-            // Verificar se tem pagamentos associados
-            if ($invoice->payments()->exists()) {
+            // Documento fiscal emitido (finalizado/assinado) NUNCA pode ser
+            // eliminado — Decreto 71/25 exige rectificação por Nota de Crédito.
+            if ($invoice->invoice_status === 'F' || $invoice->status !== 'draft') {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'Documento fiscal emitido não pode ser eliminado. Emita uma Nota de Crédito para rectificar (Decreto 71/25).',
+                ]);
+                $this->showDeleteModal = false;
+                return;
+            }
+
+            // Pagamentos associados (a relação payments() não existe — rebentava
+            // com BadMethodCallException; verificar pelos dados reais).
+            $temPagamentos = (float) ($invoice->paid_amount ?? 0) > 0
+                || \App\Models\Treasury\Transaction::where('tenant_id', activeTenantId())
+                    ->where('invoice_id', $invoice->id)->exists();
+
+            if ($temPagamentos) {
                 $this->dispatch('notify', [
                     'type' => 'error',
                     'message' => 'Não é possível eliminar uma fatura que já tem pagamentos associados.'
@@ -150,6 +174,26 @@ class Invoices extends Component
         $invoice = SalesInvoice::where('tenant_id', activeTenantId())
             ->findOrFail($invoiceId);
 
+        // A Fatura-Recibo é liquidada no acto da venda: marcá-la como paga de
+        // novo (ou registar outro recebimento) duplicaria o valor recebido. O
+        // botão já não aparece na listagem, mas o método continua acessível
+        // por Livewire — a defesa tem de estar aqui.
+        if (($invoice->invoice_type ?? 'FT') === 'FR') {
+            $this->dispatch('notify', [
+                'type' => 'info',
+                'message' => 'A Fatura-Recibo já é paga no acto da venda.',
+            ]);
+            return;
+        }
+
+        if (in_array($invoice->status, ['paid', 'cancelled'], true)) {
+            $this->dispatch('notify', [
+                'type' => 'info',
+                'message' => 'Esta fatura já está ' . ($invoice->status === 'paid' ? 'paga' : 'cancelada') . '.',
+            ]);
+            return;
+        }
+
         try {
             $invoice->status = 'paid';
             $invoice->save();
@@ -173,6 +217,11 @@ class Invoices extends Component
     }
 
     public function updatingStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingTypeFilter()
     {
         $this->resetPage();
     }

@@ -12,24 +12,26 @@
 
 if (!function_exists('calculateIRT')) {
     /**
-     * Calcular IRT (Imposto sobre Rendimentos do Trabalho) - Angola
-     * 
-     * Tabela Progressiva IRT 2025 (valores em Kwanzas):
-     * ATUALIZAÇÃO: Isenção até 100.000 Kz (antes era 70.000 Kz)
-     * 
-     * | Escalão | De (Kz)    | Até (Kz)   | Taxa  | Parcela Abater |
-     * |---------|------------|------------|-------|----------------|
-     * | 1º      | 0          | 100.000    | 0%    | 0              |
-     * | 2º      | 100.001    | 150.000    | 10%   | 10.000         |
-     * | 3º      | 150.001    | 200.000    | 13%   | 14.500         |
-     * | 4º      | 200.001    | 300.000    | 16%   | 20.000         |
-     * | 5º      | 300.001    | 500.000    | 18%   | 26.000         |
-     * | 6º      | 500.001    | 1.000.000  | 19%   | 31.000         |
-     * | 7º      | 1.000.001  | 1.500.000  | 20%   | 41.000         |
-     * | 8º      | 1.500.001  | 2.000.000  | 21%   | 56.000         |
-     * | 9º      | 2.000.001  | 2.500.000  | 22%   | 76.000         |
-     * | 10º     | 2.500.001  | +          | 23%   | 101.000        |
-     * 
+     * Calcular IRT (Imposto sobre Rendimentos do Trabalho) - Angola, Grupo A
+     *
+     * Método oficial: IRT = parcela_fixa + taxa × (base − limite_inferior_do_escalão).
+     * Isenção até 150.000 Kz. Tabela CONTÍNUA (sem saltos) — igual ao IRTTaxBracketSeeder.
+     * Esta função é apenas o fallback quando um tenant não tem escalões na BD.
+     *
+     * | Escalão | De (Kz)     | Até (Kz)    | Taxa   | Parcela Fixa |
+     * |---------|-------------|-------------|--------|--------------|
+     * | 1º      | 0           | 150.000     | 0%     | 0            |
+     * | 2º      | 150.000     | 200.000     | 16%    | 0            |
+     * | 3º      | 200.000     | 300.000     | 18%    | 8.000        |
+     * | 4º      | 300.000     | 500.000     | 19%    | 26.000       |
+     * | 5º      | 500.000     | 1.000.000   | 20%    | 64.000       |
+     * | 6º      | 1.000.000   | 1.500.000   | 21%    | 164.000      |
+     * | 7º      | 1.500.000   | 2.000.000   | 22%    | 269.000      |
+     * | 8º      | 2.000.000   | 2.500.000   | 23%    | 379.000      |
+     * | 9º      | 2.500.000   | 5.000.000   | 24%    | 494.000      |
+     * | 10º     | 5.000.000   | 10.000.000  | 24,5%  | 1.094.000    |
+     * | 11º     | 10.000.000  | +           | 25%    | 2.319.000    |
+     *
      * @param float $grossSalary Salário bruto mensal
      * @param array $deductions Deduções permitidas (INSS, seguros, etc)
      * @return array ['irt_amount', 'irt_base', 'irt_rate', 'bracket']
@@ -39,61 +41,49 @@ if (!function_exists('calculateIRT')) {
         // Deduções permitidas
         $inssEmployee = $deductions['inss_employee'] ?? 0;
         $otherDeductions = $deductions['other'] ?? 0;
-        
+
         // Base de cálculo IRT = Salário Bruto - INSS - Outras deduções
         $irtBase = $grossSalary - $inssEmployee - $otherDeductions;
-        
-        // Se base for negativa ou zero, IRT = 0
+
         if ($irtBase <= 0) {
-            return [
-                'irt_amount' => 0,
-                'irt_base' => 0,
-                'irt_rate' => 0,
-                'bracket' => 1,
-            ];
+            return ['irt_amount' => 0, 'irt_base' => 0, 'irt_rate' => 0, 'bracket' => 1];
         }
-        
-        // Tabela progressiva IRT Angola 2025
-        // ATUALIZAÇÃO 2025: Isenção aumentada de 70.000 para 100.000 Kz
+
+        // Tabela contínua: [limite_inferior, limite_superior|null, taxa%, parcela_fixa]
         $irtTable = [
-            ['min' => 0,       'max' => 100000,   'rate' => 0,    'deduction' => 0],
-            ['min' => 100001,  'max' => 150000,   'rate' => 10,   'deduction' => 10000],
-            ['min' => 150001,  'max' => 200000,   'rate' => 13,   'deduction' => 14500],
-            ['min' => 200001,  'max' => 300000,   'rate' => 16,   'deduction' => 20000],
-            ['min' => 300001,  'max' => 500000,   'rate' => 18,   'deduction' => 26000],
-            ['min' => 500001,  'max' => 1000000,  'rate' => 19,   'deduction' => 31000],
-            ['min' => 1000001, 'max' => 1500000,  'rate' => 20,   'deduction' => 41000],
-            ['min' => 1500001, 'max' => 2000000,  'rate' => 21,   'deduction' => 56000],
-            ['min' => 2000001, 'max' => 2500000,  'rate' => 22,   'deduction' => 76000],
-            ['min' => 2500001, 'max' => PHP_FLOAT_MAX, 'rate' => 23, 'deduction' => 101000],
+            ['min' => 0,        'max' => 150000,   'rate' => 0,    'fixed' => 0],
+            ['min' => 150000,   'max' => 200000,   'rate' => 16,   'fixed' => 0],
+            ['min' => 200000,   'max' => 300000,   'rate' => 18,   'fixed' => 8000],
+            ['min' => 300000,   'max' => 500000,   'rate' => 19,   'fixed' => 26000],
+            ['min' => 500000,   'max' => 1000000,  'rate' => 20,   'fixed' => 64000],
+            ['min' => 1000000,  'max' => 1500000,  'rate' => 21,   'fixed' => 164000],
+            ['min' => 1500000,  'max' => 2000000,  'rate' => 22,   'fixed' => 269000],
+            ['min' => 2000000,  'max' => 2500000,  'rate' => 23,   'fixed' => 379000],
+            ['min' => 2500000,  'max' => 5000000,  'rate' => 24,   'fixed' => 494000],
+            ['min' => 5000000,  'max' => 10000000, 'rate' => 24.5, 'fixed' => 1094000],
+            ['min' => 10000000, 'max' => null,     'rate' => 25,   'fixed' => 2319000],
         ];
-        
-        // Encontrar escalão
+
+        // Selecionar o escalão mais alto cujo limite inferior <= base (progressivo por excesso)
+        $sel = $irtTable[0];
         $bracket = 1;
-        $irtRate = 0;
-        $parcelaAbater = 0;
-        
         foreach ($irtTable as $index => $escalao) {
-            if ($irtBase >= $escalao['min'] && $irtBase <= $escalao['max']) {
+            if ($irtBase >= $escalao['min']) {
+                $sel = $escalao;
                 $bracket = $index + 1;
-                $irtRate = $escalao['rate'];
-                $parcelaAbater = $escalao['deduction'];
-                break;
             }
         }
-        
-        // Calcular IRT: (Base × Taxa%) - Parcela a Abater
-        $irtAmount = ($irtBase * $irtRate / 100) - $parcelaAbater;
-        
-        // IRT não pode ser negativo
+
+        // IRT = parcela fixa + taxa × (base − limite inferior)
+        $irtAmount = $sel['fixed'] + ($sel['rate'] / 100) * ($irtBase - $sel['min']);
         $irtAmount = max(0, $irtAmount);
-        
+
         return [
             'irt_amount' => round($irtAmount, 2),
             'irt_base' => round($irtBase, 2),
-            'irt_rate' => $irtRate,
+            'irt_rate' => $sel['rate'],
             'bracket' => $bracket,
-            'parcela_abater' => $parcelaAbater,
+            'parcela_fixa' => $sel['fixed'],
         ];
     }
 }
@@ -273,20 +263,21 @@ if (!function_exists('getIRTBracketInfo')) {
      */
     function getIRTBracketInfo(int $bracket): array
     {
-        // Tabela IRT 2025 - Atualizada
+        // Tabela IRT Angola Grupo A (contínua) — igual a calculateIRT() e ao seeder
         $brackets = [
-            1 => ['min' => 0,       'max' => 100000,   'rate' => 0,  'deduction' => 0],
-            2 => ['min' => 100001,  'max' => 150000,   'rate' => 10, 'deduction' => 10000],
-            3 => ['min' => 150001,  'max' => 200000,   'rate' => 13, 'deduction' => 14500],
-            4 => ['min' => 200001,  'max' => 300000,   'rate' => 16, 'deduction' => 20000],
-            5 => ['min' => 300001,  'max' => 500000,   'rate' => 18, 'deduction' => 26000],
-            6 => ['min' => 500001,  'max' => 1000000,  'rate' => 19, 'deduction' => 31000],
-            7 => ['min' => 1000001, 'max' => 1500000,  'rate' => 20, 'deduction' => 41000],
-            8 => ['min' => 1500001, 'max' => 2000000,  'rate' => 21, 'deduction' => 56000],
-            9 => ['min' => 2000001, 'max' => 2500000,  'rate' => 22, 'deduction' => 76000],
-            10 => ['min' => 2500001, 'max' => null,    'rate' => 23, 'deduction' => 101000],
+            1  => ['min' => 0,        'max' => 150000,   'rate' => 0,    'fixed' => 0],
+            2  => ['min' => 150000,   'max' => 200000,   'rate' => 16,   'fixed' => 0],
+            3  => ['min' => 200000,   'max' => 300000,   'rate' => 18,   'fixed' => 8000],
+            4  => ['min' => 300000,   'max' => 500000,   'rate' => 19,   'fixed' => 26000],
+            5  => ['min' => 500000,   'max' => 1000000,  'rate' => 20,   'fixed' => 64000],
+            6  => ['min' => 1000000,  'max' => 1500000,  'rate' => 21,   'fixed' => 164000],
+            7  => ['min' => 1500000,  'max' => 2000000,  'rate' => 22,   'fixed' => 269000],
+            8  => ['min' => 2000000,  'max' => 2500000,  'rate' => 23,   'fixed' => 379000],
+            9  => ['min' => 2500000,  'max' => 5000000,  'rate' => 24,   'fixed' => 494000],
+            10 => ['min' => 5000000,  'max' => 10000000, 'rate' => 24.5, 'fixed' => 1094000],
+            11 => ['min' => 10000000, 'max' => null,     'rate' => 25,   'fixed' => 2319000],
         ];
-        
+
         return $brackets[$bracket] ?? $brackets[1];
     }
 }

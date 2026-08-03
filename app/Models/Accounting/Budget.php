@@ -4,8 +4,12 @@ namespace App\Models\Accounting;
 
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\BelongsToTenant;
+
 class Budget extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'tenant_id',
         'name',

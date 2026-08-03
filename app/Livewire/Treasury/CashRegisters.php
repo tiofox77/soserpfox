@@ -91,7 +91,7 @@ class CashRegisters extends Component
         $this->validate();
         
         $data = array_merge($this->form, [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'status' => 'closed', // Sempre inicia fechado
         ]);
         
@@ -171,7 +171,7 @@ class CashRegisters extends Component
     public function render()
     {
         $query = CashRegister::with('user')
-            ->where('tenant_id', auth()->user()->tenant_id);
+            ->where('tenant_id', activeTenantId());
         
         // Search
         if ($this->search) {
@@ -190,17 +190,17 @@ class CashRegisters extends Component
             ->orderBy('name')
             ->paginate($this->perPage);
         
-        $openCount = CashRegister::where('tenant_id', auth()->user()->tenant_id)
+        $openCount = CashRegister::where('tenant_id', activeTenantId())
             ->where('status', 'open')->count();
             
-        $closedCount = CashRegister::where('tenant_id', auth()->user()->tenant_id)
+        $closedCount = CashRegister::where('tenant_id', activeTenantId())
             ->where('status', 'closed')->count();
             
-        $totalBalance = CashRegister::where('tenant_id', auth()->user()->tenant_id)
+        $totalBalance = CashRegister::where('tenant_id', activeTenantId())
             ->where('status', 'open')
             ->sum('current_balance');
         
-        $users = User::where('tenant_id', auth()->user()->tenant_id)
+        $users = User::where('tenant_id', activeTenantId())
             ->orderBy('name')
             ->get();
         

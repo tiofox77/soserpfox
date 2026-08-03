@@ -74,34 +74,4 @@ class SalesInvoiceController extends Controller
         ]);
     }
     
-    /**
-     * Preview HTML Paginado (com header fixo, body paginado, footer dinâmico)
-     */
-    public function previewPaged($id)
-    {
-        $invoice = SalesInvoice::with(['client', 'items.product', 'warehouse', 'creator', 'creditNotes', 'series'])
-            ->where('tenant_id', activeTenantId())
-            ->findOrFail($id);
-        
-        $tenant = Tenant::find(activeTenantId());
-        
-        $bankAccounts = \App\Models\Treasury\Account::with('bank')
-            ->where('tenant_id', activeTenantId())
-            ->where('is_active', true)
-            ->where('show_on_invoice', true)
-            ->orderBy('invoice_display_order')
-            ->limit(4)
-            ->get();
-        
-        $qrCode = getAGTQRData($invoice, 80);
-        
-        return view('pdf.invoicing.document-paged', [
-            'document' => $invoice,
-            'documentType' => 'invoice',
-            'tenant' => $tenant,
-            'bankAccounts' => $bankAccounts,
-            'qrCode' => $qrCode,
-            'pdfRoute' => route('invoicing.sales.invoices.pdf', $id),
-        ]);
-    }
 }

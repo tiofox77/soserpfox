@@ -13,7 +13,7 @@ class SettingsManagement extends Component
     public function mount()
     {
         // Pré-carregar valores atuais para o wire:model funcionar
-        $settings = HRSetting::where('tenant_id', auth()->user()->tenant_id)
+        $settings = HRSetting::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->get();
 
@@ -35,7 +35,7 @@ class SettingsManagement extends Component
                 return;
             }
 
-            $setting = HRSetting::where('tenant_id', auth()->user()->tenant_id)
+            $setting = HRSetting::where('tenant_id', activeTenantId())
                 ->where('key', $key)
                 ->first();
 
@@ -83,7 +83,7 @@ class SettingsManagement extends Component
         try {
             $count = 0;
             foreach ($this->editingSettings as $key => $value) {
-                $setting = HRSetting::where('tenant_id', auth()->user()->tenant_id)
+                $setting = HRSetting::where('tenant_id', activeTenantId())
                     ->where('key', $key)
                     ->first();
 
@@ -121,7 +121,7 @@ class SettingsManagement extends Component
     public function resetToDefaults()
     {
         try {
-            $settings = HRSetting::where('tenant_id', auth()->user()->tenant_id)->get();
+            $settings = HRSetting::where('tenant_id', activeTenantId())->get();
             
             foreach ($settings as $setting) {
                 $setting->update(['value' => $setting->default_value]);
@@ -144,7 +144,7 @@ class SettingsManagement extends Component
 
     public function render()
     {
-        $query = HRSetting::where('tenant_id', auth()->user()->tenant_id)
+        $query = HRSetting::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->orderBy('category')
             ->orderBy('display_order');

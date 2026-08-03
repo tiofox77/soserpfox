@@ -44,7 +44,7 @@ class TicketsManagement extends Component
         // Processar imagens
         $imagePaths = [];
         if ($this->images && count($this->images) > 0) {
-            $tenantId = auth()->user()->tenant_id;
+            $tenantId = activeTenantId();
             $userId = auth()->id();
             $ticketNumber = 'TKT-' . str_pad(Ticket::count() + 1, 6, '0', STR_PAD_LEFT);
             
@@ -55,7 +55,7 @@ class TicketsManagement extends Component
         }
         
         $ticket = Ticket::create([
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'user_id' => auth()->id(),
             'ticket_number' => 'TKT-' . str_pad(Ticket::count() + 1, 6, '0', STR_PAD_LEFT),
             'subject' => $this->subject,
@@ -73,7 +73,7 @@ class TicketsManagement extends Component
     
     public function render()
     {
-        $tickets = Ticket::where('tenant_id', auth()->user()->tenant_id)
+        $tickets = Ticket::where('tenant_id', activeTenantId())
             ->where('user_id', auth()->id())
             ->latest()
             ->get();

@@ -54,12 +54,14 @@ class ProductBatches extends Component
 
     public function create()
     {
+        abort_unless(auth()->user()?->can('invoicing.product-batches.create'), 403, 'Sem permissão para criar lotes.');
         $this->resetForm();
         $this->showModal = true;
     }
 
     public function edit($id)
     {
+        abort_unless(auth()->user()?->can('invoicing.product-batches.edit'), 403, 'Sem permissão para editar lotes.');
         $batch = ProductBatch::findOrFail($id);
         
         $this->editingId = $id;
@@ -78,6 +80,11 @@ class ProductBatches extends Component
 
     public function save()
     {
+        abort_unless(
+            auth()->user()?->can('invoicing.product-batches.create') ||
+            auth()->user()?->can('invoicing.product-batches.edit'),
+            403, 'Sem permissão para guardar lote.'
+        );
         $this->validate();
         
         try {
@@ -118,6 +125,7 @@ class ProductBatches extends Component
 
     public function delete($id)
     {
+        abort_unless(auth()->user()?->can('invoicing.product-batches.delete'), 403, 'Sem permissão para excluir lotes.');
         try {
             $batch = ProductBatch::findOrFail($id);
             

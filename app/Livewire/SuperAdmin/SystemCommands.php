@@ -57,18 +57,39 @@ class SystemCommands extends Component
     /**
      * Carregar seeders disponíveis (incluindo subpastas)
      */
+    /**
+     * Seeders que NÃO devem aparecer na página: dados de teste/demo e ficheiros
+     * que não são realmente seeders. Mantém a lista limpa e só com o necessário.
+     */
+    private const EXCLUDED_SEEDERS = [
+        'EventTestSeeder',
+        'InvoicingTestSeeder',
+        'MultiTenantTestSeeder',
+        'WorkshopTestDataSeeder',
+        'imported_accounts', // ficheiro de dados, não é um Seeder
+    ];
+
+    private function isExcludedSeeder(string $className): bool
+    {
+        return in_array($className, self::EXCLUDED_SEEDERS, true)
+            || str_contains($className, 'Test');
+    }
+
     private function loadAvailableSeeders()
     {
         $seederPath = database_path('seeders');
         $seeders = [];
         $categories = ['all' => 'Todos'];
-        
+
         if (File::isDirectory($seederPath)) {
             // Root seeders
             foreach (File::files($seederPath) as $file) {
                 $filename = $file->getFilename();
                 if (str_ends_with($filename, '.php') && $filename !== 'DatabaseSeeder.php') {
                     $className = str_replace('.php', '', $filename);
+                    if ($this->isExcludedSeeder($className)) {
+                        continue;
+                    }
                     $seeders[] = [
                         'class' => $className,
                         'namespace' => "Database\\Seeders\\{$className}",
@@ -79,16 +100,20 @@ class SystemCommands extends Component
                 }
             }
             $categories['Geral'] = 'Geral';
-            
+
             // Subdirectory seeders
             foreach (File::directories($seederPath) as $dir) {
                 $dirName = basename($dir);
-                $categories[$dirName] = $dirName;
-                
+                $hasSeeder = false;
+
                 foreach (File::files($dir) as $file) {
                     $filename = $file->getFilename();
                     if (str_ends_with($filename, '.php')) {
                         $className = str_replace('.php', '', $filename);
+                        if ($this->isExcludedSeeder($className)) {
+                            continue;
+                        }
+                        $hasSeeder = true;
                         $seeders[] = [
                             'class' => $className,
                             'namespace' => "Database\\Seeders\\{$dirName}\\{$className}",
@@ -97,6 +122,9 @@ class SystemCommands extends Component
                             'path' => $file->getPathname(),
                         ];
                     }
+                }
+                if ($hasSeeder) {
+                    $categories[$dirName] = $dirName;
                 }
             }
         }
@@ -360,22 +388,6 @@ class SystemCommands extends Component
                         'label' => 'Modo Teste (Dry-Run) — Simula sem alterar nada',
                         'type' => 'checkbox',
                         'required' => false,
-                    ],
-                ],
-            ],
-            'patch_deploy_dryrun' => [
-                'name' => 'Simular Patch (Dry-Run)',
-                'description' => 'Ver o que o patch iria fazer sem executar nada — seguro para usar',
-                'command' => 'patch:deploy',
-                'icon' => 'search',
-                'color' => 'amber',
-                'group' => 'Deploy',
-                'params' => [
-                    'dry-run' => [
-                        'label' => 'Dry-Run activado',
-                        'type' => 'hidden',
-                        'required' => false,
-                        'default' => true,
                     ],
                 ],
             ],

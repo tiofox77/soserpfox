@@ -42,6 +42,7 @@ class SalesProforma extends Model
     protected $casts = [
         'proforma_date' => 'date',
         'valid_until' => 'date',
+        'system_entry_date' => 'datetime',   // sem cast vinha string da BD ao editar
         'is_service' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
@@ -164,6 +165,11 @@ class SalesProforma extends Model
         ]);
 
         foreach ($this->items as $item) {
+            // Campos fiscais AGT: a proforma pode não os ter (colunas recentes) e
+            // uma linha a 0% sem motivo de isenção é rejeitada pela AGT.
+            $rate = (float) ($item->tax_rate ?? 0);
+            $tx = \App\Services\Invoicing\TaxResolver::forProductId($item->product_id, $this->tenant_id);
+
             SalesInvoiceItem::create([
                 'sales_invoice_id' => $invoice->id,
                 'product_id' => $item->product_id,
@@ -176,10 +182,17 @@ class SalesProforma extends Model
                 'discount_amount' => $item->discount_amount,
                 'subtotal' => $item->subtotal,
                 'tax_rate_id' => $item->tax_rate_id,
-                'tax_rate' => $item->tax_rate,
+                'tax_rate' => $rate,
                 'tax_amount' => $item->tax_amount,
                 'total' => $item->total,
                 'order' => $item->order,
+                // AGT DS.120
+                'tax_country_region'   => $item->tax_country_region ?? 'AO',
+                'tax_code'             => $item->tax_code ?: ($rate > 0 ? 'NOR' : 'ISE'),
+                'tax_exemption_code'   => $rate > 0 ? null
+                    : ($item->tax_exemption_code ?: $tx['exemption_code']),
+                'tax_exemption_reason' => $rate > 0 ? null
+                    : ($item->tax_exemption_reason ?: $tx['exemption_reason']),
             ]);
         }
 

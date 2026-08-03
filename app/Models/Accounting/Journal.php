@@ -7,8 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\BelongsToTenant;
+
 class Journal extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'accounting_journals';
     
     protected $fillable = [

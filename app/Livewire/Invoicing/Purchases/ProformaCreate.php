@@ -478,7 +478,7 @@ class ProformaCreate extends Component
             if ($item) {
                 Cart::session($this->cartInstance)->update($productId, [
                     'attributes' => [
-                        'tax_rate' => $item->attributes['tax_rate'] ?? 14,
+                        'tax_rate' => $item->attributes['tax_rate'] ?? 0,
                         'discount_percent' => $discountPercent,
                         'unit' => $item->attributes['unit'] ?? 'UN',
                     ]
@@ -585,7 +585,7 @@ class ProformaCreate extends Component
                 $descontoAmount = $valorBrutoLinha * ($descontoPercent / 100);
                 $subtotal = $valorBrutoLinha;
                 $valorAposDesconto = $valorBrutoLinha - $descontoAmount;
-                $taxAmount = $valorAposDesconto * (($item->attributes['tax_rate'] ?? 14) / 100);
+                $taxAmount = $valorAposDesconto * (($item->attributes['tax_rate'] ?? 0) / 100);
                 $total = $valorAposDesconto + $taxAmount;
                 
                 // Acumular totais
@@ -602,7 +602,7 @@ class ProformaCreate extends Component
                     'discount_percent' => $descontoPercent,
                     'discount_amount' => $descontoAmount,
                     'subtotal' => $subtotal,
-                    'tax_rate' => $item->attributes['tax_rate'] ?? 14,
+                    'tax_rate' => $item->attributes['tax_rate'] ?? 0,
                     'tax_amount' => $taxAmount,
                     'total' => $total,
                     'order' => ++$order,

@@ -5,8 +5,12 @@ namespace App\Models\Accounting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\BelongsToTenant;
+
 class Withholding extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'accounting_withholdings';
     
     protected $fillable = [

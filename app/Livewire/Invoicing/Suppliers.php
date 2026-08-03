@@ -3,6 +3,8 @@
 namespace App\Livewire\Invoicing;
 
 use App\Models\Supplier;
+use App\Models\Invoicing\PurchaseInvoice;
+use App\Models\Invoicing\Receipt;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
@@ -23,6 +25,14 @@ class Suppliers extends Component
     public $showDeleteModal = false;
     public $deletingSupplierId = null;
     public $deletingSupplierName = '';
+    
+    // View details modal
+    public $showViewModal = false;
+    public $viewingSupplier = null;
+    public $supplierStats = [];
+    public $supplierInvoices = [];
+    public $supplierTopProducts = [];
+    public $supplierPurchaseFrequency = [];
     
     // Filters
     public $typeFilter = '';
@@ -80,7 +90,7 @@ class Suppliers extends Component
     {
         $supplier = Supplier::findOrFail($id);
         
-        if ($supplier->tenant_id !== activeTenantId()) {
+        if ((int) $supplier->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -122,7 +132,7 @@ class Suppliers extends Component
         if ($this->editingSupplierId) {
             $supplier = Supplier::findOrFail($this->editingSupplierId);
             
-            if ($supplier->tenant_id !== activeTenantId()) {
+            if ((int) $supplier->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -159,11 +169,107 @@ class Suppliers extends Component
         $this->closeModal();
     }
 
+    public function viewSupplier($id)
+    {
+        $supplier = Supplier::where('tenant_id', activeTenantId())->findOrFail($id);
+        
+        $tenantId = activeTenantId();
+        
+        // Estatisticas gerais
+        $invoicesQ = PurchaseInvoice::where('tenant_id', $tenantId)->where('supplier_id', $id);
+        $totalInvoices = (clone $invoicesQ)->count();
+        $totalRevenue = (clone $invoicesQ)->sum('total');
+        $totalPaid = (clone $invoicesQ)->sum('paid_amount');
+        $totalPending = max(0, $totalRevenue - $totalPaid);
+        $lastPurchase = (clone $invoicesQ)->latest('invoice_date')->value('invoice_date');
+        $firstPurchase = (clone $invoicesQ)->oldest('invoice_date')->value('invoice_date');
+        $avgTicket = $totalInvoices > 0 ? $totalRevenue / $totalInvoices : 0;
+        
+        // Frequencia de compra
+        $monthlyFreq = (clone $invoicesQ)
+            ->selectRaw("DATE_FORMAT(invoice_date, '%Y-%m') as period, COUNT(*) as count, SUM(total) as total")
+            ->groupBy('period')
+            ->orderByDesc('period')
+            ->limit(12)
+            ->get()
+            ->reverse()
+            ->values();
+        
+        // Frequencia em dias entre compras
+        $purchaseDates = (clone $invoicesQ)->orderBy('invoice_date')->pluck('invoice_date');
+        $avgDaysBetween = 0;
+        if ($purchaseDates->count() > 1) {
+            $diffs = [];
+            for ($i = 1; $i < $purchaseDates->count(); $i++) {
+                $diffs[] = \Carbon\Carbon::parse($purchaseDates[$i])->diffInDays(\Carbon\Carbon::parse($purchaseDates[$i - 1]));
+            }
+            $avgDaysBetween = count($diffs) > 0 ? round(array_sum($diffs) / count($diffs), 1) : 0;
+        }
+        
+        // Produtos mais comprados ao fornecedor
+        $topProducts = \DB::table('invoicing_purchase_invoice_items as items')
+            ->join('invoicing_purchase_invoices as inv', 'inv.id', '=', 'items.purchase_invoice_id')
+            ->leftJoin('invoicing_products as products', 'products.id', '=', 'items.product_id')
+            ->where('inv.tenant_id', $tenantId)
+            ->where('inv.supplier_id', $id)
+            ->selectRaw('products.id, products.name, products.sku, SUM(items.quantity) as total_qty, SUM(items.subtotal) as total_value, COUNT(DISTINCT inv.id) as invoices_count')
+            ->groupBy('products.id', 'products.name', 'products.sku')
+            ->orderByDesc('total_qty')
+            ->limit(10)
+            ->get();
+        
+        // Recibos / pagamentos ao fornecedor
+        $receiptsTotal = Receipt::where('tenant_id', $tenantId)->where('supplier_id', $id)->sum('amount_paid');
+        $receiptsCount = Receipt::where('tenant_id', $tenantId)->where('supplier_id', $id)->count();
+        
+        // Lista das ultimas faturas (extrato)
+        $recentInvoices = (clone $invoicesQ)
+            ->orderByDesc('invoice_date')
+            ->limit(20)
+            ->get(['id', 'invoice_number', 'invoice_date', 'due_date', 'total', 'paid_amount', 'status'])
+            ->map(function ($inv) {
+                return [
+                    'id' => $inv->id,
+                    'invoice_number' => $inv->invoice_number,
+                    'invoice_date' => $inv->invoice_date?->format('d/m/Y'),
+                    'due_date' => $inv->due_date?->format('d/m/Y'),
+                    'total' => (float) $inv->total,
+                    'paid_amount' => (float) ($inv->paid_amount ?? 0),
+                    'balance' => (float) ($inv->total - ($inv->paid_amount ?? 0)),
+                    'status' => $inv->status,
+                ];
+            })->toArray();
+        
+        $this->viewingSupplier = $supplier->toArray();
+        $this->supplierStats = [
+            'total_invoices' => $totalInvoices,
+            'total_revenue' => (float) $totalRevenue,
+            'total_paid' => (float) $totalPaid,
+            'total_pending' => (float) $totalPending,
+            'avg_ticket' => (float) $avgTicket,
+            'first_purchase' => $firstPurchase ? \Carbon\Carbon::parse($firstPurchase)->format('d/m/Y') : null,
+            'last_purchase' => $lastPurchase ? \Carbon\Carbon::parse($lastPurchase)->format('d/m/Y') : null,
+            'avg_days_between' => $avgDaysBetween,
+            'receipts_total' => (float) $receiptsTotal,
+            'receipts_count' => $receiptsCount,
+        ];
+        $this->supplierInvoices = $recentInvoices;
+        $this->supplierTopProducts = $topProducts->map(fn($p) => (array) $p)->toArray();
+        $this->supplierPurchaseFrequency = $monthlyFreq->map(fn($p) => (array) $p)->toArray();
+        $this->showViewModal = true;
+    }
+    
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->reset(['viewingSupplier', 'supplierStats', 'supplierInvoices', 'supplierTopProducts', 'supplierPurchaseFrequency']);
+    }
+
     public function confirmDelete($id)
     {
         $supplier = Supplier::findOrFail($id);
         
-        if ($supplier->tenant_id !== activeTenantId()) {
+        if ((int) $supplier->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -177,7 +283,7 @@ class Suppliers extends Component
         try {
             $supplier = Supplier::findOrFail($this->deletingSupplierId);
             
-            if ($supplier->tenant_id !== activeTenantId()) {
+            if ((int) $supplier->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -190,7 +296,7 @@ class Suppliers extends Component
             $supplier->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingSupplierId', 'deletingSupplierName']);
-            $this->dispatch('success', message: 'Fornecedor excluído com sucesso!');
+            $this->dispatch('success', message: 'Fornecedor excluÃ­do com sucesso!');
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Erro ao excluir fornecedor!');
         }

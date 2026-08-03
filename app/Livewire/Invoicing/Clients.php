@@ -3,6 +3,9 @@
 namespace App\Livewire\Invoicing;
 
 use App\Models\Client;
+use App\Models\Invoicing\SalesInvoice;
+use App\Models\Invoicing\Receipt;
+use App\Models\Invoicing\CreditNote;
 use App\Rules\ValidateNIF;
 use App\Services\NIFLookupService;
 use Livewire\Component;
@@ -25,6 +28,14 @@ class Clients extends Component
     public $showDeleteModal = false;
     public $deletingClientId = null;
     public $deletingClientName = '';
+    
+    // View details modal
+    public $showViewModal = false;
+    public $viewingClient = null;
+    public $clientStats = [];
+    public $clientInvoices = [];
+    public $clientTopProducts = [];
+    public $clientPurchaseFrequency = [];
     
     // Filters
     public $typeFilter = '';
@@ -120,7 +131,7 @@ class Clients extends Component
     public function create()
     {
         if (!auth()->user()->can('invoicing.clients.create')) {
-            $this->dispatch('error', message: 'Sem permissão para criar clientes');
+            $this->dispatch('error', message: 'Sem permissÃ£o para criar clientes');
             return;
         }
         
@@ -131,13 +142,13 @@ class Clients extends Component
     public function edit($id)
     {
         if (!auth()->user()->can('invoicing.clients.edit')) {
-            $this->dispatch('error', message: 'Sem permissão para editar clientes');
+            $this->dispatch('error', message: 'Sem permissÃ£o para editar clientes');
             return;
         }
         
         $client = Client::findOrFail($id);
         
-        if ($client->tenant_id !== activeTenantId()) {
+        if ((int) $client->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -159,15 +170,15 @@ class Clients extends Component
 
     public function save()
     {
-        // Verificar permissão apropriada
+        // Verificar permissÃ£o apropriada
         if ($this->editingClientId) {
             if (!auth()->user()->can('invoicing.clients.edit')) {
-                $this->dispatch('error', message: 'Sem permissão para editar clientes');
+                $this->dispatch('error', message: 'Sem permissÃ£o para editar clientes');
                 return;
             }
         } else {
             if (!auth()->user()->can('invoicing.clients.create')) {
-                $this->dispatch('error', message: 'Sem permissão para criar clientes');
+                $this->dispatch('error', message: 'Sem permissÃ£o para criar clientes');
                 return;
             }
         }
@@ -192,7 +203,7 @@ class Clients extends Component
         if ($this->editingClientId) {
             $client = Client::findOrFail($this->editingClientId);
             
-            if ($client->tenant_id !== activeTenantId()) {
+            if ((int) $client->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -229,11 +240,113 @@ class Clients extends Component
         $this->closeModal();
     }
 
+    public function viewClient($id)
+    {
+        $client = Client::where('tenant_id', activeTenantId())->findOrFail($id);
+        
+        $tenantId = activeTenantId();
+        
+        // Estatisticas gerais
+        $invoicesQ = SalesInvoice::where('tenant_id', $tenantId)->where('client_id', $id);
+        $totalInvoices = (clone $invoicesQ)->count();
+        $totalRevenue = (clone $invoicesQ)->sum('total');
+        $totalPaid = (clone $invoicesQ)->sum('paid_amount');
+        $totalPending = max(0, $totalRevenue - $totalPaid);
+        $lastPurchase = (clone $invoicesQ)->latest('invoice_date')->value('invoice_date');
+        $firstPurchase = (clone $invoicesQ)->oldest('invoice_date')->value('invoice_date');
+        $avgTicket = $totalInvoices > 0 ? $totalRevenue / $totalInvoices : 0;
+        
+        // Frequencia de compra
+        $monthlyFreq = (clone $invoicesQ)
+            ->selectRaw("DATE_FORMAT(invoice_date, '%Y-%m') as period, COUNT(*) as count, SUM(total) as total")
+            ->groupBy('period')
+            ->orderByDesc('period')
+            ->limit(12)
+            ->get()
+            ->reverse()
+            ->values();
+        
+        // Frequencia em dias entre compras
+        $purchaseDates = (clone $invoicesQ)->orderBy('invoice_date')->pluck('invoice_date');
+        $avgDaysBetween = 0;
+        if ($purchaseDates->count() > 1) {
+            $diffs = [];
+            for ($i = 1; $i < $purchaseDates->count(); $i++) {
+                $diffs[] = \Carbon\Carbon::parse($purchaseDates[$i])->diffInDays(\Carbon\Carbon::parse($purchaseDates[$i - 1]));
+            }
+            $avgDaysBetween = count($diffs) > 0 ? round(array_sum($diffs) / count($diffs), 1) : 0;
+        }
+        
+        // Produtos mais comprados
+        $topProducts = \DB::table('invoicing_sales_invoice_items as items')
+            ->join('invoicing_sales_invoices as inv', 'inv.id', '=', 'items.sales_invoice_id')
+            ->leftJoin('invoicing_products as products', 'products.id', '=', 'items.product_id')
+            ->where('inv.tenant_id', $tenantId)
+            ->where('inv.client_id', $id)
+            ->selectRaw('products.id, products.name, products.sku, SUM(items.quantity) as total_qty, SUM(items.subtotal) as total_value, COUNT(DISTINCT inv.id) as invoices_count')
+            ->groupBy('products.id', 'products.name', 'products.sku')
+            ->orderByDesc('total_qty')
+            ->limit(10)
+            ->get();
+        
+        // Notas de credito
+        $creditNotesTotal = CreditNote::where('tenant_id', $tenantId)->where('client_id', $id)->sum('total');
+        $creditNotesCount = CreditNote::where('tenant_id', $tenantId)->where('client_id', $id)->count();
+        
+        // Recibos
+        $receiptsTotal = Receipt::where('tenant_id', $tenantId)->where('client_id', $id)->sum('amount_paid');
+        $receiptsCount = Receipt::where('tenant_id', $tenantId)->where('client_id', $id)->count();
+        
+        // Lista das ultimas faturas (extrato)
+        $recentInvoices = (clone $invoicesQ)
+            ->orderByDesc('invoice_date')
+            ->limit(20)
+            ->get(['id', 'invoice_number', 'invoice_date', 'due_date', 'total', 'paid_amount', 'status'])
+            ->map(function ($inv) {
+                return [
+                    'id' => $inv->id,
+                    'invoice_number' => $inv->invoice_number,
+                    'invoice_date' => $inv->invoice_date?->format('d/m/Y'),
+                    'due_date' => $inv->due_date?->format('d/m/Y'),
+                    'total' => (float) $inv->total,
+                    'paid_amount' => (float) ($inv->paid_amount ?? 0),
+                    'balance' => (float) ($inv->total - ($inv->paid_amount ?? 0)),
+                    'status' => $inv->status,
+                ];
+            })->toArray();
+        
+        $this->viewingClient = $client->toArray();
+        $this->clientStats = [
+            'total_invoices' => $totalInvoices,
+            'total_revenue' => (float) $totalRevenue,
+            'total_paid' => (float) $totalPaid,
+            'total_pending' => (float) $totalPending,
+            'avg_ticket' => (float) $avgTicket,
+            'first_purchase' => $firstPurchase ? \Carbon\Carbon::parse($firstPurchase)->format('d/m/Y') : null,
+            'last_purchase' => $lastPurchase ? \Carbon\Carbon::parse($lastPurchase)->format('d/m/Y') : null,
+            'avg_days_between' => $avgDaysBetween,
+            'credit_notes_total' => (float) $creditNotesTotal,
+            'credit_notes_count' => $creditNotesCount,
+            'receipts_total' => (float) $receiptsTotal,
+            'receipts_count' => $receiptsCount,
+        ];
+        $this->clientInvoices = $recentInvoices;
+        $this->clientTopProducts = $topProducts->map(fn($p) => (array) $p)->toArray();
+        $this->clientPurchaseFrequency = $monthlyFreq->map(fn($p) => (array) $p)->toArray();
+        $this->showViewModal = true;
+    }
+    
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->reset(['viewingClient', 'clientStats', 'clientInvoices', 'clientTopProducts', 'clientPurchaseFrequency']);
+    }
+
     public function confirmDelete($id)
     {
         $client = Client::findOrFail($id);
         
-        if ($client->tenant_id !== activeTenantId()) {
+        if ((int) $client->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -245,14 +358,14 @@ class Clients extends Component
     public function delete()
     {
         if (!auth()->user()->can('invoicing.clients.delete')) {
-            $this->dispatch('error', message: 'Sem permissão para eliminar clientes');
+            $this->dispatch('error', message: 'Sem permissÃ£o para eliminar clientes');
             return;
         }
         
         try {
             $client = Client::findOrFail($this->deletingClientId);
             
-            if ($client->tenant_id !== activeTenantId()) {
+            if ((int) $client->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -265,7 +378,7 @@ class Clients extends Component
             $client->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingClientId', 'deletingClientName']);
-            $this->dispatch('success', message: 'Cliente excluído com sucesso!');
+            $this->dispatch('success', message: 'Cliente excluÃ­do com sucesso!');
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Erro ao excluir cliente!');
         }
@@ -316,7 +429,7 @@ class Clients extends Component
             ->latest()
             ->paginate($this->perPage);
 
-        // Obter cidades únicas para o filtro
+        // Obter cidades Ãºnicas para o filtro
         $cities = Client::where('tenant_id', activeTenantId())
             ->whereNotNull('city')
             ->distinct()

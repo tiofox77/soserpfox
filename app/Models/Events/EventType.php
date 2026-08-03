@@ -3,9 +3,12 @@
 namespace App\Models\Events;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\BelongsToTenant;
 
 class EventType extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'events_types';
     
     protected $fillable = [

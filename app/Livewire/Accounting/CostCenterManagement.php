@@ -19,7 +19,7 @@ class CostCenterManagement extends Component
     
     public function edit($id)
     {
-        $center = CostCenter::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $center = CostCenter::where('tenant_id', activeTenantId())->findOrFail($id);
         $this->centerId = $center->id;
         $this->code = $center->code;
         $this->name = $center->name;
@@ -39,7 +39,7 @@ class CostCenterManagement extends Component
         
         try {
             $data = [
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'code' => $this->code,
                 'name' => $this->name,
                 'description' => $this->description,
@@ -49,7 +49,7 @@ class CostCenterManagement extends Component
             ];
             
             if ($this->centerId) {
-                $center = CostCenter::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->centerId);
+                $center = CostCenter::where('tenant_id', activeTenantId())->findOrFail($this->centerId);
                 $center->update($data);
                 session()->flash('success', 'Centro de custo atualizado com sucesso!');
             } else {
@@ -67,7 +67,7 @@ class CostCenterManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $costCenters = CostCenter::with('children')
             ->where('tenant_id', $tenantId)

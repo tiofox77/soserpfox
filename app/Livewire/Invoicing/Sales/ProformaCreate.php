@@ -99,7 +99,7 @@ class ProformaCreate extends Component
 
     protected $rules = [
         'client_id' => 'required|exists:invoicing_clients,id',
-        'warehouse_id' => 'required|exists:invoicing_warehouses,id',
+        'warehouse_id' => 'nullable|exists:invoicing_warehouses,id',
         'proforma_date' => 'required|date',
         'valid_until' => 'nullable|date|after:proforma_date',
         'discount_amount' => 'nullable|numeric|min:0',
@@ -108,6 +108,21 @@ class ProformaCreate extends Component
         'notes' => 'nullable|string|max:1000',
         'terms' => 'nullable|string|max:1000',
     ];
+
+    /**
+     * Verifica se o carrinho contém produtos físicos (não serviços)
+     */
+    public function hasPhysicalProducts(): bool
+    {
+        $cartItems = Cart::session($this->cartInstance)->getContent();
+        foreach ($cartItems as $item) {
+            $type = $item->attributes['type'] ?? 'produto';
+            if ($type !== 'servico') {
+                return true;
+            }
+        }
+        return false;
+    }
     
     public function updated($propertyName)
     {
@@ -216,15 +231,7 @@ class ProformaCreate extends Component
 
     public function render()
     {
-        // Get all clients first if we have a selected client
-        $allClients = collect();
-        if ($this->client_id && !$this->searchClient) {
-            $allClients = Client::where('tenant_id', activeTenantId())
-                ->where('is_active', true)
-                ->get();
-        }
-        
-        // Get clients with search filter
+        // Get clients - always load (with optional search filter)
         $clientsQuery = Client::where('tenant_id', activeTenantId())
             ->where('is_active', true);
             
@@ -236,7 +243,7 @@ class ProformaCreate extends Component
             });
         }
         
-        $clients = $this->searchClient ? $clientsQuery->orderBy('name')->limit(50)->get() : $allClients;
+        $clients = $clientsQuery->orderBy('name')->limit(50)->get();
 
         $warehouses = Warehouse::where('tenant_id', activeTenantId())
             ->where('is_active', true)
@@ -366,12 +373,9 @@ class ProformaCreate extends Component
                 'message' => 'Quantidade incrementada: ' . $product->name
             ]);
         } else {
-            // Determinar taxa de IVA baseado no produto
-            $taxRate = 0;
-            if ($product->tax_type === 'iva' && $product->taxRate) {
-                $taxRate = $product->taxRate->rate;
-            }
-            
+            // Imposto pela fonte única (regime do tenant + produto)
+            $tx = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
+
             // Adiciona novo item
             Cart::session($this->cartInstance)->add([
                 'id' => $product->id,
@@ -379,17 +383,17 @@ class ProformaCreate extends Component
                 'price' => $product->price,
                 'quantity' => 1,
                 'attributes' => [
-                    'tax_rate' => $taxRate,
+                    'tax_rate' => $tx['rate'],
                     'discount_percent' => 0,
                     'unit' => $product->unit ?? 'UN',
                     'type' => $product->type ?? 'produto',
-                    'tax_type' => $product->tax_type ?? 'iva',
-                    'exemption_reason' => $product->exemption_reason ?? null,
+                    'tax_type' => $tx['type'],
+                    'exemption_reason' => $tx['exemption_code'],
                 ]
             ]);
             
             $typeLabel = $product->type === 'servico' ? 'Serviço' : 'Produto';
-            $message = $typeLabel . ' adicionado: ' . $product->name . ' (IVA: ' . $taxRate . '%)';
+            $message = $typeLabel . ' adicionado: ' . $product->name . ' (IVA: ' . $tx['rate'] . '%)';
             
             // Se rastreia lotes, adicionar info
             if ($product->track_batches) {
@@ -505,12 +509,15 @@ class ProformaCreate extends Component
             // Atualizar atributos
             $item = Cart::session($this->cartInstance)->get($productId);
             if ($item) {
+                // MERGE (não substituir): substituir os attributes deitava fora
+                // tax_type e exemption_reason, e a linha perdia o motivo de isenção.
+                $attrs = is_array($item->attributes) ? $item->attributes : (array) $item->attributes;
                 Cart::session($this->cartInstance)->update($productId, [
-                    'attributes' => [
-                        'tax_rate' => $item->attributes['tax_rate'] ?? 14,
+                    'attributes' => array_merge($attrs, [
+                        'tax_rate' => $attrs['tax_rate'] ?? 0,
                         'discount_percent' => $discountPercent,
-                        'unit' => $item->attributes['unit'] ?? 'UN',
-                    ]
+                        'unit' => $attrs['unit'] ?? 'UN',
+                    ])
                 ]);
             }
         }
@@ -567,6 +574,15 @@ class ProformaCreate extends Component
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Adicione pelo menos um produto à proforma.'
+            ]);
+            return;
+        }
+
+        // Armazém obrigatório apenas se existem produtos físicos (não serviços)
+        if ($this->hasPhysicalProducts() && empty($this->warehouse_id)) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Selecione um armazém — existem produtos físicos no documento.'
             ]);
             return;
         }
@@ -651,7 +667,7 @@ class ProformaCreate extends Component
                 $descontoAmount = $valorBrutoLinha * ($descontoPercent / 100);
                 $subtotal = $valorBrutoLinha;
                 $valorAposDesconto = $valorBrutoLinha - $descontoAmount;
-                $taxAmount = $valorAposDesconto * (($item->attributes['tax_rate'] ?? 14) / 100);
+                $taxAmount = $valorAposDesconto * (($item->attributes["tax_rate"] ?? 0) / 100);
                 $total = $valorAposDesconto + $taxAmount;
                 
                 // Acumular totais
@@ -668,10 +684,18 @@ class ProformaCreate extends Component
                     'discount_percent' => $descontoPercent,
                     'discount_amount' => $descontoAmount,
                     'subtotal' => $subtotal,
-                    'tax_rate' => $item->attributes['tax_rate'] ?? 14,
+                    'tax_rate' => $item->attributes['tax_rate'] ?? 0,
                     'tax_amount' => $taxAmount,
                     'total' => $total,
                     'order' => ++$order,
+                    // Persistir os campos AGT já na proforma, para a conversão em
+                    // fatura não perder o motivo de isenção.
+                    'tax_country_region'   => 'AO',
+                    'tax_code'             => ($item->attributes['tax_rate'] ?? 0) > 0 ? 'NOR' : 'ISE',
+                    'tax_exemption_code'   => ($item->attributes['tax_rate'] ?? 0) > 0 ? null
+                        : \App\Models\Product::normalizeExemptionCode($item->attributes['exemption_reason'] ?? null),
+                    'tax_exemption_reason' => ($item->attributes['tax_rate'] ?? 0) > 0 ? null
+                        : \App\Models\Product::exemptionReasonText($item->attributes['exemption_reason'] ?? null),
                 ]);
             }
 

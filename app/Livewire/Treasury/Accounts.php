@@ -121,7 +121,7 @@ class Accounts extends Component
         
         // Verificar limite de 4 contas na fatura
         if ($this->form['show_on_invoice']) {
-            $currentCount = Account::where('tenant_id', auth()->user()->tenant_id)
+            $currentCount = Account::where('tenant_id', activeTenantId())
                 ->where('show_on_invoice', true)
                 ->when($this->editMode, fn($q) => $q->where('id', '!=', $this->accountId))
                 ->count();
@@ -133,7 +133,7 @@ class Accounts extends Component
             
             // Se não definiu ordem, pegar a próxima disponível
             if (!$this->form['invoice_display_order']) {
-                $maxOrder = Account::where('tenant_id', auth()->user()->tenant_id)
+                $maxOrder = Account::where('tenant_id', activeTenantId())
                     ->where('show_on_invoice', true)
                     ->max('invoice_display_order');
                 $this->form['invoice_display_order'] = ($maxOrder ?? 0) + 1;
@@ -144,12 +144,12 @@ class Accounts extends Component
         }
         
         $data = array_merge($this->form, [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
         ]);
         
         // Se está marcando como padrão, desmarcar outras contas da mesma moeda
         if ($this->form['is_default']) {
-            Account::where('tenant_id', auth()->user()->tenant_id)
+            Account::where('tenant_id', activeTenantId())
                 ->where('currency', $this->form['currency'])
                 ->update(['is_default' => false]);
         }
@@ -218,7 +218,7 @@ class Accounts extends Component
     public function render()
     {
         $query = Account::with('bank')
-            ->where('tenant_id', auth()->user()->tenant_id);
+            ->where('tenant_id', activeTenantId());
         
         // Search
         if ($this->search) {
@@ -238,15 +238,15 @@ class Accounts extends Component
             ->orderBy('account_name')
             ->paginate($this->perPage);
         
-        $activeCount = Account::where('tenant_id', auth()->user()->tenant_id)
+        $activeCount = Account::where('tenant_id', activeTenantId())
             ->where('is_active', true)->count();
             
-        $totalBalanceAOA = Account::where('tenant_id', auth()->user()->tenant_id)
+        $totalBalanceAOA = Account::where('tenant_id', activeTenantId())
             ->where('currency', 'AOA')
             ->where('is_active', true)
             ->sum('current_balance');
             
-        $totalBalanceUSD = Account::where('tenant_id', auth()->user()->tenant_id)
+        $totalBalanceUSD = Account::where('tenant_id', activeTenantId())
             ->where('currency', 'USD')
             ->where('is_active', true)
             ->sum('current_balance');

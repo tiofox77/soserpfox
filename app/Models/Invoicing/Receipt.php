@@ -18,6 +18,8 @@ class Receipt extends Model
 
     protected $fillable = [
         'tenant_id',
+        'series_id',
+        'atcud',
         'receipt_number',
         'type',
         'invoice_id',
@@ -35,6 +37,15 @@ class Receipt extends Model
         'hash_previous',
         'hash_control',
         'created_by',
+        'jws_document_signature',
+        'agt_status',
+        'agt_reference',
+        'agt_request_id',
+        'agt_submission_uuid',
+        'agt_submitted_at',
+        'agt_validated_at',
+        'eac_code',
+        'document_status_code',
     ];
 
     protected $casts = [
@@ -107,7 +118,23 @@ class Receipt extends Model
 
         static::creating(function ($receipt) {
             if (empty($receipt->receipt_number)) {
-                $receipt->receipt_number = self::generateReceiptNumber($receipt->type);
+                $receipt->receipt_number = self::generateReceiptNumber(
+                    $receipt->type,
+                    (int) $receipt->tenant_id,
+                    $receipt
+                );
+            }
+            if ($receipt->series_id) {
+                $series = InvoicingSeries::getIssuanceSeries(
+                    (int) $receipt->tenant_id,
+                    'receipt',
+                    (int) $receipt->series_id
+                );
+                if ($series->isAGTRegistered() && empty($receipt->atcud)) {
+                    $receipt->atcud = $series->generateATCUD(
+                        $series->nextSequentialFromDocumentNumber($receipt->receipt_number)
+                    );
+                }
             }
 
             // Definir remaining_amount igual ao amount inicial
@@ -125,12 +152,29 @@ class Receipt extends Model
     }
 
     // Gerar número de recibo
-    public static function generateReceiptNumber($type = 'sale')
+    public static function generateReceiptNumber($type = 'sale', ?int $tenantId = null, ?self $receipt = null)
     {
-        $prefix = $type === 'sale' ? 'RV' : 'RC'; // RV = Recibo Venda, RC = Recibo Compra
+        $tenantId = $tenantId ?: (int) activeTenantId();
+        if ($type === 'sale') {
+            $series = InvoicingSeries::getIssuanceSeries($tenantId, 'receipt');
+            if ($series) {
+                if ($receipt && empty($receipt->series_id)) {
+                    $receipt->series_id = $series->id;
+                }
+                $number = $series->getNextNumber();
+                if ($receipt && $series->isAGTRegistered() && empty($receipt->atcud)) {
+                    $receipt->atcud = $series->generateATCUD(
+                        $series->nextSequentialFromDocumentNumber($number)
+                    );
+                }
+                return $number;
+            }
+        }
+
+        $prefix = $type === 'sale' ? 'RV' : 'RC';
         $year = date('Y');
         
-        $lastReceipt = self::where('tenant_id', activeTenantId())
+        $lastReceipt = self::where('tenant_id', $tenantId)
             ->where('type', $type)
             ->whereYear('created_at', $year)
             ->orderBy('id', 'desc')

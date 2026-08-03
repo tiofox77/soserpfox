@@ -52,8 +52,8 @@ class ServiceManagement extends Component
 
     public function edit($id)
     {
-        $service = Service::findOrFail($id);
-        
+        $service = Service::where('tenant_id', activeTenantId())->findOrFail($id);
+
         $this->serviceId = $service->id;
         $this->name = $service->name;
         $this->description = $service->description;
@@ -81,13 +81,12 @@ class ServiceManagement extends Component
         ];
 
         if ($this->editMode) {
-            $service = Service::findOrFail($this->serviceId);
+            $service = Service::where('tenant_id', activeTenantId())->findOrFail($this->serviceId);
             $service->update($data);
             session()->flash('success', 'Serviço atualizado com sucesso!');
         } else {
-            // Gerar código do serviço
-            $data['service_code'] = 'SRV-' . str_pad(Service::count() + 1, 5, '0', STR_PAD_LEFT);
-            Service::create($data);
+            // Código do serviço gerado por-tenant, de forma atómica
+            Service::createWithTenantNumber($data, 'service_code', 'SRV-');
             session()->flash('success', 'Serviço criado com sucesso!');
         }
 
@@ -96,7 +95,7 @@ class ServiceManagement extends Component
 
     public function delete($id)
     {
-        $service = Service::findOrFail($id);
+        $service = Service::where('tenant_id', activeTenantId())->findOrFail($id);
         $service->delete();
         
         session()->flash('success', 'Serviço removido com sucesso!');
@@ -104,7 +103,8 @@ class ServiceManagement extends Component
 
     public function view($id)
     {
-        $this->viewingService = Service::with(['workOrderItems.workOrder.vehicle'])
+        $this->viewingService = Service::where('tenant_id', activeTenantId())
+            ->with(['workOrderItems.workOrder.vehicle'])
             ->findOrFail($id);
         $this->showViewModal = true;
     }

@@ -102,7 +102,7 @@ class Reports extends Component
 
     protected function loadKPIs()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $from = Carbon::parse($this->dateFrom);
         $to = Carbon::parse($this->dateTo);
         $days = $from->diffInDays($to) + 1;
@@ -189,7 +189,7 @@ class Reports extends Component
 
     protected function loadOccupancyData()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $from = Carbon::parse($this->dateFrom);
         $to = Carbon::parse($this->dateTo);
 
@@ -222,7 +222,7 @@ class Reports extends Component
 
     protected function loadRevenueData()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $from = Carbon::parse($this->dateFrom);
         $to = Carbon::parse($this->dateTo);
 
@@ -291,7 +291,7 @@ class Reports extends Component
 
     protected function loadGuestData()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         $from = Carbon::parse($this->dateFrom);
         $to = Carbon::parse($this->dateTo);
 
@@ -371,7 +371,7 @@ class Reports extends Component
 
     public function render()
     {
-        $roomTypes = RoomType::where('tenant_id', auth()->user()->tenant_id)
+        $roomTypes = RoomType::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->orderBy('name')
             ->get();

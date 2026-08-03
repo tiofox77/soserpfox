@@ -56,7 +56,7 @@ class Brands extends Component
     {
         $brand = Brand::findOrFail($id);
         
-        if ($brand->tenant_id !== activeTenantId()) {
+        if ((int) $brand->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -87,7 +87,7 @@ class Brands extends Component
         if ($this->editingBrandId) {
             $brand = Brand::findOrFail($this->editingBrandId);
             
-            if ($brand->tenant_id !== activeTenantId()) {
+            if ((int) $brand->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
@@ -105,7 +105,7 @@ class Brands extends Component
     {
         $brand = Brand::findOrFail($id);
         
-        if ($brand->tenant_id !== activeTenantId()) {
+        if ((int) $brand->tenant_id !== (int) activeTenantId()) {
             abort(403);
         }
         
@@ -119,14 +119,14 @@ class Brands extends Component
         try {
             $brand = Brand::findOrFail($this->deletingBrandId);
             
-            if ($brand->tenant_id !== activeTenantId()) {
+            if ((int) $brand->tenant_id !== (int) activeTenantId()) {
                 abort(403);
             }
             
             $brand->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingBrandId', 'deletingBrandName']);
-            $this->dispatch('success', message: 'Marca excluída com sucesso!');
+            $this->dispatch('success', message: 'Marca excluÃ­da com sucesso!');
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Erro ao excluir marca!');
         }

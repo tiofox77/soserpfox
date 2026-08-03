@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Plan;
 use App\Models\Module;
+use App\Models\Tenant;
+use App\Services\Tenant\TenantModuleSyncService;
 use Illuminate\Console\Command;
 
 class CreateFoxFriendlyPlan extends Command
@@ -70,16 +72,40 @@ class CreateFoxFriendlyPlan extends Command
             'is_active' => true,
             'is_featured' => true,
             'trial_days' => 180, // 6 meses = 180 dias
+            'auto_activate' => true, // Activação automática imediata (sem aprovação manual)
             'order' => 1, // Primeiro na lista
         ]);
         
         $plan->save();
-        
+
+        // CRÍTICO: sincronizar também o PIVOT plan_module (fonte de verdade usada pelo
+        // TenantModuleSyncService), não apenas o JSON included_modules. Sem isto, o plano
+        // "tem" todos os módulos no JSON mas o sync de ativação não os reconhece.
+        $moduleIds = Module::whereIn('slug', $allModules)->pluck('id')->toArray();
+        $plan->modules()->sync($moduleIds);
+
+        // Atualizar também empresas que já usam o FOX Friendly. O catálogo de
+        // módulos cresce ao longo do tempo (ex.: Restaurante) e limitar a
+        // atualização ao plano deixava subscrições gratuitas antigas sem os
+        // novos módulos prometidos em "todos os módulos".
+        $syncService = app(TenantModuleSyncService::class);
+        $syncedTenants = 0;
+        Tenant::whereHas('subscriptions', function ($query) use ($plan) {
+            $query->where('plan_id', $plan->id)
+                ->where('status', 'active');
+        })->each(function (Tenant $tenant) use ($syncService, $plan, &$syncedTenants) {
+            $syncService->syncToPlan($tenant, $plan);
+            $syncedTenants++;
+        });
+
         $this->newLine();
+        $this->info('  - Pivot plan_module sincronizado: ' . count($moduleIds) . ' módulos');
+        $this->info('  - Empresas FOX Friendly sincronizadas: ' . $syncedTenants);
         $this->info('✓ Plano FOX Friendly criado com sucesso!');
         $this->info('  - Nome: ' . $plan->name);
         $this->info('  - Slug: ' . $plan->slug);
         $this->info('  - Trial: ' . $plan->trial_days . ' dias (6 meses)');
+        $this->info('  - Auto-activate: ' . ($plan->auto_activate ? 'SIM' : 'NÃO'));
         $this->info('  - Módulos: ' . count($plan->included_modules));
         $this->info('  - Usuários: ' . $plan->max_users);
         $this->info('  - Storage: ' . ($plan->max_storage_mb / 1024) . 'GB');

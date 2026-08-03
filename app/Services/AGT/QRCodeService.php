@@ -6,6 +6,7 @@ use BaconQrCode\Encoder\Encoder;
 use BaconQrCode\Common\ErrorCorrectionLevel;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\GDLibRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use Illuminate\Support\Facades\Log;
@@ -129,8 +130,11 @@ class QRCodeService
         $fields[self::FIELD_HASH] = substr($hash, 0, 4);
 
         // R - Número do certificado do software
-        $certificado = $certificateNumber 
-            ?? $document->tenant?->invoicingSettings?->saft_software_cert 
+        // Preferir a config GLOBAL do software (gerida pelo dono do sistema no Billing),
+        // com fallback para os campos por-tenant (compatibilidade).
+        $certificado = $certificateNumber
+            ?? softwareSetting('invoicing', 'saft_software_cert')
+            ?? $document->tenant?->invoicingSettings?->saft_software_cert
             ?? $document->tenant?->invoicingSettings?->agt_software_certificate
             ?? '';
         $fields[self::FIELD_CERTIFICADO] = $certificado;
@@ -156,12 +160,35 @@ class QRCodeService
     }
 
     /**
-     * Gerar imagem QR Code em Base64 (SVG) com logo AGT
+     * Gerar URL de verificação AGT v1.2 para embeber no QR Code
+     *
+     * Conforme documentação: https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe?emissor=NIF&document=DOC_NO
      */
-    public function generateQRImage($document, int $size = 150, ?string $certificateNumber = null): ?string
+    public function generateQRUrl($document): string
+    {
+        $nifEmissor = $document->tenant?->nif ?? $document->tenant?->tax_id ?? '';
+        $documentNo = $document->invoice_number
+            ?? $document->proforma_number
+            ?? $document->credit_note_number
+            ?? $document->debit_note_number
+            ?? $document->receipt_number
+            ?? $document->advance_number
+            ?? '';
+
+        // Conforme doc: espaços substituídos por %20
+        $documentNoEncoded = str_replace(' ', '%20', $documentNo);
+
+        return "https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe?emissor={$nifEmissor}&document={$documentNoEncoded}";
+    }
+
+    /**
+     * Gerar imagem QR Code em Base64 (SVG) com logo AGT
+     * Conteúdo: URL de verificação AGT v1.2
+     */
+    public function generateQRImage($document, int $size = 350, ?string $certificateNumber = null): ?string
     {
         try {
-            $data = $this->generateQRData($document, $certificateNumber);
+            $data = $this->generateQRUrl($document);
             
             $renderer = new ImageRenderer(
                 new RendererStyle($size, 1),
@@ -171,7 +198,7 @@ class QRCodeService
             $writer = new Writer($renderer);
             $ecLevel = $this->getHighErrorCorrection();
             $svg = $ecLevel 
-                ? $writer->writeString($data, 'ISO-8859-1', $ecLevel)
+                ? $writer->writeString($data, 'UTF-8', $ecLevel)
                 : $writer->writeString($data);
             
             $svg = $this->embedLogoInSvg($svg, $size);
@@ -188,12 +215,109 @@ class QRCodeService
     }
 
     /**
-     * Gerar QR Code como SVG inline com logo AGT
+     * Gerar imagem QR Code como PNG (Base64) usando GD.
+     * Mais fiável que SVG para impressão térmica e popups de print.
+     * Inclui logo AGT no centro (via PNG composto com GD).
      */
-    public function generateQRSvg($document, int $size = 150, ?string $certificateNumber = null): ?string
+    public function generateQRImagePng($document, int $size = 200): ?string
     {
         try {
-            $data = $this->generateQRData($document, $certificateNumber);
+            if (!extension_loaded('gd')) {
+                Log::warning('QRCodeService: GD não disponível, fallback para SVG');
+                return $this->generateQRImage($document, $size);
+            }
+
+            $data = $this->generateQRUrl($document);
+
+            $renderer = new GDLibRenderer($size, 2, 'png', 9);
+            $writer = new Writer($renderer);
+            $ecLevel = $this->getHighErrorCorrection();
+            $pngBytes = $ecLevel
+                ? $writer->writeString($data, 'UTF-8', $ecLevel)
+                : $writer->writeString($data);
+
+            // Embutir logo AGT no centro do PNG (se disponível)
+            $pngBytes = $this->embedLogoInPng($pngBytes, $size);
+
+            return 'data:image/png;base64,' . base64_encode($pngBytes);
+        } catch (\Throwable $e) {
+            Log::error('QRCodeService: Erro ao gerar PNG QR', [
+                'error' => $e->getMessage(),
+                'document_id' => $document->id ?? null,
+            ]);
+            // Fallback: tentar SVG
+            return $this->generateQRImage($document, $size);
+        }
+    }
+
+    /**
+     * Embutir logo AGT (PNG) no centro de um QR Code PNG usando GD.
+     */
+    private function embedLogoInPng(string $pngBytes, int $size): string
+    {
+        $logoPath = public_path('images/agt.png');
+        if (!file_exists($logoPath)) {
+            return $pngBytes;
+        }
+
+        $qrImage = @imagecreatefromstring($pngBytes);
+        $logoImage = @imagecreatefrompng($logoPath);
+        if (!$qrImage || !$logoImage) {
+            if ($qrImage) imagedestroy($qrImage);
+            if ($logoImage) imagedestroy($logoImage);
+            return $pngBytes;
+        }
+
+        $qrWidth = imagesx($qrImage);
+        $logoSize = (int) round($qrWidth * 0.18);
+        $logoX = (int) (($qrWidth - $logoSize) / 2);
+        $logoY = (int) (($qrWidth - $logoSize) / 2);
+
+        // Caixa branca atrás do logo para garantir legibilidade
+        $bgPadding = (int) round($logoSize * 0.12);
+        $white = imagecolorallocate($qrImage, 255, 255, 255);
+        imagefilledrectangle(
+            $qrImage,
+            $logoX - $bgPadding,
+            $logoY - $bgPadding,
+            $logoX + $logoSize + $bgPadding,
+            $logoY + $logoSize + $bgPadding,
+            $white
+        );
+
+        imagealphablending($qrImage, true);
+        imagesavealpha($qrImage, true);
+
+        imagecopyresampled(
+            $qrImage,
+            $logoImage,
+            $logoX,
+            $logoY,
+            0,
+            0,
+            $logoSize,
+            $logoSize,
+            imagesx($logoImage),
+            imagesy($logoImage)
+        );
+
+        ob_start();
+        imagepng($qrImage);
+        $out = ob_get_clean();
+        imagedestroy($qrImage);
+        imagedestroy($logoImage);
+
+        return $out !== false ? $out : $pngBytes;
+    }
+
+    /**
+     * Gerar QR Code como SVG inline com logo AGT
+     * Conteúdo: URL de verificação AGT v1.2
+     */
+    public function generateQRSvg($document, int $size = 350, ?string $certificateNumber = null): ?string
+    {
+        try {
+            $data = $this->generateQRUrl($document);
             
             $renderer = new ImageRenderer(
                 new RendererStyle($size, 1),
@@ -203,7 +327,7 @@ class QRCodeService
             $writer = new Writer($renderer);
             $ecLevel = $this->getHighErrorCorrection();
             $svg = $ecLevel 
-                ? $writer->writeString($data, 'ISO-8859-1', $ecLevel)
+                ? $writer->writeString($data, 'UTF-8', $ecLevel)
                 : $writer->writeString($data);
             
             return $this->embedLogoInSvg($svg, $size);
@@ -236,14 +360,16 @@ class QRCodeService
      */
     private function embedLogoInSvg(string $svg, int $size): string
     {
-        $logoPath = public_path('images/agt-logo.png');
+        $logoPath = public_path('images/agt.png');
         if (!file_exists($logoPath)) {
             return $svg;
         }
         
         $logoData = file_get_contents($logoPath);
         
-        $logoSize = $size * 0.22;
+        // Logo deve ocupar < 20% da área total (doc AGT: "percentagem inferior a 20%")
+        // 20% da área = sqrt(0.20) ≈ 0.447 de cada lado → usamos 0.18 para segurança
+        $logoSize = $size * 0.18;
         $logoX = ($size - $logoSize) / 2;
         $logoY = ($size - $logoSize) / 2;
         $bgRadius = $logoSize * 0.58;
@@ -266,22 +392,32 @@ class QRCodeService
     /**
      * Gerar QR Code e retornar dados do QR
      */
-    public function generateForDocument($document, int $size = 120): array
+    public function generateForDocument($document, int $size = 350): array
     {
         try {
-            $data = $this->generateQRData($document);
-            $image = $this->generateQRImage($document, $size);
-            
+            $url = $this->generateQRUrl($document);
+            $qrData = $this->generateQRData($document);
+            // PNG (preferido para impressão/popups). Fallback automático para SVG.
+            $imagePng = $this->generateQRImagePng($document, $size);
+            // Mantém SVG para retrocompatibilidade
+            $imageSvg = $this->generateQRImage($document, $size);
+
             return [
-                'data' => $data,
-                'image' => $image,
+                'url' => $url,
+                'data' => $qrData,
+                'image' => $imagePng ?: $imageSvg, // padrão = PNG quando disponível
+                'image_png' => $imagePng,
+                'image_svg' => $imageSvg,
                 'atcud' => $document->atcud ?? $this->generateATCUD($document),
             ];
         } catch (\Exception $e) {
             Log::error('QRCodeService: Erro', ['error' => $e->getMessage()]);
             return [
+                'url' => '',
                 'data' => '',
                 'image' => null,
+                'image_png' => null,
+                'image_svg' => null,
                 'atcud' => '',
             ];
         }
@@ -316,13 +452,34 @@ class QRCodeService
         return number_format($amount, 2, '.', '');
     }
 
+    /**
+     * ATCUD de recurso, quando o documento não o tem gravado.
+     *
+     * O sequencial é a posição do documento NA SÉRIE (o /000003 do número
+     * fiscal), nunca o id da base de dados. Usar o id imprimia no QR um ATCUD
+     * diferente do que a AGT tem — por exemplo FT7626S9155N-1306 em vez de
+     * FT7626S9155N-3 — o que invalida a leitura do documento.
+     */
     private function generateATCUD($document): string
     {
         $series = $document->series;
-        $validationCode = $series?->atcud_validation_code ?? '0';
-        $sequentialNumber = $document->id ?? 1;
-        
-        return $validationCode . '-' . $sequentialNumber;
+
+        if (!$series) {
+            return '';
+        }
+
+        $numero = $document->invoice_number
+            ?? $document->receipt_number
+            ?? $document->credit_note_number
+            ?? $document->debit_note_number
+            ?? $document->document_number
+            ?? '';
+
+        $sequencial = $numero !== ''
+            ? $series->nextSequentialFromDocumentNumber($numero)
+            : 1;
+
+        return $series->generateATCUD($sequencial);
     }
 
     private function calculateTaxBase($document, float $taxRate): float

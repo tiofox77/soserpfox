@@ -417,8 +417,11 @@ class EventCalendar extends Component
      */
     public function toggleChecklistItem($checklistId)
     {
-        $checklist = \App\Models\Events\Checklist::findOrFail($checklistId);
-        
+        // Checklist não tem tenant_id — validar via o evento (que é tenant-scoped)
+        $checklist = \App\Models\Events\Checklist::whereHas('event', function ($q) {
+            $q->where('tenant_id', activeTenantId());
+        })->findOrFail($checklistId);
+
         if ($checklist->status === 'concluido') {
             $checklist->status = 'pendente';
             $checklist->completed_at = null;
@@ -488,14 +491,19 @@ class EventCalendar extends Component
     {
         $this->validate([
             'newClientName' => 'required|string|max:255',
-            'newClientNif' => 'required|string|max:20|unique:invoicing_clients,nif',
+            // NIF é único POR TENANT (não global) — alinhado com a constraint composta
+            'newClientNif' => [
+                'required', 'string', 'max:20',
+                \Illuminate\Validation\Rule::unique('invoicing_clients', 'nif')
+                    ->where(fn ($q) => $q->where('tenant_id', activeTenantId())),
+            ],
             'newClientCountry' => 'required|string|max:100',
             'newClientEmail' => 'nullable|email|max:255',
             'newClientPhone' => 'nullable|string|max:20',
         ], [
             'newClientName.required' => 'O nome do cliente é obrigatório',
             'newClientNif.required' => 'O NIF é obrigatório (SAFT-AO)',
-            'newClientNif.unique' => 'Este NIF já está registrado',
+            'newClientNif.unique' => 'Este NIF já está registrado nesta empresa',
             'newClientCountry.required' => 'O país é obrigatório',
             'newClientEmail.email' => 'Email inválido',
         ]);

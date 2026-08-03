@@ -34,7 +34,7 @@ class BankReconciliationManagement extends Component
         ]);
         
         $service = new BankReconciliationService();
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         try {
             $reconciliation = $service->importStatementFile(
@@ -54,7 +54,7 @@ class BankReconciliationManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $bankAccounts = Account::where('tenant_id', $tenantId)
             ->where(function($q) {

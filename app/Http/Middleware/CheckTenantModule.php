@@ -18,12 +18,30 @@ class CheckTenantModule
     {
         $user = auth()->user();
 
-        // Super admin tem acesso a todos os módulos
-        if ($user && $user->isSuperAdmin()) {
+        // Sem auth: o middleware 'auth' lida com isso; aqui apenas deixamos passar
+        if (!$user) {
             return $next($request);
         }
 
+        // Super admin tem acesso a todos os módulos
+        if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+            return $next($request);
+        }
+
+        // Resolver tenant: primeiro via attributes (preenchido por IdentifyTenant),
+        // fallback para activeTenant() do utilizador. O middleware IdentifyTenant
+        // está registado como global e corre antes do StartSession do grupo web,
+        // portanto pode não ter ainda a sessão disponível para identificar o user.
         $tenant = $request->attributes->get('tenant');
+        if (!$tenant) {
+            $tenant = $user->activeTenant();
+            if ($tenant) {
+                $request->attributes->set('tenant', $tenant);
+                if (function_exists('setPermissionsTeamId')) {
+                    setPermissionsTeamId($tenant->id);
+                }
+            }
+        }
 
         if (!$tenant) {
             abort(403, 'Nenhuma organização identificada.');

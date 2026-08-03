@@ -178,9 +178,46 @@ class Reservation extends Model
         return $this->belongsTo(\App\Models\Client::class, 'client_id');
     }
 
+    /** ÚLTIMA factura emitida para esta reserva (ver também invoices()). */
     public function invoice()
     {
         return $this->belongsTo(\App\Models\Invoicing\SalesInvoice::class, 'invoice_id');
+    }
+
+    /**
+     * TODAS as facturas desta reserva (adiantamentos + factura final).
+     *
+     * `invoice_id` é 1:1 e vai sendo sobrescrito — com dois sinais pagos, a
+     * factura do primeiro deixava de ser alcançável. A ligação durável está em
+     * (source_module, source_reference) na própria factura.
+     *
+     * O filtro por tenant_id é obrigatório: a referência não é única
+     * globalmente (duas empresas podem ter RES-000001).
+     */
+    public function invoices()
+    {
+        return $this->hasMany(\App\Models\Invoicing\SalesInvoice::class, 'source_reference', 'reservation_number')
+            ->where('invoicing_sales_invoices.tenant_id', $this->tenant_id)
+            ->where('source_module', 'hotel');
+    }
+
+    /**
+     * Facturas de ADIANTAMENTO já emitidas, excluindo documentos anulados.
+     *
+     * Chamada ANTES de emitir a factura final: nesse momento tudo o que já
+     * existe para esta reserva é, por definição, adiantamento.
+     *
+     * Não filtrar por `invoice_id`: depois de pagar o sinal é a factura DESSE
+     * sinal que lá está, pelo que excluí-la deixava a lista vazia e o
+     * check-out voltava a facturar a estadia inteira.
+     */
+    public function adiantamentosFacturados()
+    {
+        return $this->invoices()
+            ->where('status', '!=', 'cancelled')
+            ->where('invoice_status', '!=', 'A')
+            ->with('items')
+            ->get();
     }
 
     public function room()
@@ -285,29 +322,115 @@ class Reservation extends Model
         // Calcular extras
         $this->extras_total = $this->items()->sum('total');
         
-        // Calcular total antes de impostos
-        $subtotalWithExtras = $this->subtotal + $this->extras_total - $this->discount;
-        
-        // Calcular imposto (14%)
-        $this->tax = $subtotalWithExtras * 0.14;
-        
+        // Calcular total antes de impostos.
+        //
+        // Nunca negativo: um desconto maior do que a estadia punha o total
+        // abaixo de zero e, como `paid_amount (0) >= total (negativo)`, a
+        // reserva aparecia como PAGA sem ninguém ter pago nada.
+        $subtotalWithExtras = max(0, $this->subtotal + $this->extras_total - $this->discount);
+
+        // Imposto pelo regime da empresa, não por um 14% fixo — o mesmo
+        // resolvedor que a facturação usa. Numa empresa isenta, este 14%
+        // inventava imposto que ela não pode liquidar, e a reserva mostrava ao
+        // hóspede um total que a factura depois não confirmava.
+        $taxa = (float) \App\Services\Invoicing\TaxResolver::forProduct(
+            null,
+            $this->tenant_id ?? activeTenantId()
+        )['rate'];
+
+        $this->tax = round($subtotalWithExtras * $taxa / 100, 2);
+
         // Total final
         $this->total = $subtotalWithExtras + $this->tax;
-        
-        // Atualizar status de pagamento
-        if ($this->paid_amount >= $this->total) {
+
+        // Estado de pagamento: as três hipóteses.
+        //
+        // Faltava o ramo 'pending'. O estado só subia e nunca descia: bastava
+        // acrescentar extras depois de a reserva estar "Paga" para ela
+        // continuar "Paga" com saldo por receber.
+        if ($this->total > 0 && $this->paid_amount >= $this->total) {
             $this->payment_status = 'paid';
         } elseif ($this->paid_amount > 0) {
             $this->payment_status = 'partial';
+        } else {
+            $this->payment_status = 'pending';
+        }
+    }
+
+    /**
+     * Marca a reserva como "não compareceu".
+     *
+     * O estado existia (constante, cor e filtro na lista) mas NENHUMA acção o
+     * atribuía: um hóspede que não aparecia ficava eternamente "confirmado" e o
+     * quarto continuava bloqueado para novas reservas, porque
+     * Room::isAvailableForDates() só ignora 'cancelled' e 'no_show'.
+     */
+    public function marcarNaoCompareceu($userId = null)
+    {
+        $this->garantirTransicao(self::STATUS_NO_SHOW);
+
+        $this->status = self::STATUS_NO_SHOW;
+        $this->cancelled_at = now();
+        $this->cancelled_by = $userId ?? auth()->id();
+        $this->cancellation_reason = 'Não compareceu (no-show)';
+        $this->save();
+
+        // Libertar o quarto, tal como no cancelamento.
+        if ($this->room && !$this->actual_check_in
+            && in_array($this->room->status, [Room::STATUS_RESERVED, Room::STATUS_OCCUPIED], true)) {
+            $this->room->update(['status' => Room::STATUS_AVAILABLE]);
+        }
+
+        return $this->invoices()
+            ->where('status', '!=', 'cancelled')
+            ->where('invoice_status', '!=', 'A')
+            ->get();
+    }
+
+    /**
+     * Transições de estado permitidas.
+     *
+     * As únicas guardas que existiam eram `@if` na blade — qualquer pedido
+     * Livewire forjado, ou um caminho de código que não passasse pela lista,
+     * conseguia levar uma reserva cancelada directamente a "entregue".
+     */
+    public const TRANSICOES = [
+        self::STATUS_PENDING     => [self::STATUS_CONFIRMED, self::STATUS_CHECKED_IN, self::STATUS_CANCELLED, self::STATUS_NO_SHOW],
+        self::STATUS_CONFIRMED   => [self::STATUS_CHECKED_IN, self::STATUS_CANCELLED, self::STATUS_NO_SHOW],
+        self::STATUS_CHECKED_IN  => [self::STATUS_CHECKED_OUT],
+        self::STATUS_CHECKED_OUT => [],
+        self::STATUS_CANCELLED   => [],
+        self::STATUS_NO_SHOW     => [],
+    ];
+
+    public function podeTransitarPara(string $novo): bool
+    {
+        if ($novo === $this->status) {
+            return true; // idempotente
+        }
+
+        return in_array($novo, self::TRANSICOES[$this->status] ?? [], true);
+    }
+
+    /** Lança quando a transição não é permitida. */
+    protected function garantirTransicao(string $novo): void
+    {
+        if (!$this->podeTransitarPara($novo)) {
+            throw new \DomainException(
+                'Transição não permitida: ' . (self::STATUSES[$this->status] ?? $this->status)
+                . ' → ' . (self::STATUSES[$novo] ?? $novo) . '.'
+            );
         }
     }
 
     public function checkIn($roomId = null)
     {
+        $this->garantirTransicao(self::STATUS_CHECKED_IN);
+
         if ($roomId) {
             $this->room_id = $roomId;
         }
-        
+
         $this->status = self::STATUS_CHECKED_IN;
         $this->actual_check_in = now();
         $this->save();
@@ -326,6 +449,8 @@ class Reservation extends Model
 
     public function checkOut()
     {
+        $this->garantirTransicao(self::STATUS_CHECKED_OUT);
+
         $this->status = self::STATUS_CHECKED_OUT;
         $this->actual_check_out = now();
         $this->save();
@@ -346,22 +471,49 @@ class Reservation extends Model
         }
     }
 
+    /**
+     * Anula a reserva.
+     *
+     * NÃO toca em documentos fiscais: uma factura emitida só se anula por nota
+     * de crédito. Devolve a lista de documentos que ficam por regularizar, para
+     * quem chama poder avisar o operador — antes o cancelamento era silencioso
+     * e a estadia ficava cancelada com a factura viva.
+     *
+     * @return \Illuminate\Support\Collection Facturas que exigem nota de crédito.
+     */
     public function cancel($reason = null, $userId = null)
     {
+        $this->garantirTransicao(self::STATUS_CANCELLED);
+
         $this->status = self::STATUS_CANCELLED;
         $this->cancelled_at = now();
         $this->cancelled_by = $userId ?? auth()->id();
         $this->cancellation_reason = $reason;
         $this->save();
 
-        // Liberar quarto se estava reservado
-        if ($this->room && $this->room->status === Room::STATUS_RESERVED) {
-            $this->room->update(['status' => Room::STATUS_AVAILABLE]);
+        // Libertar o quarto.
+        //
+        // A condição anterior exigia status === 'reserved', mas NADA no sistema
+        // põe um quarto nesse estado: o ramo nunca corria e o quarto ficava
+        // bloqueado depois de a reserva ser anulada. Liberta-se também o que
+        // estava ocupado por esta reserva, desde que o hóspede não tenha
+        // chegado a entrar.
+        if ($this->room && in_array($this->room->status, [Room::STATUS_RESERVED, Room::STATUS_OCCUPIED], true)) {
+            if (!$this->actual_check_in) {
+                $this->room->update(['status' => Room::STATUS_AVAILABLE]);
+            }
         }
+
+        return $this->invoices()
+            ->where('status', '!=', 'cancelled')
+            ->where('invoice_status', '!=', 'A')
+            ->get();
     }
 
     public function confirm()
     {
+        $this->garantirTransicao(self::STATUS_CONFIRMED);
+
         $this->status = self::STATUS_CONFIRMED;
         $this->save();
 

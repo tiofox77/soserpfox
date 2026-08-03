@@ -47,6 +47,16 @@ class DebitNote extends Model
         'agt_status',
         'agt_reference',
         'created_by',
+        // AGT v1.2 — em falta face à CreditNote: sem estes a ND não guardava a
+        // assinatura do documento, o CAE, o estado SAFT nem o rastreio da
+        // submissão, e o Eloquent descartava-os em silêncio.
+        'jws_document_signature',
+        'agt_request_id',
+        'agt_submission_uuid',
+        'agt_submitted_at',
+        'agt_validated_at',
+        'eac_code',
+        'document_status_code',
     ];
 
     protected $casts = [
@@ -125,7 +135,22 @@ class DebitNote extends Model
 
         static::creating(function ($debitNote) {
             if (empty($debitNote->debit_note_number)) {
-                $debitNote->debit_note_number = self::generateDebitNoteNumber();
+                $debitNote->debit_note_number = self::generateDebitNoteNumber(
+                    (int) $debitNote->tenant_id,
+                    $debitNote
+                );
+            }
+            if ($debitNote->series_id) {
+                $series = InvoicingSeries::getIssuanceSeries(
+                    (int) $debitNote->tenant_id,
+                    'debit_note',
+                    (int) $debitNote->series_id
+                );
+                if ($series->isAGTRegistered() && empty($debitNote->atcud)) {
+                    $debitNote->atcud = $series->generateATCUD(
+                        $series->nextSequentialFromDocumentNumber($debitNote->debit_note_number)
+                    );
+                }
             }
         });
 
@@ -138,15 +163,24 @@ class DebitNote extends Model
     }
 
     // Gerar número de nota de débito (formato AGT: ND A 2025/000001)
-    public static function generateDebitNoteNumber()
+    public static function generateDebitNoteNumber(?int $tenantId = null, ?self $debitNote = null)
     {
-        $tenantId = activeTenantId();
+        $tenantId = $tenantId ?: (int) activeTenantId();
         
         // Usar sistema de séries AGT (Decreto Presidencial 71/25)
-        $series = InvoicingSeries::getDefaultSeries($tenantId, 'debit_note');
+        $series = InvoicingSeries::getIssuanceSeries($tenantId, 'debit_note');
         
         if ($series) {
-            return $series->getNextNumber();
+            if ($debitNote && empty($debitNote->series_id)) {
+                $debitNote->series_id = $series->id;
+            }
+            $number = $series->getNextNumber();
+            if ($debitNote && $series->isAGTRegistered() && empty($debitNote->atcud)) {
+                $debitNote->atcud = $series->generateATCUD(
+                    $series->nextSequentialFromDocumentNumber($number)
+                );
+            }
+            return $number;
         }
         
         // Fallback: formato AGT manual

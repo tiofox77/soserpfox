@@ -111,6 +111,11 @@ class JwsSigner
             'customerTaxID'          => (string) ($document['customerTaxID'] ?? ''),
             'customerCountry'        => (string) ($document['customerCountry'] ?? ''),
             'companyName'            => (string) ($document['companyName'] ?? ''),
+            'documentTotals'         => $document['documentTotals'] ?? [
+                'taxPayable' => 0,
+                'netTotal' => 0,
+                'grossTotal' => 0,
+            ],
         ];
         return $this->sign($canonical);
     }

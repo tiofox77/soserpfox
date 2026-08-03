@@ -37,17 +37,28 @@ class Dashboard extends Component
     public function quickCheckIn($reservationId)
     {
         $reservation = Reservation::forTenant()->findOrFail($reservationId);
-        $reservation->checkIn();
-        
+
+        try {
+            $reservation->checkIn();
+        } catch (\DomainException $e) {
+            $this->dispatch('error', message: $e->getMessage());
+            return;
+        }
+
         $this->dispatch('success', message: 'Check-in realizado com sucesso!');
     }
 
+    /**
+     * Check-out rápido do painel.
+     *
+     * Encaminha para o ecrã de check-out: fechar a estadia aqui deixava-a
+     * fechada SEM factura e sem cobrar os consumos do folio.
+     */
     public function quickCheckOut($reservationId)
     {
         $reservation = Reservation::forTenant()->findOrFail($reservationId);
-        $reservation->checkOut();
-        
-        $this->dispatch('success', message: 'Check-out realizado com sucesso!');
+
+        return redirect()->route('hotel.checkout', ['reservationId' => $reservation->id]);
     }
 
     public function render()

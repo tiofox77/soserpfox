@@ -137,10 +137,11 @@ class Advance extends Model
 
         // Registrar uso
         AdvanceUsage::create([
-            'advance_id' => $this->id,
-            'invoice_id' => $invoiceId,
-            'amount_used' => $amount,
-            'used_date' => now(),
+            'advance_id'   => $this->id,
+            'invoice_id'   => $invoiceId,
+            'invoice_type' => 'SalesInvoice',
+            'amount_used'  => $amount,
+            'usage_date'   => now()->toDateString(),   // coluna é `date` NOT NULL
         ]);
 
         return true;

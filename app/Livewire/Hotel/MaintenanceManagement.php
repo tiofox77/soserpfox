@@ -96,7 +96,7 @@ class MaintenanceManagement extends Component
         $this->validate();
 
         $data = [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'room_id' => $this->roomId ?: null,
             'assigned_to' => $this->assignedTo ?: null,
             'type' => $this->type,
@@ -114,7 +114,7 @@ class MaintenanceManagement extends Component
             MaintenanceOrder::find($this->editingId)->update($data);
             session()->flash('success', 'Ordem atualizada!');
         } else {
-            $data['reported_by'] = Staff::where('tenant_id', auth()->user()->tenant_id)
+            $data['reported_by'] = Staff::where('tenant_id', activeTenantId())
                 ->where('user_id', auth()->id())
                 ->first()?->id;
             MaintenanceOrder::create($data);
@@ -181,14 +181,14 @@ class MaintenanceManagement extends Component
     public function delete($id)
     {
         MaintenanceOrder::where('id', $id)
-            ->where('tenant_id', auth()->user()->tenant_id)
+            ->where('tenant_id', activeTenantId())
             ->delete();
         session()->flash('success', 'Ordem eliminada!');
     }
 
     public function assignToMe($id)
     {
-        $staffId = Staff::where('tenant_id', auth()->user()->tenant_id)
+        $staffId = Staff::where('tenant_id', activeTenantId())
             ->where('user_id', auth()->id())
             ->first()?->id;
 
@@ -200,7 +200,7 @@ class MaintenanceManagement extends Component
 
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
 
         $orders = MaintenanceOrder::where('tenant_id', $tenantId)
             ->with(['room', 'assignee'])

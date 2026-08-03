@@ -31,7 +31,7 @@ class PeriodManagement extends Component
     public function closePeriod()
     {
         try {
-            $period = Period::where('tenant_id', auth()->user()->tenant_id)
+            $period = Period::where('tenant_id', activeTenantId())
                 ->findOrFail($this->selectedPeriodId);
             
             $service = new PeriodClosingService();
@@ -56,7 +56,7 @@ class PeriodManagement extends Component
     public function reopenPeriod()
     {
         try {
-            $period = Period::where('tenant_id', auth()->user()->tenant_id)
+            $period = Period::where('tenant_id', activeTenantId())
                 ->findOrFail($this->selectedPeriodId);
             
             $service = new PeriodClosingService();
@@ -73,7 +73,7 @@ class PeriodManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $periods = Period::where('tenant_id', $tenantId)
             ->whereYear('date_start', $this->year)

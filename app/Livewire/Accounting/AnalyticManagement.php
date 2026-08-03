@@ -38,7 +38,7 @@ class AnalyticManagement extends Component
         
         try {
             AnalyticDimension::create([
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'code' => $this->dimCode,
                 'name' => $this->dimName,
                 'is_mandatory' => $this->isMandatory,
@@ -89,7 +89,7 @@ class AnalyticManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         $dimensions = AnalyticDimension::where('tenant_id', $tenantId)
             ->orderBy('name')

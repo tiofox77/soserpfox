@@ -60,7 +60,7 @@ class FixedAssetManagement extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         // Mock paginator vazio
         $assets = new \Illuminate\Pagination\LengthAwarePaginator(

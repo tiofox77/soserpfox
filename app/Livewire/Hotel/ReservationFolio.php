@@ -59,6 +59,11 @@ class ReservationFolio extends Component
 
     public function addCharge()
     {
+        if ($msg = $this->folioFechado()) {
+            $this->dispatch('toast', type: 'error', message: $msg);
+            return;
+        }
+
         $this->validate();
 
         // Map category to legacy "type" field for compatibility
@@ -86,6 +91,13 @@ class ReservationFolio extends Component
             'notes' => $this->notes ?: null,
         ]);
 
+        // Actualizar o total da reserva. Sem isto o consumo ficava gravado mas
+        // o total da reserva não subia — o saldo em dívida não reflectia o que
+        // o hóspede tinha consumido (ao contrário do deleteCharge, que já
+        // recalculava).
+        $this->reservation->calculateTotals();
+        $this->reservation->saveQuietly();
+
         $this->dispatch('toast', type: 'success', message: 'Consumo adicionado ao folio!');
         $this->closeAdd();
         $this->loadReservation();
@@ -93,6 +105,11 @@ class ReservationFolio extends Component
 
     public function deleteCharge($itemId)
     {
+        if ($msg = $this->folioFechado()) {
+            $this->dispatch('toast', type: 'error', message: $msg);
+            return;
+        }
+
         $item = ReservationItem::where('reservation_id', $this->reservation->id)->find($itemId);
         if ($item) {
             $item->delete();
@@ -101,6 +118,32 @@ class ReservationFolio extends Component
             $this->dispatch('toast', type: 'success', message: 'Consumo removido.');
             $this->loadReservation();
         }
+    }
+
+    /**
+     * O folio já fechou? Devolve a razão, ou null se ainda está aberto.
+     *
+     * Depois do check-out o folio continuava a aceitar consumos: o total da
+     * reserva subia, o estado de pagamento caía de "Pago" para "Parcial" e
+     * ficava um saldo em dívida de um hóspede que já tinha ido embora — sem
+     * relação nenhuma com a factura já emitida.
+     */
+    protected function folioFechado(): ?string
+    {
+        if (!$this->reservation) {
+            return 'Reserva não encontrada.';
+        }
+
+        if ($this->reservation->status === \App\Models\Hotel\Reservation::STATUS_CHECKED_OUT) {
+            return 'Esta estadia já fez check-out — o folio está fechado. '
+                . 'Para cobrar um consumo em falta, emita um documento próprio na Faturação.';
+        }
+
+        if ($this->reservation->status === \App\Models\Hotel\Reservation::STATUS_CANCELLED) {
+            return 'Reserva cancelada — o folio está fechado.';
+        }
+
+        return null;
     }
 
     public function render()

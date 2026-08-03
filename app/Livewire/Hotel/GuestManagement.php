@@ -124,7 +124,7 @@ class GuestManagement extends Component
 
         $data = [
             'tenant_id' => activeTenantId(),
-            'type' => 'individual',
+            'type' => 'pessoa_fisica',
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,

@@ -78,12 +78,34 @@ class User extends Authenticatable
     /**
      * Retorna o tenant ativo no momento
      */
+    /**
+     * Memória do pedido, com a empresa da sessão na chave.
+     *
+     * Cada chamada fazia uma query a tenant_user, e activeTenantId() é chamado
+     * dezenas de vezes por pedido (27 vezes só no POS). Trocar de empresa muda
+     * o valor da sessão, logo muda a chave e força nova consulta — a troca
+     * continua a funcionar dentro do mesmo pedido.
+     */
+    protected array $memoriaTenantActivo = [];
+
     public function activeTenant()
     {
         // Verifica se há uma sessão explícita de troca de empresa
         $sessionTenantId = session('active_tenant_id');
         $userTenantId = $this->tenant_id;
-        
+
+        $chave = (string) ($sessionTenantId ?? '-') . '|' . (string) ($userTenantId ?? '-');
+        if (array_key_exists($chave, $this->memoriaTenantActivo)) {
+            return $this->memoriaTenantActivo[$chave];
+        }
+
+        return $this->memoriaTenantActivo[$chave] = $this->resolverTenantActivo($sessionTenantId, $userTenantId);
+    }
+
+    /** Resolução verdadeira, sem memória (ver activeTenant). */
+    protected function resolverTenantActivo($sessionTenantId, $userTenantId)
+    {
+
         // Se há sessão E é diferente do tenant padrão do usuário,
         // significa que o usuário trocou manualmente de empresa
         if ($sessionTenantId && $sessionTenantId != $userTenantId) {
@@ -155,6 +177,58 @@ class User extends Authenticatable
         return $this->is_super_admin === true;
     }
 
+    /**
+     * Super Admin DA PLATAFORMA (acesso a /superadmin: todas as empresas, chaves
+     * SAFT, script runner, SMTP…).
+     *
+     * ATENÇÃO: o papel 'Super Admin' do Spatie é POR EMPRESA (teams), pelo que o
+     * dono de cada tenant tem esse papel dentro da sua própria empresa. Usar
+     * hasRole('Super Admin') como porta de entrada dava acesso ao painel global
+     * a qualquer dono de empresa — escalada de privilégios.
+     *
+     * Só conta: a flag da plataforma OU um papel 'Super Admin' GLOBAL
+     * (roles.tenant_id IS NULL), que não pertence a nenhuma empresa.
+     */
+    public function isPlatformSuperAdmin(): bool
+    {
+        if ($this->is_super_admin === true) {
+            return true;
+        }
+
+        // A role tem de ser global E a ATRIBUIÇÃO também. Verificar apenas
+        // roles.tenant_id deixava passar utilizadores de empresa: a role
+        // "Super Admin" original ficou com tenant_id NULL e foi atribuída dentro
+        // do contexto de um tenant (model_has_roles.tenant_id = 1), o que dava
+        // acesso ao /superadmin a quem só devia gerir a sua própria empresa.
+        return \Illuminate\Support\Facades\DB::table('model_has_roles as mhr')
+            ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+            ->where('mhr.model_id', $this->id)
+            ->where('mhr.model_type', static::class)
+            ->where('r.name', 'Super Admin')
+            ->whereNull('r.tenant_id')
+            ->whereNull('mhr.tenant_id')
+            ->exists();
+    }
+
+    /**
+     * Pode gerir a conta a nível administrativo (empresas, plano, faturação).
+     * Apenas o Super Admin global, o dono do tenant (role 'Super Admin') e 'Admin'.
+     * Utilizadores de nível baixo (Utilizador, Vendedor, Caixa, Gestor) não podem.
+     */
+    public function canManageAccount(): bool
+    {
+        if ($this->is_super_admin) {
+            return true;
+        }
+
+        // Garantir contexto de equipa (tenant) para as roles Spatie
+        if (function_exists('setPermissionsTeamId') && function_exists('activeTenantId') && activeTenantId()) {
+            setPermissionsTeamId(activeTenantId());
+        }
+
+        return $this->hasAnyRole(['Super Admin', 'Admin']);
+    }
+
     public function belongsToTenant($tenantId)
     {
         return $this->tenants()->where('tenants.id', $tenantId)->exists();
@@ -206,6 +280,85 @@ class User extends Authenticatable
         \Log::info("Check module '{$moduleSlug}' for user {$this->id} ({$this->email}), tenant {$activeTenant->id} (active: {$activeTenant->is_active}): " . ($hasModule ? 'YES' : 'NO'));
 
         return $hasModule;
+    }
+
+    /**
+     * Verifica se o utilizador deve VER o menu de um módulo no sidebar.
+     * Diferente de hasActiveModule (que só vê o tenant), este helper também
+     * verifica se a role/permissões do user têm acesso a alguma rota do módulo.
+     *
+     * Super Admin sempre vê todos os menus.
+     * Admin/Gestor/Utilizador têm permissões em todos os módulos por defeito.
+     * Roles especializadas (Caixa, Vendedor, Contabilista, Operador Stock) só vêem
+     * menus dos módulos onde têm pelo menos 1 permissão.
+     */
+    public function canAccessModuleMenu($moduleSlug)
+    {
+        // Apenas o Super Admin GLOBAL (flag is_super_admin) faz bypass das
+        // restrições de módulo. O role "Super Admin" do tenant continua sujeito
+        // ao plano contratado — caso contrário um downgrade não esconderia nada.
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Tenant precisa de ter o módulo activo (respeita o plano)
+        if (!$this->hasActiveModule($moduleSlug)) {
+            return false;
+        }
+
+        // Mapear slug do módulo → prefixo(s) de permissões/rotas
+        $prefixMap = [
+            'invoicing'     => ['invoicing.', 'customers.', 'products.', 'treasury.'],
+            'contabilidade' => ['accounting.'],
+            'oficina'       => ['workshop.'],
+            'eventos'       => ['events.', 'eventos.'],
+            'rh'            => ['hr.', 'rh.'],
+            'crm'           => ['crm.'],
+            'inventario'    => ['inventario.', 'inventory.'],
+            'compras'       => ['compras.', 'purchases.'],
+            'projetos'      => ['projetos.', 'projects.'],
+            'hotel'         => ['hotel.'],
+            'salon'         => ['salon.'],
+            'restaurant'    => ['restaurant.'],
+            'notifications' => ['notifications.'],
+            'treasury'      => ['treasury.'],
+        ];
+
+        $prefixes = $prefixMap[$moduleSlug] ?? [$moduleSlug . '.'];
+
+        // Garantir contexto de team correcto para Spatie
+        $tenant = $this->activeTenant();
+        if ($tenant) {
+            setPermissionsTeamId($tenant->id);
+        }
+
+        // Verificar se o user tem PELO MENOS UMA permissão com algum dos prefixos
+        $userPerms = $this->getAllPermissions()->pluck('name');
+        foreach ($userPerms as $perm) {
+            foreach ($prefixes as $prefix) {
+                if (str_starts_with($perm, $prefix)) {
+                    return true;
+                }
+            }
+        }
+
+        // Salvaguarda: se o SISTEMA não tem nenhuma permissão registada com estes
+        // prefixos, exigi-las esconde o módulo a toda a gente — foi o que aconteceu
+        // com a Contabilidade (0 permissões 'accounting.*' e as rotas nem as usam).
+        // Sem permissões definidas, o módulo activo no plano é o único critério.
+        $existemPermissoes = cache()->remember(
+            'module_perms_exist:' . $moduleSlug,
+            300,
+            function () use ($prefixes) {
+                return \Spatie\Permission\Models\Permission::where(function ($q) use ($prefixes) {
+                    foreach ($prefixes as $prefix) {
+                        $q->orWhere('name', 'like', $prefix . '%');
+                    }
+                })->exists();
+            }
+        );
+
+        return !$existemPermissoes;
     }
     
     /**

@@ -42,8 +42,12 @@ class ShiftHistory extends Component
 
     public function exportShift($shiftId)
     {
-        // TODO: Implementar exportação para PDF
-        $this->dispatch('info', message: 'Exportação em desenvolvimento');
+        return redirect()->to(route('invoicing.pos.export.shift-pdf', $shiftId));
+    }
+
+    public function exportShiftTicket($shiftId)
+    {
+        return redirect()->to(route('invoicing.pos.export.shift-ticket', $shiftId));
     }
 
     public function render()

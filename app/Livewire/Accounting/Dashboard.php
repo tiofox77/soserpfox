@@ -22,7 +22,7 @@ class Dashboard extends Component
     
     public function render()
     {
-        $tenantId = auth()->user()->tenant_id;
+        $tenantId = activeTenantId();
         
         // Total Ativo
         $totalAssets = Account::where('tenant_id', $tenantId)

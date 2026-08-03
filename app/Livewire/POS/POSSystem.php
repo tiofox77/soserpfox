@@ -16,6 +16,9 @@ use App\Models\Category;
 use App\Models\Treasury\Transaction;
 use App\Models\Treasury\PaymentMethod as TreasuryPaymentMethod;
 use App\Models\Treasury\CashRegister;
+use App\Models\Invoicing\Stock;
+use App\Models\Invoicing\StockMovement;
+use App\Models\Invoicing\Warehouse;
 use Illuminate\Support\Facades\DB;
 use Darryldecode\Cart\Facades\CartFacade as Cart;
 
@@ -24,14 +27,52 @@ use Darryldecode\Cart\Facades\CartFacade as Cart;
 class POSSystem extends Component
 {
     public $currentShift = null;
+    public $warehouseId = null;   // Armazém default do tenant (única fonte de stock no POS)
+    public $warehouseName = '';   // Nome a mostrar na UI
     public $search = '';
     public $selectedCategory = null;
     public $selectedClient = null;
     public $searchClient = '';
     public $showClientModal = false;
+
+    // Criação rápida de cliente no POS
+    public $showQuickClientModal = false;
+    public $quickClientName = '';
+    public $quickClientNif = '';
+    public $quickClientPhone = '';
+    public $quickClientEmail = '';
     public $showPaymentModal = false;
     public $showPrintModal = false;
+    // Factura do talão. Preenchida ao concluir a venda e LIBERTADA ao fechar o
+    // modal de impressão (closePrintModal), que é o que faltava antes.
+    //
+    // Continua a ser propriedade pública de propósito: removê-la fazia rebentar
+    // com PublicPropertyNotFoundException as caixas que tivessem a página aberta
+    // durante uma actualização — o navegador continua a enviar o snapshot antigo,
+    // que a inclui, e o Livewire recusa-se a hidratar uma propriedade que já não
+    // existe. Numa farmácia isso é o POS a parar a meio do atendimento.
+    //
+    // O peso a sério era o `lastInvoiceQR` (imagem QR em base64, ~44 KB) que
+    // NENHUMA vista usava — o modal gera o seu próprio QR. Esse foi removido:
+    // depois de uma venda cada clique passava de 32 ms/15 queries/1 KB para
+    // 140 ms/27 queries/45 KB, e assim ficava até recarregar a página.
     public $lastInvoice = null;
+
+    /**
+     * COMPATIBILIDADE — não usar. Nada no sistema escreve nesta propriedade.
+     *
+     * Existe só para as sessões abertas ANTES desta actualização poderem
+     * continuar: o snapshot que o navegador guardou inclui `lastInvoiceQR`, e o
+     * Livewire recusa-se a hidratar um snapshot com uma propriedade que já não
+     * existe (PublicPropertyNotFoundException, HTTP 500). Sem isto, uma caixa
+     * com a página aberta durante o deploy ficava parada a meio de um
+     * atendimento até alguém a recarregar.
+     *
+     * Guardava a imagem do QR em base64 (~44 KB) e viajava em todos os pedidos
+     * seguintes à primeira venda, apesar de nenhuma vista a usar — o modal de
+     * impressão gera o seu próprio QR. Pode ser removida quando não restarem
+     * sessões antigas (com segurança, numa janela sem atendimento).
+     */
     public $lastInvoiceQR = null;
     
     // Pagamento
@@ -70,11 +111,35 @@ class POSSystem extends Component
             session()->flash('warning', '⚠️ Você precisa abrir um turno antes de usar o POS!');
             return redirect()->route('invoicing.pos.shifts');
         }
+
+        // Armazém DEFAULT do tenant — single source of truth no POS
+        $defaultWh = Warehouse::where('tenant_id', activeTenantId())
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+        if ($defaultWh) {
+            $this->warehouseId = $defaultWh->id;
+            $this->warehouseName = $defaultWh->name;
+        } else {
+            // Fallback — tenant sem armazém default; criar/encontrar primeiro activo
+            $any = Warehouse::where('tenant_id', activeTenantId())->where('is_active', true)->first();
+            if ($any) {
+                $this->warehouseId = $any->id;
+                $this->warehouseName = $any->name . ' (sem default)';
+            } else {
+                $this->warehouseName = '— sem armazém configurado —';
+            }
+        }
         
-        // Definir cliente padrão "Consumidor Final"
+        // Definir cliente padrão "Consumidor Final".
+        // O OR TEM de estar agrupado: sem a closure, o `orWhere` quebrava o filtro
+        // de tenant e o POS acabava a faturar para o Consumidor Final de OUTRA
+        // empresa (fuga entre empresas — 372 faturas afetadas em produção).
         $this->selectedClient = Client::where('tenant_id', activeTenantId())
-            ->where('name', 'LIKE', '%Consumidor Final%')
-            ->orWhere('nif', '999999999')
+            ->where(function ($q) {
+                $q->where('name', 'LIKE', '%Consumidor Final%')
+                  ->orWhere('nif', '999999999');
+            })
             ->first();
         
         // Se não existir, criar
@@ -90,11 +155,21 @@ class POSSystem extends Component
             ]);
         }
         
-        // Carregar métodos de pagamento do Treasury
+        // Carregar métodos de pagamento do Treasury.
+        // Por sort_order, não por nome: ordenados alfabeticamente o "Cheque"
+        // ficava em primeiro e, como o valor inicial ('cash') não corresponde a
+        // nenhum código (os códigos são MAIÚSCULAS: CASH, TPA, ...), o <select>
+        // abria em Cheque. O sort_order já traz a ordem de uso real —
+        // Dinheiro, Multicaixa, TPA, Transferência, Cheque.
         $this->paymentMethods = TreasuryPaymentMethod::where('tenant_id', activeTenantId())
             ->where('is_active', true)
+            ->orderByRaw('COALESCE(sort_order, 9999)')
             ->orderBy('name')
             ->get();
+
+        // Selecção inicial: o código REAL do primeiro método, para o que está
+        // seleccionado corresponder ao que se vê.
+        $this->paymentMethod = $this->metodoPagamentoPorOmissao();
         
         // Carregar carrinho
         $this->loadCart();
@@ -102,13 +177,32 @@ class POSSystem extends Component
 
     public function loadCart()
     {
-        $this->cartItems = Cart::session(auth()->id())->getContent();
+        $content = Cart::session(auth()->id())->getContent();
+
+        // Ordem estável de inserção — a lib darryldecode/cart reordena (remove e
+        // re-insere no fim) ao fazer update(), fazendo o item "saltar" para o final.
+        // Mantemos um mapa de sequência por id na sessão para preservar a ordem.
+        $orderKey = 'pos_cart_order_' . auth()->id();
+        $order = session($orderKey, []);
+        $changed = false;
+        $next = empty($order) ? 0 : (max($order) + 1);
+        foreach ($content as $id => $item) {
+            if (!isset($order[$id])) { $order[$id] = $next++; $changed = true; }
+        }
+        foreach (array_keys($order) as $id) {
+            if (!$content->has($id)) { unset($order[$id]); $changed = true; }
+        }
+        if ($changed) { session([$orderKey => $order]); }
+
+        $this->cartItems = $content->sortBy(fn($item) => $order[$item->id] ?? PHP_INT_MAX)->values();
         $this->cartSubtotal = Cart::session(auth()->id())->getSubTotal();
         $this->cartQuantity = Cart::session(auth()->id())->getTotalQuantity();
         
         // Obter configurações de impostos
         $settings = InvoicingSettings::forTenant(activeTenantId());
-        $defaultTaxRate = $settings->default_tax_rate ?? 14;
+        // Sem hardcode de 14: em regime de isenção a taxa por omissão é 0.
+        $defaultTaxRate = $settings->default_tax_rate
+            ?? (\App\Services\Invoicing\TaxResolver::defaultTax(activeTenantId())->rate ?? 0);
         $defaultIrtRate = $settings->default_irt_rate ?? 6.5;
         $applyIrtServices = $settings->apply_irt_services ?? true;
         
@@ -126,29 +220,105 @@ class POSSystem extends Component
             $this->cartDiscount = $discount;
         }
         
-        // Calcular impostos por item (IVA e IRT para serviços)
-        $subtotalAfterDiscount = $this->cartSubtotal - $this->cartDiscount;
-        $this->cartTax = 0;
+        // Cálculo CANÓNICO — exatamente o mesmo helper que completeSale() usa para
+        // gravar a fatura. Antes o ecrã calculava o IVA sobre o subtotal SEM
+        // desconto, pelo que o total mostrado (e o troco) não batiam com o
+        // documento emitido.
+        $calcItems = collect($this->cartItems)->map(function ($item) use ($defaultTaxRate) {
+            $attrs = is_array($item->attributes) ? $item->attributes : (array) $item->attributes;
+            return (object) [
+                'price'      => $item->price,
+                'quantity'   => $item->quantity,
+                'attributes' => [
+                    'discount_percent' => $attrs['discount_percent'] ?? 0,
+                    'tax_rate'         => $attrs['tax_rate'] ?? $defaultTaxRate,
+                ],
+            ];
+        });
+
+        $calc = \App\Helpers\InvoiceCalculationHelper::calculateTotals(
+            $calcItems,
+            $this->cartDiscount,   // desconto comercial
+            0,
+            0,
+            false
+        );
+
+        $this->cartTax   = $calc['tax_amount'];
+        $this->cartTotal = $calc['total'];
+
+        // IRT (retenção em serviços) — calculado sobre a base já com desconto
         $this->cartIrt = 0;
-        
-        foreach ($this->cartItems as $item) {
-            $itemTotal = $item->price * $item->quantity;
-            $isService = isset($item->attributes['type']) && $item->attributes['type'] === 'service';
-            
-            // Taxa de IVA do item ou padrão
-            $taxRate = $item->attributes['tax_rate'] ?? $defaultTaxRate;
-            $this->cartTax += $itemTotal * ($taxRate / 100);
-            
-            // IRT para serviços
-            if ($isService && $applyIrtServices) {
-                $this->cartIrt += $itemTotal * ($defaultIrtRate / 100);
+        if ($applyIrtServices) {
+            foreach ($this->cartItems as $item) {
+                $attrs = is_array($item->attributes) ? $item->attributes : (array) $item->attributes;
+                $isService = ($attrs['type'] ?? null) === 'service';
+                if ($isService) {
+                    $base = $item->price * $item->quantity;
+                    if ($this->cartSubtotal > 0) {
+                        $base -= $this->cartDiscount * ($base / $this->cartSubtotal); // desconto pró-rata
+                    }
+                    $this->cartIrt += $base * ($defaultIrtRate / 100);
+                }
+            }
+            $this->cartIrt = round($this->cartIrt, 2);
+            $this->cartTotal = round($this->cartTotal - $this->cartIrt, 2);
+        }
+
+        $this->calculateChange();
+
+        // Rede de segurança: espelhar o carrinho no cliente (localStorage). Se a sessão
+        // expirar por inatividade, o carrinho (que vive na sessão do servidor) desaparece;
+        // o cliente guarda esta cópia e restaura-a após novo login (ver scripts do POS).
+        $this->dispatch('pos-cart-sync',
+            key: 'pos_cart_' . auth()->id() . '_' . ($this->currentShift->id ?? 0),
+            count: $this->cartItems->count(),
+            items: $this->cartItems->map(fn($i) => [
+                'id' => $i->id,
+                'quantity' => (float) $i->quantity,
+            ])->values()->toArray(),
+        );
+    }
+
+    /**
+     * Restaura o carrinho a partir da cópia guardada no cliente (localStorage) após a
+     * sessão ter expirado e o utilizador voltar a iniciar sessão. Reutiliza addToCart +
+     * updateQuantity para revalidar stock/lotes e recalcular preços no servidor — nunca
+     * confia em preços vindos do cliente.
+     */
+    public function restoreCartFromClient($items)
+    {
+        if (!is_array($items) || empty($items)) {
+            return;
+        }
+        $restored = 0;
+        foreach ($items as $it) {
+            $pid = $it['id'] ?? null;
+            $qty = isset($it['quantity']) ? (float) $it['quantity'] : 0;
+            if (!$pid || $qty < 1) {
+                continue;
+            }
+            $product = Product::where('id', $pid)
+                ->where('tenant_id', activeTenantId())
+                ->first();
+            if (!$product) {
+                continue;
+            }
+            // Adicionar 1 unidade (valida stock/lote); depois fixar a quantidade guardada.
+            if (!Cart::session(auth()->id())->get($pid)) {
+                $this->addToCart($pid);
+            }
+            if (Cart::session(auth()->id())->get($pid)) {
+                $this->updateQuantity($pid, $qty);   // fixa qty absoluta, auto-limitada ao stock
+                $restored++;
             }
         }
-        
-        // Total final (subtotal - desconto + IVA - IRT retido)
-        $this->cartTotal = $subtotalAfterDiscount + $this->cartTax - $this->cartIrt;
-        
-        $this->calculateChange();
+        if ($restored > 0) {
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => "🛒 Venda recuperada — {$restored} item(s) restaurado(s) no carrinho.",
+            ]);
+        }
     }
     
     public function updatedDiscount()
@@ -172,14 +342,48 @@ class POSSystem extends Component
         $this->calculateChange();
     }
 
+    /**
+     * Stock disponível do produto NO ARMAZÉM DEFAULT do tenant.
+     * Usa invoicing_stocks quando há linha; caso contrário, fallback para
+     * product.stock_quantity (tenants que não usam multi-armazém).
+     */
+    protected function stockInWarehouse(Product $product): float
+    {
+        if (!$this->warehouseId) {
+            return (float) ($product->stock_quantity ?? 0);
+        }
+        $row = Stock::where('tenant_id', activeTenantId())
+            ->where('warehouse_id', $this->warehouseId)
+            ->where('product_id', $product->id)
+            ->first();
+        if ($row) {
+            return (float) $row->quantity;
+        }
+        // Multi-arm: se o produto já tem linhas noutros armazéns, NUNCA usar o
+        // fallback agregado — o stock real neste armazém é 0. O agregado
+        // (stock_quantity) só é válido para tenants legados sem multi-armazém.
+        $hasAnyStockRow = Stock::where('tenant_id', activeTenantId())
+            ->where('product_id', $product->id)
+            ->exists();
+        if ($hasAnyStockRow) {
+            return 0.0;
+        }
+        return (float) ($product->stock_quantity ?? 0);
+    }
+
     public function addToCart($productId)
     {
-        $product = Product::find($productId);
-        
-        if (!$product || $product->stock_quantity <= 0) {
+        // Scope ao tenant: $productId vem do browser. Sem o filtro, um produto
+        // de OUTRA empresa passava — o stockInWarehouse() não encontrava linhas
+        // (filtra por tenant), caía no agregado stock_quantity da empresa alheia
+        // e, sendo > 0, o produto entrava no carrinho e saía na factura desta.
+        $product = Product::where('tenant_id', activeTenantId())->find($productId);
+        $available = $product ? $this->stockInWarehouse($product) : 0;
+
+        if (!$product || $available <= 0) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Produto sem stock disponível!'
+                'message' => '❌ Produto sem stock no armazém ' . $this->warehouseName . '!'
             ]);
             return;
         }
@@ -228,17 +432,20 @@ class POSSystem extends Component
                 return;
             }
         }
-        // Validar stock disponível (tradi cional)
-        elseif ($newQuantity > $product->stock_quantity) {
-            // Disparar som de erro
+        // Validar stock disponível NO ARMAZÉM
+        elseif ($newQuantity > $available) {
             $this->dispatch('stock-error');
-            
             $this->dispatch('notify', [
                 'type' => 'warning',
-                'message' => '⚠️ Stock insuficiente! Disponível: ' . $product->stock_quantity . ' un'
+                'message' => '⚠️ Stock insuficiente em ' . $this->warehouseName . '! Disponível: ' . $available . ' un'
             ]);
             return;
         }
+
+        // Imposto resolvido pela fonte ÚNICA (regime do tenant + produto).
+        // O antigo `?? 14` hardcoded fazia empresas em regime de isenção
+        // emitirem faturas com IVA 14%.
+        $tx = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
 
         Cart::session(auth()->id())->add([
             'id' => $product->id,
@@ -248,7 +455,10 @@ class POSSystem extends Component
             'attributes' => [
                 'image' => $product->image,
                 'sku' => $product->sku,
-                'tax_rate' => $product->tax_rate ?? 14, // IVA padrão 14% Angola
+                'unit' => $product->unit ?? 'UN',
+                'tax_rate' => $tx['rate'],
+                'tax_type' => $tx['type'],
+                'exemption_reason' => $tx['exemption_code'],
                 'discount_percent' => 0,
             ]
         ]);
@@ -260,18 +470,26 @@ class POSSystem extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => '✅ Produto adicionado! (' . $newQuantity . '/' . $product->stock_quantity . ' un)'
+            'message' => '✅ Produto adicionado! (' . $newQuantity . '/' . $available . ' un em ' . $this->warehouseName . ')'
         ]);
     }
 
     public function updateQuantity($itemId, $quantity)
     {
+        // Entrada vazia/inválida → reverter para o valor atual sem alterar
+        if ($quantity === '' || $quantity === null || !is_numeric($quantity)) {
+            $this->loadCart();
+            return;
+        }
+
+        $quantity = (float) $quantity;
+
         if ($quantity <= 0) {
             $this->removeFromCart($itemId);
             return;
         }
 
-        $product = Product::find($itemId);
+        $product = Product::where("tenant_id", activeTenantId())->find($itemId);
         
         if (!$product) {
             $this->dispatch('notify', [
@@ -300,17 +518,17 @@ class POSSystem extends Component
                 $quantity = $totalAvailable;
             }
         }
-        // Validar stock tradicional
-        elseif ($quantity > $product->stock_quantity) {
-            // Disparar som de erro
-            $this->dispatch('stock-error');
-            
-            $this->dispatch('notify', [
-                'type' => 'warning',
-                'message' => '⚠️ Quantidade excede stock! Disponível: ' . $product->stock_quantity . ' un. Ajustando...'
-            ]);
-            // Ajustar para o máximo disponível
-            $quantity = $product->stock_quantity;
+        // Validar stock NO ARMAZÉM
+        else {
+            $available = $this->stockInWarehouse($product);
+            if ($quantity > $available) {
+                $this->dispatch('stock-error');
+                $this->dispatch('notify', [
+                    'type' => 'warning',
+                    'message' => '⚠️ Excede stock em ' . $this->warehouseName . '! Disponível: ' . $available . ' un. Ajustando...'
+                ]);
+                $quantity = $available;
+            }
         }
 
         Cart::session(auth()->id())->update($itemId, [
@@ -340,7 +558,7 @@ class POSSystem extends Component
         
         // Para produtos, validar stock disponível
         if (!$isService) {
-            $product = Product::find($itemId);
+            $product = Product::where("tenant_id", activeTenantId())->find($itemId);
             
             if (!$product) {
                 $this->dispatch('notify', [
@@ -350,11 +568,12 @@ class POSSystem extends Component
                 return;
             }
             
-            if ($newQuantity > $product->stock_quantity) {
+            $available = $this->stockInWarehouse($product);
+            if ($newQuantity > $available) {
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Stock máximo atingido! Disponível: ' . $product->stock_quantity . ' un'
+                    'message' => '⚠️ Stock máximo atingido em ' . $this->warehouseName . '! Disponível: ' . $available . ' un'
                 ]);
                 return;
             }
@@ -369,7 +588,7 @@ class POSSystem extends Component
         
         $message = $isService 
             ? '📈 ' . $cartItem->name . ' (' . $newQuantity . 'x)'
-            : '📈 Quantidade: ' . $newQuantity . '/' . ($product->stock_quantity ?? 0) . ' un';
+            : '📈 Quantidade: ' . $newQuantity . ' un (' . $this->warehouseName . ')';
             
         $this->dispatch('notify', [
             'type' => 'info',
@@ -410,6 +629,7 @@ class POSSystem extends Component
     public function clearCart()
     {
         Cart::session(auth()->id())->clear();
+        session()->forget('pos_cart_order_' . auth()->id());
         $this->loadCart();
         
         $this->dispatch('notify', [
@@ -420,9 +640,100 @@ class POSSystem extends Component
 
     public function selectClient($clientId)
     {
-        $this->selectedClient = Client::find($clientId);
+        // Scoped ao tenant activo: qualquer método público Livewire é invocável
+        // pelo cliente, logo um id arbitrário não pode selecionar cliente de
+        // outra empresa (IDOR).
+        $client = Client::where('tenant_id', activeTenantId())->find($clientId);
+        if (!$client) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Cliente inválido.']);
+            return;
+        }
+        $this->selectedClient = $client;
         $this->showClientModal = false;
         $this->searchClient = '';
+    }
+
+    /**
+     * Abre o modal de criação rápida de cliente. Pré-preenche o nome
+     * com o texto de pesquisa actual, se houver.
+     */
+    public function openQuickClientModal()
+    {
+        $term = trim((string) $this->searchClient);
+        $this->quickClientName  = $term && !ctype_digit($term) ? $term : '';
+        $this->quickClientNif   = $term && ctype_digit($term) ? $term : '';
+        $this->quickClientPhone = '';
+        $this->quickClientEmail = '';
+        $this->resetErrorBag();
+        $this->showClientModal = false;
+        $this->showQuickClientModal = true;
+    }
+
+    public function closeQuickClientModal()
+    {
+        $this->showQuickClientModal = false;
+    }
+
+    /**
+     * Cria um cliente rápido (apenas campos essenciais) e seleciona-o automaticamente.
+     */
+    public function quickCreateClient()
+    {
+        $this->validate([
+            'quickClientName'  => 'required|string|max:255',
+            'quickClientNif'   => 'nullable|string|max:20',
+            'quickClientPhone' => 'nullable|string|max:30',
+            'quickClientEmail' => 'nullable|email|max:255',
+        ], [], [
+            'quickClientName'  => 'nome',
+            'quickClientNif'   => 'NIF',
+            'quickClientPhone' => 'telefone',
+            'quickClientEmail' => 'email',
+        ]);
+
+        $tenantId = activeTenantId();
+        if (!$tenantId) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Tenant inválido.']);
+            return;
+        }
+
+        // Evitar duplicar se NIF já existir neste tenant
+        if (!empty($this->quickClientNif)) {
+            $existing = Client::where('tenant_id', $tenantId)
+                ->where('nif', $this->quickClientNif)
+                ->first();
+            if ($existing) {
+                $this->selectedClient = $existing;
+                $this->showQuickClientModal = false;
+                $this->dispatch('notify', [
+                    'type' => 'info',
+                    'message' => '✓ Cliente já existente seleccionado: ' . $existing->name,
+                ]);
+                return;
+            }
+        }
+
+        $client = Client::create([
+            'tenant_id'      => $tenantId,
+            'type'           => 'pessoa_fisica',
+            'name'           => $this->quickClientName,
+            'nif'            => $this->quickClientNif ?: null,
+            'phone'          => $this->quickClientPhone ?: null,
+            'email'          => $this->quickClientEmail ?: null,
+            'country'        => 'Angola',
+            'is_active'      => true,
+            'is_iva_subject' => true,
+        ]);
+
+        $this->selectedClient = $client;
+        $this->showQuickClientModal = false;
+        $this->searchClient = '';
+        $this->reset(['quickClientName', 'quickClientNif', 'quickClientPhone', 'quickClientEmail']);
+
+        $this->dispatch('notify', [
+            'type'    => 'success',
+            'message' => '✓ Cliente criado e seleccionado: ' . $client->name,
+        ]);
     }
 
     public function updatedAmountReceived()
@@ -477,7 +788,7 @@ class POSSystem extends Component
                     'quantity' => $item->quantity,
                     'attributes' => [
                         'discount_percent' => 0,
-                        'tax_rate' => $item->attributes->tax_rate ?? 14,
+                        'tax_rate' => $item->attributes->tax_rate ?? 0,
                     ]
                 ];
             });
@@ -500,54 +811,130 @@ class POSSystem extends Component
 
             // Criar fatura usando tabela existente
             $invoice = SalesInvoice::create([
-                'tenant_id' => activeTenantId(),
-                'client_id' => $this->selectedClient->id,
-                'invoice_number' => $invoiceNumber,
-                'invoice_date' => now(),
-                'due_date' => now(),
-                'status' => 'paid',
-                'subtotal' => $calculations['subtotal'],
-                'tax_amount' => $calculations['tax_amount'],
-                'discount_amount' => $calculations['desconto_comercial_total'],
-                'total' => $calculations['total'],
-                'paid_amount' => $this->amountReceived,
-                'notes' => $this->notes,
-                'payment_method' => $this->paymentMethod,
-                'created_by' => auth()->id(),
+                'tenant_id'           => activeTenantId(),
+                'series_id'           => $series->id,
+                'client_id'           => $this->selectedClient->id,
+                'warehouse_id'        => $this->warehouseId ?: defaultWarehouseId(),
+                'invoice_number'      => $invoiceNumber,
+                'invoice_type'        => 'FR',   // Fatura-Recibo (SAFT-AO) — a série é FR
+                'invoice_date'        => now(),
+                'due_date'            => now(),
+                'status'              => 'paid',
+                // Totais AGT
+                'subtotal'            => $calculations['subtotal'],
+                'net_total'           => $calculations['incidencia_iva'],
+                'tax_amount'          => $calculations['tax_amount'],
+                'tax_payable'         => $calculations['tax_amount'],
+                'irt_amount'          => $calculations['irt_amount'],
+                // SAFT-AO: GrossTotal = NetTotal + TaxPayable. A retenção (IRT)
+                // declara-se no seu próprio campo, NÃO se abate ao grossTotal —
+                // gravar aqui o `total` (já líquido de IRT) fazia
+                // netTotal + taxPayable ≠ grossTotal e a AGT recusava o
+                // documento. O que o cliente paga continua em `total`.
+                'gross_total'         => $calculations['incidencia_iva'] + $calculations['tax_amount'],
+                'discount_amount'     => $calculations['desconto_comercial_total'],
+                'discount_commercial' => $this->cartDiscount,
+                'total'               => $calculations['total'],
+                'paid_amount'         => $this->amountReceived,
+                // Campos SAFT-AO obrigatórios (Decreto 71/25)
+                'invoice_status'      => 'F',
+                'invoice_status_date' => now(),
+                'source_id'           => auth()->id(),
+                'source_billing'      => 'P',
+                'system_entry_date'   => now(),
+                'notes'               => $this->notes,
+                'payment_method'      => $this->paymentMethod,
+                'created_by'          => auth()->id(),
             ]);
 
             // Adicionar itens
+            $itemOrder = 0;
             foreach ($this->cartItems as $item) {
-                $taxRate = $item->attributes->tax_rate ?? 14;
-                $subtotal = $item->price * $item->quantity;
-                $taxAmount = $subtotal * ($taxRate / 100);
-                
+                $attrs     = $item->attributes;
+                $taxRate   = (float) ($attrs->tax_rate ?? 0);
+                $taxType   = $attrs->tax_type ?? 'iva';
+                $exemption = $attrs->exemption_reason ?? null;
+                $unit      = $attrs->unit ?? 'UN';
+                $subtotal  = round($item->price * $item->quantity, 2);
+                $taxAmount = round($subtotal * ($taxRate / 100), 2);
+
                 // Verificar se é serviço (ID começa com 'service_')
-                $isService = str_starts_with($item->id, 'service_');
+                $isService = str_starts_with((string) $item->id, 'service_');
                 // Extrair ID numérico: 'service_21' -> 21, ou ID do produto
                 $productId = $isService ? (int) str_replace('service_', '', $item->id) : $item->id;
-                
+
+                // Códigos SAFT-AO por linha
+                $taxCode    = ($taxType === 'isento' || $taxRate == 0) ? 'ISE' : 'NOR';
+                $saftType   = ($taxType === 'isento' || $taxRate == 0) ? 'ISE' : 'NOR';
+
                 SalesInvoiceItem::create([
-                    'sales_invoice_id' => $invoice->id,
-                    'product_id' => $productId,
-                    'product_name' => $item->name,
-                    'description' => $isService ? '[SERVIÇO] ' . $item->name : $item->name,
-                    'quantity' => $item->quantity,
-                    'unit_price' => $item->price,
-                    'discount_percent' => 0,
-                    'discount_amount' => 0,
-                    'tax_rate' => $taxRate,
-                    'tax_amount' => $taxAmount,
-                    'subtotal' => $subtotal,
-                    'total' => $subtotal + $taxAmount,
+                    'sales_invoice_id'     => $invoice->id,
+                    'product_id'           => $productId,
+                    'product_name'         => $item->name,
+                    'description'          => $isService ? '[SERVIÇO] ' . $item->name : $item->name,
+                    'quantity'             => $item->quantity,
+                    'unit'                 => $unit,
+                    'unit_price'           => $item->price,
+                    'discount_percent'     => (float) ($attrs->discount_percent ?? 0),
+                    'discount_amount'      => 0,
+                    'subtotal'             => $subtotal,
+                    'tax_rate'             => $taxRate,
+                    'tax_amount'           => $taxAmount,
+                    'total'                => $subtotal + $taxAmount,
+                    'order'                => ++$itemOrder,
+                    // Campos AGT DS.120
+                    'tax_code'             => $taxCode,
+                    'tax_country_region'   => 'AO',
+                    // Código (varchar 10) vs descrição (varchar 255) — normalizar
+                    // sempre: o produto pode ter a descrição gravada onde devia
+                    // estar o código, e isso rebentava o INSERT ("Data too long").
+                    'tax_exemption_code'   => $taxType === 'isento' ? Product::normalizeExemptionCode($exemption) : null,
+                    'tax_exemption_reason' => $taxType === 'isento' ? Product::exemptionReasonText($exemption) : null,
                 ]);
 
                 // Atualizar stock apenas para produtos
                 if (!$isService) {
-                    $product = Product::find($item->id);
+                    $product = Product::where("tenant_id", activeTenantId())->find($item->id);
                     if ($product) {
-                        $product->stock_quantity -= $item->quantity;
-                        $product->save();
+                        // Deduzir do armazém (linha Stock) se existir; senão, fallback agregado.
+                        // NUNCA escrever o agregado quando há linha: o StockObserver mantém
+                        // products.stock_quantity = SUM(invoicing_stocks) no save() da linha.
+                        // (A escrita manual antiga sobrepunha o valor do observer com um
+                        // cálculo em memória, perpetuando divergências agregado/armazéns.)
+                        $stockRow = $this->warehouseId
+                            ? Stock::where('tenant_id', activeTenantId())
+                                ->where('warehouse_id', $this->warehouseId)
+                                ->where('product_id', $product->id)
+                                ->first()
+                            : null;
+                        if ($stockRow) {
+                            $stockRow->quantity = max(0, (float) $stockRow->quantity - (float) $item->quantity);
+                            $stockRow->save();   // dispara StockObserver → agregado ressincronizado
+                        } else {
+                            // Tenant legado sem linhas de armazém: o agregado é a própria store
+                            $product->stock_quantity = max(0, (float) $product->stock_quantity - (float) $item->quantity);
+                            $product->save();
+                        }
+
+                        // Ledger: registar o movimento da venda. semAplicarStock para o hook
+                        // created do StockMovement não voltar a debitar (o stock já foi
+                        // atualizado acima) — mesma técnica do WarehouseTransfer.
+                        if ($this->warehouseId) {
+                            StockMovement::semAplicarStock(function () use ($invoice, $product, $item) {
+                                StockMovement::create([
+                                    'tenant_id'      => activeTenantId(),
+                                    'warehouse_id'   => $this->warehouseId,
+                                    'product_id'     => $product->id,
+                                    'type'           => 'out',
+                                    'quantity'       => (float) $item->quantity,
+                                    'unit_cost'      => $product->cost,
+                                    'reference_type' => SalesInvoice::class,
+                                    'reference_id'   => $invoice->id,
+                                    'user_id'        => auth()->id(),
+                                    'notes'          => 'Venda POS - ' . $invoice->invoice_number,
+                                ]);
+                            });
+                        }
                     }
                 }
             }
@@ -600,16 +987,37 @@ class POSSystem extends Component
 
             DB::commit();
 
-            // Guardar fatura para impressão
-            $this->lastInvoice = $invoice->load(['client', 'items.product', 'tenant']);
-
-            // Gerar QR Code AGT
+            // Gerar hash SAFT-AO (encadear com fatura anterior — Decreto 71/25)
             try {
-                $this->lastInvoiceQR = getAGTQRData($this->lastInvoice, 120);
-            } catch (\Exception $e) {
-                \Log::error('POS: Erro ao gerar QR Code', ['error' => $e->getMessage()]);
-                $this->lastInvoiceQR = ['data' => '', 'image' => null, 'atcud' => ''];
+                $invoice->generateHash();
+            } catch (\Throwable $e) {
+                \Log::error('POS: Erro ao gerar hash SAFT', [
+                    'invoice' => $invoice->invoice_number,
+                    'error'   => $e->getMessage(),
+                ]);
             }
+
+            // Auto-submeter à AGT se habilitado nas configurações
+            try {
+                $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
+                if (!empty($settings->agt_auto_submit)) {
+                    $agtResult = $invoice->submitToAGT();
+                    \Log::info('POS: Fatura submetida à AGT', [
+                        'invoice'   => $invoice->invoice_number,
+                        'requestID' => $agtResult['requestID'] ?? null,
+                        'success'   => $agtResult['success'] ?? false,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                \Log::error('POS: Erro ao submeter para AGT', [
+                    'invoice' => $invoice->invoice_number,
+                    'error'   => $e->getMessage(),
+                ]);
+                // Não bloqueia a venda — AGT pode ser re-submetida manualmente
+            }
+
+            // Guardar factura para o talão. É libertada em closePrintModal().
+            $this->lastInvoice = $invoice->fresh()->load(['client', 'items.product', 'tenant']);
 
             $this->dispatch('notify', [
                 'type' => 'success',
@@ -671,32 +1079,67 @@ class POSSystem extends Component
         $this->calculateChange();
     }
     
+    /**
+     * Código do método de pagamento a mostrar por omissão.
+     *
+     * Manda a definição da empresa (Faturação › Definições › "Método de
+     * Pagamento Padrão no POS"). Ignorá-la e usar sempre o primeiro por
+     * sort_order fazia com que configurar Transferência não tivesse efeito
+     * nenhum — o POS continuava a abrir em Dinheiro e parecia que a definição
+     * não gravava.
+     *
+     * Só se não houver definição (ou apontar para um método já desactivado) é
+     * que cai no primeiro da lista.
+     */
+    private function metodoPagamentoPorOmissao(): string
+    {
+        $metodos = collect($this->paymentMethods);
+
+        $configurado = InvoicingSettings::forTenant(activeTenantId())->pos_default_payment_method_id;
+
+        if ($configurado) {
+            $metodo = $metodos->firstWhere('id', (int) $configurado);
+            if ($metodo) {
+                return $metodo->code;
+            }
+        }
+
+        return $metodos->first()->code ?? 'cash';
+    }
+
     private function createTreasuryTransaction($invoice)
     {
-        // Mapear métodos de pagamento para categorias
-        $paymentMethodMap = [
-            'cash' => 'cash',
-            'transfer' => 'bank_transfer',
-            'multicaixa' => 'card',
-            'tpa' => 'card',
-            'mbway' => 'digital_payment',
-        ];
-
-        $category = $paymentMethodMap[$this->paymentMethod] ?? 'cash';
-
-        // Buscar payment method do Treasury (se existir)
+        // Buscar payment method do Treasury (case-insensitive pelo código)
+        $code = strtolower((string) $this->paymentMethod);
         $treasuryPaymentMethod = TreasuryPaymentMethod::where('tenant_id', activeTenantId())
-            ->where('code', $this->paymentMethod)
+            ->whereRaw('LOWER(code) = ?', [$code])
             ->first();
+
+        // Categoria: derivar do TIPO do método quando existir; senão, mapa por código
+        $typeToCategory = [
+            'cash' => 'cash', 'card' => 'card', 'bank_transfer' => 'bank_transfer',
+            'digital_wallet' => 'digital_payment', 'check' => 'bank_transfer',
+        ];
+        $codeToCategory = [
+            'cash' => 'cash', 'transfer' => 'bank_transfer', 'multicaixa' => 'card',
+            'mcx' => 'card', 'tpa' => 'card', 'card' => 'card',
+            'mbway' => 'digital_payment', 'mobile' => 'digital_payment',
+        ];
+        $category = $treasuryPaymentMethod
+            ? ($typeToCategory[$treasuryPaymentMethod->type] ?? 'cash')
+            : ($codeToCategory[$code] ?? 'cash');
+
+        // É dinheiro? (pelo tipo do método, ou pelo código em fallback)
+        $isCash = $treasuryPaymentMethod ? ($treasuryPaymentMethod->type === 'cash') : ($code === 'cash');
 
         // Para pagamento em dinheiro, buscar caixa ativa
         $cashRegisterId = null;
-        if ($this->paymentMethod === 'cash') {
+        if ($isCash) {
             $activeCashRegister = CashRegister::where('tenant_id', activeTenantId())
                 ->where('is_active', true)
                 ->where('status', 'open')
                 ->first();
-            
+
             if ($activeCashRegister) {
                 $cashRegisterId = $activeCashRegister->id;
             }
@@ -729,44 +1172,93 @@ class POSSystem extends Component
         }
     }
 
+    /**
+     * Fecha o talão e LIBERTA a factura do estado do componente.
+     *
+     * É o que faltava: sem isto a factura (e antes também o QR de 44 KB) ficava
+     * no estado até recarregar a página, e cada clique seguinte arrastava-a.
+     */
+    public function closePrintModal(): void
+    {
+        $this->showPrintModal = false;
+        $this->lastInvoice = null;
+    }
+
+    public function getNextInvoiceNumberProperty(): string
+    {
+        $series = InvoicingSeries::getDefaultSeries(activeTenantId(), 'pos');
+        return $series ? $series->previewNextNumber() : '—';
+    }
+
     public function render()
     {
-        // Produtos com stock disponível
-        $productsQuery = Product::where('tenant_id', activeTenantId())
-            ->where('is_active', true)
-            ->where('stock_quantity', '>', 0); // Mostrar apenas com stock
+        $tenantId = activeTenantId();
+        $whId = $this->warehouseId;
+
+        // Produtos do armazém DEFAULT: stock = invoicing_stocks.quantity (do armazém)
+        // ou, se não houver linha, fallback para products.stock_quantity (legado).
+        // O alias `stock_in_warehouse` é o stock visível no POS — usado no card.
+        // Sub-select: produto tem QUALQUER linha em invoicing_stocks (qualquer armazém)?
+        // Se sim, esse produto já está no regime multi-armazém e o agregado legado
+        // (invoicing_products.stock_quantity) deixa de ser de confiança.
+        $hasStockRowSql = '(SELECT 1 FROM invoicing_stocks ss WHERE ss.tenant_id = ? AND ss.product_id = invoicing_products.id LIMIT 1)';
+        $stockExpr = "COALESCE(invoicing_stocks.quantity, CASE WHEN EXISTS{$hasStockRowSql} THEN 0 ELSE COALESCE(invoicing_products.stock_quantity, 0) END)";
+
+        $productsQuery = Product::where('invoicing_products.tenant_id', $tenantId)
+            ->where('invoicing_products.is_active', true)
+            ->leftJoin('invoicing_stocks', function ($join) use ($whId, $tenantId) {
+                $join->on('invoicing_stocks.product_id', '=', 'invoicing_products.id')
+                     ->where('invoicing_stocks.tenant_id', $tenantId)
+                     ->where('invoicing_stocks.warehouse_id', $whId);
+            })
+            ->selectRaw("invoicing_products.*, {$stockExpr} AS stock_in_warehouse", [$tenantId]);
+
+        // Ocultar produtos sem stock (não afecta serviços) — controlado em Settings → Faturacão
+        $hideOutOfStock = \App\Models\Invoicing\InvoicingSettings::forTenant($tenantId)->pos_hide_out_of_stock ?? true;
+        if ($hideOutOfStock) {
+            $productsQuery->whereRaw("(invoicing_products.type = 'servico' OR {$stockExpr} > 0)", [$tenantId]);
+        }
 
         if ($this->search) {
-            $productsQuery->where(function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('sku', 'like', '%' . $this->search . '%')
-                  ->orWhere('barcode', 'like', '%' . $this->search . '%');
+            $productsQuery->where(function ($q) {
+                $q->where('invoicing_products.name', 'like', '%' . $this->search . '%')
+                  ->orWhere('invoicing_products.sku', 'like', '%' . $this->search . '%')
+                  ->orWhere('invoicing_products.barcode', 'like', '%' . $this->search . '%');
             });
         }
 
         if ($this->selectedCategory) {
-            $productsQuery->where('category_id', $this->selectedCategory);
+            $productsQuery->where('invoicing_products.category_id', $this->selectedCategory);
         }
 
         $products = $productsQuery->limit(50)->get();
 
-        // Categorias
-        $categories = Category::where('tenant_id', activeTenantId())
-            ->withCount('products')
-            ->get();
+        // Categorias: o withCount() é uma subconsulta por categoria (60 aqui,
+        // ~30 ms) e corria a CADA clique no carrinho. Cache de 60 s: num minuto
+        // de trabalho passa de dezenas de execuções a uma, e uma categoria nova
+        // aparece na mesma quase de imediato.
+        $categories = \Illuminate\Support\Facades\Cache::remember(
+            "pos_categories_{$tenantId}",
+            60,
+            fn () => Category::where('tenant_id', $tenantId)->withCount('products')->get()
+        );
 
-        // Clientes para modal
-        $clientsQuery = Client::where('tenant_id', activeTenantId())
-            ->where('is_active', true);
-            
-        if ($this->searchClient) {
-            $clientsQuery->where(function($q) {
-                $q->where('name', 'like', '%' . $this->searchClient . '%')
-                  ->orWhere('nif', 'like', '%' . $this->searchClient . '%');
-            });
+        // Clientes: só quando o modal de cliente está aberto ou há pesquisa.
+        // Antes carregava 10 clientes em cada clique no carrinho, sem serem vistos.
+        $clients = collect();
+        if ($this->showClientModal || $this->showQuickClientModal || filled($this->searchClient)) {
+            $clientsQuery = Client::where('tenant_id', $tenantId)
+                ->where('is_active', true);
+
+            if ($this->searchClient) {
+                $clientsQuery->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchClient . '%')
+                      ->orWhere('nif', 'like', '%' . $this->searchClient . '%');
+                });
+            }
+
+            $clients = $clientsQuery->limit(10)->get();
         }
-        
-        $clients = $clientsQuery->limit(10)->get();
 
         return view('livewire.pos.possystem', [
             'products' => $products,

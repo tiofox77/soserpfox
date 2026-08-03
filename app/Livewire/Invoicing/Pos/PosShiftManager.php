@@ -14,13 +14,17 @@ class PosShiftManager extends Component
     public $currentShift = null;
     public $showOpenShiftModal = false;
     public $showCloseShiftModal = false;
+
+    // Pós-fecho: turno fechado mais recente para impressão/PDF
+    public $lastClosedShiftId = null;
+    public $showAfterCloseModal = false;
     
     // Abertura de turno
     public $opening_balance = 0;
     public $opening_notes = '';
     
     // Fechamento de turno
-    public $actual_cash = 0;
+    public $actual_cash = null;   // null → o operador tem de digitar o valor contado
     public $closing_notes = '';
     public $difference_reason = '';
 
@@ -61,16 +65,16 @@ class PosShiftManager extends Component
         ]);
 
         try {
-            $shift = PosShift::create([
-                'tenant_id' => activeTenantId(),
+            $tenantId = activeTenantId();
+            $shift = PosShift::createSafely([
+                'tenant_id' => $tenantId,
                 'user_id' => auth()->id(),
-                'shift_number' => PosShift::generateShiftNumber(),
                 'status' => 'open',
                 'opened_at' => now(),
                 'opening_balance' => $this->opening_balance,
                 'opening_notes' => $this->opening_notes,
                 'opened_ip' => request()->ip(),
-            ]);
+            ], $tenantId);
 
             $this->currentShift = $shift;
             $this->showOpenShiftModal = false;
@@ -87,8 +91,11 @@ class PosShiftManager extends Component
             return;
         }
 
-        $this->actual_cash = $this->currentShift->opening_balance + $this->currentShift->cash_sales;
-        $this->reset(['closing_notes', 'difference_reason']);
+        // NÃO pré-preencher com o valor esperado: o operador tem de contar e
+        // digitar o dinheiro real, senão a diferença de caixa dá sempre 0,00 e
+        // quebras/excessos nunca são detetados. O esperado continua visível no
+        // resumo do modal.
+        $this->reset(['actual_cash', 'closing_notes', 'difference_reason']);
         $this->showCloseShiftModal = true;
     }
 
@@ -102,6 +109,7 @@ class PosShiftManager extends Component
         ]);
 
         try {
+            $closedShiftId = $this->currentShift->id;
             $this->currentShift->close(
                 $this->actual_cash,
                 $this->closing_notes,
@@ -110,10 +118,21 @@ class PosShiftManager extends Component
 
             $this->dispatch('success', message: '✅ Turno fechado com sucesso!');
             $this->showCloseShiftModal = false;
+
+            // Disponibilizar opções de impressão/PDF do resumo
+            $this->lastClosedShiftId = $closedShiftId;
+            $this->showAfterCloseModal = true;
+
             $this->loadCurrentShift();
         } catch (\Exception $e) {
             $this->dispatch('error', message: '❌ Erro ao fechar turno: ' . $e->getMessage());
         }
+    }
+
+    public function closeAfterCloseModal()
+    {
+        $this->showAfterCloseModal = false;
+        $this->lastClosedShiftId = null;
     }
 
     public function render()

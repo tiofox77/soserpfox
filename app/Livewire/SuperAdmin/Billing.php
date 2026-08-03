@@ -30,10 +30,42 @@ class Billing extends Component
     public $billing_cycle = 'monthly';
     public $selectedPlan = null;
     public $showSubscriptionModal = false;
+    public $markAsPaid = true;
+    public $paymentReference = '';
+    public $paymentMethod = 'bank_transfer';
     
     // Loading states
     public $approvingOrderId = null;
     public $rejectingOrderId = null;
+
+    // SAFT-AO (Software AGT) — config global, só o dono do sistema
+    public $saft_software_cert = '';
+    public $saft_product_id = '';
+    public $saft_version = '1.0.0';
+
+    public function mount()
+    {
+        $this->saft_software_cert = (string) softwareSetting('invoicing', 'saft_software_cert', '');
+        $this->saft_product_id    = (string) softwareSetting('invoicing', 'saft_product_id', '');
+        $this->saft_version       = (string) softwareSetting('invoicing', 'saft_version', '1.0.0');
+    }
+
+    public function saveSaftConfig()
+    {
+        abort_unless(auth()->user()->is_super_admin, 403);
+
+        $this->validate([
+            'saft_software_cert' => 'nullable|string|max:100',
+            'saft_product_id'    => 'nullable|string|max:100',
+            'saft_version'       => 'required|string|max:20',
+        ]);
+
+        \App\Models\SoftwareSetting::set('invoicing', 'saft_software_cert', $this->saft_software_cert, 'string', 'Certificado Software AGT (SAFT-AO)');
+        \App\Models\SoftwareSetting::set('invoicing', 'saft_product_id', $this->saft_product_id, 'string', 'Product ID do software (SAFT-AO)');
+        \App\Models\SoftwareSetting::set('invoicing', 'saft_version', $this->saft_version, 'string', 'Versão do formato SAFT-AO');
+
+        $this->dispatch('success', message: 'Configuração SAFT-AO guardada com sucesso!');
+    }
 
     protected $rules = [
         'tenant_id' => 'required|exists:tenants,id',
@@ -63,7 +95,30 @@ class Billing extends Component
 
     public function createSubscription()
     {
-        $this->reset(['tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan']);
+        $this->reset(['tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan', 'paymentReference']);
+        $this->markAsPaid = true;
+        $this->paymentMethod = 'bank_transfer';
+        $this->showSubscriptionModal = true;
+    }
+
+    public function closeSubscriptionModal()
+    {
+        $this->showSubscriptionModal = false;
+        $this->reset(['tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan', 'paymentReference']);
+    }
+
+    /**
+     * Carregar dados de uma subscription existente para edição.
+     * Permite ao admin alterar plano, ciclo e marcar como pago.
+     */
+    public function editSubscription($subscriptionId)
+    {
+        $subscription = Subscription::with('tenant', 'plan')->findOrFail($subscriptionId);
+        $this->tenant_id = $subscription->tenant_id;
+        $this->plan_id = $subscription->plan_id;
+        $this->billing_cycle = $subscription->billing_cycle ?? 'monthly';
+        $this->selectedPlan = $subscription->plan;
+        $this->markAsPaid = $subscription->status === 'active';
         $this->showSubscriptionModal = true;
     }
 
@@ -94,66 +149,128 @@ class Billing extends Component
     public function saveSubscription()
     {
         $this->validate([
-            'tenant_id' => 'required|exists:tenants,id',
-            'plan_id' => 'required|exists:plans,id',
+            'tenant_id'     => 'required|exists:tenants,id',
+            'plan_id'       => 'required|exists:plans,id',
             'billing_cycle' => 'required|in:monthly,quarterly,semiannual,yearly',
+            'paymentMethod' => 'nullable|string|in:bank_transfer,cash,multicaixa,credit_card,other',
+            'paymentReference' => 'nullable|string|max:255',
         ]);
 
-        $tenant = Tenant::findOrFail($this->tenant_id);
-        $plan = Plan::findOrFail($this->plan_id);
+        \DB::beginTransaction();
+        try {
+            $tenant = Tenant::findOrFail($this->tenant_id);
+            $plan   = Plan::findOrFail($this->plan_id);
 
-        // Verificar se já existe subscrição ativa para este tenant
-        $existingSubscription = Subscription::where('tenant_id', $this->tenant_id)
-            ->where('status', 'active')
-            ->first();
+            $amount    = $plan->getPrice($this->billing_cycle);
+            $periodEnd = match($this->billing_cycle) {
+                'yearly'     => now()->addMonths(14),
+                'semiannual' => now()->addMonths(6),
+                'quarterly'  => now()->addMonths(3),
+                default      => now()->addMonth(),
+            };
 
-        $amount = $plan->getPrice($this->billing_cycle);
-        $periodEnd = match($this->billing_cycle) {
-            'yearly' => now()->addMonths(14),
-            'semiannual' => now()->addMonths(6),
-            'quarterly' => now()->addMonths(3),
-            default => now()->addMonth(),
-        };
+            // Status da subscription: 'active' se pago, 'pending' se não
+            $subStatus = $this->markAsPaid ? 'active' : 'pending';
 
-        if ($existingSubscription) {
-            $existingSubscription->update([
-                'plan_id' => $this->plan_id,
-                'billing_cycle' => $this->billing_cycle,
-                'amount' => $amount,
-                'current_period_start' => now(),
-                'current_period_end' => $periodEnd,
+            // Procurar subscription existente (qualquer status) deste tenant para o mesmo plano
+            $existingSubscription = Subscription::where('tenant_id', $this->tenant_id)
+                ->whereIn('status', ['active', 'pending', 'trial'])
+                ->first();
+
+            if ($existingSubscription) {
+                $existingSubscription->update([
+                    'plan_id'              => $this->plan_id,
+                    'billing_cycle'        => $this->billing_cycle,
+                    'amount'               => $amount,
+                    'status'               => $subStatus,
+                    'current_period_start' => now(),
+                    'current_period_end'   => $periodEnd,
+                    'ends_at'              => $periodEnd,
+                ]);
+                $subscription = $existingSubscription;
+                $message = 'Subscrição atualizada com sucesso!';
+            } else {
+                $subscription = Subscription::create([
+                    'tenant_id'            => $this->tenant_id,
+                    'plan_id'              => $this->plan_id,
+                    'status'               => $subStatus,
+                    'billing_cycle'        => $this->billing_cycle,
+                    'amount'               => $amount,
+                    'current_period_start' => now(),
+                    'current_period_end'   => $periodEnd,
+                    'ends_at'              => $periodEnd,
+                    'trial_ends_at'        => $plan->trial_days > 0 ? now()->addDays($plan->trial_days) : null,
+                ]);
+                $message = 'Subscrição criada com sucesso!';
+            }
+
+            // Sincronizar módulos do plano (apenas se subscription activa)
+            if ($subStatus === 'active') {
+                // Via serviço + dependências do plano: o sync() duro anterior
+                // APAGAVA a Tesouraria dos clientes em Business/Enterprise
+                // (planos que não a listam), deixando a Faturação sem formas de
+                // pagamento. Também semeia pré-requisitos e concede permissões.
+                $sync = new \App\Services\Tenant\TenantModuleSyncService();
+                foreach ($plan->moduleSlugsWithDependencies() as $slug) {
+                    $sync->activateModule($tenant, $slug);
+                }
+                $tenant->update([
+                    'max_users'      => $plan->max_users,
+                    'max_storage_mb' => $plan->max_storage_mb,
+                ]);
+            }
+
+            // Criar Order de auditoria (status reflecte se foi pago ou não)
+            $order = Order::create([
+                'tenant_id'         => $tenant->id,
+                'user_id'           => auth()->id(),
+                'plan_id'           => $plan->id,
+                'amount'            => $amount,
+                'billing_cycle'     => $this->billing_cycle,
+                'status'            => $this->markAsPaid ? 'approved' : 'pending',
+                'payment_method'    => $this->paymentMethod ?: 'bank_transfer',
+                'payment_reference' => $this->paymentReference ?: null,
+                'approved_at'       => $this->markAsPaid ? now() : null,
+                'approved_by'       => $this->markAsPaid ? auth()->id() : null,
+                'notes'             => 'Subscrição criada/alterada manualmente pelo Super Admin via Billing.',
             ]);
-            
-            $subscription = $existingSubscription;
-            $message = 'Subscrição renovada/atualizada com sucesso!';
-        } else {
-            $subscription = Subscription::create([
+
+            // Criar Invoice se marcado como pago
+            if ($this->markAsPaid) {
+                Invoice::create([
+                    'tenant_id'      => $tenant->id,
+                    'invoice_number' => Invoice::generateInvoiceNumber(),
+                    'description'    => "Subscrição {$plan->name} - " . match($this->billing_cycle) {
+                        'yearly'     => 'Anual (14 meses)',
+                        'semiannual' => 'Semestral',
+                        'quarterly'  => 'Trimestral',
+                        default      => 'Mensal',
+                    },
+                    'invoice_date' => now(),
+                    'due_date'     => now(),
+                    'paid_at'      => now(),
+                    'subtotal'     => $amount,
+                    'tax'          => 0,
+                    'total'        => $amount,
+                    'status'       => 'paid',
+                ]);
+                $message .= ' Fatura paga gerada automaticamente.';
+            } else {
+                $message .= ' Aguarda confirmação de pagamento.';
+            }
+
+            \DB::commit();
+            $this->dispatch('success', message: $message);
+            $this->closeSubscriptionModal();
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            \Log::error('Billing::saveSubscription error', [
+                'error' => $e->getMessage(),
                 'tenant_id' => $this->tenant_id,
                 'plan_id' => $this->plan_id,
-                'status' => 'active',
-                'billing_cycle' => $this->billing_cycle,
-                'amount' => $amount,
-                'current_period_start' => now(),
-                'current_period_end' => $periodEnd,
-                'trial_ends_at' => now()->addDays($plan->trial_days),
             ]);
-            
-            $message = 'Subscrição criada com sucesso!';
+            $this->dispatch('error', message: 'Erro ao salvar subscrição: ' . $e->getMessage());
         }
-
-        // Sincronizar módulos do plano para o tenant
-        $syncData = [];
-        foreach ($plan->modules as $module) {
-            $syncData[$module->id] = [
-                'is_active' => true,
-                'activated_at' => now(),
-            ];
-        }
-        $tenant->modules()->sync($syncData);
-
-        $this->dispatch('success', message: $message . ' Módulos sincronizados.');
-        $this->showSubscriptionModal = false;
-        $this->reset(['tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan']);
     }
 
     public function viewSubscription($id)

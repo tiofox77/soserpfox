@@ -134,8 +134,8 @@ class VehicleManagement extends Component
 
     public function edit($id)
     {
-        $vehicle = Vehicle::findOrFail($id);
-        
+        $vehicle = Vehicle::where('tenant_id', activeTenantId())->findOrFail($id);
+
         $this->vehicleId = $vehicle->id;
         $this->plate = $vehicle->plate;
         $this->client_id = $vehicle->client_id;
@@ -202,13 +202,12 @@ class VehicleManagement extends Component
         ];
 
         if ($this->editMode) {
-            $vehicle = Vehicle::findOrFail($this->vehicleId);
+            $vehicle = Vehicle::where('tenant_id', activeTenantId())->findOrFail($this->vehicleId);
             $vehicle->update($data);
             $this->dispatch('success', message: 'Veículo atualizado com sucesso!');
         } else {
-            // Gerar número de veículo
-            $data['vehicle_number'] = 'VEH-' . str_pad(Vehicle::count() + 1, 5, '0', STR_PAD_LEFT);
-            Vehicle::create($data);
+            // Número interno gerado por-tenant, de forma atómica
+            Vehicle::createWithTenantNumber($data, 'vehicle_number', 'VEH-');
             $this->dispatch('success', message: 'Veículo criado com sucesso!');
         }
 
@@ -217,14 +216,15 @@ class VehicleManagement extends Component
 
     public function view($id)
     {
-        $this->viewingVehicle = Vehicle::with(['workOrders.mechanic', 'workOrders.items'])
+        $this->viewingVehicle = Vehicle::where('tenant_id', activeTenantId())
+            ->with(['workOrders.mechanic', 'workOrders.items'])
             ->findOrFail($id);
         $this->showViewModal = true;
     }
     
     public function delete($id)
     {
-        $vehicle = Vehicle::findOrFail($id);
+        $vehicle = Vehicle::where('tenant_id', activeTenantId())->findOrFail($id);
         $vehicle->delete();
         
         $this->dispatch('success', message: 'Veículo removido com sucesso!');

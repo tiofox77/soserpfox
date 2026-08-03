@@ -341,21 +341,19 @@ class PayrollCalculatorHelper
             })
             ->get();
 
-        $this->presentDays = $records->where('status', 'present')->count();
-        $this->lateDays = $records->where('status', 'late')->count();
-        $this->halfDays = $records->where('status', 'half_day')->count();
-        $this->leaveDays = $records->where('status', 'leave')->count();
-
-        // Leave days count as present
-        $this->presentDays += $this->leaveDays;
+        // Modelo real: status present/absent + flag is_late (não há status 'late'/'half_day'/'leave').
+        $this->presentDays = $records->where('status', 'present')->count(); // inclui dias com atraso
+        $this->lateDays = $records->where('status', 'present')->where('is_late', true)->count();
+        $this->halfDays = 0;
+        $this->leaveDays = 0;
 
         $this->totalHoursWorked = (float) $records->sum('hours_worked');
 
         // Cross-reference with leave management for days without attendance
         $this->crossReferenceLeaves($records);
 
-        // Calculate absent days
-        $accountedDays = $this->presentDays + $this->lateDays + $this->halfDays + $this->unpaidLeaveDays;
+        // Calculate absent days (presentDays já inclui atrasos e licença paga; não somar de novo)
+        $accountedDays = $this->presentDays + $this->halfDays + $this->unpaidLeaveDays;
         $this->absentDays = max(0, $this->workingDaysInPeriod - $accountedDays);
 
         // If no attendance records at all, assume all present
@@ -390,7 +388,8 @@ class PayrollCalculatorHelper
             while ($current->lte($end)) {
                 $isWorkDay = $current->isWeekday() || ($this->workOnSaturday && $current->isSaturday());
                 if ($isWorkDay && !in_array($current->toDateString(), $attendanceDates)) {
-                    $isPaid = !in_array($leave->type, ['unpaid', 'unpaid_leave']);
+                    // Coluna real: hr_leaves.paid (boolean). leave_type='unpaid' também é não-paga.
+                    $isPaid = (bool) ($leave->paid ?? (($leave->leave_type ?? null) !== 'unpaid'));
                     if ($isPaid) {
                         $this->paidLeaveDays++;
                         $this->presentDays++;
@@ -445,15 +444,12 @@ class PayrollCalculatorHelper
 
     public function loadSalaryAdvances(): void
     {
+        // NOTA: em hr_salary_advances `remaining_installments` é um ACESSOR
+        // (installments − installments_paid), NÃO uma coluna — filtrar por prestações em falta.
         $advances = SalaryAdvance::where('employee_id', $this->employee->id)
             ->where('tenant_id', $this->tenantId)
             ->whereIn('status', ['approved', 'in_deduction', 'paid'])
-            ->where(function ($q) {
-                $q->where('remaining_installments', '>', 0)
-                  ->orWhere(function ($q2) {
-                      $q2->whereColumn('installments_paid', '<', 'installments');
-                  });
-            })
+            ->whereColumn('installments_paid', '<', 'installments')
             ->get();
 
         $this->totalAdvanceDeduction = (float) $advances->sum('installment_amount');

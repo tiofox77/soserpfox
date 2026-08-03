@@ -186,11 +186,11 @@ class SAFTGenerator extends Component
         $header->addChild('TaxEntity', 'Global');
         $header->addChild('ProductCompanyTaxID', $tenant->nif ?? 'N/A');
         
-        // SoftwareCertificateNumber do tenant
+        // Identidade do software é global e gerida pelo produtor no Super Admin.
         $settings = \App\Models\Invoicing\InvoicingSettings::where('tenant_id', $tenantId)->first();
-        $header->addChild('SoftwareCertificateNumber', $settings->agt_software_certificate ?? '0');
-        $header->addChild('ProductID', 'SOS ERP/SOSERP');
-        $header->addChild('ProductVersion', '1.0');
+        $header->addChild('SoftwareCertificateNumber', softwareSetting('invoicing', 'saft_software_cert', $settings?->agt_software_certificate ?? '0'));
+        $header->addChild('ProductID', softwareSetting('invoicing', 'saft_product_id', 'SOS ERP/SOSERP'));
+        $header->addChild('ProductVersion', softwareSetting('invoicing', 'saft_version', '1.0'));
         
         // ═══════════════════════════════════════
         // MASTER FILES
@@ -317,12 +317,20 @@ class SAFTGenerator extends Component
     private function buildSalesInvoicesSection(\SimpleXMLElement $sourceDocuments, int $tenantId): void
     {
         $salesInvoicesNode = $sourceDocuments->addChild('SalesInvoices');
-        
+
+        // Código de isenção do REGIME do tenant — último recurso para linhas sem
+        // código (antes estava 'M01' fixo, que declarava o regime errado à AGT).
+        $tenantExemptionCode = \App\Models\Invoicing\Tax::where('tenant_id', $tenantId)
+            ->where('is_default', true)
+            ->value('exemption_code')
+            ?: (\App\Models\Tenant::find($tenantId)?->regimeMeta()['exemption_code']
+                ?? \App\Services\Tenant\TaxRegimeSyncer::DEFAULT_EXEMPTION_CODE);
+
         // Faturas de Venda
         $invoices = SalesInvoice::where('tenant_id', $tenantId)
             ->whereBetween('invoice_date', [$this->startDate, $this->endDate])
             ->whereNotIn('status', ['draft', 'cancelled'])
-            ->with(['client', 'items.product', 'items.tax'])
+            ->with(['client', 'items.product', 'items.taxRate'])
             ->get();
 
         // Notas de Crédito
@@ -407,13 +415,14 @@ class SAFTGenerator extends Component
                 $tax = $line->addChild('Tax');
                 $tax->addChild('TaxType', 'IVA');
                 $tax->addChild('TaxCountryRegion', 'AO');
-                $taxCode = $item->tax->saft_type ?? $item->tax->saft_code ?? 'NOR';
+                $taxCode = $item->tax_code ?: (((float) ($item->tax_rate ?? 0)) > 0 ? ($item->taxRate->saft_type ?? 'NOR') : 'ISE');
                 $tax->addChild('TaxCode', $taxCode);
-                $tax->addChild('TaxPercentage', number_format($item->tax_rate ?? $item->tax->rate ?? 14, 2, '.', ''));
+                $tax->addChild('TaxPercentage', number_format($item->tax_rate ?? $item->taxRate->rate ?? 0, 2, '.', ''));
                 
                 if ($taxCode === 'ISE' || ($item->tax_rate ?? 0) == 0) {
-                    $line->addChild('TaxExemptionReason', htmlspecialchars($item->tax->exemption_reason ?? 'Isento de IVA'));
-                    $line->addChild('TaxExemptionCode', 'M01');
+                    $line->addChild('TaxExemptionReason', htmlspecialchars($item->tax_exemption_reason ?: ($item->taxRate->exemption_reason ?? 'Isento de IVA')));
+                    $line->addChild('TaxExemptionCode', $item->tax_exemption_code
+                        ?: ($item->taxRate->exemption_code ?? $tenantExemptionCode));
                 }
             }
             
@@ -478,14 +487,15 @@ class SAFTGenerator extends Component
                 $tax = $line->addChild('Tax');
                 $tax->addChild('TaxType', 'IVA');
                 $tax->addChild('TaxCountryRegion', 'AO');
-                $cnTaxCode = $item->tax->saft_type ?? $item->tax->saft_code ?? 'NOR';
+                $cnTaxCode = $item->tax_code ?: (((float) ($item->tax_rate ?? 0)) > 0 ? ($item->taxRate->saft_type ?? 'NOR') : 'ISE');
                 $tax->addChild('TaxCode', $cnTaxCode);
-                $tax->addChild('TaxPercentage', number_format($item->tax_rate ?? $item->tax->rate ?? 14, 2, '.', ''));
+                $tax->addChild('TaxPercentage', number_format($item->tax_rate ?? $item->taxRate->rate ?? 0, 2, '.', ''));
                 
                 // Isenção de IVA (obrigatório SAFT-AO)
                 if ($cnTaxCode === 'ISE' || ($item->tax_rate ?? 0) == 0) {
-                    $line->addChild('TaxExemptionReason', htmlspecialchars($item->tax->exemption_reason ?? 'Isento de IVA'));
-                    $line->addChild('TaxExemptionCode', 'M01');
+                    $line->addChild('TaxExemptionReason', htmlspecialchars($item->tax_exemption_reason ?: ($item->taxRate->exemption_reason ?? 'Isento de IVA')));
+                    $line->addChild('TaxExemptionCode', $item->tax_exemption_code
+                        ?: ($item->taxRate->exemption_code ?? $tenantExemptionCode));
                 }
                 
                 // Referência à fatura original
@@ -552,14 +562,15 @@ class SAFTGenerator extends Component
                 $tax = $line->addChild('Tax');
                 $tax->addChild('TaxType', 'IVA');
                 $tax->addChild('TaxCountryRegion', 'AO');
-                $dnTaxCode = $item->tax->saft_type ?? $item->tax->saft_code ?? 'NOR';
+                $dnTaxCode = $item->tax_code ?: (((float) ($item->tax_rate ?? 0)) > 0 ? ($item->taxRate->saft_type ?? 'NOR') : 'ISE');
                 $tax->addChild('TaxCode', $dnTaxCode);
-                $tax->addChild('TaxPercentage', number_format($item->tax_rate ?? $item->tax->rate ?? 14, 2, '.', ''));
+                $tax->addChild('TaxPercentage', number_format($item->tax_rate ?? $item->taxRate->rate ?? 0, 2, '.', ''));
                 
                 // Isenção de IVA (obrigatório SAFT-AO)
                 if ($dnTaxCode === 'ISE' || ($item->tax_rate ?? 0) == 0) {
-                    $line->addChild('TaxExemptionReason', htmlspecialchars($item->tax->exemption_reason ?? 'Isento de IVA'));
-                    $line->addChild('TaxExemptionCode', 'M01');
+                    $line->addChild('TaxExemptionReason', htmlspecialchars($item->tax_exemption_reason ?: ($item->taxRate->exemption_reason ?? 'Isento de IVA')));
+                    $line->addChild('TaxExemptionCode', $item->tax_exemption_code
+                        ?: ($item->taxRate->exemption_code ?? $tenantExemptionCode));
                 }
                 
                 // Referência à fatura original

@@ -48,7 +48,16 @@ class ProductManagement extends Component
             'name' => 'required|string|min:2|max:255',
             'price' => 'required|numeric|min:0',
             'cost' => 'nullable|numeric|min:0',
-            'category_id' => 'nullable|exists:invoicing_product_categories,id',
+            // A tabela é `invoicing_categories`. `invoicing_product_categories`
+            // não existe: assim que se escolhia uma categoria, o `exists`
+            // consultava uma tabela inexistente e o guardar rebentava.
+            // Validada ainda dentro da empresa, para não aceitar a categoria de
+            // outra.
+            'category_id' => [
+                'nullable',
+                \Illuminate\Validation\Rule::exists('invoicing_categories', 'id')
+                    ->where(fn ($q) => $q->where('tenant_id', activeTenantId())),
+            ],
             'stock_quantity' => 'nullable|integer|min:0',
             'minimum_stock' => 'nullable|integer|min:0',
         ];
@@ -63,7 +72,15 @@ class ProductManagement extends Component
     {
         $this->resetForm();
         if ($id) {
-            $product = Product::find($id);
+            // Scope à empresa: sem ele abria-se a ficha de um produto de outra
+            // empresa só com o id.
+            $product = Product::where('tenant_id', activeTenantId())->find($id);
+
+            if (!$product) {
+                $this->dispatch('notify', ['type' => 'error', 'message' => 'Produto não encontrado nesta empresa.']);
+                return;
+            }
+
             $this->editingId = $id;
             $this->name = $product->name;
             $this->code = $product->code;
@@ -100,7 +117,13 @@ class ProductManagement extends Component
 
     public function openDeleteModal($id)
     {
-        $product = Product::find($id);
+        $product = Product::where('tenant_id', activeTenantId())->find($id);
+
+        if (!$product) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Produto não encontrado nesta empresa.']);
+            return;
+        }
+
         $this->deletingId = $id;
         $this->deletingName = $product->name;
         $this->showDeleteModal = true;
@@ -115,7 +138,17 @@ class ProductManagement extends Component
 
     public function confirmDelete()
     {
-        Product::find($this->deletingId)->delete();
+        // $deletingId é propriedade pública (definível pelo browser): sem o
+        // scope, era possível apagar o produto de outra empresa.
+        $product = Product::where('tenant_id', activeTenantId())->find($this->deletingId);
+
+        if (!$product) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Produto não encontrado nesta empresa.']);
+            $this->cancelDelete();
+            return;
+        }
+
+        $product->delete();
         $this->dispatch('notify', ['type' => 'success', 'message' => 'Produto eliminado!']);
         $this->cancelDelete();
     }
@@ -140,7 +173,25 @@ class ProductManagement extends Component
         ];
 
         if ($this->editingId) {
-            $product = Product::find($this->editingId);
+            // Scope à empresa activa. Sem ele, e como o $data leva 'tenant_id',
+            // editar por id um produto de OUTRA empresa reatribuía-o à empresa
+            // actual — roubo de produto entre empresas. O módulo de facturação
+            // já se protegia (Invoicing/Products.php), o Salão não.
+            $product = Product::where('tenant_id', activeTenantId())->find($this->editingId);
+
+            if (!$product) {
+                $this->dispatch('notify', ['type' => 'error', 'message' => 'Produto não encontrado nesta empresa.']);
+                $this->closeModal();
+                return;
+            }
+
+            // NUNCA reescrever o agregado numa edição: ele é mantido pelo
+            // StockObserver a partir das linhas de armazém. Gravar o valor que
+            // estava no formulário quando a janela abriu revertia todas as
+            // vendas feitas entretanto — o utilizador via o stock "voltar
+            // atrás" e concluía que as vendas não descontavam.
+            unset($data['stock_quantity']);
+
             $product->update($data);
             $this->dispatch('notify', ['type' => 'success', 'message' => 'Produto atualizado!']);
         } else {
@@ -151,11 +202,24 @@ class ProductManagement extends Component
         $this->closeModal();
     }
 
+    /**
+     * Ajuste de stock — desactivado de propósito.
+     *
+     * Fazia $product->increment('stock_quantity'), que escreve directamente no
+     * AGREGADO: contorna as linhas de armazém, o StockObserver e o registo de
+     * movimentos. O ajuste desaparecia no primeiro save de qualquer linha (o
+     * observer reescreve o agregado a partir da soma das linhas) e ficava sem
+     * rasto nenhum.
+     *
+     * O ajuste correcto faz-se na Gestão de Stock, que escreve a linha do
+     * armazém e regista o movimento.
+     */
     public function adjustStock($id, $amount)
     {
-        $product = Product::find($id);
-        $product->increment('stock_quantity', $amount);
-        $this->dispatch('notify', ['type' => 'success', 'message' => 'Stock ajustado!']);
+        $this->dispatch('notify', [
+            'type' => 'warning',
+            'message' => 'Ajuste de stock faz-se em Faturação › Gestão de Stock, para ficar registado no armazém certo.',
+        ]);
     }
 
     public function clearFilters()

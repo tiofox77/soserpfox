@@ -4,8 +4,12 @@ namespace App\Models\Accounting;
 
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\BelongsToTenant;
+
 class AnalyticDimension extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'tenant_id',
         'name',

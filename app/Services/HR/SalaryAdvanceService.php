@@ -90,8 +90,8 @@ class SalaryAdvanceService
             $installments = $data['installments'] ?? 1;
             $installmentAmount = round($data['requested_amount'] / $installments, 2);
 
-            // Gerar número de adiantamento
-            $advanceNumber = 'ADV-' . date('Y') . '-' . str_pad(SalaryAdvance::count() + 1, 5, '0', STR_PAD_LEFT);
+            // Número de adiantamento gerado por-tenant (robusto a eliminações/concorrência)
+            $advanceNumber = SalaryAdvance::generateTenantNumber('advance_number', 'ADV-' . date('Y') . '-');
 
             // Criar registro
             $advance = SalaryAdvance::create([

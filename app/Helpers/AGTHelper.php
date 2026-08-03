@@ -7,8 +7,23 @@ use Illuminate\Database\Eloquent\Model;
 class AGTHelper
 {
     /**
+     * Número de validação do software atribuído pela AGT.
+     *
+     * Só a definição global manda: é ela que alimenta o softwareInfo do payload
+     * e a jwsSoftwareSignature. Estava repetido em literais pelo código e ao
+     * mudar de FE/351 para FE/422 o rodapé impresso passou a contradizer o que
+     * era transmitido à AGT.
+     */
+    public const VALIDACAO_FALLBACK = 'FE/324/AGT/2026';
+
+    public static function softwareValidationNumber(): string
+    {
+        return (string) softwareSetting('invoicing', 'saft_software_cert', self::VALIDACAO_FALLBACK);
+    }
+
+    /**
      * Gera mensagem AGT para rodapé do documento usando hash existente
-     * 
+     *
      * @param Model $document Documento (Invoice, Proforma, etc)
      * @return string
      */
@@ -18,10 +33,13 @@ class AGTHelper
             return '';
         }
         
-        $hashDisplay = substr($document->hash, 0, 4);
-        $year = now()->year;
+        $tenant = method_exists($document, 'tenant') ? $document->tenant : null;
+        $regime = $tenant->regime ?? 'Regime Geral';
+        $hashDisplay = substr($document->hash, -4);
         
-        return "{$hashDisplay} - Processado por programa válido n31.1/AGT{$year}";
+        return "Processado por sistema certificado AGT | Regime: {$regime} | "
+             . "ID Certificado: " . self::softwareValidationNumber() . " — SOS ERP - SOLUÇÕES EMPRESARIAIS | "
+             . "HASH e SAFT-AO: \"{$hashDisplay}==\"";
     }
     
     /**

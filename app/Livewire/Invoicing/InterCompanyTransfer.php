@@ -203,9 +203,15 @@ class InterCompanyTransfer extends Component
         try {
             DB::beginTransaction();
 
-            $tenantTo = Tenant::find($this->tenantToId);
+            // Resolver o destino a partir das empresas DO UTILIZADOR: um id
+            // arbitrário permitia escrever stock/produtos em qualquer empresa
+            // da plataforma.
+            $tenantTo = auth()->user()->tenants()
+                ->where('tenants.id', $this->tenantToId)
+                ->where('tenants.id', '!=', activeTenantId())
+                ->first();
             if (!$tenantTo) {
-                throw new \Exception('Empresa destino não encontrada.');
+                throw new \Exception('Empresa destino inválida ou sem acesso.');
             }
 
             $batchId = time() . rand(1000, 9999);
@@ -264,7 +270,7 @@ class InterCompanyTransfer extends Component
                 }
 
                 // 5. Registrar movimentos sem disparar boot
-                StockMovement::withoutEvents(function () use ($item, $tenantTo, $unitCost, $batchId, $sourceProduct, $destProduct, $originTenantName) {
+                StockMovement::semAplicarStock(function () use ($item, $tenantTo, $unitCost, $batchId, $sourceProduct, $destProduct, $originTenantName) {
                     // Movimento saída (origem) - usa product_id da origem
                     StockMovement::create([
                         'tenant_id' => activeTenantId(),

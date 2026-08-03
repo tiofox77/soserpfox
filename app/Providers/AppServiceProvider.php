@@ -30,8 +30,10 @@ use App\Observers\EventObserver;
 use App\Observers\EventTechnicianObserver;
 use App\Observers\WorkOrderObserver;
 use App\Observers\PlanObserver;
+use App\Observers\StockObserver;
 use App\Models\Workshop\WorkOrder;
 use App\Models\Plan;
+use App\Models\Invoicing\Stock;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -41,7 +43,32 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // O gravador de auditoria TEM de ser singleton.
         //
+        // O observer é resolvido do contentor a cada evento; sem isto, cada
+        // acto criava uma instância nova — o buffer nunca agrupava (perdendo-se
+        // a escrita única depois do commit) e cada linha ganhava um request_id
+        // diferente, deixando de ser possível colar as 12-15 linhas de uma
+        // venda ao pedido que as gerou.
+        $this->app->singleton(\App\Services\Audit\AuditRecorder::class);
+
+        // Defensive: garantir que helpers globais estão carregados em produção
+        // (necessário se composer dump-autoload não foi executado após FTP)
+        $helpers = [
+            'getAGTQRData'                => app_path('Helpers/QRCodeHelper.php'),
+            'activeTenantId'              => app_path('Helpers/TenantHelper.php'),
+            'defaultWarehouse'            => app_path('Helpers/WarehouseHelper.php'),
+            'setting'                     => app_path('Helpers/SettingsHelper.php'),
+            'createDefaultRolesForTenant' => app_path('Helpers/RoleHelper.php'),
+            'numberToWords'               => app_path('Helpers/NumberToWordsHelper.php'),
+            'softwareSetting'             => app_path('Helpers/SoftwareSettingsHelper.php'),
+            'calculateIRT'                => app_path('Helpers/AngolanTaxHelper.php'),
+        ];
+        foreach ($helpers as $fn => $path) {
+            if (!function_exists($fn) && is_file($path)) {
+                require_once $path;
+            }
+        }
     }
 
     /**
@@ -49,6 +76,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Auto-cleanup PWA: garantir que ficheiros estáticos legados são removidos
+        // para que as rotas dinâmicas Laravel sejam usadas. Idempotente, leve.
+        // Só corre em requests HTTP (não em comandos artisan) e no máximo 1x/dia.
+        if (!app()->runningInConsole()) {
+            try {
+                $cleanupKey = 'pwa.cleanup.done';
+                if (!\Illuminate\Support\Facades\Cache::has($cleanupKey)) {
+                    if (\App\Http\Controllers\PwaController::needsCleanup()) {
+                        \App\Http\Controllers\PwaController::performCleanup();
+                    }
+                    \Illuminate\Support\Facades\Cache::put($cleanupKey, true, 86400);
+                }
+            } catch (\Throwable $e) {
+                // não bloquear request por falha no cleanup
+                \Illuminate\Support\Facades\Log::warning('PWA auto-cleanup falhou: ' . $e->getMessage());
+            }
+        }
+
         // Registrar Observers para atualização automática de stock
         SalesInvoice::observe(SalesInvoiceObserver::class);
         PurchaseInvoice::observe(PurchaseInvoiceObserver::class);
@@ -60,9 +105,15 @@ class AppServiceProvider extends ServiceProvider
         Leave::observe(LeaveObserver::class);
         
         // Registrar Observers para integração Contabilidade
-        Invoice::observe(InvoiceObserver::class);
+        // NOTA: App\Models\Invoice é legado (tabela `invoices`, vazia). As faturas
+        // reais são SalesInvoice — sem esta linha nenhuma venda ia à contabilidade.
+        SalesInvoice::observe(\App\Observers\SalesInvoiceAccountingObserver::class);
         Receipt::observe(ReceiptObserver::class);
         Payment::observe(PaymentObserver::class);
+        // Notas de crédito e débito: não tinham integração nenhuma, pelo que as
+        // devoluções e as cobranças adicionais ficavam fora dos livros.
+        \App\Models\Invoicing\CreditNote::observe(\App\Observers\NoteAccountingObserver::class);
+        \App\Models\Invoicing\DebitNote::observe(\App\Observers\NoteAccountingObserver::class);
         
         // Registrar Observers para notificações imediatas de eventos
         if (class_exists(\App\Models\Events\Event::class)) {
@@ -104,6 +155,73 @@ class AppServiceProvider extends ServiceProvider
         // Registrar Observer para sincronizar módulos quando plano muda
         Plan::observe(PlanObserver::class);
         
+        // Registrar Observer para manter stock agregado sincronizado com invoicing_stocks
+        Stock::observe(StockObserver::class);
+        // Histórico de produtos: quem criou, alterou, eliminou ou restaurou.
+        \App\Models\Product::observe(\App\Observers\ProductActivityObserver::class);
+
+        // Entradas e saídas do sistema.
+        //
+        // Não são alterações de modelo, portanto o observer não as vê — e são
+        // metade da pergunta que uma auditoria existe para responder: quem
+        // estava lá dentro àquela hora.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Login::class,
+            function ($evento) {
+                app(\App\Services\Audit\AuditRecorder::class)->acto(
+                    'login',
+                    $evento->user->tenant_id ?? null,
+                    ['guarda' => $evento->guard]
+                );
+            }
+        );
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Failed::class,
+            function ($evento) {
+                // Tentativa falhada: é o sinal de força bruta e de credenciais
+                // partilhadas. Regista-se o email tentado, nunca a password.
+                app(\App\Services\Audit\AuditRecorder::class)->acto(
+                    'login_falhado',
+                    $evento->user->tenant_id ?? null,
+                    ['guarda' => $evento->guard, 'email' => $evento->credentials['email'] ?? null]
+                );
+            }
+        );
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Logout::class,
+            function ($evento) {
+                app(\App\Services\Audit\AuditRecorder::class)->acto(
+                    'logout',
+                    $evento->user->tenant_id ?? null,
+                    ['guarda' => $evento->guard]
+                );
+            }
+        );
+
+        // Rollback desfaz também a auditoria pendente.
+        //
+        // O DB::afterCommit descarta o callback, mas o buffer do gravador
+        // ficaria com as linhas — e sairiam no commit seguinte, a registar uma
+        // transacção que foi desfeita.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Database\Events\TransactionRolledBack::class,
+            fn () => app(\App\Services\Audit\AuditRecorder::class)->descartar()
+        );
+
+        // Trilha de auditoria: um observer por modelo da allowlist.
+        //
+        // Em ciclo e não por wildcard sobre `eloquent.*`: o wildcard poria as
+        // escritas dos 178 modelos a passar por aqui — incluindo as da própria
+        // auditoria, o que dá recursão — e o raio de explosão de um erro
+        // passaria a ser o sistema inteiro.
+        foreach ((array) config('audit.models', []) as $modeloAuditado) {
+            if (class_exists($modeloAuditado)) {
+                $modeloAuditado::observe(\App\Observers\AuditObserver::class);
+            }
+        }
+
         // Definir tenant_id para Spatie Permission em cada requisição
         if (function_exists('setPermissionsTeamId')) {
             \View::composer('*', function ($view) {

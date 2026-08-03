@@ -135,7 +135,7 @@ class SalaryAdvanceManagement extends Component
             $advanceService = new SalaryAdvanceService();
             
             $data = [
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'employee_id' => $this->employee_id,
                 'requested_amount' => $this->requested_amount,
                 'installments' => $this->installments,
@@ -427,7 +427,7 @@ class SalaryAdvanceManagement extends Component
 
     public function render()
     {
-        $query = SalaryAdvance::where('tenant_id', auth()->user()->tenant_id)
+        $query = SalaryAdvance::where('tenant_id', activeTenantId())
             ->with(['employee', 'approvedBy']);
 
         if ($this->search) {
@@ -454,7 +454,7 @@ class SalaryAdvanceManagement extends Component
         }
 
         $advances = $query->latest()->paginate(15);
-        $employees = Employee::where('tenant_id', auth()->user()->tenant_id)
+        $employees = Employee::where('tenant_id', activeTenantId())
             ->where('status', 'active')
             ->orderBy('first_name')
             ->get();

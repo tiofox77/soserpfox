@@ -40,17 +40,19 @@ class ClientDashboard extends Component
                                ->with(['venue', 'type'])
                                ->get();
         
-        // Estatísticas
+        // Estatísticas (pendentes = faturas com saldo em aberto, não apenas status 'pending')
+        $allInvoices = SalesInvoice::where('client_id', $client->id)->get();
+        $outstanding = $allInvoices->filter(fn ($inv) =>
+            !in_array($inv->status, ['paid', 'cancelled', 'credited'], true)
+            && round(($inv->total ?? 0) - ($inv->paid_amount ?? 0), 2) > 0.009
+        );
+
         $stats = [
-            'total_invoices' => SalesInvoice::where('client_id', $client->id)->count(),
-            'pending_invoices' => SalesInvoice::where('client_id', $client->id)
-                                                 ->where('status', 'pending')
-                                                 ->count(),
-            'paid_invoices' => SalesInvoice::where('client_id', $client->id)
-                                              ->where('status', 'paid')
-                                              ->count(),
-            'total_amount' => SalesInvoice::where('client_id', $client->id)
-                                            ->sum('total'),
+            'total_invoices' => $allInvoices->count(),
+            'pending_invoices' => $outstanding->count(),
+            'paid_invoices' => $allInvoices->where('status', 'paid')->count(),
+            // Total faturado exclui canceladas e creditadas
+            'total_amount' => $allInvoices->whereNotIn('status', ['cancelled', 'credited'])->sum('total'),
             'total_events' => Event::where('client_id', $client->id)->count(),
             'upcoming_events' => Event::where('client_id', $client->id)
                                       ->where('start_date', '>=', now())

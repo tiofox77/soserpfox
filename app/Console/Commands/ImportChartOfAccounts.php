@@ -323,10 +323,18 @@ class ImportChartOfAccounts extends Command
         // Detectar automaticamente baseado no nome
         $nameLower = strtolower($name);
         
+        // Contas que apenas MENCIONAM a contraparte mas não são a conta corrente:
+        // adiantamentos, provisões, descontos, garantias e saldos de sinal
+        // contrário. Sem esta exclusão "Adiantamentos de Clientes" e "Provisões
+        // para Clientes" ficavam marcadas como `receivables` e o mapeamento da
+        // integração escolhia-as para lançar as facturas.
+        $naoEhContaCorrente = '/adiantament|provis|descont|garantia|saldos credores|saldos devedores|duvidos|cobran[çc]a duvidosa/i';
+
         if (preg_match('/caixa/i', $name) && strlen($code) <= 3) return 'cash';
         if (preg_match('/banco|dep[óo]sito/i', $name)) return 'bank';
-        if (preg_match('/cliente/i', $name) && !preg_match('/duv|cobr/i', $name)) return 'receivables';
-        if (preg_match('/fornecedor/i', $name)) return 'payables';
+        if (preg_match('/cliente/i', $name) && !preg_match('/duv|cobr/i', $name)
+            && !preg_match($naoEhContaCorrente, $name)) return 'receivables';
+        if (preg_match('/fornecedor/i', $name) && !preg_match($naoEhContaCorrente, $name)) return 'payables';
         if (preg_match('/invent[áa]rio|mercador|stock/i', $name)) return 'inventory';
         if (preg_match('/imobili|fixed/i', $name)) return 'fixed_assets';
         if (preg_match('/capital.*social/i', $name)) return 'share_capital';
@@ -334,12 +342,19 @@ class ImportChartOfAccounts extends Command
         if (preg_match('/resultado.*l[íi]quido/i', $name)) return 'net_income';
         if (preg_match('/venda/i', $name) && strlen($code) <= 2) return 'sales';
         if (preg_match('/servi[çc]o.*prestad/i', $name)) return 'services';
-        if (preg_match('/custo.*mercador|cmvmc|cogs/i', $name)) return 'cogs';
+        // "CUSTOS DAS EXISTÊNCIAS VENDIDAS" é a conta CMVMC do PGC-AO e não
+        // continha a palavra "mercadorias": ficava sem chave, o mapeamento
+        // `purchase` não era criado e as facturas de compra não lançavam.
+        if (preg_match('/custo.*(mercador|exist[êe]nc|vendid)|cmvmc|cogs/i', $name)) return 'cogs';
         if (preg_match('/pessoal|payroll|sal[áa]rio/i', $name) && preg_match('/gast/i', $name)) return 'payroll';
         if (preg_match('/remunera.*pagar|sal[áa]rio.*pagar/i', $name)) return 'salaries_payable';
         if (preg_match('/deprecia[çc]/i', $name)) return 'depreciation';
-        if (preg_match('/iva.*liquid|vat.*collect/i', $name)) return 'vat_collected';
+        // IVA Dedutível TEM de ser testado primeiro: "Autoliquidação" contém
+        // "liquid" e fazia contas dedutíveis passarem por IVA liquidado — sinal
+        // invertido no lançamento das vendas.
         if (preg_match('/iva.*dedut|vat.*paid/i', $name)) return 'vat_paid';
+        if (preg_match('/iva.*liquid|vat.*collect/i', $name)
+            && !preg_match('/autoliquida|auto-liquida|dedut/i', $name)) return 'vat_collected';
         if (preg_match('/iva.*apura|vat.*settle/i', $name)) return 'vat_settlement';
         if (preg_match('/reten.*irt/i', $name)) return 'withholding_irt';
         if (preg_match('/reten.*servi/i', $name)) return 'withholding_services';

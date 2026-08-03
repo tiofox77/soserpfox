@@ -19,12 +19,18 @@ class SalesInvoice extends Model
         'tenant_id',
         'proforma_id',
         'invoice_number',
+        'local_uuid',
+        'payment_method',
         'atcud',
         'invoice_type',
         'invoice_status',
         'invoice_status_date',
         'source_id',
         'source_billing',
+        // Origem de negócio (módulo + referência), p.ex. hotel/RES-000123.
+        // Não confundir com source_id/source_billing, que são campos SAFT-AO.
+        'source_module',
+        'source_reference',
         'hash',
         'hash_control',
         'hash_previous',
@@ -94,7 +100,46 @@ class SalesInvoice extends Model
 
         static::creating(function ($invoice) {
             if (empty($invoice->invoice_number)) {
-                $invoice->invoice_number = static::generateInvoiceNumber($invoice->tenant_id);
+                // O tipo do documento escolhe a série: FR (Fatura-Recibo) usa a
+                // MESMA sequência do POS; FT usa a série de faturas.
+                $seriesType = static::seriesTypeFor($invoice->invoice_type ?? 'FT');
+                $series = InvoicingSeries::getIssuanceSeries(
+                    (int) $invoice->tenant_id,
+                    $seriesType,
+                    $invoice->series_id ? (int) $invoice->series_id : null
+                );
+
+                if ($series) {
+                    $invoice->invoice_number = $series->getNextNumber();
+                    // Ligar o documento à série que o numerou (antes ficava NULL:
+                    // 99 faturas sem série, sem rastreio nem ATCUD).
+                    if (empty($invoice->series_id)) {
+                        $invoice->series_id = $series->id;
+                    }
+                    if ($series->isAGTRegistered() && empty($invoice->atcud)) {
+                        $invoice->atcud = $series->generateATCUD(
+                            $series->nextSequentialFromDocumentNumber($invoice->invoice_number)
+                        );
+                    }
+                } else {
+                    $invoice->invoice_number = static::generateInvoiceNumber(
+                        $invoice->tenant_id,
+                        $invoice->invoice_type ?? 'FT'
+                    );
+                }
+            }
+            if ($invoice->series_id) {
+                $seriesType = static::seriesTypeFor($invoice->invoice_type ?? 'FT');
+                $series = InvoicingSeries::getIssuanceSeries(
+                    (int) $invoice->tenant_id,
+                    $seriesType,
+                    (int) $invoice->series_id
+                );
+                if ($series->isAGTRegistered() && empty($invoice->atcud)) {
+                    $invoice->atcud = $series->generateATCUD(
+                        $series->nextSequentialFromDocumentNumber($invoice->invoice_number)
+                    );
+                }
             }
             
             // Define armazém padrão se não especificado
@@ -107,20 +152,31 @@ class SalesInvoice extends Model
         });
     }
 
-    public static function generateInvoiceNumber($tenantId)
+    /**
+     * Série a usar por tipo de documento (AGT):
+     *   FT (Fatura)        → série 'invoice'  (prefixo FT)
+     *   FR (Fatura-Recibo) → série 'pos'      (prefixo FR) — MESMA sequência do POS
+     */
+    public static function seriesTypeFor(?string $invoiceType): string
     {
-        // Tentar usar o sistema de séries (formato AGT Angola: FT A 2025/000001)
-        // Por enquanto usar 'invoice' pois 'FT' não está no ENUM
-        $series = InvoicingSeries::getDefaultSeries($tenantId, 'invoice');
-        
+        return strtoupper((string) $invoiceType) === 'FR' ? 'pos' : 'invoice';
+    }
+
+    public static function generateInvoiceNumber($tenantId, ?string $invoiceType = 'FT')
+    {
+        $seriesType = static::seriesTypeFor($invoiceType);
+
+        // Formato AGT Angola: FT A 2025/000001 | FR A 2025/000001
+        $series = InvoicingSeries::getIssuanceSeries((int) $tenantId, $seriesType);
+
         if ($series) {
-            \Log::info("Workshop: Usando série padrão ID {$series->id} para gerar número");
-            return $series->getNextNumber();  // Método correto
+            return $series->getNextNumber();
         }
-        
+
         // Fallback: gerar manualmente com formato AGT Angola
         $year = now()->year;
-        $prefix = 'FT A ' . $year . '/';  // Formato AGT: FT A 2025/
+        $docPrefix = strtoupper((string) $invoiceType) === 'FR' ? 'FR' : 'FT';
+        $prefix = $docPrefix . ' A ' . $year . '/';
         
         $maxAttempts = 5;
         $attempt = 0;

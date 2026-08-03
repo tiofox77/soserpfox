@@ -30,6 +30,18 @@ class TaxManagement extends Component
     public $rate = 14.00;
     public $type = 'iva';
     public $saft_code = 'NOR';
+
+    /**
+     * O código SAFT acompanha o tipo escolhido.
+     *
+     * É o saft_code que o TaxResolver lê para declarar o imposto à AGT. O ecrã
+     * só oferecia o saft_type, pelo que uma taxa reduzida criada aqui ficava com
+     * saft_code 'NOR' e ia declarada como taxa normal.
+     */
+    public function updatedSaftType($valor): void
+    {
+        $this->saft_code = $valor;
+    }
     public $saft_type = 'NOR';
     public $exemption_reason = '';
     public $is_default = false;

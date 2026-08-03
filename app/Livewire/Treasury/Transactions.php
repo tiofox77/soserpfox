@@ -127,7 +127,7 @@ class Transactions extends Component
         
         // Gerar número da transação se for nova
         if (!$this->editMode) {
-            $lastTransaction = Transaction::where('tenant_id', auth()->user()->tenant_id)
+            $lastTransaction = Transaction::where('tenant_id', activeTenantId())
                 ->whereYear('created_at', date('Y'))
                 ->orderBy('id', 'desc')
                 ->first();
@@ -137,7 +137,7 @@ class Transactions extends Component
         }
         
         $data = array_merge($this->form, [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'user_id' => auth()->id(),
         ]);
         
@@ -256,7 +256,7 @@ class Transactions extends Component
         try {
             // Criar transação de estorno (saída)
             $creditData = [
-                'tenant_id' => auth()->user()->tenant_id,
+                'tenant_id' => activeTenantId(),
                 'user_id' => auth()->id(),
                 'type' => 'expense',
                 'category' => 'credit_note',
@@ -314,7 +314,7 @@ class Transactions extends Component
         
         // Criar Nota de Crédito
         $creditNote = CreditNote::create([
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
             'invoice_id' => $invoice->id,
             'client_id' => $invoice->client_id,
             'warehouse_id' => $invoice->warehouse_id,
@@ -355,7 +355,7 @@ class Transactions extends Component
     public function render()
     {
         $query = Transaction::with(['paymentMethod', 'account', 'cashRegister', 'user'])
-            ->where('tenant_id', auth()->user()->tenant_id);
+            ->where('tenant_id', activeTenantId());
         
         // Search
         if ($this->search) {
@@ -380,27 +380,27 @@ class Transactions extends Component
             ->orderBy('id', 'desc')
             ->paginate($this->perPage);
         
-        $totalIncome = Transaction::where('tenant_id', auth()->user()->tenant_id)
+        $totalIncome = Transaction::where('tenant_id', activeTenantId())
             ->where('type', 'income')
             ->where('status', 'completed')
             ->sum('amount');
             
-        $totalExpense = Transaction::where('tenant_id', auth()->user()->tenant_id)
+        $totalExpense = Transaction::where('tenant_id', activeTenantId())
             ->where('type', 'expense')
             ->where('status', 'completed')
             ->sum('amount');
         
-        $paymentMethods = PaymentMethod::where('tenant_id', auth()->user()->tenant_id)
+        $paymentMethods = PaymentMethod::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
             
-        $accounts = Account::where('tenant_id', auth()->user()->tenant_id)
+        $accounts = Account::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get();
             
-        $cashRegisters = CashRegister::where('tenant_id', auth()->user()->tenant_id)
+        $cashRegisters = CashRegister::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->orderBy('name')
             ->get();

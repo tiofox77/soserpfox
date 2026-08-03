@@ -46,8 +46,19 @@ class PaymentMethods extends Component
     {
         return [
             'form.name' => 'required|string|max:255',
-            'form.code' => 'required|string|max:255|unique:treasury_payment_methods,code,' . ($this->methodId ?? 'NULL'),
-            'form.type' => 'required|in:manual,automatic,online',
+            // Unicidade é POR EMPRESA (índice real: tenant_id + code). A regra
+            // global fazia o ecrã recusar 'CASH', 'TPA', etc. só porque outra
+            // empresa já os tinha — e este é o único ecrã onde um cliente sem
+            // métodos de pagamento se podia desenrascar.
+            'form.code' => [
+                'required', 'string', 'max:255',
+                \Illuminate\Validation\Rule::unique('treasury_payment_methods', 'code')
+                    ->where(fn($q) => $q->where('tenant_id', activeTenantId()))
+                    ->ignore($this->methodId),
+            ],
+            // Tipos REAIS da tabela (antes exigia manual/automatic/online, que
+            // não existem — nenhum método podia ser criado).
+            'form.type' => 'required|in:cash,card,bank_transfer,digital_wallet,check,other',
             'form.description' => 'nullable|string',
             'form.icon' => 'nullable|string|max:255',
             'form.color' => 'nullable|string|max:255',
@@ -108,7 +119,7 @@ class PaymentMethods extends Component
         $this->validate();
         
         $data = array_merge($this->form, [
-            'tenant_id' => auth()->user()->tenant_id,
+            'tenant_id' => activeTenantId(),
         ]);
         
         if ($this->editMode) {
@@ -167,7 +178,7 @@ class PaymentMethods extends Component
     
     public function render()
     {
-        $query = PaymentMethod::where('tenant_id', auth()->user()->tenant_id);
+        $query = PaymentMethod::where('tenant_id', activeTenantId());
         
         // Search
         if ($this->search) {
@@ -187,10 +198,10 @@ class PaymentMethods extends Component
         
         $paymentMethods = $query->orderBy('sort_order')->orderBy('name')->paginate($this->perPage);
         
-        $activeCount = PaymentMethod::where('tenant_id', auth()->user()->tenant_id)
+        $activeCount = PaymentMethod::where('tenant_id', activeTenantId())
             ->where('is_active', true)->count();
             
-        $inactiveCount = PaymentMethod::where('tenant_id', auth()->user()->tenant_id)
+        $inactiveCount = PaymentMethod::where('tenant_id', activeTenantId())
             ->where('is_active', false)->count();
         
         return view('livewire.treasury.payment-methods.payment-methods', [

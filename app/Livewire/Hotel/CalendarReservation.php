@@ -145,8 +145,8 @@ class CalendarReservation extends Component
         // Mapear reservas por quarto
         return $rooms->map(function ($room) use ($reservations, $start, $end) {
             $roomReservations = $reservations->filter(function ($r) use ($room) {
-                return $r->room_id === $room->id || 
-                       ($r->room_id === null && $r->room_type_id === $room->room_type_id);
+                return (int) $r->room_id === (int) $room->id || 
+                       ($r->room_id === null && (int) $r->room_type_id === (int) $room->room_type_id);
             })->map(function ($r) use ($start, $end) {
                 $checkIn = Carbon::parse($r->check_in_date);
                 $checkOut = Carbon::parse($r->check_out_date);
@@ -317,28 +317,58 @@ class CalendarReservation extends Component
      */
     public function updateStatus($id, $status)
     {
-        $reservation = Reservation::find($id);
-        
-        if ($reservation) {
-            $data = ['status' => $status];
-            
-            if ($status === 'checked_in') {
-                $data['actual_check_in'] = now();
-            } elseif ($status === 'checked_out') {
-                $data['actual_check_out'] = now();
-            } elseif ($status === 'cancelled') {
-                $data['cancelled_at'] = now();
-                $data['cancelled_by'] = auth()->id();
-            }
-            
-            $reservation->update($data);
-            
-            $this->dispatch('notify', [
-                'type' => 'success', 
-                'message' => 'Status atualizado para: ' . (Reservation::STATUSES[$status] ?? $status)
-            ]);
+        // O id vem do browser: sem scope de empresa, o calendário mexia no
+        // estado de reservas de OUTRA empresa.
+        $reservation = Reservation::forTenant()->find($id);
+
+        if (!$reservation) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Reserva não encontrada nesta empresa.']);
+            $this->closeModals();
+            return;
         }
-        
+
+        // Transição inválida (p.ex. reserva cancelada a saltar para entregue)
+        // é recusada pelo modelo. Apanhar aqui, senão o calendário rebenta com
+        // um erro cru em cima do utilizador.
+        try {
+        // Passar pelos métodos do modelo em vez de um update() cru.
+        //
+        // O update() só mexia na reserva: o QUARTO ficava para trás. Um
+        // check-in pelo calendário não punha o quarto em ocupado e um
+        // check-out não o libertava para limpeza, pelo que o mapa de
+        // ocupação deixava de corresponder à realidade — e o quarto ou
+        // aparecia livre com hóspede lá dentro, ou ocupado depois de sair.
+        switch ($status) {
+            case 'checked_in':
+                $reservation->checkIn();
+                break;
+
+            case 'checked_out':
+                $reservation->checkOut();
+                break;
+
+            case 'cancelled':
+                $reservation->cancel(null, auth()->id());
+                break;
+
+            case 'no_show':
+                $reservation->marcarNaoCompareceu(auth()->id());
+                break;
+
+            default:
+                $reservation->update(['status' => $status]);
+        }
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
+            $this->closeModals();
+            return;
+        }
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => 'Status atualizado para: ' . (Reservation::STATUSES[$status] ?? $status)
+        ]);
+
         $this->closeModals();
     }
 

@@ -77,10 +77,16 @@ class PayrollItem extends Model
         $transportAllowance = $this->transport_allowance ?? 0;
         $vacationSubsidy = $this->vacation_subsidy_amount ?? 0;
 
+        // Remuneração EFETIVAMENTE auferida = bruto (base completa) − faltas.
+        // INSS/IRT incidem sobre o auferido (não sobre a base completa), evitando
+        // dupla penalização por faltas (a falta é 1 linha de dedução transparente).
+        $absenceDeduction = $this->absence_deduction ?? 0;
+        $taxableGross = max(0, $grossSalary - $absenceDeduction);
+
         // INSS (Decreto 227/18)
         $inssEmployeeRate = (float) \App\Models\HR\HRSetting::get('inss_employee_rate', 3) / 100;
         $inssEmployerRate = (float) \App\Models\HR\HRSetting::get('inss_employer_rate', 8) / 100;
-        $inssBase = $grossSalary - $vacationSubsidy;
+        $inssBase = $taxableGross - $vacationSubsidy;
         $inssEmployee = round($inssBase * $inssEmployeeRate, 2);
         $inssEmployer = round($inssBase * $inssEmployerRate, 2);
 
@@ -90,21 +96,22 @@ class PayrollItem extends Model
         $foodExemption = min($foodAllowance, $foodExempt);
         $transportExemption = min($transportAllowance, $transportExempt);
 
-        $irtBase = max(0, round($grossSalary - $foodExemption - $transportExemption - $inssEmployee, 2));
+        $irtBase = max(0, round($taxableGross - $foodExemption - $transportExemption - $inssEmployee, 2));
 
         $tenantId = $this->payroll->tenant_id ?? null;
         $irt = \App\Models\HR\IRTTaxBracket::calculateIRT($irtBase, $tenantId);
 
-        if ($irt == 0 && $irtBase > 70000 && function_exists('calculateIRT')) {
+        if ($irt == 0 && $irtBase > 150000 && function_exists('calculateIRT')) {
             $irtResult = calculateIRT($irtBase);
             $irt = $irtResult['irt_amount'] ?? 0;
         }
 
         $irtRate = $irtBase > 0 ? round(($irt / $irtBase) * 100, 2) : 0;
 
-        // Total deduções
+        // Total deduções (inclui atraso — descontado no líquido, não na base tributável)
         $totalDeductions = $inssEmployee + $irt
             + ($this->absence_deduction ?? 0)
+            + ($this->late_deduction ?? 0)
             + ($this->advance_payment ?? 0)
             + ($this->discount_deduction ?? 0)
             + ($this->food_deduction ?? 0)

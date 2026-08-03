@@ -490,14 +490,17 @@ class RegisterWizard extends Component
                 $periodEnd = null;
                 \Log::info('Aguardando aprovação de pagamento');
                 
-            } elseif ($hasTrialPeriod) {
-                // TEM TRIAL mas não tem auto-ativação: inicia trial
+            } elseif ($hasTrialPeriod && ($autoActivate || (float) ($plan->price_monthly ?? 0) <= 0)) {
+                // TRIAL só para planos GRATUITOS ou marcados para auto-ativação.
+                // ANTES bastava trial_days > 0 e qualquer plano PAGO era activado
+                // sem pagamento e sem aprovação do Super Admin (furo de receita:
+                // Enterprise 49.900 Kz/mês entregue de borla por 30 dias).
                 $status = 'trial';
                 $trialEndsAt = $now->copy()->addDays($trialDays);
                 $periodStart = $now;
                 $periodEnd = $trialEndsAt;
-                \Log::info('Trial iniciado', ['trial_days' => $trialDays]);
-                
+                \Log::info('Trial iniciado (plano gratuito/auto-ativável)', ['trial_days' => $trialDays]);
+
             } else {
                 // SEM TRIAL e SEM AUTO-ATIVAÇÃO: aguarda aprovação
                 $status = 'pending';
@@ -525,7 +528,17 @@ class RegisterWizard extends Component
                 'has_trial' => $hasTrialPeriod
             ]);
             
-            // 6. Criar pedido (Order) para aprovação do Super Admin
+            // 6. Criar pedido (Order). Se a subscription foi auto-activada (trial via auto_activate),
+            //    o pedido nasce 'approved' para não ficar pendente no painel do Super Admin.
+            $isAutoActivatedTrial = $autoActivate && !$hasPaidProof && $hasTrialPeriod;
+            $isAutoActivatedDirect = $autoActivate && !$hasPaidProof && !$hasTrialPeriod;
+            $orderStatus = ($isAutoActivatedTrial || $isAutoActivatedDirect) ? 'approved' : 'pending';
+            $orderNotes = $isAutoActivatedTrial
+                ? "Pedido auto-aprovado. Plano '{$plan->name}' com {$trialDays} dias de trial gratuito (auto_activate=true). Empresa: {$tenant->name}"
+                : ($isAutoActivatedDirect
+                    ? "Pedido auto-aprovado. Plano '{$plan->name}' activado directamente (auto_activate=true). Empresa: {$tenant->name}"
+                    : "Pedido criado via wizard de registro. Empresa: {$tenant->name}");
+
             $order = Order::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
@@ -534,28 +547,52 @@ class RegisterWizard extends Component
                 'payment_method' => $this->payment_method,
                 'payment_reference' => $this->payment_reference,
                 'payment_proof' => $paymentProofPath,
-                'status' => 'pending',
-                'notes' => "Pedido criado via wizard de registro. Empresa: {$tenant->name}",
+                'status' => $orderStatus,
+                'approved_at' => $orderStatus === 'approved' ? $now : null,
+                'approved_by' => null, // Sistema (auto-aprovação)
+                'notes' => $orderNotes,
+            ]);
+
+            \Log::info('Order criada', [
+                'order_id' => $order->id,
+                'status' => $orderStatus,
+                'auto_activated' => $isAutoActivatedTrial || $isAutoActivatedDirect,
             ]);
             
-            // 7. Ativar módulos do plano
+            // 7. Ativar módulos do plano.
+            //    Via TenantModuleSyncService: garante as DEPENDÊNCIAS (Faturação
+            //    ⇒ Tesouraria), os PRÉ-REQUISITOS de dados (métodos de pagamento,
+            //    impostos, armazém, configurações) e as PERMISSÕES nos papéis.
+            //    O attach directo que existia aqui deixava empresas com módulos
+            //    "activos" mas inutilizáveis (ex.: sem formas de pagamento).
             \Log::info('Ativando módulos do plano...', ['included_modules' => $plan->included_modules]);
-            if ($plan->included_modules && is_array($plan->included_modules)) {
-                foreach ($plan->included_modules as $moduleSlug) {
-                    \Log::info('Procurando módulo', ['slug' => $moduleSlug]);
-                    $module = \App\Models\Module::where('slug', $moduleSlug)->first();
-                    if ($module) {
-                        $tenant->modules()->attach($module->id, [
-                            'is_active' => true,
-                            'activated_at' => now(),
-                        ]);
-                        \Log::info('Módulo ativado', ['module_id' => $module->id, 'name' => $module->name]);
-                    } else {
-                        \Log::warning('Módulo não encontrado', ['slug' => $moduleSlug]);
-                    }
+
+            $moduleSlugs = is_array($plan->included_modules) ? $plan->included_modules : [];
+            if (empty($moduleSlugs)) {
+                // Recurso: usar a relação plan_module quando o JSON não está preenchido
+                $moduleSlugs = $plan->modules()->pluck('modules.slug')->toArray();
+            }
+
+            // Só activar módulos quando a subscrição já dá direito a usar o
+            // sistema. Se ficou 'pending' (plano pago à espera da aprovação do
+            // Super Admin), os módulos NÃO são activados — era assim que um
+            // registo por aprovar já nascia com tudo ligado.
+            if (!in_array($status, ['trial', 'active'], true)) {
+                \Log::info('Subscrição pendente de aprovação — módulos NÃO activados', [
+                    'tenant_id' => $tenant->id,
+                    'status'    => $status,
+                ]);
+            } elseif (!empty($moduleSlugs)) {
+                $sync = new \App\Services\Tenant\TenantModuleSyncService();
+                foreach ($moduleSlugs as $moduleSlug) {
+                    $sync->activateModule($tenant, $moduleSlug);
                 }
+                \Log::info('Módulos ativados (com dependências e pré-requisitos)', [
+                    'tenant_id' => $tenant->id,
+                    'modules'   => $moduleSlugs,
+                ]);
             } else {
-                \Log::warning('Plano não tem módulos incluídos ou não é array');
+                \Log::warning('Plano sem módulos incluídos', ['plan_id' => $plan->id]);
             }
             
             \Log::info('Commit da transação...');

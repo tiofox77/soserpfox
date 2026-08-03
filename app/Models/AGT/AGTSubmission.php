@@ -23,6 +23,7 @@ class AGTSubmission extends Model
 
     protected $fillable = [
         'tenant_id',
+        'agt_environment',
         'document_type',
         'document_id',
         'document_number',
@@ -149,26 +150,51 @@ class AGTSubmission extends Model
         ]);
     }
 
-    public function markAsValidated(string $agtReference, string $atcud, array $responsePayload): void
+    public function markAsValidated(string $agtReference, ?string $atcud, array $responsePayload): void
     {
-        $this->update([
+        $submissionFields = [
             'status' => self::STATUS_VALIDATED,
             'agt_reference' => $agtReference,
-            'atcud' => $atcud,
             'response_payload' => $responsePayload,
             'validated_at' => now(),
             'error_message' => null,
             'error_code' => null,
-        ]);
+        ];
+        if (filled($atcud)) {
+            $submissionFields['atcud'] = $atcud;
+        }
+        $this->update($submissionFields);
 
         // Atualizar documento original
         if ($this->document) {
-            $this->document->update([
+            $documentFields = [
                 'agt_status' => 'validated',
                 'agt_reference' => $agtReference,
-                'atcud' => $atcud,
                 'agt_validated_at' => now(),
-            ]);
+            ];
+            // ObterEstado não devolve ATCUD. Nunca apagar o ATCUD gerado pela
+            // série fiscal quando a validação assíncrona termina.
+            if (filled($atcud)) {
+                $documentFields['atcud'] = $atcud;
+            }
+
+            // Validado pela AGT ⇒ DEFINITIVO (invoice_status = 'F').
+            //
+            // Sem isto o documento ficava em 'N' e as consequências eram graves:
+            //  · o guarda de editar/apagar testa invoice_status !== 'F', logo um
+            //    documento já aceite pelo fisco continuava alterável — viola a
+            //    inviolabilidade exigida pelo Decreto 71/25 (Art. 3.º, n.º 4);
+            //  · o SalesInvoiceAccountingObserver dispara na transição para 'F',
+            //    pelo que a venda nunca chegava à contabilidade.
+            // O método finalizeInvoice() existia mas nunca era chamado.
+            if (\Illuminate\Support\Facades\Schema::hasColumn(
+                    $this->document->getTable(), 'invoice_status'
+                ) && $this->document->invoice_status !== 'F') {
+                $documentFields['invoice_status'] = 'F';
+                $documentFields['invoice_status_date'] = now();
+            }
+
+            $this->document->update($documentFields);
         }
     }
 
@@ -203,6 +229,9 @@ class AGTSubmission extends Model
 
     public static function createForDocument($document, string $documentTypeCode): self
     {
+        if ((int) ($document->tenant_id ?? 0) < 1) {
+            throw new \InvalidArgumentException('Documento AGT sem tenant valido.');
+        }
         $documentNumber = $document->invoice_number 
             ?? $document->credit_note_number 
             ?? $document->debit_note_number 
@@ -211,6 +240,12 @@ class AGTSubmission extends Model
 
         return self::create([
             'tenant_id' => $document->tenant_id,
+            // Homologação e produção são universos separados: sem isto as duas
+            // apareciam misturadas e um documento validado em sandbox parecia
+            // validado em produção.
+            'agt_environment' => \App\Models\Invoicing\InvoicingSettings::forTenant(
+                (int) $document->tenant_id
+            )->agt_environment ?: 'sandbox',
             'document_type' => get_class($document),
             'document_id' => $document->id,
             'document_number' => $documentNumber,

@@ -25,6 +25,7 @@ class Plan extends Model
         'included_modules',
         'is_active',
         'is_featured',
+        'is_promotional',
         'trial_days',
         'auto_activate',
         'order',
@@ -39,6 +40,7 @@ class Plan extends Model
         'included_modules' => 'array',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'is_promotional' => 'boolean',
         'auto_activate' => 'boolean',
         'trial_days' => 'integer',
         'max_users' => 'integer',
@@ -68,6 +70,42 @@ class Plan extends Model
     {
         return $this->belongsToMany(Module::class, 'plan_module')
             ->withTimestamps();
+    }
+
+    /**
+     * Slugs dos módulos do plano JÁ COM as dependências resolvidas.
+     *
+     * É esta a lista que qualquer sincronização deve usar: há caminhos
+     * (superadmin, comandos de resync) que sincronizam o tenant directamente a
+     * partir do plano e, como os planos Business/Enterprise não listavam a
+     * Tesouraria, apagavam-na aos clientes — deixando a Faturação sem formas de
+     * pagamento. Resolver aqui garante a regra em TODOS os caminhos.
+     *
+     * @return string[]
+     */
+    public function moduleSlugsWithDependencies(): array
+    {
+        $slugs = $this->modules()->pluck('modules.slug')->toArray();
+
+        $resolved = [];
+        foreach ($slugs as $slug) {
+            foreach (\App\Services\Tenant\TenantModuleSyncService::withDependencies($slug) as $s) {
+                if (!in_array($s, $resolved, true)) {
+                    $resolved[] = $s;
+                }
+            }
+        }
+
+        // Só módulos que existem mesmo no catálogo
+        return Module::whereIn('slug', $resolved)->pluck('slug')->toArray();
+    }
+
+    /** Ids dos módulos do plano já com dependências (para syncs por id). */
+    public function moduleIdsWithDependencies(): array
+    {
+        return Module::whereIn('slug', $this->moduleSlugsWithDependencies())
+            ->pluck('id')
+            ->toArray();
     }
 
     // Scopes

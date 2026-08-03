@@ -40,6 +40,7 @@ class PurchaseProforma extends Model
     protected $casts = [
         'proforma_date' => 'date',
         'valid_until' => 'date',
+        'system_entry_date' => 'datetime',   // sem cast vinha string da BD ao editar
         'is_service' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',

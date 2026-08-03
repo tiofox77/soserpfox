@@ -3,7 +3,7 @@
 namespace App\Livewire\Events;
 
 use App\Models\Events\Event;
-use App\Models\Events\Equipment;
+use App\Models\Equipment; // gestor real de equipamentos (tabela events_equipments_manager)
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;

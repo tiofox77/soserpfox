@@ -42,6 +42,9 @@ class PurchaseInvoice extends Model
     protected $casts = [
         'invoice_date' => 'date',
         'due_date' => 'date',
+        // Sem este cast, ao EDITAR o documento o valor vinha da BD como string
+        // e o ->format() na geração do hash SAFT rebentava.
+        'system_entry_date' => 'datetime',
         'is_service' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',

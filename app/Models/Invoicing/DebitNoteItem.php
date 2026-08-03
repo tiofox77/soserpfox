@@ -24,6 +24,22 @@ class DebitNoteItem extends Model
         'tax_amount',
         'total',
         'order',
+        // AGT v1.2 — as colunas existiam na tabela mas nunca foram declaradas
+        // aqui, pelo que o Eloquent descartava-as em silêncio e a ND seguia para
+        // a AGT sem código SAFT, região, motivo de isenção nem referência.
+        'unit_price_base',
+        'debit_amount',
+        'credit_amount',
+        'settlement_amount',
+        'eac_code',
+        'tax_country_region',
+        'tax_code',
+        'tax_exemption_code',
+        'tax_exemption_reason',
+        // referenceInfo (documento rectificativo) — origem
+        'reference_invoice_no',
+        'reference_item_line_no',
+        'reference_reason',
     ];
 
     protected $casts = [

@@ -18,13 +18,19 @@ use Illuminate\Support\Facades\Http;
  */
 class AGTHttpClient
 {
-    public const SANDBOX_URL    = 'https://quiosqueagt.hml.minfin.gov.ao';
-    public const PRODUCTION_URL = 'https://quiosqueagt.minfin.gov.ao';
+    public const SANDBOX_URL    = 'https://sifphml.minfin.gov.ao/sigt/fe/v1';
+    public const PRODUCTION_URL = 'https://sifp.minfin.gov.ao/sigt/fe/v1';
 
-    public const ENDPOINT_SERIES   = '/api/fe/v1/series/solicitar';
-    public const ENDPOINT_REGISTER = '/api/fe/v1/factura/registar';
-    public const ENDPOINT_CONSULT  = '/api/fe/v1/factura/consultar';
-    public const ENDPOINT_STATUS   = '/api/fe/v1/factura/estado';
+    /** DS.120 §4.8 — Tamanho máximo de mensagem (750 KB). */
+    public const MAX_PAYLOAD_BYTES = 750 * 1024;
+
+    public const ENDPOINT_SERIES        = '/solicitarSerie';
+    public const ENDPOINT_REGISTER      = '/registarFactura';
+    public const ENDPOINT_CONSULT       = '/consultarFactura';
+    public const ENDPOINT_STATUS        = '/obterEstado';
+    public const ENDPOINT_LIST_INVOICES = '/listarFacturas';
+    public const ENDPOINT_LIST_SERIES   = '/listarSeries';
+    public const ENDPOINT_VALIDATE      = '/validarDocumento';
 
     private InvoicingSettings $settings;
     private int $tenantId;
@@ -36,11 +42,9 @@ class AGTHttpClient
         $this->settings    = $settings;
         $this->tenantId    = $settings->tenant_id;
         $this->environment = $settings->agt_environment ?? 'sandbox';
-        $this->baseUrl     = rtrim(
-            $settings->agt_api_base_url
-                ?? ($this->environment === 'production' ? self::PRODUCTION_URL : self::SANDBOX_URL),
-            '/'
-        );
+        $this->baseUrl = $this->environment === 'production'
+            ? self::PRODUCTION_URL
+            : self::SANDBOX_URL;
     }
 
     public function getEnvironment(): string
@@ -62,6 +66,20 @@ class AGTHttpClient
         $url       = $this->baseUrl . $endpoint;
         $startTime = microtime(true);
         $log = null;
+
+        // DS.120 §4.8: validação prévia de tamanho máx da mensagem.
+        $jsonSize = strlen((string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if ($jsonSize > self::MAX_PAYLOAD_BYTES) {
+            return [
+                'ok'        => false,
+                'status'    => 0,
+                'response'  => [],
+                'requestID' => null,
+                'error'     => sprintf('Payload excede 750KB (%d bytes)', $jsonSize),
+                'elapsed'   => 0,
+                'log_id'    => null,
+            ];
+        }
 
         try {
             $response = $this->client()->post($url, $payload);
@@ -116,6 +134,10 @@ class AGTHttpClient
         return Http::timeout(60)
             ->acceptJson()
             ->asJson()
+            ->withBasicAuth(
+                (string) config('services.agt.username'),
+                (string) config('services.agt.password')
+            )
             ->withHeaders([
                 'X-Tenant-Id' => (string) $this->tenantId,
             ]);

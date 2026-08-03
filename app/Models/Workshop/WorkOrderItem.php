@@ -88,33 +88,39 @@ class WorkOrderItem extends Model
         return $this->type === 'part';
     }
 
-    public function calculateSubtotal()
+    /** Calcula desconto e subtotal em memória (não grava). */
+    public function aplicarSubtotal()
     {
-        $baseAmount = $this->quantity * $this->unit_price;
-        
+        $baseAmount = (float) $this->quantity * (float) $this->unit_price;
+
         if ($this->discount_percent > 0) {
-            $this->discount_amount = $baseAmount * ($this->discount_percent / 100);
+            $this->discount_amount = $baseAmount * ((float) $this->discount_percent / 100);
         }
-        
-        $this->subtotal = $baseAmount - $this->discount_amount;
-        $this->save();
-        
-        // Recalcular totais da OS
-        $this->workOrder->calculateTotals();
+
+        $this->subtotal = $baseAmount - (float) $this->discount_amount;
     }
 
     protected static function booted()
     {
-        static::created(function ($item) {
-            $item->calculateSubtotal();
+        // O subtotal é calculado ANTES de gravar.
+        //
+        // Antes era calculado DEPOIS, nos eventos `created`/`updated`, e cada um
+        // chamava $this->save() outra vez. Como o Eloquent só sincroniza o
+        // `original` DEPOIS de disparar `updated`, o item continuava a parecer
+        // "sujo" dentro do próprio evento e voltava a gravar — recursão
+        // infinita. Na prática, adicionar uma peça ou um serviço a uma Ordem de
+        // Serviço ficava pendurado até o PHP esgotar tempo/memória.
+        static::saving(function ($item) {
+            $item->aplicarSubtotal();
         });
 
-        static::updated(function ($item) {
-            $item->calculateSubtotal();
+        // Totais da OS: é outro modelo, não reentra.
+        static::saved(function ($item) {
+            $item->workOrder?->calculateTotals();
         });
 
         static::deleted(function ($item) {
-            $item->workOrder->calculateTotals();
+            $item->workOrder?->calculateTotals();
         });
     }
 }

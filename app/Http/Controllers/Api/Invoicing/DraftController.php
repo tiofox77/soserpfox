@@ -1,0 +1,257 @@
+<?php
+
+namespace App\Http\Controllers\Api\Invoicing;
+
+use App\Http\Controllers\Controller;
+use App\Models\Invoicing\SalesInvoice;
+use App\Models\Invoicing\SalesInvoiceItem;
+use App\Models\Invoicing\SalesProforma;
+use App\Models\Invoicing\SalesProformaItem;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+
+/**
+ * Recebe rascunhos criados offline no PWA e persiste no servidor com status='draft'.
+ * Suporta 4 tipos: FT (Fatura), FR (Fatura-Recibo), NC (Nota de Crédito), proforma.
+ * NOTA: documentos criados ficam SEM hash AGT — utilizador finaliza manualmente
+ *       no módulo principal para obter validade fiscal.
+ */
+class DraftController extends Controller
+{
+    public function store(Request $request): JsonResponse
+    {
+        $tenantId = activeTenantId();
+        if (!$tenantId) {
+            return response()->json(['error' => 'No active tenant'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'doc_type' => 'required|in:FT,FR,NC,proforma',
+            'client_id' => 'nullable|integer',
+            'client_local_uuid' => 'nullable|string',
+            'notes' => 'nullable|string|max:2000',
+            'reference' => 'nullable|string|max:255', // ex: nº FT original para NC
+            'invoice_date' => 'nullable|date',
+            'due_date' => 'nullable|date',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'nullable|integer',
+            'items.*.product_name' => 'required|string|max:255',
+            'items.*.quantity' => 'required|numeric|min:0.0001',
+            'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.tax_rate' => 'nullable|numeric|min:0|max:100',
+            'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
+            'local_uuid' => 'nullable|string|max:80',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $data = $validator->validated();
+        $docType = $data['doc_type'];
+
+        return DB::transaction(function () use ($data, $tenantId, $docType) {
+            if ($docType === 'proforma') {
+                return $this->createProforma($data, $tenantId);
+            }
+            return $this->createInvoice($data, $tenantId, $docType);
+        });
+    }
+
+    private function createInvoice(array $data, int $tenantId, string $docType): JsonResponse
+    {
+        $invoice = new SalesInvoice();
+        $invoice->tenant_id = $tenantId;
+        $invoice->invoice_type = $docType; // FT, FR, NC
+        $invoice->client_id = $data['client_id'] ?? null;
+        $invoice->invoice_date = $data['invoice_date'] ?? now()->toDateString();
+        $invoice->due_date = $data['due_date'] ?? now()->addDays(30)->toDateString();
+        $invoice->status = 'draft';
+        // invoice_status é ENUM ['N','A','F'] (Normal/Anulado/Finalizado). O estado
+        // de rascunho é dado por status='draft'; aqui fica 'N' (ainda não finalizado).
+        $invoice->invoice_status = 'N';
+        $invoice->invoice_status_date = now();
+        $invoice->source_id = auth()->id() ?? 'PWA';
+        $invoice->source_billing = 'P';
+        // created_by é NOT NULL sem default: sem isto, TODA a sincronização de
+        // rascunhos do PWA rebentava com "Field 'created_by' doesn't have a
+        // default value" e o dispositivo ficava a retentar para sempre.
+        $invoice->created_by = auth()->id();
+        $invoice->system_entry_date = now();
+        $invoice->notes = ($data['notes'] ?? '')
+            . (isset($data['reference']) ? "\n\nReferência: " . $data['reference'] : '')
+            . "\n\n[Criado via PWA Offline]";
+
+        $totals = $this->calculateTotals($data['items']);
+        $invoice->subtotal = $totals['subtotal'];
+        $invoice->net_total = $totals['subtotal'];
+        $invoice->tax_amount = $totals['tax'];
+        $invoice->tax_payable = $totals['tax'];
+        $invoice->total = $totals['total'];
+        $invoice->gross_total = $totals['total'];
+        $invoice->save();
+
+        foreach ($data['items'] as $idx => $itm) {
+            $qty = (float) $itm['quantity'];
+            $unitPrice = (float) $itm['unit_price'];
+            // O SERVIDOR é a autoridade fiscal: nunca aceitar a taxa do
+            // dispositivo quando o produto é conhecido. Um tablet com o catálogo
+            // desactualizado enviava 14% e gerava faturas com IVA numa empresa
+            // isenta. Sem product_id (item avulso) usa-se o valor recebido,
+            // limitado à taxa do regime.
+            $__tx = \App\Services\Invoicing\TaxResolver::forProductId($itm['product_id'] ?? null);
+            $taxRate = !empty($itm['product_id'])
+                ? (float) $__tx['rate']
+                : min((float) ($itm['tax_rate'] ?? $__tx['rate']), (float) $__tx['rate']);
+            $discountPercent = (float) ($itm['discount_percent'] ?? 0);
+
+            $lineGross = $qty * $unitPrice;
+            $discount = $lineGross * $discountPercent / 100;
+            $lineNet = $lineGross - $discount;
+            $taxAmount = $lineNet * $taxRate / 100;
+
+            $line = new SalesInvoiceItem();
+            $line->sales_invoice_id = $invoice->id;
+            $line->product_id = $itm['product_id'] ?? null;
+            $line->product_name = $itm['product_name'];
+            $line->quantity = $qty;
+            $line->unit_price = $unitPrice;
+            $line->unit_price_base = $unitPrice;
+            $line->discount_percent = $discountPercent;
+            $line->discount_amount = $discount;
+            $line->subtotal = $lineNet;
+            $line->tax_rate = $taxRate;
+            $line->tax_amount = $taxAmount;
+            $line->total = $lineNet + $taxAmount;
+            $line->order = $idx + 1;
+            // Campos AGT: linha sem imposto TEM de levar motivo de isenção
+            $line->tax_country_region = 'AO';
+            $line->tax_code = $taxRate > 0 ? 'NOR' : 'ISE';
+            if ($taxRate <= 0) {
+                $tx = \App\Services\Invoicing\TaxResolver::forProductId($itm['product_id'] ?? null);
+                $line->tax_exemption_code   = $tx['exemption_code'];
+                $line->tax_exemption_reason = $tx['exemption_reason'];
+            }
+            $line->save();
+        }
+
+        return response()->json([
+            'id' => $invoice->id,
+            'doc_type' => $docType,
+            'local_uuid' => $data['local_uuid'] ?? null,
+            'invoice_number' => $invoice->invoice_number,
+            'total' => (float) $invoice->total,
+            'status' => 'draft',
+            'message' => 'Rascunho criado. Finalize no módulo de Faturação para obter número AGT.',
+        ], 201);
+    }
+
+    private function createProforma(array $data, int $tenantId): JsonResponse
+    {
+        $proforma = new SalesProforma();
+        $proforma->tenant_id = $tenantId;
+        $proforma->client_id = $data['client_id'] ?? null;
+        $proforma->proforma_date = $data['invoice_date'] ?? now()->toDateString();
+        $proforma->valid_until = $data['due_date'] ?? now()->addDays(15)->toDateString();
+        $proforma->status = 'draft';
+        $proforma->created_by = auth()->id();   // NOT NULL sem default
+        $proforma->notes = ($data['notes'] ?? '') . "\n\n[Criado via PWA Offline]";
+
+        // NOTA: invoicing_sales_proformas NÃO tem net_total/tax_payable/gross_total.
+        $totals = $this->calculateTotals($data['items']);
+        $proforma->subtotal = $totals['subtotal'];
+        $proforma->tax_amount = $totals['tax'];
+        $proforma->total = $totals['total'];
+        $proforma->save();
+
+        foreach ($data['items'] as $idx => $itm) {
+            $qty = (float) $itm['quantity'];
+            $unitPrice = (float) $itm['unit_price'];
+            // O SERVIDOR é a autoridade fiscal: nunca aceitar a taxa do
+            // dispositivo quando o produto é conhecido. Um tablet com o catálogo
+            // desactualizado enviava 14% e gerava faturas com IVA numa empresa
+            // isenta. Sem product_id (item avulso) usa-se o valor recebido,
+            // limitado à taxa do regime.
+            $__tx = \App\Services\Invoicing\TaxResolver::forProductId($itm['product_id'] ?? null);
+            $taxRate = !empty($itm['product_id'])
+                ? (float) $__tx['rate']
+                : min((float) ($itm['tax_rate'] ?? $__tx['rate']), (float) $__tx['rate']);
+            $discountPercent = (float) ($itm['discount_percent'] ?? 0);
+
+            $lineGross = $qty * $unitPrice;
+            $discount = $lineGross * $discountPercent / 100;
+            $lineNet = $lineGross - $discount;
+            $taxAmount = $lineNet * $taxRate / 100;
+
+            $line = new SalesProformaItem();
+            $line->sales_proforma_id = $proforma->id;
+            $line->product_id = $itm['product_id'] ?? null;
+            $line->product_name = $itm['product_name'];
+            $line->quantity = $qty;
+            $line->unit_price = $unitPrice;
+            $line->discount_percent = $discountPercent;
+            $line->discount_amount = $discount;
+            $line->subtotal = $lineNet;
+            $line->tax_rate = $taxRate;
+            $line->tax_amount = $taxAmount;
+            $line->total = $lineNet + $taxAmount;
+            $line->order = $idx + 1;
+            // Campos AGT — a proforma tem de os levar para a conversão em fatura
+            $line->tax_country_region = 'AO';
+            $line->tax_code = $taxRate > 0 ? 'NOR' : 'ISE';
+            if ($taxRate <= 0) {
+                $line->tax_exemption_code   = $__tx['exemption_code'];
+                $line->tax_exemption_reason = $__tx['exemption_reason'];
+            }
+            $line->save();
+        }
+
+        return response()->json([
+            'id' => $proforma->id,
+            'doc_type' => 'proforma',
+            'local_uuid' => $data['local_uuid'] ?? null,
+            'proforma_number' => $proforma->proforma_number,
+            'total' => (float) $proforma->total,
+            'status' => 'draft',
+            'message' => 'Proforma criada como rascunho.',
+        ], 201);
+    }
+
+    private function calculateTotals(array $items): array
+    {
+        $subtotal = 0;
+        $tax = 0;
+        foreach ($items as $itm) {
+            $qty = (float) $itm['quantity'];
+            $unitPrice = (float) $itm['unit_price'];
+            // O SERVIDOR é a autoridade fiscal: nunca aceitar a taxa do
+            // dispositivo quando o produto é conhecido. Um tablet com o catálogo
+            // desactualizado enviava 14% e gerava faturas com IVA numa empresa
+            // isenta. Sem product_id (item avulso) usa-se o valor recebido,
+            // limitado à taxa do regime.
+            $__tx = \App\Services\Invoicing\TaxResolver::forProductId($itm['product_id'] ?? null);
+            $taxRate = !empty($itm['product_id'])
+                ? (float) $__tx['rate']
+                : min((float) ($itm['tax_rate'] ?? $__tx['rate']), (float) $__tx['rate']);
+            $discountPercent = (float) ($itm['discount_percent'] ?? 0);
+
+            $lineGross = $qty * $unitPrice;
+            $discount = $lineGross * $discountPercent / 100;
+            $lineNet = $lineGross - $discount;
+            $taxAmount = $lineNet * $taxRate / 100;
+
+            $subtotal += $lineNet;
+            $tax += $taxAmount;
+        }
+        return [
+            'subtotal' => round($subtotal, 2),
+            'tax' => round($tax, 2),
+            'total' => round($subtotal + $tax, 2),
+        ];
+    }
+}

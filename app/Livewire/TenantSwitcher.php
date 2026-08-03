@@ -40,17 +40,9 @@ class TenantSwitcher extends Component
     public function switchTenant($tenantId)
     {
         $user = auth()->user();
-        
-        // BUG-07 FIX: Verificar limite por contagem total vs max_companies do plano
-        // (não mais por índice da collection)
-        if (!$user->is_super_admin && $this->hasExceededLimit) {
-            $this->dispatch('error', message: 
-                "🔒 Limite excedido! Seu plano permite {$this->maxAllowed} empresa(s) mas tem {$this->currentCount}. " .
-                "Faça upgrade ou remova uma empresa para alternar."
-            );
-            return;
-        }
-        
+
+        // O limite do plano controla a criacao de novas empresas. Empresas que
+        // ja pertencem ao utilizador devem continuar acessiveis para consulta.
         if ($user->switchTenant($tenantId)) {
             $this->loadTenants();
             $this->dispatch('tenant-switched-reload');

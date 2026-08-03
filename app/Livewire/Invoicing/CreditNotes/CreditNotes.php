@@ -24,6 +24,9 @@ class CreditNotes extends Component
     public $showDeleteModal = false;
     public $creditNoteToDelete = null;
 
+    public $showViewModal = false;
+    public $selectedCreditNote = null;
+
     protected $queryString = [
         'search' => ['except' => ''],
         'filterStatus' => ['except' => ''],
@@ -33,6 +36,21 @@ class CreditNotes extends Component
     public function updatingSearch()
     {
         $this->resetPage();
+    }
+
+    public function viewCreditNote($creditNoteId)
+    {
+        // Scoped ao tenant: sem isto um id de outra empresa abria o documento.
+        $this->selectedCreditNote = CreditNote::where('tenant_id', activeTenantId())
+            ->with(['client', 'invoice', 'items.product', 'creator'])
+            ->findOrFail($creditNoteId);
+        $this->showViewModal = true;
+    }
+
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->selectedCreditNote = null;
     }
 
     public function confirmDelete($creditNoteId)

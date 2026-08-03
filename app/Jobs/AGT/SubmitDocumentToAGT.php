@@ -38,7 +38,8 @@ class SubmitDocumentToAGT implements ShouldQueue
         ]);
 
         try {
-            $document = $this->documentClass::find($this->documentId);
+            $document = $this->documentClass::where('tenant_id', $this->tenantId)
+                ->find($this->documentId);
 
             if (!$document) {
                 Log::error('SubmitDocumentToAGT: Documento não encontrado');
@@ -94,7 +95,8 @@ class SubmitDocumentToAGT implements ShouldQueue
         ]);
 
         // Marcar documento como falha
-        $document = $this->documentClass::find($this->documentId);
+        $document = $this->documentClass::where('tenant_id', $this->tenantId)
+            ->find($this->documentId);
         if ($document) {
             $document->update(['agt_status' => 'failed']);
         }

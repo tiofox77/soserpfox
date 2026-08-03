@@ -26,6 +26,80 @@ class Product extends Model
         'M99' => 'Outros motivos de isenção',
     ];
 
+    /**
+     * Normaliza um valor de isenção para o CÓDIGO AGT (máx. 10 chars — cabe em
+     * invoicing_*_items.tax_exemption_code, varchar(10)).
+     *
+     * O campo products.exemption_reason deve guardar o código (ex.: 'M04'), mas
+     * histórico/pré-preenchimentos gravaram lá a DESCRIÇÃO ("Regime Especial de
+     * Isenção (Artigo 53.º)", 40 chars) — o que fazia a venda falhar com
+     * "Data too long for column 'tax_exemption_code'". Aqui aceitamos ambos:
+     * código → devolve o código; descrição → resolve para o código respetivo.
+     */
+    public static function normalizeExemptionCode(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        // Já é um código AGT (M01/S02/I15/…): letra + dígitos, até 10 chars
+        if (mb_strlen($value) <= 10 && preg_match('/^[A-Za-z]\d{1,3}$/', $value)) {
+            return mb_strtoupper($value);
+        }
+
+        // É descrição: resolver via lista legada
+        foreach (self::EXEMPTION_REASONS as $code => $reason) {
+            if (mb_strtolower($reason) === mb_strtolower($value)) {
+                return $code;
+            }
+        }
+
+        // …ou via tabela oficial AGT
+        try {
+            $code = \App\Models\AGT\AGTTaxExemptionCode::whereRaw('LOWER(description) = ?', [mb_strtolower($value)])
+                ->value('code');
+            if ($code) {
+                return $code;
+            }
+        } catch (\Throwable $e) {
+            // tabela ainda não seedada — ignorar
+        }
+
+        // Desconhecido: nunca devolver texto longo (rebentaria a coluna).
+        \Log::warning('Product::normalizeExemptionCode: valor de isenção não reconhecido', ['value' => $value]);
+        return mb_strlen($value) <= 10 ? mb_strtoupper($value) : null;
+    }
+
+    /**
+     * Descrição legível de um código/valor de isenção (para tax_exemption_reason).
+     */
+    public static function exemptionReasonText(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $code = self::normalizeExemptionCode($value);
+        if ($code) {
+            if (isset(self::EXEMPTION_REASONS[$code])) {
+                return self::EXEMPTION_REASONS[$code];
+            }
+            try {
+                $desc = \App\Models\AGT\AGTTaxExemptionCode::where('code', $code)->value('description');
+                if ($desc) {
+                    return mb_substr($desc, 0, 255);
+                }
+            } catch (\Throwable $e) {
+                // ignorar
+            }
+        }
+
+        // Sem correspondência: devolve o próprio texto (a coluna aceita 255).
+        return mb_substr($value, 0, 255);
+    }
+
     protected $fillable = [
         'tenant_id', 'category_id', 'brand_id', 'supplier_id',
         'type', 'code', 'sku', 'barcode', 'name', 'description', 'category',
@@ -36,6 +110,11 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
+        'category_id' => 'integer',
+        'brand_id' => 'integer',
+        'supplier_id' => 'integer',
+        'tax_rate_id' => 'integer',
         'manage_stock' => 'boolean',
         'is_active' => 'boolean',
         'track_batches' => 'boolean',
@@ -62,17 +141,34 @@ class Product extends Model
     {
         // Define o prefixo baseado no tipo
         $prefix = $type === 'servico' ? 'SVC' : 'PROD';
-        
-        // Usar withoutGlobalScopes para ignorar filtros de módulo
-        $lastProduct = \App\Models\Product::withoutGlobalScopes()
+
+        // Calcular o maior número usado por este tenant para o prefixo escolhido.
+        // Usa CAST para ordenar numericamente (evita PROD000010 < PROD000002 em string).
+        $maxNumber = (int) \App\Models\Product::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('code', 'like', $prefix . '%')
-            ->orderBy('code', 'desc')
-            ->first();
-        
-        $newNumber = $lastProduct ? ((int) substr($lastProduct->code, strlen($prefix))) + 1 : 1;
-        
-        return $prefix . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
+            ->selectRaw('COALESCE(MAX(CAST(SUBSTRING(code, ?) AS UNSIGNED)), 0) AS max_num', [strlen($prefix) + 1])
+            ->value('max_num');
+
+        $newNumber = $maxNumber + 1;
+
+        // Defensivo: caso o código já exista (race condition / dados manuais), incrementar até ser livre
+        $maxAttempts = 100;
+        do {
+            $code = $prefix . str_pad($newNumber, 6, '0', STR_PAD_LEFT);
+            $exists = \App\Models\Product::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('code', $code)
+                ->exists();
+            if (!$exists) {
+                return $code;
+            }
+            $newNumber++;
+            $maxAttempts--;
+        } while ($maxAttempts > 0);
+
+        // Fallback final: incluir timestamp para garantir unicidade
+        return $prefix . str_pad((string) (time() % 1000000), 6, '0', STR_PAD_LEFT);
     }
 
     // Relacionamentos

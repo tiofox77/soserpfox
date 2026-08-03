@@ -152,7 +152,7 @@ class VacationManagement extends Component
                 $end = \Carbon\Carbon::parse($this->end_date);
                 
                 $this->workingDays = $vacationService->calculateWorkingDays($start, $end);
-                $this->requestedDays = $end->diffInDays($start) + 1;
+                $this->requestedDays = (int) $start->diffInDays($end) + 1;
                 
                 // Calcular valores financeiros
                 $employee = Employee::find($this->employee_id);

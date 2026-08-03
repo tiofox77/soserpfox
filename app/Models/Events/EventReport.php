@@ -4,12 +4,16 @@ namespace App\Models\Events;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Traits\BelongsToTenant;
 
 class EventReport extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'events_reports';
-    
+
     protected $fillable = [
+        'tenant_id',
         'event_id',
         'report_number',
         'type',

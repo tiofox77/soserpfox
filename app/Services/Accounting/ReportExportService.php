@@ -16,6 +16,81 @@ use App\Exports\Accounting\VatReportExport;
 class ReportExportService
 {
     /**
+     * Exporta Mapa de Retenções na Fonte para PDF
+     */
+    public function exportWithholdingPDF($data, $dateFrom, $dateTo)
+    {
+        $pdf = Pdf::loadView('accounting.exports.pdf.withholding', [
+            'data' => $data,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'company' => $this->getCompanyInfo(),
+        ]);
+        return $pdf->download('retencoes_' . date('Y-m-d') . '.pdf');
+    }
+
+    /**
+     * Exporta Mapa de Retenções na Fonte para Excel (.xlsx REAL).
+     * Usa PhpSpreadsheet diretamente (já instalado, ^5.1) — o wrapper maatwebsite/excel
+     * instalado é v1.x (incompatível com o phpspreadsheet ^5 do projeto).
+     */
+    public function exportWithholdingExcel($data, $dateFrom, $dateTo)
+    {
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $ss->getActiveSheet();
+        $sheet->setTitle('Retenções');
+
+        $num = '#,##0.00';
+        $r = 1;
+        $sheet->setCellValue("A{$r}", 'MAPA DE RETENÇÕES NA FONTE');
+        $sheet->getStyle("A{$r}")->getFont()->setBold(true)->setSize(16);
+        $sheet->setCellValue('A' . (++$r), 'Período: ' . date('d/m/Y', strtotime($dateFrom)) . ' a ' . date('d/m/Y', strtotime($dateTo)));
+        $sheet->setCellValue('A' . (++$r), 'Valores em Kwanzas (Kz)');
+        $r += 2;
+
+        foreach (['A' => 'Data', 'B' => 'Documento', 'C' => 'Conta', 'D' => 'Descrição', 'E' => 'Valor Retido'] as $col => $h) {
+            $sheet->setCellValue("{$col}{$r}", $h);
+        }
+        $sheet->getStyle("A{$r}:E{$r}")->getFont()->setBold(true);
+        $r++;
+
+        foreach (($data['types'] ?? []) as $type) {
+            $sheet->setCellValue("A{$r}", $type['name']);
+            $sheet->getStyle("A{$r}")->getFont()->setBold(true);
+            $r++;
+            foreach ($type['lines'] as $l) {
+                $sheet->setCellValue("A{$r}", $l['date'] ? date('d/m/Y', strtotime((string) $l['date'])) : '-');
+                $sheet->setCellValue("B{$r}", $l['ref'] ?: '-');
+                $sheet->setCellValue("C{$r}", $l['account_code'] . ' - ' . $l['account_name']);
+                $sheet->setCellValue("D{$r}", $l['narration'] ?: '-');
+                $sheet->setCellValue("E{$r}", (float) $l['amount']);
+                $sheet->getStyle("E{$r}")->getNumberFormat()->setFormatCode($num);
+                $r++;
+            }
+            $sheet->setCellValue("D{$r}", 'Subtotal ' . $type['name']);
+            $sheet->setCellValue("E{$r}", (float) $type['total']);
+            $sheet->getStyle("D{$r}:E{$r}")->getFont()->setBold(true);
+            $sheet->getStyle("E{$r}")->getNumberFormat()->setFormatCode($num);
+            $r += 2;
+        }
+
+        $sheet->setCellValue("D{$r}", 'TOTAL RETIDO');
+        $sheet->setCellValue("E{$r}", (float) ($data['total'] ?? 0));
+        $sheet->getStyle("D{$r}:E{$r}")->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle("E{$r}")->getNumberFormat()->setFormatCode($num);
+
+        foreach (['A', 'B', 'C', 'D', 'E'] as $c) {
+            $sheet->getColumnDimension($c)->setAutoSize(true);
+        }
+
+        return response()->streamDownload(function () use ($ss) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save('php://output');
+        }, 'retencoes_' . date('Y-m-d') . '.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
      * Exporta Balanço para PDF
      */
     public function exportBalanceSheetPDF($data, $date)
@@ -145,13 +220,13 @@ class ReportExportService
      */
     protected function getCompanyInfo()
     {
-        $tenant = auth()->user()->tenant;
-        
+        $tenant = auth()->user()?->tenant;
+
         return [
-            'name' => $tenant->name ?? 'Empresa',
-            'nif' => $tenant->nif ?? '',
-            'address' => $tenant->address ?? '',
-            'city' => $tenant->city ?? 'Luanda',
+            'name' => $tenant?->name ?? 'Empresa',
+            'nif' => $tenant?->nif ?? '',
+            'address' => $tenant?->address ?? '',
+            'city' => $tenant?->city ?? 'Luanda',
             'country' => 'Angola',
         ];
     }

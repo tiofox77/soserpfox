@@ -102,21 +102,61 @@ class PosShift extends Model
     /**
      * Gerar número do turno
      */
-    public static function generateShiftNumber(): string
+    public static function generateShiftNumber(?int $tenantId = null): string
     {
         $year = now()->year;
-        $lastShift = self::where('shift_number', 'like', "POS-{$year}-%")
-            ->orderBy('shift_number', 'desc')
-            ->first();
 
-        if ($lastShift) {
-            $lastNumber = (int) substr($lastShift->shift_number, -3);
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1;
+        // Sequência POR TENANT. O índice único é (tenant_id, shift_number), por isso
+        // cada tenant tem a sua própria contagem (POS-{ano}-NNN) sem colidir com outros.
+        $query = self::query()->withTrashed(); // turnos soft-deleted ainda ocupam o número no índice
+        if ($tenantId !== null) {
+            $query->where('tenant_id', $tenantId);
         }
 
-        return 'POS-' . $year . '-' . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
+        // Ordenação NUMÉRICA pelo sufixo (robusto acima de 999 e a sufixos de tamanho variável).
+        $lastShift = $query->where('shift_number', 'like', "POS-{$year}-%")
+            ->orderByRaw('CAST(SUBSTRING_INDEX(shift_number, "-", -1) AS UNSIGNED) DESC')
+            ->first();
+
+        $newNumber = $lastShift
+            ? ((int) substr(strrchr($lastShift->shift_number, '-'), 1)) + 1
+            : 1;
+
+        return 'POS-' . $year . '-' . str_pad((string) $newNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Cria um turno de forma ATÓMICA e à prova de concorrência.
+     *
+     * Dois operadores do mesmo tenant a abrir turno no mesmo instante leriam o mesmo
+     * "último número". O índice único (tenant_id, shift_number) rejeita o duplicado (1062);
+     * aqui regeneramos o número e tentamos de novo, em vez de devolver erro ao utilizador.
+     * Nunca duplica, nunca corrompe a sequência, nunca causa conflito visível.
+     *
+     * @param array    $attributes  atributos do turno SEM shift_number (é gerado aqui)
+     * @param int|null $tenantId    tenant a usar para a sequência (default: o dos atributos)
+     */
+    public static function createSafely(array $attributes, ?int $tenantId = null): self
+    {
+        $tenantId = $tenantId ?? ($attributes['tenant_id'] ?? null);
+
+        for ($attempt = 1; $attempt <= 6; $attempt++) {
+            $attributes['shift_number'] = self::generateShiftNumber($tenantId);
+            try {
+                return self::create($attributes);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // 1062 = Duplicate entry. Só repetir se o conflito for no número do turno.
+                $isDuplicateShiftNumber = ($e->errorInfo[1] ?? null) === 1062
+                    && str_contains($e->getMessage(), 'shift_number');
+                if ($isDuplicateShiftNumber && $attempt < 6) {
+                    usleep(random_int(15000, 70000)); // 15-70ms de backoff antes de regerar
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        throw new \RuntimeException('Não foi possível gerar um número de turno único após várias tentativas.');
     }
 
     /**
@@ -176,10 +216,35 @@ class PosShift extends Model
     {
         $transactions = $this->transactions()->get();
 
-        $this->cash_sales = $transactions->where('payment_method', 'cash')->sum('amount');
-        $this->card_sales = $transactions->where('payment_method', 'card')->sum('amount');
-        $this->bank_transfer_sales = $transactions->where('payment_method', 'bank_transfer')->sum('amount');
-        $this->other_sales = $transactions->whereNotIn('payment_method', ['cash', 'card', 'bank_transfer'])->sum('amount');
+        // Classificação canónica e INSENSÍVEL a maiúsculas: as transações guardam
+        // o código do método de tesouraria ('tpa', 'MCX', 'DEBIT', 'CHECK'…), pelo
+        // que a comparação exata antiga mandava quase tudo para "outros" e o
+        // "Dinheiro Esperado" saía muito abaixo do que estava na gaveta.
+        $bucket = function ($method): string {
+            $m = strtolower(trim((string) $method));
+            if ($m === '') {
+                return 'other';
+            }
+            $is = fn(array $needles) => (bool) array_filter($needles, fn($n) => str_contains($m, $n));
+
+            if ($is(['cash', 'dinheiro', 'numerar', 'especie', 'espécie'])) {
+                return 'cash';
+            }
+            if ($is(['transfer', 'transferen', 'wire', 'iban'])) {
+                return 'bank_transfer';
+            }
+            if ($is(['card', 'cartao', 'cartão', 'tpa', 'mcx', 'multicaixa', 'debit', 'credit', 'visa', 'pos'])) {
+                return 'card';
+            }
+            return 'other';
+        };
+
+        $byBucket = $transactions->groupBy(fn($t) => $bucket($t->payment_method));
+
+        $this->cash_sales          = (float) ($byBucket->get('cash')?->sum('amount') ?? 0);
+        $this->card_sales          = (float) ($byBucket->get('card')?->sum('amount') ?? 0);
+        $this->bank_transfer_sales = (float) ($byBucket->get('bank_transfer')?->sum('amount') ?? 0);
+        $this->other_sales         = (float) ($byBucket->get('other')?->sum('amount') ?? 0);
         $this->total_sales = $transactions->sum('amount');
         
         $this->total_invoices = $transactions->where('type', 'invoice')->count();

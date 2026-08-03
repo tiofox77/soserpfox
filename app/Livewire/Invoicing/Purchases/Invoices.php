@@ -122,8 +122,24 @@ class Invoices extends Component
             $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
                 ->findOrFail($this->invoiceToDelete);
 
-            // Verificar se tem pagamentos associados
-            if ($invoice->payments()->exists()) {
+            // Só rascunhos: uma compra já recebida deu entrada de stock e tem
+            // histórico — anula-se, não se apaga.
+            if ($invoice->status !== 'draft') {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'Só é possível eliminar faturas de compra em rascunho. Anule a fatura para reverter o stock.',
+                ]);
+                $this->showDeleteModal = false;
+                return;
+            }
+
+            // Pagamentos associados (a relação payments() não existe — rebentava
+            // com BadMethodCallException; verificar pelos dados reais).
+            $temPagamentos = (float) ($invoice->paid_amount ?? 0) > 0
+                || \App\Models\Treasury\Transaction::where('tenant_id', activeTenantId())
+                    ->where('invoice_id', $invoice->id)->exists();
+
+            if ($temPagamentos) {
                 $this->dispatch('notify', [
                     'type' => 'error',
                     'message' => 'Não é possível eliminar uma fatura que já tem pagamentos associados.'
@@ -141,6 +157,39 @@ class Invoices extends Component
         }
 
         $this->invoiceToDelete = null;
+    }
+
+    /**
+     * Anula uma fatura de compra já recebida. O PurchaseInvoiceObserver reverte
+     * o stock que tinha entrado (e regista o movimento no histórico).
+     */
+    public function cancelInvoice($invoiceId)
+    {
+        $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
+            ->findOrFail($invoiceId);
+
+        if ($invoice->status === 'cancelled') {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Esta fatura já está anulada.']);
+            return;
+        }
+
+        if ($invoice->status === 'draft') {
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Um rascunho não precisa de ser anulado — pode ser eliminado.']);
+            return;
+        }
+
+        try {
+            $invoice->status = 'cancelled';
+            $invoice->save();   // observer reverte o stock
+
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => 'Fatura de compra anulada. O stock foi revertido.',
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Purchases\Invoices::cancelInvoice', ['invoice' => $invoiceId, 'error' => $e->getMessage()]);
+            $this->dispatch('notify', ['type' => 'error', 'message' => 'Erro ao anular: ' . $e->getMessage()]);
+        }
     }
 
     public function markAsPaid($invoiceId)
