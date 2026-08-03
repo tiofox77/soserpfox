@@ -341,10 +341,58 @@
                         <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <i class="fas fa-file-invoice text-orange-500"></i> Faturação
                         </h3>
+                        {{-- Esta reserva já tem documentos fiscais? Avisar ANTES
+                             de o operador emitir mais um: se o sinal já cobre a
+                             estadia, o correcto é REIMPRIMIR, não faturar de
+                             novo — uma fatura a mais só se anula por nota de
+                             crédito. --}}
+                        @if(!empty($facturasExistentes) && count($facturasExistentes) > 0)
+                            <div class="mb-3 rounded-xl border-2 {{ $estadiaJaFacturada ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20' }} p-4">
+                                <p class="font-bold {{ $estadiaJaFacturada ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300' }} flex items-center gap-2">
+                                    <i class="fas fa-triangle-exclamation"></i>
+                                    @if($estadiaJaFacturada)
+                                        Esta reserva já está totalmente faturada
+                                    @else
+                                        Esta reserva já tem {{ count($facturasExistentes) }} fatura(s)
+                                    @endif
+                                </p>
+
+                                <p class="text-sm mt-1 {{ $estadiaJaFacturada ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300' }}">
+                                    @if($estadiaJaFacturada)
+                                        Já foram faturados {{ number_format($valorJaFacturado, 2, ',', '.') }} Kz (sem imposto),
+                                        que cobrem a estadia. <strong>Não emita nova fatura — reimprima a existente.</strong>
+                                    @else
+                                        Já foram faturados {{ number_format($valorJaFacturado, 2, ',', '.') }} Kz (sem imposto)
+                                        em adiantamentos. Esse valor será <strong>abatido</strong> na fatura final.
+                                    @endif
+                                </p>
+
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    @foreach($facturasExistentes as $fx)
+                                        <a href="{{ route('invoicing.sales.invoices.preview', $fx->id) }}"
+                                           target="_blank"
+                                           class="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                                           title="Abrir para reimprimir">
+                                            <i class="fas fa-print text-indigo-600"></i>
+                                            {{ $fx->invoice_number }}
+                                            <span class="text-gray-500">{{ number_format($fx->total, 2, ',', '.') }} Kz</span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
                         <div class="space-y-3">
-                            <label class="flex items-center gap-3 cursor-pointer">
-                                <input type="checkbox" wire:model="generateInvoice" class="w-5 h-5 rounded text-orange-500">
-                                <span class="font-medium">Gerar Fatura</span>
+                            <label class="flex items-center gap-3 {{ $estadiaJaFacturada ? 'cursor-not-allowed opacity-60' : 'cursor-pointer' }}">
+                                <input type="checkbox" wire:model="generateInvoice"
+                                       @disabled($estadiaJaFacturada)
+                                       class="w-5 h-5 rounded text-orange-500">
+                                <span class="font-medium">
+                                    Gerar Fatura
+                                    @if($estadiaJaFacturada)
+                                        <span class="text-xs text-red-600 font-normal">(desnecessário — já faturada)</span>
+                                    @endif
+                                </span>
                             </label>
                             @if($generateInvoice)
                             <label class="flex items-center gap-3 cursor-pointer ml-8">

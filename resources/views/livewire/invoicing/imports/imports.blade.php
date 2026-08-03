@@ -251,112 +251,151 @@
                 </div>
             </div>
             
-            <div class="p-6 space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Fornecedor *</label>
-                        <select wire:model="supplier_id" class="w-full rounded-lg border-gray-300">
-                            <option value="">Selecione...</option>
-                            @foreach($suppliers as $supplier)
-                                <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('supplier_id') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+            <div class="p-6 space-y-6">
+                {{-- Secção: Identificação --}}
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2 pb-2 border-b border-gray-100">
+                        <span class="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center text-xs"><i class="fas fa-building"></i></span>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Identificação</h4>
                     </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Armazém Destino</label>
-                        <select wire:model="warehouse_id" class="w-full rounded-lg border-gray-300">
-                            <option value="">Selecione...</option>
-                            @foreach($warehouses as $warehouse)
-                                <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Data do Pedido *</label>
-                        <input type="date" wire:model="order_date" class="w-full rounded-lg border-gray-300">
-                        @error('order_date') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">ETA (Prev. Chegada)</label>
-                        <input type="date" wire:model="expected_arrival_date" class="w-full rounded-lg border-gray-300">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Transporte *</label>
-                        <select wire:model="transport_type" class="w-full rounded-lg border-gray-300">
-                            <option value="maritime">🚢 Marítimo</option>
-                            <option value="air">✈️ Aéreo</option>
-                            <option value="land">🚚 Terrestre</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">País de Origem *</label>
-                        <input type="text" wire:model="origin_country" class="w-full rounded-lg border-gray-300">
-                        @error('origin_country') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Porto de Origem</label>
-                        <input type="text" wire:model="origin_port" class="w-full rounded-lg border-gray-300">
-                    </div>
-                </div>
-
-                <div class="bg-blue-50 p-4 rounded-lg space-y-3">
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-blue-700 mb-1">Valor FOB (USD) *</label>
-                            <input type="number" step="0.01" wire:model.live="fob_value" class="w-full rounded-lg border-gray-300">
-                            @error('fob_value') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Fornecedor <span class="text-red-500">*</span></label>
+                            <select wire:model="supplier_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('supplier_id') border-red-400 @enderror">
+                                <option value="">Selecione o fornecedor...</option>
+                                @foreach($suppliers as $supplier)
+                                    <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('supplier_id') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
-                        
                         <div>
-                            <label class="block text-sm font-medium text-blue-700 mb-1">Frete (USD)</label>
-                            <input type="number" step="0.01" wire:model.live="freight_cost" class="w-full rounded-lg border-gray-300">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Armazém Destino</label>
+                            <select wire:model="warehouse_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                                <option value="">Selecione o armazém...</option>
+                                @foreach($warehouses as $warehouse)
+                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}{{ $warehouse->is_default ? ' (Principal)' : '' }}</option>
+                                @endforeach
+                            </select>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-blue-700 mb-1">Seguro (USD)</label>
-                            <input type="number" step="0.01" wire:model.live="insurance_cost" class="w-full rounded-lg border-gray-300">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Referência / Ordem de Compra</label>
+                            <input type="text" wire:model="reference" placeholder="Ex.: PO-2025-001" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                         </div>
                     </div>
-                    
-                    @if($cif_value > 0)
-                    <div class="bg-blue-100 border-2 border-blue-300 rounded-lg p-3">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-semibold text-blue-700">Valor CIF Calculado:</span>
-                            <span class="text-lg font-bold text-blue-900">${{ number_format($cif_value, 2) }} USD</span>
-                        </div>
-                        <p class="text-xs text-blue-600 mt-1">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            CIF = FOB + Frete + Seguro (Calculado automaticamente)
-                        </p>
-                    </div>
-                    @endif
-                </div>
+                </section>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                    <textarea wire:model="notes" rows="3" class="w-full rounded-lg border-gray-300"></textarea>
-                </div>
+                {{-- Secção: Logística --}}
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2 pb-2 border-b border-gray-100">
+                        <span class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs"><i class="fas fa-route"></i></span>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Logística & Transporte</h4>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Data do Pedido <span class="text-red-500">*</span></label>
+                            <input type="date" wire:model="order_date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('order_date') border-red-400 @enderror">
+                            @error('order_date') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">ETA (Prev. Chegada)</label>
+                            <input type="date" wire:model="expected_arrival_date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('expected_arrival_date') border-red-400 @enderror">
+                            @error('expected_arrival_date') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Transporte <span class="text-red-500">*</span></label>
+                            <select wire:model="transport_type" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                                <option value="maritime">🚢 Marítimo</option>
+                                <option value="air">✈️ Aéreo</option>
+                                <option value="land">🚚 Terrestre</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">País de Origem <span class="text-red-500">*</span></label>
+                            <input type="text" list="origin-countries" wire:model="origin_country" placeholder="Ex.: China" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('origin_country') border-red-400 @enderror">
+                            <datalist id="origin-countries">
+                                <option value="China"></option>
+                                <option value="Portugal"></option>
+                                <option value="Brasil"></option>
+                                <option value="África do Sul"></option>
+                                <option value="Índia"></option>
+                                <option value="Emirados Árabes Unidos"></option>
+                                <option value="Turquia"></option>
+                                <option value="Espanha"></option>
+                                <option value="Estados Unidos"></option>
+                            </datalist>
+                            @error('origin_country') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Porto de Origem</label>
+                            <input type="text" wire:model="origin_port" placeholder="Ex.: Shanghai" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Porto de Destino</label>
+                            <input type="text" wire:model="destination_port" placeholder="Luanda" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Secção: Valores (CIF) --}}
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2 pb-2 border-b border-gray-100">
+                        <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs"><i class="fas fa-dollar-sign"></i></span>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Valores (USD)</h4>
+                    </div>
+                    <div class="bg-gradient-to-br from-slate-50 to-blue-50 border border-blue-100 rounded-xl p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Valor FOB <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="fob_value" class="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('fob_value') border-red-400 @enderror">
+                                </div>
+                                @error('fob_value') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Frete</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="freight_cost" class="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Seguro</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                    <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="insurance_cost" class="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 bg-white border-2 border-dashed border-blue-300 rounded-lg p-3 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor CIF</span>
+                                <p class="text-[11px] text-gray-400"><i class="fas fa-calculator mr-1"></i>FOB + Frete + Seguro</p>
+                            </div>
+                            <span class="text-2xl font-extrabold text-blue-700">${{ number_format($cif_value ?: 0, 2) }}</span>
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Secção: Observações --}}
+                <section>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-comment-dots text-gray-400 mr-1"></i>Observações</label>
+                    <textarea wire:model="notes" rows="3" placeholder="Notas adicionais sobre a importação..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"></textarea>
+                </section>
             </div>
             
-            <div class="px-6 pb-6 flex gap-3">
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 rounded-b-2xl flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
                 <button wire:click="closeModal" 
-                        class="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition">
-                    Cancelar
+                        class="px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm transition">
+                    <i class="fas fa-times mr-2"></i>Cancelar
                 </button>
-                <button wire:click="save" 
-                        class="flex-1 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-semibold transition">
-                    <i class="fas fa-save mr-2"></i>Salvar
+                <button wire:click="save" wire:loading.attr="disabled" wire:target="save"
+                        class="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-semibold text-sm transition shadow-md hover:shadow-lg disabled:opacity-60">
+                    <i class="fas fa-save mr-2" wire:loading.remove wire:target="save"></i>
+                    <i class="fas fa-spinner fa-spin mr-2" wire:loading wire:target="save"></i>
+                    {{ $isEditing ? 'Atualizar' : 'Salvar' }} Importação
                 </button>
             </div>
         </div>

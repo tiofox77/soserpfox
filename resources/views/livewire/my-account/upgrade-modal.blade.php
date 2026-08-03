@@ -15,7 +15,7 @@
 
     <!-- Modal -->
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col"
              x-show="show"
              x-transition:enter="ease-out duration-300"
              x-transition:enter-start="opacity-0 scale-95"
@@ -42,7 +42,7 @@
             </div>
 
             <!-- Content -->
-            <div class="overflow-y-auto max-h-[calc(90vh-140px)]">
+            <div class="overflow-y-auto flex-1 min-h-0">
                 <div class="p-6 space-y-6">
                     
                     @if($upgradeStep == 2)
@@ -190,6 +190,40 @@
                             @endif
                         </div>
 
+                        @php
+                            $isTrialLocked = $selectedPlanForUpgrade->auto_activate && (int) $selectedPlanForUpgrade->trial_days > 0;
+                            $trialMonths = $isTrialLocked ? (int) round($selectedPlanForUpgrade->trial_days / 30) : 0;
+                        @endphp
+
+                        @if($isTrialLocked)
+                            {{-- Plano com trial gratuito — período fixo, sem escolha --}}
+                            <div class="mb-4 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 border-2 border-emerald-300 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-200/30 rounded-full -mr-16 -mt-16"></div>
+                                <div class="relative flex items-start gap-4">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                                        <i class="fas fa-gift text-white text-xl"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-xs uppercase font-bold text-emerald-700 tracking-wider mb-1">Período Promocional</p>
+                                        <h4 class="text-2xl font-bold text-gray-900 mb-1">
+                                            {{ $trialMonths }} {{ $trialMonths === 1 ? 'mês' : 'meses' }} totalmente GRÁTIS
+                                        </h4>
+                                        <p class="text-sm text-gray-700 mb-3">
+                                            Este plano tem ciclo <span class="font-semibold text-emerald-700">fixo</span> definido pela promoção
+                                            ({{ $selectedPlanForUpgrade->trial_days }} dias). Não há cobrança durante o período de trial.
+                                        </p>
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-sm font-bold rounded-lg shadow">
+                                                <i class="fas fa-lock mr-2"></i>Activação automática
+                                            </span>
+                                            <span class="inline-flex items-center px-3 py-1.5 bg-white text-emerald-700 text-sm font-bold rounded-lg border-2 border-emerald-300">
+                                                <i class="fas fa-check-circle mr-2"></i>Sem cartão de crédito
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
                         <!-- Ciclo de Pagamento -->
                         <div class="mb-4">
                             <label class="block text-sm font-semibold text-gray-700 mb-3">
@@ -270,6 +304,7 @@
                                 </button>
                             </div>
                         </div>
+                        @endif
 
                         <!-- Resumo do Valor -->
                         <div class="bg-white rounded-xl p-4 border-2 border-blue-200">
@@ -369,38 +404,73 @@
                     </div>
 
                     <!-- Informações Importantes -->
-                    <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4">
-                        <div class="flex items-start">
-                            <i class="fas fa-info-circle text-yellow-600 text-xl mr-3 mt-0.5"></i>
-                            <div class="text-sm text-yellow-800">
-                                <p class="font-semibold mb-2">Como funciona:</p>
-                                <ul class="space-y-1 list-disc list-inside">
-                                    <li>Ao confirmar, será criado um pedido de upgrade</li>
-                                    <li>Nossa equipe irá processar e enviar os dados de pagamento</li>
-                                    <li>Após confirmação do pagamento, seu plano será ativado automaticamente</li>
-                                    <li>Você receberá um email com todas as instruções</li>
-                                </ul>
+                    @if($isTrialLocked)
+                        <div class="bg-emerald-50 border-l-4 border-emerald-500 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-bolt text-emerald-600 text-xl mr-3 mt-0.5"></i>
+                                <div class="text-sm text-emerald-900">
+                                    <p class="font-semibold mb-2">Como funciona (activação imediata):</p>
+                                    <ul class="space-y-1 list-disc list-inside">
+                                        <li>Ao confirmar, o seu plano é <strong>activado instantaneamente</strong></li>
+                                        <li><strong>{{ $trialMonths }} meses</strong> totalmente grátis, sem cartão de crédito</li>
+                                        <li>Acesso completo a todos os módulos imediatamente</li>
+                                        <li>Sem compromisso — cancela quando quiser</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    @else
+                        <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-yellow-600 text-xl mr-3 mt-0.5"></i>
+                                <div class="text-sm text-yellow-800">
+                                    <p class="font-semibold mb-2">Como funciona:</p>
+                                    <ul class="space-y-1 list-disc list-inside">
+                                        <li>Ao confirmar, será criado um pedido de upgrade</li>
+                                        <li>Nossa equipe irá processar e enviar os dados de pagamento</li>
+                                        <li>Após confirmação do pagamento, seu plano será ativado automaticamente</li>
+                                        <li>Você receberá um email com todas as instruções</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     @endif
                 </div>
             </div>
 
             <!-- Footer com Botões -->
-            <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+            <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200 flex-shrink-0">
+                @php
+                    $footerTrialLocked = $selectedPlanForUpgrade->auto_activate && (int) $selectedPlanForUpgrade->trial_days > 0;
+                @endphp
                 @if($upgradeStep == 1)
-                    <button type="button" 
+                    <button type="button"
                             wire:click="closeUpgradeModal"
                             class="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
                         <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
-                    
-                    <button type="button"
-                            wire:click="goToPaymentStep"
-                            class="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition shadow-lg">
-                        <i class="fas fa-arrow-right mr-2"></i>Continuar para Pagamento
-                    </button>
+
+                    @if($footerTrialLocked)
+                        {{-- Plano gratuito: activar imediatamente sem passar pelo step de pagamento --}}
+                        <button type="button"
+                                wire:click="processUpgrade"
+                                wire:loading.attr="disabled"
+                                class="px-8 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-semibold transition shadow-lg disabled:opacity-50">
+                            <span wire:loading.remove wire:target="processUpgrade">
+                                <i class="fas fa-bolt mr-2"></i>Activar Agora Grátis
+                            </span>
+                            <span wire:loading wire:target="processUpgrade">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>A activar...
+                            </span>
+                        </button>
+                    @else
+                        <button type="button"
+                                wire:click="goToPaymentStep"
+                                class="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition shadow-lg">
+                            <i class="fas fa-arrow-right mr-2"></i>Continuar para Pagamento
+                        </button>
+                    @endif
                 @else
                     <button type="button" 
                             wire:click="backToSelectPlan"

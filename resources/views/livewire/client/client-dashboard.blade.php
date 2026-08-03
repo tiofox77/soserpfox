@@ -100,22 +100,21 @@
                                 <span class="text-sm font-semibold text-gray-900">{{ number_format($invoice->total ?? 0, 2, ',', '.') }} Kz</span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
+                                @php $isOverdue = in_array($invoice->status, ['pending','overdue'], true) && $invoice->due_date && $invoice->due_date->isPast(); @endphp
                                 @if($invoice->status === 'paid')
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                        <i class="fas fa-check mr-1"></i>Paga
-                                    </span>
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check mr-1"></i>Paga</span>
+                                @elseif($invoice->status === 'partially_paid')
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-coins mr-1"></i>Parcial</span>
+                                @elseif($invoice->status === 'overdue' || $isOverdue)
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800"><i class="fas fa-exclamation-triangle mr-1"></i>Atrasada</span>
                                 @elseif($invoice->status === 'pending')
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
-                                        <i class="fas fa-clock mr-1"></i>Pendente
-                                    </span>
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800"><i class="fas fa-clock mr-1"></i>Pendente</span>
+                                @elseif($invoice->status === 'credited')
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800"><i class="fas fa-undo mr-1"></i>Creditada</span>
                                 @elseif($invoice->status === 'cancelled')
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                                        <i class="fas fa-times mr-1"></i>Cancelada
-                                    </span>
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700"><i class="fas fa-times mr-1"></i>Cancelada</span>
                                 @else
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                                        {{ $invoice->status_label ?? ucfirst($invoice->status) }}
-                                    </span>
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{{ $invoice->status_label ?? ucfirst($invoice->status) }}</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">

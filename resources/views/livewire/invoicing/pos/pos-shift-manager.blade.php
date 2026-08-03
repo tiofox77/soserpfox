@@ -306,4 +306,52 @@
         </div>
     </div>
     @endif
+
+    {{-- Modal Pós-Fecho: opções de impressão/PDF do resumo --}}
+    @if($showAfterCloseModal && $lastClosedShiftId)
+    <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-white">
+                    <i class="fas fa-check-circle mr-2"></i>Turno Fechado!
+                </h3>
+                <button wire:click="closeAfterCloseModal" class="text-white hover:text-gray-200 transition">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <p class="text-gray-700 text-center">
+                    Deseja imprimir o resumo do turno?
+                </p>
+
+                <div class="grid grid-cols-1 gap-3">
+                    {{-- Ticket Térmico (abre em nova aba para imprimir) --}}
+                    <a href="{{ route('invoicing.pos.export.shift-ticket', $lastClosedShiftId) }}"
+                       target="_blank"
+                       onclick="setTimeout(() => $wire.closeAfterCloseModal(), 500)"
+                       class="flex items-center justify-center gap-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-4 rounded-xl font-semibold shadow-md transition">
+                        <i class="fas fa-receipt text-xl"></i>
+                        <span>Imprimir Ticket Térmico (80mm)</span>
+                    </a>
+
+                    {{-- PDF A4 (download) --}}
+                    <a href="{{ route('invoicing.pos.export.shift-pdf', $lastClosedShiftId) }}"
+                       target="_blank"
+                       onclick="setTimeout(() => $wire.closeAfterCloseModal(), 500)"
+                       class="flex items-center justify-center gap-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-4 rounded-xl font-semibold shadow-md transition">
+                        <i class="fas fa-file-pdf text-xl"></i>
+                        <span>Descarregar PDF A4 Resumo</span>
+                    </a>
+
+                    <button wire:click="closeAfterCloseModal"
+                            class="flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition">
+                        <i class="fas fa-times"></i>
+                        <span>Fechar sem Imprimir</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>

@@ -56,9 +56,14 @@
                             </label>
                             <select wire:model="form.type" 
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200">
-                                <option value="manual">Manual</option>
-                                <option value="automatic">Automático</option>
-                                <option value="online">Online</option>
+                                {{-- Tipos REAIS: é por aqui que a venda decide a
+                                     categoria em tesouraria e se entra na caixa --}}
+                                <option value="cash">💵 Dinheiro (entra na caixa)</option>
+                                <option value="card">💳 Cartão / TPA / Multicaixa</option>
+                                <option value="bank_transfer">🏦 Transferência bancária</option>
+                                <option value="digital_wallet">📱 Carteira digital (Express, MB Way)</option>
+                                <option value="check">🧾 Cheque</option>
+                                <option value="other">Outro</option>
                             </select>
                             @error('form.type') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>

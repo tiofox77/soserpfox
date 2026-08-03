@@ -1,79 +1,80 @@
 <div class="p-6">
     {{-- Header --}}
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">📊 Relatório de Validade de Produtos</h1>
-        <p class="text-gray-600 mt-1">Controle e análise de produtos próximos da validade</p>
+    <div class="mb-6 bg-gradient-to-r from-orange-500 to-red-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex items-center">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                <i class="fas fa-calendar-check text-xl sm:text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-2xl font-bold">Relatório de Validade de Produtos</h1>
+                <p class="text-orange-100 text-xs sm:text-sm">Controle e análise de produtos próximos da validade</p>
+            </div>
+        </div>
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-600">Total c/ Validade</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stats['total_with_expiry'] }}</p>
-                </div>
-                <i class="fas fa-boxes text-3xl text-blue-400"></i>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
+        <div class="bg-white rounded-2xl shadow-lg p-4 border border-blue-100">
+            <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/40 mb-3">
+                <i class="fas fa-boxes text-white text-lg"></i>
             </div>
+            <p class="text-xs text-blue-600 font-semibold mb-1">Total c/ Validade</p>
+            <p class="text-2xl font-bold text-gray-900">{{ $stats['total_with_expiry'] }}</p>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-600">Expira em 7 dias</p>
-                    <p class="text-2xl font-bold text-red-600">{{ $stats['expiring_7_days'] }}</p>
-                </div>
-                <i class="fas fa-exclamation-circle text-3xl text-red-400"></i>
+        <div class="bg-white rounded-2xl shadow-lg p-4 border border-red-100">
+            <div class="w-11 h-11 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/40 mb-3">
+                <i class="fas fa-exclamation-circle text-white text-lg"></i>
             </div>
+            <p class="text-xs text-red-600 font-semibold mb-1">Expira em 7 dias</p>
+            <p class="text-2xl font-bold text-gray-900">{{ $stats['expiring_7_days'] }}</p>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-600">Expira em 30 dias</p>
-                    <p class="text-2xl font-bold text-orange-600">{{ $stats['expiring_30_days'] }}</p>
-                </div>
-                <i class="fas fa-exclamation-triangle text-3xl text-orange-400"></i>
+        <div class="bg-white rounded-2xl shadow-lg p-4 border border-orange-100">
+            <div class="w-11 h-11 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/40 mb-3">
+                <i class="fas fa-exclamation-triangle text-white text-lg"></i>
             </div>
+            <p class="text-xs text-orange-600 font-semibold mb-1">Expira em 30 dias</p>
+            <p class="text-2xl font-bold text-gray-900">{{ $stats['expiring_30_days'] }}</p>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-600">Já Expirados</p>
-                    <p class="text-2xl font-bold text-gray-600">{{ $stats['expired'] }}</p>
-                </div>
-                <i class="fas fa-times-circle text-3xl text-gray-400"></i>
+        <div class="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+            <div class="w-11 h-11 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center shadow-lg shadow-gray-500/40 mb-3">
+                <i class="fas fa-times-circle text-white text-lg"></i>
             </div>
+            <p class="text-xs text-gray-600 font-semibold mb-1">Já Expirados</p>
+            <p class="text-2xl font-bold text-gray-900">{{ $stats['expired'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow p-4 text-white">
-            <div>
-                <p class="text-xs opacity-90">Valor em Risco</p>
-                <p class="text-xl font-bold">{{ number_format($stats['value_at_risk'], 2, ',', '.') }} Kz</p>
-                <p class="text-xs opacity-75 mt-1">Próximos 30 dias</p>
+        <div class="bg-white rounded-2xl shadow-lg p-4 border border-red-100">
+            <div class="w-11 h-11 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/40 mb-3">
+                <i class="fas fa-fire text-white text-lg"></i>
             </div>
+            <p class="text-xs text-red-600 font-semibold mb-1">Valor em Risco</p>
+            <p class="text-base font-bold text-gray-900">{{ number_format($stats['value_at_risk'], 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
+            <p class="text-[10px] text-gray-400 mt-0.5">Próximos 30 dias</p>
         </div>
 
-        <div class="bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg shadow p-4 text-white">
-            <div>
-                <p class="text-xs opacity-90">Valor Perdido</p>
-                <p class="text-xl font-bold">{{ number_format($stats['value_lost'], 2, ',', '.') }} Kz</p>
-                <p class="text-xs opacity-75 mt-1">Produtos expirados</p>
+        <div class="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
+            <div class="w-11 h-11 bg-gradient-to-br from-gray-600 to-gray-800 rounded-xl flex items-center justify-center shadow-lg shadow-gray-500/40 mb-3">
+                <i class="fas fa-ban text-white text-lg"></i>
             </div>
+            <p class="text-xs text-gray-600 font-semibold mb-1">Valor Perdido</p>
+            <p class="text-base font-bold text-gray-900">{{ number_format($stats['value_lost'], 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
+            <p class="text-[10px] text-gray-400 mt-0.5">Produtos expirados</p>
         </div>
     </div>
 
     {{-- Filters --}}
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">
-            <i class="fas fa-filter mr-2 text-blue-600"></i>Filtros
+    <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
+            <i class="fas fa-filter mr-2 text-orange-600"></i>Filtros
         </h3>
 
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-3 sm:gap-4">
             <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Relatório</label>
-                <select wire:model.live="reportType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Tipo de Relatório</label>
+                <select wire:model.live="reportType" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
                     <option value="expiring_soon">Expirando em Breve</option>
                     <option value="expired">Já Expirados</option>
                     <option value="all">Todos com Validade</option>
@@ -82,8 +83,8 @@
 
             @if($reportType === 'expiring_soon')
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Dias</label>
-                <select wire:model.live="daysFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Dias</label>
+                <select wire:model.live="daysFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
                     <option value="7">7 dias</option>
                     <option value="15">15 dias</option>
                     <option value="30">30 dias</option>
@@ -94,8 +95,8 @@
             @endif
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Armazém</label>
-                <select wire:model.live="warehouseFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Armazém</label>
+                <select wire:model.live="warehouseFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
                     <option value="">Todos</option>
                     @foreach($warehouses as $warehouse)
                         <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
@@ -104,8 +105,8 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
-                <select wire:model.live="categoryFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Categoria</label>
+                <select wire:model.live="categoryFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
                     <option value="">Todas</option>
                     @foreach($categories as $category)
                         <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -114,14 +115,14 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Buscar</label>
                 <input type="text" wire:model.live="searchFilter" placeholder="Produto ou lote..." 
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm">
             </div>
 
             <div class="flex items-end">
                 <button wire:click="exportReport" 
-                        class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                        class="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition font-semibold text-sm shadow-lg">
                     <i class="fas fa-file-export mr-2"></i>Exportar
                 </button>
             </div>
@@ -129,16 +130,16 @@
     </div>
 
     {{-- Table --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h3 class="text-lg font-bold text-gray-800">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50">
+            <h3 class="text-lg font-bold text-gray-900">
                 Produtos Listados ({{ $batches->total() }})
             </h3>
         </div>
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+                <thead class="bg-gradient-to-r from-orange-50 to-red-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Categoria</th>

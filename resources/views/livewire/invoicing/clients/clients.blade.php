@@ -47,7 +47,7 @@
                 </div>
             </div>
             <p class="text-sm text-blue-600 font-semibold mb-2">Pessoa Jurídica</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Client::where('tenant_id', auth()->user()->tenant_id)->where('type', 'pessoa_juridica')->count() }}</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Client::where('tenant_id', activeTenantId())->where('type', 'pessoa_juridica')->count() }}</p>
             <p class="text-xs text-gray-500">Empresas</p>
         </div>
 
@@ -59,7 +59,7 @@
                 </div>
             </div>
             <p class="text-sm text-purple-600 font-semibold mb-2">Pessoa Física</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Client::where('tenant_id', auth()->user()->tenant_id)->where('type', 'pessoa_fisica')->count() }}</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Client::where('tenant_id', activeTenantId())->where('type', 'pessoa_fisica')->count() }}</p>
             <p class="text-xs text-gray-500">Indivíduos</p>
         </div>
     </div>
@@ -295,6 +295,13 @@
                     
                     <!-- Ações -->
                     <div class="col-span-4 sm:col-span-2 lg:col-span-1 flex items-center justify-end space-x-1">
+                        <button wire:click="viewClient({{ $client->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="viewClient({{ $client->id }})"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Ver Detalhes">
+                            <i class="fas fa-eye text-xs" wire:loading.remove wire:target="viewClient({{ $client->id }})"></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="viewClient({{ $client->id }})"></i>
+                        </button>
                         <button wire:click="edit({{ $client->id }})"
                                 wire:loading.attr="disabled"
                                 class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
@@ -330,6 +337,7 @@
 
     <!-- Modals -->
     @include('livewire.invoicing.clients.partials.form-modal')
+    @include('livewire.invoicing.clients.partials.view-modal')
     <x-delete-confirmation-modal 
         :itemName="$deletingClientName" 
         entityType="o cliente" 

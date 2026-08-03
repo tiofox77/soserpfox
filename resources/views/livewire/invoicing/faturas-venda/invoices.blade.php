@@ -3,17 +3,29 @@
     <div class="mb-4 sm:mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
+                {{-- Bloco @php...@endphp de propósito: a forma de uma linha,
+                     @php(...), parte a compilação quando a expressão tem
+                     comparações/ternários — o Blade fecha mal o <?php e o erro
+                     que sai é "unexpected token class", já dentro do HTML
+                     seguinte. Aqui rebentava a listagem inteira de faturas. --}}
+                @php
+                    $__ehFR = $typeFilter === 'FR';
+                @endphp
                 <h2 class="text-xl sm:text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-invoice mr-2 sm:mr-3 text-purple-600"></i>
-                    Faturas de Venda
+                    <i class="fas {{ $__ehFR ? 'fa-receipt text-emerald-600' : 'fa-file-invoice text-purple-600' }} mr-2 sm:mr-3"></i>
+                    {{ $__ehFR ? 'Faturas-Recibo' : 'Faturas de Venda' }}
                 </h2>
-                <p class="text-gray-600 mt-1 text-xs sm:text-base">Faturas de vendas para clientes</p>
+                <p class="text-gray-600 mt-1 text-xs sm:text-base">
+                    {{ $__ehFR
+                        ? 'Documentos pagos no acto (FR) — mesma sequência do POS'
+                        : 'Faturas de vendas para clientes' }}
+                </p>
             </div>
-            <a href="{{ route('invoicing.sales.invoices.create') }}" 
+            <a href="{{ route('invoicing.sales.invoices.create', $__ehFR ? ['type' => 'FR'] : []) }}"
                x-data="{ loading: false }" @click="loading = true"
                :class="loading && 'opacity-70 pointer-events-none scale-95'"
-               class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 text-sm sm:text-base text-center">
-                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>Nova Fatura</span>
+               class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r {{ $__ehFR ? 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700' }} text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 text-sm sm:text-base text-center">
+                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>{{ $__ehFR ? 'Nova Fatura-Recibo' : 'Nova Fatura' }}</span>
                 <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Carregando...</span>
             </a>
         </div>
@@ -103,6 +115,14 @@
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
             </div>
             <div>
+                {{-- Tipo de documento AGT --}}
+                <select wire:model.live="typeFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <option value="">Todos os Tipos</option>
+                    <option value="FT">Fatura (FT)</option>
+                    <option value="FR">Fatura-Recibo (FR)</option>
+                </select>
+            </div>
+            <div>
                 <select wire:model.live="statusFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
                     <option value="">Todos os Estados</option>
                     <option value="draft">Rascunho</option>
@@ -162,6 +182,11 @@
                     <tr class="hover:bg-purple-50 transition-all duration-200">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="text-sm font-bold text-purple-600">{{ $invoice->invoice_number }}</span>
+                            @if(($invoice->invoice_type ?? 'FT') === 'FR')
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700" title="Fatura-Recibo — paga no acto">FR</span>
+                            @else
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700" title="Fatura">FT</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm font-semibold text-gray-900">{{ $invoice->client->name }}</div>
@@ -221,8 +246,8 @@
                                     </span>
                                 </button>
                                 
-                                {{-- Preview Paginado / Imprimir --}}
-                                <a href="{{ route('invoicing.sales.invoices.preview-paged', $invoice->id) }}" target="_blank"
+                                {{-- Preview / Imprimir --}}
+                                <a href="{{ route('invoicing.sales.invoices.preview', $invoice->id) }}" target="_blank"
                                    class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-pdf text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
@@ -230,15 +255,47 @@
                                     </span>
                                 </a>
                                 
+                                {{-- Editar: SÓ rascunhos. Um documento fiscal emitido
+                                     não pode ser alterado (Decreto 71/25) — rectifica-se
+                                     por Nota de Crédito/Débito. --}}
+                                @if($invoice->status === 'draft' && $invoice->invoice_status !== 'F')
                                 <a href="{{ route('invoicing.sales.invoices.edit', $invoice->id) }}"
                                    class="group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Editar
+                                        Editar rascunho
+                                    </span>
+                                </a>
+                                @else
+                                {{-- Rectificação conforme AGT --}}
+                                <a href="{{ route('invoicing.credit-notes.create', ['invoice' => $invoice->id]) }}"
+                                   class="group relative p-2 bg-amber-100 hover:bg-amber-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-file-circle-minus text-amber-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        Nota de Crédito (corrigir/anular)
                                     </span>
                                 </a>
 
-                                @if($invoice->status !== 'paid' && $invoice->status !== 'cancelled')
+                                <a href="{{ route('invoicing.debit-notes.create', ['invoice' => $invoice->id]) }}"
+                                   class="group relative p-2 bg-indigo-100 hover:bg-indigo-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-file-circle-plus text-indigo-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        Nota de Débito (acrescentar)
+                                    </span>
+                                </a>
+                                @endif
+
+                                {{-- Pagamento: a Fatura-Recibo (FR) é paga no acto da
+                                     venda, por definição. Mostrar "registar
+                                     pagamento" ou "marcar como pago" numa FR já
+                                     liquidada é um convite a duplicar recebimentos. --}}
+                                @php
+                                    $__linhaFR = ($invoice->invoice_type ?? 'FT') === 'FR';
+                                    $__podePagar = !$__linhaFR
+                                        && !in_array($invoice->status, ['paid', 'cancelled'], true);
+                                @endphp
+
+                                @if($__podePagar)
                                 <button wire:click="$dispatch('openPaymentModal', { invoiceType: 'sale', invoiceId: {{ $invoice->id }} })"
                                         class="group relative p-2 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-600 hover:to-emerald-600 rounded-lg transition-all duration-200 transform hover:scale-110 shadow-sm">
                                     <i class="fas fa-money-bill-wave text-green-600 group-hover:text-white transition-colors"></i>
@@ -248,6 +305,7 @@
                                 </button>
                                 @endif
 
+                                @if($__podePagar)
                                 <button wire:click="markAsPaid({{ $invoice->id }})"
                                         wire:loading.attr="disabled"
                                         wire:confirm="Marcar esta fatura como paga?"
@@ -257,15 +315,20 @@
                                         Marcar como Pago
                                     </span>
                                 </button>
+                                @endif
 
+                                {{-- Eliminar: SÓ rascunhos. Documento emitido anula-se
+                                     por Nota de Crédito, nunca se apaga (Decreto 71/25). --}}
+                                @if($invoice->status === 'draft' && $invoice->invoice_status !== 'F')
                                 <button wire:click="confirmDelete({{ $invoice->id }})"
                                         wire:loading.attr="disabled"
                                         class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-trash text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Eliminar
+                                        Eliminar rascunho
                                     </span>
                                 </button>
+                                @endif
                             </div>
                         </td>
                     </tr>

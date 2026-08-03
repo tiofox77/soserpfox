@@ -96,7 +96,7 @@
         .company-name {
             font-weight: bold;
             font-size: 11px;
-            color: #15803d;
+            color: #b91c1c;
         }
         
         .company-details {
@@ -120,13 +120,13 @@
             margin-bottom: 8px;
             padding: 6px 8px;
             background-color: #f8f9fa;
-            border-left: 4px solid #15803d;
+            border-left: 4px solid #b91c1c;
         }
         
         .client-label {
             font-weight: bold;
             font-size: 8px;
-            color: #15803d;
+            color: #b91c1c;
         }
         
         .client-name {
@@ -167,14 +167,14 @@
         .doc-header {
             text-align: center;
             margin: 6px 0;
-            border-bottom: 2px solid #15803d;
+            border-bottom: 2px solid #b91c1c;
             padding-bottom: 4px;
         }
         
         .doc-title {
             font-weight: bold;
             font-size: 12px;
-            color: #15803d;
+            color: #b91c1c;
         }
         
         .doc-info-table {
@@ -251,7 +251,7 @@
             font-weight: bold;
             font-size: 9px;
             margin-bottom: 3px;
-            color: #15803d;
+            color: #b91c1c;
         }
         
         .tax-table {
@@ -287,7 +287,7 @@
             font-weight: bold;
             font-size: 9px;
             margin-bottom: 2px;
-            color: #15803d;
+            color: #b91c1c;
         }
         
         .bank-section {
@@ -298,7 +298,7 @@
             font-weight: bold;
             font-size: 8px;
             margin-bottom: 3px;
-            color: #15803d;
+            color: #b91c1c;
         }
         
         .bank-table {
@@ -332,7 +332,7 @@
         }
         
         .summary-section {
-            border: 2px solid #15803d;
+            border: 2px solid #b91c1c;
             padding: 6px 8px;
             background-color: #f9f9f9;
         }
@@ -551,16 +551,13 @@
     
     
     <div class="page-wrapper">
+        @include('pdf.invoicing.partials.agt-signature-sidebar', ['document' => $creditNote, 'documentLabel' => 'Nota de Crédito SOS ERP'])
         <div class="main-content">
             <div class="header-section">
                 <div class="company-info">
                     <div class="logo-section">
                         <div class="logo">
-                            @if($tenant->logo)
-                <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo da Empresa" class="logo-image" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'logo-fallback\'>LOGO</div>';" />
-            @else
-                <div class="logo-fallback">LOGO</div>
-            @endif
+                            @include('pdf.invoicing.partials.logo')
                         </div>
                         <div>
                             <div class="company-name">{{ $tenant->name }}</div>
@@ -596,7 +593,7 @@
                                 <img src="{{ $qrCode['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
                                 @if($qrCode['atcud'])
                                     <div style="font-size: 6px; text-align: center; margin-top: 2px;">
-                                        ATCUD: {{ $qrCode['atcud'] }}
+                                        @if(!empty($qrCode['atcud']))ATCUD: {{ $qrCode['atcud'] }}@endif
                                     </div>
                                 @endif
                             @else
@@ -697,20 +694,13 @@
                                     <th>Total Imposto</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td>IVA</td>
-                                    <td>14%</td>
-                                    <td class="currency">{{ number_format($creditNote->subtotal, 2, ',', '.') }}</td>
-                                    <td class="currency">{{ number_format($creditNote->tax_amount, 2, ',', '.') }}</td>
-                                </tr>
-                            </tbody>
+                            @include("pdf.invoicing.partials.tax-summary", ["doc" => $creditNote])
                         </table>
                     </div>
 
                     <div class="regime-section">
                         <div class="regime-title">Regime Fiscal</div>
-                        <div>{{ $tenant->regime ?? 'Regime Geral' }}</div>
+                        <div>{{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}</div>
                     </div>
 
                     
@@ -740,7 +730,9 @@
                     
 
                     <div class="system-info">
-                        Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                        Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
+                        <br>
+                        <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
                         @if($creditNote->hash)
                             <br>
                             <strong>HASH e SAFT-AO:</strong> "{{ substr($creditNote->hash, -4) }}"
@@ -791,7 +783,7 @@
             </div>
 
             <div class="agt-description">
-                Esta proforma foi processada pelo Sistema de Facturação | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                Esta proforma foi processada pelo Sistema de Facturação | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
             </div>
 
             <div class="page-footer">

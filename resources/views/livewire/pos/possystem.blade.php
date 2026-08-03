@@ -8,7 +8,7 @@
     </style>
     
     {{-- Container Principal POS --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-2">
+    <div x-data="{ cartOpen: false }" class="lg:grid lg:grid-cols-3 lg:gap-2">
         
         {{-- Produtos (2 colunas) --}}
         <div class="pos-products-panel lg:col-span-2 bg-white rounded-2xl shadow-xl p-2 flex flex-col">
@@ -18,8 +18,10 @@
                     .pos-cart-panel { height: calc(100vh - 140px) !important; max-height: none !important; }
                 }
                 @media (max-width: 1023px) {
-                    .pos-products-panel { height: auto !important; max-height: 55vh !important; }
-                    .pos-cart-panel { height: auto !important; max-height: none !important; }
+                    /* Produtos ocupam quase todo o ecrã; barra inferior reservada (~64px) */
+                    .pos-products-panel { height: calc(100vh - 150px) !important; max-height: none !important; }
+                    /* Carrinho vira painel deslizante em ecrã cheio */
+                    .pos-cart-panel { height: 100vh !important; max-height: 100vh !important; }
                 }
             </style>
             {{-- Header POS --}}
@@ -36,6 +38,24 @@
                         <div>
                             <h2 class="text-base font-bold">Ponto de Venda</h2>
                             <p class="text-xs text-indigo-200">{{ auth()->user()->name }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        {{-- Próxima fatura --}}
+                        <div class="flex items-center gap-1.5 bg-white/15 px-2 py-1 rounded-lg" title="Próximo número de fatura POS">
+                            <i class="fas fa-receipt text-xs text-indigo-200"></i>
+                            <div class="leading-tight text-right">
+                                <p class="text-[10px] text-indigo-200 uppercase tracking-wide">Próx. Fatura</p>
+                                <p class="text-xs font-semibold">{{ $this->nextInvoiceNumber }}</p>
+                            </div>
+                        </div>
+                        {{-- Armazém ativo (default do tenant) --}}
+                        <div class="flex items-center gap-1.5 bg-white/15 px-2 py-1 rounded-lg" title="Armazém de origem dos produtos vendidos neste POS">
+                            <i class="fas fa-warehouse text-xs text-indigo-200"></i>
+                            <div class="leading-tight text-right">
+                                <p class="text-[10px] text-indigo-200 uppercase tracking-wide">Armazém</p>
+                                <p class="text-xs font-semibold">{{ $this->warehouseName ?: '—' }}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -66,12 +86,24 @@
             </div>
 
             {{-- Grid de Produtos --}}
+            @php
+                // Quantidades já no carrinho, indexadas por produto — uma única
+                // leitura para todo o grid, em vez de uma por cartão.
+                $__noCarrinho = collect($cartItems)->mapWithKeys(
+                    fn ($i) => [$i->id => $i->quantity]
+                )->all();
+            @endphp
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 overflow-y-auto flex-1 px-1 pb-1 auto-rows-min content-start">
                 @forelse($products as $product)
+                {{-- wire:target é essencial: sem ele o wire:loading dispara em
+                     QUALQUER pedido do componente, e clicar num produto (ou até
+                     fechar um modal) desactivava e esbatia os 50 cartões todos.
+                     Era isto que dava a sensação de "tudo recarrega". --}}
                 <button wire:click="addToCart({{ $product->id }})"
+                        wire:target="addToCart({{ $product->id }})"
                         wire:loading.attr="disabled"
                         wire:loading.class="scale-95 opacity-70"
-                        class="group relative bg-white border border-gray-200 rounded-lg p-1.5 hover:border-indigo-500 hover:shadow transition-all duration-200 {{ $product->stock_quantity <= 0 ? 'opacity-50 cursor-not-allowed' : '' }} h-fit disabled:cursor-wait">
+                        class="group relative bg-white border border-gray-200 rounded-lg p-1.5 hover:border-indigo-500 hover:shadow transition-all duration-200 {{ ($product->stock_in_warehouse ?? 0) <= 0 ? 'opacity-50 cursor-not-allowed' : '' }} h-fit disabled:cursor-wait">
                     
                     {{-- Imagem --}}
                     <div class="aspect-square bg-gray-100 rounded mb-0.5 overflow-hidden">
@@ -99,12 +131,16 @@
                         <p class="font-bold text-xs text-gray-800 line-clamp-1 leading-tight">{{ $product->name }}</p>
                         <p class="text-xs font-bold text-indigo-600">{{ number_format($product->price, 0) }}</p>
                         <div class="flex items-center gap-1 mt-0.5">
-                            <span class="text-xs {{ $product->stock_quantity > 10 ? 'text-green-600' : ($product->stock_quantity > 5 ? 'text-orange-600' : 'text-red-600') }} font-bold">
-                                <i class="fas fa-box-open text-[10px]"></i> {{ $product->stock_quantity }}
+                            @php $stockHere = (float) ($product->stock_in_warehouse ?? 0); @endphp
+                            <span class="text-xs {{ $stockHere > 10 ? 'text-green-600' : ($stockHere > 5 ? 'text-orange-600' : 'text-red-600') }} font-bold" title="Stock no armazém {{ $this->warehouseName }}">
+                                <i class="fas fa-box-open text-[10px]"></i> {{ rtrim(rtrim(number_format($stockHere, 2, '.', ''), '0'), '.') }}
                             </span>
                             @php
-                                $cartItem = \Darryldecode\Cart\Facades\CartFacade::session(auth()->id())->get($product->id);
-                                $quantityInCart = $cartItem ? $cartItem->quantity : 0;
+                                // Mapa construído UMA vez antes do loop (ver acima):
+                                // CartFacade::get() reconstrói a colecção inteira do
+                                // carrinho a partir da sessão a cada chamada, e isto
+                                // corria 50 vezes — uma por cartão de produto.
+                                $quantityInCart = $__noCarrinho[$product->id] ?? 0;
                             @endphp
                             @if($quantityInCart > 0)
                             <span class="text-xs bg-indigo-600 text-white px-1.5 rounded font-bold">
@@ -115,10 +151,10 @@
                     </div>
 
                     {{-- Badge Sem Stock --}}
-                    @if($product->stock_quantity <= 0)
+                    @if(($product->stock_in_warehouse ?? 0) <= 0)
                     <div class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
                         <span class="bg-red-600 text-white px-2 py-1 rounded font-bold text-xs">
-                            Esgotado
+                            Esgotado em {{ $this->warehouseName }}
                         </span>
                     </div>
                     @endif
@@ -132,8 +168,24 @@
             </div>
         </div>
 
-        {{-- Carrinho (1 coluna) --}}
-        <div class="pos-cart-panel lg:col-span-1 bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
+        {{-- Backdrop (apenas mobile/tablet quando carrinho aberto) --}}
+        <div x-show="cartOpen" x-transition.opacity
+             @click="cartOpen = false"
+             class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+             style="display: none;"></div>
+
+        {{-- Carrinho (1 coluna no desktop · slide-over no mobile) --}}
+        <div class="pos-cart-panel bg-white shadow-xl flex flex-col overflow-hidden
+                    fixed inset-y-0 right-0 z-50 w-full max-w-md rounded-none transform transition-transform duration-300
+                    lg:static lg:z-auto lg:w-auto lg:max-w-none lg:col-span-1 lg:rounded-2xl lg:translate-x-0"
+             :class="cartOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'">
+            {{-- Cabeçalho do painel (apenas mobile) --}}
+            <div class="lg:hidden flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-2.5 flex-shrink-0">
+                <span class="font-bold text-sm"><i class="fas fa-shopping-cart mr-2"></i>Carrinho</span>
+                <button @click="cartOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/20 transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
             {{-- Cliente --}}
             <div class="p-1.5 border-b border-gray-200 flex-shrink-0">
                 @if($selectedClient)
@@ -173,22 +225,31 @@
                                 <p class="font-bold text-xs text-gray-800 line-clamp-1">{{ $item->name }}</p>
                             </div>
                             <button wire:click="removeFromCart({{ $item->id }})"
+                                wire:target="removeFromCart({{ $item->id }})"
                                 wire:loading.attr="disabled"
                                 class="text-red-500 hover:text-red-700 text-xs ml-1 disabled:opacity-50 transition">
-                                <i class="fas fa-trash" wire:loading.remove></i>
-                                <i class="fas fa-spinner fa-spin" wire:loading></i>
+                                <i class="fas fa-trash" wire:loading.remove wire:target="removeFromCart({{ $item->id }})"></i>
+                                <i class="fas fa-spinner fa-spin" wire:loading wire:target="removeFromCart({{ $item->id }})"></i>
                             </button>
                         </div>
 
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-1">
                                 <button wire:click="decreaseQuantity({{ $item->id }})"
+                                        wire:target="decreaseQuantity({{ $item->id }})"
                                         wire:loading.attr="disabled"
                                         class="w-6 h-6 bg-gray-300 hover:bg-gray-400 rounded text-xs font-bold transition-all duration-200 active:scale-90 disabled:opacity-50">
                                     -
                                 </button>
-                                <span class="w-8 text-center text-sm font-bold">{{ $item->quantity }}</span>
+                                <input type="number" min="1" inputmode="numeric"
+                                       value="{{ $item->quantity }}"
+                                       wire:key="qty-{{ $item->id }}-{{ $item->quantity }}"
+                                       @change="$wire.updateQuantity({{ $item->id }}, $event.target.value)"
+                                       @keydown.enter.prevent="$event.target.blur()"
+                                       @focus="$event.target.select()"
+                                       class="w-12 h-6 text-center text-sm font-bold border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                 <button wire:click="increaseQuantity({{ $item->id }})"
+                                        wire:target="increaseQuantity({{ $item->id }})"
                                         wire:loading.attr="disabled"
                                         class="w-6 h-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-bold transition-all duration-200 active:scale-90 disabled:opacity-50">
                                     +
@@ -271,31 +332,53 @@
                 {{-- Botões de Ação --}}
                 <div class="flex gap-2">
                     <button wire:click="clearCart"
+                            wire:target="clearCart"
                             wire:loading.attr="disabled"
                             wire:confirm="Limpar todo o carrinho?"
                             class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all duration-300 text-sm shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95 disabled:opacity-50">
-                        <i class="fas fa-trash" wire:loading.remove></i>
-                        <i class="fas fa-spinner fa-spin" wire:loading></i>
+                        <i class="fas fa-trash" wire:loading.remove wire:target="clearCart"></i>
+                        <i class="fas fa-spinner fa-spin" wire:loading wire:target="clearCart"></i>
                     </button>
                     <button wire:click="openPaymentModal"
+                            @click="cartOpen = false"
+                            wire:target="openPaymentModal"
                             wire:loading.attr="disabled"
                             wire:loading.class="opacity-70 scale-95"
                             class="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all duration-300 text-sm hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             {{ $cartItems->isEmpty() ? 'disabled' : '' }}>
-                        <span wire:loading.remove>
+                        <span wire:loading.remove wire:target="openPaymentModal">
                             <i class="fas fa-cash-register mr-2"></i>Finalizar Venda
                         </span>
-                        <span wire:loading>
+                        <span wire:loading wire:target="openPaymentModal">
                             <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
                         </span>
                     </button>
                 </div>
             </div>
         </div>
+
+        {{-- Barra inferior fixa (apenas mobile/tablet) — total + abrir carrinho --}}
+        <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-3 py-2"
+             x-show="!cartOpen">
+            <button @click="cartOpen = true"
+                    class="w-full flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 font-bold shadow-lg active:scale-95 transition">
+                <span class="flex items-center gap-2">
+                    <span class="relative">
+                        <i class="fas fa-shopping-cart text-lg"></i>
+                        @if($cartQuantity > 0)
+                        <span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">{{ $cartQuantity }}</span>
+                        @endif
+                    </span>
+                    <span class="text-sm">Ver carrinho</span>
+                </span>
+                <span class="text-base">{{ number_format($cartTotal, 2, ',', '.') }} Kz</span>
+            </button>
+        </div>
     </div>
 
     {{-- Modais --}}
     @include('livewire.pos.partials.client-modal')
+    @include('livewire.pos.partials.quick-client-modal')
     @include('livewire.pos.partials.payment-modal')
     @include('livewire.pos.partials.print-modal')
 </div>

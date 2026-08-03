@@ -1,15 +1,16 @@
 <!-- Movements Modal -->
 @if($showMovementsModal)
 <div class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4 animate-fade-in">
-    <div class="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto transform transition-all animate-scale-in">
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-[calc(100%-1rem)] sm:w-full max-h-[94vh] overflow-y-auto transform transition-all animate-scale-in">
         <!-- Header -->
         <div class="sticky top-0 bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
             <h3 class="text-xl font-bold text-white flex items-center">
                 <i class="fas fa-history mr-2"></i>
                 Histórico de Movimentos
             </h3>
-            <button wire:click="$set('showMovementsModal', false)" class="text-white hover:text-gray-200 transition">
-                <i class="fas fa-times text-2xl"></i>
+            <button wire:click="$set('showMovementsModal', false)" type="button"
+                    class="btn-press text-white hover:text-gray-200 transition w-9 h-9 inline-flex items-center justify-center rounded-lg hover:bg-white/10">
+                <i class="fas fa-times text-xl"></i>
             </button>
         </div>
 
@@ -36,10 +37,21 @@
                     ->orderBy('created_at', 'desc')
                     ->limit(50)
                     ->get();
+
+                // O sinal está no `type`, NUNCA na quantidade — `quantity` é
+                // sempre positiva. Somar por `quantity > 0` dava todas as linhas
+                // como entrada: o total de saídas ficava eternamente a zero e as
+                // saídas apareciam a verde com um "+" à frente.
+                $entradas = $movements->whereIn('type', ['in', 'transfer']);
+                $saidas   = $movements->where('type', 'out');
+
+                $totalIn   = (float) $entradas->sum('quantity');
+                $totalOut  = (float) $saidas->sum('quantity');
+                $netChange = $totalIn - $totalOut;
             @endphp
 
             @if($movements->count() > 0)
-                <div class="border-2 border-gray-200 rounded-xl overflow-hidden">
+                <div class="border-2 border-gray-200 rounded-xl overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
@@ -47,12 +59,15 @@
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
                                 <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Quantidade</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Saldo</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Documento</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Observações</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Usuário</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Utilizador</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
                             @foreach($movements as $movement)
+                                @php $saida = $movement->type === 'out'; @endphp
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                                         {{ $movement->created_at->format('d/m/Y H:i') }}
@@ -79,10 +94,27 @@
                                     <td class="px-4 py-3 text-sm text-gray-700">
                                         {{ $movement->warehouse->name ?? 'N/A' }}
                                     </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="text-lg font-bold {{ $movement->quantity > 0 ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $movement->quantity > 0 ? '+' : '' }}{{ number_format($movement->quantity, 2) }}
+                                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                                        <span class="text-lg font-bold {{ $saida ? 'text-red-600' : 'text-green-600' }}">
+                                            {{ $saida ? '−' : '+' }}{{ number_format($movement->quantity, 2) }}
                                         </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-sm text-gray-700 whitespace-nowrap">
+                                        {{ $movement->balance_after !== null ? number_format($movement->balance_after, 2) : '—' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                                        @if($movement->batch_reference)
+                                            {{-- Reimpressão do documento de conferência do lote. --}}
+                                            <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $movement->batch_reference]) }}"
+                                               target="_blank" rel="noopener"
+                                               class="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline font-semibold"
+                                               title="Abrir o documento desta movimentação">
+                                                <i class="fas fa-file-pdf"></i>
+                                                <span class="font-mono text-xs">{{ $movement->batch_reference }}</span>
+                                            </a>
+                                        @else
+                                            <span class="text-gray-400">—</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-600">
                                         {{ $movement->notes ?? '-' }}
@@ -98,29 +130,30 @@
 
                 <!-- Summary -->
                 <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    @php
-                        $totalIn = $movements->where('quantity', '>', 0)->sum('quantity');
-                        $totalOut = abs($movements->where('quantity', '<', 0)->sum('quantity'));
-                        $netChange = $totalIn - $totalOut;
-                    @endphp
-                    
                     <div class="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-center">
                         <p class="text-xs text-gray-600 mb-1">Total Entradas</p>
                         <p class="text-2xl font-bold text-green-600">+{{ number_format($totalIn, 2) }}</p>
                     </div>
-                    
+
                     <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
                         <p class="text-xs text-gray-600 mb-1">Total Saídas</p>
-                        <p class="text-2xl font-bold text-red-600">-{{ number_format($totalOut, 2) }}</p>
+                        <p class="text-2xl font-bold text-red-600">−{{ number_format($totalOut, 2) }}</p>
                     </div>
-                    
+
                     <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-center">
                         <p class="text-xs text-gray-600 mb-1">Variação Líquida</p>
                         <p class="text-2xl font-bold {{ $netChange >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                            {{ $netChange >= 0 ? '+' : '' }}{{ number_format($netChange, 2) }}
+                            {{ $netChange >= 0 ? '+' : '−' }}{{ number_format(abs($netChange), 2) }}
                         </p>
                     </div>
                 </div>
+
+                @if($movements->count() >= 50)
+                    <p class="mt-3 text-xs text-gray-400 text-center">
+                        <i class="fas fa-circle-info mr-1"></i>
+                        A mostrar os 50 movimentos mais recentes — os totais acima referem-se apenas a estes.
+                    </p>
+                @endif
             @else
                 <div class="text-center py-12">
                     <i class="fas fa-history text-6xl text-gray-300 mb-4"></i>
@@ -131,10 +164,10 @@
 
         <!-- Footer -->
         <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end border-t border-gray-200">
-            <button 
-                type="button" 
-                wire:click="$set('showMovementsModal', false)" 
-                class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition">
+            <button
+                type="button"
+                wire:click="$set('showMovementsModal', false)"
+                class="btn-press px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition">
                 <i class="fas fa-times mr-2"></i>Fechar
             </button>
         </div>

@@ -1,18 +1,18 @@
 {{-- Modal Impressão de Ticket --}}
 @if($showPrintModal && $lastInvoice)
 <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full" style="max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="bg-white rounded-2xl shadow-2xl w-full" style="max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;">
         <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
             <h3 class="text-xl font-bold text-white">
                 <i class="fas fa-receipt mr-2"></i>Impressão de Ticket
             </h3>
-            <button wire:click="$set('showPrintModal', false)" class="text-white hover:text-gray-200 transition">
+            <button wire:click="closePrintModal" class="text-white hover:text-gray-200 transition">
                 <i class="fas fa-times text-2xl"></i>
             </button>
         </div>
         
-        {{-- Ticket Preview --}}
-        <div id="ticket-print" class="p-6 bg-white" style="font-family: 'Courier New', monospace; overflow-y: auto; flex: 1; min-height: 0;">
+        {{-- Ticket Preview (Ubuntu font, 480px, 14px base, #000) --}}
+        <div id="ticket-print" class="ticket-thermal" style="width: 480px; max-width: 100%; margin: 0 auto; padding: 16px; background: #fff; font-family: 'Ubuntu', sans-serif; font-size: 14px; color: #000; overflow-y: auto; flex: 1; min-height: 0;">
             {{-- QR Code AGT (gerar antes do cabeçalho) --}}
             @php
                 try {
@@ -22,26 +22,33 @@
                 }
             @endphp
 
-            {{-- Cabeçalho: Logo à esquerda + QR à direita --}}
+            {{-- Cabeçalho: Logo do sistema à esquerda + QR à direita --}}
+            @php
+                $tenant = auth()->user()->activeTenant();
+            @endphp
             <div style="display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px dashed #9ca3af; padding-bottom: 10px; margin-bottom: 10px;">
                 <div style="flex: 1;">
                     @if(app_logo())
                         <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 48px; width: auto; margin-bottom: 6px;">
                     @endif
-                    <h2 style="font-size: 16px; font-weight: bold;">{{ app_name() }}</h2>
-                    <p style="font-size: 11px;">NIF: {{ auth()->user()->activeTenant()->nif ?? 'N/A' }}</p>
-                    <p style="font-size: 11px;">{{ auth()->user()->activeTenant()->address ?? 'Endereço' }}</p>
-                    <p style="font-size: 11px;">Tel: {{ auth()->user()->activeTenant()->phone ?? 'Telefone' }}</p>
+                    <h3 style="font-size: 15px; font-weight: 400; text-transform: uppercase; margin: 0;">{{ $tenant->company_name ?? $tenant->name }}</h3>
+                    <p style="font-size: 14px; margin: 0;">NIF: {{ $tenant->nif ?? 'N/A' }}</p>
+                    <p style="font-size: 14px; margin: 0;">{{ $tenant->address ?? 'Endereço' }}</p>
+                    <p style="font-size: 14px; margin: 0;">Tel: {{ $tenant->phone ?? 'Telefone' }}</p>
                 </div>
                 @if(!empty($ticketQR['image']))
                 <div style="flex-shrink: 0; text-align: center; margin-left: 10px;">
                     <img src="{{ $ticketQR['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
+                    {{-- Série ainda por registar na AGT não tem ATCUD --}}
                     @if(!empty($ticketQR['atcud']))
-                    <p style="font-size: 8px; color: #666; margin-top: 2px;">ATCUD: {{ $ticketQR['atcud'] }}</p>
+                    <p style="font-size: 14px; color: #000; margin-top: 2px;">ATCUD: {{ $ticketQR['atcud'] }}</p>
                     @endif
                 </div>
                 @endif
             </div>
+
+            {{-- Etiqueta TAX INVOICE --}}
+            <h4 style="font-size: 14px; font-weight: 700; margin: 8px 0; text-align: center;">FACTURA RECIBO</h4>
 
             {{-- Dados Fatura --}}
             <div class="text-xs mb-3 space-y-1">
@@ -51,7 +58,7 @@
                 </div>
                 <div class="flex justify-between">
                     <span class="font-bold">DATA:</span>
-                    <span>{{ $lastInvoice->invoice_date->format('d/m/Y H:i') }}</span>
+                    <span>{{ ($lastInvoice->system_entry_date ?? $lastInvoice->invoice_date)->format('d/m/Y H:i') }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="font-bold">OPERADOR:</span>
@@ -202,19 +209,18 @@
             <div class="text-[10px] text-center space-y-1 text-gray-700">
                 <p class="font-bold mb-2">═══════════════════════</p>
                 <p class="font-bold">Processado por programa validado</p>
-                <p class="font-bold">Certificado AGT Nº {{ auth()->user()->activeTenant()->agt_certificate ?? 'xxxxxxxx/AGT/xxxx' }}</p>
-                <p class="mt-1">Software: {{ config('app.name', 'SOS ERP') }}</p>
+                <p class="font-bold">Certificado AGT Nº {{ softwareSetting('invoicing', 'saft_software_cert', \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId())->agt_software_validation_number ?? 'PENDENTE') }}</p>
+                <p class="mt-1">Software: SOS ERP - SOLUÇÕES EMPRESARIAIS</p>
                 @if($lastInvoice->saft_hash)
                 <p class="mt-2 font-mono text-[8px] break-all">HASH: {{ substr($lastInvoice->saft_hash, 0, 4) }}-{{ $lastInvoice->hash_control ?? '1' }}</p>
                 @endif
                 <p class="mt-2 font-bold">Obrigado pela sua preferência!</p>
-                <p class="mt-3 text-[9px] italic">Este documento não serve de fatura</p>
             </div>
         </div>
 
         {{-- Botões --}}
         <div class="px-6 py-4 flex space-x-3 flex-shrink-0 border-t border-gray-200">
-            <button wire:click="$set('showPrintModal', false)" 
+            <button wire:click="closePrintModal" 
                     class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
                 <i class="fas fa-times mr-2"></i>Fechar
             </button>
@@ -226,3 +232,163 @@
     </div>
 </div>
 @endif
+
+{{-- Estilos termicos + funcao printTicket() — SEMPRE presentes (fora do condicional) para evitar Livewire morphdom nao executar script em DOM dinamico --}}
+@once
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+<style>
+    /* Ticket POS — specs: Ubuntu 400/700, 14px base, #000, 480px wide */
+    .ticket-thermal {
+        width: 480px;
+        max-width: 100%;
+        margin: 0 auto;
+        font-family: 'Ubuntu', sans-serif;
+        font-size: 14px;
+        color: #000;
+        font-weight: 400;
+    }
+    .ticket-thermal *,
+    .ticket-thermal p,
+    .ticket-thermal span,
+    .ticket-thermal div,
+    .ticket-thermal td,
+    .ticket-thermal th {
+        font-family: 'Ubuntu', sans-serif;
+        color: #000 !important;
+    }
+    /* Override Tailwind text-xs/[10px]/[9px]/[8px] dentro do ticket: tudo 14px */
+    .ticket-thermal .text-xs,
+    .ticket-thermal .text-\[10px\],
+    .ticket-thermal .text-\[9px\],
+    .ticket-thermal .text-\[8px\],
+    .ticket-thermal .text-base,
+    .ticket-thermal .text-lg {
+        font-size: 14px !important;
+    }
+    /* Cabeçalho empresa */
+    .ticket-thermal h3 {
+        font-size: 15px;
+        font-weight: 400;
+        text-transform: uppercase;
+        margin: 0;
+    }
+    /* Etiqueta TAX INVOICE */
+    .ticket-thermal h4 {
+        font-size: 14px;
+        font-weight: 700;
+        margin: 8px 0;
+    }
+    /* Tabelas condensadas */
+    .ticket-thermal table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    .ticket-thermal table th,
+    .ticket-thermal table td {
+        padding: 5px;
+        font-size: 14px;
+    }
+    .ticket-thermal table th {
+        font-weight: 700;
+    }
+    /* Totais e linhas bold */
+    .ticket-thermal .font-bold {
+        font-weight: 700;
+    }
+</style>
+<script>
+if (typeof window.printTicket !== 'function') {
+    window.printTicket = function() {
+        const ticketEl = document.getElementById('ticket-print');
+        if (!ticketEl) { alert('Ticket não encontrado.'); return; }
+
+        const printContents = ticketEl.innerHTML;
+        const win = window.open('', '_blank', 'width=400,height=700');
+        if (!win) {
+            alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.');
+            return;
+        }
+
+        win.document.write(`
+            <!DOCTYPE html>
+            <html><head><meta charset="UTF-8"><title>Ticket</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                /* THERMAL TICKET 80mm (72.1mm printable) */
+                @page { size: 80mm auto; margin: 0; }
+                * { margin: 0; padding: 0; box-sizing: border-box; color: #000 !important; }
+                html, body { width: 80mm; }
+                body {
+                    font-family: 'Ubuntu', sans-serif;
+                    font-size: 10px;
+                    line-height: 1.25;
+                    color: #000;
+                    font-weight: 400;
+                    width: 80mm;
+                    max-width: 80mm;
+                    margin: 0;
+                    padding: 2mm 1mm;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                    word-wrap: break-word;
+                    overflow-wrap: anywhere;
+                }
+                img { max-width: 100%; height: auto; }
+                table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+                th, td { padding: 2px 1px; font-size: 10px; word-wrap: break-word; overflow-wrap: anywhere; vertical-align: top; }
+                th { font-weight: 700; }
+                h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; margin: 0; }
+                h4 { font-size: 11px; font-weight: 700; margin: 4px 0; text-align: center; }
+                p { margin: 0; font-size: 10px; word-wrap: break-word; overflow-wrap: anywhere; }
+                .text-center { text-align: center; }
+                .text-right { text-align: right; }
+                .text-left { text-align: left; }
+                .font-bold { font-weight: 700; }
+                .text-xs, .text-lg, .text-base, .text-\[10px\], .text-\[9px\], .text-\[8px\] { font-size: 10px; }
+                .border-b { border-bottom: 1px dashed #999; }
+                .border-b-2 { border-bottom: 2px dashed #666; }
+                .border-t-2 { border-top: 1px solid #333; }
+                .mb-1{margin-bottom:2px}.mb-2{margin-bottom:3px}.mb-3{margin-bottom:5px}
+                .mt-1{margin-top:2px}.mt-2{margin-top:3px}
+                .pb-2{padding-bottom:3px}.pb-3{padding-bottom:5px}
+                .pt-1{padding-top:2px}.pt-2{padding-top:3px}
+                .py-1{padding-top:2px;padding-bottom:2px}.pl-2{padding-left:3px}
+                .space-y-1 > * + * { margin-top: 2px; }
+                .flex { display: flex; }
+                .justify-between { justify-content: space-between; }
+                .mx-auto { margin: 0 auto; display: block; }
+                .uppercase { text-transform: uppercase; }
+                .break-all { word-break: break-all; }
+                /* Header QR layout: shrink QR */
+                #ticket-print-content > div:first-child img[alt*="QR"] { width: 60px !important; height: 60px !important; }
+                @media print { html, body { width: 80mm; } body { padding: 1mm; } }
+            </style>
+            </head><body>${printContents}</body></html>
+        `);
+        win.document.close();
+
+        const triggerPrint = () => {
+            try { win.focus(); win.print(); } catch (e) { console.error('Erro imprimir:', e); }
+            setTimeout(() => { try { win.close(); } catch(e) {} }, 800);
+        };
+
+        const images = win.document.images;
+        if (!images || images.length === 0) { setTimeout(triggerPrint, 300); return; }
+        let loaded = 0;
+        const total = images.length;
+        const onDone = () => { if (++loaded >= total) setTimeout(triggerPrint, 150); };
+        for (let i = 0; i < total; i++) {
+            const img = images[i];
+            if (img.complete) onDone();
+            else { img.addEventListener('load', onDone); img.addEventListener('error', onDone); }
+        }
+        setTimeout(() => { if (loaded < total) triggerPrint(); }, 3000);
+    };
+}
+</script>
+@endonce

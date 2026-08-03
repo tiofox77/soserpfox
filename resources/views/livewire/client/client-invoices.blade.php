@@ -42,7 +42,10 @@
                 <select wire:model.live="statusFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 appearance-none bg-white text-sm">
                     <option value="">Todos os status</option>
                     <option value="pending">⏳ Pendente</option>
+                    <option value="partially_paid">💰 Parcialmente Paga</option>
                     <option value="paid">✅ Paga</option>
+                    <option value="overdue">⚠️ Atrasada</option>
+                    <option value="credited">↩️ Creditada</option>
                     <option value="cancelled">❌ Cancelada</option>
                 </select>
             </div>
@@ -65,19 +68,31 @@
                 @forelse($invoices as $invoice)
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap font-medium">{{ $invoice->invoice_number }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $invoice->invoice_date->format('d/m/Y') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ optional($invoice->invoice_date)->format('d/m/Y') ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap font-semibold">{{ number_format($invoice->total ?? 0, 2, ',', '.') }} Kz</td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            @php $isOverdue = in_array($invoice->status, ['pending','overdue'], true) && $invoice->due_date && $invoice->due_date->isPast(); @endphp
                             @if($invoice->status === 'paid')
-                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Paga</span>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paga</span>
+                            @elseif($invoice->status === 'partially_paid')
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Parcial</span>
+                            @elseif($invoice->status === 'overdue' || $isOverdue)
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Atrasada</span>
                             @elseif($invoice->status === 'pending')
-                                <span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">Pendente</span>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pendente</span>
+                            @elseif($invoice->status === 'credited')
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Creditada</span>
+                            @elseif($invoice->status === 'cancelled')
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">Cancelada</span>
                             @else
-                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Cancelada</span>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{{ $invoice->status_label ?? ucfirst($invoice->status) }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-gray-400 text-xs">Em breve</span>
+                            @php $balance = ($invoice->total ?? 0) - ($invoice->paid_amount ?? 0); @endphp
+                            <span class="text-xs font-semibold {{ $balance > 0.009 ? 'text-red-600' : 'text-green-600' }}">
+                                Saldo: {{ number_format($balance, 2, ',', '.') }} Kz
+                            </span>
                         </td>
                     </tr>
                 @empty

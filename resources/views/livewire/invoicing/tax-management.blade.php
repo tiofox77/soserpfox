@@ -181,15 +181,24 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo SAFT *</label>
-                        <select wire:model="saft_type" 
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Código SAFT *
+                            <span class="ml-1 text-[10px] font-normal text-gray-400">(vai no payload da AGT)</span>
+                        </label>
+                        {{-- .live: o saft_code segue o tipo. É o saft_code que o
+                             TaxResolver lê para declarar NOR/RED à AGT — uma taxa
+                             reduzida criada aqui sem ele ia declarada como normal. --}}
+                        <select wire:model.live="saft_type"
                                 class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200">
-                            <option value="NOR">NOR - Normal</option>
-                            <option value="RED">RED - Reduzida</option>
+                            <option value="NOR">NOR - Normal (14%)</option>
+                            <option value="RED">RED - Reduzida (7%, 5%)</option>
                             <option value="ISE">ISE - Isento</option>
                             <option value="NS">NS - Não Sujeito</option>
                             <option value="OUT">OUT - Outro</option>
                         </select>
+                        <p class="mt-1 text-[11px] text-gray-500">
+                            A declarar à AGT: <span class="font-mono font-bold">{{ $saft_code ?: $saft_type }}</span>
+                        </p>
                     </div>
 
                     <div>

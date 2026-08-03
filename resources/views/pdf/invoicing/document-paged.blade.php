@@ -621,7 +621,9 @@
                         <div class="qr-code">
                             <img src="{{ $qrCode['image'] }}" alt="QR Code AGT">
                             @if($qrCode['atcud'])
+                                @if(!empty($qrCode['atcud']))
                                 <div style="font-size: 6px;">ATCUD: {{ $qrCode['atcud'] }}</div>
+                                @endif
                             @endif
                         </div>
                     @endif
@@ -771,7 +773,9 @@
                         @endif
                         
                         <div class="system-info">
-                            Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                            Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
+                            <br>
+                            <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
                             @if($document->saft_hash)
                                 | HASH: "{{ substr($document->saft_hash, -4) }}"
                             @endif

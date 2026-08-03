@@ -417,16 +417,13 @@
 </head>
 <body>
     <div class="page-wrapper">
+        @include('pdf.invoicing.partials.agt-signature-sidebar', ['document' => $invoice, 'documentLabel' => 'Fatura Electrónica SOS ERP'])
         <div class="main-content">
             <div class="header-section">
                 <div class="company-info">
                     <div class="logo-section">
                         <div class="logo">
-                            @if($tenant->logo)
-                                <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo da Empresa" class="logo-image" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'logo-fallback\'>LOGO</div>';" />
-                            @else
-                                <div class="logo-fallback">LOGO</div>
-                            @endif
+                            @include('pdf.invoicing.partials.logo')
                         </div>
                         <div>
                             <div class="company-name">{{ $tenant->name }}</div>
@@ -543,24 +540,23 @@
                                     <th>Total Imposto</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td>IVA</td>
-                                    <td>14%</td>
-                                    <td class="currency">{{ number_format($invoice->subtotal, 2, ',', '.') }}</td>
-                                    <td class="currency">{{ number_format($invoice->tax_amount, 2, ',', '.') }}</td>
-                                </tr>
-                            </tbody>
+                            @include("pdf.invoicing.partials.tax-summary", ["doc" => $invoice])
                         </table>
                     </div>
 
                     <div class="regime-section">
                         <div class="regime-title">Regime Fiscal</div>
-                        <div>{{ $tenant->regime ?? 'Regime Geral' }}</div>
+                        <div>{{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}</div>
                     </div>
 
                     <div class="system-info">
-                        Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                        Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
+                        <br>
+                        <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
+                        @if(!empty($invoice->hash))
+                            <br>
+                            <strong>HASH e SAFT-AO:</strong> "{{ substr($invoice->hash, -4) }}=="
+                        @endif
                     </div>
                 </div>
 
@@ -605,17 +601,6 @@
                     </div>
                 </div>
             </div>
-
-            {{-- Mensagem AGT com Hash --}}
-            @php
-                $agtMessage = \App\Helpers\AGTHelper::getFooterMessage($invoice);
-            @endphp
-            
-            @if($agtMessage)
-            <div class="agt-description">
-                {{ $agtMessage }}
-            </div>
-            @endif
 
             <div class="page-footer">
                 @if($invoice->notes)

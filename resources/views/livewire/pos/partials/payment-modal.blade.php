@@ -110,15 +110,18 @@
                         class="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gray-500 hover:bg-gray-600 text-white rounded-xl font-bold text-base sm:text-lg transition-all duration-300 hover:scale-105 active:scale-95">
                     <i class="fas fa-times mr-2"></i>Cancelar
                 </button>
-                <button wire:click="completeSale" 
+                {{-- wire:target: sem ele o botão entrava em "Processando..." a
+                     cada tecla no valor recebido, não só ao confirmar a venda. --}}
+                <button wire:click="completeSale"
+                        wire:target="completeSale"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-70 scale-95"
                         class="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {{ $change < 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
                         @if($change < 0) disabled @endif>
-                    <span wire:loading.remove>
+                    <span wire:loading.remove wire:target="completeSale">
                         <i class="fas fa-check-circle mr-2"></i>Confirmar Venda
                     </span>
-                    <span wire:loading>
+                    <span wire:loading wire:target="completeSale">
                         <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
                     </span>
                 </button>

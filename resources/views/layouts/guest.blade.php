@@ -30,7 +30,7 @@
     @endif
     
     <!-- PWA -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,11 +49,7 @@
     
     @livewireScripts
     
-    <!-- PWA Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-        }
-    </script>
+    <!-- PWA Service Worker + Auto-Update -->
+    @include('partials.pwa-register')
 </body>
 </html>

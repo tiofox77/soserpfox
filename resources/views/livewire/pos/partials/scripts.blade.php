@@ -1,4 +1,8 @@
 <script>
+// Marca esta página como POS (usado pelo handler de sessão-expirada no layout:
+// mostra o overlay "Sessão expirada — carrinho guardado" em vez de reload cego).
+window.__isPOS = true;
+
 // Sistema de Som POS
 function playPosSound(type = 'beep') {
     // Verificar se som está ativado nas configurações
@@ -82,81 +86,45 @@ document.addEventListener('livewire:init', () => {
     });
 });
 
-// Função de impressão de ticket via iframe (não destrói o DOM)
-function printTicket() {
-    const ticketEl = document.getElementById('ticket-print');
-    if (!ticketEl) return;
-
-    const printContents = ticketEl.innerHTML;
-
-    // Remover iframe anterior se existir
-    let oldFrame = document.getElementById('print-frame');
-    if (oldFrame) oldFrame.remove();
-
-    const iframe = document.createElement('iframe');
-    iframe.id = 'print-frame';
-    iframe.style.position = 'fixed';
-    iframe.style.top = '-10000px';
-    iframe.style.left = '-10000px';
-    iframe.style.width = '80mm';
-    iframe.style.height = '0';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Courier New', monospace; font-size: 12px; padding: 5mm; width: 80mm; }
-                img { max-width: 100%; height: auto; }
-                table { width: 100%; border-collapse: collapse; }
-                th, td { padding: 2px 0; }
-                .text-center { text-align: center; }
-                .text-right { text-align: right; }
-                .text-left { text-align: left; }
-                .font-bold { font-weight: bold; }
-                .text-xs { font-size: 11px; }
-                .text-lg { font-size: 16px; }
-                .text-base { font-size: 14px; }
-                .border-b { border-bottom: 1px dashed #999; }
-                .border-b-2 { border-bottom: 2px dashed #666; }
-                .border-t-2 { border-top: 2px solid #333; }
-                .mb-1 { margin-bottom: 2px; }
-                .mb-2 { margin-bottom: 4px; }
-                .mb-3 { margin-bottom: 8px; }
-                .mt-1 { margin-top: 2px; }
-                .mt-2 { margin-top: 4px; }
-                .pb-2 { padding-bottom: 4px; }
-                .pb-3 { padding-bottom: 8px; }
-                .pt-1 { padding-top: 2px; }
-                .pt-2 { padding-top: 4px; }
-                .py-1 { padding-top: 2px; padding-bottom: 2px; }
-                .pl-2 { padding-left: 4px; }
-                .space-y-1 > * + * { margin-top: 2px; }
-                .flex { display: flex; }
-                .justify-between { justify-content: space-between; }
-                .mx-auto { margin-left: auto; margin-right: auto; display: block; }
-                .w-auto { width: auto; }
-                .h-12 { height: 48px; }
-                .uppercase { text-transform: uppercase; }
-                .break-all { word-break: break-all; }
-                p { margin: 0; }
-                @media print { body { padding: 0; } }
-            </style>
-        </head>
-        <body>${printContents}</body>
-        </html>
-    `);
-    doc.close();
-
-    iframe.contentWindow.focus();
-    setTimeout(() => {
-        iframe.contentWindow.print();
-        setTimeout(() => { iframe.remove(); }, 1000);
-    }, 300);
-}
+// Nota: window.printTicket() esta definida em partials/print-modal.blade.php
 </script>
+
+{{-- Persistência do carrinho no cliente (rede de segurança contra expiração de sessão) --}}
+@script
+<script>
+    // Chave de armazenamento (mesma que o servidor usa em loadCart()).
+    const POS_KEY = @js('pos_cart_' . auth()->id() . '_' . ($this->currentShift?->id ?? 0));
+    // Já vimos um carrinho com itens nesta sessão de página? (só então limpamos o espelho ao esvaziar)
+    let posHadItems = false;
+
+    // 1) Restauro determinístico no arranque: se o servidor não tem carrinho mas há
+    //    cópia guardada no cliente (sessão expirou antes), repor a venda no servidor.
+    (function posInitRestore() {
+        let current = [];
+        try { current = $wire.get('cartItems') || []; } catch (_) {}
+        const count = Array.isArray(current) ? current.length : 0;
+        if (count > 0) { posHadItems = true; return; }   // servidor já tem carrinho → nada a restaurar
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null'); } catch (_) {}
+        if (saved && Array.isArray(saved.items) && saved.items.length) {
+            $wire.restoreCartFromClient(saved.items);     // revalida stock/preço no servidor
+        }
+    })();
+
+    // 2) Manter o espelho sincronizado a cada alteração do carrinho.
+    $wire.on('pos-cart-sync', (payload) => {
+        const data = Array.isArray(payload) ? payload[0] : payload;
+        if (!data || !data.key) return;
+        const count = Number(data.count || 0);
+        if (count > 0) {
+            posHadItems = true;
+            try { localStorage.setItem(data.key, JSON.stringify({ ts: Date.now(), items: data.items || [] })); } catch (_) {}
+        } else if (posHadItems) {
+            // Esvaziado por ação do utilizador (remover tudo / finalizar venda) → apagar espelho.
+            try { localStorage.removeItem(data.key); } catch (_) {}
+            posHadItems = false;
+        }
+        // count 0 && !posHadItems → NÃO apagar (preserva a cópia para restauro pós-login).
+    });
+</script>
+@endscript

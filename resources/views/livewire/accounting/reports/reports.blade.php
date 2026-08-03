@@ -29,6 +29,7 @@
                     <option value="ledger">Razão Geral</option>
                     <option value="journal">Diário</option>
                     <option value="vat">Mapa de IVA</option>
+                    <option value="withholding">Mapa de Retenções na Fonte</option>
                     <option value="income_statement">Demonstração de Resultados (Simples)</option>
                     <option value="balance_sheet">Balanço (Posição Financeira)</option>
                     <option value="income_statement_nature">DR por Natureza (DRN)</option>
@@ -738,8 +739,11 @@
     {{-- Cash Flow Statement (Fluxos de Caixa) --}}
     @include('livewire.accounting.reports.partials.cash-flow')
 
+    {{-- Withholding (Retenções na Fonte) --}}
+    @include('livewire.accounting.reports.partials.withholding-report')
+
     {{-- Other Reports Placeholder --}}
-    @if($reportType !== 'trial_balance' && $reportType !== 'ledger' && $reportType !== 'journal' && $reportType !== 'vat' && $reportType !== 'income_statement' && $reportType !== 'balance_sheet' && $reportType !== 'income_statement_nature' && $reportType !== 'income_statement_function' && $reportType !== 'cash_flow')
+    @if(!in_array($reportType, ['trial_balance','ledger','journal','vat','income_statement','balance_sheet','income_statement_nature','income_statement_function','cash_flow','withholding']))
     <div class="bg-white rounded-xl shadow-lg p-12 text-center">
         <i class="fas fa-chart-pie text-6xl text-gray-300 mb-4"></i>
         <h3 class="text-xl font-bold text-gray-900 mb-2">Relatório em Desenvolvimento</h3>

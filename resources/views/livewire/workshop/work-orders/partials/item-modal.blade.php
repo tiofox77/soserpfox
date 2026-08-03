@@ -53,7 +53,10 @@
                             class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all">
                         <option value="">Selecione um produto...</option>
                         @foreach($products as $product)
-                            <option value="{{ $product->id }}">{{ $product->name }} - {{ number_format($product->selling_price, 2, ',', '.') }} Kz</option>
+                            {{-- A coluna é `price`. Com `selling_price`, que não
+                                 existe, o Eloquent devolvia null e TODAS as peças
+                                 do dropdown apareciam a "0,00 Kz". --}}
+                            <option value="{{ $product->id }}">{{ $product->name }} - {{ number_format((float) $product->price, 2, ',', '.') }} Kz</option>
                         @endforeach
                     </select>
                     

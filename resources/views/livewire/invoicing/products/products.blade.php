@@ -37,7 +37,7 @@
                 </div>
             </div>
             <p class="text-sm text-purple-600 font-semibold mb-2">Total Produtos</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $products->total() }}</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $estatisticas['produtos'] }}</p>
             <p class="text-xs text-gray-500">No catálogo</p>
         </div>
 
@@ -49,7 +49,7 @@
                 </div>
             </div>
             <p class="text-sm text-green-600 font-semibold mb-2">Valor Médio</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ number_format(\App\Models\Product::where('tenant_id', auth()->user()->tenant_id)->avg('price') ?? 0, 2) }} Kz</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ number_format($estatisticas['preco_medio'], 2) }} Kz</p>
             <p class="text-xs text-gray-500">Preço médio</p>
         </div>
 
@@ -61,7 +61,7 @@
                 </div>
             </div>
             <p class="text-sm text-blue-600 font-semibold mb-2">Serviços</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Product::where('tenant_id', auth()->user()->tenant_id)->where('unit', 'SRV')->count() }}</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $estatisticas['servicos'] }}</p>
             <p class="text-xs text-gray-500">Tipo serviço</p>
         </div>
     </div>
@@ -73,10 +73,35 @@
                 <i class="fas fa-filter mr-2 text-purple-600"></i>
                 Filtros Avançados
             </h3>
-            <button wire:click="clearFilters" class="text-sm text-purple-600 hover:text-purple-700 font-semibold flex items-center">
-                <i class="fas fa-redo mr-1"></i>Limpar Filtros
-            </button>
+            <div class="flex items-center gap-3">
+                {{-- Lixeira: a eliminação é recuperável, mas até aqui não havia
+                     forma de ver nem restaurar um produto eliminado. --}}
+                @can('invoicing.products.delete')
+                <button wire:click="alternarEliminados"
+                        wire:target="alternarEliminados"
+                        wire:loading.attr="disabled"
+                        class="text-sm font-semibold flex items-center px-3 py-1.5 rounded-lg transition
+                               {{ $mostrarEliminados ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100' }}">
+                    <i class="fas fa-trash-can-arrow-up mr-1.5"></i>
+                    {{ $mostrarEliminados ? 'A ver eliminados' : 'Ver eliminados' }}
+                </button>
+                @endcan
+
+                <button wire:click="clearFilters" class="text-sm text-purple-600 hover:text-purple-700 font-semibold flex items-center">
+                    <i class="fas fa-redo mr-1"></i>Limpar Filtros
+                </button>
+            </div>
         </div>
+
+        @if($mostrarEliminados)
+        <div class="mb-4 bg-amber-50 border-2 border-amber-200 rounded-xl p-3">
+            <p class="text-sm text-amber-800">
+                <i class="fas fa-circle-info mr-1"></i>
+                A mostrar produtos <strong>eliminados</strong>. Continuam guardados na base de dados
+                e podem ser restaurados com o histórico e as imagens intactos.
+            </p>
+        </div>
+        @endif
 
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
             <!-- Search -->
@@ -233,8 +258,11 @@
             <div class="col-span-3 sm:col-span-2 flex items-center">
                 <i class="fas fa-money-bill-wave mr-2 text-green-500"></i>Preço
             </div>
-            <div class="col-span-2 hidden lg:flex items-center">
+            <div class="col-span-1 hidden lg:flex items-center">
                 <i class="fas fa-percent mr-2 text-orange-500"></i>IVA
+            </div>
+            <div class="col-span-1 hidden lg:flex items-center">
+                <i class="fas fa-warehouse mr-2 text-emerald-500"></i>Stock
             </div>
             <div class="col-span-1 hidden lg:flex items-center">
                 <i class="fas fa-cube mr-2 text-cyan-500"></i>Unidade
@@ -292,12 +320,46 @@
                     </div>
                     
                     <!-- IVA -->
-                    <div class="col-span-2 hidden lg:block">
-                        <span class="inline-flex items-center px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">
-                            <i class="fas fa-percent mr-1"></i>{{ $product->tax_rate }}%
-                        </span>
+                    <div class="col-span-1 hidden lg:block">
+                        {{-- `tax_rate` não existe (nem coluna, nem acessor): a
+                             coluna do IVA saía sempre vazia, um "%" solto. A taxa
+                             real vem da relação `taxRate`, e um produto isento
+                             mostra-se como isento, não como 0%. --}}
+                        @if(($product->tax_type ?? 'iva') === 'isento')
+                            <span class="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold">
+                                Isento
+                            </span>
+                        @else
+                            <span class="inline-flex items-center px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">
+                                <i class="fas fa-percent mr-1"></i>{{ rtrim(rtrim(number_format((float) ($product->taxRate->rate ?? 0), 2, ',', ''), '0'), ',') }}%
+                            </span>
+                        @endif
                     </div>
-                    
+
+                    <!-- Stock -->
+                    <div class="col-span-1 hidden lg:block">
+                        @if($product->manage_stock)
+                            @php $qty = (float) ($product->stocks_total_quantity ?? 0); @endphp
+                            @if($qty <= 0)
+                                <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold" title="Sem stock">
+                                    <i class="fas fa-times-circle mr-1"></i>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}
+                                </span>
+                            @elseif($product->stock_min > 0 && $qty <= $product->stock_min)
+                                <span class="inline-flex items-center px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold" title="Stock baixo (mín: {{ $product->stock_min }})">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold" title="Em stock">
+                                    <i class="fas fa-check-circle mr-1"></i>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}
+                                </span>
+                            @endif
+                        @else
+                            <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-semibold" title="Stock não gerenciado">
+                                <i class="fas fa-minus"></i>
+                            </span>
+                        @endif
+                    </div>
+
                     <!-- Unidade -->
                     <div class="col-span-1 hidden lg:block">
                         <span class="inline-flex items-center px-2 py-1 bg-cyan-100 text-cyan-700 rounded-lg text-xs font-semibold">
@@ -314,8 +376,20 @@
                             <i class="fas fa-eye text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
+
+                        {{-- Rastreio: para onde foi este artigo. Junta as vendas
+                             com os movimentos de stock, porque é a divergência
+                             entre os dois que denuncia problemas. --}}
+                        <button wire:click="verRastreio({{ $product->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="verRastreio({{ $product->id }})"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50"
+                                title="Histórico de vendas e movimentos">
+                            <i class="fas fa-timeline text-xs" wire:loading.remove wire:target="verRastreio({{ $product->id }})"></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="verRastreio({{ $product->id }})"></i>
+                        </button>
                         @endcan
-                        
+
                         @can('invoicing.products.edit')
                         <button wire:click="edit({{ $product->id }})"
                                 wire:loading.attr="disabled"
@@ -326,12 +400,25 @@
                         @endcan
                         
                         @can('invoicing.products.delete')
+                        @if($mostrarEliminados)
+                        {{-- Na lixeira só faz sentido restaurar --}}
+                        <button wire:click="restore({{ $product->id }})"
+                                wire:target="restore({{ $product->id }})"
+                                wire:loading.attr="disabled"
+                                wire:confirm="Restaurar &quot;{{ $product->name }}&quot;?"
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Restaurar">
+                            <i class="fas fa-trash-can-arrow-up text-xs" wire:loading.remove wire:target="restore({{ $product->id }})"></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="restore({{ $product->id }})"></i>
+                        </button>
+                        @else
                         <button wire:click="confirmDelete({{ $product->id }})"
+                                wire:target="confirmDelete({{ $product->id }})"
                                 wire:loading.attr="disabled"
                                 class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
-                            <i class="fas fa-trash text-xs" wire:loading.remove></i>
-                            <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
+                            <i class="fas fa-trash text-xs" wire:loading.remove wire:target="confirmDelete({{ $product->id }})"></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="confirmDelete({{ $product->id }})"></i>
                         </button>
+                        @endif
                         @endcan
                     </div>
                 </div>
@@ -340,8 +427,30 @@
                     <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-box text-gray-400 text-3xl"></i>
                     </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Nenhum produto encontrado</h3>
-                    <p class="text-gray-500 mb-4">Crie um novo produto para começar</p>
+                    {{-- Estado vazio honesto: dizer "crie um novo produto" quando
+                         o catálogo TEM artigos, apenas escondidos por um filtro,
+                         leva o utilizador a criar duplicados. --}}
+                    @php
+                        $haCatalogo = ($estatisticas['produtos'] + $estatisticas['servicos']) > 0;
+                        $haFiltro = $search || $typeFilter || $stockFilter || $dateFrom || $dateTo;
+                    @endphp
+
+                    @if($haCatalogo && $haFiltro)
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">Nada corresponde aos filtros</h3>
+                        <p class="text-gray-500 mb-4">
+                            O catálogo tem
+                            <strong>{{ $estatisticas['produtos'] }}</strong> produto(s)
+                            e <strong>{{ $estatisticas['servicos'] }}</strong> serviço(s),
+                            mas nenhum passa nos filtros activos.
+                        </p>
+                        <button wire:click="clearFilters"
+                                class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition">
+                            <i class="fas fa-redo mr-2"></i>Limpar filtros
+                        </button>
+                    @else
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">Nenhum produto encontrado</h3>
+                        <p class="text-gray-500 mb-4">Crie um novo produto para começar</p>
+                    @endif
                 </div>
             @endforelse
         </div>
@@ -359,7 +468,181 @@
     @include('livewire.invoicing.products.partials.view-modal')
     <x-delete-confirmation-modal 
         :itemName="$deletingProductName" 
-        entityType="o produto" 
-        icon="fa-box-open" 
+        entityType="o produto"
+        icon="fa-box-open"
     />
+
+    {{-- ══════════ Rastreio do artigo ══════════ --}}
+    @if($rastreio)
+        {{-- Sempre em bloco: a forma de uma linha parte a compilação.
+             E o próprio texto de um comentário não pode conter a directiva
+             escrita por extenso — o Blade apanha-a mesmo dentro do comentário e
+             engole tudo até ao fecho seguinte. Foi o que aconteceu aqui. --}}
+        @php
+            $r = $rastreio;
+        @endphp
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4"
+             wire:click.self="fecharRastreio">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto">
+
+                <div class="px-5 py-4 border-b sticky top-0 bg-white z-10 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <h3 class="font-bold text-gray-900 truncate">
+                            <i class="fas fa-timeline text-teal-600 mr-2"></i>{{ $r['produto']->name }}
+                        </h3>
+                        <p class="text-xs text-gray-500">{{ $r['produto']->code }} · rastreio de vendas e stock</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <select wire:model.live="rastreioDias" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5">
+                            <option value="30">30 dias</option>
+                            <option value="90">90 dias</option>
+                            <option value="365">1 ano</option>
+                            <option value="0">Tudo</option>
+                        </select>
+                        <button wire:click="fecharRastreio" class="text-gray-400 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-5 space-y-5">
+                    {{-- Resumo --}}
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="bg-teal-50 rounded-xl p-3">
+                            <p class="text-xs text-teal-700 font-semibold uppercase">Vendido</p>
+                            <p class="text-xl font-bold text-teal-900">{{ rtrim(rtrim(number_format($r['resumo']['qtd_vendida'], 3, ',', '.'), '0'), ',') }}</p>
+                            <p class="text-xs text-teal-600">{{ $r['resumo']['documentos'] }} documento(s)</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl p-3">
+                            <p class="text-xs text-green-700 font-semibold uppercase">Faturado</p>
+                            <p class="text-xl font-bold text-green-900">{{ number_format($r['resumo']['valor_vendido'], 2, ',', '.') }}</p>
+                            <p class="text-xs text-green-600">Kz</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-xl p-3">
+                            <p class="text-xs text-blue-700 font-semibold uppercase">Stock actual</p>
+                            <p class="text-xl font-bold text-blue-900">{{ rtrim(rtrim(number_format($r['resumo']['stock_total'], 3, ',', '.'), '0'), ',') }}</p>
+                            <p class="text-xs text-blue-600">{{ $r['porArmazem']->count() }} armazém(ns)</p>
+                        </div>
+                        <div class="{{ abs($r['resumo']['divergencia']) > 0.001 ? 'bg-red-50' : 'bg-gray-50' }} rounded-xl p-3">
+                            <p class="text-xs {{ abs($r['resumo']['divergencia']) > 0.001 ? 'text-red-700' : 'text-gray-600' }} font-semibold uppercase">Vendido − saídas</p>
+                            <p class="text-xl font-bold {{ abs($r['resumo']['divergencia']) > 0.001 ? 'text-red-900' : 'text-gray-800' }}">
+                                {{ rtrim(rtrim(number_format($r['resumo']['divergencia'], 3, ',', '.'), '0'), ',') }}
+                            </p>
+                            <p class="text-xs {{ abs($r['resumo']['divergencia']) > 0.001 ? 'text-red-600' : 'text-gray-500' }}">
+                                {{ abs($r['resumo']['divergencia']) > 0.001 ? 'stock não acompanhou a venda' : 'coerente' }}
+                            </p>
+                        </div>
+                    </div>
+
+                    @if(abs($r['resumo']['divergencia']) > 0.001)
+                        <div class="rounded-xl border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                            <strong><i class="fas fa-triangle-exclamation mr-1"></i>Vendas e stock não batem certo.</strong>
+                            Foram vendidas {{ rtrim(rtrim(number_format($r['resumo']['qtd_vendida'], 3, ',', '.'), '0'), ',') }}
+                            unidades mas só saíram {{ rtrim(rtrim(number_format($r['resumo']['saidas'], 3, ',', '.'), '0'), ',') }}
+                            do stock. É o sintoma do artigo que aparece disponível mas cuja baixa falha.
+                        </div>
+                    @endif
+
+                    {{-- Stock por armazém --}}
+                    @if($r['porArmazem']->isNotEmpty())
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($r['porArmazem'] as $s)
+                                <span class="px-3 py-1.5 bg-gray-100 rounded-lg text-sm">
+                                    <strong>{{ $s->warehouse->name ?? 'Armazém #' . $s->warehouse_id }}:</strong>
+                                    {{ rtrim(rtrim(number_format((float) $s->quantity, 3, ',', '.'), '0'), ',') }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Vendas --}}
+                    <div>
+                        <h4 class="font-bold text-sm text-gray-700 mb-2">
+                            <i class="fas fa-file-invoice mr-1 text-gray-400"></i>Vendas ({{ $r['vendas']->count() }})
+                        </h4>
+                        <div class="rounded-xl border overflow-hidden overflow-x-auto">
+                            <table class="w-full text-sm min-w-[640px]">
+                                <thead class="bg-gray-50 text-xs text-gray-600">
+                                    <tr>
+                                        <th class="text-left px-3 py-2">Data</th>
+                                        <th class="text-left px-3 py-2">Documento</th>
+                                        <th class="text-left px-3 py-2">Cliente</th>
+                                        <th class="text-right px-3 py-2">Qtd</th>
+                                        <th class="text-right px-3 py-2">Preço</th>
+                                        <th class="text-right px-3 py-2">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    @forelse($r['vendas'] as $v)
+                                        <tr wire:key="venda-{{ $v->id }}" class="hover:bg-gray-50">
+                                            <td class="px-3 py-2 text-gray-500 whitespace-nowrap">
+                                                {{ optional($v->invoice?->invoice_date)->format('d/m/Y') ?? '—' }}
+                                            </td>
+                                            <td class="px-3 py-2 font-semibold">
+                                                @if($v->invoice)
+                                                    <a href="{{ route('invoicing.sales.invoices.preview', $v->invoice->id) }}"
+                                                       target="_blank" class="text-indigo-600 hover:underline">
+                                                        {{ $v->invoice->invoice_number }}
+                                                    </a>
+                                                @else — @endif
+                                            </td>
+                                            <td class="px-3 py-2">{{ $v->invoice?->client?->name ?? '—' }}</td>
+                                            <td class="px-3 py-2 text-right font-semibold">{{ rtrim(rtrim(number_format((float) $v->quantity, 3, ',', '.'), '0'), ',') }}</td>
+                                            <td class="px-3 py-2 text-right">{{ number_format((float) $v->unit_price, 2, ',', '.') }}</td>
+                                            <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $v->total, 2, ',', '.') }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Sem vendas no período.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {{-- Movimentos de stock --}}
+                    <div>
+                        <h4 class="font-bold text-sm text-gray-700 mb-2">
+                            <i class="fas fa-arrow-right-arrow-left mr-1 text-gray-400"></i>Movimentos de stock ({{ $r['movimentos']->count() }})
+                        </h4>
+                        <div class="rounded-xl border overflow-hidden overflow-x-auto">
+                            <table class="w-full text-sm min-w-[640px]">
+                                <thead class="bg-gray-50 text-xs text-gray-600">
+                                    <tr>
+                                        <th class="text-left px-3 py-2">Data</th>
+                                        <th class="text-left px-3 py-2">Tipo</th>
+                                        <th class="text-left px-3 py-2">Armazém</th>
+                                        <th class="text-right px-3 py-2">Qtd</th>
+                                        <th class="text-left px-3 py-2">Origem</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    @forelse($r['movimentos'] as $m)
+                                        @php
+                                            $cor = match($m->type) {
+                                                'in'  => 'bg-green-100 text-green-700',
+                                                'out' => 'bg-red-100 text-red-700',
+                                                default => 'bg-blue-100 text-blue-700',
+                                            };
+                                        @endphp
+                                        <tr wire:key="mov-{{ $m->id }}" class="hover:bg-gray-50">
+                                            <td class="px-3 py-2 text-gray-500 whitespace-nowrap">{{ $m->created_at->format('d/m/Y H:i') }}</td>
+                                            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-bold {{ $cor }}">{{ $m->type }}</span></td>
+                                            <td class="px-3 py-2">{{ $m->warehouse->name ?? '—' }}</td>
+                                            <td class="px-3 py-2 text-right font-semibold">{{ rtrim(rtrim(number_format((float) $m->quantity, 3, ',', '.'), '0'), ',') }}</td>
+                                            <td class="px-3 py-2 text-gray-600 text-xs">
+                                                {{ class_basename($m->reference_type) ?: '—' }}
+                                                @if($m->notes) · {{ \Illuminate\Support\Str::limit($m->notes, 45) }} @endif
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Sem movimentos no período.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

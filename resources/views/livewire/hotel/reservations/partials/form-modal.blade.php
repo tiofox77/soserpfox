@@ -1,13 +1,13 @@
 {{-- Modal de Nova/Editar Reserva --}}
 @if($showModal)
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" wire:click.self="$set('showModal', false)">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" wire:click.self="closeModal">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-6 m-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <i class="fas fa-calendar-plus text-blue-600"></i>
                 {{ $editingId ? 'Editar Reserva' : 'Nova Reserva' }}
             </h3>
-            <button wire:click="$set('showModal', false)" class="text-gray-400 hover:text-gray-600">
+            <button wire:click="closeModal" class="text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -50,9 +50,14 @@
                          class="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-lg border border-gray-200 max-h-60 overflow-y-auto">
                         @if($this->filteredClients->count() > 0)
                             @foreach($this->filteredClients as $client)
-                                <div wire:click="selectClient({{ $client->id }})" 
+                                {{-- <button> e não <div>: com um div os resultados
+                                     não são alcançáveis por Tab nem accionáveis
+                                     com Enter, e quem escreve à pressa na
+                                     recepção usa o teclado. --}}
+                                <button type="button"
+                                     wire:click="selectClient({{ $client->id }})"
                                      wire:key="client-{{ $client->id }}"
-                                     class="px-4 py-3 hover:bg-blue-50 cursor-pointer transition flex items-center gap-3 border-b border-gray-100 last:border-0">
+                                     class="w-full text-left px-4 py-3 hover:bg-blue-50 focus:bg-blue-100 focus:outline-none cursor-pointer transition flex items-center gap-3 border-b border-gray-100 last:border-0">
                                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                         {{ strtoupper(substr($client->name, 0, 1)) }}
                                     </div>
@@ -63,10 +68,16 @@
                                             @if($client->nif) <span class="ml-2"><i class="fas fa-id-card mr-1"></i>{{ $client->nif }}</span> @endif
                                         </p>
                                     </div>
-                                    @if($client->type === 'company')
+                                    {{-- O ENUM é pessoa_fisica/pessoa_juridica.
+                                         Comparar com 'company' nunca dava
+                                         verdadeiro: o crachá "Empresa" nunca
+                                         aparecia — e é ele que diz ao
+                                         rececionista que este cliente retém
+                                         IRT. --}}
+                                    @if($client->type === 'pessoa_juridica')
                                         <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-bold">Empresa</span>
                                     @endif
-                                </div>
+                                </button>
                             @endforeach
                         @else
                             <div class="px-4 py-6 text-center text-gray-500">
@@ -198,8 +209,22 @@
                 <textarea wire:model="special_requests" rows="2" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Preferências do hóspede..."></textarea>
             </div>
 
+            {{-- Notas internas: existia no componente, nas regras de validação e
+                 na coluna da base de dados, mas não havia campo nenhum no
+                 formulário — era impossível preenchê-las pela aplicação. --}}
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">
+                    Notas Internas
+                    <span class="font-normal text-xs text-gray-500">(não visíveis para o hóspede)</span>
+                </label>
+                <textarea wire:model="internal_notes" rows="2" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Observações para a equipa..."></textarea>
+            </div>
+
             <div class="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" wire:click="$set('showModal', false)" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-medium">
+                {{-- closeModal() em vez de $set inline: o $set fechava o modal
+                     mas deixava o formulário preenchido, e a reserva seguinte
+                     abria com os dados da anterior. --}}
+                <button type="button" wire:click="closeModal" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition font-medium">
                     Cancelar
                 </button>
                 <button type="submit" wire:loading.attr="disabled" wire:target="save"

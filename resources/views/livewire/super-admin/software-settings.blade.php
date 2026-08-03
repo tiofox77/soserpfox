@@ -134,6 +134,7 @@
                                             ['prop' => 'block_delete_proforma', 'label' => 'Proformas', 'icon' => 'file-alt', 'desc' => 'Proformas de Venda'],
                                             ['prop' => 'block_delete_receipt', 'label' => 'Recibos', 'icon' => 'receipt', 'desc' => 'Recibos de Pagamento'],
                                             ['prop' => 'block_delete_credit_note', 'label' => 'Notas de Crédito', 'icon' => 'file-invoice-dollar', 'desc' => 'Credit Notes'],
+                                            ['prop' => 'block_delete_debit_note', 'label' => 'Notas de Débito', 'icon' => 'file-circle-plus', 'desc' => 'Debit Notes'],
                                             ['prop' => 'block_delete_invoice_receipt', 'label' => 'Faturas Recibo', 'icon' => 'file-contract', 'desc' => 'Invoice Receipts'],
                                             ['prop' => 'block_delete_pos_invoice', 'label' => 'Faturas POS', 'icon' => 'cash-register', 'desc' => 'Ponto de Venda'],
                                         ];
@@ -224,7 +225,9 @@
                                     <div>
                                         <p class="text-blue-800 text-sm font-bold">Decreto Presidencial n.º 71/25 (20 Mar 2025)</p>
                                         <p class="text-blue-700 text-xs mt-1 leading-relaxed">
-                                            A faturação eletrónica é obrigatória em Angola. Cada tenant (empresa) configura as suas próprias credenciais da AGT em
+                                            A faturação eletrónica é obrigatória em Angola. As credenciais Basic Auth do
+                                            <strong>produtor SOS ERP</strong> são globais e geridas apenas nesta área.
+                                            Cada empresa configura somente os seus dados de contribuinte em
                                             <strong>Faturação → AGT Angola</strong>.
                                         </p>
                                         <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -242,6 +245,351 @@
                             </div>
 
                             {{-- Status por Tenant --}}
+                            <div class="border-t border-gray-100 pt-6 mb-6">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                                    <div>
+                                        <h3 class="text-gray-800 font-bold text-sm flex items-center">
+                                            <i class="fas fa-key mr-2 text-orange-500"></i>
+                                            Credenciais API do Produtor
+                                        </h3>
+                                        <p class="text-gray-500 text-xs mt-1">
+                                            Basic Auth emitido pela AGT ao produtor SOS ERP. Aplica-se a todas as empresas.
+                                        </p>
+                                    </div>
+                                    <span class="inline-flex self-start items-center px-3 py-1.5 rounded-full text-xs font-bold
+                                        {{ $hasGlobalCredentials ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                        <i class="fas fa-{{ $hasGlobalCredentials ? 'check-circle' : 'times-circle' }} mr-1.5"></i>
+                                        {{ $hasGlobalCredentials ? 'Configuradas' : 'Não configuradas' }}
+                                    </span>
+                                </div>
+
+                                <form wire:submit.prevent="saveAgtProducerCredentials">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">Username</label>
+                                            <input type="text" wire:model="agt_basic_username" autocomplete="off"
+                                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm"
+                                                   placeholder="Username fornecido pela AGT">
+                                            @error('agt_basic_username') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">Password</label>
+                                            <div class="relative">
+                                                <input type="{{ $showGlobalPassword ? 'text' : 'password' }}"
+                                                       wire:model="agt_basic_password" autocomplete="new-password"
+                                                       class="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm"
+                                                       placeholder="{{ $hasGlobalCredentials ? 'Deixe vazio para manter a actual' : 'Password fornecida pela AGT' }}">
+                                                <button type="button" wire:click="$toggle('showGlobalPassword')"
+                                                        class="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
+                                                    <i class="fas fa-{{ $showGlobalPassword ? 'eye-slash' : 'eye' }}"></i>
+                                                </button>
+                                            </div>
+                                            @error('agt_basic_password') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
+                                        @if($hasGlobalCredentials)
+                                            <button type="button" wire:click="clearAgtProducerCredentials"
+                                                    wire:confirm="Remover as credenciais globais? Nenhuma empresa poderá comunicar com a AGT."
+                                                    class="px-4 py-2.5 text-xs font-bold text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition">
+                                                <i class="fas fa-trash-alt mr-1"></i> Remover
+                                            </button>
+                                        @else
+                                            <span></span>
+                                        @endif
+                                        <button type="submit"
+                                                class="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded-xl hover:from-orange-600 hover:to-red-600 transition shadow">
+                                            <i class="fas fa-save mr-1.5"></i> Guardar Credenciais
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            {{-- Chave RSA do produtor de software --}}
+                            {{-- Assina a jwsSoftwareSignature de todos os documentos, de
+                                 todas as empresas. Não confundir com as chaves do
+                                 contribuinte, que são por empresa e vivem em
+                                 Faturação › AGT. Até aqui só se instalava por linha
+                                 de comandos, o que exigia acesso ao servidor. --}}
+                            <div class="mb-7 rounded-2xl border border-gray-200 bg-white p-5">
+                                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                                    <div>
+                                        <h3 class="font-bold text-sm text-gray-900 flex items-center">
+                                            <i class="fas fa-key mr-2 text-orange-500"></i>
+                                            Chave RSA do Produtor de Software
+                                        </h3>
+                                        <p class="text-gray-500 text-xs mt-1">
+                                            Assina a <code class="text-[11px] bg-gray-100 px-1 rounded">jwsSoftwareSignature</code>
+                                            de todos os documentos, de todas as empresas. É a chave do SOS ERP
+                                            enquanto produtor — as chaves do contribuinte configuram-se em cada empresa.
+                                        </p>
+                                    </div>
+                                    <span class="inline-flex self-start items-center px-3 py-1.5 rounded-full text-xs font-bold
+                                        {{ $hasProducerKeys ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                        <i class="fas fa-{{ $hasProducerKeys ? 'check-circle' : 'times-circle' }} mr-1.5"></i>
+                                        {{ $hasProducerKeys ? 'Instalada' : 'Em falta' }}
+                                    </span>
+                                </div>
+
+                                @if($hasProducerKeys && !empty($producerKeyInfo) && empty($producerKeyInfo['erro']))
+                                <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs bg-gray-50 rounded-xl p-3">
+                                    <div>
+                                        <p class="text-gray-500 mb-0.5">Tipo</p>
+                                        <p class="font-bold text-gray-900">{{ $producerKeyInfo['tipo'] }} {{ $producerKeyInfo['bits'] }} bits</p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <p class="text-gray-500 mb-0.5">Impressão digital</p>
+                                        <p class="font-mono font-bold text-gray-900 text-[11px] break-all">{{ $producerKeyInfo['impressao'] }}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-500 mb-0.5">Instalada em</p>
+                                        <p class="font-bold text-gray-900">{{ $producerKeyInfo['actualizada'] }}</p>
+                                    </div>
+                                </div>
+                                @endif
+
+                                <div class="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                    <p class="text-xs text-amber-800">
+                                        <i class="fas fa-triangle-exclamation mr-1"></i>
+                                        Substituir esta chave afecta <strong>todas as empresas</strong>: a AGT passa a
+                                        recusar documentos assinados com a anterior. A chave em uso é guardada
+                                        automaticamente numa cópia antes de ser trocada. Cole sempre o par completo.
+                                    </p>
+                                </div>
+
+                                <form wire:submit.prevent="saveProducerKeys">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">Chave pública (PEM)</label>
+                                            <textarea wire:model="producerPublicKey" rows="7" spellcheck="false" autocomplete="off"
+                                                      class="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 font-mono text-[11px]"
+                                                      placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea>
+                                            @error('producerPublicKey') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">Chave privada (PEM)</label>
+                                            <textarea wire:model="producerPrivateKey" rows="7" spellcheck="false" autocomplete="new-password"
+                                                      class="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 font-mono text-[11px]"
+                                                      placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+                                            @error('producerPrivateKey') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
+                                        <p class="text-[11px] text-gray-500">
+                                            Guardada em <code class="bg-gray-100 px-1 rounded">storage/app/private/saft/</code>,
+                                            fora da pasta pública. O par é verificado antes de gravar.
+                                        </p>
+                                        <button type="submit"
+                                                wire:target="saveProducerKeys"
+                                                wire:loading.attr="disabled"
+                                                class="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded-xl hover:from-orange-600 hover:to-red-600 transition shadow disabled:opacity-60 whitespace-nowrap">
+                                            <span wire:loading.remove wire:target="saveProducerKeys">
+                                                <i class="fas fa-key mr-1.5"></i>{{ $hasProducerKeys ? 'Substituir chave' : 'Instalar chave' }}
+                                            </span>
+                                            <span wire:loading wire:target="saveProducerKeys">
+                                                <i class="fas fa-spinner fa-spin mr-1.5"></i>A verificar...
+                                            </span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            {{-- Consola de testes AGT --}}
+                            <div id="agt-test-console"
+                                 x-data
+                                 @agt-test-console-focus.window="$el.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+                                 class="mb-7 rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
+                                <div class="px-5 py-4 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div>
+                                        <h3 class="font-bold text-sm flex items-center">
+                                            <i class="fas fa-flask mr-2 text-orange-400"></i>
+                                            Consola de Testes AGT
+                                        </h3>
+                                        <p class="text-slate-400 text-xs mt-1">Teste seguro e de leitura, sem emitir documentos nem alterar séries.</p>
+                                    </div>
+                                    <span class="inline-flex self-start items-center px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-700">
+                                        <i class="fas fa-shield-alt mr-1.5 text-green-400"></i> Apenas Super Admin
+                                    </span>
+                                </div>
+
+                                <div class="p-5 space-y-5">
+                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 mb-2">Empresa usada no teste</label>
+                                            <select wire:model.live="selectedAgtTenantId"
+                                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200">
+                                                <option value="">Seleccione uma empresa</option>
+                                                @foreach($tenantAgtStatus as $tenant)
+                                                    <option value="{{ $tenant['id'] }}">{{ $tenant['name'] }} — {{ $tenant['nif'] ?? 'sem NIF' }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-700 mb-2">Ambiente a testar</label>
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <label class="relative cursor-pointer">
+                                                    <input type="radio" wire:model.live="agtTestEnvironment" value="sandbox" class="peer sr-only">
+                                                    <span class="flex items-center p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-amber-400 peer-checked:bg-amber-50 transition">
+                                                        <span class="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mr-3">
+                                                            <i class="fas fa-vial"></i>
+                                                        </span>
+                                                        <span>
+                                                            <strong class="block text-xs text-slate-800">Sandbox</strong>
+                                                            <small class="text-[10px] text-slate-500">Homologação e testes</small>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                                <label class="relative cursor-pointer">
+                                                    <input type="radio" wire:model.live="agtTestEnvironment" value="production" class="peer sr-only">
+                                                    <span class="flex items-center p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-red-500 peer-checked:bg-red-50 transition">
+                                                        <span class="w-9 h-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center mr-3">
+                                                            <i class="fas fa-broadcast-tower"></i>
+                                                        </span>
+                                                        <span>
+                                                            <strong class="block text-xs text-slate-800">Produção</strong>
+                                                            <small class="text-[10px] text-slate-500">Ambiente real AGT</small>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @if($agtTestEnvironment === 'production')
+                                        <div class="flex items-start p-3 rounded-xl bg-red-50 border border-red-200 text-red-800">
+                                            <i class="fas fa-exclamation-triangle mt-0.5 mr-2"></i>
+                                            <p class="text-xs"><strong>Produção seleccionada.</strong> O teste consulta a API real, mas não regista facturas nem solicita séries.</p>
+                                        </div>
+                                    @endif
+
+                                    {{-- Checklist operacional --}}
+                                    @php
+                                        $checks = [
+                                            ['key' => 'producer_credentials', 'label' => 'Basic Auth produtor', 'icon' => 'key'],
+                                            ['key' => 'producer_rsa', 'label' => 'Chave RSA produtor', 'icon' => 'shield-alt'],
+                                            ['key' => 'software_certificate', 'label' => 'Certificado software', 'icon' => 'certificate'],
+                                            ['key' => 'tenant_nif', 'label' => 'NIF da empresa', 'icon' => 'id-card'],
+                                            ['key' => 'contributor_rsa', 'label' => 'Chave do contribuinte', 'icon' => 'lock'],
+                                            ['key' => 'active_series', 'label' => 'Série activa', 'icon' => 'list-ol'],
+                                        ];
+                                    @endphp
+                                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                                        @foreach($checks as $check)
+                                            @php $ready = (bool) ($agtReadiness[$check['key']] ?? false); @endphp
+                                            <div class="p-3 rounded-xl border {{ $ready ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200' }}">
+                                                <i class="fas fa-{{ $check['icon'] }} {{ $ready ? 'text-green-600' : 'text-slate-300' }}"></i>
+                                                <p class="text-[10px] font-bold mt-2 {{ $ready ? 'text-green-800' : 'text-slate-500' }}">{{ $check['label'] }}</p>
+                                                <span class="text-[9px] {{ $ready ? 'text-green-600' : 'text-red-500' }}">{{ $ready ? 'Pronto' : 'Em falta' }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between pt-4 border-t border-slate-200">
+                                        <p class="text-[11px] text-slate-500">
+                                            URL efectiva:
+                                            <code class="text-slate-700">{{ $agtTestEnvironment === 'production' ? \App\Services\AGT\AGTClient::PRODUCTION_URL : \App\Services\AGT\AGTClient::SANDBOX_URL }}</code>
+                                        </p>
+                                        <div class="flex flex-col sm:flex-row gap-2">
+                                            <button type="button" wire:click="applyAgtEnvironmentToTenant"
+                                                    wire:loading.attr="disabled"
+                                                    class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-50">
+                                                <i class="fas fa-save mr-1.5"></i> Guardar ambiente na empresa
+                                            </button>
+                                            <button type="button" wire:click="testAgtConnection"
+                                                    wire:loading.attr="disabled"
+                                                    class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow disabled:opacity-50">
+                                                <span wire:loading.remove wire:target="testAgtConnection"><i class="fas fa-play mr-1.5"></i> Testar ligação</span>
+                                                <span wire:loading wire:target="testAgtConnection"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> A testar...</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    @if(!empty($agtTestResult))
+                                        <div class="rounded-xl border p-4 {{ ($agtTestResult['success'] ?? false) ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                                            <div class="flex items-start">
+                                                <i class="fas fa-{{ ($agtTestResult['success'] ?? false) ? 'check-circle text-green-600' : 'times-circle text-red-600' }} text-xl mr-3"></i>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-bold {{ ($agtTestResult['success'] ?? false) ? 'text-green-800' : 'text-red-800' }}">
+                                                        {{ ($agtTestResult['success'] ?? false) ? 'Ligação estabelecida' : 'Teste sem sucesso' }}
+                                                    </p>
+                                                    <p class="text-xs mt-1 {{ ($agtTestResult['success'] ?? false) ? 'text-green-700' : 'text-red-700' }}">
+                                                        {{ $agtTestResult['message'] ?? $agtTestResult['error'] ?? 'Sem detalhe adicional.' }}
+                                                    </p>
+                                                    <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[10px] text-slate-600">
+                                                        <span><strong>Ambiente:</strong> {{ ucfirst($agtTestResult['environment'] ?? $agtTestEnvironment) }}</span>
+                                                        <span><strong>HTTP:</strong> {{ $agtTestResult['http_status'] ?? 'N/A' }}</span>
+                                                        <span><strong>Tempo:</strong> {{ $agtTestResult['elapsed_ms'] ?? 0 }} ms</span>
+                                                        <span><strong>Teste:</strong> {{ $agtTestResult['tested_at'] ?? 'agora' }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    <div class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+                                        <div>
+                                            <h4 class="text-sm font-bold text-slate-800"><i class="fas fa-terminal mr-2 text-orange-500"></i>Operações oficiais AGT</h4>
+                                            <p class="text-[11px] text-slate-500 mt-1">Consultas seguras no ambiente e empresa seleccionados. RegistarFactura só é executado pelo fluxo fiscal de emissão.</p>
+                                        </div>
+
+                                        <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                                            @foreach([
+                                                ['RegistarFactura', '/registarFactura', 'Emissão'],
+                                                ['ObterEstado', '/obterEstado', 'Consulta'],
+                                                ['ConsultarFactura', '/consultarFactura', 'Consulta'],
+                                                ['ListarFacturas', '/listarFacturas', 'Consulta'],
+                                            ] as $endpoint)
+                                                <div class="rounded-xl border border-slate-200 p-3">
+                                                    <div class="flex justify-between gap-2"><strong class="text-xs text-slate-800">{{ $endpoint[0] }}</strong><span class="text-[9px] font-bold {{ $endpoint[2] === 'Emissão' ? 'text-red-600' : 'text-green-600' }}">{{ $endpoint[2] }}</span></div>
+                                                    <code class="block text-[9px] text-slate-500 mt-2 break-all">{{ $agtTestEnvironment === 'production' ? \App\Services\AGT\AGTClient::PRODUCTION_URL : \App\Services\AGT\AGTClient::SANDBOX_URL }}{{ $endpoint[1] }}</code>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        <div class="grid md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Operação</label>
+                                                <select wire:model.live="agtApiOperation" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm">
+                                                    <option value="listarFacturas">Listar facturas por período</option>
+                                                    <option value="consultarFactura">Consultar factura</option>
+                                                    <option value="obterEstado">Obter estado do pedido</option>
+                                                </select>
+                                            </div>
+                                            @if($agtApiOperation === 'consultarFactura')
+                                                <div><label class="block text-xs font-bold text-slate-700 mb-1">Número do documento</label><input wire:model="agtApiDocumentNo" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm" placeholder="FT 2026/1">@error('agtApiDocumentNo')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror</div>
+                                            @elseif($agtApiOperation === 'obterEstado')
+                                                <div><label class="block text-xs font-bold text-slate-700 mb-1">Request ID</label><input wire:model="agtApiRequestId" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm">@error('agtApiRequestId')<p class="text-xs text-red-600 mt-1">{{ $message }}</p>@enderror</div>
+                                            @else
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <div><label class="block text-xs font-bold text-slate-700 mb-1">De</label><input type="date" wire:model="agtApiDateFrom" class="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm"></div>
+                                                    <div><label class="block text-xs font-bold text-slate-700 mb-1">Até</label><input type="date" wire:model="agtApiDateTo" class="w-full px-3 py-3 rounded-xl border border-slate-200 text-sm"></div>
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <button type="button" wire:click="runAgtApiOperation" wire:loading.attr="disabled"
+                                                class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 disabled:opacity-50">
+                                            <span wire:loading.remove wire:target="runAgtApiOperation"><i class="fas fa-play mr-1.5"></i>Executar consulta</span>
+                                            <span wire:loading wire:target="runAgtApiOperation"><i class="fas fa-circle-notch fa-spin mr-1.5"></i>A comunicar...</span>
+                                        </button>
+
+                                        @if(!empty($agtApiOperationResult))
+                                            <div class="rounded-xl border p-4 {{ ($agtApiOperationResult['success'] ?? false) ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                                                <p class="text-xs font-bold {{ ($agtApiOperationResult['success'] ?? false) ? 'text-green-800' : 'text-red-800' }}">{{ ($agtApiOperationResult['success'] ?? false) ? 'Resposta válida da AGT' : 'Operação recusada ou com erro' }}</p>
+                                                <p class="text-xs mt-1 text-slate-700">{{ $agtApiOperationResult['error'] ?? $agtApiOperationResult['message'] ?? 'Pedido processado.' }}</p>
+                                                <div class="text-[10px] text-slate-500 mt-2">{{ $agtApiOperationResult['tested_at'] ?? '' }} · {{ $agtApiOperationResult['elapsed_ms'] ?? 0 }} ms · HTTP {{ $agtApiOperationResult['status'] ?? $agtApiOperationResult['http_status'] ?? 'N/A' }}</div>
+                                                @if(isset($agtApiOperationResult['data']) || isset($agtApiOperationResult['response']))
+                                                    <pre class="mt-3 p-3 rounded-lg bg-slate-900 text-green-300 text-[10px] overflow-auto max-h-72">{{ json_encode($agtApiOperationResult['data'] ?? $agtApiOperationResult['response'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
                             <h3 class="text-gray-800 font-bold text-sm flex items-center mb-4">
                                 <i class="fas fa-building mr-2 text-orange-500"></i>
                                 Estado de Configuração por Empresa
@@ -253,6 +601,7 @@
                                         <tr class="bg-gray-50">
                                             <th class="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Empresa</th>
                                             <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase">Ambiente</th>
+                                            <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase">Chave</th>
                                             <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase">API Config.</th>
                                             <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase">Séries</th>
                                             <th class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase">Auto-Submit</th>
@@ -285,6 +634,10 @@
                                                 @endif
                                             </td>
                                             <td class="px-4 py-3 text-center">
+                                                <i class="fas fa-{{ $tenant['contributor_key'] ? 'lock text-green-500' : 'unlock text-red-400' }}"
+                                                   title="{{ $tenant['contributor_key'] ? 'Chave do contribuinte configurada' : 'Chave do contribuinte em falta' }}"></i>
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
                                                 @if($tenant['api_configured'])
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
                                                         <i class="fas fa-check mr-1"></i> Sim
@@ -306,15 +659,21 @@
                                                 @endif
                                             </td>
                                             <td class="px-4 py-3 text-center">
-                                                <a href="{{ route('invoicing.agt-settings') }}?tenant={{ $tenant['id'] }}"
-                                                   class="text-xs text-orange-600 hover:text-orange-800 font-semibold">
-                                                    <i class="fas fa-external-link-alt mr-1"></i> Abrir
-                                                </a>
+                                                <div class="inline-flex items-center gap-2">
+                                                    <button type="button" wire:click="prepareAgtTenantTest({{ $tenant['id'] }})"
+                                                            class="text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                                                        <i class="fas fa-vial mr-1"></i> Testar
+                                                    </button>
+                                                    <a href="{{ route('invoicing.agt-settings') }}?tenant={{ $tenant['id'] }}"
+                                                       class="text-xs text-orange-600 hover:text-orange-800 font-semibold">
+                                                        <i class="fas fa-external-link-alt mr-1"></i> Abrir
+                                                    </a>
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="6" class="px-4 py-8 text-center text-gray-400 text-sm">
+                                            <td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">
                                                 <i class="fas fa-info-circle mr-2"></i>
                                                 Nenhum tenant com configurações AGT encontrado.
                                             </td>

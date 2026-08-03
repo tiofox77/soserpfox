@@ -198,7 +198,11 @@
         {{-- Corpo da Tabela --}}
         <div class="divide-y divide-gray-100">
             @forelse($reservations as $reservation)
-                <div class="group grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-blue-50/50 transition-all duration-300 items-center">
+                {{-- wire:key: sem ele o Livewire reaproveita o DOM da linha
+                     errada ao filtrar ou paginar, e um clique acaba a agir
+                     sobre a reserva que ocupava aquela posição antes. --}}
+                <div wire:key="reserva-{{ $reservation->id }}"
+                     class="group grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 hover:bg-blue-50/50 transition-all duration-300 items-center">
                     {{-- Reserva --}}
                     <div class="col-span-2">
                         <p class="font-bold text-blue-600">{{ $reservation->reservation_number }}</p>
@@ -240,10 +244,30 @@
 
                     {{-- Valor --}}
                     <div class="col-span-1">
-                        <p class="font-bold text-blue-600">{{ number_format($reservation->total, 0, ',', '.') }}</p>
+                        {{-- Com cêntimos e moeda, como no resto do ERP. --}}
+                        <p class="font-bold text-blue-600">{{ number_format($reservation->total, 2, ',', '.') }} Kz</p>
+
                         <p class="text-xs {{ $reservation->payment_status === 'paid' ? 'text-green-600' : 'text-orange-600' }}">
                             {{ $reservation->payment_status_label }}
                         </p>
+
+                        {{-- Saldo por receber: o accessor já existia e o folio já
+                             o mostrava, mas nesta lista — onde se decide a quem
+                             cobrar — não aparecia em lado nenhum. --}}
+                        @if($reservation->balance_due > 0)
+                            <p class="text-xs font-semibold text-red-600" title="Saldo por receber">
+                                <i class="fas fa-triangle-exclamation mr-1"></i>Falta {{ number_format($reservation->balance_due, 2, ',', '.') }} Kz
+                            </p>
+                        @endif
+
+                        {{-- Ligação directa ao documento fiscal da reserva. --}}
+                        @if($reservation->invoice_id && $reservation->invoice)
+                            <a href="{{ route('invoicing.sales.invoices.preview', $reservation->invoice_id) }}"
+                               class="text-xs text-indigo-600 hover:underline font-semibold"
+                               title="Abrir a fatura desta reserva">
+                                <i class="fas fa-file-invoice mr-1"></i>{{ $reservation->invoice->invoice_number }}
+                            </a>
+                        @endif
                     </div>
 
                     {{-- Status --}}
@@ -266,7 +290,8 @@
                     {{-- Ações --}}
                     <div class="col-span-1 flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button wire:click="view({{ $reservation->id }})" 
-                                wire:loading.attr="disabled"
+                                wire:loading.attr="disabled" 
+                                wire:target="view({{ $reservation->id }})"
                                 class="w-8 h-8 flex items-center justify-center bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" 
                                 title="Ver">
                             <i class="fas fa-eye text-xs"></i>
@@ -274,8 +299,12 @@
 
                         <a href="{{ route('hotel.reservations.folio', $reservation->id) }}"
                            class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg"
-                           title="Folio (Consumos)">
-                            <i class="fas fa-file-invoice-dollar text-xs"></i>
+                           title="Folio — consumos da estadia">
+                            {{-- fa-file-invoice-dollar lia-se como "fatura" e
+                                 confundia-se com o documento fiscal, que está
+                                 na coluna do valor. O folio é a conta de
+                                 consumos, não a fatura. --}}
+                            <i class="fas fa-list-ul text-xs"></i>
                         </a>
 
                         <a href="{{ route('hotel.reservations.voucher', $reservation->id) }}" target="_blank"
@@ -286,7 +315,8 @@
 
                         @if($reservation->status === 'pending')
                             <button wire:click="confirm({{ $reservation->id }})" 
-                                    wire:loading.attr="disabled"
+                                    wire:loading.attr="disabled" 
+                                    wire:target="confirm({{ $reservation->id }})"
                                     class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" 
                                     title="Confirmar">
                                 <i class="fas fa-check text-xs"></i>
@@ -295,7 +325,8 @@
 
                         @if(in_array($reservation->status, ['pending', 'confirmed']))
                             <button wire:click="openCheckInModal({{ $reservation->id }})" 
-                                    wire:loading.attr="disabled"
+                                    wire:loading.attr="disabled" 
+                                    wire:target="openCheckInModal({{ $reservation->id }})"
                                     class="w-8 h-8 flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" 
                                     title="Check-in">
                                 <i class="fas fa-sign-in-alt text-xs"></i>
@@ -304,7 +335,8 @@
 
                         @if($reservation->status === 'checked_in')
                             <button wire:click="checkOut({{ $reservation->id }})" 
-                                    wire:loading.attr="disabled"
+                                    wire:loading.attr="disabled" 
+                                    wire:target="checkOut({{ $reservation->id }})"
                                     class="w-8 h-8 flex items-center justify-center bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" 
                                     title="Check-out">
                                 <i class="fas fa-sign-out-alt text-xs"></i>
@@ -313,15 +345,30 @@
 
                         @if(in_array($reservation->status, ['pending', 'confirmed']))
                             <button wire:click="edit({{ $reservation->id }})" 
-                                    wire:loading.attr="disabled"
+                                    wire:loading.attr="disabled" 
+                                    wire:target="edit({{ $reservation->id }})"
                                     class="w-8 h-8 flex items-center justify-center bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" 
                                     title="Editar">
                                 <i class="fas fa-edit text-xs"></i>
                             </button>
-                            <button wire:click="cancel({{ $reservation->id }})" 
+                            {{-- Não compareceu: o estado existia (com cor e filtro
+                                 na lista) mas não havia forma de o atribuir. A
+                                 reserva ficava "confirmada" para sempre e o
+                                 quarto continuava bloqueado para novas datas. --}}
+                            <button wire:click="marcarNaoCompareceu({{ $reservation->id }})"
                                     wire:loading.attr="disabled"
-                                    wire:confirm="Tem certeza que deseja cancelar esta reserva?"
-                                    class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" 
+                                    wire:target="marcarNaoCompareceu({{ $reservation->id }})"
+                                    wire:confirm="Marcar como NÃO COMPARECEU? O quarto fica livre para novas reservas."
+                                    class="w-8 h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50"
+                                    title="Não compareceu (no-show)">
+                                <i class="fas fa-user-slash text-xs"></i>
+                            </button>
+
+                            <button wire:click="cancel({{ $reservation->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="cancel({{ $reservation->id }})"
+                                    wire:confirm="Cancelar esta reserva? Se já tiver fatura emitida, terá de emitir nota de crédito."
+                                    class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50"
                                     title="Cancelar">
                                 <i class="fas fa-times text-xs"></i>
                             </button>

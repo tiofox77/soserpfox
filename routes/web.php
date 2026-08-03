@@ -303,6 +303,16 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // Armazéns e Stock
     Route::get('/warehouses', \App\Livewire\Invoicing\Warehouses::class)->name('warehouses');
     Route::get('/stock', \App\Livewire\Invoicing\StockManagement::class)->name('stock');
+
+    // Documento do lote de movimentação (MOV/AAAA/NNNNNN).
+    // A referência leva barras, daí o `where` — sem ele o Laravel parte o
+    // parâmetro no primeiro '/' e a rota nunca corresponde.
+    Route::get('/stock/movimentacao/{reference}/pdf', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPdf'])
+        ->where('reference', '[A-Za-z0-9/_-]+')
+        ->name('stock.batch-pdf');
+    Route::get('/stock/movimentacao/{reference}/preview', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPreview'])
+        ->where('reference', '[A-Za-z0-9/_-]+')
+        ->name('stock.batch-preview');
     Route::get('/product-batches', \App\Livewire\Invoicing\ProductBatches\ProductBatches::class)->name('product-batches');
     Route::get('/warehouse-transfer', \App\Livewire\Invoicing\WarehouseTransfer::class)->name('warehouse-transfer');
     Route::get('/inter-company-transfer', \App\Livewire\Invoicing\InterCompanyTransfer::class)->name('inter-company-transfer');

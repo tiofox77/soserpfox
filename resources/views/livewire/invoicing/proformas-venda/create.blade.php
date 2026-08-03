@@ -44,14 +44,34 @@
                             <label class="block text-sm font-bold text-gray-700 mb-2">
                                 <i class="fas fa-user mr-1 text-purple-600"></i>Cliente *
                             </label>
-                            <div class="flex gap-2">
+                            <div class="flex gap-2" x-data="{ clientOpen: false }" x-init="$watch('clientOpen', v => { if(v) $nextTick(() => $refs.clientInput.focus()) })">
                                 <div class="relative flex-1">
-                                    <input type="text" 
+                                    <input type="search" 
+                                           x-ref="clientInput"
                                            wire:model.live.debounce.300ms="searchClient"
-                                           placeholder="🔍 Pesquisar cliente por nome, email ou telefone..."
-                                           x-data
-                                           @client-selected.window="$el.value = ''"
+                                           placeholder="Pesquisar Cliente por nome, email ou telefone..."
+                                           autocomplete="one-time-code"
+                                           name="client_search_nofill"
+                                           x-on:focus="clientOpen = true"
+                                           x-on:input="clientOpen = true"
+                                           @keydown.escape="clientOpen = false"
                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
+                                    @if($clients->count() > 0)
+                                    <div x-show="clientOpen"
+                                         x-cloak
+                                         @mousedown.outside="clientOpen = false"
+                                         class="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto border-2 border-gray-200 rounded-xl bg-white shadow-lg">
+                                        @foreach($clients as $client)
+                                        <div @mousedown.prevent="$wire.selectClient({{ $client->id }}); clientOpen = false"
+                                             class="p-3 hover:bg-purple-50 cursor-pointer transition border-b border-gray-100 last:border-b-0">
+                                            <div class="font-bold text-sm text-gray-900">{{ $client->name }}</div>
+                                            <div class="text-xs text-gray-500">
+                                                {{ $client->email }} @if($client->phone) &bull; {{ $client->phone }} @endif
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                    @endif
                                 </div>
                                 <button type="button" 
                                         wire:click="$set('showQuickClientModal', true)"
@@ -61,19 +81,6 @@
                                     <i class="fas fa-plus mr-2"></i>Novo Cliente
                                 </button>
                             </div>
-                            @if($searchClient && $clients->count() > 0)
-                            <div class="mt-2 max-h-60 overflow-y-auto border-2 border-gray-200 rounded-xl bg-white shadow-lg">
-                                @foreach($clients as $client)
-                                <div wire:click="selectClient({{ $client->id }})"
-                                     class="p-3 hover:bg-purple-50 cursor-pointer transition border-b border-gray-100 last:border-b-0">
-                                    <div class="font-bold text-sm text-gray-900">{{ $client->name }}</div>
-                                    <div class="text-xs text-gray-500">
-                                        {{ $client->email }} @if($client->phone) • {{ $client->phone }} @endif
-                                    </div>
-                                </div>
-                                @endforeach
-                            </div>
-                            @endif
                             @if($client_id && !$searchClient)
                                 @php
                                     $selectedClient = $clients->where('id', $client_id)->first();
@@ -110,10 +117,12 @@
                             @error('client_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
                         </div>
 
-                        {{-- Warehouse --}}
+                        {{-- Warehouse (oculto se apenas serviços) --}}
+                        @if($this->hasPhysicalProducts() || empty($cartItems) || $cartItems->isEmpty())
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-warehouse mr-1 text-purple-600"></i>Armazém *
+                                <i class="fas fa-warehouse mr-1 text-purple-600"></i>Armazém
+                                @if($this->hasPhysicalProducts()) <span class="text-red-500">*</span> @endif
                             </label>
                             <select wire:model="warehouse_id" 
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
@@ -123,7 +132,20 @@
                                 @endforeach
                             </select>
                             @error('warehouse_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                            @if(!$this->hasPhysicalProducts() && $cartItems && !$cartItems->isEmpty())
+                                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>Opcional — documento contém apenas serviços</p>
+                            @endif
                         </div>
+                        @else
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-concierge-bell mr-1 text-green-600"></i>Tipo de documento
+                            </label>
+                            <div class="w-full px-4 py-3 border-2 border-green-200 rounded-xl bg-green-50 text-green-700 text-sm font-medium">
+                                <i class="fas fa-check-circle mr-1"></i> Prestação de serviços — armazém não necessário
+                            </div>
+                        </div>
+                        @endif
 
                         {{-- Dates --}}
                         <div class="grid grid-cols-2 gap-4">
@@ -341,9 +363,9 @@
             </div>
 
             {{-- Right Column: Totals & Actions --}}
-            <div class="space-y-6">
+            <div class="space-y-6 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
                 {{-- Totals --}}
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden sticky top-6">
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-calculator mr-2"></i>
@@ -383,10 +405,12 @@
                                 <span class="text-base font-bold text-gray-900">{{ number_format($discount_financial, 2) }}</span>
                             </div>
                             
-                            {{-- Total De Imposto (IVA sobre Incidência) --}}
-                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Total De Imposto</span>
-                                <span class="text-base font-bold text-gray-900">{{ number_format($tax_amount, 2) }}</span>
+                            {{-- IVA (14%) --}}
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-blue-50 px-2 rounded">
+                                <span class="text-sm font-semibold text-blue-700">
+                                    <i class="fas fa-percentage mr-1"></i>IVA (14%)
+                                </span>
+                                <span class="text-base font-bold text-blue-700">{{ number_format($tax_amount, 2) }}</span>
                             </div>
                             
                             {{-- Retenção IRT (6,5% sobre Incidência IVA) --}}

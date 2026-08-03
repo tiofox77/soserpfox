@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Resumo do Turno {{ $shift->shift_number }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #000; margin: 0; padding: 15mm; }
+        h1, h2, h3 { margin: 0 0 6px 0; }
+        h1 { font-size: 18px; }
+        h2 { font-size: 13px; color: #16a34a; border-bottom: 1px solid #16a34a; padding-bottom: 3px; margin-top: 10px; }
+        .header { display: table; width: 100%; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 8px; }
+        .header .left, .header .right { display: table-cell; vertical-align: top; }
+        .header .right { text-align: right; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { padding: 5px 6px; border: 1px solid #d4d4d8; }
+        th { background: #16a34a; color: #fff; text-align: left; font-size: 11px; }
+        .row { display: table; width: 100%; }
+        .col { display: table-cell; width: 50%; vertical-align: top; padding-right: 6px; }
+        .kpi { background: #f0fdf4; border: 1px solid #16a34a; padding: 8px; margin-bottom: 5px; border-radius: 4px; }
+        .kpi .label { font-size: 10px; color: #15803d; text-transform: uppercase; }
+        .kpi .value { font-size: 16px; font-weight: bold; color: #14532d; }
+        .totals-row td { background: #f0fdf4; font-weight: bold; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .small { font-size: 9px; color: #555; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 9px; }
+        .badge-open { background: #dcfce7; color: #15803d; }
+        .badge-closed { background: #e5e7eb; color: #374151; }
+        .diff-pos { color: #15803d; }
+        .diff-neg { color: #b91c1c; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="left">
+            <h1>{{ $tenant->company_name ?? $tenant->name }}</h1>
+            <div class="small">
+                NIF: {{ $tenant->nif ?? '—' }}<br>
+                {{ $tenant->address ?? '—' }}<br>
+                Tel: {{ $tenant->phone ?? '—' }}
+            </div>
+        </div>
+        <div class="right">
+            <h2 style="border:0;color:#000;">RESUMO DE TURNO POS</h2>
+            <div><strong>{{ $shift->shift_number }}</strong></div>
+            <span class="badge {{ $shift->status === 'open' ? 'badge-open' : 'badge-closed' }}">
+                {{ $shift->status_label }}
+            </span>
+        </div>
+    </div>
+
+    <h2>Informações do Turno</h2>
+    <div class="row">
+        <div class="col">
+            <table>
+                <tr><th>Operador</th><td>{{ optional($shift->user)->name ?? '—' }}</td></tr>
+                <tr><th>Aberto em</th><td>{{ optional($shift->opened_at)->format('d/m/Y H:i') }}</td></tr>
+                <tr><th>Fechado em</th><td>{{ optional($shift->closed_at)->format('d/m/Y H:i') ?? '—' }}</td></tr>
+                <tr><th>Fechado por</th><td>{{ optional($shift->closedBy)->name ?? '—' }}</td></tr>
+                <tr><th>Duração</th><td>{{ $shift->duration ? number_format($shift->duration, 2) . 'h' : '—' }}</td></tr>
+            </table>
+        </div>
+        <div class="col">
+            <div class="kpi"><div class="label">Total Vendas</div><div class="value">{{ number_format($shift->total_sales, 2) }} Kz</div></div>
+            <div class="kpi"><div class="label">Nº Faturas</div><div class="value">{{ $shift->total_invoices }}</div></div>
+            <div class="kpi"><div class="label">Nº Recibos</div><div class="value">{{ $shift->total_receipts }}</div></div>
+        </div>
+    </div>
+
+    <h2>Vendas por Método de Pagamento</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Método</th>
+                <th class="text-right">Valor (Kz)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Dinheiro</td><td class="text-right">{{ number_format($shift->cash_sales, 2) }}</td></tr>
+            <tr><td>Cartão (TPA/Multicaixa)</td><td class="text-right">{{ number_format($shift->card_sales, 2) }}</td></tr>
+            <tr><td>Transferência Bancária</td><td class="text-right">{{ number_format($shift->bank_transfer_sales, 2) }}</td></tr>
+            <tr><td>Outros</td><td class="text-right">{{ number_format($shift->other_sales, 2) }}</td></tr>
+            <tr class="totals-row">
+                <td>TOTAL</td>
+                <td class="text-right">{{ number_format($shift->total_sales, 2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    @if($shift->isClosed())
+    <h2>Conferência de Caixa</h2>
+    <table>
+        <tr><th>Saldo Inicial (abertura)</th><td class="text-right">{{ number_format($shift->opening_balance, 2) }} Kz</td></tr>
+        <tr><th>+ Vendas em Dinheiro</th><td class="text-right">{{ number_format($shift->cash_sales, 2) }} Kz</td></tr>
+        <tr><th>= Dinheiro Esperado</th><td class="text-right">{{ number_format($shift->expected_cash, 2) }} Kz</td></tr>
+        <tr><th>Dinheiro Contado (real)</th><td class="text-right">{{ number_format($shift->actual_cash, 2) }} Kz</td></tr>
+        <tr class="totals-row">
+            <th>Diferença</th>
+            <td class="text-right {{ $shift->cash_difference < 0 ? 'diff-neg' : 'diff-pos' }}">
+                {{ ($shift->cash_difference >= 0 ? '+' : '') . number_format($shift->cash_difference, 2) }} Kz
+            </td>
+        </tr>
+    </table>
+
+    @if($shift->difference_reason)
+    <p class="small" style="margin-top:8px;"><strong>Justificação da diferença:</strong> {{ $shift->difference_reason }}</p>
+    @endif
+    @endif
+
+    @if($shift->opening_notes || $shift->closing_notes)
+    <h2>Observações</h2>
+    @if($shift->opening_notes)
+    <p class="small"><strong>Abertura:</strong> {{ $shift->opening_notes }}</p>
+    @endif
+    @if($shift->closing_notes)
+    <p class="small"><strong>Fecho:</strong> {{ $shift->closing_notes }}</p>
+    @endif
+    @endif
+
+    @if($shift->transactions->isNotEmpty())
+    <h2>Transações ({{ $shift->transactions->count() }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Hora</th>
+                <th>Tipo</th>
+                <th>Referência</th>
+                <th>Método</th>
+                <th class="text-right">Valor (Kz)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($shift->transactions as $idx => $tx)
+            <tr>
+                <td>{{ $idx + 1 }}</td>
+                <td>{{ optional($tx->created_at)->format('H:i') }}</td>
+                <td>{{ strtoupper($tx->type) }}</td>
+                <td>{{ $tx->reference_number ?? '—' }}</td>
+                <td>{{ posPaymentMethodLabel($tx->payment_method) }}</td>
+                <td class="text-right">{{ number_format($tx->amount, 2) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @endif
+
+    @php
+        $agtCert = \App\Helpers\AGTHelper::softwareValidationNumber();
+    @endphp
+
+    <div class="small text-center" style="margin-top:15px;border-top:1px dashed #999;padding-top:6px;line-height:1.4;">
+        <strong>Processado por programa validado</strong><br>
+        Certificado AGT N.º {{ $agtCert }} — Software: <strong>SOS ERP — SOLUÇÕES EMPRESARIAIS</strong><br>
+        Documento gerado em {{ now()->format('d/m/Y H:i') }} por {{ auth()->user()->name }}
+    </div>
+</body>
+</html>

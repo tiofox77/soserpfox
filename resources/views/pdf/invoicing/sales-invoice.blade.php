@@ -551,16 +551,13 @@
     
     
     <div class="page-wrapper">
+        @include('pdf.invoicing.partials.agt-signature-sidebar', ['document' => $invoice, 'documentLabel' => 'Documento Electrónico SOS ERP'])
         <div class="main-content">
             <div class="header-section">
                 <div class="company-info">
                     <div class="logo-section">
                         <div class="logo">
-                            @if($tenant->logo)
-                <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo da Empresa" class="logo-image" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'logo-fallback\'>LOGO</div>';" />
-            @else
-                <div class="logo-fallback">LOGO</div>
-            @endif
+                            @include('pdf.invoicing.partials.logo')
                         </div>
                         <div>
                             <div class="company-name">{{ $tenant->name }}</div>
@@ -591,7 +588,7 @@
                                 <img src="{{ $qrCode['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
                                 @if($qrCode['atcud'])
                                     <div style="font-size: 6px; text-align: center; margin-top: 2px;">
-                                        ATCUD: {{ $qrCode['atcud'] }}
+                                        @if(!empty($qrCode['atcud']))ATCUD: {{ $qrCode['atcud'] }}@endif
                                     </div>
                                 @endif
                             @else
@@ -604,8 +601,14 @@
                 </div>
             </div>
 
+            @php
+                // Tipo de documento AGT: FR = Fatura-Recibo (paga no acto), FT = Fatura
+                $isFR = ($invoice->invoice_type ?? 'FT') === 'FR';
+                $docTitle = $isFR ? 'Fatura-Recibo' : 'Fatura de Venda';
+            @endphp
+
             <div class="doc-header">
-                <div class="doc-title" style="text-align: left;">Fatura de Venda n.º {{ $invoice->invoice_number }}</div>
+                <div class="doc-title" style="text-align: left;">{{ $docTitle }} n.º {{ $invoice->invoice_number }}</div>
             </div>
 
             <table class="doc-info-table">
@@ -725,20 +728,13 @@
                                     <th>Total Imposto</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td>IVA</td>
-                                    <td>14%</td>
-                                    <td class="currency">{{ number_format($invoice->subtotal, 2, ',', '.') }}</td>
-                                    <td class="currency">{{ number_format($invoice->tax_amount, 2, ',', '.') }}</td>
-                                </tr>
-                            </tbody>
+                            @include("pdf.invoicing.partials.tax-summary", ["doc" => $invoice])
                         </table>
                     </div>
 
                     <div class="regime-section">
                         <div class="regime-title">Regime Fiscal</div>
-                        <div>{{ $tenant->regime ?? 'Regime Geral' }}</div>
+                        <div>{{ method_exists($tenant, 'regimeLabel') ? $tenant->regimeLabel() : ($tenant->regime ?? 'Regime Geral') }}</div>
                     </div>
 
                     
@@ -768,7 +764,9 @@
                     
 
                     <div class="system-info">
-                        Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                        Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, 'regimeLabel') ? $tenant->regimeLabel() : ($tenant->regime ?? 'Regime Geral') }}
+                        <br>
+                        <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
                         @if($invoice->saft_hash)
                             <br>
                             <strong>HASH e SAFT-AO:</strong> "{{ substr($invoice->saft_hash, -4) }}"
@@ -807,9 +805,21 @@
                             <span>{{ number_format($invoice->irt_amount ?? 0, 2, ',', '.') }}</span>
                         </div>
                         <div class="summary-row summary-total">
-                            <span>Total a Pagar</span>
+                            <span>{{ $isFR ? 'Total Pago' : 'Total a Pagar' }}</span>
                             <span>{{ number_format($invoice->total - ($invoice->irt_amount ?? 0), 2, ',', '.') }}</span>
                         </div>
+
+                        @if($isFR)
+                        {{-- Fatura-Recibo: o documento serve de recibo de quitação --}}
+                        <div class="summary-row" style="border-top:1px dashed #999; margin-top:4px; padding-top:4px;">
+                            <span>Forma de pagamento</span>
+                            <span>{{ $invoice->paymentMethodLabel ?? strtoupper($invoice->payment_method ?? 'Dinheiro') }}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Recebido</span>
+                            <span>{{ number_format($invoice->paid_amount ?? $invoice->total, 2, ',', '.') }}</span>
+                        </div>
+                        @endif
                         
                         <div class="total-extenso">
                             {{ numberToWords($invoice->total - ($invoice->irt_amount ?? 0), 'AOA') }}
@@ -817,21 +827,6 @@
                     </div>
                 </div>
             </div>
-
-            {{-- Mensagem AGT com Hash --}}
-            @php
-                $agtMessage = \App\Helpers\AGTHelper::getFooterMessage($invoice);
-            @endphp
-            
-            @if($agtMessage)
-            <div class="agt-description">
-                {{ $agtMessage }}
-            </div>
-            @else
-            <div class="agt-description">
-                Documento processado pelo Sistema de Facturação | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
-            </div>
-            @endif
 
             <div class="page-footer">
                 Documento processado em sistema certificado | Todos os direitos reservados

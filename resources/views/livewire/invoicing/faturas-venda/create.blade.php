@@ -44,14 +44,34 @@
                             <label class="block text-sm font-bold text-gray-700 mb-2">
                                 <i class="fas fa-user mr-1 text-purple-600"></i>Cliente *
                             </label>
-                            <div class="flex gap-2">
+                            <div class="flex gap-2" x-data="{ clientOpen: false }" x-init="$watch('clientOpen', v => { if(v) $nextTick(() => $refs.clientInput.focus()) })">
                                 <div class="relative flex-1">
-                                    <input type="text" 
+                                    <input type="search" 
+                                           x-ref="clientInput"
                                            wire:model.live.debounce.300ms="searchClient"
-                                           placeholder="🔍 Pesquisar Cliente por nome, email ou telefone..."
-                                           x-data
-                                           @supplier-selected.window="$el.value = ''"
+                                           placeholder="Pesquisar Cliente por nome, email ou telefone..."
+                                           autocomplete="one-time-code"
+                                           name="client_search_nofill"
+                                           x-on:focus="clientOpen = true"
+                                           x-on:input="clientOpen = true"
+                                           @keydown.escape="clientOpen = false"
                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
+                                    @if($clients->count() > 0)
+                                    <div x-show="clientOpen"
+                                         x-cloak
+                                         @mousedown.outside="clientOpen = false"
+                                         class="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto border-2 border-gray-200 rounded-xl bg-white shadow-lg">
+                                        @foreach($clients as $client)
+                                        <div @mousedown.prevent="$wire.selectClient({{ $client->id }}); clientOpen = false"
+                                             class="p-3 hover:bg-purple-50 cursor-pointer transition border-b border-gray-100 last:border-b-0">
+                                            <div class="font-bold text-sm text-gray-900">{{ $client->name }}</div>
+                                            <div class="text-xs text-gray-500">
+                                                {{ $client->email }} @if($client->phone) &bull; {{ $client->phone }} @endif
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                    @endif
                                 </div>
                                 <button type="button" 
                                         wire:click="$set('showQuickClientModal', true)"
@@ -61,19 +81,24 @@
                                     <i class="fas fa-plus mr-2"></i>Novo Cliente
                                 </button>
                             </div>
-                            @if($searchClient && $clients->count() > 0)
-                            <div class="mt-2 max-h-60 overflow-y-auto border-2 border-gray-200 rounded-xl bg-white shadow-lg">
-                                @foreach($clients as $client)
-                                <div wire:click="selectClient({{ $client->id }})"
-                                     class="p-3 hover:bg-purple-50 cursor-pointer transition border-b border-gray-100 last:border-b-0">
-                                    <div class="font-bold text-sm text-gray-900">{{ $client->name }}</div>
-                                    <div class="text-xs text-gray-500">
-                                        {{ $client->email }} @if($client->phone) • {{ $client->phone }} @endif
-                                    </div>
-                                </div>
-                                @endforeach
+                            {{-- Região fiscal do documento: o regime de Cabinda depende do
+                                 LOCAL DA OPERAÇÃO, não só da sede do cliente — a mesma
+                                 entidade pode comprar em Luanda e em Cabinda. --}}
+                            <div class="mt-2 flex items-center gap-2">
+                                <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">
+                                    <i class="fas fa-map-marker-alt mr-1 text-amber-600"></i>Região fiscal
+                                </label>
+                                <select wire:model.live="tax_country_region"
+                                        class="text-xs px-2 py-1.5 border-2 border-gray-200 rounded-lg focus:border-amber-500">
+                                    <option value="">Automática (província do cliente)</option>
+                                    <option value="AO">AO — Angola continental</option>
+                                    <option value="AO-CAB">AO-CAB — Cabinda (regime próprio)</option>
+                                </select>
+                                <span class="text-[11px] font-bold px-2 py-1 rounded-full {{ $regiaoFiscal === 'AO-CAB' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600' }}">
+                                    a aplicar: {{ $regiaoFiscal }}
+                                </span>
                             </div>
-                            @endif
+
                             @if($client_id && !$searchClient)
                                 @php
                                     $selectedClient = $clients->where('id', $client_id)->first();
@@ -110,10 +135,12 @@
                             @error('client_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
                         </div>
 
-                        {{-- Warehouse --}}
+                        {{-- Warehouse (oculto se apenas serviços) --}}
+                        @if($this->hasPhysicalProducts() || empty($cartItems) || $cartItems->isEmpty())
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-warehouse mr-1 text-purple-600"></i>Armazém *
+                                <i class="fas fa-warehouse mr-1 text-purple-600"></i>Armazém
+                                @if($this->hasPhysicalProducts()) <span class="text-red-500">*</span> @endif
                             </label>
                             <select wire:model="warehouse_id" 
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
@@ -123,7 +150,99 @@
                                 @endforeach
                             </select>
                             @error('warehouse_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                            @if(!$this->hasPhysicalProducts() && $cartItems && !$cartItems->isEmpty())
+                                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>Opcional — documento contém apenas serviços</p>
+                            @endif
                         </div>
+                        @else
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-concierge-bell mr-1 text-green-600"></i>Tipo de documento
+                            </label>
+                            <div class="w-full px-4 py-3 border-2 border-green-200 rounded-xl bg-green-50 text-green-700 text-sm font-medium">
+                                <i class="fas fa-check-circle mr-1"></i> Prestação de serviços — armazém não necessário
+                            </div>
+                        </div>
+                        @endif
+
+                        {{-- Tipo de documento (AGT): Fatura vs Fatura-Recibo --}}
+                        @if(!$isEdit)
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-file-invoice mr-1 text-purple-600"></i>Tipo de Documento *
+                            </label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="cursor-pointer rounded-xl border-2 p-3 transition
+                                    {{ $invoice_type === 'FT' ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-100' : 'border-gray-200 hover:border-gray-300' }}">
+                                    <div class="flex items-start gap-2">
+                                        <input type="radio" wire:model.live="invoice_type" value="FT" class="mt-1 text-purple-600 focus:ring-purple-500">
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-900">Fatura <span class="text-xs font-mono text-gray-500">(FT)</span></p>
+                                            <p class="text-[11px] text-gray-600 mt-0.5">A pagar depois. Recibo é emitido no pagamento.</p>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer rounded-xl border-2 p-3 transition
+                                    {{ $invoice_type === 'FR' ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100' : 'border-gray-200 hover:border-gray-300' }}">
+                                    <div class="flex items-start gap-2">
+                                        <input type="radio" wire:model.live="invoice_type" value="FR" class="mt-1 text-emerald-600 focus:ring-emerald-500">
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-900">Fatura-Recibo <span class="text-xs font-mono text-gray-500">(FR)</span></p>
+                                            <p class="text-[11px] text-gray-600 mt-0.5">Paga no acto. Usa a <strong>mesma sequência do POS</strong>.</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            @error('invoice_type') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-hashtag mr-1 text-blue-600"></i>Série fiscal
+                            </label>
+                            <select wire:model="series_id"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
+                                <option value="">Série AGT padrão</option>
+                                @foreach($issuanceSeries as $series)
+                                    <option value="{{ $series->id }}">
+                                        {{ $series->prefix }} {{ $series->series_code }}
+                                        @if($series->agt_series_id) — {{ $series->agt_series_id }} ✓ AGT @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($issuanceSeries->isEmpty())
+                                <p class="text-xs text-red-600 mt-2">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    Não existe série {{ $invoice_type }} sincronizada com a AGT. A emissão será bloqueada.
+                                </p>
+                            @else
+                                <p class="text-xs text-green-700 mt-2">
+                                    Apenas séries activas desta empresa e sincronizadas com a AGT são apresentadas.
+                                </p>
+                            @endif
+                        </div>
+
+                        {{-- Forma de pagamento (obrigatória na Fatura-Recibo) --}}
+                        @if($invoice_type === 'FR')
+                        <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-money-bill-wave mr-1 text-emerald-600"></i>Forma de Pagamento *
+                            </label>
+                            <select wire:model="payment_method"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                                <option value="">Selecione…</option>
+                                @foreach($this->paymentMethods as $pm)
+                                    <option value="{{ $pm->code }}">{{ $pm->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('payment_method') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                            <p class="text-[11px] text-emerald-800 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                O documento fica <strong>liquidado</strong> e o valor entra automaticamente na tesouraria.
+                            </p>
+                        </div>
+                        @endif
+                        @endif
 
                         {{-- Dates --}}
                         <div class="grid grid-cols-2 gap-4">
@@ -252,6 +371,49 @@
                                                 IVA {{ $taxRate }}%
                                             </span>
                                         @endif
+
+                                        @if($regiaoFiscal === 'AO-CAB')
+                                            <span class="block mt-1 px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded">
+                                                AO-CAB · Cabinda
+                                            </span>
+                                        @endif
+
+                                        {{-- IEC e IS: a AGT admite vários impostos na mesma linha.
+                                             Guardados em invoicing_line_taxes; o IVA fica nas
+                                             colunas da linha. --}}
+                                        @php
+                                            $iecSel = $lineIec[$item->id] ?? '';
+                                            $isSel  = $lineIs[$item->id] ?? '';
+                                            $baseLinha = $item->getPriceSum();
+                                        @endphp
+
+                                        <select wire:change="setLineIec('{{ $item->id }}', $event.target.value)"
+                                                class="mt-1.5 w-full text-[10px] px-1 py-0.5 border rounded {{ $iecSel ? 'border-orange-400 bg-orange-50' : 'border-gray-200' }}">
+                                            <option value="">+ IEC</option>
+                                            @foreach($iecCodes as $iec)
+                                                <option value="{{ $iec->pautal_code }}" @selected($iecSel == $iec->pautal_code)>
+                                                    {{ $iec->pautal_code }} · {{ Str::limit($iec->description, 22) }} ({{ rtrim(rtrim(number_format($iec->rate_percentage, 2, ',', ''), '0'), ',') }}%)
+                                                </option>
+                                            @endforeach
+                                        </select>
+
+                                        <select wire:change="setLineIs('{{ $item->id }}', $event.target.value)"
+                                                class="mt-1 w-full text-[10px] px-1 py-0.5 border rounded {{ $isSel ? 'border-purple-400 bg-purple-50' : 'border-gray-200' }}">
+                                            <option value="">+ Selo</option>
+                                            @foreach($isVerbas as $v)
+                                                <option value="{{ $v->verba_no }}" @selected($isSel == $v->verba_no)>
+                                                    V{{ $v->verba_no }} · {{ Str::limit($v->description, 20) }} ({{ $v->rate }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+
+                                        @foreach($this->lineTaxesPreview($item->id) as $extra)
+                                            <span class="block mt-1 text-[10px] font-semibold {{ $extra['tax_type'] === 'IEC' ? 'text-orange-700' : 'text-purple-700' }}">
+                                                {{ $extra['tax_type'] }}
+                                                @if($extra['tax_percentage'] > 0){{ rtrim(rtrim(number_format($extra['tax_percentage'], 2, ',', ''), '0'), ',') }}%@endif
+                                                = {{ number_format($extra['tax_amount'], 2, ',', '.') }} Kz
+                                            </span>
+                                        @endforeach
                                     </td>
                                     <td class="px-4 py-3 text-right">
                                         @php
@@ -361,9 +523,9 @@
             </div>
 
             {{-- Right Column: Totals & Actions --}}
-            <div class="space-y-6">
+            <div class="space-y-6 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
                 {{-- Totals --}}
-                <div class="bg-white rounded-2xl shadow-xl overflow-hidden sticky top-6">
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-calculator mr-2"></i>
@@ -403,16 +565,54 @@
                                 <span class="text-base font-bold text-gray-900">{{ number_format($discount_financial, 2) }}</span>
                             </div>
                             
-                            {{-- Total De Imposto (IVA sobre Incidência) --}}
-                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Total De Imposto</span>
-                                <span class="text-base font-bold text-gray-900">{{ number_format($tax_amount, 2) }}</span>
+                            {{-- IVA (14%) --}}
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-blue-50 px-2 rounded">
+                                <span class="text-sm font-semibold text-blue-700">
+                                    <i class="fas fa-percentage mr-1"></i>IVA (14%)
+                                </span>
+                                <span class="text-base font-bold text-blue-700">{{ number_format($tax_amount, 2) }}</span>
                             </div>
                             
-                            {{-- Retenção IRT (6,5% sobre Incidência IVA) --}}
-                            <div class="flex justify-between items-center py-2 border-b-2 border-gray-300">
-                                <span class="text-sm font-semibold text-gray-700">Retenção (6,5%)</span>
-                                <span class="text-base font-bold text-gray-900">{{ number_format($irt_amount, 2) }}</span>
+                            {{-- IEC + IS das linhas: acrescem ao IVA no imposto total --}}
+                            @if(($extraTaxTotal ?? 0) > 0)
+                            <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-orange-50 px-2 rounded">
+                                <span class="text-sm font-semibold text-orange-700">
+                                    <i class="fas fa-coins mr-1"></i>IEC + Imposto de Selo
+                                </span>
+                                <span class="text-base font-bold text-orange-700">{{ number_format($extraTaxTotal, 2) }}</span>
+                            </div>
+                            @endif
+
+                            {{-- Retenção na fonte / cativação: adquirentes obrigados a cativar.
+                                 Vai em withholdingTaxList no payload AGT. --}}
+                            <div class="py-2 border-b border-gray-100">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-sm font-semibold text-gray-700">
+                                        <i class="fas fa-hand-holding-usd mr-1 text-rose-600"></i>Retenção na fonte
+                                    </span>
+                                    <span class="text-base font-bold text-rose-700">{{ number_format($withholding_amount ?: $irt_amount, 2) }}</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-1.5">
+                                    {{-- Lista FECHADA da AGT: qualquer outro valor faz o
+                                         payload ser recusado na validação. --}}
+                                    <select wire:model.live="withholding_type"
+                                            class="text-[11px] px-1.5 py-1 border border-gray-200 rounded">
+                                        <option value="">Sem retenção</option>
+                                        @foreach(\App\Livewire\Invoicing\Sales\InvoiceCreate::DESCRICOES_RETENCAO as $codigo => $descricao)
+                                            <option value="{{ $codigo }}">{{ $codigo }} — {{ $descricao }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input type="number" step="0.01" min="0" max="100"
+                                           wire:model.live.debounce.500ms="withholding_percentage"
+                                           placeholder="%"
+                                           @disabled(blank($withholding_type))
+                                           class="text-[11px] px-1.5 py-1 border border-gray-200 rounded disabled:bg-gray-100">
+                                </div>
+                                @if(blank($withholding_type) && $is_service)
+                                    <p class="mt-1 text-[10px] text-gray-500">
+                                        A usar o IRT automático de 6,5% (prestação de serviço).
+                                    </p>
+                                @endif
                             </div>
                             
                             {{-- Total (AOA) - Incidência + IVA - Retenção --}}
@@ -479,7 +679,7 @@
                 </button>
             </div>
 
-            <form wire:submit.prevent="createquickClient">
+            <form wire:submit.prevent="createQuickClient">
                 <div class="p-6 space-y-4">
                     {{-- Name --}}
                     <div>

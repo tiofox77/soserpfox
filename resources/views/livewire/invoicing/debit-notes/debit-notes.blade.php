@@ -1,133 +1,137 @@
 <div class="p-6">
-    {{-- Header Vermelho --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-circle-plus mr-3 text-red-600"></i>
-                    Notas de Débito
-                </h2>
-                <p class="text-gray-600 mt-1">Juros, multas e cobranças adicionais</p>
+    {{-- Header --}}
+    <div class="mb-6 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-file-circle-plus text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg sm:text-2xl font-bold">Notas de Débito</h2>
+                    <p class="text-green-100 text-xs sm:text-sm">Juros, multas e cobranças adicionais</p>
+                </div>
             </div>
             <a href="{{ route('invoicing.debit-notes.create') }}" 
-               class="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
+               class="bg-white text-green-600 hover:bg-green-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base">
                 <i class="fas fa-plus mr-2"></i>Nova Nota de Débito
             </a>
         </div>
     </div>
 
-    {{-- Stats Cards Vermelhos --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-red-200 text-xs font-medium">Total</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['total'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-file-circle-plus text-xl"></i>
-                </div>
+    {{-- Stats Cards --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-green-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-file-circle-plus text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-green-600 font-semibold mb-1">Total</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['total'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-200 text-xs font-medium">Rascunho</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['draft'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-edit text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg shadow-gray-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-edit text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-gray-600 font-semibold mb-1">Rascunho</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['draft'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-rose-200 text-xs font-medium">Emitidas</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['issued'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-check-circle text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-emerald-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-check-circle text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-emerald-600 font-semibold mb-1">Emitidas</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['issued'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-orange-200 text-xs font-medium">Valor Total</p>
-                    <p class="text-2xl font-bold mt-1">{{ number_format($stats['total_amount'], 2) }}</p>
-                    <p class="text-orange-200 text-xs">AOA</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-coins text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-orange-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-coins text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-orange-600 font-semibold mb-1">Valor Total</p>
+            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($stats['total_amount'], 2) }} <span class="text-xs text-gray-500">AOA</span></p>
         </div>
     </div>
 
     {{-- Filtros --}}
-    <div class="bg-white rounded-xl shadow p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." class="rounded-lg border-gray-300">
-            <select wire:model.live="filterStatus" class="rounded-lg border-gray-300">
-                <option value="">Todos os Status</option>
-                <option value="draft">Rascunho</option>
-                <option value="issued">Emitida</option>
-                <option value="paid">Paga</option>
-                <option value="cancelled">Cancelada</option>
-            </select>
-            <select wire:model.live="filterReason" class="rounded-lg border-gray-300">
-                <option value="">Todos os Motivos</option>
-                <option value="interest">Juros</option>
-                <option value="penalty">Multa</option>
-                <option value="additional_charge">Cobrança Adicional</option>
-                <option value="correction">Correção</option>
-                <option value="other">Outro</option>
-            </select>
-            <input type="date" wire:model.live="filterDateFrom" class="rounded-lg border-gray-300">
-            <input type="date" wire:model.live="filterDateTo" class="rounded-lg border-gray-300">
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-4 sm:p-6">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
+            <i class="fas fa-filter mr-2 text-green-600"></i>Filtros
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>Pesquisar</label>
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-info-circle mr-1"></i>Status</label>
+                <select wire:model.live="filterStatus" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-sm bg-white">
+                    <option value="">Todos</option>
+                    <option value="draft">Rascunho</option>
+                    <option value="issued">Emitida</option>
+                    <option value="paid">Paga</option>
+                    <option value="cancelled">Cancelada</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-tag mr-1"></i>Motivo</label>
+                <select wire:model.live="filterReason" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-sm bg-white">
+                    <option value="">Todos</option>
+                    <option value="interest">Juros</option>
+                    <option value="penalty">Multa</option>
+                    <option value="additional_charge">Cobrança Adicional</option>
+                    <option value="correction">Correção</option>
+                    <option value="other">Outro</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>De</label>
+                <input type="date" wire:model.live="filterDateFrom" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>Até</label>
+                <input type="date" wire:model.live="filterDateTo" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-sm">
+            </div>
         </div>
     </div>
 
     {{-- Tabela --}}
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gradient-to-r from-red-50 to-rose-50">
+            <thead class="bg-gradient-to-r from-green-50 to-emerald-50">
                 <tr>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-hashtag mr-1 text-red-600"></i>Número
+                        <i class="fas fa-hashtag mr-1 text-green-600"></i>Número
                     </th>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-user mr-1 text-red-600"></i>Cliente
+                        <i class="fas fa-user mr-1 text-green-600"></i>Cliente
                     </th>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-file-invoice mr-1 text-red-600"></i>Fatura Ref.
+                        <i class="fas fa-file-invoice mr-1 text-green-600"></i>Fatura Ref.
                     </th>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-calendar mr-1 text-red-600"></i>Data
+                        <i class="fas fa-calendar mr-1 text-green-600"></i>Data
                     </th>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-tag mr-1 text-red-600"></i>Motivo
+                        <i class="fas fa-tag mr-1 text-green-600"></i>Motivo
                     </th>
                     <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-coins mr-1 text-red-600"></i>Total
+                        <i class="fas fa-coins mr-1 text-green-600"></i>Total
                     </th>
                     <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-info-circle mr-1 text-red-600"></i>Status
+                        <i class="fas fa-info-circle mr-1 text-green-600"></i>Status
                     </th>
                     <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        <i class="fas fa-cog mr-1 text-red-600"></i>Ações
+                        <i class="fas fa-cog mr-1 text-green-600"></i>Ações
                     </th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($debitNotes as $debitNote)
-                <tr class="hover:bg-red-50 transition-colors duration-150">
+                <tr class="hover:bg-green-50 transition-colors duration-150">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-bold text-red-600">{{ $debitNote->debit_note_number }}</div>
+                        <div class="text-sm font-bold text-green-600">{{ $debitNote->debit_note_number }}</div>
                     </td>
                     <td class="px-6 py-4">
                         <div class="text-sm font-medium text-gray-900">{{ $debitNote->client->name }}</div>
@@ -145,12 +149,12 @@
                         {{ $debitNote->issue_date->format('d/m/Y') }}
                     </td>
                     <td class="px-6 py-4">
-                        <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                        <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
                             {{ $debitNote->reason_label ?? 'N/A' }}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right">
-                        <span class="text-sm font-bold text-red-600">{{ number_format($debitNote->total, 2) }}</span>
+                        <span class="text-sm font-bold text-green-600">{{ number_format($debitNote->total, 2) }}</span>
                         <span class="text-xs text-gray-500">AOA</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -161,7 +165,12 @@
                     </td>
                     <td class="px-6 py-4 text-center">
                         <div class="flex items-center justify-center gap-2">
-                            <a href="{{ route('invoicing.debit-notes.preview', $debitNote->id) }}" 
+                            <button wire:click="viewDebitNote({{ $debitNote->id }})"
+                                    class="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition"
+                                    title="Ver detalhes">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <a href="{{ route('invoicing.debit-notes.preview', $debitNote->id) }}"
                                target="_blank"
                                class="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition" 
                                title="Preview HTML">
@@ -169,7 +178,7 @@
                             </a>
                             <a href="{{ route('invoicing.debit-notes.pdf', $debitNote->id) }}" 
                                target="_blank"
-                               class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" 
+                               class="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition" 
                                title="Gerar PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
@@ -198,11 +207,15 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
         
-        <div class="px-6 py-4">
+        <div class="px-6 py-4 border-t border-gray-100">
             {{ $debitNotes->links() }}
         </div>
     </div>
+
+    {{-- Modal de visualização --}}
+    @include('livewire.invoicing.debit-notes.view-modal')
 
     <style>
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

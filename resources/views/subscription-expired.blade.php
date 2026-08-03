@@ -90,6 +90,7 @@
                                 ['name' => 'Compras', 'icon' => 'fa-shopping-cart'],
                                 ['name' => 'Projetos', 'icon' => 'fa-project-diagram'],
                                 ['name' => 'Eventos', 'icon' => 'fa-calendar-alt'],
+                                ['name' => 'Restaurante', 'icon' => 'fa-utensils'],
                             ];
                         @endphp
                         @foreach($modules as $module)

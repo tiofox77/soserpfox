@@ -26,16 +26,31 @@
                 <h3 class="text-white font-bold text-lg">
                     <i class="fas fa-bell mr-2"></i>Notificações
                 </h3>
-                <span class="text-white text-sm bg-white/20 px-2 py-1 rounded-full">
-                    {{ $this->unreadCount }}
-                </span>
+                <div class="flex items-center gap-2">
+                    <span class="text-white text-sm bg-white/20 px-2 py-1 rounded-full">
+                        {{ $this->unreadCount }}
+                    </span>
+                    <button wire:click="refreshNotifications" wire:loading.attr="disabled" title="Atualizar"
+                            class="text-white/80 hover:text-white">
+                        <i class="fas fa-rotate" wire:loading.class="fa-spin" wire:target="refreshNotifications"></i>
+                    </button>
+                </div>
             </div>
-            @if($this->unreadCount > 0)
-                <button wire:click="markAllAsRead" 
-                        class="text-xs text-white/80 hover:text-white flex items-center">
-                    <i class="fas fa-check-double mr-1"></i>Marcar todas como lidas
-                </button>
-            @endif
+            <div class="flex items-center gap-3">
+                @if($this->unreadCount > 0)
+                    <button wire:click="markAllAsRead"
+                            class="text-xs text-white/80 hover:text-white flex items-center">
+                        <i class="fas fa-check-double mr-1"></i>Marcar como lidas
+                    </button>
+                @endif
+                @if($this->notifications()->isNotEmpty())
+                    <button wire:click="clearAll"
+                            wire:confirm="Limpar todas as notificações?"
+                            class="text-xs text-white/80 hover:text-white flex items-center">
+                        <i class="fas fa-trash-can mr-1"></i>Limpar todas
+                    </button>
+                @endif
+            </div>
         </div>
         
         <!-- Lista de Notificações -->

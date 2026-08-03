@@ -12,12 +12,16 @@
                 </div>
             </div>
             <div class="flex items-center space-x-3">
+                @can('invoicing.warehouse-transfer.create')
                 <button wire:click="openTransferModal" class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                     <i class="fas fa-exchange-alt mr-2"></i>Nova Transferência
                 </button>
+                @endcan
+                @can('invoicing.stock.edit')
                 <button wire:click="openAdjustModal" class="bg-yellow-500 text-white hover:bg-yellow-600 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                     <i class="fas fa-sliders-h mr-2"></i>Ajustar Stock
                 </button>
+                @endcan
             </div>
         </div>
     </div>

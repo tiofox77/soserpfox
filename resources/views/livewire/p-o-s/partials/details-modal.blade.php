@@ -25,7 +25,7 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">Data:</span>
-                            <span class="font-semibold">{{ $selectedInvoice->invoice_date->format('d/m/Y H:i') }}</span>
+                            <span class="font-semibold">{{ ($selectedInvoice->system_entry_date ?? $selectedInvoice->invoice_date)->format('d/m/Y H:i') }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">Status:</span>
@@ -107,7 +107,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-center text-sm font-semibold">
-                                    {{ number_format($item->quantity, 0) }}
+                                    {{ (float) $item->quantity + 0 }}
                                 </td>
                                 <td class="px-4 py-3 text-right text-sm">
                                     {{ number_format($item->unit_price, 2) }} Kz

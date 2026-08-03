@@ -11,9 +11,11 @@
                     <p class="text-indigo-100 text-sm">Gerir armazéns da empresa</p>
                 </div>
             </div>
+            @can('invoicing.warehouses.create')
             <button wire:click="create" class="bg-white text-indigo-600 hover:bg-indigo-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                 <i class="fas fa-plus mr-2"></i>Novo Armazém
             </button>
+            @endcan
         </div>
     </div>
 
@@ -200,6 +202,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-2">
+                                @can('invoicing.warehouses.edit')
                                 @if(!$warehouse->is_default)
                                     <button wire:click="setDefault({{ $warehouse->id }})" 
                                             class="text-yellow-600 hover:text-yellow-900 transition p-2 hover:bg-yellow-50 rounded-lg"
@@ -217,11 +220,14 @@
                                         title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                @endcan
+                                @can('invoicing.warehouses.delete')
                                 <button wire:click="confirmDelete({{ $warehouse->id }})" 
                                         class="text-red-600 hover:text-red-900 transition p-2 hover:bg-red-50 rounded-lg"
                                         title="Excluir">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
+                                @endcan
                             </div>
                         </td>
                     </tr>

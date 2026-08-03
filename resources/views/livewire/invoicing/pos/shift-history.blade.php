@@ -122,10 +122,17 @@
                                         <i class="fas fa-eye"></i>
                                     </button>
                                     <button wire:click="exportShift({{ $shift->id }})" 
-                                            class="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
-                                            title="Exportar PDF">
+                                            class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                                            title="PDF A4 do Resumo">
                                         <i class="fas fa-file-pdf"></i>
                                     </button>
+                                    <a href="{{ route('invoicing.pos.export.shift-ticket', $shift->id) }}"
+                                       target="_blank"
+                                       rel="noopener"
+                                       class="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition inline-flex items-center justify-center"
+                                       title="Ticket Térmico (80mm) — abre nova aba e imprime">
+                                        <i class="fas fa-receipt"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>

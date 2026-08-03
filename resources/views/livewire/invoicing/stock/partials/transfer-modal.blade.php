@@ -1,15 +1,16 @@
 <!-- Transfer Stock Modal -->
 @if($showTransferModal)
 <div class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4 animate-fade-in">
-    <div class="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full transform transition-all animate-scale-in">
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-[calc(100%-1rem)] sm:w-full max-h-[94vh] overflow-y-auto transform transition-all animate-scale-in">
         <!-- Header -->
         <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
             <h3 class="text-xl font-bold text-white flex items-center">
                 <i class="fas fa-exchange-alt mr-2"></i>
                 Transferir Stock
             </h3>
-            <button wire:click="$set('showTransferModal', false)" class="text-white hover:text-gray-200 transition">
-                <i class="fas fa-times text-2xl"></i>
+            <button wire:click="$set('showTransferModal', false)" type="button"
+                    class="btn-press text-white hover:text-gray-200 transition w-9 h-9 inline-flex items-center justify-center rounded-lg hover:bg-white/10">
+                <i class="fas fa-times text-xl"></i>
             </button>
         </div>
 
@@ -103,19 +104,19 @@
                         @if($transferMaxQty > 0)
                             <div class="grid grid-cols-4 gap-2 mt-3">
                                 <button type="button" onclick="@this.set('transferQuantity', {{ min(10, $transferMaxQty) }})"
-                                        class="px-3 py-2 bg-gray-100 hover:bg-purple-100 border-2 border-gray-300 hover:border-purple-400 rounded-lg font-semibold text-sm transition">
+                                        class="btn-press px-3 py-2 bg-gray-100 hover:bg-purple-100 border-2 border-gray-300 hover:border-purple-400 rounded-lg font-semibold text-sm transition">
                                     10
                                 </button>
                                 <button type="button" onclick="@this.set('transferQuantity', {{ min(50, $transferMaxQty) }})"
-                                        class="px-3 py-2 bg-gray-100 hover:bg-purple-100 border-2 border-gray-300 hover:border-purple-400 rounded-lg font-semibold text-sm transition">
+                                        class="btn-press px-3 py-2 bg-gray-100 hover:bg-purple-100 border-2 border-gray-300 hover:border-purple-400 rounded-lg font-semibold text-sm transition">
                                     50
                                 </button>
                                 <button type="button" onclick="@this.set('transferQuantity', {{ min(100, $transferMaxQty) }})"
-                                        class="px-3 py-2 bg-gray-100 hover:bg-purple-100 border-2 border-gray-300 hover:border-purple-400 rounded-lg font-semibold text-sm transition">
+                                        class="btn-press px-3 py-2 bg-gray-100 hover:bg-purple-100 border-2 border-gray-300 hover:border-purple-400 rounded-lg font-semibold text-sm transition">
                                     100
                                 </button>
                                 <button type="button" onclick="@this.set('transferQuantity', {{ $transferMaxQty }})"
-                                        class="px-3 py-2 bg-purple-100 hover:bg-purple-200 border-2 border-purple-400 rounded-lg font-semibold text-sm transition">
+                                        class="btn-press px-3 py-2 bg-purple-100 hover:bg-purple-200 border-2 border-purple-400 rounded-lg font-semibold text-sm transition">
                                     Tudo
                                 </button>
                             </div>
@@ -143,13 +144,20 @@
                     <button 
                         type="button" 
                         wire:click="$set('showTransferModal', false)" 
-                        class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
+                        wire:loading.attr="disabled" wire:target="saveTransfer"
+                        class="btn-press px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">
                         <i class="fas fa-times mr-2"></i>Cancelar
                     </button>
                     <button 
-                        type="submit" 
-                        class="px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg">
-                        <i class="fas fa-exchange-alt mr-2"></i>Executar Transferência
+                        type="submit"
+                        wire:loading.attr="disabled" wire:target="saveTransfer"
+                        class="btn-press px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="saveTransfer">
+                            <i class="fas fa-exchange-alt mr-2"></i>Executar Transferência
+                        </span>
+                        <span wire:loading wire:target="saveTransfer" class="inline-flex items-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>A transferir…
+                        </span>
                     </button>
                 </div>
             </form>

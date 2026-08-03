@@ -26,6 +26,44 @@
             </div>
         </div>
 
+        @if($isAdmin)
+        <div class="mb-6 bg-white border border-orange-200 rounded-2xl shadow-sm p-5">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div class="flex items-center">
+                    <div class="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mr-3 shrink-0">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-orange-600 uppercase tracking-wide">Contexto de operação</p>
+                        <h3 class="text-sm font-bold text-gray-900">
+                            {{ $currentTenant?->name ?? 'Seleccione uma empresa' }}
+                        </h3>
+                        @if($currentTenant)
+                            <p class="text-xs text-gray-500">NIF: {{ $currentTenant->nif ?? 'não definido' }} · ID {{ $currentTenant->id }}</p>
+                        @endif
+                    </div>
+                </div>
+                <div class="w-full lg:w-[420px]">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">Operar e testar como empresa</label>
+                    <select wire:change="selectTenant($event.target.value)"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200">
+                        <option value="">Seleccione uma empresa</option>
+                        @foreach($availableTenants as $tenant)
+                            <option value="{{ $tenant->id }}" @selected((int) $currentTenantId === (int) $tenant->id)>
+                                {{ $tenant->name }} — {{ $tenant->nif ?? 'sem NIF' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        </div>
+        @elseif($currentTenant)
+        <div class="mb-6 flex items-center px-4 py-3 rounded-xl bg-white border border-gray-200 text-sm text-gray-700">
+            <i class="fas fa-building text-orange-500 mr-2"></i>
+            Empresa activa: <strong class="ml-1">{{ $currentTenant->name }}</strong>
+        </div>
+        @endif
+
         {{-- Aviso Admin sem Tenant --}}
         @if(!$hasTenant)
         <div class="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-5">
@@ -36,9 +74,9 @@
                 <div>
                     <h3 class="text-sm font-bold text-blue-800">Nenhuma empresa selecionada</h3>
                     <p class="mt-1 text-sm text-blue-700 leading-relaxed">
-                        Para configurar as opções AGT, selecione uma empresa no menu de troca de empresas (canto superior).
-                        As chaves RSA são configurações globais e podem ser geridas em
-                        <a href="{{ route('superadmin.saft') }}" class="font-bold underline hover:text-blue-900">SuperAdmin → SAFT</a>.
+                        Para configurar e testar as opções AGT, seleccione uma empresa no selector acima.
+                        As credenciais da API são geridas globalmente pelo produtor. Seleccione uma empresa para configurar
+                        apenas as chaves pública e privada obtidas no Portal AGT dessa empresa.
                     </p>
                 </div>
             </div>
@@ -125,14 +163,24 @@
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
                             {{ $activeTab === 'submissions' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
                         <i class="fas fa-cloud-upload-alt text-xs"></i> Submissões
-                        @if(count($pendingSubmissions) > 0)
-                            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">{{ count($pendingSubmissions) }}</span>
+                        @php
+                            $openSubmissionCount = collect($pendingSubmissions)
+                                ->whereIn('status', ['pending', 'submitted'])
+                                ->count();
+                        @endphp
+                        @if($openSubmissionCount > 0)
+                            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">{{ $openSubmissionCount }}</span>
                         @endif
                     </button>
                     <button wire:click="setTab('logs')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
                             {{ $activeTab === 'logs' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
                         <i class="fas fa-history text-xs"></i> Logs
+                    </button>
+                    <button wire:click="setTab('api-tools')"
+                            class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
+                            {{ $activeTab === 'api-tools' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
+                        <i class="fas fa-tools text-xs"></i> Ferramentas API
                     </button>
                 </nav>
             </div>
@@ -144,13 +192,13 @@
                 {{-- ═══════════════════════════════════ --}}
                 @if($activeTab === 'config')
                 <div class="space-y-6">
-                    {{-- Secção: Credenciais API --}}
+                    {{-- Secção: Configurações de Ambiente --}}
                     <div>
                         <h3 class="text-gray-800 font-bold text-sm flex items-center mb-1">
-                            <i class="fas fa-plug mr-2 text-orange-500"></i>
-                            Credenciais da API AGT
+                            <i class="fas fa-cog mr-2 text-orange-500"></i>
+                            Configurações Gerais
                         </h3>
-                        <p class="text-gray-400 text-xs mb-5">Dados fornecidos pela Administração Geral Tributária de Angola</p>
+                        <p class="text-gray-400 text-xs mb-5">Ambiente de comunicação desta empresa</p>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             {{-- Ambiente --}}
@@ -158,7 +206,9 @@
                                 <label class="block text-xs font-semibold text-gray-600 mb-1.5">
                                     <i class="fas fa-server mr-1 text-gray-400"></i> Ambiente *
                                 </label>
-                                <select wire:model="agt_environment"
+                                {{-- .live: trocar de ambiente tem de recarregar séries,
+                                     submissões e logs de imediato --}}
+                                <select wire:model.live="agt_environment"
                                         class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50 transition">
                                     <option value="sandbox">Sandbox (Testes)</option>
                                     <option value="production">Produção</option>
@@ -166,52 +216,113 @@
                                 <p class="mt-1 text-[10px] text-gray-400">Use Sandbox para testes antes de ir para produção</p>
                             </div>
 
-                            {{-- Certificado Software --}}
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-certificate mr-1 text-gray-400"></i> Nº Certificado Software AGT
-                                </label>
-                                <input type="text" wire:model="agt_software_certificate"
-                                       class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50 transition"
-                                       placeholder="Ex: 1234/AGT">
-                            </div>
+                        </div>
+                    </div>
 
-                            {{-- Client ID --}}
+                    {{-- Chaves do contribuinte no Portal AGT --}}
+                    <div class="border-t border-gray-100 pt-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                             <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-id-badge mr-1 text-gray-400"></i> OAuth Client ID
-                                </label>
-                                <div class="relative">
-                                    <input type="password" wire:model="agt_client_id"
-                                           class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50 transition pr-10"
-                                           placeholder="Fornecido pela AGT">
-                                    <i class="fas fa-lock absolute right-3 top-3 text-gray-300 text-xs"></i>
+                                <h3 class="text-gray-800 font-bold text-sm flex items-center">
+                                    <i class="fas fa-key mr-2 text-orange-500"></i>
+                                    Chaves do Portal AGT desta empresa
+                                </h3>
+                                @php
+                                    // Forma de bloco: a directiva de uma linha não suporta ternários
+                                    $rotuloAmbiente = $agt_environment === 'production' ? 'Produção' : 'Homologação';
+                                @endphp
+                                <p class="text-gray-400 text-xs mt-1">
+                                    Cole o par RSA fornecido no Portal do Contribuinte. As chaves são
+                                    <strong>por empresa e por ambiente</strong> — o par abaixo é o de
+                                    <strong>{{ $rotuloAmbiente }}</strong> e não afecta o outro ambiente.
+                                </p>
+                            </div>
+                            {{-- O ambiente tem de constar do badge: "configurada" sem dizer qual
+                                 levava a crer que produção estava pronta usando a chave de testes. --}}
+                            <div class="flex flex-col items-end gap-1 text-[10px] font-bold">
+                                <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 uppercase tracking-wide">{{ $rotuloAmbiente }}</span>
+                                <div class="flex gap-2">
+                                    <span class="px-2.5 py-1 rounded-full {{ $hasPublicKey ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">Pública: {{ $hasPublicKey ? 'configurada' : 'em falta' }}</span>
+                                    <span class="px-2.5 py-1 rounded-full {{ $hasPrivateKey ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">Privada: {{ $hasPrivateKey ? 'configurada' : 'em falta' }}</span>
                                 </div>
-                            </div>
-
-                            {{-- Client Secret --}}
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-user-secret mr-1 text-gray-400"></i> OAuth Client Secret
-                                </label>
-                                <div class="relative">
-                                    <input type="password" wire:model="agt_client_secret"
-                                           class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50 transition pr-10"
-                                           placeholder="Fornecido pela AGT">
-                                    <i class="fas fa-lock absolute right-3 top-3 text-gray-300 text-xs"></i>
-                                </div>
-                            </div>
-
-                            {{-- URL Base (opcional) --}}
-                            <div class="md:col-span-2">
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-link mr-1 text-gray-400"></i> URL Base API (opcional)
-                                </label>
-                                <input type="url" wire:model="agt_api_base_url"
-                                       class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50 transition"
-                                       placeholder="Deixe vazio para usar URL padrão da AGT">
                             </div>
                         </div>
+
+                        @if(!$hasKeys)
+                            <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 mb-4 text-xs text-amber-800">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                Sem par RSA de <strong>{{ $rotuloAmbiente }}</strong> não é possível assinar nem
+                                registar séries neste ambiente. O par do outro ambiente <strong>não serve</strong> —
+                                a AGT recusa a assinatura.
+                            </div>
+                        @endif
+
+                        <div class="rounded-xl bg-blue-50 border border-blue-200 p-4 mb-4 text-xs text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            O username e a password Basic Auth não são configurados aqui; são credenciais globais do produtor SOS ERP.
+                            Ao substituir as chaves, informe sempre o par completo.
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">Chave pública RSA (PEM)</label>
+                                <textarea wire:model="contributorPublicKey" rows="8" autocomplete="off" spellcheck="false"
+                                          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50"
+                                          placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea>
+                                @error('contributorPublicKey') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">Chave privada RSA (PEM)</label>
+                                <textarea wire:model="contributorPrivateKey" rows="8" autocomplete="new-password" spellcheck="false"
+                                          class="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50"
+                                          placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+                                @error('contributorPrivateKey') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row justify-end gap-2 mt-4">
+                            @if($hasPublicKey || $hasPrivateKey)
+                                <button type="button" wire:click="removeContributorKeys"
+                                        wire:confirm="Remover as chaves AGT desta empresa? A submissão ficará bloqueada."
+                                        class="px-4 py-2.5 rounded-xl text-xs font-bold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100">
+                                    <i class="fas fa-trash-alt mr-1.5"></i>Remover chaves
+                                </button>
+                            @endif
+                            <button type="button" wire:click="saveContributorKeys" wire:loading.attr="disabled"
+                                    class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="saveContributorKeys"><i class="fas fa-lock mr-1.5"></i>Validar e guardar par</span>
+                                <span wire:loading wire:target="saveContributorKeys"><i class="fas fa-circle-notch fa-spin mr-1.5"></i>A validar...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Secção: Actividade económica (CAE) --}}
+                    <div class="border-t border-gray-100 pt-6 mb-6">
+                        <h3 class="text-gray-800 font-bold text-sm flex items-center mb-1">
+                            <i class="fas fa-briefcase mr-2 text-teal-600"></i>
+                            Actividade económica (CAE)
+                        </h3>
+                        <p class="text-gray-400 text-xs mb-3">
+                            Vai no campo <span class="font-mono">eacCode</span> de cada documento enviado à AGT.
+                        </p>
+
+                        <select wire:model="agt_eac_code"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                            <option value="">— não definida —</option>
+                            @foreach($caeCodes as $cae)
+                                <option value="{{ $cae->code }}">{{ $cae->code }} · {{ $cae->description }}</option>
+                            @endforeach
+                        </select>
+
+                        @if(blank($agt_eac_code))
+                            {{-- Sem CAE o mapper usa o marcador '00000', que não
+                                 identifica actividade nenhuma. --}}
+                            <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                Sem CAE os documentos vão com <span class="font-mono">eacCode 00000</span>,
+                                que não identifica a actividade — a AGT pode recusá-los.
+                            </div>
+                        @endif
                     </div>
 
                     {{-- Secção: Opções --}}
@@ -318,7 +429,12 @@
                                 <i class="fas fa-list-ol mr-2 text-blue-500"></i>
                                 Séries de Documentos
                             </h3>
-                            <p class="text-gray-400 text-xs mt-0.5">Séries registadas na AGT para emissão de documentos</p>
+                            <p class="text-gray-400 text-xs mt-0.5">
+                                A sua série (ex.: <span class="font-mono">FT A</span>) ligada ao código que a AGT lhe
+                                atribuiu (ex.: <span class="font-mono">FT7626S9153N</span>). É esse código que aparece no
+                                separador <em>Séries de facturas</em> do portal — o nome que deu à série cá dentro não é
+                                enviado à AGT.
+                            </p>
                         </div>
                         <button wire:click="syncSeries" wire:loading.attr="disabled" wire:target="syncSeries"
                                 class="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 transition text-sm font-bold shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-50">
@@ -327,29 +443,113 @@
                         </button>
                     </div>
 
+                    @if(!$hasGlobalCredentials || !$hasKeys)
+                        <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                            <div class="flex items-start gap-3">
+                                <i class="fas fa-exclamation-triangle text-amber-600 mt-0.5"></i>
+                                <div>
+                                    <p class="text-sm font-bold text-amber-900">Sincronização ainda não disponível</p>
+                                    <p class="text-xs text-amber-800 mt-1">O pedido só será enviado quando todos os requisitos estiverem configurados:</p>
+                                    <ul class="mt-2 space-y-1 text-xs">
+                                        <li class="{{ $hasGlobalCredentials ? 'text-green-700' : 'text-red-700 font-semibold' }}"><i class="fas fa-{{ $hasGlobalCredentials ? 'check-circle' : 'times-circle' }} mr-1"></i>Credenciais globais do produtor {{ $hasGlobalCredentials ? 'configuradas' : 'em falta no servidor' }}</li>
+                                        <li class="{{ $hasPublicKey ? 'text-green-700' : 'text-red-700 font-semibold' }}"><i class="fas fa-{{ $hasPublicKey ? 'check-circle' : 'times-circle' }} mr-1"></i>Chave pública do tenant {{ $hasPublicKey ? 'configurada' : 'em falta' }}</li>
+                                        <li class="{{ $hasPrivateKey ? 'text-green-700' : 'text-red-700 font-semibold' }}"><i class="fas fa-{{ $hasPrivateKey ? 'check-circle' : 'times-circle' }} mr-1"></i>Chave privada do tenant {{ $hasPrivateKey ? 'configurada' : 'em falta' }}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(!empty($syncResult))
+                    <div class="mb-5 rounded-xl border p-4
+                        {{ ($syncResult['failed'] ?? 0) > 0 ? 'bg-red-50 border-red-200' : (($syncResult['total'] ?? 0) === 0 ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200') }}">
+                        <div class="flex items-start">
+                            <i class="fas fa-{{ ($syncResult['failed'] ?? 0) > 0 ? 'exclamation-circle text-red-600' : (($syncResult['total'] ?? 0) === 0 ? 'info-circle text-blue-600' : 'check-circle text-green-600') }} text-lg mr-3 mt-0.5"></i>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">
+                                    @if(($syncResult['total'] ?? 0) === 0 && empty($syncResult['error']))
+                                        Todas as séries activas já estão sincronizadas ou ainda não existem séries.
+                                    @else
+                                        Sincronização concluída: {{ $syncResult['success'] ?? 0 }} sucesso(s), {{ $syncResult['failed'] ?? 0 }} falha(s).
+                                    @endif
+                                </p>
+                                @if(!empty($syncResult['error']))
+                                    <p class="text-xs text-red-700 mt-1">{{ $syncResult['error'] }}</p>
+                                @endif
+                                @foreach(($syncResult['details'] ?? []) as $detail)
+                                    @if(!($detail['result']['success'] ?? false))
+                                        <p class="text-xs text-red-700 mt-1">
+                                            <strong>{{ $detail['series'] ?? 'Série' }}:</strong>
+                                            {{ $detail['result']['error'] ?? 'Falha sem detalhe.' }}
+                                        </p>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
                     <div class="overflow-x-auto rounded-xl border border-gray-200">
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="bg-gradient-to-r from-gray-50 to-gray-100">
                                     <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Série</th>
                                     <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Tipo Documento</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">ID AGT</th>
+                                    {{-- "ID AGT" parecia um id interno; é o código que aparece no
+                                         separador "Séries de facturas" do portal — é ESTE o elo. --}}
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Código no portal AGT</th>
                                     <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">ATCUD</th>
                                     <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Estado</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
                                 @forelse($series as $s)
+                                @php
+                                    $eligible = $s->isAGTEligible();
+                                    $agtErrors = data_get($s->agt_response, 'errorList', []);
+                                    $agtError = $eligible ? collect(is_array($agtErrors) ? $agtErrors : [])
+                                        ->map(fn ($error) => trim(($error['idError'] ?? '') . ' ' . ($error['descriptionError'] ?? $error['errorDescription'] ?? '')))
+                                        ->filter()
+                                        ->implode(' · ') : '';
+                                @endphp
                                 <tr class="hover:bg-orange-50/40 transition">
                                     <td class="px-5 py-3.5">
                                         <div class="flex items-center">
                                             <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mr-3 shrink-0">
                                                 <i class="fas fa-hashtag text-blue-500 text-xs"></i>
                                             </div>
-                                            <span class="font-bold text-gray-800">{{ $s->prefix }} {{ $s->series_code }}</span>
+                                            {{-- O código já contém o prefixo (SOSFT): repeti-lo dava "FT SOSFT" --}}
+                                            <div class="min-w-0">
+                                                <span class="font-bold text-gray-800">{{ $s->series_code }}</span>
+                                                @if($s->name && $s->name !== 'Série ' . $s->series_code)
+                                                    <span class="block text-[10px] text-gray-400">{{ $s->name }}</span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 text-gray-500">{{ $s->document_type }}</td>
+                                    <td class="px-5 py-3.5 text-gray-500">
+                                        @php
+                                            $rotulosTipo = [
+                                                'invoice'     => 'Fatura',
+                                                'pos'         => 'Fatura-Recibo',
+                                                'proforma'    => 'Proforma',
+                                                'receipt'     => 'Recibo',
+                                                'credit_note' => 'Nota de Crédito',
+                                                'debit_note'  => 'Nota de Débito',
+                                                'advance'     => 'Adiantamento',
+                                                'purchase'    => 'Fatura de Compra',
+                                                'transport'   => 'Guia de Transporte',
+                                            ];
+                                            $rotuloTipo = $rotulosTipo[$s->document_type] ?? $s->document_type;
+                                        @endphp
+                                        <span class="text-gray-700">{{ $rotuloTipo }}</span>
+                                        <span class="ml-1.5 font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{{ $s->prefix }}</span>
+                                        @if($agtError)
+                                            <p class="mt-1 max-w-md text-[10px] leading-4 text-red-600" title="{{ $agtError }}">{{ $agtError }}</p>
+                                        @elseif(!$eligible)
+                                            <p class="mt-1 text-[10px] text-gray-400">Documento não fiscal; não é enviado à AGT.</p>
+                                        @endif
+                                    </td>
                                     <td class="px-5 py-3.5 text-center">
                                         @if($s->agt_series_id)
                                             <span class="font-mono text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">{{ $s->agt_series_id }}</span>
@@ -365,9 +565,17 @@
                                         @endif
                                     </td>
                                     <td class="px-5 py-3.5 text-center">
-                                        @if($s->agt_series_id)
+                                        @if(!$eligible)
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
+                                                <i class="fas fa-minus-circle mr-1"></i> Não aplicável
+                                            </span>
+                                        @elseif($s->agt_series_id)
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
                                                 <i class="fas fa-check mr-1"></i> Registada
+                                            </span>
+                                        @elseif($agtError)
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+                                                <i class="fas fa-times-circle mr-1"></i> Rejeitada
                                             </span>
                                         @else
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700">
@@ -398,12 +606,21 @@
                 {{-- ═══════════════════════════════════ --}}
                 @if($activeTab === 'submissions')
                 <div>
-                    <div class="mb-5">
-                        <h3 class="text-gray-800 font-bold text-sm flex items-center">
-                            <i class="fas fa-cloud-upload-alt mr-2 text-indigo-500"></i>
-                            Submissões Pendentes
-                        </h3>
-                        <p class="text-gray-400 text-xs mt-0.5">Documentos enviados ou a enviar à AGT</p>
+                    <div class="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <h3 class="text-gray-800 font-bold text-sm flex items-center">
+                                <i class="fas fa-cloud-upload-alt mr-2 text-indigo-500"></i>
+                                Histórico de Submissões FE
+                            </h3>
+                            <p class="text-gray-400 text-xs mt-0.5">Documentos enviados, validados ou rejeitados pela AGT</p>
+                        </div>
+                        <button wire:click="refreshSubmissionStatuses"
+                                wire:loading.attr="disabled" wire:target="refreshSubmissionStatuses"
+                                class="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition">
+                            <i wire:loading.class="fa-spin" wire:target="refreshSubmissionStatuses"
+                               class="fas fa-sync-alt mr-2"></i>
+                            Atualizar estados AGT
+                        </button>
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-gray-200">
@@ -420,9 +637,34 @@
                             </thead>
                             <tbody class="divide-y divide-gray-100">
                                 @forelse($pendingSubmissions as $sub)
+                                @php
+                                    $legalNumber = $sub['document_number'];
+                                    $typeCode = strtoupper($sub['document_type_code'] ?: 'DOC');
+                                    $sequence = null;
+                                    // 2 a 4 letras: o número passou a começar por SOS (3)
+                                    if (preg_match('/^[A-Z]{2,4}\s+[^\/]+\/(\d+)$/', $legalNumber, $parts)) {
+                                        $sequence = $parts[1];
+                                    }
+                                    $friendlyNumber = 'SOS-' . $typeCode . ($sequence ? '-' . $sequence : '');
+                                @endphp
                                 <tr class="hover:bg-orange-50/40 transition">
                                     <td class="px-5 py-3.5">
-                                        <span class="font-bold text-gray-800">{{ $sub['document_number'] }}</span>
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                                                <i class="fas fa-file-invoice"></i>
+                                            </div>
+                                            {{-- O número FISCAL é o único identificador real: é o que
+                                                 está na AGT, no PDF e no portal. A etiqueta SOS-… é
+                                                 apenas um apelido de ecrã, não existe em lado nenhum
+                                                 — mostrá-la em destaque levava a procurar uma "série
+                                                 SOS" que nunca existiu. --}}
+                                            <div class="min-w-0">
+                                                <div class="font-mono font-bold text-gray-900">{{ $legalNumber }}</div>
+                                                <div class="text-[10px] text-gray-400 mt-0.5">
+                                                    apelido interno: {{ $friendlyNumber }} · não existe na AGT
+                                                </div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="px-5 py-3.5 text-center">
                                         <span class="font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">{{ $sub['document_type_code'] }}</span>
@@ -441,11 +683,17 @@
                                                 'submitted' => 'fa-paper-plane',
                                                 'pending' => 'fa-clock',
                                             ];
+                                            $statusLabels = [
+                                                'validated' => 'Validada',
+                                                'rejected' => 'Rejeitada',
+                                                'submitted' => 'Enviada',
+                                                'pending' => 'Pendente',
+                                            ];
                                             $color = $statusColors[$sub['status']] ?? 'bg-gray-100 text-gray-700';
                                             $icon = $statusIcons[$sub['status']] ?? 'fa-question-circle';
                                         @endphp
                                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold {{ $color }}">
-                                            <i class="fas {{ $icon }} mr-1"></i> {{ ucfirst($sub['status']) }}
+                                            <i class="fas {{ $icon }} mr-1"></i> {{ $statusLabels[$sub['status']] ?? ucfirst($sub['status']) }}
                                         </span>
                                     </td>
                                     <td class="px-5 py-3.5 text-center">
@@ -472,8 +720,8 @@
                                     <td colspan="6" class="px-5 py-10 text-center">
                                         <div class="flex flex-col items-center text-gray-400">
                                             <i class="fas fa-check-circle text-3xl mb-2 text-green-300"></i>
-                                            <p class="text-sm font-medium">Nenhuma submissão pendente</p>
-                                            <p class="text-xs">Todos os documentos foram processados</p>
+                                            <p class="text-sm font-medium">Nenhuma submissão registada</p>
+                                            <p class="text-xs">Os documentos enviados à AGT aparecerão aqui</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -485,6 +733,108 @@
                 @endif
 
                 {{-- ═══════════════════════════════════ --}}
+                @if($activeTab === 'api-tools')
+                <div>
+                    <div class="mb-5">
+                        <h3 class="text-gray-800 font-bold text-sm flex items-center">
+                            <i class="fas fa-terminal mr-2 text-orange-500"></i>
+                            Operações REST de Homologação
+                        </h3>
+                        <p class="text-gray-400 text-xs mt-1">Consultas seguras aos endpoints oficiais. RegistarFactura é executado apenas no fluxo de emissão de uma factura real.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+                        @foreach([
+                            ['name' => 'RegistarFactura', 'path' => '/registarFactura', 'safe' => false],
+                            ['name' => 'ObterEstado', 'path' => '/obterEstado', 'safe' => true],
+                            ['name' => 'ConsultarFactura', 'path' => '/consultarFactura', 'safe' => true],
+                            ['name' => 'ListarFacturas', 'path' => '/listarFacturas', 'safe' => true],
+                        ] as $endpoint)
+                            @php
+                                // Forma de bloco: a directiva de uma linha não suporta
+                                // match() — as vírgulas partem o parser do Blade.
+                                $notas = [
+                                    'ListarFacturas'   => 'Lista os documentos RECEBIDOS (empresa como adquirente). Não devolve os emitidos.',
+                                    'ConsultarFactura' => 'Exige o número fiscal completo, ex.: NC NC7626S7057N/000003.',
+                                    'ObterEstado'      => 'Estado de uma submissão pelo Request ID.',
+                                ];
+                                $nota = $notas[$endpoint['name']] ?? 'Executado apenas no fluxo de emissão real.';
+                            @endphp
+                            <div class="p-4 rounded-xl border {{ $endpoint['safe'] ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50' }}">
+                                <div class="flex items-center justify-between">
+                                    <strong class="text-xs text-gray-800">{{ $endpoint['name'] }}</strong>
+                                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full {{ $endpoint['safe'] ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700' }}">
+                                        {{ $endpoint['safe'] ? 'TESTÁVEL' : 'EMISSÃO' }}
+                                    </span>
+                                </div>
+                                <code class="block text-[10px] text-gray-500 mt-2 break-all">{{ $agt_environment === 'production' ? \App\Services\AGT\AGTClient::PRODUCTION_URL : \App\Services\AGT\AGTClient::SANDBOX_URL }}{{ $endpoint['path'] }}</code>
+                                <p class="text-[10px] text-gray-600 mt-2 leading-snug">{{ $nota }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-2">Operação</label>
+                                <select wire:model.live="apiOperation" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    {{-- O nome do endpoint sozinho leva a crer que lista os
+                                         documentos EMITIDOS. Lista os RECEBIDOS. --}}
+                                    <option value="listarFacturas">ListarFacturas — documentos RECEBIDOS (empresa como adquirente)</option>
+                                    <option value="consultarFactura">ConsultarFactura — consultar um documento emitido</option>
+                                    <option value="obterEstado">ObterEstado — estado de uma submissão</option>
+                                </select>
+                            </div>
+                            @if($apiOperation === 'consultarFactura')
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-2">Número do documento</label>
+                                    <input type="text" wire:model="apiDocumentNo" placeholder="Ex.: FT A/2026/000001" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    @error('apiDocumentNo') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                                </div>
+                            @elseif($apiOperation === 'obterEstado')
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-2">Request ID</label>
+                                    <input type="text" wire:model="apiRequestId" placeholder="Request ID devolvido pela AGT" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    @error('apiRequestId') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                                </div>
+                            @else
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 mb-2">Data inicial</label>
+                                        <input type="date" wire:model="apiDateFrom" class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 mb-2">Data final</label>
+                                        <input type="date" wire:model="apiDateTo" class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="flex justify-end mt-4">
+                            <button type="button" wire:click="runApiOperation" wire:loading.attr="disabled"
+                                    class="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="runApiOperation"><i class="fas fa-play mr-1.5"></i> Executar consulta</span>
+                                <span wire:loading wire:target="runApiOperation"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> A comunicar...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if(!empty($apiOperationResult))
+                        <div class="mt-5 rounded-xl border p-4 {{ ($apiOperationResult['success'] ?? false) ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                            <p class="text-sm font-bold {{ ($apiOperationResult['success'] ?? false) ? 'text-green-800' : 'text-red-800' }}">
+                                {{ ($apiOperationResult['success'] ?? false) ? 'Operação concluída' : 'Operação recusada ou com erro' }}
+                            </p>
+                            <p class="text-xs mt-1 text-gray-700">{{ $apiOperationResult['error'] ?? $apiOperationResult['message'] ?? 'A AGT devolveu uma resposta válida.' }}</p>
+                            <div class="text-[10px] text-gray-500 mt-2">{{ $apiOperationResult['tested_at'] ?? '' }} · {{ $apiOperationResult['elapsed_ms'] ?? 0 }} ms · HTTP {{ $apiOperationResult['status'] ?? 'N/A' }}</div>
+                            @if(isset($apiOperationResult['data']))
+                                <pre class="mt-3 p-3 rounded-lg bg-slate-900 text-green-300 text-[10px] overflow-auto max-h-72">{{ json_encode($apiOperationResult['data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                            @endif
+                        </div>
+                    @endif
+                </div>
+                @endif
+
                 {{-- Tab: LOGS --}}
                 {{-- ═══════════════════════════════════ --}}
                 @if($activeTab === 'logs')
@@ -574,8 +924,8 @@
                 <div>
                     <h3 class="text-sm font-bold text-amber-800">Chaves RSA não configuradas</h3>
                     <p class="mt-1 text-sm text-amber-700 leading-relaxed">
-                        As chaves RSA são necessárias para assinar documentos SAFT-AO.
-                        <a href="{{ route('superadmin.saft') }}" class="font-bold underline hover:text-amber-900">Configure em SuperAdmin → SAFT</a>
+                        As chaves pública e privada do Portal AGT são necessárias para assinar e submeter documentos desta empresa.
+                        Configure o par no separador <strong>Configurações</strong> acima.
                     </p>
                 </div>
             </div>

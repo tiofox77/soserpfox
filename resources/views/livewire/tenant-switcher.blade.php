@@ -75,32 +75,24 @@
         <div class="max-h-80 overflow-y-auto">
             @foreach($tenants as $index => $tenant)
                 @php
-                    $isBlocked = !auth()->user()->is_super_admin && $hasExceededLimit && $index >= $maxAllowed;
                     $isActive = $tenant->id == $activeTenantId;
                 @endphp
                 
                 <button wire:click="switchTenant({{ $tenant->id }})" 
                         type="button"
                         class="w-full text-left px-4 py-4 flex items-center justify-between transition-colors border-b border-gray-100 last:border-b-0
-                               {{ $isActive ? 'bg-blue-50' : ($isBlocked ? 'bg-red-50 opacity-60' : 'hover:bg-gray-50') }}
-                               {{ $isBlocked ? 'cursor-not-allowed' : '' }}"
-                        @click="open = false"
-                        {{ $isBlocked ? 'disabled' : '' }}>
+                               {{ $isActive ? 'bg-blue-50' : 'hover:bg-gray-50' }}"
+                        @click="open = false">
                     <div class="flex items-center space-x-3 flex-1">
                         <!-- Icon -->
-                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br {{ $isActive ? 'from-blue-500 to-purple-600' : ($isBlocked ? 'from-red-400 to-red-500' : 'from-gray-400 to-gray-500') }} flex items-center justify-center">
-                            <i class="fas {{ $isBlocked ? 'fa-lock' : 'fa-building' }} text-white"></i>
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br {{ $isActive ? 'from-blue-500 to-purple-600' : 'from-gray-400 to-gray-500' }} flex items-center justify-center">
+                            <i class="fas fa-building text-white"></i>
                         </div>
                         
                         <!-- Info -->
                         <div class="flex-1 min-w-0">
-                            <div class="font-bold {{ $isBlocked ? 'text-gray-500' : 'text-gray-900' }} truncate flex items-center">
+                            <div class="font-bold text-gray-900 truncate flex items-center">
                                 {{ $tenant->name }}
-                                @if($isBlocked)
-                                    <span class="ml-2 text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">
-                                        <i class="fas fa-lock text-[10px] mr-1"></i>BLOQUEADA
-                                    </span>
-                                @endif
                             </div>
                             <div class="text-xs text-gray-500">NIF: {{ $tenant->nif ?? 'N/A' }}</div>
                             @if($tenant->pivot->role_id)

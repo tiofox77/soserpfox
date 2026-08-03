@@ -229,13 +229,26 @@
                                     </span>
                                 </a>
                                 
+                                {{-- Editar: SÓ rascunhos. Depois de recebida, a compra
+                                     deu entrada de stock e tem histórico — anula-se. --}}
+                                @if($invoice->status === 'draft')
                                 <a href="{{ route('invoicing.purchases.invoices.edit', $invoice->id) }}"
                                    class="group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Editar
+                                        Editar rascunho
                                     </span>
                                 </a>
+                                @elseif($invoice->status !== 'cancelled')
+                                <button wire:click="cancelInvoice({{ $invoice->id }})"
+                                        wire:confirm="Anular esta fatura de compra? O stock que entrou será revertido."
+                                        class="group relative p-2 bg-amber-100 hover:bg-amber-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-ban text-amber-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        Anular (reverte o stock)
+                                    </span>
+                                </button>
+                                @endif
 
                                 @if($invoice->status !== 'paid' && $invoice->status !== 'cancelled')
                                 <button wire:click="$dispatch('openPaymentModal', { invoiceType: 'purchase', invoiceId: {{ $invoice->id }} })"
@@ -258,13 +271,16 @@
                                 </button>
                                 @endif
 
+                                {{-- Eliminar: SÓ rascunhos (uma compra recebida anula-se) --}}
+                                @if($invoice->status === 'draft')
                                 <button wire:click="confirmDelete({{ $invoice->id }})"
                                         class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-trash text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Eliminar
+                                        Eliminar rascunho
                                     </span>
                                 </button>
+                                @endif
                             </div>
                         </td>
                     </tr>

@@ -39,6 +39,11 @@
                     class="px-6 py-3 rounded-lg font-semibold transition {{ $activeTab === 'schema' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100' }}">
                 <i class="fas fa-code mr-2"></i>Schema.org
             </button>
+            <button wire:click="$set('activeTab', 'audit')"
+                    class="px-6 py-3 rounded-lg font-semibold transition {{ $activeTab === 'audit' ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100' }}">
+                <i class="fas fa-clipboard-check mr-2"></i>Auditoria SEO
+                <span class="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">NOVO</span>
+            </button>
         </div>
     </div>
 
@@ -848,7 +853,239 @@
             </div>
         </div>
         @endif
-        
+
+        {{-- ================================================== --}}
+        {{-- TAB: AUDITORIA SEO                                   --}}
+        {{-- ================================================== --}}
+        @if($activeTab === 'audit')
+        @php
+            $A = $seoAudit;
+            $L = $A['landing']['checks'] ?? [];
+            $kbFmt = fn($b) => $b < 1024 ? $b.' B' : round($b/1024, 1).' KB';
+        @endphp
+
+        <div class="space-y-6">
+            {{-- Banner explicativo --}}
+            <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl p-5 shadow-lg">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-chart-line text-2xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold mb-1">🚀 SEO Profissional Aplicado — Resumo das Otimizações</h3>
+                        <p class="text-emerald-50 text-sm">
+                            A landing page <code class="bg-white/20 px-1 rounded">https://soserp.vip</code> foi otimizada com SEO técnico avançado para
+                            <strong>geo-targeting em Angola</strong>, 5 blocos <strong>JSON-LD</strong>, sitemap expandido, robots.txt profissional
+                            e PWA manifest. Esta página audita o que está aplicado em tempo real.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Ficheiros públicos --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-file-alt mr-3 text-emerald-600"></i>Ficheiros Públicos
+                </h3>
+                <div class="grid md:grid-cols-3 gap-4">
+                    @foreach(['sitemap' => ['Sitemap XML','fas fa-sitemap','blue','Lista de páginas para os motores de busca indexarem'],
+                              'robots'  => ['Robots.txt','fas fa-robot','orange','Regras de crawl para Googlebot, Bingbot, etc'],
+                              'manifest'=> ['Manifest PWA','fas fa-mobile-alt','purple','App instalável no telemóvel/desktop']] as $k => $meta)
+                        @php $f = $A[$k]; @endphp
+                        <div class="bg-white border-2 {{ $f['exists'] ? 'border-green-200' : 'border-red-200' }} rounded-xl p-4">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="w-10 h-10 rounded-lg bg-{{ $meta[2] }}-100 text-{{ $meta[2] }}-600 flex items-center justify-center">
+                                    <i class="{{ $meta[1] }}"></i>
+                                </div>
+                                @if($f['exists'])
+                                    <span class="text-xs font-bold text-green-600"><i class="fas fa-check-circle"></i> OK</span>
+                                @else
+                                    <span class="text-xs font-bold text-red-600"><i class="fas fa-times-circle"></i> EM FALTA</span>
+                                @endif
+                            </div>
+                            <p class="font-bold text-gray-800">{{ $meta[0] }}</p>
+                            <p class="text-xs text-gray-500 mb-2">{{ $meta[3] }}</p>
+                            @if($f['exists'])
+                                <div class="text-xs space-y-1 text-gray-600">
+                                    <p><i class="fas fa-weight mr-1"></i><strong>Tamanho:</strong> {{ $kbFmt($f['size']) }}</p>
+                                    <p><i class="fas fa-clock mr-1"></i><strong>Atualizado:</strong> {{ $f['mtime']?->diffForHumans() }}</p>
+                                    @if($k === 'sitemap')
+                                        <p><i class="fas fa-link mr-1"></i><strong>URLs:</strong> {{ $f['url_count'] }}</p>
+                                    @endif
+                                </div>
+                                <a href="{{ $f['url'] }}" target="_blank" class="mt-2 inline-block text-xs text-blue-600 hover:underline">
+                                    <i class="fas fa-external-link-alt"></i> Ver ficheiro
+                                </a>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Meta tags da landing --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-tags mr-3 text-emerald-600"></i>Meta Tags na Landing Page
+                </h3>
+
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left px-4 py-2 text-xs font-bold text-gray-600 uppercase">Tag / Item</th>
+                                <th class="text-left px-4 py-2 text-xs font-bold text-gray-600 uppercase">Valor / Status</th>
+                                <th class="text-left px-4 py-2 text-xs font-bold text-gray-600 uppercase">Para que serve</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @php
+                                $rows = [
+                                    ['Title tag', $L['title_tag'] ?? null, 'O título mostrado na aba do browser e nos resultados do Google. Deve ter 50-60 caracteres.'],
+                                    ['Meta description', $L['meta_description'] ?? null, 'O texto descritivo que aparece nos resultados de pesquisa. Ideal: 150-160 caracteres.'],
+                                    ['Meta keywords', $L['meta_keywords'] ?? null, 'Palavras-chave (Google ignora, mas outros motores usam).'],
+                                    ['Canonical URL', $L['canonical'] ?? null, 'URL preferida desta página — evita conteúdo duplicado.'],
+                                    ['Geo region', $L['geo_region'] ?? null, 'Código do país (AO = Angola) para SEO local.'],
+                                    ['Geo placename', $L['geo_placename'] ?? null, 'Nome da cidade/localidade para geo-targeting.'],
+                                    ['Geo position', $L['geo_position'] ?? null, 'Coordenadas (latitude;longitude) para SEO geográfico.'],
+                                ];
+                            @endphp
+                            @foreach($rows as $r)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-2 font-semibold text-gray-800">{{ $r[0] }}</td>
+                                    <td class="px-4 py-2">
+                                        @if($r[1])
+                                            <span class="text-green-600 mr-1"><i class="fas fa-check-circle"></i></span>
+                                            <span class="text-xs text-gray-700 break-all">{{ \Illuminate\Support\Str::limit($r[1], 110) }}</span>
+                                        @else
+                                            <span class="text-red-500 text-xs"><i class="fas fa-times-circle"></i> Em falta</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2 text-xs text-gray-500">{{ $r[2] }}</td>
+                                </tr>
+                            @endforeach
+                            @php
+                                $bools = [
+                                    ['Open Graph (og:title)', $L['og_title'] ?? false, 'Título usado ao partilhar no Facebook/WhatsApp.'],
+                                    ['Open Graph (og:description)', $L['og_description'] ?? false, 'Descrição ao partilhar em redes sociais.'],
+                                    ['Open Graph (og:image)', $L['og_image'] ?? false, 'Imagem destacada (recomendado 1200×630).'],
+                                    ['Twitter Card', $L['twitter_card'] ?? false, 'Pré-visualização ao partilhar no Twitter/X.'],
+                                    ['Favicon', $L['favicon'] ?? false, 'Ícone na aba do browser e nos resultados Google.'],
+                                    ['Apple Touch Icon', $L['apple_touch_icon'] ?? false, 'Ícone quando guardado no ecrã inicial do iPhone/iPad.'],
+                                    ['Theme color', $L['theme_color'] ?? false, 'Cor da barra do browser em Android (PWA).'],
+                                    ['Manifest link', $L['manifest_link'] ?? false, 'Liga o site ao manifest.json (necessário para PWA).'],
+                                ];
+                            @endphp
+                            @foreach($bools as $b)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-2 font-semibold text-gray-800">{{ $b[0] }}</td>
+                                    <td class="px-4 py-2">
+                                        @if($b[1])
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-bold"><i class="fas fa-check"></i> Aplicado</span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold"><i class="fas fa-times"></i> Em falta</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-2 text-xs text-gray-500">{{ $b[2] }}</td>
+                                </tr>
+                            @endforeach
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-2 font-semibold text-gray-800">Hreflang (idiomas)</td>
+                                <td class="px-4 py-2">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{{ $L['hreflang_count'] ?? 0 }} linhas</span>
+                                </td>
+                                <td class="px-4 py-2 text-xs text-gray-500">Indica versões linguísticas (pt-AO, pt-PT, x-default).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- JSON-LD schemas --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-code mr-3 text-emerald-600"></i>Schemas JSON-LD (Rich Snippets)
+                </h3>
+                <div class="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-5">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="text-3xl font-extrabold text-purple-600">{{ $L['jsonld_count'] ?? 0 }}</span>
+                        <span class="text-gray-700">blocos JSON-LD detectados na landing page</span>
+                    </div>
+
+                    @if(!empty($A['landing']['schemas']))
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            @foreach($A['landing']['schemas'] as $type)
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-bold">
+                                    <i class="fas fa-check"></i> {{ $type }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div class="grid md:grid-cols-2 gap-3 text-sm">
+                        @foreach([
+                            ['Organization', '🏢', 'Mostra logo, contactos e redes sociais no painel direito do Google.'],
+                            ['LocalBusiness', '📍', 'Aparece com mapa, horário e área geográfica servida (18 províncias).'],
+                            ['SoftwareApplication', '💻', 'Aparece com ⭐ rating, preço (Kwanzas) e lista de features.'],
+                            ['WebSite', '🌐', 'Adiciona caixa de pesquisa inline (sitelinks search box) no Google.'],
+                            ['FAQPage', '❓', '6 perguntas/respostas em formato de acordeão nos resultados.'],
+                        ] as $s)
+                            <div class="bg-white rounded-lg p-3 border border-purple-100">
+                                <p class="font-bold text-gray-800">{{ $s[1] }} {{ $s[0] }}</p>
+                                <p class="text-xs text-gray-600 mt-1">{{ $s[2] }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+            {{-- Ferramentas externas --}}
+            <div>
+                <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                    <i class="fas fa-tools mr-3 text-emerald-600"></i>Ferramentas de Validação Externa
+                </h3>
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    @foreach([
+                        ['Google Rich Results','fab fa-google','https://search.google.com/test/rich-results?url=https%3A%2F%2Fsoserp.vip','Testa JSON-LD e rich snippets'],
+                        ['Schema Validator','fas fa-code','https://validator.schema.org/?url=https%3A%2F%2Fsoserp.vip','Valida sintaxe Schema.org'],
+                        ['PageSpeed Insights','fas fa-tachometer-alt','https://pagespeed.web.dev/analysis?url=https%3A%2F%2Fsoserp.vip','Performance + SEO + Acessibilidade'],
+                        ['Mobile-Friendly','fas fa-mobile-alt','https://search.google.com/test/mobile-friendly?url=https%3A%2F%2Fsoserp.vip','Testa responsividade mobile'],
+                        ['Facebook Debugger','fab fa-facebook','https://developers.facebook.com/tools/debug/?q=https%3A%2F%2Fsoserp.vip','Preview Open Graph'],
+                        ['Twitter Card Validator','fab fa-twitter','https://cards-dev.twitter.com/validator','Preview Twitter Card'],
+                        ['Bing Webmaster','fab fa-microsoft','https://www.bing.com/webmasters/','Indexação no Bing'],
+                        ['Search Console','fab fa-google','https://search.google.com/search-console','Indexação no Google'],
+                    ] as $t)
+                        <a href="{{ $t[2] }}" target="_blank" rel="noopener" class="block bg-white border-2 border-gray-200 hover:border-emerald-500 hover:shadow-lg rounded-xl p-3 transition">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i class="{{ $t[1] }} text-emerald-600"></i>
+                                <span class="font-bold text-sm text-gray-800">{{ $t[0] }}</span>
+                            </div>
+                            <p class="text-xs text-gray-500">{{ $t[3] }}</p>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Boas práticas / Dicas --}}
+            <div class="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl p-5">
+                <h3 class="font-bold text-amber-900 mb-2"><i class="fas fa-lightbulb mr-2"></i>Dicas para manter o SEO forte</h3>
+                <ul class="space-y-1 text-sm text-amber-900">
+                    <li><i class="fas fa-check text-amber-600 mr-2"></i><strong>Atualizar o sitemap.xml</strong> sempre que adicionares páginas novas (especialmente /modulos/*)</li>
+                    <li><i class="fas fa-check text-amber-600 mr-2"></i><strong>Submeter sitemap no Google Search Console</strong> em <code class="bg-amber-100 px-1 rounded">https://soserp.vip/sitemap.xml</code></li>
+                    <li><i class="fas fa-check text-amber-600 mr-2"></i><strong>Manter título ≤ 60 caracteres</strong> e descrição entre 150-160 caracteres</li>
+                    <li><i class="fas fa-check text-amber-600 mr-2"></i><strong>Atualizar reviewCount</strong> (no separador Schema.org) quando tiveres clientes reais a deixar reviews</li>
+                    <li><i class="fas fa-check text-amber-600 mr-2"></i><strong>Pedir backlinks</strong> de sites angolanos (.ao, blogs de tecnologia, AGT) para subir autoridade</li>
+                    <li><i class="fas fa-check text-amber-600 mr-2"></i><strong>Criar páginas /blog/*</strong> com artigos sobre faturação AGT, IRT, INSS para apanhar long-tail keywords</li>
+                </ul>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button wire:click="$refresh" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold text-gray-700">
+                    <i class="fas fa-sync-alt mr-1"></i>Recarregar auditoria
+                </button>
+            </div>
+        </div>
+        @endif
+
     </div>
 </div>
 

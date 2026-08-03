@@ -370,7 +370,7 @@
                 
                 <div style="margin-top: 10px; padding: 5px; background: #f8f9fa; border-radius: 3px;">
                     <div class="section-title" style="border: none; margin-bottom: 3px;">Regime Fiscal</div>
-                    <div style="font-size: 7px;">{{ $tenant->regime ?? 'Regime Geral' }}</div>
+                    <div style="font-size: 7px;">{{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}</div>
                 </div>
             </div>
 
@@ -408,7 +408,9 @@
         </div>
 
         <div class="agt-info">
-            Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+            Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
+            <br>
+            <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
             @if($proforma->saft_hash)
                 <br>
                 <strong>HASH e SAFT-AO:</strong> "{{ substr($proforma->saft_hash, -4) }}"

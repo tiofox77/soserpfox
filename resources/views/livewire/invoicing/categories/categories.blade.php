@@ -11,6 +11,7 @@
                     <p class="text-cyan-100 text-xs sm:text-sm">Gerir categorias e subcategorias</p>
                 </div>
             </div>
+            @can('invoicing.categories.create')
             <button wire:click="create"
                     wire:loading.attr="disabled"
                     wire:loading.class="opacity-70 scale-95"
@@ -22,6 +23,7 @@
                     <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
                 </span>
             </button>
+            @endcan
         </div>
     </div>
 
@@ -213,18 +215,22 @@
                     
                     <!-- Ações -->
                     <div class="col-span-2 sm:col-span-1 flex items-center justify-end space-x-1">
+                        @can('invoicing.categories.edit')
                         <button wire:click="edit({{ $category->id }})"
                                 wire:loading.attr="disabled"
                                 class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
                             <i class="fas fa-edit text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
+                        @endcan
+                        @can('invoicing.categories.delete')
                         <button wire:click="confirmDelete({{ $category->id }})"
                                 wire:loading.attr="disabled"
                                 class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
                             <i class="fas fa-trash text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
+                        @endcan
                     </div>
                 </div>
             @empty

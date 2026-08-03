@@ -39,6 +39,7 @@
                     <option value="debit_note">Notas de Débito (ND)</option>
                     <option value="purchase">Faturas de Compra (FC)</option>
                     <option value="advance">Adiantamentos (AD)</option>
+                    <option value="transport">Guias de Transporte (GT)</option>
                 </select>
             </div>
         </div>
@@ -68,6 +69,9 @@
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
                             <i class="fas fa-toggle-on mr-1"></i>Status
                         </th>
+                        <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider" title="DS.120 §4.6: A=Aberta, U=Em utilização, F=Fechada">
+                            <i class="fas fa-shield-alt mr-1"></i>Estado AGT
+                        </th>
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
                             <i class="fas fa-cog mr-1"></i>Ações
                         </th>
@@ -87,6 +91,7 @@
                                     'debit_note' => ['bg' => 'bg-red-100', 'text' => 'text-red-800', 'icon' => 'fa-file-invoice', 'label' => 'N. Débito (ND)'],
                                     'purchase' => ['bg' => 'bg-indigo-100', 'text' => 'text-indigo-800', 'icon' => 'fa-shopping-cart', 'label' => 'Compra (FC)'],
                                     'advance' => ['bg' => 'bg-cyan-100', 'text' => 'text-cyan-800', 'icon' => 'fa-hand-holding-usd', 'label' => 'Adiantamento (AD)'],
+                                    'transport' => ['bg' => 'bg-orange-100', 'text' => 'text-orange-800', 'icon' => 'fa-truck', 'label' => 'Guia Transporte (GT)'],
                                 ];
                                 $badge = $typeBadges[$item->document_type] ?? ['bg' => 'bg-gray-100', 'text' => 'text-gray-800', 'icon' => 'fa-file', 'label' => $item->document_type];
                             @endphp
@@ -125,6 +130,30 @@
                                 </span>
                             @endif
                         </td>
+                        <td class="px-6 py-4 text-center">
+                            @php
+                                $agtBadges = [
+                                    'A' => ['bg' => 'bg-blue-100',   'text' => 'text-blue-800',   'icon' => 'fa-folder-open',   'label' => 'Aberta'],
+                                    'U' => ['bg' => 'bg-amber-100',  'text' => 'text-amber-800',  'icon' => 'fa-spinner',       'label' => 'Em uso'],
+                                    'F' => ['bg' => 'bg-rose-100',   'text' => 'text-rose-800',   'icon' => 'fa-lock',          'label' => 'Fechada'],
+                                ];
+                                $agtBadge = $agtBadges[$item->agt_series_status] ?? null;
+                            @endphp
+                            @if($agtBadge)
+                                <span class="px-3 py-1 {{ $agtBadge['bg'] }} {{ $agtBadge['text'] }} text-xs font-bold rounded-full"
+                                      title="DS.120 §4.6 — {{ $item->agt_series_status }}">
+                                    <i class="fas {{ $agtBadge['icon'] }} mr-1"></i>{{ $agtBadge['label'] }}
+                                </span>
+                            @elseif($item->isAGTRegistered())
+                                <span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full" title="Registada na AGT mas sem estado A/U/F sincronizado">
+                                    <i class="fas fa-question-circle mr-1"></i>—
+                                </span>
+                            @else
+                                <span class="px-2 py-1 bg-slate-50 text-slate-400 text-[10px] rounded-full">
+                                    Não AGT
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center justify-center space-x-2">
                                 <button wire:click="editSeries({{ $item->id }})" 
@@ -140,7 +169,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-16 text-center">
+                        <td colspan="8" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center justify-center">
                                 <i class="fas fa-hashtag text-6xl text-gray-300 mb-4"></i>
                                 <p class="text-gray-500 text-lg font-semibold">Nenhuma série encontrada</p>
@@ -192,6 +221,7 @@
                         <option value="debit_note">Nota de Débito (ND)</option>
                         <option value="purchase">Fatura de Compra (FC)</option>
                         <option value="advance">Adiantamento (AD)</option>
+                        <option value="transport">Guia de Transporte (GT)</option>
                     </select>
                     @error('document_type') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
@@ -292,6 +322,57 @@
                             Série ativa
                         </span>
                     </label>
+                </div>
+
+                {{-- Configuração AGT (DS.120 §§4.5/4.6) --}}
+                <div class="p-4 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-xl space-y-3">
+                    <h4 class="text-sm font-bold text-emerald-900 flex items-center gap-2">
+                        <i class="fas fa-shield-alt text-emerald-600"></i>
+                        Configuração AGT (Facturação Electrónica)
+                    </h4>
+                    <p class="text-xs text-emerald-800/80">
+                        Estes campos só são usados ao registar a série na AGT (`SolicitarSerie`).
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Ano da Série
+                                <span class="text-[10px] text-gray-500">(DS.120 §4.5)</span>
+                            </label>
+                            <input type="number" wire:model="series_year" min="2024" max="2099"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none text-sm">
+                            @error('series_year')
+                                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                            <p class="text-[10px] text-gray-500 mt-1">Jan–15Dez: ano corrente. Após 15Dez: corrente ou seguinte.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Estabelecimento
+                            </label>
+                            <input type="text" wire:model="establishment_number" placeholder="SEDE"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none text-sm">
+                            @error('establishment_number')
+                                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">
+                                Método de Facturação
+                                <span class="text-[10px] text-gray-500">(DS.120 §4.6)</span>
+                            </label>
+                            <select wire:model="invoicing_method"
+                                class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none text-sm">
+                                <option value="">— Seleccionar —</option>
+                                <option value="FEPC">FEPC — Pré-Comunicada</option>
+                                <option value="FESF">FESF — Sem Facturação</option>
+                                <option value="SF">SF — Sem Factura</option>
+                            </select>
+                            @error('invoicing_method')
+                                <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Descrição --}}

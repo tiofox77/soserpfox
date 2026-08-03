@@ -129,10 +129,54 @@
                         <span class="text-gray-600">IVA:</span>
                         <span class="font-semibold">{{ number_format($selectedInvoice->tax_amount, 2) }} Kz</span>
                     </div>
-                    @if($selectedInvoice->irt_amount > 0)
+
+                    {{-- IEC e Imposto de Selo: se foram declarados à AGT têm de
+                         estar visíveis aqui, senão o total não reconcilia. --}}
+                    @php
+                        $__extras = collect();
+                        $__primeiro = $selectedInvoice->items->first();
+                        if ($__primeiro) {
+                            $__extras = \App\Models\Invoicing\LineTax::where('line_type', get_class($__primeiro))
+                                ->whereIn('line_id', $selectedInvoice->items->pluck('id'))
+                                ->get()
+                                ->groupBy('tax_type');
+                        }
+                    @endphp
+                    @foreach($__extras as $__tipo => $__grupo)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Retenção (6,5%):</span>
-                        <span class="font-semibold">{{ number_format($selectedInvoice->irt_amount, 2) }} Kz</span>
+                        <span class="text-gray-600">
+                            {{ $__tipo === 'IEC' ? 'IEC' : 'Imposto de Selo' }}
+                            @if($__tipo === 'IS' && $__grupo->first()->verba_no)
+                                <span class="text-xs text-gray-400">(verba {{ $__grupo->first()->verba_no }})</span>
+                            @endif
+                        </span>
+                        <span class="font-semibold {{ $__tipo === 'IEC' ? 'text-orange-700' : 'text-purple-700' }}">
+                            {{ number_format($__grupo->sum(fn($t) => (float) $t->tax_amount), 2) }} Kz
+                        </span>
+                    </div>
+                    @endforeach
+
+                    @if($selectedInvoice->items->first()?->tax_country_region === 'AO-CAB')
+                    <div class="flex justify-between text-xs">
+                        <span class="text-amber-700 font-semibold">Região fiscal:</span>
+                        <span class="text-amber-700 font-semibold">Cabinda (AO-CAB)</span>
+                    </div>
+                    @endif
+
+                    @if($selectedInvoice->irt_amount > 0)
+                    @php
+                        $__ret = \Illuminate\Support\Facades\DB::table('invoicing_withholding_taxes')
+                            ->where('document_type', get_class($selectedInvoice))
+                            ->where('document_id', $selectedInvoice->id)->first();
+                    @endphp
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">
+                            Retenção {{ $__ret->withholding_tax_type ?? 'IRT' }}
+                            @if($__ret && (float) $__ret->withholding_tax_percentage > 0)
+                                ({{ rtrim(rtrim(number_format((float) $__ret->withholding_tax_percentage, 2, ',', ''), '0'), ',') }}%)
+                            @endif
+                        </span>
+                        <span class="font-semibold text-rose-700">-{{ number_format($selectedInvoice->irt_amount, 2) }} Kz</span>
                     </div>
                     @endif
                     <div class="flex justify-between pt-2 border-t-2 border-gray-300">

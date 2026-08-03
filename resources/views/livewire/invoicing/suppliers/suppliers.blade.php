@@ -39,7 +39,7 @@
                 </div>
             </div>
             <p class="text-sm text-blue-600 font-semibold mb-2">Pessoa Jurídica</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Supplier::where('tenant_id', auth()->user()->tenant_id)->where('type', 'pessoa_juridica')->count() }}</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Supplier::where('tenant_id', activeTenantId())->where('type', 'pessoa_juridica')->count() }}</p>
             <p class="text-xs text-gray-500">Empresas</p>
         </div>
 
@@ -51,7 +51,7 @@
                 </div>
             </div>
             <p class="text-sm text-purple-600 font-semibold mb-2">Pessoa Física</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Supplier::where('tenant_id', auth()->user()->tenant_id)->where('type', 'pessoa_fisica')->count() }}</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Supplier::where('tenant_id', activeTenantId())->where('type', 'pessoa_fisica')->count() }}</p>
             <p class="text-xs text-gray-500">Indivíduos</p>
         </div>
     </div>
@@ -289,7 +289,14 @@
                     </div>
                     
                     <!-- Ações -->
-                    <div class="col-span-1 flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="col-span-1 flex items-center justify-end space-x-1">
+                        <button wire:click="viewSupplier({{ $supplier->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="viewSupplier({{ $supplier->id }})"
+                                class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" title="Ver Detalhes">
+                            <i class="fas fa-eye text-xs" wire:loading.remove wire:target="viewSupplier({{ $supplier->id }})"></i>
+                            <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="viewSupplier({{ $supplier->id }})"></i>
+                        </button>
                         <button wire:click="edit({{ $supplier->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Editar">
                             <i class="fas fa-edit text-xs"></i>
                         </button>
@@ -318,6 +325,7 @@
 
     <!-- Modals -->
     @include('livewire.invoicing.suppliers.partials.form-modal')
+    @include('livewire.invoicing.suppliers.partials.view-modal')
     <x-delete-confirmation-modal 
         :itemName="$deletingSupplierName" 
         entityType="o fornecedor" 

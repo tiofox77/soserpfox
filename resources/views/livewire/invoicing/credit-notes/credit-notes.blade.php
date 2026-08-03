@@ -1,123 +1,126 @@
 <div class="p-6">
     {{-- Header --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-circle-minus mr-3 text-green-600"></i>
-                    Notas de Crédito
-                </h2>
-                <p class="text-gray-600 mt-1">Devoluções, descontos e correções</p>
+    <div class="mb-6 bg-gradient-to-r from-red-600 to-rose-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-file-circle-minus text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg sm:text-2xl font-bold">Notas de Crédito</h2>
+                    <p class="text-red-100 text-xs sm:text-sm">Devoluções, descontos e correções</p>
+                </div>
             </div>
             <a href="{{ route('invoicing.credit-notes.create') }}" 
-               class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
+               class="bg-white text-red-600 hover:bg-red-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base">
                 <i class="fas fa-plus mr-2"></i>Nova Nota de Crédito
             </a>
         </div>
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-green-200 text-xs font-medium">Total</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['total'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-file-circle-minus text-xl"></i>
-                </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-red-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-file-circle-minus text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-red-600 font-semibold mb-1">Total</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['total'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-200 text-xs font-medium">Rascunho</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['draft'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-edit text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-gray-500 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg shadow-gray-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-edit text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-gray-600 font-semibold mb-1">Rascunho</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['draft'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-emerald-200 text-xs font-medium">Emitidas</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['issued'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-check-circle text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-rose-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-rose-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-check-circle text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-rose-600 font-semibold mb-1">Emitidas</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['issued'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-teal-200 text-xs font-medium">Valor Total</p>
-                    <p class="text-2xl font-bold mt-1">{{ number_format($stats['total_amount'], 2) }}</p>
-                    <p class="text-teal-200 text-xs">AOA</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-coins text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-teal-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-coins text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-teal-600 font-semibold mb-1">Valor Total</p>
+            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($stats['total_amount'], 2) }} <span class="text-xs text-gray-500">AOA</span></p>
         </div>
     </div>
 
     {{-- Filtros --}}
-    <div class="bg-white rounded-xl shadow p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." class="rounded-lg border-gray-300">
-            <select wire:model.live="filterStatus" class="rounded-lg border-gray-300">
-                <option value="">Todos os Status</option>
-                <option value="draft">Rascunho</option>
-                <option value="issued">Emitida</option>
-                <option value="cancelled">Cancelada</option>
-            </select>
-            <select wire:model.live="filterReason" class="rounded-lg border-gray-300">
-                <option value="">Todos os Motivos</option>
-                <option value="return">Devolução</option>
-                <option value="discount">Desconto</option>
-                <option value="correction">Correção</option>
-                <option value="other">Outro</option>
-            </select>
-            <input type="date" wire:model.live="filterDateFrom" class="rounded-lg border-gray-300">
-            <input type="date" wire:model.live="filterDateTo" class="rounded-lg border-gray-300">
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-4 sm:p-6">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
+            <i class="fas fa-filter mr-2 text-red-600"></i>Filtros
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>Pesquisar</label>
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-info-circle mr-1"></i>Status</label>
+                <select wire:model.live="filterStatus" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition text-sm bg-white">
+                    <option value="">Todos</option>
+                    <option value="draft">Rascunho</option>
+                    <option value="issued">Emitida</option>
+                    <option value="cancelled">Cancelada</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-tag mr-1"></i>Motivo</label>
+                <select wire:model.live="filterReason" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition text-sm bg-white">
+                    <option value="">Todos</option>
+                    <option value="return">Devolução</option>
+                    <option value="discount">Desconto</option>
+                    <option value="correction">Correção</option>
+                    <option value="other">Outro</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>De</label>
+                <input type="date" wire:model.live="filterDateFrom" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>Até</label>
+                <input type="date" wire:model.live="filterDateTo" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition text-sm">
+            </div>
         </div>
     </div>
 
     {{-- Tabela --}}
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gradient-to-r from-green-50 to-emerald-50">
+                <thead class="bg-gradient-to-r from-red-50 to-rose-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-green-700 uppercase">Número</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-green-700 uppercase">Cliente</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-green-700 uppercase">Fatura Origem</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-green-700 uppercase">Data</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-green-700 uppercase">Motivo</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-green-700 uppercase">Valor</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-green-700 uppercase">Status</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-green-700 uppercase">Ações</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">Número</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">Cliente</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">Fatura Origem</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">Data</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">Motivo</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-red-700 uppercase">Valor</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">Status</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-red-700 uppercase">Ações</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($creditNotes as $creditNote)
-                        <tr class="hover:bg-green-50 transition">
+                        <tr class="hover:bg-red-50 transition">
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-3 py-1 text-xs font-mono bg-green-100 text-green-800 rounded-full font-bold">
+                                <span class="px-3 py-1 text-xs font-mono bg-red-100 text-red-800 rounded-full font-bold">
                                     {{ $creditNote->credit_note_number }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                                        <i class="fas fa-user text-green-600"></i>
+                                    <div class="flex-shrink-0 h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user text-red-600"></i>
                                     </div>
                                     <div class="ml-3">
                                         <p class="text-sm font-semibold text-gray-900">{{ $creditNote->client->name ?? 'N/A' }}</p>
@@ -143,22 +146,27 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right">
-                                <p class="text-lg font-bold text-green-600">
+                                <p class="text-lg font-bold text-red-600">
                                     {{ number_format($creditNote->total, 2) }}
                                 </p>
                                 <p class="text-xs text-gray-500">AOA</p>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-3 py-1 text-xs font-semibold rounded-full
-                                    {{ $creditNote->status === 'issued' ? 'bg-green-100 text-green-700' : '' }}
+                                    {{ $creditNote->status === 'issued' ? 'bg-red-100 text-red-700' : '' }}
                                     {{ $creditNote->status === 'draft' ? 'bg-gray-100 text-gray-700' : '' }}
-                                    {{ $creditNote->status === 'cancelled' ? 'bg-red-100 text-red-700' : '' }}">
+                                    {{ $creditNote->status === 'cancelled' ? 'bg-green-100 text-green-700' : '' }}">
                                     {{ $creditNote->status_label }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex items-center justify-end gap-2">
-                                    <a href="{{ route('invoicing.credit-notes.preview', $creditNote->id) }}" 
+                                    <button wire:click="viewCreditNote({{ $creditNote->id }})"
+                                            class="text-red-600 hover:text-red-900"
+                                            title="Ver detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <a href="{{ route('invoicing.credit-notes.preview', $creditNote->id) }}"
                                        target="_blank"
                                        class="text-purple-600 hover:text-purple-900"
                                        title="Preview">
@@ -166,7 +174,7 @@
                                     </a>
                                     <a href="{{ route('invoicing.credit-notes.pdf', $creditNote->id) }}" 
                                        target="_blank"
-                                       class="text-red-600 hover:text-red-900"
+                                       class="text-green-600 hover:text-green-900"
                                        title="PDF">
                                         <i class="fas fa-file-pdf"></i>
                                     </a>
@@ -178,7 +186,7 @@
                                     </a>
                                     @endif
                                     <button wire:click="confirmDelete({{ $creditNote->id }})" 
-                                            class="text-red-600 hover:text-red-900"
+                                            class="text-green-600 hover:text-green-900"
                                             title="Eliminar">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -208,7 +216,7 @@
     @if($showDeleteModal)
     <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full">
-            <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-2xl">
+            <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl">
                 <h3 class="text-xl font-bold text-white">
                     <i class="fas fa-exclamation-triangle mr-2"></i>Confirmar Exclusão
                 </h3>
@@ -229,11 +237,19 @@
                     Cancelar
                 </button>
                 <button wire:click="deleteCreditNote" 
-                        class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition">
+                        class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition">
                     Eliminar
                 </button>
             </div>
         </div>
     </div>
     @endif
+
+    {{-- Modal de visualização --}}
+    @include('livewire.invoicing.credit-notes.view-modal')
+
+    <style>
+        @keyframes scale-in { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-scale-in { animation: scale-in 0.2s ease-out; }
+    </style>
 </div>

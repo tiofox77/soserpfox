@@ -1,9 +1,9 @@
 <!-- Transfer Modal -->
 @if($showTransferModal)
 <div class="fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4 animate-fade-in">
-    <div class="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto transform transition-all animate-scale-in">
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-[calc(100%-1rem)] sm:w-full max-h-[94vh] overflow-y-auto transform transition-all animate-scale-in">
         <!-- Header -->
-        <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6 rounded-t-2xl flex items-center justify-between z-10">
+        <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-4 sm:px-8 py-4 sm:py-6 rounded-t-2xl flex items-center justify-between z-10">
             <div class="flex items-center">
                 <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
                     <i class="fas fa-exchange-alt text-white text-xl"></i>
@@ -19,7 +19,7 @@
         </div>
 
         <!-- Body -->
-        <div class="p-8">
+        <div class="p-4 sm:p-8">
             <div class="space-y-8">
                 <!-- Step 1: Warehouses -->
                 <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6">

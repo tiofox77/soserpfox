@@ -551,16 +551,13 @@
     
     
     <div class="page-wrapper">
+        @include('pdf.invoicing.partials.agt-signature-sidebar', ['document' => $receipt, 'documentLabel' => 'Recibo Electrónico SOS ERP'])
         <div class="main-content">
             <div class="header-section">
                 <div class="company-info">
                     <div class="logo-section">
                         <div class="logo">
-                            @if($tenant->logo)
-                <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo da Empresa" class="logo-image" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'logo-fallback\'>LOGO</div>';" />
-            @else
-                <div class="logo-fallback">LOGO</div>
-            @endif
+                            @include('pdf.invoicing.partials.logo')
                         </div>
                         <div>
                             <div class="company-name">{{ $tenant->name }}</div>
@@ -596,7 +593,7 @@
                                 <img src="{{ $qrCode['image'] }}" alt="QR Code AGT" style="width: 100px; height: 100px;" />
                                 @if($qrCode['atcud'])
                                     <div style="font-size: 6px; text-align: center; margin-top: 2px;">
-                                        ATCUD: {{ $qrCode['atcud'] }}
+                                        @if(!empty($qrCode['atcud']))ATCUD: {{ $qrCode['atcud'] }}@endif
                                     </div>
                                 @endif
                             @else
@@ -672,7 +669,7 @@
                 <div class="left-bottom">
                     <div class="regime-section">
                         <div class="regime-title">Regime Fiscal</div>
-                        <div>{{ $tenant->regime ?? 'Regime Geral' }}</div>
+                        <div>{{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}</div>
                     </div>
                     
                     <div style="margin-top: 15px; padding: 10px; background-color: #f0f9ff; border-radius: 5px; border-left: 4px solid #0066cc;">
@@ -711,7 +708,9 @@
                     
 
                     <div class="system-info">
-                        Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                        Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
+                        <br>
+                        <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
                         @if($receipt->hash)
                             <br>
                             <strong>HASH e SAFT-AO:</strong> "{{ substr($receipt->hash, -4) }}"
@@ -757,7 +756,7 @@
             </div>
 
             <div class="agt-description">
-                Este recibo foi processado pelo Sistema de Facturação | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                Este recibo foi processado pelo Sistema de Facturação | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
             </div>
 
             <div class="page-footer">

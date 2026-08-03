@@ -2,10 +2,10 @@
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showViewModal') }" x-show="show" x-cloak>
         <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
         
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-            <div class="relative inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+        <div class="flex items-start sm:items-center justify-center min-h-screen p-2 sm:p-4 text-center">
+            <div class="relative w-full bg-white rounded-2xl text-left shadow-2xl transform transition-all my-4 sm:my-8 sm:max-w-5xl max-h-[94vh] overflow-y-auto">
                 <!-- Header -->
-                <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4">
+                <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-10">
                     <div class="flex items-center justify-between">
                         <h3 class="text-2xl font-bold text-white flex items-center">
                             <i class="fas fa-eye mr-3"></i>Detalhes do Produto

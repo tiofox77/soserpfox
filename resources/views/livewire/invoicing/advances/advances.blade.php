@@ -1,93 +1,93 @@
 <div class="p-6">
-    {{-- Header Amarelo --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-coins mr-3 text-yellow-600"></i>
-                    Adiantamentos
-                </h2>
-                <p class="text-gray-600 mt-1">Pagamentos antecipados de clientes</p>
+    {{-- Header --}}
+    <div class="mb-6 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3 sm:mr-4">
+                    <i class="fas fa-coins text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg sm:text-2xl font-bold">Adiantamentos</h2>
+                    <p class="text-yellow-100 text-xs sm:text-sm">Pagamentos antecipados de clientes</p>
+                </div>
             </div>
             <a href="{{ route('invoicing.advances.create') }}" 
-               class="px-6 py-3 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white rounded-xl font-bold transition shadow-lg transform hover:scale-105">
+               class="bg-white text-amber-600 hover:bg-amber-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base">
                 <i class="fas fa-plus mr-2"></i>Novo Adiantamento
             </a>
         </div>
     </div>
 
-    {{-- Stats Cards Amarelos --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-yellow-200 text-xs font-medium">Total</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['total'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-coins text-xl"></i>
-                </div>
+    {{-- Stats Cards --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6">
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-yellow-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg shadow-yellow-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-coins text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-yellow-600 font-semibold mb-1">Total</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['total'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-green-200 text-xs font-medium">Ativos</p>
-                    <p class="text-2xl font-bold mt-1">{{ $stats['active'] }}</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-check-circle text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-green-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-check-circle text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-green-600 font-semibold mb-1">Ativos</p>
+            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $stats['active'] }}</p>
         </div>
 
-        <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-amber-200 text-xs font-medium">Valor Total</p>
-                    <p class="text-2xl font-bold mt-1">{{ number_format($stats['total_amount'], 2) }}</p>
-                    <p class="text-amber-200 text-xs">AOA</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-money-bill-wave text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-amber-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-money-bill-wave text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-amber-600 font-semibold mb-1">Valor Total</p>
+            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($stats['total_amount'], 2) }} <span class="text-xs text-gray-500">AOA</span></p>
         </div>
 
-        <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-4 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-orange-200 text-xs font-medium">Disponível</p>
-                    <p class="text-2xl font-bold mt-1">{{ number_format($stats['available_amount'], 2) }}</p>
-                    <p class="text-orange-200 text-xs">AOA</p>
-                </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-wallet text-xl"></i>
-                </div>
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-orange-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-wallet text-white text-xl sm:text-2xl"></i>
             </div>
+            <p class="text-xs sm:text-sm text-orange-600 font-semibold mb-1">Disponível</p>
+            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($stats['available_amount'], 2) }} <span class="text-xs text-gray-500">AOA</span></p>
         </div>
     </div>
 
     {{-- Filtros --}}
-    <div class="bg-white rounded-xl shadow p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." class="rounded-lg border-gray-300">
-            <select wire:model.live="filterStatus" class="rounded-lg border-gray-300">
-                <option value="">Todos os Status</option>
-                <option value="active">Ativo</option>
-                <option value="used">Utilizado</option>
-                <option value="cancelled">Cancelado</option>
-            </select>
-            <input type="date" wire:model.live="filterDateFrom" placeholder="Data inicial" class="rounded-lg border-gray-300">
-            <input type="date" wire:model.live="filterDateTo" placeholder="Data final" class="rounded-lg border-gray-300">
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-4 sm:p-6">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
+            <i class="fas fa-filter mr-2 text-amber-600"></i>Filtros
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>Pesquisar</label>
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-info-circle mr-1"></i>Status</label>
+                <select wire:model.live="filterStatus" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm bg-white">
+                    <option value="">Todos</option>
+                    <option value="active">Ativo</option>
+                    <option value="used">Utilizado</option>
+                    <option value="cancelled">Cancelado</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>De</label>
+                <input type="date" wire:model.live="filterDateFrom" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>Até</label>
+                <input type="date" wire:model.live="filterDateTo" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
+            </div>
         </div>
     </div>
 
     {{-- Tabela --}}
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
+            <thead class="bg-gradient-to-r from-yellow-50 to-amber-50">
                 <tr>
                     <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-hashtag mr-1 text-yellow-600"></i>Número
@@ -185,8 +185,9 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
         
-        <div class="px-6 py-4">
+        <div class="px-6 py-4 border-t border-gray-100">
             {{ $advances->links() }}
         </div>
     </div>

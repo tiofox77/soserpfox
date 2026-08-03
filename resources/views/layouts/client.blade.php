@@ -30,7 +30,7 @@
     @endif
     
     <!-- PWA -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
+        [x-cloak] { display: none !important; }
         /* Animations */
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
@@ -128,56 +129,77 @@
                     </div>
                 </div>
 
-                {{-- Menu --}}
-                <div class="flex items-center space-x-2">
-                    @if(Route::has('client.dashboard'))
-                        <a href="{{ route('client.dashboard') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition">
-                            <i class="fas fa-home mr-1"></i>Início
-                        </a>
-                    @endif
-                    @if(Route::has('client.statement'))
-                        <a href="{{ route('client.statement') }}" class="text-gray-700 hover:text-amber-600 px-3 py-2 rounded-md text-sm font-medium transition">
-                            <i class="fas fa-chart-line mr-1"></i>Extrato
-                        </a>
-                    @endif
-                    @if(Route::has('client.events'))
-                        <a href="{{ route('client.events') }}" class="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition">
-                            <i class="fas fa-calendar-alt mr-1"></i>Eventos
-                        </a>
-                    @endif
-                    @if(Route::has('client.invoices'))
-                        <a href="{{ route('client.invoices') }}" class="text-gray-700 hover:text-green-600 px-3 py-2 rounded-md text-sm font-medium transition">
-                            <i class="fas fa-file-invoice mr-1"></i>Faturas
-                        </a>
-                    @endif
-                    @if(Route::has('client.proformas'))
-                        <a href="{{ route('client.proformas') }}" class="text-gray-700 hover:text-purple-600 px-3 py-2 rounded-md text-sm font-medium transition">
-                            <i class="fas fa-file-alt mr-1"></i>Proformas
-                        </a>
-                    @endif
-                    
+                {{-- Menu (desktop) --}}
+                @php
+                    $navLinks = [
+                        ['route' => 'client.dashboard', 'icon' => 'fa-home',          'label' => 'Início',    'hover' => 'blue'],
+                        ['route' => 'client.statement', 'icon' => 'fa-chart-line',    'label' => 'Extrato',   'hover' => 'amber'],
+                        ['route' => 'client.events',    'icon' => 'fa-calendar-alt',  'label' => 'Eventos',   'hover' => 'indigo'],
+                        ['route' => 'client.invoices',  'icon' => 'fa-file-invoice',  'label' => 'Faturas',   'hover' => 'green'],
+                        ['route' => 'client.proformas', 'icon' => 'fa-file-alt',      'label' => 'Proformas', 'hover' => 'purple'],
+                    ];
+                @endphp
+                <div class="hidden md:flex items-center space-x-1">
+                    @foreach($navLinks as $link)
+                        @if(Route::has($link['route']))
+                            <a href="{{ route($link['route']) }}"
+                               class="px-3 py-2 rounded-md text-sm font-medium transition {{ request()->routeIs($link['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:text-'.$link['hover'].'-600' }}">
+                                <i class="fas {{ $link['icon'] }} mr-1"></i>{{ $link['label'] }}
+                            </a>
+                        @endif
+                    @endforeach
+
                     {{-- User Menu --}}
-                    <div class="relative" x-data="{ open: false }">
+                    <div class="relative ml-2" x-data="{ open: false }">
                         <button @click="open = !open" class="flex items-center text-gray-700 hover:text-blue-600 focus:outline-none">
                             <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                                 <i class="fas fa-user text-blue-600"></i>
                             </div>
                             <i class="fas fa-chevron-down ml-2 text-sm"></i>
                         </button>
-                        
-                        <div x-show="open" 
-                             @click.away="open = false"
-                             x-transition
-                             class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                        <div x-show="open" @click.away="open = false" x-transition x-cloak
+                             class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
                             @if(Route::has('client.profile'))
                                 <a href="{{ route('client.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <i class="fas fa-user-circle mr-2"></i>Meu Perfil
                                 </a>
                             @endif
-                            <button wire:click="logout" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-sign-out-alt mr-2"></i>Sair
-                            </button>
+                            <form method="POST" action="{{ route('client.logout') }}">
+                                @csrf
+                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                                </button>
+                            </form>
                         </div>
+                    </div>
+                </div>
+
+                {{-- Botão menu mobile --}}
+                <div class="flex items-center md:hidden" x-data="{ mobile: false }">
+                    <button @click="mobile = !mobile" class="text-gray-700 hover:text-blue-600 focus:outline-none p-2">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div x-show="mobile" @click.away="mobile = false" x-transition x-cloak
+                         class="absolute top-16 right-0 left-0 bg-white shadow-lg border-t border-gray-100 py-2 z-20">
+                        @foreach($navLinks as $link)
+                            @if(Route::has($link['route']))
+                                <a href="{{ route($link['route']) }}"
+                                   class="block px-6 py-3 text-sm font-medium {{ request()->routeIs($link['route']) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' }}">
+                                    <i class="fas {{ $link['icon'] }} mr-2 w-5"></i>{{ $link['label'] }}
+                                </a>
+                            @endif
+                        @endforeach
+                        @if(Route::has('client.profile'))
+                            <a href="{{ route('client.profile') }}" class="block px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 border-t border-gray-100">
+                                <i class="fas fa-user-circle mr-2 w-5"></i>Meu Perfil
+                            </a>
+                        @endif
+                        <form method="POST" action="{{ route('client.logout') }}">
+                            @csrf
+                            <button type="submit" class="block w-full text-left px-6 py-3 text-sm font-medium text-red-600 hover:bg-red-50">
+                                <i class="fas fa-sign-out-alt mr-2 w-5"></i>Sair
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -186,7 +208,19 @@
 
     {{-- Content --}}
     <main class="py-10">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {{-- Mensagens flash globais --}}
+            @if(session('success'))
+                <div class="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl flex items-center">
+                    <i class="fas fa-check-circle mr-2"></i><span>{{ session('success') }}</span>
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-center">
+                    <i class="fas fa-exclamation-circle mr-2"></i><span>{{ session('error') }}</span>
+                </div>
+            @endif
+
             {{ $slot }}
         </div>
     </main>
@@ -201,18 +235,9 @@
     </footer>
 
     @livewireScripts
-    
-    {{-- Alpine.js --}}
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
+    {{-- Nota: o Livewire 3 já inclui o Alpine.js; não carregar outro (evita "multiple instances of Alpine"). --}}
+
     <!-- PWA Service Worker -->
-    <script>
-        localStorage.setItem('soserp-last-online', Date.now().toString());
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-        }
-        window.addEventListener('offline', () => document.body.classList.add('app-offline'));
-        window.addEventListener('online', () => { document.body.classList.remove('app-offline'); location.reload(); });
-    </script>
+    @include('partials.pwa-register')
 </body>
 </html>

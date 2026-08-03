@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ $title ?? 'SOS ERP — PWA Faturação' }}</title>
+
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/pwa/icon-192x192.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    {{-- Dexie (IndexedDB wrapper) --}}
+    <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
+
+    {{-- Alpine.js --}}
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .pwa-shell { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+        [x-cloak] { display: none !important; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pwa-shell">
+
+    {{-- Banner de instalação PWA --}}
+    <div id="pwa-install-banner" class="hidden fixed bottom-20 inset-x-3 z-50 bg-gradient-to-r from-indigo-600 to-blue-700 text-white rounded-2xl shadow-2xl p-4">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-download text-xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-sm">Instalar aplicação</p>
+                <p class="text-xs opacity-90">Acesso rápido + funciona offline</p>
+            </div>
+            <button id="pwa-install-btn" class="bg-white text-blue-700 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap">Instalar</button>
+            <button id="pwa-install-dismiss" class="text-white/70 hover:text-white text-lg px-1" title="Mais tarde">&times;</button>
+        </div>
+    </div>
+
+    {{-- Indicador online/offline + sync queue --}}
+    <div id="pwa-status-bar" class="fixed top-0 inset-x-0 z-50 hidden">
+        <div id="pwa-status-offline" class="hidden bg-amber-500 text-white text-center py-1.5 text-xs font-semibold shadow-lg">
+            <i class="fas fa-wifi-slash mr-1"></i>Sem conexão — A trabalhar offline. <span id="pwa-pending-count" class="ml-2"></span>
+        </div>
+        <div id="pwa-status-syncing" class="hidden bg-blue-600 text-white text-center py-1.5 text-xs font-semibold shadow-lg">
+            <i class="fas fa-sync fa-spin mr-1"></i>A sincronizar com o servidor…
+        </div>
+        <div id="pwa-status-synced" class="hidden bg-emerald-600 text-white text-center py-1.5 text-xs font-semibold shadow-lg">
+            <i class="fas fa-check-circle mr-1"></i>Sincronizado
+        </div>
+    </div>
+
+    <header class="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg sticky top-0 z-40">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="{{ route('invoicing.offline.index') }}" class="flex items-center gap-2">
+                    <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-sm leading-tight">PWA Faturação</p>
+                        <p class="text-xs opacity-75 leading-tight">
+                            Modo Offline · <span class="font-mono">v{{ config('changelog.current', '1.0') }}</span>
+                            <span id="pwa-last-sync-badge" class="hidden ml-1 font-normal"></span>
+                        </p>
+                    </div>
+                </a>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="pwa-install-header" class="hidden px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-lg text-xs font-bold transition" title="Instalar aplicação">
+                    <i class="fas fa-download mr-1"></i>Instalar
+                </button>
+                <button onclick="window.SosPwa.sync(true)" id="pwa-sync-btn" class="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold transition" title="Sincronizar agora">
+                    <i class="fas fa-rotate"></i>
+                </button>
+                <a href="{{ route('invoicing.offline.exit') }}" class="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold transition">
+                    <i class="fas fa-arrow-right-from-bracket mr-1"></i>Sair do PWA
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="px-4 py-4 pb-20">
+        @yield('content')
+    </main>
+
+    {{-- Bottom navigation --}}
+    <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 shadow-2xl z-40">
+        <div class="grid grid-cols-5 text-center">
+            <a href="{{ route('invoicing.offline.index') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.index') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
+                <i class="fas fa-home block text-lg"></i>
+                <span class="text-[10px] font-semibold">Início</span>
+            </a>
+            <a href="{{ route('invoicing.offline.catalog') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.catalog') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
+                <i class="fas fa-box block text-lg"></i>
+                <span class="text-[10px] font-semibold">Catálogo</span>
+            </a>
+            <a href="{{ route('invoicing.offline.pos') }}" class="py-2 -mt-4">
+                <div class="w-12 h-12 mx-auto bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-lg text-white">
+                    <i class="fas fa-cash-register text-lg"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-orange-700 block mt-0.5">POS</span>
+            </a>
+            <a href="{{ route('invoicing.offline.clients') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.clients') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
+                <i class="fas fa-users block text-lg"></i>
+                <span class="text-[10px] font-semibold">Clientes</span>
+            </a>
+            <a href="{{ route('invoicing.offline.drafts') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.drafts') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
+                <i class="fas fa-file-invoice block text-lg"></i>
+                <span class="text-[10px] font-semibold">Rascunhos</span>
+            </a>
+        </div>
+    </nav>
+
+    {{-- Registo do Service Worker + auto-update (sem isto o PWA nunca atualiza) --}}
+    @include('partials.pwa-register')
+
+    <script src="/js/pwa-invoicing.js?v=13"></script>
+    <script src="/js/pos-offline-ticket.js?v=2"></script>
+
+    {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
+    {{-- Garante que o app abre offline mesmo na primeira tentativa após sair de uma página. --}}
+    <script>
+    (function() {
+        if (!('serviceWorker' in navigator)) return;
+        if (!navigator.onLine) return;
+
+        // Versão atrelada ao changelog — quando muda, faz warmup outra vez.
+        const WARMUP_KEY = 'soserp-pwa-warmed-{{ config('changelog.current', '1.0') }}';
+        try { if (localStorage.getItem(WARMUP_KEY) === '1') return; } catch (e) {}
+
+        const URLS = [
+            '{{ route('invoicing.offline.index') }}',
+            '{{ route('invoicing.offline.catalog') }}',
+            '{{ route('invoicing.offline.pos') }}',
+            '{{ route('invoicing.offline.clients') }}',
+            '{{ route('invoicing.offline.client-new') }}',
+            '{{ route('invoicing.offline.drafts') }}',
+            '{{ route('invoicing.offline.draft-new') }}',
+            '/js/pwa-invoicing.js?v=13',
+            '/js/pos-offline-ticket.js?v=2',
+            '/manifest.webmanifest',
+        ];
+
+        // Esperar o SW estar pronto e fazer requests silenciosos para popular o cache.
+        navigator.serviceWorker.ready.then(() => {
+            // Pequeno delay para não competir com o load inicial.
+            setTimeout(() => {
+                Promise.allSettled(
+                    URLS.map((u) => fetch(u, { credentials: 'same-origin', cache: 'no-store' }))
+                ).then(() => {
+                    try { localStorage.setItem(WARMUP_KEY, '1'); } catch (e) {}
+                    console.log('[PWA] Warmup concluído — app pronta para offline.');
+                });
+            }, 1500);
+        });
+    })();
+    </script>
+
+    {{-- ============================================================
+         OFFLINE LOGIN — gate e setup
+         ============================================================
+         Fluxos:
+         1. SETUP (online, primeira vez): após sync, se não há auth_cache
+            mostra prompt para o utilizador definir password local.
+         2. GATE (offline / sessão expirada / tab novo): se há auth_cache
+            válido e o tab não está unlocked, mostra overlay de login.
+    --}}
+
+    {{-- Overlay GATE de login offline --}}
+    <div id="pwa-offline-login" class="hidden fixed inset-0 z-[100] bg-gradient-to-br from-slate-900 to-blue-900 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <div class="text-center mb-5">
+                <div class="w-16 h-16 mx-auto bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center mb-3">
+                    <i class="fas fa-lock text-white text-2xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-gray-900">Login Offline</h2>
+                <p class="text-xs text-gray-500 mt-1" id="pwa-offline-login-subtitle">Insira as credenciais para desbloquear o PWA.</p>
+            </div>
+            <form id="pwa-offline-login-form" class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">Email</label>
+                    <input id="pwa-offline-login-email" type="email" required autocomplete="username"
+                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">Password</label>
+                    <input id="pwa-offline-login-password" type="password" required autocomplete="current-password"
+                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none">
+                </div>
+                <p id="pwa-offline-login-error" class="hidden text-xs text-red-600 font-bold text-center"></p>
+                <button type="submit" id="pwa-offline-login-submit"
+                        class="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50">
+                    <i class="fas fa-unlock mr-1"></i>Desbloquear
+                </button>
+            </form>
+            <p class="mt-4 text-[10px] text-center text-gray-400">
+                Se voltar à internet, faça login normal em <a href="/login" class="text-blue-600 underline">/login</a>.
+            </p>
+        </div>
+    </div>
+
+    {{-- Banner SETUP (configurar login offline) --}}
+    <div id="pwa-offline-login-setup" class="hidden fixed bottom-20 inset-x-3 z-[90] bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl shadow-2xl p-4">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-shield-halved text-xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-sm">Ativar login offline</p>
+                <p class="text-xs opacity-90">Permite usar o PWA mesmo quando perde a internet.</p>
+            </div>
+            <button id="pwa-offline-login-setup-btn" class="bg-white text-teal-700 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap">Ativar</button>
+            <button id="pwa-offline-login-setup-dismiss" class="text-white/70 hover:text-white text-lg px-1" title="Mais tarde">&times;</button>
+        </div>
+    </div>
+
+    {{-- Modal SETUP: pedir password --}}
+    <div id="pwa-offline-login-setup-modal" class="hidden fixed inset-0 z-[110] bg-black/60 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-900"><i class="fas fa-shield-halved text-emerald-600 mr-2"></i>Ativar login offline</h3>
+                <button id="pwa-offline-setup-close" class="text-gray-400 text-2xl">&times;</button>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">Digite a sua password atual para ativar o acesso offline. Será guardada em formato encriptado neste dispositivo (válido 90 dias).</p>
+            <form id="pwa-offline-setup-form" class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">Password</label>
+                    <input id="pwa-offline-setup-password" type="password" required minlength="4" autocomplete="current-password"
+                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:outline-none">
+                </div>
+                <p id="pwa-offline-setup-error" class="hidden text-xs text-red-600 font-bold"></p>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg">
+                    <i class="fas fa-check mr-1"></i>Ativar login offline
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // ============================================================
+        // OFFLINE LOGIN GATE
+        // ============================================================
+        const overlay   = document.getElementById('pwa-offline-login');
+        const form      = document.getElementById('pwa-offline-login-form');
+        const errEl     = document.getElementById('pwa-offline-login-error');
+        const subtitle  = document.getElementById('pwa-offline-login-subtitle');
+        const btnSubmit = document.getElementById('pwa-offline-login-submit');
+
+        // Setup
+        const setupBanner   = document.getElementById('pwa-offline-login-setup');
+        const setupBtn      = document.getElementById('pwa-offline-login-setup-btn');
+        const setupDismiss  = document.getElementById('pwa-offline-login-setup-dismiss');
+        const setupModal    = document.getElementById('pwa-offline-login-setup-modal');
+        const setupClose    = document.getElementById('pwa-offline-setup-close');
+        const setupForm     = document.getElementById('pwa-offline-setup-form');
+        const setupPassword = document.getElementById('pwa-offline-setup-password');
+        const setupError    = document.getElementById('pwa-offline-setup-error');
+
+        function showOverlay(info) {
+            overlay.classList.remove('hidden');
+            const emailInput = document.getElementById('pwa-offline-login-email');
+            if (info?.email) {
+                emailInput.value = info.email;
+                emailInput.readOnly = true;
+                subtitle.textContent = 'Insira a password de ' + info.email;
+            }
+            document.getElementById('pwa-offline-login-password').focus();
+        }
+
+        function hideOverlay() {
+            overlay.classList.add('hidden');
+            errEl.classList.add('hidden');
+            const pwd = document.getElementById('pwa-offline-login-password');
+            if (pwd) pwd.value = '';
+        }
+
+        async function evaluateGate() {
+            // Se não existe SosPwa ainda, tentar de novo em 200ms
+            if (!window.SosPwa?.isOfflineAuthEnabled) {
+                setTimeout(evaluateGate, 200);
+                return;
+            }
+            // Se já desbloqueado neste tab, não fazer nada
+            if (window.SosPwa.isPwaUnlocked()) return;
+
+            // Se há auth_cache válido, mostrar overlay
+            const enabled = await window.SosPwa.isOfflineAuthEnabled();
+            if (enabled) {
+                const info = await window.SosPwa.getOfflineAuthInfo();
+                showOverlay(info);
+            }
+            // Se não há cache: assume sessão Laravel válida (página foi servida).
+            // O sync online vai marcar pwa_unlocked.
+        }
+
+        form?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errEl.classList.add('hidden');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>A verificar…';
+            try {
+                const email = document.getElementById('pwa-offline-login-email').value;
+                const pwd   = document.getElementById('pwa-offline-login-password').value;
+                const res   = await window.SosPwa.verifyOfflineAuth(email, pwd);
+                if (res.ok) {
+                    hideOverlay();
+                    window.dispatchEvent(new CustomEvent('pwa:offline-login-success', { detail: res }));
+                } else {
+                    let msg = 'Credenciais inválidas';
+                    if (res.reason === 'EXPIRED')        msg = 'Cache expirou — ligue-se à internet e faça login.';
+                    else if (res.reason === 'NO_CACHE')  msg = 'Login offline não está configurado.';
+                    else if (res.reason === 'EMAIL_MISMATCH') msg = 'Este email não está registado offline.';
+                    else if (res.reason === 'BAD_PASSWORD')   msg = 'Password incorreta.';
+                    errEl.textContent = msg;
+                    errEl.classList.remove('hidden');
+                }
+            } catch (err) {
+                errEl.textContent = err.message || 'Erro inesperado';
+                errEl.classList.remove('hidden');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fas fa-unlock mr-1"></i>Desbloquear';
+            }
+        });
+
+        // ============================================================
+        // SETUP (banner + modal)
+        // ============================================================
+        async function maybeShowSetup() {
+            if (!window.SosPwa?.isOfflineAuthEnabled) {
+                setTimeout(maybeShowSetup, 500);
+                return;
+            }
+            // Não mostrar se já foi dispensado nesta sessão
+            try { if (sessionStorage.getItem('pwa_setup_dismissed') === '1') return; } catch (_) {}
+            // Não mostrar se overlay de gate aberto
+            if (!overlay.classList.contains('hidden')) return;
+            // Não mostrar se já está ativado
+            const enabled = await window.SosPwa.isOfflineAuthEnabled();
+            if (enabled) return;
+            // Tem que estar online + ter user (sessão Laravel ativa)
+            if (!navigator.onLine) return;
+            const userMeta = await window.SosPwa.db.meta.get('user');
+            if (!userMeta?.value?.email) return;
+            setupBanner.classList.remove('hidden');
+        }
+
+        setupBtn?.addEventListener('click', () => {
+            setupBanner.classList.add('hidden');
+            setupModal.classList.remove('hidden');
+            setupPassword.focus();
+        });
+
+        setupDismiss?.addEventListener('click', () => {
+            setupBanner.classList.add('hidden');
+            try { sessionStorage.setItem('pwa_setup_dismissed', '1'); } catch (_) {}
+        });
+
+        setupClose?.addEventListener('click', () => {
+            setupModal.classList.add('hidden');
+            setupError.classList.add('hidden');
+            setupPassword.value = '';
+        });
+
+        setupForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setupError.classList.add('hidden');
+            try {
+                await window.SosPwa.enableOfflineAuth(setupPassword.value);
+                setupModal.classList.add('hidden');
+                setupPassword.value = '';
+                // Toast simples
+                alert('✅ Login offline ativado. Pode agora usar o PWA mesmo sem internet (90 dias).');
+            } catch (err) {
+                setupError.textContent = err.message || 'Erro ao ativar';
+                setupError.classList.remove('hidden');
+            }
+        });
+
+        // Triggers
+        document.addEventListener('DOMContentLoaded', () => {
+            evaluateGate();
+            // Mostrar setup só após sync bem-sucedida (utilizador autenticado)
+            window.addEventListener('pwa:synced', () => setTimeout(maybeShowSetup, 1500));
+        });
+
+        // Sessão expirou → reavaliar gate (mostra overlay se há cache offline)
+        window.addEventListener('pwa:session-expired', () => setTimeout(evaluateGate, 200));
+    })();
+    </script>
+
+    @stack('scripts')
+</body>
+</html>

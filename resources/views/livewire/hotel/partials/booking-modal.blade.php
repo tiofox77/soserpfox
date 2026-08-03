@@ -48,7 +48,14 @@
 
             {{-- Content --}}
             <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 200px);">
-                
+
+                {{-- Erro global (ex.: sem disponibilidade) --}}
+                @if(session('error'))
+                <div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center">
+                    <i class="fas fa-triangle-exclamation mr-2"></i>{{ session('error') }}
+                </div>
+                @endif
+
                 {{-- STEP 1: Quartos --}}
                 @if($step == 1)
                 <div class="space-y-4">
@@ -126,6 +133,18 @@
                         </div>
                         <p class="text-2xl font-bold" style="color: {{ $settings->primary_color ?? '#6366f1' }}">{{ number_format($this->getTotalPrice(), 0, ',', '.') }} Kz</p>
                     </div>
+
+                    {{-- Disponibilidade em tempo real para as datas escolhidas --}}
+                    @php $availCount = $this->selectedTypeAvailableCount; @endphp
+                    @if($availCount > 0)
+                    <div class="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm flex items-center">
+                        <i class="fas fa-circle-check mr-2"></i>{{ $availCount }} quarto(s) disponível(is) para estas datas
+                    </div>
+                    @else
+                    <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm flex items-center">
+                        <i class="fas fa-circle-xmark mr-2"></i>Sem disponibilidade para estas datas. Experimente outro período.
+                    </div>
+                    @endif
                     @endif
                 </div>
                 @endif
@@ -377,10 +396,14 @@
                 @endif
 
                 @if($step < 3)
-                <button wire:click="nextStep" 
-                        class="px-6 py-3 text-white rounded-xl font-semibold transition disabled:opacity-50"
+                @php
+                    $blockNext = ($step == 1 && !$selectedRoomType)
+                        || ($step == 2 && $selectedRoomType && $this->selectedTypeAvailableCount < 1);
+                @endphp
+                <button wire:click="nextStep"
+                        class="px-6 py-3 text-white rounded-xl font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
                         style="background: linear-gradient(135deg, {{ $settings->primary_color ?? '#6366f1' }}, {{ $settings->secondary_color ?? '#8b5cf6' }})"
-                        {{ ($step == 1 && !$selectedRoomType) ? 'disabled' : '' }}>
+                        {{ $blockNext ? 'disabled' : '' }}>
                     Continuar<i class="fas fa-arrow-right ml-2"></i>
                 </button>
                 @elseif($step == 3 && in_array($authMode, ['guest', 'authenticated']))

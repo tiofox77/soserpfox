@@ -551,16 +551,13 @@
     
     
     <div class="page-wrapper">
+        @include('pdf.invoicing.partials.agt-signature-sidebar', ['document' => $proforma, 'documentLabel' => 'Proforma Electrónica SOS ERP'])
         <div class="main-content">
             <div class="header-section">
                 <div class="company-info">
                     <div class="logo-section">
                         <div class="logo">
-                            @if($tenant->logo)
-                <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo da Empresa" class="logo-image" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\'logo-fallback\'>LOGO</div>';" />
-            @else
-                <div class="logo-fallback">LOGO</div>
-            @endif
+                            @include('pdf.invoicing.partials.logo')
                         </div>
                         <div>
                             <div class="company-name">{{ $tenant->name }}</div>
@@ -694,7 +691,7 @@
 
                     <div class="regime-section">
                         <div class="regime-title">Regime Fiscal</div>
-                        <div>{{ $tenant->regime ?? 'Regime Geral' }}</div>
+                        <div>{{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}</div>
                     </div>
 
                     
@@ -724,7 +721,9 @@
                     
 
                     <div class="system-info">
-                        Processado por sistema certificado AGT | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                        Processado por sistema certificado AGT | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
+                        <br>
+                        <strong>ID Certificado:</strong> {{ \App\Helpers\AGTHelper::softwareValidationNumber() }} — SOS ERP - SOLUÇÕES EMPRESARIAIS
                         @if($proforma->saft_hash)
                             <br>
                             <strong>HASH e SAFT-AO:</strong> "{{ substr($proforma->saft_hash, -4) }}"
@@ -775,7 +774,7 @@
             </div>
 
             <div class="agt-description">
-                Esta proforma foi processada pelo Sistema de Facturação | Regime: {{ $tenant->regime ?? 'Regime Geral' }}
+                Esta proforma foi processada pelo Sistema de Facturação | Regime: {{ method_exists($tenant, "regimeLabel") ? $tenant->regimeLabel() : ($tenant->regime ?? "Regime Geral") }}
             </div>
 
             <div class="page-footer">

@@ -2,12 +2,12 @@
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showModal') }" x-show="show" x-cloak>
         <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
         
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-            <div class="relative inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
-                <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4">
+        <div class="flex items-start sm:items-center justify-center min-h-screen p-2 sm:p-4 text-center">
+            <div class="relative w-full bg-white rounded-2xl text-left shadow-2xl transform transition-all my-4 sm:my-8 sm:max-w-6xl max-h-[94vh] overflow-y-auto">
+                <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-10">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-2xl font-bold text-white flex items-center">
-                            <i class="fas fa-box mr-3"></i>{{ $editingProductId ? 'Editar' : 'Novo' }} Produto
+                        <h3 class="text-lg sm:text-2xl font-bold text-white flex items-center">
+                            <i class="fas fa-box mr-2 sm:mr-3"></i>{{ $editingProductId ? 'Editar' : 'Novo' }} Produto
                         </h3>
                         <button wire:click="closeModal" class="text-white hover:text-gray-200 transition">
                             <i class="fas fa-times text-2xl"></i>
@@ -15,9 +15,9 @@
                     </div>
                 </div>
                 
-                <form wire:submit.prevent="save" class="p-6">
+                <form wire:submit.prevent="save" class="p-4 sm:p-6">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="col-span-3">
+                        <div class="md:col-span-3">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-tag text-purple-500 mr-2"></i>Nome *
                             </label>
@@ -99,7 +99,7 @@
                             @error('type') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
-                        <div class="col-span-3">
+                        <div class="md:col-span-3">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-align-left text-gray-500 mr-2"></i>Descrição
                             </label>
@@ -122,7 +122,7 @@
                         </div>
                         
                         <!-- Seção de Categorização -->
-                        <div class="col-span-3 p-4 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl border-2 border-cyan-200">
+                        <div class="md:col-span-3 p-4 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl border-2 border-cyan-200">
                             <div class="flex items-center mb-4">
                                 <div class="flex items-center justify-center w-10 h-10 bg-cyan-500 rounded-lg shadow-md">
                                     <i class="fas fa-sitemap text-white text-lg"></i>
@@ -249,7 +249,7 @@
                         </div>
                         
                         <!-- Gestão de Stock -->
-                        <div class="col-span-3 p-4 bg-gray-50 rounded-xl">
+                        <div class="md:col-span-3 p-4 bg-gray-50 rounded-xl">
                             <div class="flex items-center mb-4">
                                 <input type="checkbox" wire:model.live="manage_stock" id="manage_stock" class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
                                 <label for="manage_stock" class="ml-3 text-sm font-bold text-gray-900">
@@ -258,10 +258,18 @@
                             </div>
                             
                             @if($manage_stock)
-                                <div class="grid grid-cols-3 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
-                                        <label class="block text-xs font-semibold text-gray-600 mb-2">Qtd. Atual</label>
-                                        <input wire:model="stock_quantity" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                                        <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                            {{ $editingProductId ? 'Qtd. Atual (só leitura)' : 'Qtd. Inicial' }}
+                                        </label>
+                                        @if($editingProductId)
+                                            {{-- Agregado derivado dos armazéns — ajustar via Gestão de Stock --}}
+                                            <input value="{{ $stock_quantity }}" type="number" disabled class="w-full px-3 py-2 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg text-sm cursor-not-allowed">
+                                            <p class="text-[11px] text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>Ajuste o stock em <strong>Gestão de Stock</strong> (fica registado no histórico).</p>
+                                        @else
+                                            <input wire:model="stock_quantity" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                                        @endif
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-600 mb-2">Mínimo</label>
@@ -276,7 +284,7 @@
                         </div>
                         
                         <!-- Controle de Lotes e Validade -->
-                        <div class="col-span-3 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border-2 border-amber-200">
+                        <div class="md:col-span-3 p-4 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border-2 border-amber-200">
                             <div class="flex items-center mb-4">
                                 <div class="flex items-center justify-center w-10 h-10 bg-amber-500 rounded-lg shadow-md">
                                     <i class="fas fa-box-open text-white text-lg"></i>
@@ -389,7 +397,7 @@
                             <p class="text-xs text-gray-500 mt-1">Máximo 2MB - PNG, JPG, GIF</p>
                         </div>
                         
-                        <div class="col-span-2" x-data="{ galleryPreviews: [] }">
+                        <div class="md:col-span-2" x-data="{ galleryPreviews: [] }">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-images text-pink-500 mr-2"></i>Galeria de Imagens
                             </label>
@@ -442,7 +450,7 @@
                             <p class="text-xs text-gray-500 mt-1">Múltiplas imagens - Máximo 2MB cada</p>
                         </div>
                         
-                        <div class="col-span-3">
+                        <div class="md:col-span-3">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-receipt text-blue-500 mr-2"></i>Regime de IVA *
                             </label>
@@ -482,7 +490,7 @@
                         </div>
                         
                         @if($tax_type === 'iva')
-                            <div class="col-span-2">
+                            <div class="md:col-span-2">
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                                     <i class="fas fa-percent text-blue-500 mr-2"></i>Taxa de IVA *
                                 </label>
@@ -526,17 +534,32 @@
                         @endif
                         
                         @if($tax_type === 'isento')
-                            <div class="col-span-2">
+                            <div class="md:col-span-2">
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                                     <i class="fas fa-file-alt text-green-500 mr-2"></i>Motivo de Isenção *
                                 </label>
                                 <select wire:model="exemption_reason" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
                                     <option value="">Selecione o motivo...</option>
-                                    @foreach(\App\Models\Product::EXEMPTION_REASONS as $code => $reason)
-                                        <option value="{{ $code }}">{{ $code }} - {{ $reason }}</option>
-                                    @endforeach
+                                    @php
+                                        $grouped = ($exemptionCodes ?? collect())->groupBy('tax_type');
+                                        $groupLabels = ['IVA' => 'IVA (M01–M93)', 'IS' => 'Imposto de Selo (S01–S03)', 'IRT' => 'IRT (I01–I16)'];
+                                    @endphp
+                                    @forelse($grouped as $taxType => $codes)
+                                        <optgroup label="{{ $groupLabels[$taxType] ?? $taxType }}">
+                                            @foreach($codes as $c)
+                                                <option value="{{ $c->code }}">{{ $c->code }} — {{ $c->description }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @empty
+                                        {{-- Fallback: se a tabela ainda não foi seedada, usa a lista legada --}}
+                                        @foreach(\App\Models\Product::EXEMPTION_REASONS as $code => $reason)
+                                            <option value="{{ $code }}">{{ $code }} - {{ $reason }}</option>
+                                        @endforeach
+                                    @endforelse
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1">Motivo legal de isenção conforme AGT Angola</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Código oficial AGT (DS.120 §9.5) — agrupado por tipo de imposto.
+                                </p>
                                 @error('exemption_reason') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                             </div>
                         @endif

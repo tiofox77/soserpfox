@@ -23,9 +23,11 @@
                     <p class="text-teal-100 text-sm">Controle de validade e lotes de produtos</p>
                 </div>
             </div>
+            @can('invoicing.product-batches.create')
             <button wire:click="create" class="bg-white text-teal-600 hover:bg-teal-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
                 <i class="fas fa-plus mr-2"></i>Novo Lote
             </button>
+            @endcan
         </div>
     </div>
 
@@ -206,15 +208,26 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center space-x-2">
+                                @can('invoicing.product-batches.edit')
                                 <button wire:click="edit({{ $batch->id }})"
-                                        class="w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition flex items-center justify-center">
+                                        class="w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition flex items-center justify-center"
+                                        title="Editar lote">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                @endcan
+                                @can('invoicing.product-batches.delete')
                                 <button wire:click="delete({{ $batch->id }})"
                                         wire:confirm="Tem certeza que deseja excluir este lote?"
-                                        class="w-9 h-9 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition flex items-center justify-center">
+                                        class="w-9 h-9 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition flex items-center justify-center"
+                                        title="Excluir lote">
                                     <i class="fas fa-trash"></i>
                                 </button>
+                                @endcan
+                                @cannot('invoicing.product-batches.edit')
+                                    @cannot('invoicing.product-batches.delete')
+                                        <span class="text-xs text-gray-400 italic">Sem acções</span>
+                                    @endcannot
+                                @endcannot
                             </div>
                         </td>
                     </tr>
@@ -243,8 +256,8 @@
     {{-- Modal --}}
     @if($showModal)
     <div class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 px-8 py-6 rounded-t-2xl flex items-center justify-between z-10">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-[calc(100%-1rem)] sm:w-full max-h-[94vh] overflow-y-auto">
+            <div class="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 px-4 sm:px-8 py-4 sm:py-6 rounded-t-2xl flex items-center justify-between z-10">
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-3">
                         <i class="fas fa-boxes text-white"></i>
@@ -259,7 +272,7 @@
                 </button>
             </div>
 
-            <div class="p-8">
+            <div class="p-4 sm:p-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="md:col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2">Produto *</label>

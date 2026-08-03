@@ -1,8 +1,32 @@
-<div class="p-6">
+<div class="p-6 relative">
+    {{-- Overlay de loading global (feedback imediato em acções Livewire) --}}
+    <div wire:loading.delay.long.flex
+         wire:target="saveEntry,saveAdjustment,saveTransfer,search,warehouseFilter,lowStockFilter,gotoPage,previousPage,nextPage"
+         class="hidden absolute inset-0 z-40 bg-white/60 backdrop-blur-sm items-center justify-center rounded-lg">
+        <div class="bg-white shadow-lg rounded-xl px-5 py-3 flex items-center gap-3 border border-gray-200">
+            <i class="fas fa-spinner fa-spin text-purple-600 text-lg"></i>
+            <span class="text-sm font-semibold text-gray-700">A actualizar…</span>
+        </div>
+    </div>
+
     {{-- Header --}}
-    <div class="mb-6">
-        <h2 class="text-2xl font-bold text-gray-800">Gestão de Stock</h2>
-        <p class="text-gray-600">Controle de inventário por armazém</p>
+    <div class="mb-4 sm:mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+            <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Gestão de Stock</h2>
+            <p class="text-xs sm:text-base text-gray-600">Controle de inventário por armazém</p>
+        </div>
+        @can('invoicing.stock.edit')
+        <button wire:click="openEntryModal"
+                wire:loading.attr="disabled" wire:target="openEntryModal"
+                class="btn-press inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold shadow transition disabled:opacity-60">
+            <span wire:loading.remove wire:target="openEntryModal">
+                <i class="fas fa-plus-circle mr-2"></i> Adicionar Stock
+            </span>
+            <span wire:loading wire:target="openEntryModal" class="inline-flex items-center">
+                <i class="fas fa-spinner fa-spin mr-2"></i> A abrir…
+            </span>
+        </button>
+        @endcan
     </div>
 
     {{-- Flash Messages --}}
@@ -18,60 +42,60 @@
     @endif
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-3 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-blue-200 text-sm font-medium">Total de Produtos</p>
-                    <p class="text-3xl font-bold mt-1">{{ $stats['total_products'] }}</p>
+                    <p class="text-blue-200 text-[11px] sm:text-sm font-medium">Total de Produtos</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['total_products'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-box text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full shrink-0">
+                    <i class="fas fa-box text-base sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-3 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-green-200 text-sm font-medium">Quantidade Total</p>
-                    <p class="text-3xl font-bold mt-1">{{ number_format($stats['total_quantity'], 0, ',', '.') }}</p>
+                    <p class="text-green-200 text-[11px] sm:text-sm font-medium">Quantidade Total</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ number_format($stats['total_quantity'], 0, ',', '.') }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-cubes text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full shrink-0">
+                    <i class="fas fa-cubes text-base sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-3 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-purple-200 text-sm font-medium">Valor Total</p>
-                    <p class="text-3xl font-bold mt-1">{{ number_format($stats['total_value'], 2, ',', '.') }} Kz</p>
+                    <p class="text-purple-200 text-[11px] sm:text-sm font-medium">Valor Total</p>
+                    <p class="text-lg sm:text-3xl font-bold mt-1 break-words">{{ number_format($stats['total_value'], 2, ',', '.') }} Kz</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-money-bill-wave text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full shrink-0">
+                    <i class="fas fa-money-bill-wave text-base sm:text-2xl"></i>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-6 text-white">
+        <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-3 sm:p-6 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-red-200 text-sm font-medium">Stock Baixo</p>
-                    <p class="text-3xl font-bold mt-1">{{ $stats['low_stock'] }}</p>
+                    <p class="text-red-200 text-[11px] sm:text-sm font-medium">Stock Baixo</p>
+                    <p class="text-xl sm:text-3xl font-bold mt-1">{{ $stats['low_stock'] }}</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-full">
-                    <i class="fas fa-exclamation-triangle text-2xl"></i>
+                <div class="bg-white/20 p-2 sm:p-3 rounded-full shrink-0">
+                    <i class="fas fa-exclamation-triangle text-base sm:text-2xl"></i>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Filters --}}
-    <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="md:col-span-2">
+    <div class="bg-white rounded-lg shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div class="sm:col-span-2 md:col-span-2">
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar produto..." 
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
             </div>
@@ -95,36 +119,39 @@
     {{-- Table --}}
     <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
         <!-- Header -->
-        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
-            <h3 class="text-white font-bold text-lg flex items-center">
+        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-white font-bold text-base sm:text-lg flex items-center">
                 <i class="fas fa-boxes mr-2"></i>
                 Lista de Stock por Produto
             </h3>
+            <span class="md:hidden text-[11px] text-white/80 flex items-center gap-1">
+                <i class="fas fa-arrows-left-right"></i> Arraste para ver mais
+            </span>
         </div>
 
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
                             <i class="fas fa-box mr-1 text-purple-600"></i>Produto
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-warehouse mr-1 text-blue-600"></i>Armazém
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-cubes mr-1 text-gray-600"></i>Quantidade
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-check-circle mr-1 text-green-600"></i>Disponível
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-lock mr-1 text-orange-600"></i>Reservado
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-dollar-sign mr-1 text-purple-600"></i>Custo Médio
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-cog mr-1 text-gray-600"></i>Ações
                         </th>
                     </tr>
@@ -133,7 +160,7 @@
                     @forelse($stocks as $stock)
                     <tr class="hover:bg-purple-50 transition-all duration-200 ease-in-out transform hover:scale-[1.01] hover:shadow-md">
                         <!-- Product -->
-                        <td class="px-6 py-4">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 sticky left-0 bg-white z-10">
                             <div class="flex items-center">
                                 @if($stock->product->image_url)
                                     <img src="{{ $stock->product->image_url }}" 
@@ -156,15 +183,15 @@
                         </td>
                         
                         <!-- Warehouse -->
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                             <span class="inline-flex items-center px-3 py-1.5 text-xs font-bold bg-blue-100 text-blue-800 rounded-full">
                                 <i class="fas fa-warehouse mr-1.5"></i>
-                                {{ $stock->warehouse->name }}
+                                {{ $stock->warehouse?->name ?? 'Armazém indisponível' }}
                             </span>
                         </td>
                         
                         <!-- Quantity -->
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-center">
                             @php
                                 $percentage = $stock->product->stock_min > 0 
                                     ? ($stock->quantity / $stock->product->stock_min) * 100 
@@ -189,7 +216,7 @@
                         </td>
                         
                         <!-- Available -->
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-center">
                             <div class="flex flex-col items-center">
                                 <span class="text-lg font-bold text-green-600">
                                     {{ number_format($stock->available_quantity, 0) }}
@@ -207,7 +234,7 @@
                         </td>
                         
                         <!-- Reserved -->
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-center">
                             @if($stock->reserved_quantity > 0)
                                 <span class="inline-flex items-center px-3 py-1.5 bg-orange-100 text-orange-800 text-sm font-bold rounded-full">
                                     <i class="fas fa-lock mr-1.5"></i>
@@ -221,7 +248,7 @@
                         </td>
                         
                         <!-- Cost -->
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-center">
                             @if($stock->unit_cost)
                                 <div class="flex flex-col items-center">
                                     <span class="text-sm font-bold text-purple-600">{{ number_format($stock->unit_cost, 2) }} Kz</span>
@@ -235,33 +262,43 @@
                         </td>
                         
                         <!-- Actions -->
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-center">
                             <div class="flex items-center justify-center space-x-2">
+                                @can('invoicing.stock.edit')
                                 <button 
-                                    wire:click="openAdjustModal({{ $stock->id }})" 
-                                    class="group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110"
+                                    wire:click="openAdjustModal({{ $stock->id }})"
+                                    wire:loading.attr="disabled" wire:target="openAdjustModal({{ $stock->id }})"
+                                    class="btn-press group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50"
                                     title="Ajustar Stock">
-                                    <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors"></i>
+                                    <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors" wire:loading.remove wire:target="openAdjustModal({{ $stock->id }})"></i>
+                                    <i class="fas fa-spinner fa-spin text-blue-600" wire:loading wire:target="openAdjustModal({{ $stock->id }})"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap">
                                         Ajustar
                                     </span>
                                 </button>
+                                @endcan
                                 
+                                @can('invoicing.warehouse-transfer.create')
                                 <button 
-                                    wire:click="openTransferModal({{ $stock->id }})" 
-                                    class="group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110"
+                                    wire:click="openTransferModal({{ $stock->id }})"
+                                    wire:loading.attr="disabled" wire:target="openTransferModal({{ $stock->id }})"
+                                    class="btn-press group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50"
                                     title="Transferir">
-                                    <i class="fas fa-exchange-alt text-purple-600 group-hover:text-white transition-colors"></i>
+                                    <i class="fas fa-exchange-alt text-purple-600 group-hover:text-white transition-colors" wire:loading.remove wire:target="openTransferModal({{ $stock->id }})"></i>
+                                    <i class="fas fa-spinner fa-spin text-purple-600" wire:loading wire:target="openTransferModal({{ $stock->id }})"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap">
                                         Transferir
                                     </span>
                                 </button>
+                                @endcan
                                 
                                 <button 
-                                    wire:click="showMovements({{ $stock->product_id }}, '{{ $stock->product->name }}')" 
-                                    class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110"
+                                    wire:click="showMovements({{ $stock->product_id }}, '{{ addslashes($stock->product->name) }}')"
+                                    wire:loading.attr="disabled" wire:target="showMovements({{ $stock->product_id }})"
+                                    class="btn-press group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50"
                                     title="Ver Movimentos">
-                                    <i class="fas fa-history text-green-600 group-hover:text-white transition-colors"></i>
+                                    <i class="fas fa-history text-green-600 group-hover:text-white transition-colors" wire:loading.remove wire:target="showMovements({{ $stock->product_id }})"></i>
+                                    <i class="fas fa-spinner fa-spin text-green-600" wire:loading wire:target="showMovements({{ $stock->product_id }})"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap">
                                         Histórico
                                     </span>
@@ -272,12 +309,30 @@
                     @empty
                     <tr>
                         <td colspan="7" class="px-6 py-16 text-center">
-                            <div class="flex flex-col items-center justify-center animate-pulse">
+                            <div class="flex flex-col items-center justify-center">
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-boxes text-gray-300 text-4xl"></i>
                                 </div>
                                 <p class="text-gray-500 text-lg font-semibold">Nenhum stock encontrado</p>
-                                <p class="text-gray-400 text-sm mt-2">Tente ajustar os filtros ou adicione produtos ao inventário</p>
+                                <p class="text-gray-400 text-sm mt-2 mb-4">
+                                    @if($search)
+                                        Não existe stock para "<span class="font-bold">{{ $search }}</span>". Pode adicionar agora.
+                                    @else
+                                        Adicione uma entrada de stock para um produto novo.
+                                    @endif
+                                </p>
+                                @can('invoicing.stock.edit')
+                                <button wire:click="openEntryModal"
+                                        wire:loading.attr="disabled" wire:target="openEntryModal"
+                                        class="btn-press inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold shadow transition disabled:opacity-60">
+                                    <span wire:loading.remove wire:target="openEntryModal">
+                                        <i class="fas fa-plus-circle mr-2"></i> Adicionar Stock
+                                    </span>
+                                    <span wire:loading wire:target="openEntryModal" class="inline-flex items-center">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i> A abrir…
+                                    </span>
+                                </button>
+                                @endcan
                             </div>
                         </td>
                     </tr>
@@ -293,6 +348,7 @@
     </div>
 
     {{-- Modals --}}
+    @include('livewire.invoicing.stock.partials.entry-modal')
     @include('livewire.invoicing.stock.partials.adjust-modal')
     @include('livewire.invoicing.stock.partials.transfer-modal')
     @include('livewire.invoicing.stock.partials.movements-modal')

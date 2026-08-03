@@ -10,7 +10,7 @@
     @endif
     
     <!-- PWA -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -270,141 +270,62 @@
             </div>
 
             <!-- Menu -->
+            @php
+                // Estrutura unica do menu (data-driven). Reorganizado por areas logicas.
+                // Cada seccao: titulo => lista de itens [route, icon, color, label].
+                $navSections = [
+                    '' => [
+                        ['route' => 'home', 'icon' => 'fas fa-home', 'color' => 'text-yellow-400', 'label' => 'Início'],
+                    ],
+                    'Principal' => [
+                        ['route' => 'superadmin.dashboard', 'icon' => 'fas fa-chart-line', 'color' => 'text-yellow-400', 'label' => 'Dashboard'],
+                        ['route' => 'superadmin.analytics', 'icon' => 'fas fa-fire', 'color' => 'text-orange-400', 'label' => 'Analytics & Leads'],
+                    ],
+                    'Comercial' => [
+                        ['route' => 'superadmin.tenants', 'icon' => 'fas fa-building', 'color' => 'text-green-400', 'label' => 'Empresas / Tenants'],
+                        ['route' => 'superadmin.plans', 'icon' => 'fas fa-tags', 'color' => 'text-pink-400', 'label' => 'Planos'],
+                        ['route' => 'superadmin.modules', 'icon' => 'fas fa-puzzle-piece', 'color' => 'text-purple-400', 'label' => 'Módulos'],
+                        ['route' => 'superadmin.billing', 'icon' => 'fas fa-file-invoice-dollar', 'color' => 'text-emerald-400', 'label' => 'Faturação / Billing'],
+                    ],
+                    'Comunicação' => [
+                        ['route' => 'superadmin.contact-messages', 'icon' => 'fas fa-comments', 'color' => 'text-cyan-400', 'label' => 'Mensagens de Contacto'],
+                        ['route' => 'superadmin.email-templates', 'icon' => 'fas fa-envelope', 'color' => 'text-blue-400', 'label' => 'Email Templates'],
+                        ['route' => 'superadmin.smtp-settings', 'icon' => 'fas fa-server', 'color' => 'text-emerald-400', 'label' => 'SMTP'],
+                        ['route' => 'superadmin.email-logs', 'icon' => 'fas fa-history', 'color' => 'text-yellow-400', 'label' => 'Email Logs'],
+                        ['route' => 'superadmin.sms-settings', 'icon' => 'fas fa-sms', 'color' => 'text-green-400', 'label' => 'SMS'],
+                        ['route' => 'superadmin.whatsapp-notifications', 'icon' => 'fab fa-whatsapp', 'color' => 'text-green-400', 'label' => 'WhatsApp'],
+                    ],
+                    'Sistema' => [
+                        ['route' => 'superadmin.system-updates', 'icon' => 'fas fa-cloud-download-alt', 'color' => 'text-cyan-400', 'label' => 'Atualizações'],
+                        ['route' => 'superadmin.system-commands', 'icon' => 'fas fa-terminal', 'color' => 'text-green-400', 'label' => 'Comandos & Seeders'],
+                        ['route' => 'superadmin.script-runner', 'icon' => 'fas fa-code', 'color' => 'text-amber-400', 'label' => 'Script Runner'],
+                        ['route' => 'superadmin.system-optimization', 'icon' => 'fas fa-rocket', 'color' => 'text-yellow-400', 'label' => 'Otimização'],
+                    ],
+                    'Configuração' => [
+                        ['route' => 'superadmin.system-settings', 'icon' => 'fas fa-cog', 'color' => 'text-purple-400', 'label' => 'Gerais'],
+                        ['route' => 'superadmin.software-settings', 'icon' => 'fas fa-shield-alt', 'color' => 'text-red-400', 'label' => 'Software'],
+                        ['route' => 'superadmin.saft', 'icon' => 'fas fa-key', 'color' => 'text-orange-400', 'label' => 'SAFT-AO'],
+                    ],
+                ];
+            @endphp
             <nav class="flex-1 overflow-y-auto py-4">
-                <a href="{{ route('home') }}" class="flex items-center px-4 py-2.5 hover:bg-blue-700/50 transition text-blue-200 hover:text-white">
-                    <i class="fas fa-arrow-left w-6 text-blue-300"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Voltar ao ERP</span>
-                </a>
-                
-                <div class="border-t border-blue-700/50 my-3"></div>
+                @foreach($navSections as $section => $items)
+                    @if($section !== '')
+                        <div class="border-t border-blue-700/50 my-3"></div>
+                        <div class="px-4 mb-1">
+                            <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{{ $section }}</p>
+                        </div>
+                    @endif
 
-                {{-- GESTAO --}}
-                <div class="px-4 mb-1">
-                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Gestao</p>
-                </div>
-                
-                <a href="{{ route('superadmin.dashboard') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.dashboard') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-chart-line w-5 text-yellow-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
-                </a>
-                
-                <a href="{{ route('superadmin.tenants') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.tenants') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-building w-5 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Empresas / Tenants</span>
-                </a>
-                
-                <a href="{{ route('superadmin.modules') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.modules') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-puzzle-piece w-5 text-purple-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Modulos</span>
-                </a>
-                
-                <a href="{{ route('superadmin.plans') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.plans') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-tags w-5 text-pink-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Planos</span>
-                </a>
-                
-                <a href="{{ route('superadmin.billing') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.billing') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-file-invoice-dollar w-5 text-emerald-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Faturacao / Billing</span>
-                </a>
-                
-                <a href="{{ route('superadmin.contact-messages') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.contact-messages') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-comments w-5 text-cyan-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Mensagens de Contacto</span>
-                </a>
-                
-                <div class="border-t border-blue-700/50 my-3"></div>
-
-                {{-- SISTEMA --}}
-                <div class="px-4 mb-1">
-                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Sistema</p>
-                </div>
-                
-                <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-cloud-download-alt w-5 text-cyan-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Atualizacoes</span>
-                </a>
-                
-                <a href="{{ route('superadmin.system-commands') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-commands') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-terminal w-5 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Comandos & Seeders</span>
-                </a>
-                
-                <a href="{{ route('superadmin.script-runner') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.script-runner') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-code w-5 text-amber-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Script Runner</span>
-                </a>
-                
-                <a href="{{ route('superadmin.system-optimization') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-optimization') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-rocket w-5 text-yellow-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Otimizacao</span>
-                </a>
-                
-                <div class="border-t border-blue-700/50 my-3"></div>
-
-                {{-- CONFIGURACOES --}}
-                <div class="px-4 mb-1">
-                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Configuracoes</p>
-                </div>
-                
-                <a href="{{ route('superadmin.system-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.system-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-cog w-5 text-purple-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Gerais</span>
-                </a>
-                
-                <a href="{{ route('superadmin.software-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.software-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-shield-alt w-5 text-red-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Software</span>
-                </a>
-                
-                <div class="border-t border-blue-700/50 my-3"></div>
-
-                {{-- COMUNICACOES --}}
-                <div class="px-4 mb-1">
-                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Comunicacoes</p>
-                </div>
-                
-                <a href="{{ route('superadmin.email-templates') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.email-templates') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-envelope w-5 text-blue-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Email Templates</span>
-                </a>
-                
-                <a href="{{ route('superadmin.smtp-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.smtp-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-server w-5 text-emerald-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">SMTP</span>
-                </a>
-                
-                <a href="{{ route('superadmin.email-logs') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.email-logs') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-history w-5 text-yellow-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Email Logs</span>
-                </a>
-                
-                <a href="{{ route('superadmin.sms-settings') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.sms-settings') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-sms w-5 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">SMS</span>
-                </a>
-                
-                <a href="{{ route('superadmin.whatsapp-notifications') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.whatsapp-notifications') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fab fa-whatsapp w-5 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">WhatsApp</span>
-                </a>
-                
-                <div class="border-t border-blue-700/50 my-3"></div>
-
-                {{-- INTEGRACOES --}}
-                <div class="px-4 mb-1">
-                    <p x-show="sidebarOpen" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Integracoes</p>
-                </div>
-                
-                <a href="{{ route('superadmin.saft') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('superadmin.saft') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-key w-5 text-orange-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">SAFT-AO</span>
-                </a>
-                
-                <a href="{{ route('invoicing.agt-documents') }}" class="flex items-center px-4 py-2.5 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
-                    <i class="fas fa-certificate w-5 text-green-400"></i>
-                    <span x-show="sidebarOpen" class="ml-3 text-sm">Gerador AGT</span>
-                </a>
+                    @foreach($items as $item)
+                        @php $active = request()->routeIs($item['route']); @endphp
+                        <a href="{{ route($item['route']) }}" title="{{ $item['label'] }}"
+                           class="flex items-center px-4 py-2.5 {{ $active ? 'bg-blue-700/80 border-l-4 border-yellow-400' : 'hover:bg-blue-700/40' }} transition">
+                            <i class="{{ $item['icon'] }} w-5 {{ $item['color'] }}"></i>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm">{{ $item['label'] }}</span>
+                        </a>
+                    @endforeach
+                @endforeach
             </nav>
 
             <!-- User Menu -->
@@ -461,7 +382,11 @@
 
             <!-- Page Content -->
             <main class="flex-1 overflow-y-auto bg-gray-50 p-6">
-                {{ $slot }}
+                @isset($slot)
+                    {{ $slot }}
+                @else
+                    @yield('content')
+                @endisset
             </main>
         </div>
     </div>
@@ -529,13 +454,8 @@
     </script>
     
     <!-- PWA Service Worker -->
+    @include('partials.pwa-register')
     <script>
-        localStorage.setItem('soserp-last-online', Date.now().toString());
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-        }
-        window.addEventListener('offline', () => document.body.classList.add('app-offline'));
-        window.addEventListener('online', () => { document.body.classList.remove('app-offline'); location.reload(); });
     </script>
 </body>
 </html>

@@ -6,6 +6,7 @@ use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -37,6 +38,14 @@ class StockManagement extends Component
      *   ['product_id', 'product_name', 'product_code', 'unit', 'quantity', 'unit_cost']
      */
     public array $entryItems = [];
+
+    /**
+     * Resultado da última movimentação gravada — é o que faz o modal mostrar o
+     * painel de sucesso com o documento em vez de fechar sem deixar rasto.
+     */
+    public ?string $batchReference = null;
+    public int $batchOk = 0;
+    public array $batchErrors = [];
 
     // Adjust Form
     public $adjustStockId;
@@ -346,7 +355,10 @@ class StockManagement extends Component
             'entryItems'               => 'required|array|min:1',
             'entryItems.*.product_id'  => 'required|exists:invoicing_products,id',
             'entryItems.*.op'          => 'required|in:add,sub',
-            'entryItems.*.quantity'    => 'required|numeric|min:0.001',
+            // 0,01 e não 0,001: a coluna `quantity` é decimal(10,2). Aceitar
+            // três casas fazia com que 0,001 gravasse 0,00 — o utilizador via a
+            // linha aceite e o stock não mexia.
+            'entryItems.*.quantity'    => 'required|numeric|min:0.01',
             'entryItems.*.unit_cost'   => 'nullable|numeric|min:0',
             'entryNotes'               => 'nullable|string|max:500',
         ], [
@@ -357,53 +369,104 @@ class StockManagement extends Component
             'entryItems.*.quantity.min'        => 'A quantidade deve ser maior que zero.',
         ]);
 
-        $ok = 0; $errors = [];
-        foreach ($this->entryItems as $idx => $it) {
-            try {
-                $isSub = ($it['op'] ?? 'add') === 'sub';
+        $ok = 0; $errors = []; $referencia = null;
 
-                if ($isSub) {
-                    // Saída: createExit → Stock::removeStock (lança exception se insuficiente)
-                    StockMovement::createExit([
-                        'warehouse_id' => $this->entryWarehouseId,
-                        'product_id'   => $it['product_id'],
-                        'quantity'     => $it['quantity'],
-                        'unit_cost'    => !empty($it['unit_cost']) ? $it['unit_cost'] : null,
-                        'notes'        => $this->entryNotes ?: 'Saída manual em lote',
-                    ]);
-                } else {
-                    // Entrada
-                    StockMovement::createEntry([
-                        'warehouse_id' => $this->entryWarehouseId,
-                        'product_id'   => $it['product_id'],
-                        'quantity'     => $it['quantity'],
-                        'unit_cost'    => !empty($it['unit_cost']) ? $it['unit_cost'] : null,
-                        'notes'        => $this->entryNotes ?: 'Entrada manual em lote',
-                    ]);
+        // Transacção exterior: serve para o lock da referência do lote valer
+        // alguma coisa. Fora de uma transacção, `lockForUpdate` é ignorado e
+        // dois operadores a gravar ao mesmo tempo levavam a mesma referência —
+        // os movimentos de um apareciam no documento do outro.
+        DB::transaction(function () use (&$ok, &$errors, &$referencia) {
+            $referencia = StockMovement::gerarReferenciaLote(activeTenantId());
+
+            foreach ($this->entryItems as $idx => $it) {
+                try {
+                    // Transacção por linha (savepoint). Sem ela, uma saída sem
+                    // stock deixava o movimento GRAVADO e o stock intacto: o
+                    // livro passava a dizer que a mercadoria saiu quando não
+                    // saiu. `createExit` insere a linha primeiro e só depois o
+                    // hook chama removeStock(), que é quem lança.
+                    DB::transaction(function () use ($it, $referencia, &$ok) {
+                        $isSub = ($it['op'] ?? 'add') === 'sub';
+                        $qtd   = (float) $it['quantity'];
+
+                        // Saldo resultante calculado ANTES de criar o movimento.
+                        //
+                        // A alternativa — criar e depois reler o stock para
+                        // gravar o saldo — obrigava a um segundo save() por
+                        // linha, e como StockMovement é auditado isso duplicava
+                        // as linhas da trilha (um `created` e um `updated` por
+                        // produto). A trilha é append-only: o que lá entra fica.
+                        $saldoActual = (float) Stock::where('tenant_id', activeTenantId())
+                            ->where('warehouse_id', $this->entryWarehouseId)
+                            ->where('product_id', $it['product_id'])
+                            ->value('quantity');
+
+                        $dados = [
+                            'warehouse_id'    => $this->entryWarehouseId,
+                            'product_id'      => $it['product_id'],
+                            'quantity'        => $qtd,
+                            'balance_after'   => $isSub ? $saldoActual - $qtd : $saldoActual + $qtd,
+                            'unit_cost'       => !empty($it['unit_cost']) ? $it['unit_cost'] : null,
+                            'batch_reference' => $referencia,
+                            'notes'           => $this->entryNotes ?: ($isSub ? 'Saída manual em lote' : 'Entrada manual em lote'),
+                        ];
+
+                        // Se o stock não chegar, `createExit` lança dentro do
+                        // savepoint e nada disto fica — nem o movimento, nem o
+                        // saldo calculado acima.
+                        $isSub
+                            ? StockMovement::createExit($dados)
+                            : StockMovement::createEntry($dados);
+
+                        // NOTA: o agregado products.stock_quantity é mantido pelo StockObserver
+                        // (createEntry/createExit → Stock::addStock/removeStock → save Eloquent).
+                        // A sincronização manual que existia aqui aplicava o delta uma SEGUNDA
+                        // vez sobre o valor já sincronizado — dupla contagem em cada entrada
+                        // (comprovada em 88 entradas do tenant 17) e dupla subtração nas saídas.
+                        $ok++;
+                    });
+                } catch (\Throwable $e) {
+                    $errors[] = ($it['product_name'] ?? '#' . $idx) . ': ' . $e->getMessage();
                 }
-
-                // NOTA: o agregado products.stock_quantity é mantido pelo StockObserver
-                // (createEntry/createExit → Stock::addStock/removeStock → save Eloquent).
-                // A sincronização manual que existia aqui aplicava o delta uma SEGUNDA
-                // vez sobre o valor já sincronizado — dupla contagem em cada entrada
-                // (comprovada em 88 entradas do tenant 17) e dupla subtração nas saídas.
-                $ok++;
-            } catch (\Throwable $e) {
-                $errors[] = ($it['product_name'] ?? '#' . $idx) . ': ' . $e->getMessage();
             }
+        });
+
+        if ($ok === 0) {
+            session()->flash('error', 'Não foi possível registar nenhum produto. ' . implode(' | ', $errors));
+
+            return;
         }
 
-        if ($ok > 0 && empty($errors)) {
-            session()->flash('message', "Movimentação registada: {$ok} produto(s) actualizado(s).");
-            $this->showEntryModal = false;
-            $this->resetEntryForm();
-        } elseif ($ok > 0) {
-            session()->flash('message', "Parcialmente registada: {$ok} produto(s) OK. Falhas: " . implode(' | ', $errors));
-            $this->showEntryModal = false;
-            $this->resetEntryForm();
-        } else {
-            session()->flash('error', 'Não foi possível registar nenhum produto. ' . implode(' | ', $errors));
-        }
+        // Painel de sucesso com o documento. Substitui o fecho imediato do
+        // modal: o utilizador tem de ficar com a referência do lote à vista e
+        // com o PDF a um clique — abri-lo por JS seria bloqueado como popup,
+        // por não vir de um gesto directo.
+        $this->batchReference = $referencia;
+        $this->batchOk        = $ok;
+        $this->batchErrors    = $errors;
+
+        session()->flash('message', empty($errors)
+            ? "Movimentação {$referencia} registada: {$ok} produto(s) actualizado(s)."
+            : "Movimentação {$referencia} parcialmente registada: {$ok} produto(s) OK. Falhas: " . implode(' | ', $errors));
+    }
+
+    /** Fecha o painel de sucesso e limpa o formulário para a movimentação seguinte. */
+    public function closeEntryModal(): void
+    {
+        $this->showEntryModal = false;
+        $this->resetEntryForm();
+    }
+
+    /** Regista outra movimentação sem sair do modal. */
+    public function novaMovimentacao(): void
+    {
+        $armazem = $this->entryWarehouseId;
+
+        $this->resetEntryForm();
+
+        // O armazém mantém-se: quem está a dar entrada a um contentor inteiro
+        // não quer voltar a escolhê-lo a cada lote.
+        $this->entryWarehouseId = $armazem;
     }
 
     private function resetEntryForm()
@@ -412,6 +475,9 @@ class StockManagement extends Component
         $this->entryWarehouseId   = '';
         $this->entryNotes         = '';
         $this->entryItems         = [];
+        $this->batchReference     = null;
+        $this->batchOk            = 0;
+        $this->batchErrors        = [];
         $this->resetErrorBag();
     }
 

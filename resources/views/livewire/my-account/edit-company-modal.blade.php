@@ -54,19 +54,19 @@
                     </label>
                     <select wire:model="editCompanyRegime" 
                             class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
-                        <option value="regime_geral">Regime Geral de IVA</option>
-                        <option value="regime_simplificado">Regime Simplificado</option>
-                        <option value="regime_isencao">Regime de Isenção</option>
-                        <option value="regime_nao_sujeicao">Regime de Não Sujeição</option>
-                        <option value="regime_misto">Regime Misto</option>
+                        {{-- Os 3 regimes da AGT (fonte única: Tenant::REGIMES) --}}
+                        @foreach(\App\Models\Tenant::REGIMES as $key => $meta)
+                            <option value="{{ $key }}">{{ $meta['label'] }} — {{ $meta['exempt'] ? 'sem IVA' : 'IVA ' . rtrim(rtrim(number_format($meta['default_rate'], 2, ',', ''), '0'), ',') . '%' }}</option>
+                        @endforeach
                     </select>
-                    @error('editCompanyRegime') 
+                    @error('editCompanyRegime')
                         <span class="text-red-500 text-sm mt-1 block">
                             <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
                         </span>
                     @enderror
                     <p class="text-xs text-gray-500 mt-1">
-                        <i class="fas fa-info-circle mr-1"></i>Conforme SAFT-AO 2025
+                        <i class="fas fa-info-circle mr-1"></i>Conforme SAFT-AO 2025 —
+                        <a href="{{ route('company.profile') }}" class="text-blue-600 hover:underline font-semibold">ver detalhe em Dados da Empresa</a>
                     </p>
                 </div>
             </div>

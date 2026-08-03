@@ -14,6 +14,54 @@
         </div>
     </div>
 
+    {{-- SAFT-AO (Software AGT) — APENAS DONO DO SISTEMA --}}
+    @if(auth()->user()->is_super_admin)
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-6 border-2 border-red-200" x-data="{ open: false }">
+        <button @click="open = !open" class="w-full flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                <i class="fas fa-file-code mr-2 text-purple-600"></i>SAFT-AO (Exportação Fiscal)
+                <span class="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full"><i class="fas fa-shield-alt mr-1"></i>DONO DO SISTEMA</span>
+            </h3>
+            <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+        </button>
+
+        <div x-show="open" x-cloak class="mt-4 space-y-4">
+            <div class="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                Identificadores do <strong>software</strong> emitidos pela AGT Angola (iguais para todas as empresas). Obrigatórios para a exportação SAFT-AO.
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1"><i class="fas fa-certificate mr-1 text-green-500"></i>Certificado Software AGT</label>
+                    <input type="text" wire:model="saft_software_cert" placeholder="Ex: AGT/2024/XXXX"
+                           class="w-full px-3 py-2.5 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    @error('saft_software_cert') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1"><i class="fas fa-tag mr-1 text-blue-500"></i>Product ID</label>
+                    <input type="text" wire:model="saft_product_id" placeholder="Ex: SOSERP/v1.0"
+                           class="w-full px-3 py-2.5 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    @error('saft_product_id') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1"><i class="fas fa-code-branch mr-1 text-purple-500"></i>Versão SAFT</label>
+                    <input type="text" wire:model="saft_version" placeholder="1.0.0"
+                           class="w-full px-3 py-2.5 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                    @error('saft_version') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button wire:click="saveSaftConfig" wire:loading.attr="disabled"
+                        class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow hover:from-purple-700 hover:to-indigo-700">
+                    <i class="fas fa-save mr-1"></i>Guardar SAFT-AO
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Stats Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
@@ -202,9 +250,15 @@
                         </select>
                     </div>
                     
-                    <div class="text-sm text-gray-600 flex items-center">
-                        <i class="fas fa-info-circle mr-2 text-purple-500"></i>
-                        {{ $subscriptions->count() }} subscription(s)
+                    <div class="text-sm text-gray-600 flex items-center justify-between">
+                        <span class="flex items-center">
+                            <i class="fas fa-info-circle mr-2 text-purple-500"></i>
+                            {{ $subscriptions->count() }} subscription(s)
+                        </span>
+                        <button wire:click="createSubscription"
+                                class="ml-2 inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition">
+                            <i class="fas fa-plus mr-2"></i>Nova Subscrição
+                        </button>
                     </div>
                 </div>
             </div>
@@ -314,7 +368,11 @@
                                     @endif
 
                                     {{-- Ações --}}
-                                    <div class="flex space-x-2 pt-4 border-t border-gray-200">
+                                    <div class="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
+                                        <button wire:click="editSubscription({{ $subscription->id }})"
+                                                class="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition">
+                                            <i class="fas fa-edit mr-1"></i>Alterar Plano / Ciclo
+                                        </button>
                                         @if($subscription->status === 'active')
                                             <button wire:click="cancelSubscription({{ $subscription->id }})"
                                                     wire:confirm="Cancelar esta subscrição? O tenant perderá acesso ao plano no final do período."
@@ -566,6 +624,199 @@
                             <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition">
                                 <i class="fas {{ $editingInvoiceId ? 'fa-save' : 'fa-plus' }} mr-2"></i>
                                 {{ $editingInvoiceId ? 'Atualizar' : 'Criar' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Modal: Subscription (Criar/Editar plano + ciclo + marcar como pago) --}}
+    @if($showSubscriptionModal)
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showSubscriptionModal') }" x-show="show" x-cloak>
+            <div class="flex items-start justify-center min-h-screen px-4 py-6">
+                <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" wire:click="closeSubscriptionModal"></div>
+
+                <div class="relative bg-white rounded-2xl max-w-3xl w-full shadow-2xl my-8" @click.stop>
+                    {{-- Header --}}
+                    <div class="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-t-2xl px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-crown text-2xl text-white"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Atribuir / Alterar Plano</h3>
+                                <p class="text-purple-100 text-xs">Trocar plano do tenant e definir ciclo + status de pagamento</p>
+                            </div>
+                        </div>
+                        <button wire:click="closeSubscriptionModal" class="text-white hover:bg-white/20 rounded-lg p-2 transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+
+                    <form wire:submit.prevent="saveSubscription" class="p-6 max-h-[75vh] overflow-y-auto space-y-5">
+                        {{-- Tenant --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-building text-blue-500 mr-1"></i>Tenant *
+                            </label>
+                            <select wire:model.live="tenant_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                                <option value="">Selecione um tenant…</option>
+                                @foreach($tenants as $t)
+                                    <option value="{{ $t->id }}">{{ $t->name }} {{ $t->company_name ? '— ' . $t->company_name : '' }}</option>
+                                @endforeach
+                            </select>
+                            @error('tenant_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        {{-- Plano --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-box text-purple-500 mr-1"></i>Plano *
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                @foreach($plans as $p)
+                                    <label class="cursor-pointer">
+                                        <input type="radio" wire:model.live="plan_id" value="{{ $p->id }}" class="peer sr-only">
+                                        <div class="p-3 border-2 rounded-xl transition peer-checked:border-purple-600 peer-checked:bg-purple-50 hover:border-purple-400">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="font-bold text-sm text-gray-900">{{ $p->name }}</p>
+                                                    <p class="text-xs text-gray-500">{{ $p->max_users }} users • {{ number_format($p->max_storage_mb / 1024, 1) }}GB</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-sm font-bold text-purple-700">{{ number_format($p->price_monthly, 0) }} Kz</p>
+                                                    <p class="text-xs text-gray-500">/mês</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('plan_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        {{-- Ciclo de Faturação --}}
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">
+                                <i class="fas fa-calendar-alt text-green-500 mr-1"></i>Ciclo de Faturação *
+                            </label>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                @php
+                                    $cycles = [
+                                        'monthly'    => ['label' => 'Mensal', 'desc' => '1 mês', 'color' => 'green'],
+                                        'quarterly'  => ['label' => 'Trimestral', 'desc' => '3 meses', 'color' => 'blue'],
+                                        'semiannual' => ['label' => 'Semestral', 'desc' => '6 meses', 'color' => 'purple'],
+                                        'yearly'     => ['label' => 'Anual', 'desc' => '14 meses (2 grátis 🎁)', 'color' => 'orange'],
+                                    ];
+                                @endphp
+                                @foreach($cycles as $value => $cfg)
+                                    <label class="cursor-pointer">
+                                        <input type="radio" wire:model.live="billing_cycle" value="{{ $value }}" class="peer sr-only">
+                                        <div class="p-3 border-2 rounded-xl text-center transition peer-checked:border-{{ $cfg['color'] }}-600 peer-checked:bg-{{ $cfg['color'] }}-50 hover:border-{{ $cfg['color'] }}-400">
+                                            <p class="font-bold text-sm text-gray-900">{{ $cfg['label'] }}</p>
+                                            <p class="text-xs text-gray-500 mt-0.5">{{ $cfg['desc'] }}</p>
+                                            @if($selectedPlan)
+                                                <p class="text-xs font-bold text-{{ $cfg['color'] }}-700 mt-1">
+                                                    {{ number_format($selectedPlan->getPrice($value), 0) }} Kz
+                                                </p>
+                                            @endif
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('billing_cycle') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        {{-- Toggle: Marcar como Pago --}}
+                        <div class="bg-gradient-to-br {{ $markAsPaid ? 'from-green-50 to-emerald-50 border-green-300' : 'from-yellow-50 to-orange-50 border-yellow-300' }} border-2 rounded-xl p-4">
+                            <label class="flex items-start cursor-pointer">
+                                <input type="checkbox" wire:model.live="markAsPaid" class="mt-1 w-5 h-5 rounded text-green-600 focus:ring-green-500">
+                                <div class="ml-3 flex-1">
+                                    <p class="font-bold text-sm text-gray-900">
+                                        @if($markAsPaid)
+                                            <i class="fas fa-check-circle text-green-600 mr-1"></i>Marcar como PAGO
+                                        @else
+                                            <i class="fas fa-clock text-yellow-600 mr-1"></i>Aguardar Pagamento (Pending)
+                                        @endif
+                                    </p>
+                                    <p class="text-xs text-gray-600 mt-1">
+                                        @if($markAsPaid)
+                                            Subscrição fica <strong>activa imediatamente</strong>, módulos sincronizados e <strong>fatura paga</strong> gerada.
+                                        @else
+                                            Subscrição fica <strong>pending</strong> aguardando o pagamento ser confirmado.
+                                        @endif
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+
+                        {{-- Detalhes de Pagamento (apenas se marcado como pago) --}}
+                        @if($markAsPaid)
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50/50 border border-green-200 rounded-xl">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">
+                                        <i class="fas fa-money-bill-wave text-green-500 mr-1"></i>Método de Pagamento
+                                    </label>
+                                    <select wire:model="paymentMethod" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500">
+                                        <option value="bank_transfer">Transferência Bancária</option>
+                                        <option value="cash">Dinheiro</option>
+                                        <option value="multicaixa">Multicaixa</option>
+                                        <option value="credit_card">Cartão de Crédito</option>
+                                        <option value="other">Outro</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">
+                                        <i class="fas fa-hashtag text-green-500 mr-1"></i>Referência (opcional)
+                                    </label>
+                                    <input wire:model="paymentReference" type="text" placeholder="Ex: TRF-2025-001"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500">
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Resumo --}}
+                        @if($selectedPlan && $tenant_id && $billing_cycle)
+                            @php
+                                $resumeAmount = $selectedPlan->getPrice($billing_cycle);
+                                $resumeCycle = match($billing_cycle) {
+                                    'yearly' => 'Anual (14 meses)',
+                                    'semiannual' => 'Semestral (6 meses)',
+                                    'quarterly' => 'Trimestral (3 meses)',
+                                    default => 'Mensal',
+                                };
+                            @endphp
+                            <div class="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-4 text-white shadow-lg">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-purple-200 text-xs uppercase font-bold tracking-wide">Total a {{ $markAsPaid ? 'Cobrar' : 'Aguardar' }}</p>
+                                        <p class="text-sm text-purple-100 mt-0.5">{{ $selectedPlan->name }} • {{ $resumeCycle }}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-3xl font-bold">{{ number_format($resumeAmount, 0) }} <span class="text-base">Kz</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Footer --}}
+                        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                            <button type="button" wire:click="closeSubscriptionModal"
+                                    class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
+                                <i class="fas fa-times mr-2"></i>Cancelar
+                            </button>
+                            <button type="submit"
+                                    wire:loading.attr="disabled" wire:target="saveSubscription"
+                                    class="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl font-semibold shadow-lg transition disabled:opacity-50">
+                                <span wire:loading.remove wire:target="saveSubscription">
+                                    <i class="fas {{ $markAsPaid ? 'fa-check-circle' : 'fa-save' }} mr-2"></i>
+                                    {{ $markAsPaid ? 'Salvar e Marcar como Pago' : 'Salvar (Pending)' }}
+                                </span>
+                                <span wire:loading wire:target="saveSubscription">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>A processar…
+                                </span>
                             </button>
                         </div>
                     </form>

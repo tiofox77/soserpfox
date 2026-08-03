@@ -3,53 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <title>{{ $settings['seo_title'] ?? 'SOSERP - Sistema de Gestão Empresarial' }}</title>
-    <meta name="description" content="{{ $settings['seo_description'] ?? 'Sistema completo de gestão empresarial em Angola. Gerencie eventos, inventário, CRM, faturação, RH e contabilidade. Solução profissional multi-tenant.' }}">
-    <meta name="keywords" content="{{ $settings['seo_keywords'] ?? 'ERP Angola, sistema gestão empresarial, gestão eventos, CRM, faturação, inventário, contabilidade Angola' }}">
-    <meta name="author" content="{{ $settings['seo_author'] ?? $settings['schema_creator_name'] ?? 'SOSERP' }}">
+
+    @php
+        $canonical = $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip';
+        $appName = $settings['app_name'] ?? 'SOS ERP';
+        $seoTitle = $settings['seo_title'] ?? 'SOS ERP — Software de Gestão Empresarial em Angola | Faturação Certificada AGT';
+        $seoDesc = $settings['seo_description'] ?? 'Software de gestão 100% angolano: faturação certificada pela AGT, POS, RH com IRT/INSS, hotelaria, salão e oficina. Atende Luanda, Benguela, Huíla, Cabinda e todas as 18 províncias. Comece grátis hoje.';
+        $seoKw = $settings['seo_keywords'] ?? 'ERP Angola, software gestão Angola, faturação AGT, faturação certificada Angola, sistema gestão Luanda, ERP Luanda, software contabilidade Angola, POS Angola, gestão RH Angola, folha pagamento Angola, IRT INSS, software hotel Angola, gestão salão beleza Luanda, oficina auto Angola, sistema multi-empresa, ERP em kwanzas, SAFT-AO, ERP cloud Angola, gestão empresarial Benguela, software Cabinda, Huíla gestão, Huambo software, sistema POS Talatona, software Lobito';
+        $ogImage = !empty($settings['seo_og_image']) ? asset('storage/' . $settings['seo_og_image']) : (!empty($settings['app_logo']) ? asset('storage/' . $settings['app_logo']) : asset('img/og-image.png'));
+        $favicon = !empty($settings['app_favicon']) ? asset('storage/' . $settings['app_favicon']) : '/favicon.ico';
+    @endphp
+
+    <title>{{ $seoTitle }}</title>
+    <meta name="description" content="{{ $seoDesc }}">
+    <meta name="keywords" content="{{ $seoKw }}">
+    <meta name="author" content="{{ $settings['seo_author'] ?? $settings['schema_creator_name'] ?? 'SOSERP — Softec Angola' }}">
     <meta name="robots" content="{{ $settings['seo_robots'] ?? 'index, follow' }}, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="googlebot" content="{{ $settings['seo_robots'] ?? 'index, follow' }}">
+    <meta name="bingbot" content="index, follow">
+    <meta name="rating" content="general">
+    <meta name="revisit-after" content="3 days">
+    <meta name="distribution" content="global">
+    <meta name="copyright" content="© {{ date('Y') }} {{ $appName }} — Softec Angola">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="msapplication-TileColor" content="#2563eb">
     @if(!empty($settings['google_site_verification']))
     <meta name="google-site-verification" content="{{ $settings['google_site_verification'] }}">
     @endif
     @if(!empty($settings['bing_site_verification']))
     <meta name="msvalidate.01" content="{{ $settings['bing_site_verification'] }}">
     @endif
+
+    {{-- Geo Tags — Angola (Luanda, Talatona) --}}
     <meta name="language" content="Portuguese">
+    <meta http-equiv="content-language" content="pt-AO">
     <meta name="geo.region" content="AO">
-    <meta name="geo.placename" content="Angola">
-    
-    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta name="geo.country" content="Angola">
+    <meta name="geo.placename" content="Luanda, Talatona, Angola">
+    <meta name="geo.position" content="-8.838333;13.234444">
+    <meta name="ICBM" content="-8.838333, 13.234444">
+
+    {{-- hreflang --}}
+    <link rel="alternate" hreflang="pt-AO" href="{{ $canonical }}">
+    <link rel="alternate" hreflang="pt-PT" href="{{ $canonical }}">
+    <link rel="alternate" hreflang="pt" href="{{ $canonical }}">
+    <link rel="alternate" hreflang="x-default" href="{{ $canonical }}">
+
+    {{-- Open Graph — Facebook, WhatsApp, LinkedIn --}}
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
-    <meta property="og:title" content="{{ $settings['seo_title'] ?? 'SOS ERP - Sistema de Gestão Empresarial' }}">
-    <meta property="og:description" content="{{ $settings['seo_description'] ?? 'Plataforma completa de gestão empresarial em Angola.' }}">
-    <meta property="og:site_name" content="{{ $settings['app_name'] ?? 'SOS ERP' }}">
+    <meta property="og:url" content="{{ $canonical }}">
+    <meta property="og:title" content="{{ $seoTitle }}">
+    <meta property="og:description" content="{{ $seoDesc }}">
+    <meta property="og:site_name" content="{{ $appName }}">
     <meta property="og:locale" content="pt_AO">
-    @if(!empty($settings['seo_og_image']))
-    <meta property="og:image" content="{{ asset('storage/' . $settings['seo_og_image']) }}">
+    <meta property="og:locale:alternate" content="pt_PT">
+    <meta property="og:image" content="{{ $ogImage }}">
+    <meta property="og:image:secure_url" content="{{ $ogImage }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    @elseif(!empty($settings['app_logo']))
-    <meta property="og:image" content="{{ asset('storage/' . $settings['app_logo']) }}">
-    @endif
-    
+    <meta property="og:image:alt" content="{{ $appName }} — Software de Gestão Empresarial em Angola">
+
+    {{-- Twitter Card --}}
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ $settings['seo_title'] ?? 'SOSERP - Sistema de Gestão Empresarial' }}">
-    <meta name="twitter:description" content="{{ $settings['seo_description'] ?? 'Sistema completo de gestão empresarial em Angola.' }}">
-    @if(!empty($settings['seo_og_image']))
-    <meta name="twitter:image" content="{{ asset('storage/' . $settings['seo_og_image']) }}">
-    @elseif(!empty($settings['app_logo']))
-    <meta name="twitter:image" content="{{ asset('storage/' . $settings['app_logo']) }}">
-    @endif
-    
-    @if($settings['app_favicon'])
-    <link rel="icon" type="image/x-icon" href="{{ asset('storage/' . $settings['app_favicon']) }}">
-    @else
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    @endif
-    <link rel="canonical" href="{{ $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip' }}">
+    <meta name="twitter:title" content="{{ $seoTitle }}">
+    <meta name="twitter:description" content="{{ $seoDesc }}">
+    <meta name="twitter:image" content="{{ $ogImage }}">
+    <meta name="twitter:image:alt" content="{{ $appName }} dashboard">
+    <meta name="twitter:site" content="@soserp_angola">
+
+    {{-- Favicons multi-formato --}}
+    <link rel="icon" type="image/x-icon" href="{{ $favicon }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ $favicon }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ $favicon }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ $favicon }}">
+    <link rel="shortcut icon" href="{{ $favicon }}">
+    <link rel="mask-icon" href="{{ $favicon }}" color="#2563eb">
+
+    <link rel="canonical" href="{{ $canonical }}">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <script src="{{ asset('js/sos-tracker.js') }}?v=1" defer></script>
+
+    {{-- JSON-LD: Organization + LocalBusiness Angola --}}
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "{{ $canonical }}#organization",
+        "name": "{{ $appName }}",
+        "alternateName": ["SOSERP", "SOS ERP Angola", "Softec Angola"],
+        "url": "{{ $canonical }}",
+        "logo": "{{ $ogImage }}",
+        "image": "{{ $ogImage }}",
+        "description": "{{ $seoDesc }}",
+        "foundingDate": "2024",
+        "founders": [{"@type": "Person", "name": "Softec Angola"}],
+        "slogan": "Software de gestão 100% angolano, certificado AGT",
+        "areaServed": [
+            {"@type": "Country", "name": "Angola"},
+            {"@type": "AdministrativeArea", "name": "Luanda"},
+            {"@type": "AdministrativeArea", "name": "Benguela"},
+            {"@type": "AdministrativeArea", "name": "Huíla"},
+            {"@type": "AdministrativeArea", "name": "Huambo"},
+            {"@type": "AdministrativeArea", "name": "Cabinda"},
+            {"@type": "AdministrativeArea", "name": "Bié"},
+            {"@type": "AdministrativeArea", "name": "Cuanza Sul"},
+            {"@type": "AdministrativeArea", "name": "Cuanza Norte"},
+            {"@type": "AdministrativeArea", "name": "Cunene"},
+            {"@type": "AdministrativeArea", "name": "Lunda Norte"},
+            {"@type": "AdministrativeArea", "name": "Lunda Sul"},
+            {"@type": "AdministrativeArea", "name": "Malanje"},
+            {"@type": "AdministrativeArea", "name": "Moxico"},
+            {"@type": "AdministrativeArea", "name": "Namibe"},
+            {"@type": "AdministrativeArea", "name": "Uíge"},
+            {"@type": "AdministrativeArea", "name": "Zaire"},
+            {"@type": "AdministrativeArea", "name": "Bengo"},
+            {"@type": "AdministrativeArea", "name": "Cuando Cubango"}
+        ],
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Talatona, Rua Principal",
+            "addressLocality": "Luanda",
+            "addressRegion": "Luanda",
+            "postalCode": "0000",
+            "addressCountry": "AO"
+        },
+        "geo": {"@type": "GeoCoordinates", "latitude": -8.838333, "longitude": 13.234444},
+        "contactPoint": [{
+            "@type": "ContactPoint",
+            "telephone": "+244-939-779-902",
+            "email": "comercial@soserp.vip",
+            "contactType": "sales",
+            "areaServed": "AO",
+            "availableLanguage": ["Portuguese", "pt-AO"]
+        }, {
+            "@type": "ContactPoint",
+            "telephone": "+244-939-779-902",
+            "email": "suporte@soserp.vip",
+            "contactType": "customer support",
+            "areaServed": "AO",
+            "availableLanguage": ["Portuguese"]
+        }],
+        "sameAs": [
+            "https://www.facebook.com/soserp",
+            "https://www.linkedin.com/company/soserp",
+            "https://www.instagram.com/soserp_angola"
+        ]
+    }
+    </script>
+
+    {{-- JSON-LD: SoftwareApplication --}}
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "@id": "{{ $canonical }}#software",
+        "name": "{{ $appName }}",
+        "operatingSystem": "Web, Windows, macOS, Linux, Android, iOS",
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "Enterprise Resource Planning",
+        "softwareVersion": "2.0",
+        "inLanguage": "pt-AO",
+        "url": "{{ $canonical }}",
+        "image": "{{ $ogImage }}",
+        "description": "ERP completo certificado pela AGT Angola: faturação eletrónica, SAFT-AO, POS offline, RH com IRT/INSS, hotelaria, salão de beleza e oficina auto.",
+        "publisher": {"@id": "{{ $canonical }}#organization"},
+        "offers": [
+            {"@type": "Offer", "name": "Starter", "price": "15000", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"},
+            {"@type": "Offer", "name": "Business", "price": "35000", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"},
+            {"@type": "Offer", "name": "Enterprise", "price": "75000", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"}
+        ],
+        "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "127", "bestRating": "5", "worstRating": "1"},
+        "featureList": [
+            "Faturação Certificada AGT ({{ \App\Helpers\AGTHelper::softwareValidationNumber() }})",
+            "SAFT-AO mensal automático",
+            "POS funciona offline",
+            "Folha de pagamento angolana (IRT + INSS)",
+            "Multi-empresa e multi-utilizador",
+            "Gestão de stock e inventário",
+            "Hotelaria: booking engine, channel manager",
+            "Salão de Beleza: agendamento e comissões",
+            "Oficina Auto: ordens de reparação",
+            "Servidores em Angola — baixa latência"
+        ]
+    }
+    </script>
+
+    {{-- JSON-LD: WebSite com SearchAction --}}
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "{{ $canonical }}#website",
+        "url": "{{ $canonical }}",
+        "name": "{{ $appName }}",
+        "description": "{{ $seoDesc }}",
+        "inLanguage": "pt-AO",
+        "publisher": {"@id": "{{ $canonical }}#organization"},
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {"@type": "EntryPoint", "urlTemplate": "{{ $canonical }}/?q={search_term_string}"},
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+
+    {{-- JSON-LD: FAQ (rich snippet) --}}
+    <script type="application/ld+json">
+    {
+        "@@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {"@type": "Question", "name": "O software é certificado pela AGT Angola?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP tem certificação oficial da Administração Geral Tributária de Angola ({{ \App\Helpers\AGTHelper::softwareValidationNumber() }}) para faturação eletrónica e geração de SAFT-AO."}},
+            {"@type": "Question", "name": "Funciona em todo o território de Angola?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. Atendemos as 18 províncias: Luanda, Benguela, Huíla, Huambo, Cabinda, Cuanza Norte, Cuanza Sul, Bié, Cunene, Lunda Norte, Lunda Sul, Malanje, Moxico, Namibe, Uíge, Zaire, Bengo e Cuando Cubango. Servidores em Luanda garantem baixa latência."}},
+            {"@type": "Question", "name": "Posso emitir faturas mesmo sem internet?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. O POS SOSERP funciona 100% offline e sincroniza automaticamente quando recupera ligação à internet — ideal para Angola onde a conectividade pode falhar."}},
+            {"@type": "Question", "name": "Quanto custa o SOSERP em Kwanzas?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Planos começam em 15.000 Kz/mês (Starter), 35.000 Kz (Business) e 75.000 Kz (Enterprise). Existe um período de 14 dias gratuitos sem cartão de crédito."}},
+            {"@type": "Question", "name": "Calcula IRT e INSS automaticamente?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. O módulo de RH calcula automaticamente o Imposto sobre o Rendimento do Trabalho (IRT) e contribuições para o INSS conforme a legislação angolana atualizada."}},
+            {"@type": "Question", "name": "É possível gerir várias empresas com uma só conta?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP é multi-empresa nativo. Pode gerir holdings, grupos empresariais e franquias com utilizadores e permissões granulares."}}
+        ]
+    }
+    </script>
     
     @if(!empty($settings['google_analytics_id']))
     <!-- Google Analytics (GA4) -->
@@ -164,23 +347,46 @@
                             <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{{ app_name() }}</span>
                         @endif
                     </div>
-                    <div class="hidden md:ml-10 md:flex md:space-x-8">
-                        <a href="#recursos" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Recursos</a>
-                        <a href="#planos" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Planos</a>
-                        <a href="#roadmap" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Roadmap</a>
-                        <a href="#contacto" class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition">Contacto</a>
+                    <div class="hidden lg:ml-8 lg:flex lg:space-x-1 xl:space-x-3">
+                        <a href="#recursos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Recursos</a>
+                        <a href="#certificacao" class="text-green-700 hover:text-green-600 px-2 py-2 text-sm font-medium transition inline-flex items-center gap-1 whitespace-nowrap">
+                            <i class="fas fa-shield-alt text-xs"></i> Certificação AGT
+                        </a>
+                        <a href="#modulos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Módulos</a>
+                        <a href="#planos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Planos</a>
+                        <a href="#roadmap" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Roadmap</a>
+                        <a href="#contacto" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Contacto</a>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <a href="{{ route('client.login') }}" class="text-purple-700 hover:text-purple-800 text-sm font-medium transition" style="padding: 10px;" title="Portal do Cliente">
-                        <i class="fas fa-users mr-2"></i>Área Cliente
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('client.login') }}" class="hidden xl:inline-flex items-center text-purple-700 hover:text-purple-800 text-sm font-medium transition px-2 py-2 whitespace-nowrap" title="Portal do Cliente">
+                        <i class="fas fa-users mr-1"></i>Área Cliente
                     </a>
-                    <a href="{{ route('login') }}" class="text-gray-700 hover:text-blue-600 text-sm font-medium transition" style="padding: 10px;">
-                        <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+                    <a href="{{ route('login') }}" class="hidden sm:inline-flex items-center text-gray-700 hover:text-blue-600 text-sm font-medium transition px-2 py-2 whitespace-nowrap">
+                        <i class="fas fa-sign-in-alt mr-1"></i>Entrar
                     </a>
-                    <a href="{{ route('register') }}" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition" style="padding: 10px 20px;">
+                    <a href="{{ route('register') }}" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition px-4 py-2.5 whitespace-nowrap inline-flex items-center">
                         <i class="fas fa-rocket mr-2"></i>Começar Grátis
                     </a>
+
+                    {{-- Hamburger mobile --}}
+                    <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="lg:hidden text-gray-700 hover:text-blue-600 ml-1 p-2">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Mobile menu --}}
+            <div id="mobile-menu" class="hidden lg:hidden border-t border-gray-200 py-3">
+                <div class="flex flex-col gap-1 text-sm font-medium">
+                    <a href="#recursos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Recursos</a>
+                    <a href="#certificacao" class="text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg"><i class="fas fa-shield-alt text-xs mr-1"></i>Certificação AGT</a>
+                    <a href="#modulos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Módulos</a>
+                    <a href="#planos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Planos</a>
+                    <a href="#roadmap" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Roadmap</a>
+                    <a href="#contacto" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Contacto</a>
+                    <a href="{{ route('client.login') }}" class="text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg"><i class="fas fa-users mr-1"></i>Área Cliente</a>
+                    <a href="{{ route('login') }}" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg"><i class="fas fa-sign-in-alt mr-1"></i>Entrar</a>
                 </div>
             </div>
         </div>
@@ -191,6 +397,11 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 <div>
+                    <a href="#certificacao" class="inline-flex items-center gap-2 px-4 py-2 bg-green-100 hover:bg-green-200 text-green-800 rounded-full text-sm font-bold mb-4 border border-green-300 transition shadow-sm">
+                        <i class="fas fa-shield-check"></i>
+                        <span>Certificado AGT Angola — {{ \App\Helpers\AGTHelper::softwareValidationNumber() }}</span>
+                        <i class="fas fa-arrow-right text-xs"></i>
+                    </a>
                     <h1 class="text-5xl md:text-6xl font-bold text-gray-900 leading-tight mb-6">
                         Gestão Empresarial
                         <span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Completa</span>
@@ -375,6 +586,122 @@
         </div>
     </section>
 
+    <!-- AGT Certification Section -->
+    <section id="certificacao" class="py-20 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 relative overflow-hidden">
+        <!-- Background decoration -->
+        <div class="absolute inset-0 opacity-10 pointer-events-none">
+            <div class="absolute top-10 left-10 w-72 h-72 bg-green-500 rounded-full filter blur-3xl"></div>
+            <div class="absolute bottom-10 right-10 w-96 h-96 bg-emerald-400 rounded-full filter blur-3xl"></div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-12">
+                <span class="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-bold mb-4 border border-green-200">
+                    <i class="fas fa-shield-alt"></i> CERTIFICADO OFICIALMENTE
+                </span>
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                    Software <span class="text-green-600">Validado pela AGT Angola</span>
+                </h2>
+                <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                    O SOS ERP é um software de facturação electrónica oficialmente certificado pela
+                    Administração Geral Tributária (AGT) de Angola — Decreto Presidencial n.º 71/25.
+                </p>
+            </div>
+
+            <!-- Certificate Card -->
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-white rounded-3xl shadow-2xl border-2 border-green-200 overflow-hidden relative">
+                    <!-- Top accent -->
+                    <div class="h-2 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500"></div>
+
+                    <div class="p-8 md:p-12">
+                        <!-- Header -->
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                                    <i class="fas fa-certificate text-green-600 text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs uppercase font-bold text-gray-500 tracking-wider">Selo de Garantia</p>
+                                    <p class="text-sm font-semibold text-gray-700">Testes de certificação</p>
+                                </div>
+                            </div>
+
+                            {{-- Centro: QR OFICIAL do certificado emitido pela AGT.
+                                 Substituiu um ícone genérico de "visto" — este é
+                                 verificável: quem lê o código chega à validação
+                                 na AGT. Imagem tal e qual a do certificado, com
+                                 o logótipo da AGT ao centro; regenerá-la com a
+                                 nossa biblioteca perderia essa marca. --}}
+                            <div class="flex flex-col items-center gap-2">
+                                <div class="relative">
+                                    <div class="absolute -inset-1 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl opacity-40 blur"></div>
+                                    <img src="{{ asset('images/agt/certificado-qr.jpg') }}"
+                                         alt="QR code de verificação do certificado AGT {{ \App\Helpers\AGTHelper::softwareValidationNumber() }}"
+                                         width="600" height="600" loading="lazy"
+                                         class="relative w-28 h-28 md:w-32 md:h-32 rounded-xl bg-white p-1 shadow-lg shadow-green-500/30">
+                                </div>
+                                <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                                    Verificar na AGT
+                                </span>
+                            </div>
+
+                            <div class="text-right">
+                                <p class="text-xs uppercase font-bold text-gray-500 tracking-wider">ID do Certificado</p>
+                                <p class="text-lg font-mono font-bold text-gray-900">{{ \App\Helpers\AGTHelper::softwareValidationNumber() }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Title -->
+                        <div class="text-center mb-8">
+                            <h3 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Certificado oficial de Software</h3>
+                            <p class="text-gray-600">Aprovado com distinção nos testes obrigatórios.</p>
+                        </div>
+
+                        <!-- Details Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-200 pt-8">
+                            <div class="text-center md:border-r border-gray-200">
+                                <p class="text-xs uppercase font-bold text-gray-500 tracking-wider mb-2">Software</p>
+                                <p class="text-base md:text-lg font-bold text-gray-900">SOS ERP — SOLUÇÕES EMPRESARIAIS</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs uppercase font-bold text-gray-500 tracking-wider mb-2">Versão certificada</p>
+                                {{-- 1.0.0 é o que consta do certificado emitido. --}}
+                                <p class="text-2xl font-bold text-green-600">1.0.0</p>
+                                <p class="text-xs text-gray-500 mt-1">Certificado em 31/07/2026</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trust Badges -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+                    <div class="bg-white rounded-2xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition">
+                        <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center mb-4">
+                            <i class="fas fa-file-invoice text-blue-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">Facturação Electrónica</h4>
+                        <p class="text-sm text-gray-600">Submissão automática à AGT em tempo real, conforme schema v1.2 oficial.</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition">
+                        <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mb-4">
+                            <i class="fas fa-fingerprint text-purple-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">Assinatura Digital JWS</h4>
+                        <p class="text-sm text-gray-600">Cada documento é assinado digitalmente com RSA-256 e validado pela AGT.</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition">
+                        <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mb-4">
+                            <i class="fas fa-balance-scale text-amber-600 text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-900 mb-2">Conformidade Legal</h4>
+                        <p class="text-sm text-gray-600">100% conforme RJF (Decreto 71/25) e regulamentação fiscal angolana.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Features Section -->
     <section id="recursos" class="py-20 bg-gray-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -500,7 +827,7 @@
                     <i class="fas fa-star ml-3 text-yellow-300"></i>
                 </div>
                 <h2 class="text-5xl md:text-6xl font-extrabold text-white mb-6">
-                    <i class="fas fa-calendar-star mr-4"></i>Gestão de Eventos
+                    <i class="fas fa-calendar-days mr-4"></i>Gestão de Eventos
                 </h2>
                 <p class="text-2xl text-purple-200 max-w-3xl mx-auto leading-relaxed">
                     Organize eventos profissionais com controle total de equipamentos, equipes, orçamentos e muito mais!
@@ -618,6 +945,68 @@
         </div>
     </section>
 
+    <!-- Módulos Section -->
+    <section id="modulos" class="py-20 bg-white relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <div class="text-center mb-12">
+                <span class="inline-block px-4 py-2 bg-gradient-to-r from-emerald-500 to-blue-600 text-white text-sm font-bold rounded-full mb-4">
+                    <i class="fas fa-cubes mr-2"></i>MÓDULOS
+                </span>
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Uma solução para cada negócio</h2>
+                <p class="text-xl text-gray-600 max-w-2xl mx-auto">Pacotes especializados por setor. Conhece tudo o que cada módulo oferece.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @php
+                    $moduleCards = [
+                        // Módulos em destaque (aparecem primeiro, com badge)
+                        ['slug' => 'eventos', 'name' => 'Gestão de Eventos', 'icon' => 'fa-calendar-days', 'desc' => 'Equipamentos (som, LEDs, streaming), equipas técnicas, calendário interativo, orçamentos e checklists.', 'from' => '#7c3aed', 'to' => '#db2777', 'featured' => true],
+                        ['slug' => 'rh', 'name' => 'Recursos Humanos', 'icon' => 'fa-users', 'desc' => 'Folha de pagamento angolana, INSS e IRT automáticos, ficha do trabalhador completa.', 'from' => '#7c3aed', 'to' => '#2563eb', 'featured' => true],
+                        ['slug' => 'oficina', 'name' => 'Oficina Auto', 'icon' => 'fa-wrench', 'desc' => 'Ordens de reparação, orçamentos, peças, mecânicos e histórico por viatura.', 'from' => '#ea580c', 'to' => '#854d0e', 'featured' => true],
+                        // Restantes módulos
+                        ['slug' => 'vendas', 'name' => 'Vendas & Faturação', 'icon' => 'fa-cash-register', 'desc' => 'POS, faturação certificada AGT, gestão de clientes e produtos. Funciona offline.', 'from' => '#ea580c', 'to' => '#dc2626'],
+                        ['slug' => 'restaurant', 'name' => 'Gestão de Restaurante', 'icon' => 'fa-utensils', 'desc' => 'Sala e mesas, comandas digitais, cozinha/KDS, reservas, fichas técnicas, stock e faturação AGT integrada.', 'from' => '#f97316', 'to' => '#b91c1c', 'featured' => true],
+                        ['slug' => 'hotel', 'name' => 'Gestão de Hotel', 'icon' => 'fa-hotel', 'desc' => 'Booking engine, channel manager, check-in/out, housekeeping e analytics.', 'from' => '#0891b2', 'to' => '#2563eb'],
+                        ['slug' => 'salao', 'name' => 'Salão de Beleza', 'icon' => 'fa-spa', 'desc' => 'Agendamento online, comissões automáticas, fidelização e lembretes por SMS.', 'from' => '#db2777', 'to' => '#9333ea'],
+                    ];
+                @endphp
+
+                @foreach($moduleCards as $mc)
+                    @php $isFeatured = $mc['featured'] ?? false; @endphp
+                    <a href="/modulos/{{ $mc['slug'] }}" class="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden transition-all hover:-translate-y-1 {{ $isFeatured ? 'ring-2 ring-amber-400 ring-offset-2' : 'border border-gray-100' }}">
+                        @if($isFeatured)
+                            <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 bg-amber-400 text-amber-950 text-[11px] font-extrabold rounded-full shadow">
+                                <i class="fas fa-star"></i> DESTAQUE
+                            </span>
+                        @endif
+                        <div class="p-6 text-white relative overflow-hidden" style="background: linear-gradient(135deg, {{ $mc['from'] }}, {{ $mc['to'] }});">
+                            <div class="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
+                            <i class="fas {{ $mc['icon'] }} text-4xl mb-3 relative"></i>
+                            <h3 class="text-xl font-bold relative">{{ $mc['name'] }}</h3>
+                        </div>
+                        <div class="p-6">
+                            <p class="text-sm text-gray-600 mb-4 min-h-[60px]">{{ $mc['desc'] }}</p>
+                            <div class="flex items-center justify-between text-sm font-bold pt-3 border-t border-gray-100 group-hover:gap-2 transition-all" style="color: {{ $mc['from'] }};">
+                                <span>Saber mais</span>
+                                <i class="fas fa-arrow-right group-hover:translate-x-1 transition"></i>
+                            </div>
+                        </div>
+                    </a>
+                @endforeach
+
+                {{-- Card "Ver todos" --}}
+                <a href="/modulos" class="group bg-gradient-to-br from-gray-900 to-gray-700 text-white rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden transition-all hover:-translate-y-1 flex flex-col items-center justify-center p-8 text-center">
+                    <i class="fas fa-th-large text-4xl mb-3 opacity-80"></i>
+                    <h3 class="text-xl font-bold mb-2">Ver Todos os Módulos</h3>
+                    <p class="text-sm opacity-80 mb-3">Compara funcionalidades e preços lado a lado</p>
+                    <span class="inline-flex items-center gap-2 text-sm font-bold">
+                        Explorar <i class="fas fa-arrow-right group-hover:translate-x-1 transition"></i>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </section>
+
     <!-- Pricing Section -->
     <section id="planos" class="py-20 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden">
         <!-- Background decoration -->
@@ -642,6 +1031,7 @@
                         $isStarter = str_contains(strtolower($plan->slug), 'starter');
                         $isProfessional = str_contains(strtolower($plan->slug), 'professional');
                         $isEnterprise = str_contains(strtolower($plan->slug), 'enterprise');
+                        $isRestaurant = str_contains(strtolower($plan->slug), 'restaurante') || str_contains(strtolower($plan->slug), 'restaurant');
                         
                         // Define icon and colors
                         if ($isFox) {
@@ -649,6 +1039,12 @@
                             $gradient = 'from-orange-500 via-red-500 to-pink-500';
                             $borderColor = 'border-orange-500';
                             $iconBg = 'bg-gradient-to-br from-orange-400 to-red-500';
+                            $badgeColor = 'bg-orange-500';
+                        } elseif ($isRestaurant) {
+                            $icon = 'fa-utensils';
+                            $gradient = 'from-orange-500 to-red-700';
+                            $borderColor = 'border-orange-500';
+                            $iconBg = 'bg-gradient-to-br from-orange-400 to-red-600';
                             $badgeColor = 'bg-orange-500';
                         } elseif ($isStarter) {
                             $icon = 'fa-rocket';
@@ -773,6 +1169,7 @@
                                             'contabilidade' => '📊 Contabilidade',
                                             'oficina' => '🔧 Gestão de Oficina',
                                             'hotel' => '🏨 Gestão de Hotel',
+                                            'restaurant' => '🍽️ Gestão de Restaurante',
                                             'salon' => '💇 Salão de Beleza',
                                             'crm' => '🤝 CRM',
                                             'inventario' => '📦 Inventário',
@@ -810,6 +1207,7 @@
                                             'contabilidade' => '📊 Contabilidade',
                                             'oficina' => '🔧 Gestão de Oficina',
                                             'hotel' => '🏨 Gestão de Hotel',
+                                            'restaurant' => '🍽️ Gestão de Restaurante',
                                             'salon' => '💇 Salão de Beleza',
                                             'crm' => '🤝 CRM',
                                             'inventario' => '📦 Inventário',
@@ -1378,6 +1776,12 @@
                     <h3 class="text-white font-bold mb-4">Produto</h3>
                     <ul class="space-y-2 text-sm">
                         <li><a href="#recursos" class="hover:text-white">Recursos</a></li>
+                        <li><a href="/modulos" class="hover:text-white">Módulos</a></li>
+                        <li><a href="/modulos/vendas" class="hover:text-white">— Vendas</a></li>
+                        <li><a href="/modulos/rh" class="hover:text-white">— RH</a></li>
+                        <li><a href="/modulos/hotel" class="hover:text-white">— Hotel</a></li>
+                        <li><a href="/modulos/salao" class="hover:text-white">— Salão</a></li>
+                        <li><a href="/modulos/oficina" class="hover:text-white">— Oficina</a></li>
                         <li><a href="#planos" class="hover:text-white">Planos</a></li>
                         <li><a href="#roadmap" class="hover:text-white">Roadmap</a></li>
                         <li><a href="https://docs.soserp.vip" target="_blank" class="hover:text-white">Documentação</a></li>

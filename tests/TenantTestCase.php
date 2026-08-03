@@ -141,6 +141,56 @@ abstract class TenantTestCase extends TestCase
         }
     }
 
+    /**
+     * Activa um módulo para a empresa de teste.
+     *
+     * As rotas de negócio estão todas atrás de `tenant.module:<slug>`, que
+     * responde 403 com corpo vazio quando o módulo não está no pivot — um teste
+     * HTTP sem isto falha por 403 e o motivo não aparece em lado nenhum.
+     */
+    protected function comModulo(string $slug): static
+    {
+        $modulo = \App\Models\Module::firstOrCreate(
+            ['slug' => $slug],
+            ['name' => ucfirst($slug), 'is_active' => true]
+        );
+
+        $this->tenant->modules()->syncWithoutDetaching([
+            $modulo->id => ['is_active' => true, 'activated_at' => now()],
+        ]);
+
+        $this->tenant->load('modules');
+
+        return $this;
+    }
+
+    /**
+     * Dá permissões ao utilizador do teste, no contexto desta empresa.
+     *
+     * As permissões do projecto são por equipa (Spatie teams, a equipa é o
+     * tenant), por isso é preciso o `setPermissionsTeamId` antes de atribuir —
+     * sem ele a atribuição fica fora de contexto e o `can()` devolve falso.
+     *
+     * Existe para os testes que atravessam ecrãs e rotas protegidas: o
+     * utilizador criado no setUp não tem papel nenhum de propósito, para que
+     * um teste que precise de permissão o diga.
+     */
+    protected function comPermissoes(string ...$nomes): static
+    {
+        setPermissionsTeamId($this->tenant->id);
+
+        foreach ($nomes as $nome) {
+            \Spatie\Permission\Models\Permission::findOrCreate($nome, 'web');
+        }
+
+        $this->user->givePermissionTo($nomes);
+        $this->user->forgetCachedPermissions();
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return $this;
+    }
+
     /** Cliente pessoa colectiva — retém IRT sobre serviços. */
     protected function clienteEmpresa(): Client
     {

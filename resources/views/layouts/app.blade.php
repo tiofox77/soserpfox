@@ -37,12 +37,12 @@
     @endif
     
     <!-- PWA -->
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SOS ERP">
-    <link rel="apple-touch-icon" sizes="192x192" href="/pwa/icon-192x192.png">
+    <meta name="apple-mobile-web-app-title" content="{{ function_exists('app_name') ? app_name() : config('app.name', 'SOS ERP') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ url('/pwa/icon-192.png') }}">
     
     <!-- Canonical URL -->
     <link rel="canonical" href="{{ url()->current() }}">
@@ -191,6 +191,28 @@
                 transform: translateY(0);
             }
         }
+
+        /* Modal — Fade In simples (backdrop) */
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        .animate-fade-in { animation: modalFadeIn .18s ease-out both; }
+
+        /* Modal — Scale In (conteúdo) */
+        @keyframes modalScaleIn {
+            from { opacity: 0; transform: scale(.94) translateY(8px); }
+            to   { opacity: 1; transform: scale(1)   translateY(0);   }
+        }
+        .animate-scale-in { animation: modalScaleIn .22s cubic-bezier(.2,.9,.3,1.2) both; }
+
+        /* Botão — pressão táctil + ripple suave */
+        .btn-press { transition: transform .12s ease, box-shadow .15s ease, filter .15s ease; }
+        .btn-press:hover { filter: brightness(1.04); }
+        .btn-press:active { transform: scale(.96); }
+
+        /* wire:loading global — leve fade na própria zona de loading */
+        [wire\:loading].animate-pop { animation: modalScaleIn .18s ease-out both; }
         
         @keyframes pulse-glow {
             0%, 100% {
@@ -566,7 +588,7 @@
                     </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('invoicing'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('invoicing'))
                         <!-- Invoicing Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ invoicingOpen: {{ request()->routeIs('invoicing.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -603,7 +625,15 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">🛒 POS - Ponto de Venda</span>
                                 </a>
                                 @endcan
-                                
+
+                                @can('invoicing.pos.access')
+                                <a href="{{ route('invoicing.offline.pos') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.offline.*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-mobile-screen-button w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📱 POS Offline (PWA)</span>
+                                </a>
+                                @endcan
+
                                 <a href="{{ route('invoicing.pos.shifts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.shifts') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-clock w-5 text-yellow-400 text-sm"></i>
@@ -692,10 +722,18 @@
                                         @endcan
                                         
                                         @can('invoicing.sales.invoices.view')
-                                        <a href="{{ route('invoicing.sales.invoices') }}" 
-                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.invoices*') ? 'bg-blue-700 border-l-4 border-indigo-400' : 'hover:bg-blue-700/50' }} transition">
+                                        @php $__tipoFatura = request()->query('type'); @endphp
+                                        <a href="{{ route('invoicing.sales.invoices') }}"
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.invoices*') && $__tipoFatura !== 'FR' ? 'bg-blue-700 border-l-4 border-indigo-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice w-5 text-indigo-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas Venda</span>
+                                        </a>
+
+                                        {{-- Fatura-Recibo (FR): mesma sequência do POS, paga no acto --}}
+                                        <a href="{{ route('invoicing.sales.invoices', ['type' => 'FR']) }}"
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.invoices*') && $__tipoFatura === 'FR' ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-receipt w-5 text-emerald-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas-Recibo</span>
                                         </a>
                                         @endcan
                                         
@@ -733,19 +771,27 @@
                                         
                                         @can('invoicing.credit-notes.view')
                                         <a href="{{ route('invoicing.credit-notes.index') }}" 
-                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.credit-notes*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
-                                            <i class="fas fa-file-circle-minus w-5 text-green-400 text-sm"></i>
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.credit-notes*') ? 'bg-blue-700 border-l-4 border-red-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-file-circle-minus w-5 text-red-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Notas Crédito</span>
                                         </a>
                                         @endcan
                                         
                                         @can('invoicing.debit-notes.view')
-                                        <a href="{{ route('invoicing.debit-notes.index') }}" 
-                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.debit-notes*') ? 'bg-blue-700 border-l-4 border-red-400' : 'hover:bg-blue-700/50' }} transition">
-                                            <i class="fas fa-file-circle-plus w-5 text-red-400 text-sm"></i>
+                                        <a href="{{ route('invoicing.debit-notes.index') }}"
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.debit-notes*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-file-circle-plus w-5 text-green-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">Notas Débito</span>
                                         </a>
                                         @endcan
+
+                                        @canany(['invoicing.transport-guides.view', 'invoicing.debit-notes.view'])
+                                        <a href="{{ route('invoicing.transport-guides') }}"
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.transport-guides*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-truck w-5 text-orange-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Guias Transporte</span>
+                                        </a>
+                                        @endcanany
                                         
                                         @can('invoicing.advances.view')
                                         <a href="{{ route('invoicing.advances.index') }}" 
@@ -755,16 +801,6 @@
                                         </a>
                                         @endcan
                                         
-                                        @can('invoicing.agt.view')
-                                        <div class="my-2 border-t border-blue-700/50"></div>
-                                        
-                                        {{-- Gerador de Documentos AGT - Por tenant --}}
-                                        <a href="{{ route('invoicing.agt-documents') }}" 
-                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.agt-documents') ? 'bg-gradient-to-r from-yellow-600 to-orange-600 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                                            <i class="fas fa-file-signature w-5 text-yellow-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-bold">Gerador AGT</span>
-                                        </a>
-                                        @endcan
                                     </div>
                                 </div>
                                 
@@ -814,6 +850,78 @@
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
                                 
+                                {{-- Hub de Relatórios — submenu em árvore (oculto para Caixa/Vendedor sem permissão) --}}
+                                @can('invoicing.reports.view')
+                                <div x-data="{ reportsOpen: {{ request()->routeIs('invoicing.reports.*') || request()->routeIs('invoicing.expiry-report') ? 'true' : 'false' }} }" class="border-l-2 border-blue-700/30 ml-8">
+                                    <button @click="reportsOpen = !reportsOpen" 
+                                            class="w-full flex items-center justify-between pr-4 py-2.5 hover:bg-blue-700/30 transition group">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-chart-column w-5 text-emerald-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📈 Relatórios</span>
+                                        </div>
+                                        <i x-show="sidebarOpen" 
+                                           :class="reportsOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
+                                           class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                                    </button>
+                                    
+                                    <div x-show="reportsOpen" x-collapse class="bg-blue-900/20">
+                                        <a href="{{ route('invoicing.reports.hub') }}" 
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.reports.hub') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-table-cells w-5 text-yellow-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-semibold">Painel de Relatórios</span>
+                                        </a>
+
+                                        @php
+                                            $reportGroups = [
+                                                'Rentabilidade' => [
+                                                    ['invoicing.reports.profit-loss', 'Lucros e Perdas (DRE)', 'fa-chart-line'],
+                                                    ['invoicing.reports.margin', 'Análise de Margem', 'fa-percentage'],
+                                                    ['invoicing.reports.product-performance', 'Desempenho de Produtos', 'fa-chart-pie'],
+                                                    ['invoicing.reports.comparative', 'Comparativo', 'fa-balance-scale'],
+                                                ],
+                                                'Vendas' => [
+                                                    ['invoicing.reports.sales', 'Mapa de Vendas', 'fa-file-invoice'],
+                                                    ['invoicing.reports.top-clients', 'Top Clientes', 'fa-crown'],
+                                                    ['invoicing.reports.top-products', 'Top Produtos', 'fa-star'],
+                                                ],
+                                                'Compras' => [
+                                                    ['invoicing.reports.purchases', 'Mapa de Compras', 'fa-shopping-cart'],
+                                                    ['invoicing.reports.top-suppliers', 'Top Fornecedores', 'fa-truck'],
+                                                    ['invoicing.reports.best-supplier', 'Melhor Fornecedor', 'fa-medal'],
+                                                ],
+                                                'Contas Correntes' => [
+                                                    ['invoicing.reports.accounts-receivable', 'Contas a Receber', 'fa-hand-holding-usd'],
+                                                    ['invoicing.reports.accounts-payable', 'Contas a Pagar', 'fa-money-bill-wave'],
+                                                    ['invoicing.reports.aging-clients', 'Aging de Clientes', 'fa-clock'],
+                                                ],
+                                                'Fiscal & SAFT' => [
+                                                    ['invoicing.reports.vat', 'Mapa de IVA', 'fa-percent'],
+                                                    ['invoicing.reports.documents', 'Mapa de Documentos', 'fa-file-alt'],
+                                                ],
+                                                'Produtos & Serviços' => [
+                                                    ['invoicing.reports.price-list', 'Tabela de Preços e Lucro', 'fa-tags'],
+                                                    ['invoicing.reports.services', 'Mapa de Serviços', 'fa-concierge-bell'],
+                                                    ['invoicing.expiry-report', 'Validade de Produtos', 'fa-calendar-check'],
+                                                ],
+                                            ];
+                                        @endphp
+
+                                        @foreach($reportGroups as $groupName => $groupReports)
+                                            <div x-show="sidebarOpen" class="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wider text-blue-300/70 font-bold">{{ $groupName }}</div>
+                                            @foreach($groupReports as $r)
+                                                <a href="{{ route($r[0]) }}" 
+                                                   class="flex items-center pl-6 pr-4 py-2 {{ request()->routeIs($r[0]) ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
+                                                    <i class="fas {{ $r[2] }} w-5 text-emerald-300 text-xs"></i>
+                                                    <span x-show="sidebarOpen" class="ml-3 text-xs">{{ $r[1] }}</span>
+                                                </a>
+                                            @endforeach
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @endcan
+                                
+                                <div class="my-2 border-t border-blue-700/50"></div>
+                                
                                 @can('invoicing.taxes.view')
                                 <a href="{{ route('invoicing.taxes') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.taxes') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
@@ -839,13 +947,22 @@
                                 @endcan
                                 
                                 @can('invoicing.settings.view')
-                                <a href="{{ route('invoicing.settings') }}" 
+                                <a href="{{ route('invoicing.settings') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cogs w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
                                 </a>
+
+                                {{-- Auditoria: quem fez o quê. Mesma permissão
+                                     das configurações — quem pode ver a
+                                     configuração fiscal pode ver quem lhe mexeu. --}}
+                                <a href="{{ route('invoicing.audit') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.audit') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-clipboard-list w-5 text-slate-300 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Auditoria</span>
+                                </a>
                                 @endcan
-                                
+
                                 @can('invoicing.agt.view')
                                 <a href="{{ route('invoicing.agt-settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.agt-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
@@ -857,7 +974,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('invoicing'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('invoicing'))
                         <!-- Tesouraria Module - Collapsible Menu (integrado com Faturação) -->
                         <div class="mt-6" x-data="{ treasuryOpen: {{ request()->routeIs('treasury.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -902,9 +1019,9 @@
                                 @endcan
                                 
                                 @can('treasury.transfers.view')
-                                <a href="{{ route('treasury.dashboard') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.dashboard*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-chart-line w-5 text-yellow-400 text-sm"></i>
+                                <a href="{{ route('treasury.transfers') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.transfers*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-right-left w-5 text-yellow-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">Transferências</span>
                                 </a>
                                 @endcan
@@ -936,7 +1053,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('eventos'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('eventos'))
                         <!-- Events Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ eventsOpen: {{ request()->routeIs('events.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1001,7 +1118,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('rh'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('rh'))
                         <!-- HR Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ hrOpen: {{ request()->routeIs('hr.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1126,7 +1243,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('contabilidade'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('contabilidade'))
                         <!-- Accounting Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ accountingOpen: {{ request()->routeIs('accounting.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1241,7 +1358,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('oficina'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('oficina'))
                         <!-- Oficina Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ oficinaOpen: {{ request()->routeIs('workshop.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1306,7 +1423,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('hotel'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('hotel'))
                         <!-- Hotel Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ hotelOpen: {{ request()->routeIs('hotel.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1419,7 +1536,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('salon'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('salon'))
                         <!-- Salon Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ salonOpen: {{ request()->routeIs('salon.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1504,7 +1621,68 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('notifications'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('restaurant'))
+                        <div class="mt-6" x-data="{ restaurantOpen: {{ request()->routeIs('restaurant.*') ? 'true' : 'false' }} }">
+                            <button @click="restaurantOpen = !restaurantOpen"
+                                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
+                                <div class="flex items-center">
+                                    <i class="fas fa-utensils w-6 text-orange-400"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Restaurante</span>
+                                </div>
+                                <i x-show="sidebarOpen" :class="restaurantOpen ? 'fa-chevron-down' : 'fa-chevron-right'"
+                                   class="fas text-blue-300 text-xs transition-transform duration-200"></i>
+                            </button>
+                            <div x-show="restaurantOpen" x-collapse class="bg-blue-900/30">
+                                @can('restaurant.dashboard.view')
+                                    <a href="{{ route('restaurant.dashboard') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.dashboard') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-chart-line w-5 text-orange-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    </a>
+                                @endcan
+                                @can('restaurant.floor.view')
+                                    <a href="{{ route('restaurant.floor') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.floor') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-chair w-5 text-emerald-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Sala e Mesas</span>
+                                    </a>
+                                @endcan
+                                @can('restaurant.orders.view')
+                                    <a href="{{ route('restaurant.orders') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.orders') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-receipt w-5 text-violet-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Comandas</span>
+                                    </a>
+                                @endcan
+                                @can('restaurant.kitchen.view')
+                                    <a href="{{ route('restaurant.kitchen') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.kitchen') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-fire-burner w-5 text-red-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Cozinha / KDS</span>
+                                    </a>
+                                @endcan
+                                @can('restaurant.reservations.view')
+                                    <a href="{{ route('restaurant.reservations') }}" class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.reservations') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-calendar-check w-5 text-cyan-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Reservas</span>
+                                    </a>
+                                @endcan
+                                @can('restaurant.recipes.view')
+                                    <a href="{{route('restaurant.recipes')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.recipes')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-book-open w-5 text-lime-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Fichas Técnicas</span></a>
+                                @endcan
+                                @can('restaurant.stock.view')
+                                    <a href="{{route('restaurant.stock')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.stock')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-boxes-stacked w-5 text-emerald-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Stock e Desperdícios</span></a>
+                                @endcan
+                                @can('restaurant.reports.view')
+                                    <a href="{{route('restaurant.reports')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.reports')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-chart-column w-5 text-indigo-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span></a>
+                                @endcan
+                                @can('restaurant.settings.view')
+                                    <a href="{{route('restaurant.settings')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.settings')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-gear w-5 text-slate-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span></a>
+                                @endcan
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('notifications'))
                         <!-- Notifications Module -->
                         <div class="mt-6">
                             <a href="{{ route('notifications.settings') }}" 
@@ -1515,7 +1693,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('crm'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('crm'))
                         <!-- CRM Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ crmOpen: {{ request()->routeIs('crm.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1562,7 +1740,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('inventario'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('inventario'))
                         <!-- Inventário Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ inventarioOpen: {{ request()->routeIs('inventario.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1609,7 +1787,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('compras'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('compras'))
                         <!-- Compras Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ comprasOpen: {{ request()->routeIs('compras.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1656,7 +1834,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->user()->isSuperAdmin() || auth()->user()->hasActiveModule('projetos'))
+                    @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('projetos'))
                         <!-- Projetos Module - Collapsible Menu -->
                         <div class="mt-6" x-data="{ projetosOpen: {{ request()->routeIs('projetos.*') ? 'true' : 'false' }} }">
                             <!-- Header do Módulo -->
@@ -1831,11 +2009,21 @@
                             <a href="{{ route('my-account') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-user-circle mr-2 text-blue-600"></i> Minha Conta
                             </a>
-                            <a href="{{ route('my-account') }}?tab=companies" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-building mr-2 text-purple-600"></i> Minhas Empresas
+                            <a href="{{ route('company.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-building mr-2 text-indigo-600"></i> Dados da Empresa
                             </a>
-                            <a href="{{ route('my-account') }}?tab=plan" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-crown mr-2 text-yellow-600"></i> Meu Plano
+                            @if(auth()->user()->canManageAccount())
+                                <a href="{{ route('my-account') }}?tab=companies" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-building mr-2 text-purple-600"></i> Minhas Empresas
+                                </a>
+                                <a href="{{ route('my-account') }}?tab=plan" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-crown mr-2 text-yellow-600"></i> Meu Plano
+                                </a>
+                            @endif
+                            <div class="border-t border-gray-200 my-1"></div>
+                            <a href="{{ route('changelog') }}" class="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <span><i class="fas fa-rocket mr-2 text-indigo-600"></i> Atualizações</span>
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">v{{ config('changelog.current', '1.0') }}</span>
                             </a>
                             <div class="border-t border-gray-200 my-1"></div>
                             <form method="POST" action="{{ route('logout') }}">
@@ -1964,6 +2152,74 @@
 
         // Configuração global do Livewire - Listeners para notificações
         document.addEventListener('livewire:init', () => {
+            // ── Recuperação de sessão expirada — sem freeze, sem perder a venda ──
+            // Problema: quando a sessão morre por inatividade, um pedido Livewire volta
+            // como 419/401 (ver bootstrap/app.php). O comportamento antigo (reload cego)
+            // perdia a venda em curso no POS. Agora: numa página POS mostra-se um overlay
+            // claro (o carrinho fica guardado no cliente e é restaurado após novo login);
+            // noutras páginas faz-se apenas um reload suave.
+            window.__sessionDeadShown = false;
+            window.sosSessionDead = function (reason) {
+                if (window.__sessionDeadShown) return;
+                window.__sessionDeadShown = true;
+                var overlay = document.getElementById('sos-session-expired');
+                if (window.__isPOS && overlay) {
+                    overlay.style.display = 'flex';           // bloqueia o POS com mensagem + botão login
+                } else {
+                    try { toastr.warning('A sessão expirou — a recarregar…', '', { timeOut: 1500 }); } catch (_) {}
+                    setTimeout(function () { window.location.reload(); }, 900);
+                }
+            };
+
+            // Injetar o overlay (inerte até window.__isPOS o mostrar via sosSessionDead)
+            (function () {
+                if (document.getElementById('sos-session-expired')) return;
+                var o = document.createElement('div');
+                o.id = 'sos-session-expired';
+                o.style.cssText = 'display:none;position:fixed;inset:0;z-index:100000;background:rgba(17,24,39,.88);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:20px;';
+                o.innerHTML =
+                    '<div style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);font-family:inherit;">'
+                    + '<div style="font-size:44px;line-height:1;margin-bottom:12px;">&#128274;</div>'
+                    + '<h2 style="font-size:20px;font-weight:800;margin:0 0 8px;color:#111827;">Sess&atilde;o expirada</h2>'
+                    + '<p style="color:#4b5563;margin:0 0 20px;font-size:14px;line-height:1.5;">Por inatividade, a sua sess&atilde;o terminou. <strong>O carrinho foi guardado</strong> e ser&aacute; restaurado assim que iniciar sess&atilde;o novamente.</p>'
+                    + '<a href="{{ route('login') }}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;padding:12px 26px;border-radius:10px;font-weight:700;text-decoration:none;">Iniciar sess&atilde;o</a>'
+                    + '</div>';
+                document.body.appendChild(o);
+            })();
+
+            Livewire.hook('request', ({ fail }) => {
+                fail(({ status, preventDefault }) => {
+                    // 419 = CSRF/página expirada · 401 = sessão terminada (bootstrap/app.php)
+                    if (status === 419 || status === 401) {
+                        preventDefault();                 // impede o Livewire de interpretar a resposta (evita o freeze)
+                        window.sosSessionDead('livewire-' + status);
+                    }
+                });
+            });
+
+            // ── Keep-alive robusto (5 min) + ping ao voltar a ficar visível ──
+            // Mantém o cookie de sessão vivo com o separador aberto e reage a sleep/lock
+            // (o timer é estrangulado em background; o visibilitychange apanha o "acordar").
+            // Mantém o guard document.hidden para não sobrecarregar as sessões-BD.
+            window.__lastPing = 0;
+            window.sosKeepAlive = function () {
+                var now = (window.performance && performance.now) ? performance.now() : 0;
+                if (now && (now - window.__lastPing) < 30000) return;   // no máx. 1 ping / 30s
+                window.__lastPing = now;
+                fetch('{{ url('/keep-alive') }}', {
+                    method: 'GET', credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    cache: 'no-store', redirect: 'manual'
+                }).then(function (res) {
+                    // redirect:'manual' → 302 (sessão morta) vem como type 'opaqueredirect' (status 0)
+                    if (res.type === 'opaqueredirect' || res.status === 401 || res.status === 419) {
+                        window.sosSessionDead('keepalive');
+                    }
+                }).catch(function () {});
+            };
+            setInterval(function () { if (!document.hidden) window.sosKeepAlive(); }, 5 * 60 * 1000);
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) window.sosKeepAlive(); });
+
             // Listener para notificações de sucesso
             Livewire.on('success', (event) => {
                 toastr.success(event.message || event[0].message || 'Operação realizada com sucesso!');
@@ -1984,6 +2240,43 @@
                 toastr.info(event.message || event[0].message || 'Informação!');
             });
             
+            // ── Auto-focus no primeiro campo com erro de validação ───────────
+            // Disparar via $this->dispatch('focus-first-error', field: 'name')
+            // a partir de qualquer componente Livewire após captar uma
+            // ValidationException. Faz scroll suave + foco no input correspondente.
+            Livewire.on('focus-first-error', (event) => {
+                const data = event[0] || event;
+                const field = data.field || data;
+                if (!field || typeof field !== 'string') return;
+
+                // Pequeno delay para o DOM atualizar (mensagens de erro renderizadas)
+                setTimeout(() => {
+                    // Procura inputs com wire:model="<field>" ou variantes (.live, .blur, etc.)
+                    const selectors = [
+                        `[wire\\:model="${field}"]`,
+                        `[wire\\:model\\.live="${field}"]`,
+                        `[wire\\:model\\.blur="${field}"]`,
+                        `[wire\\:model\\.lazy="${field}"]`,
+                        `[wire\\:model\\.defer="${field}"]`,
+                        `[name="${field}"]`,
+                        `#${field}`,
+                    ];
+                    let el = null;
+                    for (const sel of selectors) {
+                        try { el = document.querySelector(sel); } catch (e) { el = null; }
+                        if (el) break;
+                    }
+                    if (!el) return;
+                    try {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.focus({ preventScroll: true });
+                        // Realce visual breve
+                        el.classList.add('ring-2', 'ring-red-500');
+                        setTimeout(() => el.classList.remove('ring-2', 'ring-red-500'), 2000);
+                    } catch (e) {}
+                }, 80);
+            });
+
             // Listener único para notificações (evita duplicação) - Mantido para compatibilidade
             Livewire.on('notify', (event) => {
                 const data = event[0] || event;
@@ -2105,55 +2398,8 @@
     <!-- Custom Scripts Stack -->
     @stack('scripts')
     
-    <!-- PWA Service Worker Registration -->
-    <script>
-        // Registar último acesso online
-        localStorage.setItem('soserp-last-online', Date.now().toString());
-        
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then((reg) => {
-                        console.log('[PWA] Service Worker registado com sucesso. Scope:', reg.scope);
-                        
-                        // Verificar atualizações a cada 60 min
-                        setInterval(() => reg.update(), 60 * 60 * 1000);
-                        
-                        // Notificar quando nova versão disponível
-                        reg.addEventListener('updatefound', () => {
-                            const newWorker = reg.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-                                    if (typeof toastr !== 'undefined') {
-                                        toastr.info(
-                                            'Nova versão disponível. <a href="javascript:location.reload()" style="color:#fff;font-weight:bold;text-decoration:underline">Atualizar agora</a>',
-                                            'Atualização SOS ERP',
-                                            { timeOut: 0, extendedTimeOut: 0, closeButton: true, allowHtml: true }
-                                        );
-                                    }
-                                }
-                            });
-                        });
-                    })
-                    .catch((err) => console.warn('[PWA] Falha ao registar SW:', err));
-            });
-        }
-
-        // Indicador de status offline/online
-        window.addEventListener('offline', () => {
-            document.body.classList.add('app-offline');
-            if (typeof toastr !== 'undefined') {
-                toastr.warning('Sem conexão à internet. Algumas funcionalidades podem estar limitadas.', 'Offline', { timeOut: 5000 });
-            }
-        });
-        window.addEventListener('online', () => {
-            document.body.classList.remove('app-offline');
-            localStorage.setItem('soserp-last-online', Date.now().toString());
-            if (typeof toastr !== 'undefined') {
-                toastr.success('Conexão restaurada!', 'Online', { timeOut: 3000 });
-            }
-        });
-    </script>
+    <!-- PWA Service Worker Registration + Auto-Update -->
+    @include('partials.pwa-register')
     
     <!-- Componente para enviar email de boas-vindas após redirect -->
     @livewire('send-welcome-email')

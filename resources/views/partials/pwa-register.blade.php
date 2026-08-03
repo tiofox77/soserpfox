@@ -1,0 +1,83 @@
+{{-- PWA Service Worker registration + auto-update prompt --}}
+<script>
+(function() {
+    if (!('serviceWorker' in navigator)) return;
+
+    try { localStorage.setItem('soserp-last-online', Date.now().toString()); } catch (e) {}
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+    });
+
+    function notifyUpdate(reg) {
+        const apply = () => {
+            if (reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+        };
+        if (typeof toastr !== 'undefined') {
+            toastr.info(
+                'Nova versão disponível. <button type="button" id="pwa-update-btn" style="background:#fff;color:#1e40af;font-weight:bold;padding:4px 10px;border-radius:6px;border:0;margin-left:8px;cursor:pointer">Atualizar agora</button>',
+                'Atualização disponível',
+                { timeOut: 0, extendedTimeOut: 0, closeButton: true, allowHtml: true, tapToDismiss: false }
+            );
+            setTimeout(() => {
+                const btn = document.getElementById('pwa-update-btn');
+                if (btn) btn.addEventListener('click', apply);
+            }, 200);
+        } else {
+            // fallback simples
+            if (confirm('Nova versão disponível. Atualizar agora?')) apply();
+        }
+    }
+
+    function trackInstalling(worker, reg) {
+        worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                notifyUpdate(reg);
+            }
+        });
+    }
+
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then((reg) => {
+                // Se já há um worker à espera quando esta página carrega
+                if (reg.waiting && navigator.serviceWorker.controller) {
+                    notifyUpdate(reg);
+                }
+                if (reg.installing) {
+                    trackInstalling(reg.installing, reg);
+                }
+                reg.addEventListener('updatefound', () => {
+                    if (reg.installing) trackInstalling(reg.installing, reg);
+                });
+                // Verificar atualização periodicamente (a cada 30 min)
+                setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+                // E sempre que a janela volta a ficar visível
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') reg.update().catch(() => {});
+                });
+            })
+            .catch((err) => console.warn('[PWA] Falha ao registar SW:', err));
+    });
+
+    // Indicadores de status online/offline
+    window.addEventListener('offline', () => {
+        document.body.classList.add('app-offline');
+        if (typeof toastr !== 'undefined') {
+            toastr.warning('Sem conexão. A trabalhar em modo offline.', 'Offline', { timeOut: 5000 });
+        }
+    });
+    window.addEventListener('online', () => {
+        document.body.classList.remove('app-offline');
+        try { localStorage.setItem('soserp-last-online', Date.now().toString()); } catch (e) {}
+        if (typeof toastr !== 'undefined') {
+            toastr.success('Conexão restaurada!', 'Online', { timeOut: 3000 });
+        }
+    });
+})();
+</script>

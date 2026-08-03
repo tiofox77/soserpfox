@@ -12,6 +12,25 @@
         </div>
     </div>
 
+    {{-- Erros de validação.
+         Sem isto, um campo obrigatório vazio fazia o save() abortar sem toast,
+         sem mensagem, sem nada: o botão voltava ao normal e o utilizador ficava
+         convencido de que tinha gravado. Era outra origem do "parece que não
+         está a salvar". --}}
+    @if($errors->any())
+    <div class="mb-6 bg-red-50 border-2 border-red-200 rounded-2xl p-4">
+        <p class="font-bold text-red-800 flex items-center mb-2">
+            <i class="fas fa-triangle-exclamation mr-2"></i>
+            Não foi possível guardar — corrija {{ $errors->count() === 1 ? 'o campo abaixo' : 'os campos abaixo' }}:
+        </p>
+        <ul class="list-disc list-inside text-sm text-red-700 space-y-1">
+            @foreach($errors->all() as $erro)
+            <li>{{ $erro }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
     {{-- Form --}}
     <form wire:submit.prevent="save">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -43,15 +62,6 @@
                             <i class="fas fa-print mr-3"></i>
                             Impressão
                         </a>
-                        @if(auth()->user()->hasRole('Super Admin'))
-                        <a href="#saft" class="flex items-center px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-xl">
-                            <i class="fas fa-file-code mr-3"></i>
-                            <span class="flex items-center">
-                                SAFT-AO
-                                <span class="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">ADMIN</span>
-                            </span>
-                        </a>
-                        @endif
                         <a href="#pos" class="flex items-center px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-xl">
                             <i class="fas fa-cash-register mr-3"></i>
                             POS - Ponto de Venda
@@ -145,7 +155,11 @@
                                     <div class="font-bold text-green-900 mb-2">Configurações Atuais</div>
                                     <div class="grid grid-cols-2 gap-2 text-green-800">
                                         <div><strong>Moeda:</strong> {{ $default_currency ?? 'AOA' }}</div>
-                                        <div><strong>Taxa Câmbio:</strong> {{ number_format($default_exchange_rate ?? 1, 4) }}</div>
+                                        {{-- (float) e não apenas ?? : com o campo vazio o valor
+                                             é string "" (não null), o ?? não a apanhava e o
+                                             number_format() rebentava a página inteira — logo
+                                             ao tentar gravar com a taxa de câmbio por preencher. --}}
+                                        <div><strong>Taxa Câmbio:</strong> {{ number_format((float) ($default_exchange_rate ?: 1), 4) }}</div>
                                         <div><strong>Pagamento:</strong> {{ ucfirst($default_payment_method ?? 'dinheiro') }}</div>
                                         <div><strong>Formato:</strong> 
                                             @switch($number_format ?? 'angola')
@@ -641,89 +655,7 @@
                     </div>
                 </div>
 
-                {{-- SAFT-AO - APENAS SUPER ADMIN --}}
-                @if(auth()->user()->hasRole('Super Admin'))
-                <div id="saft" class="bg-white rounded-2xl shadow-xl p-6 border-2 border-red-200">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-bold text-gray-900 flex items-center">
-                            <i class="fas fa-file-code mr-2 text-purple-600"></i>
-                            SAFT-AO (Exportação Fiscal)
-                        </h2>
-                        <span class="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                            <i class="fas fa-shield-alt mr-1"></i>
-                            APENAS SUPER ADMIN
-                        </span>
-                    </div>
-                    
-                    <div class="mb-4 p-4 bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-xl">
-                        <div class="flex items-start">
-                            <i class="fas fa-exclamation-triangle text-2xl text-red-600 mr-3"></i>
-                            <div class="text-sm">
-                                <div class="font-bold text-red-900 mb-2">Área Restrita</div>
-                                <div class="text-red-800">
-                                    <p class="mb-1">Estas configurações são críticas para o funcionamento fiscal do sistema.</p>
-                                    <p class="text-xs">Apenas Super Admin pode visualizar e modificar estes dados.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-certificate mr-1 text-green-500"></i>
-                                Certificado Software AGT
-                            </label>
-                            <input type="text" wire:model="saft_software_cert" 
-                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                                   placeholder="Ex: AGT/2024/XXXX">
-                            <p class="text-xs text-gray-500 mt-1">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Certificado emitido pela AGT Angola
-                            </p>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-tag mr-1 text-blue-500"></i>
-                                Product ID
-                            </label>
-                            <input type="text" wire:model="saft_product_id" 
-                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                                   placeholder="Ex: SOSERP/v1.0">
-                            <p class="text-xs text-gray-500 mt-1">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Identificador único do software
-                            </p>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-code-branch mr-1 text-purple-500"></i>
-                                Versão SAFT
-                            </label>
-                            <input type="text" wire:model="saft_version" 
-                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                                   placeholder="1.0.0">
-                            <p class="text-xs text-gray-500 mt-1">
-                                <i class="fas fa-star text-yellow-500 mr-1"></i>
-                                Padrão: 1.0.0 (Formato AGT Angola)
-                            </p>
-                        </div>
-
-                        <div class="p-4 bg-yellow-50 border-2 border-yellow-300 rounded-xl text-sm text-yellow-800">
-                            <div class="flex items-start">
-                                <i class="fas fa-exclamation-triangle text-xl text-yellow-600 mr-2"></i>
-                                <div>
-                                    <div class="font-bold mb-1">Importante - AGT Angola</div>
-                                    <p>Estes dados são obrigatórios para exportação SAFT-AO conforme regulamentação da AGT Angola.</p>
-                                    <p class="text-xs mt-2">Alterações incorretas podem invalidar a exportação fiscal.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                @endif
+                {{-- SAFT-AO movido para a área do Super Admin (Billing). Já não é editável aqui. --}}
 
                 {{-- Observações Padrão --}}
                 <div class="bg-white rounded-2xl shadow-xl p-6">
@@ -867,6 +799,19 @@
                                 <p class="text-xs text-gray-500 ml-8">
                                     <i class="fas fa-info-circle mr-1"></i>
                                     Permitir vender produtos mesmo com stock zero ou negativo
+                                </p>
+
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" wire:model="pos_hide_out_of_stock"
+                                           class="w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
+                                    <span class="ml-3 text-sm font-semibold text-gray-700">
+                                        <i class="fas fa-eye-slash mr-1 text-orange-500"></i>
+                                        Ocultar produtos esgotados
+                                    </span>
+                                </label>
+                                <p class="text-xs text-gray-500 ml-8">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Não mostrar no POS e no PWA produtos com stock <= 0 (serviços continuam visíveis)
                                 </p>
                             </div>
                         </div>

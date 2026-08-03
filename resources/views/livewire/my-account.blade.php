@@ -15,20 +15,22 @@
         <!-- Tabs -->
         <div class="bg-white rounded-2xl shadow-lg mb-6 overflow-hidden">
             <div class="flex overflow-x-auto border-b border-gray-200">
-                <button wire:click="setActiveTab('companies')" 
+                @if(auth()->user()->canManageAccount())
+                <button wire:click="setActiveTab('companies')"
                         class="flex-1 min-w-fit px-4 py-4 text-sm font-semibold transition-all {{ $activeTab === 'companies' ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50' }}">
                     <i class="fas fa-building mr-2"></i>
                     <span class="hidden sm:inline">Minhas </span>Empresas
                 </button>
-                <button wire:click="setActiveTab('plan')" 
+                <button wire:click="setActiveTab('plan')"
                         class="flex-1 min-w-fit px-4 py-4 text-sm font-semibold transition-all {{ $activeTab === 'plan' ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50' }}">
                     <i class="fas fa-crown mr-2"></i>Meu Plano
                 </button>
-                <button wire:click="setActiveTab('billing')" 
+                <button wire:click="setActiveTab('billing')"
                         class="flex-1 min-w-fit px-4 py-4 text-sm font-semibold transition-all {{ $activeTab === 'billing' ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50' }}">
                     <i class="fas fa-file-invoice-dollar mr-2"></i>Faturas
                 </button>
-                <button wire:click="setActiveTab('profile')" 
+                @endif
+                <button wire:click="setActiveTab('profile')"
                         class="flex-1 min-w-fit px-4 py-4 text-sm font-semibold transition-all {{ $activeTab === 'profile' ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:bg-gray-50' }}">
                     <i class="fas fa-user-circle mr-2"></i>Perfil
                 </button>
