@@ -205,9 +205,32 @@ class AppServiceProvider extends ServiceProvider
         // O DB::afterCommit descarta o callback, mas o buffer do gravador
         // ficaria com as linhas — e sairiam no commit seguinte, a registar uma
         // transacção que foi desfeita.
+        //
+        // O NÍVEL é obrigatório. Este evento dispara TAMBÉM em rollbacks de
+        // savepoint, não só nos de topo. Sem o nível, uma linha falhada no meio
+        // de um lote apagava a auditoria das linhas irmãs que já tinham passado
+        // e que iam mesmo ser confirmadas — medido no ecrã de movimentação de
+        // stock: três movimentos gravados, uma única linha na trilha. E a
+        // trilha é append-only: o que se perde ali não se repõe.
         \Illuminate\Support\Facades\Event::listen(
             \Illuminate\Database\Events\TransactionRolledBack::class,
-            fn () => app(\App\Services\Audit\AuditRecorder::class)->descartar()
+            function (\Illuminate\Database\Events\TransactionRolledBack $evento) {
+                app(\App\Services\Audit\AuditRecorder::class)
+                    ->descartar($evento->connection->transactionLevel());
+            }
+        );
+
+        // Um nível confirmou: o que lá dentro se registou sobe para o nível que
+        // o contém, e deixa de estar ao alcance de reversões posteriores. É o
+        // par obrigatório do ouvinte acima — os níveis reciclam-se, e sem esta
+        // promoção o descarte de um savepoint apanhava factos de um savepoint
+        // anterior que já tinha confirmado ao MESMO nível.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Database\Events\TransactionCommitted::class,
+            function (\Illuminate\Database\Events\TransactionCommitted $evento) {
+                app(\App\Services\Audit\AuditRecorder::class)
+                    ->promover($evento->connection->transactionLevel());
+            }
         );
 
         // Trilha de auditoria: um observer por modelo da allowlist.

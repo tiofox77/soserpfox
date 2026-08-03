@@ -152,6 +152,44 @@ class StockMovementBatchTest extends TenantTestCase
             'o stock do produto sem existências fica intacto');
     }
 
+    public function test_uma_linha_falhada_nao_apaga_a_auditoria_das_irmas(): void
+    {
+        // O rollback de um savepoint dispara o MESMO evento que o de uma
+        // transacção de topo. O ouvinte da auditoria limpava o buffer inteiro,
+        // levando com ele as linhas dos movimentos irmãos que já tinham passado
+        // e que iam mesmo ser confirmados: ficavam no livro sem rasto nenhum na
+        // trilha. E a trilha é append-only — não há como repor depois.
+        $bom1 = $this->produtoComStock(20);
+        $bom2 = $this->produtoComStock(20);
+        $seco = $this->produtoComStock(1);
+
+        \App\Models\AuditTrail::where('tenant_id', $this->tenant->id)->delete();
+
+        $c = $this->gravarLote([
+            ['produto' => $bom1, 'qtd' => 5,   'op' => 'add'],
+            ['produto' => $bom2, 'qtd' => 5,   'op' => 'add'],
+            ['produto' => $seco, 'qtd' => 999, 'op' => 'sub'],
+        ]);
+
+        $this->assertSame(2, $c->get('batchOk'));
+
+        app(\App\Services\Audit\AuditRecorder::class)->despejar();
+
+        $auditados = \App\Models\AuditTrail::where('tenant_id', $this->tenant->id)
+            ->where('auditable_type', StockMovement::class)
+            ->where('event', 'created')
+            ->pluck('auditable_id');
+
+        $gravados = StockMovement::doLote($c->get('batchReference'))->pluck('id');
+
+        $this->assertCount(2, $gravados);
+
+        foreach ($gravados as $id) {
+            $this->assertTrue($auditados->contains($id),
+                "o movimento {$id} foi gravado mas não deixou rasto na trilha");
+        }
+    }
+
     public function test_quando_nada_e_gravado_nao_ha_documento(): void
     {
         $seco = $this->produtoComStock(0);
@@ -281,9 +319,74 @@ class StockMovementBatchTest extends TenantTestCase
             ->assertSee('não é documento fiscal', false);
     }
 
+    public function test_a_reimpressao_sobrevive_ao_artigo_sair_do_catalogo(): void
+    {
+        // O Product tem soft delete. Sem `withTrashed`, a reimpressão de um lote
+        // antigo trocava as linhas por "(produto removido)" e perdia o código —
+        // e é na reimpressão que o documento serve para alguma coisa.
+        $p   = $this->produtoComStock(20);
+        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->get('batchReference');
+
+        $p->delete();
+
+        $this->get(route('invoicing.stock.batch-preview', ['reference' => $ref]))
+            ->assertOk()
+            ->assertSee($p->name)
+            ->assertSee($p->code)
+            ->assertDontSee('(produto removido)');
+    }
+
     public function test_uma_referencia_inexistente_da_404(): void
     {
         $this->get(route('invoicing.stock.batch-pdf', ['reference' => 'MOV/2026/999999']))
             ->assertNotFound();
+    }
+
+    public function test_uma_quantidade_abaixo_da_precisao_da_coluna_e_recusada(): void
+    {
+        // A coluna quantity é decimal(10,2). Quantidades de três casas eram
+        // aceites, gravavam 0,00 e o stock não mexia — o operador via a linha
+        // registada e nada acontecia.
+        $p = $this->produtoComStock(10);
+
+        $c = $this->gravarLote([['produto' => $p, 'qtd' => 0.004]]);
+
+        $c->assertHasErrors('entryItems.0.quantity');
+
+        $this->assertNull($c->get('batchReference'));
+        $this->assertEquals(10, (float) Stock::where('product_id', $p->id)->sum('quantity'));
+    }
+
+    public function test_uma_transferencia_abaixo_da_precisao_e_recusada(): void
+    {
+        // O mesmo defeito no ecrã vizinho, e pior: além de não transferir nada,
+        // criava no destino uma linha de stock a zero. Essa linha fantasma põe o
+        // produto em regime multi-armazém e faz o POS deixar de usar o agregado
+        // legado — o artigo passa a aparecer esgotado na caixa.
+        $this->comPermissoes('invoicing.warehouse-transfer.create');
+
+        $p = $this->produtoComStock(10);
+
+        $destino = \App\Models\Invoicing\Warehouse::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Armazém Secundário',
+            'code' => 'SEC' . random_int(100, 999), 'is_default' => false, 'is_active' => true,
+        ]);
+
+        $linha = Stock::where('product_id', $p->id)->where('warehouse_id', $this->armazem->id)->first();
+
+        Livewire::test(StockManagement::class)
+            ->call('openTransferModal', $linha->id)
+            ->set('transferToWarehouse', $destino->id)
+            ->set('transferQuantity', '0.004')
+            ->call('saveTransfer')
+            ->assertHasErrors('transferQuantity');
+
+        $this->assertEquals(10, (float) Stock::where('product_id', $p->id)
+            ->where('warehouse_id', $this->armazem->id)->value('quantity'));
+
+        $this->assertNull(
+            Stock::where('product_id', $p->id)->where('warehouse_id', $destino->id)->first(),
+            'não pode ficar uma linha fantasma no armazém de destino'
+        );
     }
 }

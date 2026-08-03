@@ -24,7 +24,10 @@ class StockWasteManagement extends Component
     public function mount(): void { $this->warehouseId = Warehouse::where('tenant_id', activeTenantId())->where('is_default', true)->value('id'); }
     public function waste(RestaurantStockService $service): void
     {
-        $this->validate(['productId'=>'required|integer','warehouseId'=>'required|integer','quantity'=>'required|numeric|min:0.001','reason'=>'required|string|max:500']);
+        // min:0.01 e não 0.001: `invoicing_stock_movements.quantity` é
+        // decimal(10,2). Um desperdício de 0,004 era aceite, gravava 0,00 e o
+        // stock não mexia — ficava registado um desperdício que não existiu.
+        $this->validate(['productId'=>'required|integer','warehouseId'=>'required|integer','quantity'=>'required|numeric|min:0.01','reason'=>'required|string|max:500']);
         try {
             $service->waste($this->productId, $this->quantity, $this->warehouseId, $this->reason, activeTenantId(), auth()->id());
             $this->showWaste = false; $this->reset(['productId','reason']); $this->quantity = 1;

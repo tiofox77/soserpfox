@@ -201,8 +201,17 @@ class StockManagement extends Component
         $this->validate([
             'transferFromWarehouse' => 'required|exists:invoicing_warehouses,id',
             'transferToWarehouse' => 'required|exists:invoicing_warehouses,id|different:transferFromWarehouse',
-            'transferQuantity' => 'required|numeric|min:0.001|max:' . $this->transferMaxQty,
+            // 0,01 e não 0,001: `invoicing_stock_movements.quantity` é
+            // decimal(10,2). Uma transferência de 0,004 era aceite, gravava um
+            // movimento de 0,00, deixava a origem intacta — e ainda criava no
+            // destino uma linha de stock a zero. Essa linha fantasma põe o
+            // produto em regime multi-armazém e faz o POS deixar de usar o
+            // agregado legado: o artigo passa a aparecer esgotado na caixa por
+            // causa de uma transferência que nunca aconteceu.
+            'transferQuantity' => 'required|numeric|min:0.01|max:' . $this->transferMaxQty,
             'transferNotes' => 'nullable|string|max:500',
+        ], [
+            'transferQuantity.min' => 'A quantidade mínima a transferir é 0,01.',
         ]);
 
         try {

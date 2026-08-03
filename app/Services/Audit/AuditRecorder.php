@@ -147,39 +147,103 @@ class AuditRecorder
     /** Acrescenta o contexto do actor e agenda o despejo. */
     protected function enfileirar(array $linha): void
     {
-        $this->pendentes[] = array_merge($linha, $this->contextoDoActor(), [
-            'request_id' => $this->requestId(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $this->pendentes[] = [
+            // Nível de transacção em que este facto aconteceu. É o que permite
+            // descartar SÓ o que um rollback desfez — ver descartar().
+            'nivel' => DB::transactionLevel(),
+            'dados' => array_merge($linha, $this->contextoDoActor(), [
+                'request_id' => $this->requestId(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]),
+        ];
 
-        if (!$this->agendado) {
-            $this->agendado = true;
+        $this->agendar();
+    }
 
-            // afterCommit: com transacção aberta adia até ao commit de nível 0
-            // e DESCARTA num rollback; sem transacção corre já.
-            DB::afterCommit(fn () => $this->despejar());
+    /** Garante que existe um despejo agendado para o commit. */
+    protected function agendar(): void
+    {
+        if ($this->agendado) {
+            return;
+        }
+
+        $this->agendado = true;
+
+        // afterCommit: com transacção aberta adia até ao commit de nível 0
+        // e DESCARTA num rollback; sem transacção corre já.
+        DB::afterCommit(fn () => $this->despejar());
+    }
+
+    /**
+     * Um nível de transacção confirmou: o que lá dentro se registou passa a
+     * pertencer à transacção que o contém.
+     *
+     * Sem esta promoção, o carimbo de nível não chegava — os níveis reciclam-se.
+     * Num lote, cada linha abre e fecha o seu savepoint ao nível 3: quando a
+     * terceira linha falhava e revertia o nível 3, o descarte levava também as
+     * duas primeiras, que tinham sido gravadas noutro savepoint de nível 3 já
+     * confirmado. Promovê-las no momento em que o savepoint delas confirma põe-nas
+     * fora do alcance de qualquer reversão posterior.
+     */
+    public function promover(int $nivelActual): void
+    {
+        foreach ($this->pendentes as $i => $pendente) {
+            if ($pendente['nivel'] > $nivelActual) {
+                $this->pendentes[$i]['nivel'] = $nivelActual;
+            }
         }
     }
 
     /**
-     * Descarta o que está pendente. Ligado ao evento de rollback.
+     * Descarta o que um rollback desfez. Ligado ao evento de rollback.
      *
      * O `DB::afterCommit` descarta o CALLBACK num rollback, mas não limpa este
      * buffer: as linhas ficavam cá e sairiam no commit seguinte, a auditar uma
      * transacção que foi desfeita — no registo apareceria uma venda que nunca
      * existiu.
+     *
+     * O `$nivelActual` é o nível a que a ligação FICOU depois do rollback, e é
+     * o que separa o que morreu do que sobreviveu: só se descarta o que foi
+     * registado a um nível mais fundo. Sem esta distinção, uma linha falhada
+     * dentro de um lote levava consigo a auditoria das linhas irmãs já
+     * confirmadas — o evento de rollback dispara em savepoints, não só em
+     * transacções de topo.
+     *
+     * Sem argumento descarta tudo, que é o comportamento certo para um rollback
+     * de topo e para quem o chame à mão.
      */
-    public function descartar(): void
+    public function descartar(?int $nivelActual = null): void
     {
-        $this->pendentes = [];
-        $this->agendado  = false;
+        if ($nivelActual === null || $nivelActual <= 0) {
+            $this->pendentes = [];
+            $this->agendado  = false;
+
+            return;
+        }
+
+        $this->pendentes = array_values(array_filter(
+            $this->pendentes,
+            fn (array $p) => $p['nivel'] <= $nivelActual
+        ));
+
+        if (empty($this->pendentes)) {
+            $this->agendado = false;
+
+            return;
+        }
+
+        // Sobrou alguma coisa, mas o callback pode ter morrido com o savepoint:
+        // o Laravel guarda os callbacks por nível e larga os do nível revertido.
+        // Reagendar é barato e um agendamento a mais só encontra o buffer vazio.
+        $this->agendado = false;
+        $this->agendar();
     }
 
     /** Escreve o que está pendente. Chamado depois do commit. */
     public function despejar(): void
     {
-        $linhas = $this->pendentes;
+        $linhas = array_column($this->pendentes, 'dados');
 
         $this->pendentes = [];
         $this->agendado  = false;

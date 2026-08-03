@@ -117,8 +117,18 @@ class StockMovementController extends Controller
             'Sem permissão para ver movimentações de stock.'
         );
 
+        // `withTrashed` no artigo: o Product tem soft delete e um documento de
+        // conferência tem de continuar a dizer o que se movimentou mesmo depois
+        // de o artigo sair do catálogo. Sem isto, a reimpressão de um lote de
+        // há três meses trocava metade das linhas por "(produto removido)" e
+        // perdia o código — e é justamente na reimpressão que o documento serve
+        // para alguma coisa.
         $movimentos = StockMovement::doLote($reference)
-            ->with(['product', 'user', 'warehouse'])
+            ->with([
+                'product' => fn ($q) => $q->withTrashed(),
+                'user',
+                'warehouse',
+            ])
             ->get();
 
         abort_if($movimentos->isEmpty(), 404, 'Movimentação não encontrada.');
