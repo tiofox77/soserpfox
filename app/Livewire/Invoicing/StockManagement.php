@@ -7,6 +7,7 @@ use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -199,8 +200,11 @@ class StockManagement extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.warehouse-transfer.create'), 403, 'Sem permissão para criar transferências.');
         $this->validate([
-            'transferFromWarehouse' => 'required|exists:invoicing_warehouses,id',
-            'transferToWarehouse' => 'required|exists:invoicing_warehouses,id|different:transferFromWarehouse',
+            // Com filtro de empresa: sem ele, um id de armazém alheio passava a
+            // validação e a transferência saía do stock desta empresa para o
+            // armazém de outra.
+            'transferFromWarehouse' => ['required', Rule::exists('invoicing_warehouses', 'id')->where('tenant_id', activeTenantId())],
+            'transferToWarehouse' => ['required', 'different:transferFromWarehouse', Rule::exists('invoicing_warehouses', 'id')->where('tenant_id', activeTenantId())],
             // 0,01 e não 0,001: `invoicing_stock_movements.quantity` é
             // decimal(10,2). Uma transferência de 0,004 era aceite, gravava um
             // movimento de 0,00, deixava a origem intacta — e ainda criava no
@@ -359,10 +363,18 @@ class StockManagement extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para criar entradas de stock.');
 
+        $empresa = activeTenantId();
+
         $this->validate([
-            'entryWarehouseId'         => 'required|exists:invoicing_warehouses,id',
+            // O `exists:` LEVA o filtro de empresa. Sem ele, bastava adulterar
+            // o pedido do Livewire com o id de um armazém ou de um artigo de
+            // outra empresa para lá escrever stock — os ids são sequenciais e
+            // globais, e nada mais os validava. O `render()` filtra por empresa,
+            // por isso as linhas fantasma nem sequer apareciam no ecrã: entravam
+            // no agregado e ficavam invisíveis.
+            'entryWarehouseId'         => ['required', Rule::exists('invoicing_warehouses', 'id')->where('tenant_id', $empresa)],
             'entryItems'               => 'required|array|min:1',
-            'entryItems.*.product_id'  => 'required|exists:invoicing_products,id',
+            'entryItems.*.product_id'  => ['required', Rule::exists('invoicing_products', 'id')->where('tenant_id', $empresa)],
             'entryItems.*.op'          => 'required|in:add,sub',
             // 0,01 e não 0,001: a coluna `quantity` é decimal(10,2). Aceitar
             // três casas fazia com que 0,001 gravasse 0,00 — o utilizador via a
@@ -380,20 +392,31 @@ class StockManagement extends Component
 
         $ok = 0; $errors = []; $referencia = null;
 
-        // Transacção exterior: serve para o lock da referência do lote valer
-        // alguma coisa. Fora de uma transacção, `lockForUpdate` é ignorado e
-        // dois operadores a gravar ao mesmo tempo levavam a mesma referência —
-        // os movimentos de um apareciam no documento do outro.
-        DB::transaction(function () use (&$ok, &$errors, &$referencia) {
-            $referencia = StockMovement::gerarReferenciaLote(activeTenantId());
+        // Uma transacção POR LINHA, e nenhuma a envolver o lote todo.
+        //
+        // A transacção exterior que aqui esteve custava caro por dois motivos.
+        // Em REPEATABLE READ, o instantâneo é tirado na primeira leitura e
+        // mantém-se: com 40 linhas, o saldo lido para a última já não era o
+        // real, e uma venda concorrente feita entretanto era esmagada pelo
+        // `quantity = lido ± n`. E as linhas ficavam bloqueadas do princípio ao
+        // fim, com um operador a segurar o stock da empresa enquanto conferia
+        // um contentor.
+        //
+        // Assim, cada linha abre e fecha a sua transacção: janela curta, e o que
+        // ela grava fica confirmado mesmo que a seguinte falhe.
+        //
+        // A unicidade da referência não depende disto — depende do bloqueio
+        // nomeado de `comLoteReservado`, que a segura até ao fim.
+        StockMovement::comLoteReservado(activeTenantId(), function (string $ref) use (&$ok, &$errors, &$referencia) {
+            $referencia = $ref;
 
             foreach ($this->entryItems as $idx => $it) {
                 try {
-                    // Transacção por linha (savepoint). Sem ela, uma saída sem
-                    // stock deixava o movimento GRAVADO e o stock intacto: o
-                    // livro passava a dizer que a mercadoria saiu quando não
-                    // saiu. `createExit` insere a linha primeiro e só depois o
-                    // hook chama removeStock(), que é quem lança.
+                    // Transacção da linha. Sem ela, uma saída sem stock deixava
+                    // o movimento GRAVADO e o stock intacto: o livro passava a
+                    // dizer que a mercadoria saiu quando não saiu. `createExit`
+                    // insere a linha primeiro e só depois o hook chama
+                    // removeStock(), que é quem lança.
                     DB::transaction(function () use ($it, $referencia, &$ok) {
                         $isSub = ($it['op'] ?? 'add') === 'sub';
                         $qtd   = (float) $it['quantity'];

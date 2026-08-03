@@ -162,41 +162,72 @@ class StockMovement extends Model
     }
 
     /**
-     * Referência do próximo lote de movimentação manual desta empresa.
+     * Corre `$accao` com uma referência de lote reservada só para ela.
      *
-     * Formato MOV/AAAA/NNNNNN, sequencial POR EMPRESA e reiniciado a cada ano —
-     * o mesmo desenho da numeração dos documentos de faturação.
+     * A referência é MOV/AAAA/NNNNNN, sequencial POR EMPRESA e reiniciada a
+     * cada ano — o mesmo desenho da numeração dos documentos de faturação. Como
+     * o índice não é único (nem pode ser: várias linhas partilham a referência
+     * de propósito), duas movimentações simultâneas que levassem o mesmo número
+     * fundiam-se num só documento, em silêncio.
      *
-     * O bloqueio é sobre a linha da EMPRESA, não sobre o último movimento. Ao
-     * bloquear o último movimento, a primeira movimentação do ano não tinha
-     * linha nenhuma para bloquear: dois operadores a gravar ao mesmo tempo
-     * levavam ambos o MOV/AAAA/000001 e os movimentos de um apareciam no
-     * documento do outro — em silêncio, porque o índice não é único (nem pode
-     * ser: várias linhas partilham a referência de propósito). A linha da
-     * empresa existe sempre, e é isso que fecha a janela.
-     *
-     * Tem de ser chamado dentro de uma transacção; fora dela o MySQL ignora o
-     * bloqueio.
+     * O que fecha essa janela é um BLOQUEIO NOMEADO do MySQL, segurado desde o
+     * cálculo do número até ao fim da gravação. Chegou a ser um `lockForUpdate`
+     * sobre a linha da empresa em `tenants`, e isso era muito pior do que o
+     * problema: quase todas as tabelas têm chave estrangeira para `tenants`, e
+     * o InnoDB pede um bloqueio partilhado sobre a linha-mãe a cada inserção —
+     * um operador a conferir um contentor parava as vendas, o POS e tudo o mais
+     * da empresa enquanto o lote não terminasse. O bloqueio nomeado só trava
+     * outra movimentação em lote da MESMA empresa, que é exactamente o que se
+     * quer travar.
      */
-    public static function gerarReferenciaLote(?int $tenantId = null): string
+    public static function comLoteReservado(?int $tenantId, callable $accao)
     {
         $tenantId = $tenantId ?: activeTenantId();
-        $ano      = now()->year;
-        $prefixo  = "MOV/{$ano}/";
+        $nome     = "soserp:mov:{$tenantId}";
 
-        \Illuminate\Support\Facades\DB::table('tenants')
-            ->where('id', $tenantId)
-            ->lockForUpdate()
-            ->value('id');
+        // 10s a esperar: uma movimentação normal demora menos de um segundo.
+        // O `?: 0` cobre o NULL que o MySQL devolve em caso de erro.
+        $obtido = (int) (\Illuminate\Support\Facades\DB::selectOne(
+            'SELECT GET_LOCK(?, 10) AS obtido', [$nome]
+        )->obtido ?? 0);
 
-        // Ordenar pelo NÚMERO e não pela string: em texto, MOV/2026/1000000
-        // fica antes de MOV/2026/999999 e a sequência recomeçava do fim errado
-        // assim que o ano passasse os seis dígitos.
+        if (!$obtido) {
+            throw new \RuntimeException(
+                'Já existe outra movimentação de stock a ser registada nesta empresa. Tente daqui a instantes.'
+            );
+        }
+
+        try {
+            return $accao(static::proximaReferenciaLote($tenantId));
+        } finally {
+            \Illuminate\Support\Facades\DB::selectOne('SELECT RELEASE_LOCK(?)', [$nome]);
+        }
+    }
+
+    /**
+     * O próximo número da sequência desta empresa.
+     *
+     * Só é seguro sob o bloqueio de `comLoteReservado()` — sozinho não impede
+     * que dois pedidos leiam o mesmo máximo.
+     */
+    protected static function proximaReferenciaLote(int $tenantId): string
+    {
+        $prefixo = 'MOV/' . now()->year . '/';
+
+        // `max()` e não um ORDER BY calculado: com o índice (tenant_id,
+        // batch_reference) isto resolve-se no índice, enquanto o
+        // `ORDER BY CAST(SUBSTRING_INDEX(...))` obrigava a ordenar em memória
+        // todos os movimentos do ano — e a fazê-lo com o bloqueio na mão.
+        //
+        // A comparação é de texto, o que só é equivalente à numérica enquanto o
+        // enchimento tiver largura fixa. Aos seis dígitos isso dá 999.999 lotes
+        // por ano e por empresa; o `str_pad` abaixo deixa de encher a partir daí
+        // e a ordenação passaria a mentir. Está muito longe de qualquer uso real,
+        // mas fica dito.
         $ultima = static::withoutGlobalScopes()
             ->where('tenant_id', $tenantId)
             ->where('batch_reference', 'like', $prefixo . '%')
-            ->orderByRaw("CAST(SUBSTRING_INDEX(batch_reference, '/', -1) AS UNSIGNED) DESC")
-            ->value('batch_reference');
+            ->max('batch_reference');
 
         $proximo = $ultima
             ? ((int) substr($ultima, strlen($prefixo))) + 1

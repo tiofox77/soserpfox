@@ -79,7 +79,7 @@ class StockMovementBatchTest extends TenantTestCase
 
         $this->assertSame(
             'MOV/' . now()->year . '/000001',
-            StockMovement::gerarReferenciaLote($outra->id),
+            StockMovement::comLoteReservado($outra->id, fn (string $r) => $r),
             'a numeração de uma empresa não pode consumir a da outra'
         );
     }

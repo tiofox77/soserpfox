@@ -42,8 +42,17 @@
                 // sempre positiva. Somar por `quantity > 0` dava todas as linhas
                 // como entrada: o total de saídas ficava eternamente a zero e as
                 // saídas apareciam a verde com um "+" à frente.
-                $entradas = $movements->whereIn('type', ['in', 'transfer']);
+                //
+                // Só `in` e `out` entram nos totais:
+                //  · uma TRANSFERÊNCIA muda o artigo de armazém e não altera a
+                //    quantidade que a empresa tem — contá-la como entrada
+                //    inflacionava a variação líquida;
+                //  · num AJUSTE, `quantity` é o valor final do stock e não uma
+                //    variação (ver StockMovement::createAdjustment), por isso
+                //    somá-la não significa nada.
+                $entradas = $movements->where('type', 'in');
                 $saidas   = $movements->where('type', 'out');
+                $outros   = $movements->whereIn('type', ['transfer', 'adjustment']);
 
                 $totalIn   = (float) $entradas->sum('quantity');
                 $totalOut  = (float) $saidas->sum('quantity');
@@ -95,9 +104,21 @@
                                         {{ $movement->warehouse->name ?? 'N/A' }}
                                     </td>
                                     <td class="px-4 py-3 text-center whitespace-nowrap">
-                                        <span class="text-lg font-bold {{ $saida ? 'text-red-600' : 'text-green-600' }}">
-                                            {{ $saida ? '−' : '+' }}{{ number_format($movement->quantity, 2) }}
-                                        </span>
+                                        @if($movement->type === 'adjustment')
+                                            {{-- Num ajuste a quantidade é o valor FINAL, não uma variação:
+                                                 pôr-lhe um "+" à frente lia-se como uma entrada. --}}
+                                            <span class="text-lg font-bold text-yellow-700">
+                                                = {{ number_format($movement->quantity, 2) }}
+                                            </span>
+                                        @elseif($movement->type === 'transfer')
+                                            <span class="text-lg font-bold text-blue-600">
+                                                ⇄ {{ number_format($movement->quantity, 2) }}
+                                            </span>
+                                        @else
+                                            <span class="text-lg font-bold {{ $saida ? 'text-red-600' : 'text-green-600' }}">
+                                                {{ $saida ? '−' : '+' }}{{ number_format($movement->quantity, 2) }}
+                                            </span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-center text-sm text-gray-700 whitespace-nowrap">
                                         {{ $movement->balance_after !== null ? number_format($movement->balance_after, 2) : '—' }}
@@ -148,12 +169,18 @@
                     </div>
                 </div>
 
-                @if($movements->count() >= 50)
-                    <p class="mt-3 text-xs text-gray-400 text-center">
-                        <i class="fas fa-circle-info mr-1"></i>
-                        A mostrar os 50 movimentos mais recentes — os totais acima referem-se apenas a estes.
-                    </p>
-                @endif
+                <p class="mt-3 text-xs text-gray-400 text-center">
+                    <i class="fas fa-circle-info mr-1"></i>
+                    Os totais contam apenas entradas e saídas.
+                    @if($outros->count() > 0)
+                        {{ $outros->count() }} movimento(s) de transferência ou ajuste ficam de fora:
+                        uma transferência muda o artigo de armazém sem alterar o que a empresa tem,
+                        e num ajuste a quantidade é o saldo final, não uma variação.
+                    @endif
+                    @if($movements->count() >= 50)
+                        A lista mostra os 50 mais recentes.
+                    @endif
+                </p>
             @else
                 <div class="text-center py-12">
                     <i class="fas fa-history text-6xl text-gray-300 mb-4"></i>

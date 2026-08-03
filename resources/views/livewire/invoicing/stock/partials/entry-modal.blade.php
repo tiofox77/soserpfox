@@ -1,6 +1,10 @@
 {{-- Modal: Entrada de Stock em LOTE (cria/incrementa linhas em invoicing_stocks) --}}
 @if($showEntryModal)
-<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in" wire:click.self="closeEntryModal">
+{{-- O clique no fundo só fecha ENQUANTO se está a compor a movimentação. No
+     painel de sucesso não fecha nada: um toque ao lado apagava a referência do
+     lote antes de o utilizador chegar a abrir o PDF. --}}
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in"
+     @if(blank($batchReference)) wire:click.self="closeEntryModal" @endif>
     <div class="bg-white rounded-2xl shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-3xl overflow-hidden flex flex-col max-h-[94vh] animate-scale-in">
 
         @php

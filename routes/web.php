@@ -302,7 +302,13 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     
     // Armazéns e Stock
     Route::get('/warehouses', \App\Livewire\Invoicing\Warehouses::class)->name('warehouses');
-    Route::get('/stock', \App\Livewire\Invoicing\StockManagement::class)->name('stock');
+    // Com permissão, como todas as irmãs do módulo. Sem ela, qualquer papel com
+    // acesso à faturação via o inventário e a valorização inteiros — as acções
+    // já estavam travadas dentro do componente, mas a leitura não. Os papéis que
+    // o seeder deliberadamente não contempla (restaurante e contabilidade)
+    // deixam de entrar; quem precisar, o administrador da empresa concede.
+    Route::middleware('permission:invoicing.stock.view')
+        ->get('/stock', \App\Livewire\Invoicing\StockManagement::class)->name('stock');
 
     // Documento do lote de movimentação (MOV/AAAA/NNNNNN).
     // A referência leva barras, daí o `where` — sem ele o Laravel parte o

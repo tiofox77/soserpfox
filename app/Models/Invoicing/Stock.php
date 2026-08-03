@@ -56,7 +56,13 @@ class Stock extends Model
     // Métodos
     public static function addStock($warehouseId, $productId, $quantity, $unitCost = null)
     {
-        $stock = static::firstOrCreate(
+        // firstOrNew e não firstOrCreate: com o create, a primeira entrada de um
+        // produto num armazém gravava a linha a ZERO e só depois a actualizava
+        // para a quantidade real. Como Stock é auditado, isso deixava na trilha
+        // duas linhas por cada artigo novo, a primeira a descrever um estado que
+        // nunca existiu — stock a zero num armazém que nesse instante recebeu
+        // mercadoria. Assim há uma escrita só, com o valor certo.
+        $stock = static::firstOrNew(
             [
                 'warehouse_id' => $warehouseId,
                 'product_id' => $productId,

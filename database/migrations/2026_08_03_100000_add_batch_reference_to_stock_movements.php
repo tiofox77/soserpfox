@@ -22,8 +22,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('invoicing_stock_movements', function (Blueprint $table) {
+            // Coluna e índice com guardas SEPARADOS. Juntos, uma execução que
+            // criasse a coluna e falhasse a seguir deixava a tabela sem índice
+            // para sempre: à segunda passagem a coluna já existia e o índice
+            // ficava por criar, em silêncio — e é dele que depende a leitura da
+            // última referência do lote.
             if (!Schema::hasColumn('invoicing_stock_movements', 'batch_reference')) {
                 $table->string('batch_reference', 30)->nullable()->after('reference_id');
+            }
+
+            if (!$this->temIndice('invoicing_stock_movements', 'ism_tenant_batch_idx')) {
                 $table->index(['tenant_id', 'batch_reference'], 'ism_tenant_batch_idx');
             }
 
@@ -42,11 +50,20 @@ return new class extends Migration
         });
     }
 
+    private function temIndice(string $tabela, string $indice): bool
+    {
+        return collect(Schema::getIndexes($tabela))
+            ->contains(fn ($i) => ($i['name'] ?? null) === $indice);
+    }
+
     public function down(): void
     {
         Schema::table('invoicing_stock_movements', function (Blueprint $table) {
-            if (Schema::hasColumn('invoicing_stock_movements', 'batch_reference')) {
+            if ($this->temIndice('invoicing_stock_movements', 'ism_tenant_batch_idx')) {
                 $table->dropIndex('ism_tenant_batch_idx');
+            }
+
+            if (Schema::hasColumn('invoicing_stock_movements', 'batch_reference')) {
                 $table->dropColumn('batch_reference');
             }
 
