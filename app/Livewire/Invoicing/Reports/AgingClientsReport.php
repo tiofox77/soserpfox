@@ -19,7 +19,7 @@ class AgingClientsReport extends Component
         
         $invoices = SalesInvoice::with('client')
             ->where('tenant_id', $tenantId)
-            ->whereNotIn('status', ['paid', 'cancelled'])
+            ->whereNotIn('status', ['paid', 'cancelled', 'credited'])
             ->whereRaw('total > COALESCE(paid_amount, 0) + 0.01')
             ->get();
         

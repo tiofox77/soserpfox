@@ -22,7 +22,7 @@ class AccountsReceivableReport extends Component
         // Considera todas as faturas com saldo em aberto, excepto pagas/canceladas
         $query = SalesInvoice::with('client')
             ->where('tenant_id', $tenantId)
-            ->whereNotIn('status', ['paid', 'cancelled'])
+            ->whereNotIn('status', ['paid', 'cancelled', 'credited'])
             ->whereRaw('total > COALESCE(paid_amount, 0) + 0.01'); // tolerância de arredondamento
         
         if ($this->statusFilter === 'overdue') {

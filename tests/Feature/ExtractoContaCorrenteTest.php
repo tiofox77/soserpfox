@@ -137,6 +137,53 @@ class ExtractoContaCorrenteTest extends TenantTestCase
         $this->assertEquals(10000, $this->extracto()->resumo()['saldo_final']);
     }
 
+    public function test_um_pagamento_sem_recibo_credita_a_conta(): void
+    {
+        // O caso que fazia o extracto mentir por milhões: só o modal de
+        // pagamentos emite recibo. O POS e as facturas-recibo escrevem
+        // `paid_amount` directamente — 17,5 milhões pagos contra 13.420 Kz em
+        // recibos, nesta base. Sem contar isto, o extracto mostrava a dívida
+        // inteira de quem ja tinha pago tudo.
+        $f = $this->factura(10000, now()->subDays(10)->toDateString());
+        $f->update(['paid_amount' => 10000, 'status' => 'paid']);
+
+        $r = $this->extracto()->resumo();
+
+        $this->assertEquals(10000, $r['credito'], 'o que a factura diz estar pago tem de creditar');
+        $this->assertEquals(0, $r['saldo_final'], 'quem pagou tudo não deve nada');
+    }
+
+    public function test_um_pagamento_com_recibo_nao_conta_duas_vezes(): void
+    {
+        // Onde HÁ recibo é o recibo que aparece; o resto entra como pagamento.
+        // Somar os dois duplicava o crédito e punha a conta a favor do cliente.
+        $f = $this->factura(10000, now()->subDays(10)->toDateString());
+        $this->recibo($f, 4000, now()->subDays(5)->toDateString());
+        $f->update(['paid_amount' => 10000, 'status' => 'paid']);
+
+        $r = $this->extracto()->resumo();
+
+        $this->assertEquals(10000, $r['credito'], '4.000 pelo recibo + 6.000 por documentar');
+        $this->assertEquals(0, $r['saldo_final']);
+    }
+
+    public function test_guias_e_notas_dentro_da_tabela_das_facturas_ficam_de_fora(): void
+    {
+        // Há guias de transporte e notas de crédito/débito gravadas dentro de
+        // invoicing_sales_invoices, de antes de terem tabela própria. A guia não
+        // é dívida, e as notas já entram pelas suas tabelas — deixá-las aqui era
+        // contá-las duas vezes e cobrar transportes ao cliente.
+        $this->factura(10000, now()->subDays(10)->toDateString());
+
+        $guia = $this->factura(3000, now()->subDays(9)->toDateString());
+        $guia->update(['invoice_type' => 'GT']);
+
+        $nota = $this->factura(1000, now()->subDays(8)->toDateString());
+        $nota->update(['invoice_type' => 'NC']);
+
+        $this->assertEquals(10000, $this->extracto()->resumo()['saldo_final']);
+    }
+
     public function test_o_saldo_bate_com_o_que_esta_por_pagar(): void
     {
         $f1 = $this->factura(10000, now()->subDays(20)->toDateString());

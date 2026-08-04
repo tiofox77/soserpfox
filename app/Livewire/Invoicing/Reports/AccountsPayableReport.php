@@ -22,7 +22,7 @@ class AccountsPayableReport extends Component
         // Considera todas as faturas com saldo em aberto, excepto pagas/canceladas
         $query = PurchaseInvoice::with('supplier')
             ->where('tenant_id', $tenantId)
-            ->whereNotIn('status', ['paid', 'cancelled'])
+            ->whereNotIn('status', ['paid', 'cancelled', 'credited'])
             ->whereRaw('total > COALESCE(paid_amount, 0) + 0.01');
         
         if ($this->statusFilter === 'overdue') {

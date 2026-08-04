@@ -139,7 +139,18 @@ class ContaCorrenteQuery
             // Factura: o cliente passa a dever.
             $this->parte('invoicing_sales_invoices', 'FT', 'invoice_number', 'invoice_date', 'total', 'debito', [
                 'estado_fora' => ['cancelled'],
+                'so_facturas' => true,
             ]),
+
+            // Pagamento gravado NA factura, sem recibo emitido.
+            //
+            // Isto tem de existir. Só o modal de pagamentos emite recibo — o POS
+            // e as facturas-recibo escrevem `paid_amount` directamente. Medido
+            // nesta base: 17.544.939 Kz pagos contra 13.420 Kz em recibos, ou
+            // seja quatro recibos em todo o sistema. Sem esta linha, o extracto
+            // mostrava a dívida INTEIRA de quem já tinha pago tudo — 7,2 milhões
+            // a um cliente cujo saldo real era negativo.
+            $this->pagamentosSemRecibo('invoicing_sales_invoices', 'invoice_number', 'invoice_date', 'credito'),
 
             // Nota de débito: deve mais.
             $this->parte('invoicing_debit_notes', 'ND', 'debit_note_number', 'issue_date', 'total', 'debito', [
@@ -173,6 +184,10 @@ class ContaCorrenteQuery
                 'estado_fora' => ['cancelled'],
             ]),
 
+            // Pagamento gravado na factura de compra, sem recibo. Mesmo motivo
+            // do lado do cliente.
+            $this->pagamentosSemRecibo('invoicing_purchase_invoices', 'invoice_number', 'invoice_date', 'debito'),
+
             // Recibo de pagamento a fornecedor: pagámos.
             $this->parte('invoicing_receipts', 'RC', 'receipt_number', 'payment_date', 'amount_paid', 'debito', [
                 'estado_fora' => ['cancelled'],
@@ -182,6 +197,63 @@ class ContaCorrenteQuery
                 'estado_fora' => ['cancelled'],
             ]),
         ];
+    }
+
+    /**
+     * O que a factura diz estar pago e não tem recibo a documentá-lo.
+     *
+     * Subtrai-se o que já entrou como recibo para o pagamento não contar duas
+     * vezes: onde há recibo, é o recibo que aparece (com o seu número e a sua
+     * data); onde não há, aparece esta linha. A data é a da factura porque é
+     * quando o pagamento aconteceu nos casos que a geram — POS e factura-recibo
+     * são pagos no acto.
+     */
+    private function pagamentosSemRecibo(string $tabela, string $colunaNumero, string $colunaData, string $lado)
+    {
+        $colunaEntidade = $this->ehCliente() ? 'client_id' : 'supplier_id';
+
+        $porRecibo = "COALESCE((
+            SELECT SUM(r.amount_paid) FROM invoicing_receipts r
+            WHERE r.invoice_id = t.id
+              AND r.tenant_id = t.tenant_id
+              AND (r.status IS NULL OR r.status <> 'cancelled')
+              AND r.deleted_at IS NULL
+        ), 0)";
+
+        $valor = "(COALESCE(t.paid_amount, 0) - {$porRecibo})";
+
+        $debito  = $lado === 'debito' ? $valor : '0';
+        $credito = $lado === 'credito' ? $valor : '0';
+
+        $q = DB::table("{$tabela} as t")
+            ->selectRaw("
+                'PG' AS tipo,
+                t.id AS doc_id,
+                CONCAT('Pagamento de ', t.{$colunaNumero}) AS numero,
+                t.{$colunaData} AS data,
+                {$debito} AS debito,
+                {$credito} AS credito
+            ")
+            ->where('t.tenant_id', $this->tenantId)
+            ->where("t.{$colunaEntidade}", $this->entidadeId)
+            ->whereNull('t.deleted_at')
+            ->whereNotIn('t.status', ['cancelled'])
+            // Só onde sobra alguma coisa por documentar.
+            ->whereRaw("{$valor} > 0.009");
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn($tabela, 'invoice_type')) {
+            $q->whereIn('t.invoice_type', ['FT', 'FS', 'FR']);
+        }
+
+        if ($this->de) {
+            $q->where("t.{$colunaData}", '>=', $this->de);
+        }
+
+        if ($this->ate) {
+            $q->where("t.{$colunaData}", '<=', $this->ate);
+        }
+
+        return $q;
     }
 
     /**
@@ -233,6 +305,14 @@ class ContaCorrenteQuery
         // Um documento anulado não moveu conta nenhuma.
         if (!empty($opcoes['estado_fora']) && \Illuminate\Support\Facades\Schema::hasColumn($tabela, 'status')) {
             $q->whereNotIn('status', $opcoes['estado_fora']);
+        }
+
+        // Dentro da tabela das facturas há guias de transporte e notas de
+        // crédito/débito herdadas de antes de terem tabela própria. As guias
+        // não são documento de dívida, e as notas já entram pelas suas tabelas:
+        // deixá-las aqui era contá-las duas vezes e cobrar transportes.
+        if (!empty($opcoes['so_facturas']) && \Illuminate\Support\Facades\Schema::hasColumn($tabela, 'invoice_type')) {
+            $q->whereIn('invoice_type', ['FT', 'FS', 'FR']);
         }
 
         if ($this->de) {
