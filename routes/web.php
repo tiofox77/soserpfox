@@ -347,6 +347,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         Route::get('/price-list', \App\Livewire\Invoicing\Reports\PriceListReport::class)->name('price-list');
         Route::get('/payment-methods', \App\Livewire\Invoicing\Reports\PaymentMethodsReport::class)->name('payment-methods');
         Route::get('/sales-by-user', \App\Livewire\Invoicing\Reports\SalesByUserReport::class)->name('sales-by-user');
+        Route::get('/stock-adjustments', \App\Livewire\Invoicing\Reports\StockAdjustmentsReport::class)->name('stock-adjustments');
     });
     
     // Guias de Transporte / Remessa (GT / GR)

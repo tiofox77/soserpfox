@@ -76,6 +76,14 @@
                     ['name' => 'Validade de Produtos', 'desc' => 'Produtos próximos da validade', 'icon' => 'fa-calendar-check', 'route' => 'invoicing.expiry-report'],
                 ],
             ],
+            [
+                'title' => 'Stock & Controlo',
+                'icon' => 'fa-boxes-stacked',
+                'color' => 'amber',
+                'reports' => [
+                    ['name' => 'Ajustes de Stock', 'desc' => 'Seguimento do que foi mexido à mão, por operador', 'icon' => 'fa-sliders', 'route' => 'invoicing.reports.stock-adjustments'],
+                ],
+            ],
         ];
     @endphp
 
