@@ -39,6 +39,13 @@ class MaintenanceController extends Controller
         'view:cache',
         'storage:link',
         'queue:restart',
+
+        // Modo de manutenção. Só valem alguma coisa porque as rotas
+        // `maintenance/*` estão excepcionadas em bootstrap/app.php: sem isso,
+        // pôr o sistema em baixo bloqueava esta própria rota e a única forma
+        // de o voltar a ligar era apagar storage/framework/down por FTP.
+        'down',
+        'up',
         'farmaciadois:import',
         'permissions:sync-product-batches',
         'permissions:sync-pos-reports',
