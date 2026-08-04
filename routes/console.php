@@ -41,6 +41,18 @@ Schedule::command('subscriptions:expire')
     ->onOneServer()
     ->emailOutputOnFailure(config('mail.from.address'));
 
+// Notificações agendadas dos templates activos.
+//
+// O comando existia e nunca era chamado por ninguém — os templates ficavam
+// marcados como activos no ecrã de definições e não saía notificação nenhuma,
+// sem erro em lado nenhum. Duas vezes por dia chega para avisos de validade,
+// stock e vencimentos, e não incomoda ninguém à noite.
+Schedule::command('notifications:send-scheduled')
+    ->twiceDaily(9, 15)
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->emailOutputOnFailure(config('mail.from.address'));
+
 // Arquivar a trilha de auditoria antiga.
 //
 // Uma venda de balcão com três artigos gera 14 linhas — a 50 vendas/dia são

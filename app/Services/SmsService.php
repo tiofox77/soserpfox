@@ -33,6 +33,23 @@ class SmsService
                 'sender_id' => $setting->sender_id
             ]);
 
+            // O `provider` era escrito no log e mais nada: o payload montado
+            // abaixo é o da D7 Networks, com `message_globals.originator` e
+            // autenticação Bearer. Escolher outro fornecedor no ecrã mandava
+            // esse mesmo payload para o URL dele, e o que se via era um erro
+            // obscuro do outro lado em vez de "não é suportado".
+            //
+            // Só a D7 está implementada AQUI, ao nível da plataforma. Ao nível
+            // da empresa há também Twilio, pelo ImmediateNotificationService.
+            $suportados = ['d7networks'];
+
+            if ($setting->provider && !in_array($setting->provider, $suportados, true)) {
+                throw new \Exception(
+                    "Fornecedor de SMS '{$setting->provider}' não é suportado nas definições da plataforma. "
+                    . 'Suportado: ' . implode(', ', $suportados) . '.'
+                );
+            }
+
             // Preparar payload
             $messageObj = [
                 "channel" => "sms",

@@ -227,12 +227,16 @@ class Notifications extends Component
             }
         }
 
-        // 3. PRODUTOS EXPIRADOS (últimos 7 dias)
+        // 3. PRODUTOS EXPIRADOS que AINDA ESTÃO EM STOCK
         if ($tenant && $user->hasActiveModule('invoicing')) {
+            // Sem janela de sete dias. Ela existia e escondia o pior caso: um
+            // lote que expirou há um mês e continua na prateleira é MAIS urgente
+            // do que um que expirou ontem, e era exactamente esse que deixava de
+            // aparecer. O `quantity_available > 0` já limita ao que está mesmo
+            // em stock — o que foi vendido ou abatido não volta a incomodar.
             $expiredCount = ProductBatch::where('tenant_id', $tenant->id)
                 ->where('quantity_available', '>', 0)
                 ->whereDate('expiry_date', '<', Carbon::now())
-                ->whereDate('expiry_date', '>=', Carbon::now()->subDays(7))
                 ->count();
 
             if ($expiredCount > 0) {
@@ -272,9 +276,24 @@ class Notifications extends Component
 
         // 5. PRODUTOS COM BAIXO STOCK (abaixo do mínimo)
         if ($tenant && $user->hasActiveModule('invoicing')) {
-            $lowStockCount = Stock::where('tenant_id', $tenant->id)
-                ->whereColumn('quantity', '<', 'minimum_quantity')
-                ->where('minimum_quantity', '>', 0)
+            // O mínimo vive no PRODUTO (`invoicing_products.stock_min`), não na
+            // linha de stock. A consulta anterior usava
+            // `invoicing_stocks.minimum_quantity`, que está a ZERO nas 56.662
+            // linhas da base — o aviso de baixo stock nunca disparou uma única
+            // vez, enquanto havia 19.165 linhas abaixo do mínimo real. É a
+            // mesma coluna que o ecrã de Gestão de Stock já usa.
+            //
+            // Query builder directo e colunas qualificadas: o global scope do
+            // BelongsToTenant acrescenta `tenant_id` sem qualificar a tabela e,
+            // com o join a `invoicing_products` (que também o tem), a consulta
+            // rebentava com "column is ambiguous". A mesma armadilha que o
+            // render() do ecrã de stock já documenta.
+            $lowStockCount = \Illuminate\Support\Facades\DB::table('invoicing_stocks')
+                ->join('invoicing_products', 'invoicing_products.id', '=', 'invoicing_stocks.product_id')
+                ->where('invoicing_stocks.tenant_id', $tenant->id)
+                ->where('invoicing_products.stock_min', '>', 0)
+                ->where('invoicing_products.is_active', true)
+                ->whereColumn('invoicing_stocks.quantity', '<=', 'invoicing_products.stock_min')
                 ->count();
 
             if ($lowStockCount > 0) {
