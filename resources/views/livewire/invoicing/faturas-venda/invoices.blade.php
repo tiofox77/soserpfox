@@ -1,4 +1,8 @@
-<div class="p-3 sm:p-6">
+{{-- Sem padding proprio: o <main> do layout ja da p-3 sm:p-4 lg:p-6.
+     Repeti-lo tirava 96px de largura em ecra grande e deixava esta lista
+     visivelmente mais estreita do que as de Clientes e Produtos, que usam
+     um <div> simples. --}}
+<div>
     {{-- Header --}}
     <div class="mb-4 sm:mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -106,39 +110,87 @@
         </div>
     </div>
 
-    {{-- Filters --}}
+    {{-- Filtros.
+         Grelha de 12 colunas em duas linhas certas. A anterior tinha 5 colunas
+         e 6 unidades (a pesquisa ocupava duas), por isso a última data caía
+         sozinha para uma segunda linha e a barra parecia partida.
+
+         As datas ganharam rótulo: eram dois campos iguais lado a lado e não
+         havia como saber qual era o "de" e qual era o "até". E o filtro de
+         ARMAZÉM passa a existir no ecrã — estava no componente e a lista de
+         armazéns já era passada à vista, mas não havia onde o escolher. --}}
     <div class="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-            <div class="col-span-2">
-                <input type="text" wire:model.live.debounce.300ms="search" 
-                       placeholder="🔍 Pesquisar número ou Cliente..." 
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+        <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+            <div class="col-span-2 md:col-span-4">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Pesquisar</label>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                       placeholder="Número ou cliente…"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
             </div>
-            <div>
-                {{-- Tipo de documento AGT --}}
-                <select wire:model.live="typeFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                    <option value="">Todos os Tipos</option>
+            <div class="col-span-1 md:col-span-2">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Tipo</label>
+                <select wire:model.live="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
+                    <option value="">Todos</option>
                     <option value="FT">Fatura (FT)</option>
                     <option value="FR">Fatura-Recibo (FR)</option>
                 </select>
             </div>
-            <div>
-                <select wire:model.live="statusFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                    <option value="">Todos os Estados</option>
+            <div class="col-span-1 md:col-span-2">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Estado</label>
+                <select wire:model.live="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
+                    <option value="">Todos</option>
                     <option value="draft">Rascunho</option>
                     <option value="pending">Pendente</option>
                     <option value="paid">Pago</option>
-                    <option value="cancelled">Cancelado</option>
+                    <option value="partially_paid">Parcialmente pago</option>
                     <option value="overdue">Atrasado</option>
+                    <option value="credited">Creditado</option>
+                    <option value="cancelled">Cancelado</option>
                 </select>
             </div>
-            <div>
-                <input type="date" wire:model.live="dateFrom" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+            <div class="col-span-2 md:col-span-4">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Armazém</label>
+                <select wire:model.live="warehouseFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
+                    <option value="">Todos</option>
+                    @foreach($warehouses as $w)
+                        <option value="{{ $w->id }}">{{ $w->name }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div>
-                <input type="date" wire:model.live="dateTo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+
+            <div class="col-span-1 md:col-span-3">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">De</label>
+                <input type="date" wire:model.live="dateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
+            </div>
+            <div class="col-span-1 md:col-span-3">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Até</label>
+                <input type="date" wire:model.live="dateTo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
+            </div>
+            <div class="col-span-1 md:col-span-3">
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Por página</label>
+                <select wire:model.live="perPage" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <div class="col-span-1 md:col-span-3 flex items-end">
+                <button wire:click="limparFiltros" type="button"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                    <i class="fas fa-eraser mr-1"></i>Limpar
+                </button>
             </div>
         </div>
+
+        {{-- O período começa no mês corrente: sem isto dizer nada, uma factura
+             de Janeiro "desaparecia" e parecia que a pesquisa estava avariada. --}}
+        <p class="mt-3 text-[11px] text-gray-400">
+            <i class="fas fa-circle-info mr-1"></i>
+            A mostrar {{ $invoices->total() }} documento(s) de
+            {{ \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') }} a
+            {{ \Carbon\Carbon::parse($dateTo)->format('d/m/Y') }}. Alargue as datas para ver mais.
+        </p>
     </div>
 
     {{-- Table --}}
@@ -146,7 +198,7 @@
         <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
             <h3 class="text-white font-bold text-lg flex items-center">
                 <i class="fas fa-list mr-2"></i>
-                Lista de Proformas
+                Lista de Faturas de Venda
             </h3>
         </div>
 
@@ -154,25 +206,29 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-hashtag mr-1 text-purple-600"></i>Número
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase w-full">
+                            {{-- w-full: e o CLIENTE que fica com a largura que sobra.
+                                 Sem isto era a coluna de accoes a absorve-la — 282px
+                                 para quatro botoes de 34px, enquanto o nome do cliente
+                                 se apertava em 149. --}}
                             <i class="fas fa-user mr-1 text-blue-600"></i>Cliente
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-calendar mr-1 text-green-600"></i>Data
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-calendar-check mr-1 text-purple-600"></i>Vencimento
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-info-circle mr-1 text-gray-600"></i>Estado
                         </th>
-                        <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-money-bill mr-1 text-green-600"></i>Total
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase whitespace-nowrap w-px">
                             <i class="fas fa-cog mr-1 text-gray-600"></i>Ações
                         </th>
                     </tr>
@@ -180,7 +236,7 @@
                 <tbody class="bg-white divide-y divide-gray-100">
                     @forelse($invoices as $invoice)
                     <tr class="hover:bg-purple-50 transition-all duration-200">
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap">
                             <span class="text-sm font-bold text-purple-600">{{ $invoice->invoice_number }}</span>
                             @if(($invoice->invoice_type ?? 'FT') === 'FR')
                                 <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700" title="Fatura-Recibo — paga no acto">FR</span>
@@ -188,14 +244,14 @@
                                 <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700" title="Fatura">FT</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3">
                             <div class="text-sm font-semibold text-gray-900">{{ $invoice->client->name }}</div>
                             <div class="text-xs text-gray-500">{{ $invoice->client->email }}</div>
                         </td>
-                        <td class="px-6 py-4 text-center text-sm text-gray-700">
+                        <td class="px-4 py-3 text-center text-sm text-gray-700">
                             {{ $invoice->invoice_date->format('d/m/Y') }}
                         </td>
-                        <td class="px-6 py-4 text-center text-sm">
+                        <td class="px-4 py-3 text-center text-sm">
                             @if($invoice->due_date)
                                 <span class="{{ $invoice->due_date->isPast() ? 'text-red-600 font-bold' : 'text-gray-700' }}">
                                     {{ $invoice->due_date->format('d/m/Y') }}
@@ -204,7 +260,7 @@
                                 <span class="text-gray-400">-</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-4 py-3 text-center">
                             <span class="px-3 py-1 bg-{{ $invoice->status_color }}-100 text-{{ $invoice->status_color }}-800 text-xs font-bold rounded-full inline-flex items-center gap-1">
                                 @if($invoice->status === 'draft')
                                     <i class="fas fa-edit"></i>
@@ -230,11 +286,11 @@
                                 </div>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-right">
+                        <td class="px-4 py-3 text-right">
                             <span class="text-lg font-bold text-gray-900">{{ number_format($invoice->total, 2) }}</span>
                             <div class="text-xs text-gray-500">Kz</div>
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3">
                             <div class="flex items-center justify-center space-x-2">
                                 {{-- Ver Proforma --}}
                                 <button wire:click="viewInvoice({{ $invoice->id }})"

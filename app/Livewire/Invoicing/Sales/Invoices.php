@@ -80,12 +80,15 @@ class Invoices extends Component
             $query->where('warehouse_id', $this->warehouseFilter);
         }
 
-        // Date Range
+        // Período. Comparação directa e não `whereDate`: o `whereDate` gera
+        // DATE(invoice_date), e uma função sobre a coluna impede o MySQL de
+        // usar o índice — nesta tabela são milhares de linhas por empresa. A
+        // coluna já é DATE, portanto a comparação é exacta na mesma.
         if ($this->dateFrom) {
-            $query->whereDate('invoice_date', '>=', $this->dateFrom);
+            $query->where('invoice_date', '>=', $this->dateFrom);
         }
         if ($this->dateTo) {
-            $query->whereDate('invoice_date', '<=', $this->dateTo);
+            $query->where('invoice_date', '<=', $this->dateTo);
         }
 
         $invoices = $query->orderBy('created_at', 'desc')->paginate($this->perPage);
@@ -209,6 +212,45 @@ class Invoices extends Component
                 'message' => 'Erro ao atualizar fatura: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Cada filtro tem de voltar à primeira página.
+     *
+     * Só a pesquisa, o estado e o tipo o faziam. Mudar o armazém ou as datas
+     * estando na página 12 mantinha a página 12 — e como o resultado filtrado
+     * costuma ter menos páginas do que isso, o ecrã ficava VAZIO. É o sintoma
+     * clássico de "o filtro não funciona".
+     */
+    public function updatingWarehouseFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingDateTo()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingPerPage()
+    {
+        $this->resetPage();
+    }
+
+    public function limparFiltros()
+    {
+        $this->search          = '';
+        $this->statusFilter    = '';
+        $this->typeFilter      = '';
+        $this->warehouseFilter = '';
+        $this->dateFrom        = now()->startOfMonth()->format('Y-m-d');
+        $this->dateTo          = now()->format('Y-m-d');
+        $this->resetPage();
     }
 
     public function updatingSearch()

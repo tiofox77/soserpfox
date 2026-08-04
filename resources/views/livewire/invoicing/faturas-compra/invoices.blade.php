@@ -1,4 +1,5 @@
-<div class="p-3 sm:p-6">
+{{-- Sem padding proprio: o <main> do layout ja o da (ver faturas-venda). --}}
+<div>
     {{-- Header --}}
     <div class="mb-4 sm:mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
