@@ -30,47 +30,76 @@
         </div>
     </div>
 
-    {{-- Estatísticas --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6">
+    {{-- Estatísticas.
+         Bruto, devoluções e líquido. Antes havia uma "Receita Total" que somava
+         tudo — anuladas incluídas — e nada descontava as notas de crédito. --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-3">
         <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-blue-100">
             <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/40 mb-3 sm:mb-4">
                 <i class="fas fa-shopping-cart text-white text-xl sm:text-2xl"></i>
             </div>
-            <p class="text-xs sm:text-sm text-blue-600 font-semibold mb-1">Total Vendas</p>
-            <p class="text-2xl sm:text-4xl font-bold text-gray-900">{{ $totalSales }}</p>
+            <p class="text-xs sm:text-sm text-blue-600 font-semibold mb-1">Vendas (bruto)</p>
+            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($totais['bruto'], 2, ',', '.') }}</p>
+            <p class="text-[11px] text-gray-400 mt-1">
+                {{ $totais['facturas_n'] }} documento(s)
+                @if($totais['anuladas_n'] > 0)
+                    · {{ $totais['anuladas_n'] }} anulada(s) fora
+                @endif
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-red-100">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/40 mb-3 sm:mb-4">
+                <i class="fas fa-rotate-left text-white text-xl sm:text-2xl"></i>
+            </div>
+            <p class="text-xs sm:text-sm text-red-600 font-semibold mb-1">Devoluções (NC)</p>
+            <p class="text-xl sm:text-3xl font-bold text-red-600">−{{ number_format($totais['devolvido'], 2, ',', '.') }}</p>
+            <p class="text-[11px] text-gray-400 mt-1">{{ $totais['notas_n'] }} nota(s) de crédito</p>
         </div>
 
         <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-green-100">
             <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/40 mb-3 sm:mb-4">
                 <i class="fas fa-money-bill-wave text-white text-xl sm:text-2xl"></i>
             </div>
-            <p class="text-xs sm:text-sm text-green-600 font-semibold mb-1">Receita Total</p>
-            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($totalRevenue, 2) }}</p>
+            <p class="text-xs sm:text-sm text-green-600 font-semibold mb-1">Receita líquida</p>
+            <p class="text-xl sm:text-3xl font-bold text-green-700">{{ number_format($totais['liquido'], 2, ',', '.') }}</p>
+            <p class="text-[11px] text-gray-400 mt-1">bruto − devoluções</p>
         </div>
 
         <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-indigo-100">
             <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/40 mb-3 sm:mb-4">
                 <i class="fas fa-percentage text-white text-xl sm:text-2xl"></i>
             </div>
-            <p class="text-xs sm:text-sm text-indigo-600 font-semibold mb-1">IVA Total</p>
-            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($totalTax, 2) }}</p>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-orange-100">
-            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/40 mb-3 sm:mb-4">
-                <i class="fas fa-tag text-white text-xl sm:text-2xl"></i>
-            </div>
-            <p class="text-xs sm:text-sm text-orange-600 font-semibold mb-1">Descontos</p>
-            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($totalDiscount, 2) }}</p>
+            <p class="text-xs sm:text-sm text-indigo-600 font-semibold mb-1">IVA líquido</p>
+            <p class="text-xl sm:text-3xl font-bold text-gray-900">{{ number_format($totais['imposto'], 2, ',', '.') }}</p>
+            <p class="text-[11px] text-gray-400 mt-1">já deduzido o das NC</p>
         </div>
     </div>
+
+    <p class="mb-6 text-[11px] text-gray-400">
+        <i class="fas fa-circle-info mr-1"></i>
+        Os totais contam o PERÍODO e o operador — não seguem os filtros da lista.
+        Assim pode filtrar por NC, por estado ou por cliente sem perder de vista o bruto contra
+        o qual as devoluções pesam. Uma factura creditada continua no bruto e é a nota de crédito
+        que a desconta; as anuladas ficam de fora.
+    </p>
 
     {{-- Filtros --}}
     <div class="mb-6 bg-white rounded-2xl shadow-lg p-4 sm:p-6">
         <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
             <i class="fas fa-filter mr-2 text-indigo-600"></i>Filtros
         </h3>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-file-lines mr-1"></i>Documento</label>
+                <select wire:model.live="documentType"
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-sm bg-white">
+                    <option value="">Tudo</option>
+                    <option value="FR">FR — Facturas (FT/FR/FS)</option>
+                    <option value="NC">NC — Notas de crédito</option>
+                </select>
+            </div>
+
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-calendar-alt mr-1"></i>Data Início</label>
                 <input type="date" wire:model.live="startDate" 
@@ -111,9 +140,18 @@
 
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>Buscar</label>
-                <input type="text" wire:model.live.debounce.300ms="search" 
-                       placeholder="Nº Fatura, Cliente..."
+                <input type="text" wire:model.live.debounce.300ms="search"
+                       placeholder="Nº do documento, Cliente..."
                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-sm">
+            </div>
+
+            {{-- O limparFiltros() existia no componente e não tinha quem lhe
+                 chamasse: com seis filtros, faz falta. --}}
+            <div class="flex items-end">
+                <button wire:click="limparFiltros" type="button"
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                    <i class="fas fa-eraser mr-1"></i>Limpar
+                </button>
             </div>
         </div>
     </div>
@@ -124,7 +162,8 @@
             <table class="w-full">
                 <thead class="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Fatura</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Documento</th>
                         <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Data</th>
                         <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Cliente</th>
                         <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Subtotal</th>
@@ -136,84 +175,128 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    @forelse($invoices as $invoice)
-                    <tr class="hover:bg-gray-50 transition">
+                    @forelse($documentos as $doc)
+                    @php $ehNota = $doc->doc_tipo === 'NC'; @endphp
+                    <tr class="hover:bg-gray-50 transition {{ $ehNota ? 'bg-red-50/40' : '' }}">
                         <td class="px-4 py-3">
-                            <span class="font-bold text-gray-900">{{ $invoice->invoice_number }}</span>
+                            @if($ehNota)
+                                <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">
+                                    <i class="fas fa-rotate-left mr-1"></i>NC
+                                </span>
+                            @else
+                                <span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
+                                    <i class="fas fa-receipt mr-1"></i>{{ $doc->doc_subtipo }}
+                                </span>
+                            @endif
                         </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">
-                            {{ ($invoice->system_entry_date ?? $invoice->invoice_date)->format('d/m/Y H:i') }}
+                        <td class="px-4 py-3">
+                            <span class="font-bold text-gray-900">{{ $doc->numero }}</span>
+                            @if($ehNota && $doc->factura_origem)
+                                {{-- Uma nota de crédito sem a factura que corrige não se
+                                     consegue conferir. --}}
+                                <p class="text-[11px] text-gray-500">sobre {{ $doc->factura_origem }}</p>
+                            @endif
+                            @if($ehNota && $doc->motivo)
+                                <p class="text-[11px] text-gray-400">{{ $doc->motivo }}</p>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                            {{ \Carbon\Carbon::parse($doc->data_hora)->format('d/m/Y H:i') }}
                         </td>
                         <td class="px-4 py-3">
                             <div>
-                                <p class="font-semibold text-gray-900">{{ $invoice->client->name }}</p>
-                                <p class="text-xs text-gray-500">NIF: {{ $invoice->client->nif }}</p>
+                                <p class="font-semibold text-gray-900">{{ $doc->cliente_nome ?? '—' }}</p>
+                                <p class="text-xs text-gray-500">NIF: {{ $doc->cliente_nif ?? '—' }}</p>
                             </div>
                         </td>
                         <td class="px-4 py-3 text-right text-sm">
-                            {{ number_format($invoice->subtotal, 2) }} Kz
+                            {{ ($ehNota ? '−' : '') }}{{ number_format($doc->subtotal, 2, ',', '.') }} Kz
                         </td>
                         <td class="px-4 py-3 text-right text-sm">
-                            {{ number_format($invoice->tax_amount, 2) }} Kz
+                            {{ ($ehNota ? '−' : '') }}{{ number_format($doc->tax_amount, 2, ',', '.') }} Kz
                         </td>
                         <td class="px-4 py-3 text-right">
-                            <span class="font-bold text-gray-900">{{ number_format($invoice->total, 2) }} Kz</span>
-                        </td>
-                        <td class="px-4 py-3 text-center">
-                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold uppercase">
-                                {{ $invoice->payment_method ?? 'cash' }}
+                            {{-- O sinal é dado aqui: na base os dois valores são
+                                 positivos, e sem sinal uma devolução lia-se como venda. --}}
+                            <span class="font-bold {{ $ehNota ? 'text-red-600' : 'text-gray-900' }}">
+                                {{ ($ehNota ? '−' : '') }}{{ number_format($doc->total, 2, ',', '.') }} Kz
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center">
-                            @if($invoice->status === 'paid')
+                            @if($ehNota)
+                                <span class="text-gray-300 text-xs">—</span>
+                            @else
+                                <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold uppercase">
+                                    {{ $doc->payment_method ?? 'cash' }}
+                                </span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            @if($doc->status === 'paid')
                             <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
                                 <i class="fas fa-check-circle mr-1"></i>Pago
                             </span>
-                            @elseif($invoice->status === 'pending')
+                            @elseif($doc->status === 'issued')
+                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">
+                                <i class="fas fa-file-circle-minus mr-1"></i>Emitida
+                            </span>
+                            @elseif($doc->status === 'pending')
                             <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">
                                 <i class="fas fa-clock mr-1"></i>Pendente
                             </span>
-                            @elseif($invoice->status === 'partially_paid')
+                            @elseif($doc->status === 'partially_paid')
                             <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
                                 <i class="fas fa-percent mr-1"></i>Parcial
                             </span>
-                            @elseif($invoice->status === 'credited')
+                            @elseif($doc->status === 'credited')
                             <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">
                                 <i class="fas fa-file-circle-minus mr-1"></i>Creditado
                             </span>
-                            @else
+                            @elseif($doc->status === 'cancelled')
                             <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">
                                 <i class="fas fa-times-circle mr-1"></i>Cancelado
+                            </span>
+                            @else
+                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold uppercase">
+                                {{ $doc->status }}
                             </span>
                             @endif
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-center gap-2">
-                                <button wire:click="viewDetails({{ $invoice->id }})" 
+                                @if(!$ehNota)
+                                <button wire:click="viewDetails({{ $doc->doc_id }})"
                                         class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
                                         title="Ver detalhes">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button wire:click="printInvoice({{ $invoice->id }})" 
+                                <button wire:click="printInvoice({{ $doc->doc_id }})"
                                         class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition"
                                         title="Imprimir">
                                     <i class="fas fa-print"></i>
                                 </button>
-                                @if(!in_array($invoice->status, ['cancelled', 'credited']))
-                                <button wire:click="openCreditNote({{ $invoice->id }})" 
-                                        class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold transition"
-                                        title="Nota de Crédito">
-                                    <i class="fas fa-file-circle-minus"></i>
-                                </button>
+                                    @if(!in_array($doc->status, ['cancelled', 'credited']))
+                                    <button wire:click="openCreditNote({{ $doc->doc_id }})"
+                                            class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold transition"
+                                            title="Nota de Crédito">
+                                        <i class="fas fa-file-circle-minus"></i>
+                                    </button>
+                                    @endif
+                                @else
+                                <a href="{{ route('invoicing.credit-notes.pdf', $doc->doc_id) }}" target="_blank" rel="noopener"
+                                   class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition"
+                                   title="Abrir a nota de crédito em PDF">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
                                 @endif
                             </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="px-4 py-12 text-center">
+                        <td colspan="10" class="px-4 py-12 text-center">
                             <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-                            <p class="text-gray-500 font-semibold">Nenhuma venda encontrada no período selecionado</p>
+                            <p class="text-gray-500 font-semibold">Nenhum documento encontrado no período e filtros selecionados</p>
                         </td>
                     </tr>
                     @endforelse
@@ -223,7 +306,7 @@
 
         {{-- Paginação --}}
         <div class="px-4 py-3 border-t border-gray-200">
-            {{ $invoices->links() }}
+            {{ $documentos->links() }}
         </div>
     </div>
 

@@ -7,6 +7,7 @@ use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Models\Invoicing\SalesInvoice;
+use App\Services\POS\PosSalesReportQuery;
 use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\CreditNoteItem;
 use App\Models\Invoicing\InvoicingSeries;
@@ -24,7 +25,16 @@ class SalesReport extends Component
     public $search = '';
     public $status = '';
     public $paymentMethod = '';
-    
+
+    /**
+     * Tipo de documento: '' (tudo), 'FR' (facturas) ou 'NC' (notas de crédito).
+     *
+     * O mapa mostrava só facturas. As devoluções não apareciam em lado nenhum —
+     * nem como linha, nem descontadas do total — e quem lia o mapa não tinha
+     * como notar a diferença.
+     */
+    public $documentType = '';
+
     // Modal
     public $showDetailsModal = false;
     public $showPrintModal = false;
@@ -38,7 +48,20 @@ class SalesReport extends Component
     public $creditNoteNotes = '';
     public $creditNoteItems = [];
     
-    // Estatísticas
+    /**
+     * Estatísticas do período.
+     *
+     * `totalRevenue` era um `sum('total')` sobre tudo: as facturas anuladas
+     * contavam como receita e as devoluções não desciam nada. Passa a haver
+     * bruto, devoluções e líquido, e o bruto já não inclui anuladas.
+     *
+     * Os totais são sempre do PERÍODO inteiro e não seguem o filtro de tipo —
+     * é o que permite ver só as notas de crédito na lista sem perder de vista
+     * o bruto contra o qual elas pesam.
+     */
+    public array $totais = [];
+
+    // Mantidos para não partir a view antiga nem quem lhes chame de fora.
     public $totalSales = 0;
     public $totalRevenue = 0;
     public $totalTax = 0;
@@ -98,16 +121,51 @@ class SalesReport extends Component
         $this->resetPage();
     }
 
+    /** Filtros no formato que o PosSalesReportQuery espera. */
+    protected function filtros(): array
+    {
+        return [
+            'start_date'     => $this->startDate,
+            'end_date'       => $this->endDate,
+            'search'         => $this->search,
+            'status'         => $this->status,
+            'payment_method' => $this->paymentMethod,
+            'document_type'  => $this->documentType,
+            // A restrição por operador vale também para as notas de crédito:
+            // sem isso, o mapa restrito mostrava devoluções de colegas.
+            'only_user_id'   => auth()->user()?->can('invoicing.pos.reports.all') ? null : auth()->id(),
+        ];
+    }
+
+    protected function consulta(): PosSalesReportQuery
+    {
+        return new PosSalesReportQuery(activeTenantId(), $this->filtros());
+    }
+
     public function loadStatistics()
     {
-        $query = SalesInvoice::where('tenant_id', activeTenantId())
-            ->whereBetween('invoice_date', [$this->startDate, $this->endDate]);
-        $this->applyScope($query);
+        $this->totais = $this->consulta()->totais();
 
-        $this->totalSales = $query->count();
-        $this->totalRevenue = $query->sum('total');
-        $this->totalTax = $query->sum('tax_amount');
-        $this->totalDiscount = $query->sum('discount_amount');
+        // Compatibilidade com quem ainda leia as antigas.
+        $this->totalSales    = $this->totais['facturas_n'];
+        $this->totalRevenue  = $this->totais['liquido'];
+        $this->totalTax      = $this->totais['imposto'];
+        $this->totalDiscount = $this->totais['desconto'];
+    }
+
+    public function updatedDocumentType()
+    {
+        $this->resetPage();
+    }
+
+    public function limparFiltros()
+    {
+        $this->search        = '';
+        $this->status        = '';
+        $this->paymentMethod = '';
+        $this->documentType  = '';
+        $this->resetPage();
+        $this->loadStatistics();
     }
 
     public function viewDetails($invoiceId)
@@ -421,37 +479,21 @@ class SalesReport extends Component
             'search' => $this->search,
             'status' => $this->status,
             'payment_method' => $this->paymentMethod,
+            // Sem isto, o ficheiro exportado não era o que estava no ecrã.
+            'document_type' => $this->documentType,
         ];
     }
 
     public function render()
     {
-        $query = SalesInvoice::where('tenant_id', activeTenantId())
-            ->with(['client'])
-            ->whereBetween('invoice_date', [$this->startDate, $this->endDate]);
-        $this->applyScope($query);
-        $invoices = $query
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('invoice_number', 'like', '%' . $this->search . '%')
-                      ->orWhereHas('client', function ($clientQuery) {
-                          $clientQuery->where('name', 'like', '%' . $this->search . '%')
-                                    ->orWhere('nif', 'like', '%' . $this->search . '%');
-                      });
-                });
-            })
-            ->when($this->status, function ($query) {
-                $query->where('status', $this->status);
-            })
-            ->when($this->paymentMethod, function ($query) {
-                $query->where('payment_method', $this->paymentMethod);
-            })
-            ->orderBy('invoice_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->paginate(15);
+        // A listagem vem do PosSalesReportQuery — o mesmo que o PDF e o Excel
+        // usam. Antes cada um montava a sua consulta e nada garantia que
+        // dissessem o mesmo número.
+        $documentos = $this->consulta()->listagem()->paginate(15);
 
         return view('livewire.p-o-s.sales-report', [
-            'invoices' => $invoices
+            'documentos' => $documentos,
+            'totais'     => $this->totais ?: $this->consulta()->totais(),
         ]);
     }
 }

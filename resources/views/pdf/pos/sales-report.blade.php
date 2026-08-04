@@ -55,16 +55,17 @@
     </div>
 
     <div class="kpi-row">
-        <div class="kpi"><div class="label">Total Vendas</div><div class="value">{{ $totals['count'] }}</div></div>
-        <div class="kpi"><div class="label">Receita</div><div class="value">{{ number_format($totals['total'], 2) }} Kz</div></div>
-        <div class="kpi"><div class="label">Total IVA</div><div class="value">{{ number_format($totals['tax'], 2) }} Kz</div></div>
-        <div class="kpi"><div class="label">Total Desc.</div><div class="value">{{ number_format($totals['discount'], 2) }} Kz</div></div>
+        <div class="kpi"><div class="label">Vendas (bruto)</div><div class="value">{{ number_format($totals['bruto'], 2) }} Kz</div></div>
+        <div class="kpi"><div class="label">Devolucoes (NC)</div><div class="value">-{{ number_format($totals['devolvido'], 2) }} Kz</div></div>
+        <div class="kpi"><div class="label">Receita liquida</div><div class="value">{{ number_format($totals['liquido'], 2) }} Kz</div></div>
+        <div class="kpi"><div class="label">IVA liquido</div><div class="value">{{ number_format($totals['imposto'], 2) }} Kz</div></div>
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>Fatura</th>
+                <th>Tipo</th>
+                <th>Documento</th>
                 <th>Data</th>
                 <th>Cliente</th>
                 <th>NIF</th>
@@ -75,25 +76,40 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($invoices as $inv)
-            <tr>
-                <td>{{ $inv->invoice_number }}</td>
-                <td>{{ optional($inv->system_entry_date ?? $inv->invoice_date)->format('d/m/Y H:i') }}</td>
-                <td>{{ optional($inv->client)->name ?? '—' }}</td>
-                <td>{{ optional($inv->client)->nif ?? '—' }}</td>
-                <td>{{ posPaymentMethodLabel($inv->payment_method) }}</td>
-                <td class="text-right">{{ number_format($inv->subtotal, 2) }}</td>
-                <td class="text-right">{{ number_format($inv->tax_amount, 2) }}</td>
-                <td class="text-right">{{ number_format($inv->total, 2) }}</td>
+            @forelse($invoices as $doc)
+            @php $ehNota = $doc->doc_tipo === 'NC'; @endphp
+            {{-- As notas de credito saem com sinal NEGATIVO: na base os valores
+                 sao positivos e, sem sinal, uma devolucao lia-se como venda. --}}
+            <tr @if($ehNota) style="color:#b91c1c;" @endif>
+                <td>{{ $doc->doc_tipo }}</td>
+                <td>
+                    {{ $doc->numero }}
+                    @if($ehNota && $doc->factura_origem)
+                        <div style="font-size:8px;color:#666;">sobre {{ $doc->factura_origem }}</div>
+                    @endif
+                </td>
+                <td>{{ \Carbon\Carbon::parse($doc->data_hora)->format('d/m/Y H:i') }}</td>
+                <td>{{ $doc->cliente_nome ?? '-' }}</td>
+                <td>{{ $doc->cliente_nif ?? '-' }}</td>
+                <td>{{ $doc->payment_method ? posPaymentMethodLabel($doc->payment_method) : '-' }}</td>
+                <td class="text-right">{{ ($ehNota ? '-' : '') }}{{ number_format($doc->subtotal, 2) }}</td>
+                <td class="text-right">{{ ($ehNota ? '-' : '') }}{{ number_format($doc->tax_amount, 2) }}</td>
+                <td class="text-right">{{ ($ehNota ? '-' : '') }}{{ number_format($doc->total, 2) }}</td>
             </tr>
             @empty
-            <tr><td colspan="8" class="text-center">Sem vendas no período</td></tr>
+            <tr><td colspan="9" class="text-center">Sem documentos no período</td></tr>
             @endforelse
             <tr class="totals-row">
-                <td colspan="5" class="text-right">TOTAIS:</td>
-                <td class="text-right">{{ number_format($totals['subtotal'], 2) }}</td>
-                <td class="text-right">{{ number_format($totals['tax'], 2) }}</td>
-                <td class="text-right">{{ number_format($totals['total'], 2) }}</td>
+                <td colspan="8" class="text-right">BRUTO:</td>
+                <td class="text-right">{{ number_format($totals['bruto'], 2) }}</td>
+            </tr>
+            <tr class="totals-row" style="color:#b91c1c;">
+                <td colspan="8" class="text-right">DEVOLUÇÕES (NC):</td>
+                <td class="text-right">-{{ number_format($totals['devolvido'], 2) }}</td>
+            </tr>
+            <tr class="totals-row">
+                <td colspan="8" class="text-right">LÍQUIDO:</td>
+                <td class="text-right">{{ number_format($totals['liquido'], 2) }}</td>
             </tr>
         </tbody>
     </table>
