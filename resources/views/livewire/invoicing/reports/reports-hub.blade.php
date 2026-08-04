@@ -55,6 +55,7 @@
                     ['name' => 'Contas a Pagar', 'desc' => 'Faturas pendentes a fornecedores', 'icon' => 'fa-money-bill-wave', 'route' => 'invoicing.reports.accounts-payable'],
                     ['name' => 'Recebimentos por Meio', 'desc' => 'Total recebido por forma de pagamento', 'icon' => 'fa-money-check-alt', 'route' => 'invoicing.reports.payment-methods'],
                     ['name' => 'Aging de Clientes', 'desc' => 'Antiguidade de saldos por faixa', 'icon' => 'fa-clock', 'route' => 'invoicing.reports.aging-clients'],
+                    ['name' => 'Extracto de Conta Corrente', 'desc' => 'Movimentos e saldo de um cliente ou fornecedor', 'icon' => 'fa-file-invoice-dollar', 'route' => 'invoicing.reports.account-statement'],
                 ],
             ],
             [
