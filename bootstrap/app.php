@@ -75,4 +75,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json(['message' => 'Sessão expirada'], 419);
             }
         });
+
+        // Separador aberto de ANTES de um deploy.
+        //
+        // O Livewire valida o snapshot do componente contra o código actual. Se
+        // as propriedades mudaram entretanto — e mudam a cada deploy — o
+        // snapshot que o separador tem em memória deixa de bater certo e o
+        // utilizador leva um 500 com "corrupt data", que não lhe diz nada e não
+        // lhe dá saída nenhuma.
+        //
+        // 409 e não 419: a sessão está boa, o que está velho é a página. O 419
+        // mostra o ecrã de "sessão terminada" com botão de login, e mandar
+        // alguém iniciar sessão outra vez quando ela nunca caiu é pior do que o
+        // erro. O cliente trata o 409 recarregando a página no mesmo sítio.
+        $exceptions->render(function (\Livewire\Mechanisms\HandleComponents\CorruptComponentPayloadException $e, \Illuminate\Http\Request $request) {
+            if ($request->hasHeader('X-Livewire') || $request->ajax() || $request->expectsJson()) {
+                return response()->json([
+                    'message' => 'A página está desactualizada. Vai ser recarregada.',
+                ], 409);
+            }
+        });
     })->create();

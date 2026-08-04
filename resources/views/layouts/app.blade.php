@@ -883,6 +883,7 @@
                                                     ['invoicing.reports.sales', 'Mapa de Vendas', 'fa-file-invoice'],
                                                     ['invoicing.reports.top-clients', 'Top Clientes', 'fa-crown'],
                                                     ['invoicing.reports.top-products', 'Top Produtos', 'fa-star'],
+                                                    ['invoicing.reports.sales-by-user', 'Vendas por Vendedor', 'fa-user-tie'],
                                                 ],
                                                 'Compras' => [
                                                     ['invoicing.reports.purchases', 'Mapa de Compras', 'fa-shopping-cart'],
@@ -892,7 +893,9 @@
                                                 'Contas Correntes' => [
                                                     ['invoicing.reports.accounts-receivable', 'Contas a Receber', 'fa-hand-holding-usd'],
                                                     ['invoicing.reports.accounts-payable', 'Contas a Pagar', 'fa-money-bill-wave'],
+                                                    ['invoicing.reports.payment-methods', 'Recebimentos por Meio', 'fa-money-check-alt'],
                                                     ['invoicing.reports.aging-clients', 'Aging de Clientes', 'fa-clock'],
+                                                    ['invoicing.reports.account-statement', 'Extracto de Conta Corrente', 'fa-file-invoice-dollar'],
                                                 ],
                                                 'Fiscal & SAFT' => [
                                                     ['invoicing.reports.vat', 'Mapa de IVA', 'fa-percent'],
@@ -902,6 +905,13 @@
                                                     ['invoicing.reports.price-list', 'Tabela de Preços e Lucro', 'fa-tags'],
                                                     ['invoicing.reports.services', 'Mapa de Serviços', 'fa-concierge-bell'],
                                                     ['invoicing.expiry-report', 'Validade de Produtos', 'fa-calendar-check'],
+                                                ],
+                                                // Esta lista é MANTIDA À MÃO e vive separada do hub. Um
+                                                // relatório novo tem de entrar nos dois sítios, senão só
+                                                // aparece no painel e ninguém o encontra pelo menu — foi o
+                                                // que aconteceu ao extracto e aos ajustes de stock.
+                                                'Stock & Controlo' => [
+                                                    ['invoicing.reports.stock-adjustments', 'Ajustes de Stock', 'fa-sliders'],
                                                 ],
                                             ];
                                         @endphp
@@ -2193,6 +2203,20 @@
                     if (status === 419 || status === 401) {
                         preventDefault();                 // impede o Livewire de interpretar a resposta (evita o freeze)
                         window.sosSessionDead('livewire-' + status);
+                        return;
+                    }
+
+                    // 409 = separador aberto de antes de um deploy: o snapshot do
+                    // componente já não bate certo com o código (ver bootstrap/app.php).
+                    // A sessão está boa — recarrega-se a página no mesmo sítio, em vez
+                    // de mostrar um 500 que não diz nada nem dá saída.
+                    if (status === 409) {
+                        preventDefault();
+
+                        if (!window.__sosRecarregando) {
+                            window.__sosRecarregando = true;
+                            window.location.reload();
+                        }
                     }
                 });
             });
