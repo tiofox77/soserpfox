@@ -371,6 +371,51 @@ class POSSystem extends Component
         return (float) ($product->stock_quantity ?? 0);
     }
 
+    /**
+     * Leitura de código de barras: o artigo vai directo para o carrinho.
+     *
+     * O leitor escreve o código no campo de procura e carrega em Enter. Até
+     * aqui isso só filtrava a grelha — e como a grelha esconde o que está sem
+     * stock (1415 de 5729 artigos visíveis numa das farmácias), passar o leitor
+     * por um artigo esgotado devolvia um ecrã vazio, indistinguível de "este
+     * código não existe". O operador concluía que a leitura não funcionava.
+     *
+     * Só dispara com correspondência EXACTA do código de barras e a partir de
+     * seis caracteres: escrever o nome de um artigo nunca dá um código exacto,
+     * por isso quem procura à mão não é interrompido.
+     */
+    public function updatedSearch(): void
+    {
+        $codigo = trim((string) $this->search);
+
+        if (mb_strlen($codigo) < 6) {
+            return;
+        }
+
+        $produto = Product::where('tenant_id', activeTenantId())
+            ->where('barcode', $codigo)
+            ->first();
+
+        if (!$produto) {
+            return;   // não é um código conhecido: fica a servir de filtro
+        }
+
+        $this->search = '';
+
+        if (!$produto->is_active) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => '❌ ' . $produto->name . ' está inactivo e não pode ser vendido.',
+            ]);
+
+            return;
+        }
+
+        // O addToCart trata do resto e é ele que avisa quando não há stock —
+        // que é a informação que faltava.
+        $this->addToCart($produto->id);
+    }
+
     public function addToCart($productId)
     {
         // Scope ao tenant: $productId vem do browser. Sem o filtro, um produto
@@ -378,6 +423,18 @@ class POSSystem extends Component
         // (filtra por tenant), caía no agregado stock_quantity da empresa alheia
         // e, sendo > 0, o produto entrava no carrinho e saía na factura desta.
         $product = Product::where('tenant_id', activeTenantId())->find($productId);
+
+        // Inactivo não se vende. A grelha já o esconde, mas o id vem do browser
+        // e este método é o que grava — a grelha filtra, não protege.
+        if ($product && !$product->is_active) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => '❌ ' . $product->name . ' está inactivo e não pode ser vendido.',
+            ]);
+
+            return;
+        }
+
         $available = $product ? $this->stockInWarehouse($product) : 0;
 
         if (!$product || $available <= 0) {

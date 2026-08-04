@@ -100,63 +100,44 @@ class Invoices extends Component
         ]);
     }
 
+    /**
+     * Não abre nada: as facturas de compra não se eliminam (ver deleteInvoice).
+     *
+     * Fica de pé porque o id pode continuar a chegar do browser — um separador
+     * aberto de antes, um atalho guardado. O que não pode é abrir a porta.
+     */
     public function confirmDelete($invoiceId)
     {
-        $this->invoiceToDelete = $invoiceId;
-        $this->showDeleteModal = true;
+        $this->deleteInvoice();
     }
 
+    /**
+     * Uma factura de compra NÃO se apaga. Anula-se.
+     *
+     * O documento é do FORNECEDOR e o que aqui fica registado é que ele foi
+     * recebido: deu entrada de stock, criou dívida a pagar, entrou na
+     * contabilidade e vai para o SAFT-AO. Apagar a linha não desfaz nada disso
+     * — desfaz só a prova de que aconteceu, e deixa o stock e as contas a
+     * apontar para um documento que já não existe.
+     *
+     * A anulação faz o que é preciso: o PurchaseInvoiceObserver reverte a
+     * entrada de stock, o estado passa a `cancelled` e o documento continua
+     * visível e auditável. É o mesmo princípio que a AGT impõe aos documentos
+     * emitidos — anular, nunca eliminar — e é o único caminho coerente com uma
+     * trilha de auditoria que não se pode reescrever.
+     *
+     * Este método permanece para não partir chamadas antigas e para dizer isto
+     * a quem lá chegar; nunca apaga.
+     */
     public function deleteInvoice()
     {
-        if ($this->invoiceToDelete) {
-            // Verificar bloqueio de eliminação via Software Settings
-            if (isDeleteBlocked('sales_invoice')) {
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => 'A eliminação de Faturas está bloqueada pelo administrador. Apenas anulações são permitidas.'
-                ]);
-                $this->showDeleteModal = false;
-                return;
-            }
-
-            $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
-                ->findOrFail($this->invoiceToDelete);
-
-            // Só rascunhos: uma compra já recebida deu entrada de stock e tem
-            // histórico — anula-se, não se apaga.
-            if ($invoice->status !== 'draft') {
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => 'Só é possível eliminar faturas de compra em rascunho. Anule a fatura para reverter o stock.',
-                ]);
-                $this->showDeleteModal = false;
-                return;
-            }
-
-            // Pagamentos associados (a relação payments() não existe — rebentava
-            // com BadMethodCallException; verificar pelos dados reais).
-            $temPagamentos = (float) ($invoice->paid_amount ?? 0) > 0
-                || \App\Models\Treasury\Transaction::where('tenant_id', activeTenantId())
-                    ->where('invoice_id', $invoice->id)->exists();
-
-            if ($temPagamentos) {
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => 'Não é possível eliminar uma fatura que já tem pagamentos associados.'
-                ]);
-                $this->showDeleteModal = false;
-                return;
-            }
-
-            $invoice->delete();
-            
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => 'Fatura eliminada com sucesso!'
-            ]);
-        }
-
+        $this->showDeleteModal = false;
         $this->invoiceToDelete = null;
+
+        $this->dispatch('notify', [
+            'type' => 'error',
+            'message' => 'As facturas de compra não se eliminam. Use "Anular" — reverte o stock e mantém o registo.',
+        ]);
     }
 
     /**

@@ -63,11 +63,19 @@
 
             {{-- Busca e Filtros --}}
             <div class="mb-1 space-y-1 flex-shrink-0 px-1">
+                {{-- Procura e leitura de código de barras no MESMO campo.
+                     O leitor escreve o código e carrega em Enter; o Enter é
+                     travado para não submeter nada, e o debounce curto faz o
+                     código chegar ao servidor de imediato — um leitor escreve
+                     treze dígitos em menos de um décimo de segundo, e 300 ms
+                     de espera davam a sensação de que a leitura falhava. --}}
                 <div class="relative">
-                    <input type="text" wire:model.live.debounce.300ms="search" 
-                           placeholder="🔍 Buscar produtos..."
+                    <input type="text" wire:model.live.debounce.150ms="search"
+                           wire:keydown.enter.prevent=""
+                           autofocus
+                           placeholder="🔍 Procurar ou ler código de barras…"
                            class="w-full px-2 py-1 pl-8 border border-gray-300 rounded-lg focus:ring-1 focus:ring-indigo-500 text-sm">
-                    <i class="fas fa-search absolute left-2 top-1.5 text-gray-400 text-xs"></i>
+                    <i class="fas fa-barcode absolute left-2 top-1.5 text-gray-400 text-xs"></i>
                 </div>
 
                 {{-- Categorias --}}

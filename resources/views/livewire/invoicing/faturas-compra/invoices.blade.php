@@ -271,15 +271,17 @@
                                 </button>
                                 @endif
 
-                                {{-- Eliminar: SÓ rascunhos (uma compra recebida anula-se) --}}
-                                @if($invoice->status === 'draft')
-                                <button wire:click="confirmDelete({{ $invoice->id }})"
-                                        class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
-                                    <i class="fas fa-trash text-red-600 group-hover:text-white transition-colors"></i>
-                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Eliminar rascunho
-                                    </span>
-                                </button>
+                                {{-- Sem botão de eliminar, de propósito.
+                                     Uma factura de compra é o documento do
+                                     FORNECEDOR: deu entrada de stock, criou
+                                     dívida e vai para o SAFT-AO. Apagar a linha
+                                     não desfaz nada disso — desfaz só a prova de
+                                     que aconteceu. Anula-se, que reverte o stock
+                                     e mantém o registo à vista. --}}
+                                @if($invoice->status === 'cancelled')
+                                <span class="p-2 text-gray-300" title="Factura anulada — o registo mantém-se por exigência fiscal">
+                                    <i class="fas fa-ban"></i>
+                                </span>
                                 @endif
                             </div>
                         </td>

@@ -1,15 +1,15 @@
 {
     "schemaVersion": "1.2",
-    "submissionUUID": "ee0a2af1-f74b-4ee2-8130-1a6cebe20a52",
+    "submissionUUID": "ce5a43a7-1e11-4c10-ab8e-c697188350af",
     "taxRegistrationNumber": "5001363476",
-    "submissionTimeStamp": "2026-05-07T14:20:23Z",
+    "submissionTimeStamp": "2026-05-07T14:41:12Z",
     "softwareInfo": {
         "softwareInfoDetail": {
             "productId": "SOS ERP - SOLUÇÕES EMPRESARIAIS",
             "productVersion": "1.0",
-            "softwareValidationNumber": "C_PENDING"
+            "softwareValidationNumber": "FE/351/AGT/2026"
         },
-        "jwsSoftwareSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJwcm9kdWN0SWQiOiJTT1MgRVJQIC0gU09MVcOHw5VFUyBFTVBSRVNBUklBSVMiLCJwcm9kdWN0VmVyc2lvbiI6IjEuMCIsInNvZnR3YXJlVmFsaWRhdGlvbk51bWJlciI6IkNfUEVORElORyJ9.ZMYwVyJG4L9le8BHK2qTBzXQ1VWIp2ZMQh5XFfotCdCBYbpxbH6vQHw48V0FK5pYTLiJRGmGrLGCtHe-mnyqjWXYnoiuFoOBpPXZOY2ApmpM_MgvhUufxdCdQt1A34MA8Th6B9nvK4MXMnbRbDpqdOP0xaPg59T-5MZnDTs0tJ4LWic7-rxxybbUpxVZalASlZSWxRA_XdP_ayOA5BndsJkZG4SEuAv-AoV5tHn6N3ii3mslUFySvBGpnyVPcuNGpFYb1X9O38jpcqDfX6bOwrvzRqDgUyRO8dpbIGUzBL95DnsjdtUuvgSIZOejKz3aHShgRy9Scrg-zZ3fDTW3gA"
+        "jwsSoftwareSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJwcm9kdWN0SWQiOiJTT1MgRVJQIC0gU09MVcOHw5VFUyBFTVBSRVNBUklBSVMiLCJwcm9kdWN0VmVyc2lvbiI6IjEuMCIsInNvZnR3YXJlVmFsaWRhdGlvbk51bWJlciI6IkZFLzM1MS9BR1QvMjAyNiJ9.qBtcPiuiir37d9JMe2zTm8mrdWMkvOkgSIsURifL9Dluh-32vItaB43qdRCQsmESd9vNYQqHccbuUO8xOeL6X75QE4VGOxvix8Mxm2qgCFrtoOwOAvhqAln3pN6yX5Q8uMhEX3aBXxo6s27JSlGNyJf5OVC5xSsKpfbJZE4c-zQTKz3tWnrhZzUhet_2G5LzFR4Err45oACwEq5wjtLJ3fb6QcO7QPbKMfV7KFXa0BECMGFmpgLmMTjt3qxja5LAa0ksJm7DzrZ54bH3g_2hH8bfq8xbVKY0u14zLgAxXZCripz5z3NX-HBxLn4TLksa7fDn_FU0KF_mqlxr8IEAGg"
     },
     "numberOfEntries": 5,
     "documents": [
@@ -19,7 +19,7 @@
             "documentDate": "2026-05-07",
             "documentType": "NC",
             "eacCode": "62010",
-            "systemEntryDate": "2026-05-07T14:20:23Z",
+            "systemEntryDate": "2026-05-07T14:41:12Z",
             "customerTaxID": "5000815462",
             "customerCountry": "AO",
             "companyName": "GUR DISTRIBUIÇÃO, LDA",
@@ -64,7 +64,7 @@
             "documentDate": "2026-05-07",
             "documentType": "NC",
             "eacCode": "46900",
-            "systemEntryDate": "2026-05-07T14:35:23Z",
+            "systemEntryDate": "2026-05-07T14:56:12Z",
             "customerTaxID": "5000815462",
             "customerCountry": "AO",
             "companyName": "GUR DISTRIBUIÇÃO, LDA",
@@ -109,7 +109,7 @@
             "documentDate": "2026-05-07",
             "documentType": "NC",
             "eacCode": "47190",
-            "systemEntryDate": "2026-05-07T14:50:23Z",
+            "systemEntryDate": "2026-05-07T15:11:12Z",
             "customerTaxID": "5000815462",
             "customerCountry": "AO",
             "companyName": "GUR DISTRIBUIÇÃO, LDA",
@@ -161,7 +161,7 @@
             "documentDate": "2026-05-07",
             "documentType": "NC",
             "eacCode": "62010",
-            "systemEntryDate": "2026-05-07T15:05:23Z",
+            "systemEntryDate": "2026-05-07T15:26:12Z",
             "customerTaxID": "999999999",
             "customerCountry": "PT",
             "companyName": "Foreign Client Ltd",
@@ -208,7 +208,7 @@
             "documentDate": "2026-05-07",
             "documentType": "NC",
             "eacCode": "62010",
-            "systemEntryDate": "2026-05-07T15:20:23Z",
+            "systemEntryDate": "2026-05-07T15:41:12Z",
             "customerTaxID": "5000815462",
             "customerCountry": "AO",
             "companyName": "GUR DISTRIBUIÇÃO, LDA",
@@ -255,5 +255,5 @@
             "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiTkMgMjAyNi8wMDAwMDUiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA1LTA3IiwiY3VzdG9tZXJUYXhJRCI6IjUwMDA4MTU0NjIiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiR1VSIERJU1RSSUJVScOHw4NPLCBMREEifQ.BcuHSUWkWGqQdRxhYv4Kftg_YBNihFX1RcCoWEC_Yve1xoND0Dj-O2w0TDYaODDiUlf3_ZwOzSq8JzJ7FQ8RfmeT_ssW6cJfwcfjB8Yp-ByxiIsvaQXYtVkmH6FQ2gBXVrO5YsBDsMvRN3Go5iAyTBbCVKofGwdvVBZYcTSIVmxoNjqiAI0rvl5TfbjGM25kSjliNhZWiQ04NfzKXIz0K-U6u3RRDtXGVcKlN0dTG2ceGtPDLQfGtOjNnoDvvxhbhnBGpmft5QjarRo1kzOGuQMpRsXuACOfrxyjo5EwSZS_CcCL7eWyEQWHCaSK3bgOrbA7ox-usFtBS1Dd5HKoYw"
         }
     ],
-    "jwsSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwibnVtYmVyT2ZFbnRyaWVzIjoiNSIsInN1Ym1pc3Npb25UaW1lU3RhbXAiOiIyMDI2LTA1LTA3VDE0OjIwOjIzWiJ9.nf6xafU_jqhvwGtFLquTSttqFkWnRH3XqGpXOvtlsJAYx69z5oW2DKp38CFhOp35MKCVWAcAKmQw5aDhtJpQPCYxRgBWt6Sm8m0rpMy4LOd2vJya55aVAw-9ZT5MzqWDmeB_pvzd7oX0z083G4E9-lw7v0OPldxYSvDCQSFL-9FO6QtJA7CKtu4xbx2aZhqXvsAHtUFXaIbhUJ02l1q3OP7PkR6-UEDgB7_ork8dnS4184Pqn1hGcyvxTNKbz0PN4Qk9epK1whAqBhIhuKySDAniKTOczd2cxdNl-he7eeN0kUM_oesaKCZ1EMLn9iapp7xEY8zULovXCmaL3rsu_A"
+    "jwsSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwibnVtYmVyT2ZFbnRyaWVzIjoiNSIsInN1Ym1pc3Npb25UaW1lU3RhbXAiOiIyMDI2LTA1LTA3VDE0OjQxOjEyWiJ9.jy3TW28C5TzjQI7K8m-WBcTudFrRJaRDxAOBMiX0p0g9UaNwVR_TW2fHS4ga1QxZ4Us2mJKXiV0Gi_ITbUtCS-miazd9PWNaH1tVum24eh6sWJsn4lO-mMbRXd68qj9EEONzyerlnkDBw1EaOD66uFaE_Bt-nRnkr_ZrVWaZ_Ftfqb3_JwRWbmPct5Nt6Wm9IGtKUA7jNPD2mC32SxBY5mgLe4c6tw-NNUfKlcovLrDP9u5FBIcLCsU1uufKszoCIyzXgxan6CxYCg8_Wbr6qOu3fyTQKVn3KahJcN-pyY6hMiMaL1Jxy-LMOp5DFGGMdXDpz6ybO3eU3_xZ9BsoBQ"
 }
