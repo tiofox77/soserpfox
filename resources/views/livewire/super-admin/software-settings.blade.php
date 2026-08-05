@@ -258,11 +258,29 @@
                                             quem está em produção usa o de produção.
                                         </p>
                                     </div>
+                                    {{-- Três estados, não dois. Com dois, o recurso às
+                                         partilhadas contava como "Configuradas" e o badge
+                                         contradizia o aviso mesmo ao lado, que dizia que
+                                         este ambiente não tinha credenciais próprias. --}}
                                     <div class="flex items-center gap-2 self-start">
-                                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold
-                                            {{ $hasGlobalCredentials ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                                            <i class="fas fa-{{ $hasGlobalCredentials ? 'check-circle' : 'times-circle' }} mr-1.5"></i>
-                                            {{ $hasGlobalCredentials ? 'Configuradas' : 'Não configuradas' }}
+                                        @php
+                                            if ($credenciaisProprias) {
+                                                $estilo = 'bg-green-100 text-green-700';
+                                                $icone  = 'check-circle';
+                                                $texto  = 'Próprias deste ambiente';
+                                            } elseif ($hasGlobalCredentials) {
+                                                $estilo = 'bg-amber-100 text-amber-700';
+                                                $icone  = 'circle-exclamation';
+                                                $texto  = 'A usar as partilhadas';
+                                            } else {
+                                                $estilo = 'bg-red-100 text-red-700';
+                                                $icone  = 'times-circle';
+                                                $texto  = 'Não configuradas';
+                                            }
+                                        @endphp
+                                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap {{ $estilo }}">
+                                            <i class="fas fa-{{ $icone }} mr-1.5"></i>
+                                            {{ $texto }}
                                         </span>
                                     </div>
                                 </div>
@@ -275,10 +293,16 @@
                                     <div class="flex flex-col sm:flex-row sm:items-center gap-3">
                                         <div class="flex-1">
                                             <label class="block text-xs font-bold text-gray-700 uppercase mb-1">A configurar</label>
+                                            {{-- @selected é obrigatório aqui. Sem ele nenhuma opção
+                                                 traz o estado no HTML, e cada vez que o Livewire
+                                                 volta a desenhar o browser cai na primeira: o
+                                                 seletor dizia "Homologação" com o servidor em
+                                                 produção, e o que se via a seguir — credenciais,
+                                                 chave — era do ambiente errado. --}}
                                             <select wire:model.live="produtorAmbiente"
                                                     class="w-full sm:w-72 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                                                <option value="sandbox">Homologação (sandbox)</option>
-                                                <option value="production">Produção</option>
+                                                <option value="sandbox" @selected($produtorAmbiente === 'sandbox')>Homologação (sandbox)</option>
+                                                <option value="production" @selected($produtorAmbiente === 'production')>Produção</option>
                                             </select>
                                         </div>
                                         <div class="text-xs {{ $produtorAmbiente === 'production' ? 'text-red-700' : 'text-amber-800' }} sm:max-w-md">
@@ -445,7 +469,10 @@
                                                     class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200">
                                                 <option value="">Seleccione uma empresa</option>
                                                 @foreach($tenantAgtStatus as $tenant)
-                                                    <option value="{{ $tenant['id'] }}">{{ $tenant['name'] }} — {{ $tenant['nif'] ?? 'sem NIF' }}</option>
+                                                    {{-- @selected: sem ele o seletor volta à primeira
+                                                         opção a cada redesenho e o teste corria contra
+                                                         uma empresa diferente da que estava à vista. --}}
+                                                    <option value="{{ $tenant['id'] }}" @selected((int) $selectedAgtTenantId === (int) $tenant['id'])>{{ $tenant['name'] }} — {{ $tenant['nif'] ?? 'sem NIF' }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -576,9 +603,9 @@
                                             <div>
                                                 <label class="block text-xs font-bold text-slate-700 mb-1">Operação</label>
                                                 <select wire:model.live="agtApiOperation" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm">
-                                                    <option value="listarFacturas">Listar facturas por período</option>
-                                                    <option value="consultarFactura">Consultar factura</option>
-                                                    <option value="obterEstado">Obter estado do pedido</option>
+                                                    <option value="listarFacturas" @selected($agtApiOperation === 'listarFacturas')>Listar facturas por período</option>
+                                                    <option value="consultarFactura" @selected($agtApiOperation === 'consultarFactura')>Consultar factura</option>
+                                                    <option value="obterEstado" @selected($agtApiOperation === 'obterEstado')>Obter estado do pedido</option>
                                                 </select>
                                             </div>
                                             @if($agtApiOperation === 'consultarFactura')

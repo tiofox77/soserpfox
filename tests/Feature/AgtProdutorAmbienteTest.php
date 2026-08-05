@@ -20,13 +20,15 @@ class AgtProdutorAmbienteTest extends TenantTestCase
     {
         parent::setUp();
 
-        // Sem ficheiros herdados de outros testes.
-        foreach (['saft/public_key.pem', 'saft/private_key.pem'] as $f) {
-            Storage::disk('local')->delete($f);
-        }
-
-        Storage::disk('local')->deleteDirectory('saft/sandbox');
-        Storage::disk('local')->deleteDirectory('saft/production');
+        // Disco falso, OBRIGATÓRIO aqui.
+        //
+        // A versão anterior apagava saft/*.pem no disco a sério para partir de
+        // um estado limpo — e o disco a sério é o mesmo da instalação de
+        // desenvolvimento. Correr a suite apagava as chaves do produtor de quem
+        // estava a trabalhar, e o ecrã passava a dizer "Em falta" sem que nada
+        // no código tivesse mudado. Nenhum teste tem negócio nenhum a escrever
+        // em storage/app/private.
+        Storage::fake('local');
     }
 
     private function escreverChaves(string $pasta): void
@@ -64,6 +66,64 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             ->assertSet('agt_basic_username', 'ws.hml.Empresa')
             ->set('produtorAmbiente', 'production')
             ->assertSet('agt_basic_username', 'ws.prd.Empresa');
+    }
+
+    public function test_a_opcao_escolhida_vem_marcada_no_html(): void
+    {
+        // O <select> não trazia `selected` em opção nenhuma. O estado vivia só
+        // na propriedade DOM, e a cada redesenho do Livewire o browser caía na
+        // primeira opção: o seletor dizia "Homologação" com o servidor em
+        // produção, e as credenciais e a chave mostradas eram do outro
+        // ambiente. Um ->set() nunca apanha isto — força sempre ida ao
+        // servidor, que é justamente o que o utilizador não tinha.
+        $ecra = $this->comoSuperAdmin()->set('produtorAmbiente', 'production');
+
+        $html = $ecra->html();
+
+        $this->assertStringContainsString('value="production" selected', $html);
+        $this->assertStringNotContainsString('value="sandbox" selected', $html);
+
+        $html = $ecra->set('produtorAmbiente', 'sandbox')->html();
+
+        $this->assertStringContainsString('value="sandbox" selected', $html);
+        $this->assertStringNotContainsString('value="production" selected', $html);
+    }
+
+    public function test_o_badge_distingue_proprias_de_partilhadas(): void
+    {
+        // Dizia "Configuradas" por causa do recurso às partilhadas, mesmo ao
+        // lado do aviso de que este ambiente não tinha credenciais próprias.
+        config([
+            'services.agt.username'            => 'legado',
+            'services.agt.password'            => 'legado',
+            'services.agt.production.username' => null,
+            'services.agt.production.password' => null,
+            'services.agt.sandbox.username'    => 'ws.hml.Empresa',
+            'services.agt.sandbox.password'    => 'p-hml',
+        ]);
+
+        $ecra = $this->comoSuperAdmin();
+
+        $ecra->assertSee('Próprias deste ambiente')
+            ->assertDontSee('A usar as partilhadas');
+
+        $ecra->set('produtorAmbiente', 'production')
+            ->assertSee('A usar as partilhadas')
+            ->assertDontSee('Próprias deste ambiente');
+    }
+
+    public function test_sem_credenciais_nenhumas_diz_nao_configuradas(): void
+    {
+        config([
+            'services.agt.username'            => null,
+            'services.agt.password'            => null,
+            'services.agt.sandbox.username'    => null,
+            'services.agt.sandbox.password'    => null,
+            'services.agt.production.username' => null,
+            'services.agt.production.password' => null,
+        ]);
+
+        $this->comoSuperAdmin()->assertSee('Não configuradas');
     }
 
     public function test_ambiente_sem_credenciais_proprias_mostra_campo_vazio(): void

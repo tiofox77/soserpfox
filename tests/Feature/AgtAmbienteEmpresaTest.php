@@ -25,6 +25,11 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
     {
         parent::setUp();
 
+        // Disco falso: estes testes instalam e apagam chaves. No disco a sério
+        // — o mesmo da instalação de desenvolvimento — deixavam lixo em
+        // storage/app/private/agt/tenants/ e podiam apagar chaves reais.
+        \Illuminate\Support\Facades\Storage::fake('local');
+
         // Sem esta permissão as acções abortam com 403 e os testes passariam
         // por não ter acontecido nada — que é o mesmo resultado de "não mudou
         // o ambiente". Ficariam a verificar o 403, não a regra.

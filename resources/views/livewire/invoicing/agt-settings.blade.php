@@ -382,7 +382,7 @@
                                 class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                             <option value="">— não definida —</option>
                             @foreach($caeCodes as $cae)
-                                <option value="{{ $cae->code }}">{{ $cae->code }} · {{ $cae->description }}</option>
+                                <option value="{{ $cae->code }}" @selected($agt_eac_code === $cae->code)>{{ $cae->code }} · {{ $cae->description }}</option>
                             @endforeach
                         </select>
 
@@ -852,9 +852,9 @@
                                 <select wire:model.live="apiOperation" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                                     {{-- O nome do endpoint sozinho leva a crer que lista os
                                          documentos EMITIDOS. Lista os RECEBIDOS. --}}
-                                    <option value="listarFacturas">ListarFacturas — documentos RECEBIDOS (empresa como adquirente)</option>
-                                    <option value="consultarFactura">ConsultarFactura — consultar um documento emitido</option>
-                                    <option value="obterEstado">ObterEstado — estado de uma submissão</option>
+                                    <option value="listarFacturas" @selected($apiOperation === 'listarFacturas')>ListarFacturas — documentos RECEBIDOS (empresa como adquirente)</option>
+                                    <option value="consultarFactura" @selected($apiOperation === 'consultarFactura')>ConsultarFactura — consultar um documento emitido</option>
+                                    <option value="obterEstado" @selected($apiOperation === 'obterEstado')>ObterEstado — estado de uma submissão</option>
                                 </select>
                             </div>
                             @if($apiOperation === 'consultarFactura')
