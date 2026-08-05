@@ -18,7 +18,8 @@ class StockReconcile extends Command
 {
     protected $signature = 'stock:reconcile
                             {--tenant= : ID do tenant (opcional, todos se omitido)}
-                            {--dry-run : Apenas mostra divergências, não corrige}
+                            {--fix : Corrige mesmo. Sem esta opção o comando apenas SIMULA — e é assim de propósito, porque se alcança por URL}
+                            {--dry-run : Mantido por compatibilidade; simular já é o comportamento por omissão}
                             {--fix-negatives : Zera linhas de invoicing_stocks com quantidade negativa (com movimento de ajuste registado) antes de reconciliar}
                             {--vendas : Só diagnostica: quantas linhas de venda não deixaram baixa de stock, e desde quando}';
 
@@ -109,7 +110,16 @@ class StockReconcile extends Command
     public function handle(): int
     {
         $tenantId = $this->option('tenant');
-        $dryRun = $this->option('dry-run');
+
+        // SIMULAÇÃO por omissão. Escrever só com --fix.
+        //
+        // Este comando está na whitelist da rota de manutenção, e essa rota não
+        // passa argumentos: bastava abrir o URL para ele reescrever o agregado
+        // de todos os produtos de todas as empresas. Aconteceu — uma consulta
+        // que se queria de diagnóstico corrigiu 335 produtos em produção sem
+        // ninguém o ter pedido. Um comando que se alcança por URL não pode ter
+        // a escrita como omissão.
+        $dryRun = !$this->option('fix');
 
         if ($this->option('vendas')) {
             return $this->diagnosticarVendasSemBaixa($tenantId);
