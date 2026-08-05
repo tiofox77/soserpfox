@@ -18,8 +18,23 @@ use Livewire\Attributes\Title;
 #[Title('Configurações AGT')]
 class AGTSettings extends Component
 {
-    // Configurações API
+    /**
+     * Ambiente ACTIVO: o que assina e transmite os documentos reais desta
+     * empresa. Só muda por acção deliberada (activarAmbiente), nunca por se
+     * estar a olhar para o outro.
+     */
     public string $agt_environment = 'sandbox';
+
+    /**
+     * Ambiente que se está a VER e a configurar no ecrã. Não é gravado.
+     *
+     * Eram a mesma propriedade, e isso obrigava a pôr a empresa em produção
+     * só para lá instalar as chaves — ou, pior, bastava espreitar a
+     * homologação e carregar em Guardar por outro motivo qualquer para uma
+     * empresa em produção cair para homologação sem ninguém dar por isso.
+     */
+    public string $ambienteVista = 'sandbox';
+
     public bool $agt_auto_submit = false;
 
     /**
@@ -131,6 +146,8 @@ class AGTSettings extends Component
             $this->agt_require_validation = $settings->agt_require_validation ?? true;
         }
 
+        // Abre no ambiente activo — é o que interessa a quem entra.
+        $this->ambienteVista = $this->agt_environment;
     }
 
     private function checkStatus()
@@ -145,8 +162,9 @@ class AGTSettings extends Component
             \App\Services\AGT\AGTKeyStore::privateKeyPath((int) $this->currentTenantId, $ambiente)
         );
         $this->hasKeys = $this->hasPublicKey && $this->hasPrivateKey;
-        $this->hasGlobalCredentials = filled(config('services.agt.username'))
-            && filled(config('services.agt.password'));
+        // Credenciais do produtor DESTE ambiente: as de homologação não
+        // autenticam contra a AGT real.
+        $this->hasGlobalCredentials = \App\Services\AGT\AGTProducerStore::temCredenciais($ambiente);
         
         // Só carregar relatório se tiver tenant ativo
         if ($this->currentTenantId) {
@@ -208,11 +226,11 @@ class AGTSettings extends Component
     }
 
     /**
-     * Trocar o seletor de ambiente recarrega tudo o que é específico dele.
+     * Trocar o separador de ambiente recarrega tudo o que é específico dele.
      * Sem isto, as submissões e os logs continuavam a mostrar os do ambiente
      * anterior — misturando homologação com produção.
      */
-    public function updatedAgtEnvironment(): void
+    public function updatedAmbienteVista(): void
     {
         // checkStatus() recarrega os cartões do topo E o estado das chaves —
         // cada ambiente tem o seu par.
@@ -222,15 +240,114 @@ class AGTSettings extends Component
     }
 
     /**
-     * Ambiente seleccionado no ecrã. Usa-se a propriedade do formulário (e não
-     * o valor gravado) para a lista mudar mal se troca o seletor, antes sequer
-     * de guardar.
+     * Ambiente que se está a ver no ecrã — chaves, séries, submissões e logs.
+     * Não é o activo: ver produção não põe a empresa em produção.
      */
     private function ambienteActual(): string
     {
-        return in_array($this->agt_environment, ['sandbox', 'production'], true)
-            ? $this->agt_environment
+        return in_array($this->ambienteVista, ['sandbox', 'production'], true)
+            ? $this->ambienteVista
             : 'sandbox';
+    }
+
+    /** O ambiente que está mesmo a emitir, venha o seletor de onde vier. */
+    public function ambienteActivo(): string
+    {
+        return $this->agt_environment === 'production' ? 'production' : 'sandbox';
+    }
+
+    public function aVerOAmbienteActivo(): bool
+    {
+        return $this->ambienteActual() === $this->ambienteActivo();
+    }
+
+    /**
+     * Acções que escrevem na AGT (registar séries, reenviar documentos) correm
+     * sempre no ambiente ACTIVO. Executá-las enquanto se olha para o outro
+     * registava séries em produção com o ecrã a dizer homologação.
+     */
+    private function ambienteConfere(string $accao): bool
+    {
+        if ($this->aVerOAmbienteActivo()) {
+            return true;
+        }
+
+        $aVer   = $this->ambienteActual() === 'production' ? 'Produção' : 'Homologação';
+        $activo = $this->ambienteActivo() === 'production' ? 'Produção' : 'Homologação';
+
+        $this->dispatch('notify', type: 'error',
+            message: "Está a ver {$aVer} mas a empresa emite em {$activo}. {$accao} iria para {$activo}. Volte ao ambiente activo ou active este.");
+
+        return false;
+    }
+
+    /**
+     * Estado dos DOIS ambientes de uma vez. Ver um de cada vez escondia o
+     * essencial: que produção ainda não tem chaves e portanto não pode ser
+     * activada.
+     */
+    public function estadoAmbientes(): array
+    {
+        $estado = [];
+
+        foreach (['sandbox' => 'Homologação', 'production' => 'Produção'] as $ambiente => $rotulo) {
+            $temChaves = $this->currentTenantId && \App\Services\AGT\AGTKeyStore::hasKeyPair(
+                (int) $this->currentTenantId, $ambiente
+            );
+
+            $estado[$ambiente] = [
+                'rotulo'     => $rotulo,
+                'chaves'     => (bool) $temChaves,
+                'activo'     => $this->ambienteActivo() === $ambiente,
+                'a_ver'      => $this->ambienteActual() === $ambiente,
+                'produtor'   => \App\Services\AGT\AGTProducerStore::temChaves($ambiente)
+                                && \App\Services\AGT\AGTProducerStore::temCredenciais($ambiente),
+            ];
+        }
+
+        return $estado;
+    }
+
+    /**
+     * Passa a emitir pelo ambiente que se está a ver. Acção deliberada e
+     * separada do Guardar: é ela que decide se os documentos desta empresa
+     * vão para a AGT real ou para a de testes.
+     */
+    public function activarAmbiente(): void
+    {
+        $this->ensureTenantAccess();
+        abort_unless(
+            auth()->user()?->isPlatformSuperAdmin()
+                || auth()->user()?->can('invoicing.agt.edit'),
+            403
+        );
+
+        $novo = $this->ambienteActual();
+
+        if ($novo === $this->ambienteActivo()) {
+            $this->dispatch('notify', type: 'info', message: 'Já é este o ambiente activo.');
+            return;
+        }
+
+        // Activar produção sem o par RSA de produção não dá para assinar
+        // documento nenhum: a empresa ficava a falhar toda a facturação.
+        if ($novo === 'production' && !\App\Services\AGT\AGTKeyStore::hasKeyPair((int) $this->currentTenantId, 'production')) {
+            $this->dispatch('notify', type: 'error',
+                message: 'Instale primeiro o par RSA de Produção do Portal do Contribuinte. Sem ele nenhum documento é assinado.');
+            return;
+        }
+
+        InvoicingSettings::firstOrCreate(
+            ['tenant_id' => $this->currentTenantId],
+            ['default_currency' => 'AOA']
+        )->update(['agt_environment' => $novo]);
+
+        $this->agt_environment = $novo;
+        $this->checkStatus();
+
+        $rotulo = $novo === 'production' ? 'PRODUÇÃO' : 'Homologação';
+        $this->dispatch('notify', type: 'success',
+            message: "Ambiente activo: {$rotulo}. Os próximos documentos seguem por aqui.");
     }
 
     public function refreshSubmissionStatuses(): void
@@ -295,18 +412,15 @@ class AGTSettings extends Component
             return;
         }
         $this->ensureTenantAccess();
-        
-        $this->validate([
-            'agt_environment' => 'required|in:sandbox,production',
-        ]);
 
         $settings = InvoicingSettings::firstOrCreate(
             ['tenant_id' => $this->currentTenantId],
             ['default_currency' => 'AOA']
         );
 
+        // Sem agt_environment de propósito: mudar de ambiente é a acção
+        // activarAmbiente(), não um efeito lateral de guardar o CAE.
         $updateData = [
-            'agt_environment' => $this->agt_environment,
             'agt_auto_submit' => $this->agt_auto_submit,
             // CAE: vazio grava NULL, para o mapper cair no marcador em vez de ''
             'agt_eac_code' => $this->agt_eac_code ?: null,
@@ -432,7 +546,9 @@ class AGTSettings extends Component
         }
         
         try {
-            $client = new AGTClient($this->currentTenantId);
+            // Testa o ambiente que se está a VER — é o que permite validar as
+            // chaves de produção antes de as pôr a emitir.
+            $client = new AGTClient($this->currentTenantId, $this->ambienteActual());
             $this->connectionTest = $client->testConnection();
             $this->isConnected = $this->connectionTest['success'] ?? false;
 
@@ -454,6 +570,10 @@ class AGTSettings extends Component
             return;
         }
         $this->ensureTenantAccess();
+
+        if (!$this->ambienteConfere('A sincronização de séries')) {
+            return;
+        }
 
         $missing = [];
         if (!$this->hasGlobalCredentials) {
@@ -515,7 +635,11 @@ class AGTSettings extends Component
             return;
         }
         $this->ensureTenantAccess();
-        
+
+        if (!$this->ambienteConfere('O reenvio do documento')) {
+            return;
+        }
+
         try {
             $submission = AGTSubmission::find($submissionId);
             
@@ -565,7 +689,8 @@ class AGTSettings extends Component
         $startedAt = microtime(true);
 
         try {
-            $client = new AGTClient($this->currentTenantId);
+            // Consulta: corre no ambiente que se está a ver. É só leitura.
+            $client = new AGTClient($this->currentTenantId, $this->ambienteActual());
             $result = match ($this->apiOperation) {
                 'obterEstado' => $client->getStatus(trim($this->apiRequestId)),
                 'consultarFactura' => $client->getInvoice(trim($this->apiDocumentNo)),

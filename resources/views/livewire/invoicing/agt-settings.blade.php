@@ -12,10 +12,13 @@
                     <p class="mt-1 text-orange-200 text-sm">Decreto Presidencial n.º 71/25 — Sistema de Faturação Eletrónica</p>
                 </div>
                 <div class="flex items-center gap-3">
+                    {{-- Sempre o ambiente ACTIVO: é a resposta a "os meus
+                         documentos estão a ir para a AGT real?". O que se
+                         está a ver noutro separador não muda isto. --}}
                     <span class="px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-sm
-                        {{ $agt_environment === 'production' ? 'bg-red-700/60' : 'bg-yellow-500/40' }}">
-                        <i class="fas fa-{{ $agt_environment === 'production' ? 'shield-alt' : 'flask' }} mr-1"></i>
-                        {{ $agt_environment === 'production' ? 'Produção' : 'Sandbox' }}
+                        {{ $this->ambienteActivo() === 'production' ? 'bg-red-700/60' : 'bg-yellow-500/40' }}">
+                        <i class="fas fa-{{ $this->ambienteActivo() === 'production' ? 'shield-alt' : 'flask' }} mr-1"></i>
+                        A emitir em {{ $this->ambienteActivo() === 'production' ? 'Produção' : 'Homologação' }}
                     </span>
                     <button wire:click="refreshReport" wire:loading.attr="disabled" wire:target="refreshReport"
                             class="px-3 py-2 bg-white/20 rounded-xl hover:bg-white/30 transition text-sm font-semibold">
@@ -103,17 +106,27 @@
                 </p>
             </div>
 
-            {{-- Ambiente --}}
-            <div class="bg-white rounded-2xl shadow-lg p-5 border border-{{ $agt_environment === 'production' ? 'purple' : 'yellow' }}-100">
+            {{-- Ambiente activo. Os restantes cartões referem-se ao ambiente
+                 que se está a ver; este não, e por isso di-lo. --}}
+            @php
+                $envActivo = $this->ambienteActivo();
+                $ehProducao = $envActivo === 'production';
+            @endphp
+            <div class="bg-white rounded-2xl shadow-lg p-5 border border-{{ $ehProducao ? 'purple' : 'yellow' }}-100">
                 <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center {{ $agt_environment === 'production' ? 'bg-purple-100' : 'bg-yellow-100' }}">
-                        <i class="fas fa-server {{ $agt_environment === 'production' ? 'text-purple-600' : 'text-yellow-600' }}"></i>
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center {{ $ehProducao ? 'bg-purple-100' : 'bg-yellow-100' }}">
+                        <i class="fas fa-server {{ $ehProducao ? 'text-purple-600' : 'text-yellow-600' }}"></i>
                     </div>
                 </div>
-                <p class="text-xs text-gray-500">Ambiente</p>
-                <p class="text-sm font-bold {{ $agt_environment === 'production' ? 'text-purple-700' : 'text-yellow-700' }}">
-                    {{ $agt_environment === 'production' ? 'Produção' : 'Sandbox (Testes)' }}
+                <p class="text-xs text-gray-500">Ambiente activo</p>
+                <p class="text-sm font-bold {{ $ehProducao ? 'text-purple-700' : 'text-yellow-700' }}">
+                    {{ $ehProducao ? 'Produção' : 'Homologação (Testes)' }}
                 </p>
+                @unless($this->aVerOAmbienteActivo())
+                    <p class="mt-1 text-[10px] font-semibold text-orange-600">
+                        <i class="fas fa-eye mr-0.5"></i> a ver o outro ambiente
+                    </p>
+                @endunless
             </div>
 
             {{-- Séries Registadas --}}
@@ -192,31 +205,90 @@
                 {{-- ═══════════════════════════════════ --}}
                 @if($activeTab === 'config')
                 <div class="space-y-6">
-                    {{-- Secção: Configurações de Ambiente --}}
+                    {{-- Os dois ambientes, configuráveis em separado.
+
+                         Antes havia um só seletor, que era ao mesmo tempo "o
+                         que estou a ver" e "o que emite". Instalar as chaves de
+                         produção obrigava a pôr já a empresa em produção, e
+                         espreitar a homologação seguido de um Guardar por outro
+                         motivo qualquer deitava produção abaixo em silêncio. --}}
                     <div>
                         <h3 class="text-gray-800 font-bold text-sm flex items-center mb-1">
-                            <i class="fas fa-cog mr-2 text-orange-500"></i>
-                            Configurações Gerais
+                            <i class="fas fa-server mr-2 text-orange-500"></i>
+                            Ambientes
                         </h3>
-                        <p class="text-gray-400 text-xs mb-5">Ambiente de comunicação desta empresa</p>
+                        <p class="text-gray-400 text-xs mb-4">
+                            Configure os dois. Escolher aqui só muda o que está a ver — a empresa
+                            continua a emitir pelo ambiente activo até o activar de propósito.
+                        </p>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            {{-- Ambiente --}}
-                            <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-server mr-1 text-gray-400"></i> Ambiente *
-                                </label>
-                                {{-- .live: trocar de ambiente tem de recarregar séries,
-                                     submissões e logs de imediato --}}
-                                <select wire:model.live="agt_environment"
-                                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50 transition">
-                                    <option value="sandbox">Sandbox (Testes)</option>
-                                    <option value="production">Produção</option>
-                                </select>
-                                <p class="mt-1 text-[10px] text-gray-400">Use Sandbox para testes antes de ir para produção</p>
-                            </div>
-
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach($this->estadoAmbientes() as $chave => $amb)
+                                @php
+                                    $prod = $chave === 'production';
+                                    $cor  = $prod ? 'purple' : 'yellow';
+                                @endphp
+                                <button type="button" wire:click="$set('ambienteVista', '{{ $chave }}')"
+                                        class="text-left p-4 rounded-xl border-2 transition
+                                            {{ $amb['a_ver'] ? "border-{$cor}-400 bg-{$cor}-50" : 'border-gray-200 bg-white hover:border-gray-300' }}">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-bold text-sm text-gray-800">
+                                            <i class="fas fa-{{ $prod ? 'shield-alt' : 'flask' }} mr-1 text-{{ $cor }}-500"></i>
+                                            {{ $amb['rotulo'] }}
+                                        </span>
+                                        @if($amb['activo'])
+                                            <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase">
+                                                <i class="fas fa-broadcast-tower mr-0.5"></i> a emitir
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="space-y-1 text-[11px]">
+                                        <p class="{{ $amb['chaves'] ? 'text-green-700' : 'text-red-600' }}">
+                                            <i class="fas fa-{{ $amb['chaves'] ? 'check' : 'times' }}-circle mr-1"></i>
+                                            Chaves da empresa: {{ $amb['chaves'] ? 'instaladas' : 'em falta' }}
+                                        </p>
+                                        <p class="{{ $amb['produtor'] ? 'text-green-700' : 'text-amber-600' }}">
+                                            <i class="fas fa-{{ $amb['produtor'] ? 'check' : 'exclamation' }}-circle mr-1"></i>
+                                            Produtor SOS ERP: {{ $amb['produtor'] ? 'configurado' : 'incompleto' }}
+                                        </p>
+                                    </div>
+                                    @if($amb['a_ver'])
+                                        <p class="mt-2 text-[10px] font-semibold text-{{ $cor }}-700 uppercase tracking-wide">
+                                            <i class="fas fa-eye mr-0.5"></i> a configurar
+                                        </p>
+                                    @endif
+                                </button>
+                            @endforeach
                         </div>
+
+                        {{-- Activar: acção deliberada, separada do Guardar. --}}
+                        @unless($this->aVerOAmbienteActivo())
+                            @php
+                                $aVerProducao = $this->ambienteActual() === 'production';
+                            @endphp
+                            <div class="mt-4 rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-3
+                                {{ $aVerProducao ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200' }}">
+                                <div class="flex-1 text-xs {{ $aVerProducao ? 'text-red-800' : 'text-amber-800' }}">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    @if($aVerProducao)
+                                        Activar <strong>Produção</strong> põe os documentos desta empresa a seguir
+                                        para a AGT real, com valor fiscal. Confirme antes as chaves e o teste de ligação.
+                                    @else
+                                        Activar <strong>Homologação</strong> passa os documentos a ir para o ambiente
+                                        de testes — deixam de ter valor fiscal.
+                                    @endif
+                                </div>
+                                <button type="button" wire:click="activarAmbiente"
+                                        wire:confirm="{{ $aVerProducao
+                                            ? 'Passar esta empresa a emitir em PRODUCAO, na AGT real? Os documentos passam a ter valor fiscal.'
+                                            : 'Passar esta empresa a emitir em HOMOLOGACAO? Os documentos deixam de ter valor fiscal.' }}"
+                                        class="px-4 py-2 rounded-xl text-white text-xs font-bold whitespace-nowrap
+                                            {{ $aVerProducao ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700' }}">
+                                    <i class="fas fa-broadcast-tower mr-1"></i>
+                                    Passar a emitir aqui
+                                </button>
+                            </div>
+                        @endunless
                     </div>
 
                     {{-- Chaves do contribuinte no Portal AGT --}}
@@ -229,7 +301,7 @@
                                 </h3>
                                 @php
                                     // Forma de bloco: a directiva de uma linha não suporta ternários
-                                    $rotuloAmbiente = $agt_environment === 'production' ? 'Produção' : 'Homologação';
+                                    $rotuloAmbiente = $ambienteVista === 'production' ? 'Produção' : 'Homologação';
                                 @endphp
                                 <p class="text-gray-400 text-xs mt-1">
                                     Cole o par RSA fornecido no Portal do Contribuinte. As chaves são
@@ -259,8 +331,8 @@
 
                         <div class="rounded-xl bg-blue-50 border border-blue-200 p-4 mb-4 text-xs text-blue-800">
                             <i class="fas fa-info-circle mr-1"></i>
-                            O username e a password Basic Auth não são configurados aqui; são credenciais globais do produtor SOS ERP.
-                            Ao substituir as chaves, informe sempre o par completo.
+                            O username e a password Basic Auth não são configurados aqui; são credenciais do produtor
+                            SOS ERP, próprias de cada ambiente. Ao substituir as chaves, informe sempre o par completo.
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -767,7 +839,7 @@
                                         {{ $endpoint['safe'] ? 'TESTÁVEL' : 'EMISSÃO' }}
                                     </span>
                                 </div>
-                                <code class="block text-[10px] text-gray-500 mt-2 break-all">{{ $agt_environment === 'production' ? \App\Services\AGT\AGTClient::PRODUCTION_URL : \App\Services\AGT\AGTClient::SANDBOX_URL }}{{ $endpoint['path'] }}</code>
+                                <code class="block text-[10px] text-gray-500 mt-2 break-all">{{ $ambienteVista === 'production' ? \App\Services\AGT\AGTClient::PRODUCTION_URL : \App\Services\AGT\AGTClient::SANDBOX_URL }}{{ $endpoint['path'] }}</code>
                                 <p class="text-[10px] text-gray-600 mt-2 leading-snug">{{ $nota }}</p>
                             </div>
                         @endforeach

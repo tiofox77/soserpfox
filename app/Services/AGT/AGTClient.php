@@ -104,8 +104,8 @@ class AGTClient
 
     public function isConfigured(): bool
     {
-        return !empty(config('services.agt.username'))
-            && !empty(config('services.agt.password'));
+        // Credenciais do produtor PARA ESTE AMBIENTE.
+        return AGTProducerStore::temCredenciais($this->environment);
     }
 
     public function getEnvironment(): string
@@ -126,11 +126,13 @@ class AGTClient
     {
         if ($this->username && $this->password) return;
 
-        $this->username = config('services.agt.username');
-        $this->password = config('services.agt.password');
+        $credenciais = AGTProducerStore::credenciais($this->environment);
+        $this->username = $credenciais['username'];
+        $this->password = $credenciais['password'];
 
         if (empty($this->username) || empty($this->password)) {
-            throw new \Exception('Credenciais Basic Auth do produtor não configuradas. Contacte o administrador do sistema.');
+            $rotulo = $this->environment === 'production' ? 'Produção' : 'Homologação';
+            throw new \Exception("Credenciais Basic Auth do produtor para {$rotulo} não configuradas. Contacte o administrador do sistema.");
         }
     }
 
@@ -159,8 +161,11 @@ class AGTClient
 
     public function getContributorPrivateKey(): ?string
     {
-        // Chave do AMBIENTE activo — sandbox e produção têm pares diferentes.
-        $keyPath = AGTKeyStore::privateKeyPath((int) $this->tenantId);
+        // Chave do ambiente DESTE cliente — que pode ser um override e não o
+        // gravado. Sem o argumento, a consola de testes pedia produção e
+        // assinava com a chave de homologação; a AGT recusava e a causa não
+        // aparecia em lado nenhum.
+        $keyPath = AGTKeyStore::privateKeyPath((int) $this->tenantId, $this->environment);
         if (Storage::disk('local')->exists($keyPath)) {
             return Storage::disk('local')->get($keyPath);
         }
