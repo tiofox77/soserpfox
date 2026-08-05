@@ -41,14 +41,21 @@ class SoftwareSettings extends Component
      */
     public string $produtorAmbiente = 'sandbox';
 
-    /** As credenciais/chaves deste ambiente são as próprias, ou as legadas? */
+    /** As credenciais deste ambiente são as próprias, ou as legadas? */
     public bool $credenciaisProprias = false;
-    public bool $chavesProprias = false;
 
-    public string $producerPublicKey = '';
-    public string $producerPrivateKey = '';
+    /**
+     * Estado da chave RSA do produtor — só leitura.
+     *
+     * A chave já existe e é gerada fora daqui; o ecrã serve para confirmar qual
+     * está instalada em cada ambiente, não para a substituir. Os campos de
+     * colar o par foram removidos: convidavam a trocar, por engano, a chave que
+     * assina os documentos de todas as empresas ao mesmo tempo.
+     */
+    public bool $chavesProprias = false;
     public bool $hasProducerKeys = false;
     public array $producerKeyInfo = [];
+
     public ?int $selectedAgtTenantId = null;
     public string $agtTestEnvironment = 'sandbox';
     public array $agtTestResult = [];
@@ -176,8 +183,10 @@ class SoftwareSettings extends Component
     }
 
     /**
-     * Estado da chave do produtor. Nunca carrega a chave PRIVADA para o ecrã —
-     * só a impressão digital, para se confirmar qual está instalada sem a expor.
+     * Estado da chave do produtor instalada neste ambiente.
+     *
+     * Nunca carrega a chave PRIVADA para o ecrã — só a impressão digital da
+     * pública, para se confirmar qual está em uso sem a expor.
      */
     private function carregarEstadoChaveProdutor(): void
     {
@@ -185,6 +194,7 @@ class SoftwareSettings extends Component
         $caminho  = \App\Services\AGT\AGTProducerStore::publicKeyPath($ambiente);
 
         $this->hasProducerKeys = \App\Services\AGT\AGTProducerStore::temChaves($ambiente);
+        $this->chavesProprias  = \App\Services\AGT\AGTProducerStore::temChavesProprias($ambiente);
         $this->producerKeyInfo = [];
 
         if (!$this->hasProducerKeys) {
@@ -201,14 +211,12 @@ class SoftwareSettings extends Component
                 $this->producerKeyInfo = [
                     'bits'        => $detalhes['bits'] ?? null,
                     'tipo'        => ($detalhes['type'] ?? null) === OPENSSL_KEYTYPE_RSA ? 'RSA' : 'outro',
-                    // SHA-256 do DER da chave pública: identifica o par sem o revelar
+                    // SHA-256 do PEM: identifica o par sem o revelar
                     'impressao'   => strtoupper(substr(hash('sha256', $pem), 0, 32)),
                     'actualizada' => date('d/m/Y H:i', $disco->lastModified($caminho)),
+                    'caminho'     => $caminho,
                     'ambiente'    => $this->rotuloAmbiente($ambiente),
-                    // Diz se este ambiente tem par próprio ou está a usar o
-                    // legado — sem isto, o ecrã dizia "configurada" nos dois e
-                    // parecia que já estavam separados quando não estavam.
-                    'propria'     => \App\Services\AGT\AGTProducerStore::temChavesProprias($ambiente),
+                    'propria'     => $this->chavesProprias,
                 ];
             }
         } catch (\Throwable $e) {
@@ -216,96 +224,6 @@ class SoftwareSettings extends Component
         }
     }
 
-    /**
-     * Instala (ou substitui) o par RSA do produtor.
-     *
-     * Valida que é um par RSA válido E que a privada corresponde à pública
-     * ANTES de gravar: uma chave trocada só se descobriria quando a AGT
-     * começasse a recusar todos os documentos de todas as empresas.
-     */
-    public function saveProducerKeys(): void
-    {
-        abort_unless(auth()->user()?->isPlatformSuperAdmin(), 403);
-
-        $this->validate([
-            'producerPublicKey'  => 'required|string',
-            'producerPrivateKey' => 'required|string',
-        ], [], [
-            'producerPublicKey'  => 'chave pública',
-            'producerPrivateKey' => 'chave privada',
-        ]);
-
-        $publica = trim($this->producerPublicKey);
-        $privada = trim($this->producerPrivateKey);
-
-        $recursoPublico = openssl_pkey_get_public($publica);
-        if (!$recursoPublico) {
-            $this->addError('producerPublicKey', 'Não é uma chave pública PEM válida.');
-            return;
-        }
-
-        $recursoPrivado = openssl_pkey_get_private($privada);
-        if (!$recursoPrivado) {
-            $this->addError('producerPrivateKey', 'Não é uma chave privada PEM válida (se tiver palavra-passe, remova-a primeiro).');
-            return;
-        }
-
-        // O par tem de casar: assinar com a privada e verificar com a pública.
-        $amostra = 'sos-erp-verificacao-' . bin2hex(random_bytes(8));
-        $assinatura = '';
-
-        if (!openssl_sign($amostra, $assinatura, $recursoPrivado, OPENSSL_ALGO_SHA256)
-            || openssl_verify($amostra, $assinatura, $recursoPublico, OPENSSL_ALGO_SHA256) !== 1) {
-            $this->addError('producerPrivateKey', 'A chave privada não corresponde à pública. Cole o par completo.');
-            return;
-        }
-
-        $detalhes = openssl_pkey_get_details($recursoPublico);
-        if (($detalhes['type'] ?? null) !== OPENSSL_KEYTYPE_RSA) {
-            $this->addError('producerPublicKey', 'A AGT exige RSA.');
-            return;
-        }
-        if (($detalhes['bits'] ?? 0) < 2048) {
-            $this->addError('producerPublicKey', 'A chave tem de ter pelo menos 2048 bits.');
-            return;
-        }
-
-        $disco    = \Illuminate\Support\Facades\Storage::disk('local');
-        $ambiente = $this->ambienteProdutor();
-        $pasta    = \App\Services\AGT\AGTProducerStore::directory($ambiente);
-
-        // Cópia da anterior: substituir a chave do produtor por engano deixaria
-        // todas as empresas desse ambiente sem forma de comunicar com a AGT.
-        // A cópia guarda o ambiente no nome — sem isso, duas substituições no
-        // mesmo minuto em ambientes diferentes ficavam indistinguíveis.
-        $anteriorPublica = \App\Services\AGT\AGTProducerStore::publicKeyPath($ambiente);
-        $anteriorPrivada = \App\Services\AGT\AGTProducerStore::privateKeyPath($ambiente);
-
-        if ($disco->exists($anteriorPublica) && $disco->exists($anteriorPrivada)) {
-            $carimbo = now()->format('Ymd_His');
-            $disco->put("saft/backup/{$carimbo}_{$ambiente}_public_key.pem", $disco->get($anteriorPublica));
-            $disco->put("saft/backup/{$carimbo}_{$ambiente}_private_key.pem", $disco->get($anteriorPrivada));
-        }
-
-        // Grava SEMPRE na pasta do ambiente, nunca no caminho legado: é assim
-        // que os dois deixam de partilhar o mesmo par.
-        $disco->put($pasta . '/public_key.pem', $publica . "\n");
-        $disco->put($pasta . '/private_key.pem', $privada . "\n");
-
-        \Illuminate\Support\Facades\Log::warning('AGT: chave do produtor substituída', [
-            'ambiente' => $ambiente,
-            'user_id'  => auth()->id(),
-            'bits'     => $detalhes['bits'] ?? null,
-            'ip'       => request()?->ip(),
-        ]);
-
-        $this->producerPublicKey = '';
-        $this->producerPrivateKey = '';
-        $this->carregarEstadoProdutor();
-
-        session()->flash('message', 'Chave do produtor instalada para ' . $this->rotuloAmbiente($ambiente) . '. A anterior ficou guardada em saft/backup/.');
-        session()->flash('message-type', 'success');
-    }
 
     public function saveAgtProducerCredentials(): void
     {
@@ -313,7 +231,11 @@ class SoftwareSettings extends Component
 
         $this->validate([
             'agt_basic_username' => 'required|string|max:255',
-            'agt_basic_password' => $this->hasGlobalCredentials
+            // "Deixar vazio para manter" só vale quando há uma password PRÓPRIA
+            // deste ambiente para manter. A do recurso partilhado não conta:
+            // gravar só o username deixava-o a autenticar-se com o username de
+            // um ambiente e a password do outro.
+            'agt_basic_password' => $this->credenciaisProprias
                 ? 'nullable|string|max:1000'
                 : 'required|string|max:1000',
         ]);
@@ -410,10 +332,14 @@ class SoftwareSettings extends Component
 
         $credenciais = $loja::credenciais($ambiente);
 
-        $this->agt_basic_username    = $credenciais['username'];
+        // Só o username PRÓPRIO do ambiente. Mostrar o do recurso partilhado
+        // fazia o campo não mudar ao trocar de ambiente e, pior, exibia um
+        // username de homologação debaixo do rótulo "Produção" — parecia
+        // configurado quando não estava. Em falta, o campo fica vazio e o
+        // aviso ao lado explica de onde vem o que está a ser usado.
+        $this->agt_basic_username    = $credenciais['proprias'] ? $credenciais['username'] : '';
         $this->hasGlobalCredentials  = $loja::temCredenciais($ambiente);
         $this->credenciaisProprias   = $credenciais['proprias'];
-        $this->chavesProprias        = $loja::temChavesProprias($ambiente);
 
         $this->carregarEstadoChaveProdutor();
     }

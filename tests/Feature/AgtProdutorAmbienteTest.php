@@ -35,6 +35,101 @@ class AgtProdutorAmbienteTest extends TenantTestCase
         Storage::disk('local')->put($pasta . '/private_key.pem', "-- privada {$pasta} --");
     }
 
+    /** Só o super admin da plataforma abre este ecrã. */
+    private function comoSuperAdmin(): \Livewire\Features\SupportTesting\Testable
+    {
+        $this->user->forceFill(['is_super_admin' => true])->save();
+
+        // O ecrã abre no separador de facturação; a secção AGT está no seu.
+        return \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\SuperAdmin\SoftwareSettings::class)
+            ->set('activeModule', 'agt');
+    }
+
+    public function test_trocar_de_ambiente_troca_o_username_no_ecra(): void
+    {
+        // O campo não mudava ao trocar o seletor: mostrava o username do
+        // recurso partilhado nos dois lados. Ficava um username de homologação
+        // debaixo do rótulo "Produção", com ar de configurado.
+        config([
+            'services.agt.username'            => 'legado',
+            'services.agt.password'            => 'legado',
+            'services.agt.sandbox.username'    => 'ws.hml.Empresa',
+            'services.agt.sandbox.password'    => 'p-hml',
+            'services.agt.production.username' => 'ws.prd.Empresa',
+            'services.agt.production.password' => 'p-prd',
+        ]);
+
+        $this->comoSuperAdmin()
+            ->assertSet('agt_basic_username', 'ws.hml.Empresa')
+            ->set('produtorAmbiente', 'production')
+            ->assertSet('agt_basic_username', 'ws.prd.Empresa');
+    }
+
+    public function test_ambiente_sem_credenciais_proprias_mostra_campo_vazio(): void
+    {
+        // Vazio, não o username partilhado: pré-preencher com o do outro
+        // ambiente é que fazia parecer que já estava configurado.
+        config([
+            'services.agt.username'            => 'ws.hml.Empresa',
+            'services.agt.password'            => 'p-hml',
+            'services.agt.sandbox.username'    => null,
+            'services.agt.sandbox.password'    => null,
+            'services.agt.production.username' => null,
+            'services.agt.production.password' => null,
+        ]);
+
+        $this->comoSuperAdmin()
+            ->set('produtorAmbiente', 'production')
+            ->assertSet('agt_basic_username', '')
+            ->assertSet('credenciaisProprias', false)
+            // Continua a haver credenciais utilizáveis — as partilhadas.
+            ->assertSet('hasGlobalCredentials', true);
+    }
+
+    public function test_nao_se_grava_username_sem_password_no_primeiro_ambiente(): void
+    {
+        // Sem password própria, gravar só o username deixava o ambiente a
+        // autenticar-se com o username de um e a password do outro.
+        config([
+            'services.agt.username'            => 'legado',
+            'services.agt.password'            => 'legado',
+            'services.agt.production.username' => null,
+            'services.agt.production.password' => null,
+        ]);
+
+        $this->comoSuperAdmin()
+            ->set('produtorAmbiente', 'production')
+            ->set('agt_basic_username', 'ws.prd.Empresa')
+            ->set('agt_basic_password', '')
+            ->call('saveAgtProducerCredentials')
+            ->assertHasErrors('agt_basic_password');
+    }
+
+    public function test_o_ecra_nao_tem_campos_para_colar_a_chave(): void
+    {
+        // A chave do produtor já existe e é gerada fora daqui. Os campos só
+        // convidavam a substituir, por engano, a chave que assina os documentos
+        // de todas as empresas ao mesmo tempo.
+        $this->escreverChaves('saft/sandbox');
+
+        $this->comoSuperAdmin()
+            ->assertDontSee('BEGIN PRIVATE KEY')
+            ->assertDontSee('Instalar chave')
+            ->assertDontSee('Substituir chave')
+            // Mas continua a dizer qual está instalada.
+            ->assertSee('Chave RSA do Produtor de Software')
+            ->assertSet('hasProducerKeys', true);
+    }
+
+    public function test_diz_quando_nao_encontra_a_chave(): void
+    {
+        // "Instalada" com a chave ausente mandava procurar no sítio errado.
+        $this->comoSuperAdmin()
+            ->assertSet('hasProducerKeys', false)
+            ->assertSee('Nenhuma chave encontrada');
+    }
+
     public function test_cada_ambiente_usa_a_sua_chave(): void
     {
         $this->escreverChaves('saft/sandbox');

@@ -291,16 +291,14 @@
                                                 <strong>Homologação.</strong> Só afecta as empresas em ambiente de testes.
                                             @endif
 
-                                            @if(!$credenciaisProprias || !$chavesProprias)
+                                            @unless($credenciaisProprias)
                                                 <p class="mt-2 pt-2 border-t border-current/20">
                                                     <i class="fas fa-circle-info mr-1"></i>
-                                                    Este ambiente ainda não tem
-                                                    @if(!$credenciaisProprias && !$chavesProprias) credenciais nem chave próprias
-                                                    @elseif(!$credenciaisProprias) credenciais próprias
-                                                    @else chave própria @endif
-                                                    e está a usar o conjunto antigo, partilhado com o outro ambiente.
+                                                    Este ambiente ainda não tem credenciais próprias e está a usar as
+                                                    antigas, partilhadas com o outro ambiente. Preencha os dois campos
+                                                    para as separar.
                                                 </p>
-                                            @endif
+                                            @endunless
                                         </div>
                                     </div>
                                 </div>
@@ -348,12 +346,13 @@
                                 </form>
                             </div>
 
-                            {{-- Chave RSA do produtor de software --}}
-                            {{-- Assina a jwsSoftwareSignature de todos os documentos, de
-                                 todas as empresas. Não confundir com as chaves do
-                                 contribuinte, que são por empresa e vivem em
-                                 Faturação › AGT. Até aqui só se instalava por linha
-                                 de comandos, o que exigia acesso ao servidor. --}}
+                            {{-- Chave RSA do produtor: só estado.
+
+                                 A chave já existe e é gerada fora daqui. Havia
+                                 campos para colar um par novo, que não serviam
+                                 para nada a não ser convidar a substituir, por
+                                 engano, a chave que assina os documentos de
+                                 todas as empresas ao mesmo tempo. --}}
                             <div class="mb-7 rounded-2xl border border-gray-200 bg-white p-5">
                                 <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                                     <div>
@@ -363,79 +362,61 @@
                                         </h3>
                                         <p class="text-gray-500 text-xs mt-1">
                                             Assina a <code class="text-[11px] bg-gray-100 px-1 rounded">jwsSoftwareSignature</code>
-                                            de todos os documentos, de todas as empresas. É a chave do SOS ERP
-                                            enquanto produtor — as chaves do contribuinte configuram-se em cada empresa.
+                                            de todos os documentos, de todas as empresas. Já está instalada —
+                                            aqui só se confirma qual é. As chaves do contribuinte configuram-se
+                                            em cada empresa, em <strong>Facturação › Definições AGT</strong>.
                                         </p>
                                     </div>
-                                    <span class="inline-flex self-start items-center px-3 py-1.5 rounded-full text-xs font-bold
+                                    <span class="inline-flex self-start items-center px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap
                                         {{ $hasProducerKeys ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
                                         <i class="fas fa-{{ $hasProducerKeys ? 'check-circle' : 'times-circle' }} mr-1.5"></i>
-                                        {{ $hasProducerKeys ? 'Instalada' : 'Em falta' }}
+                                        {{ $hasProducerKeys ? 'Instalada' : 'Não encontrada' }}
                                     </span>
                                 </div>
 
                                 @if($hasProducerKeys && !empty($producerKeyInfo) && empty($producerKeyInfo['erro']))
-                                <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs bg-gray-50 rounded-xl p-3">
-                                    <div>
-                                        <p class="text-gray-500 mb-0.5">Tipo</p>
-                                        <p class="font-bold text-gray-900">{{ $producerKeyInfo['tipo'] }} {{ $producerKeyInfo['bits'] }} bits</p>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                        <div class="rounded-xl bg-gray-50 p-3">
+                                            <p class="text-[10px] text-gray-500 uppercase tracking-wide">Tipo</p>
+                                            <p class="font-bold text-gray-800 mt-0.5">{{ $producerKeyInfo['tipo'] }} {{ $producerKeyInfo['bits'] }} bits</p>
+                                        </div>
+                                        <div class="rounded-xl bg-gray-50 p-3">
+                                            <p class="text-[10px] text-gray-500 uppercase tracking-wide">Actualizada</p>
+                                            <p class="font-bold text-gray-800 mt-0.5">{{ $producerKeyInfo['actualizada'] }}</p>
+                                        </div>
+                                        <div class="rounded-xl bg-gray-50 p-3 col-span-2">
+                                            <p class="text-[10px] text-gray-500 uppercase tracking-wide">Impressão digital (SHA-256)</p>
+                                            <p class="font-mono text-[10px] text-gray-700 mt-0.5 break-all">{{ $producerKeyInfo['impressao'] }}</p>
+                                        </div>
                                     </div>
-                                    <div class="col-span-2">
-                                        <p class="text-gray-500 mb-0.5">Impressão digital</p>
-                                        <p class="font-mono font-bold text-gray-900 text-[11px] break-all">{{ $producerKeyInfo['impressao'] }}</p>
-                                    </div>
-                                    <div>
-                                        <p class="text-gray-500 mb-0.5">Instalada em</p>
-                                        <p class="font-bold text-gray-900">{{ $producerKeyInfo['actualizada'] }}</p>
-                                    </div>
-                                </div>
-                                @endif
 
-                                <div class="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                                    <p class="text-xs text-amber-800">
-                                        <i class="fas fa-triangle-exclamation mr-1"></i>
-                                        Substituir esta chave afecta <strong>todas as empresas</strong>: a AGT passa a
-                                        recusar documentos assinados com a anterior. A chave em uso é guardada
-                                        automaticamente numa cópia antes de ser trocada. Cole sempre o par completo.
+                                    <p class="mt-3 text-[11px] text-gray-500">
+                                        <i class="fas fa-folder-open mr-1"></i>
+                                        <code class="bg-gray-100 px-1 rounded">storage/app/private/{{ $producerKeyInfo['caminho'] }}</code>
+                                        @unless($producerKeyInfo['propria'])
+                                            — partilhada com o outro ambiente.
+                                        @endunless
                                     </p>
-                                </div>
-
-                                <form wire:submit.prevent="saveProducerKeys">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                        <div>
-                                            <label class="block text-xs font-semibold text-gray-600 mb-2">Chave pública (PEM)</label>
-                                            <textarea wire:model="producerPublicKey" rows="7" spellcheck="false" autocomplete="off"
-                                                      class="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 font-mono text-[11px]"
-                                                      placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea>
-                                            @error('producerPublicKey') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-semibold text-gray-600 mb-2">Chave privada (PEM)</label>
-                                            <textarea wire:model="producerPrivateKey" rows="7" spellcheck="false" autocomplete="new-password"
-                                                      class="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 font-mono text-[11px]"
-                                                      placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
-                                            @error('producerPrivateKey') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
-                                        </div>
+                                @elseif(!empty($producerKeyInfo['erro']))
+                                    <div class="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+                                        <i class="fas fa-triangle-exclamation mr-1"></i>
+                                        A chave existe mas não foi possível lê-la: {{ $producerKeyInfo['erro'] }}
                                     </div>
-
-                                    <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
-                                        <p class="text-[11px] text-gray-500">
-                                            Guardada em <code class="bg-gray-100 px-1 rounded">storage/app/private/saft/</code>,
-                                            fora da pasta pública. O par é verificado antes de gravar.
-                                        </p>
-                                        <button type="submit"
-                                                wire:target="saveProducerKeys"
-                                                wire:loading.attr="disabled"
-                                                class="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded-xl hover:from-orange-600 hover:to-red-600 transition shadow disabled:opacity-60 whitespace-nowrap">
-                                            <span wire:loading.remove wire:target="saveProducerKeys">
-                                                <i class="fas fa-key mr-1.5"></i>{{ $hasProducerKeys ? 'Substituir chave' : 'Instalar chave' }}
-                                            </span>
-                                            <span wire:loading wire:target="saveProducerKeys">
-                                                <i class="fas fa-spinner fa-spin mr-1.5"></i>A verificar...
-                                            </span>
-                                        </button>
+                                @else
+                                    {{-- "Não encontrada" com a chave a existir no servidor é
+                                         quase sempre o caminho: o disco `local` aponta para
+                                         storage/app/private desde o Laravel 11. --}}
+                                    <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                                        <i class="fas fa-triangle-exclamation mr-1"></i>
+                                        Nenhuma chave encontrada para
+                                        <strong>{{ $produtorAmbiente === 'production' ? 'Produção' : 'Homologação' }}</strong>.
+                                        Procurou-se em <code class="bg-white/70 px-1 rounded">storage/app/private/saft/{{ $produtorAmbiente }}/</code>
+                                        e em <code class="bg-white/70 px-1 rounded">storage/app/private/saft/</code>.
+                                        Se a chave existe no servidor noutro sítio — por exemplo em
+                                        <code class="bg-white/70 px-1 rounded">storage/app/saft/</code>, o caminho antigo —
+                                        é preciso movê-la, senão nenhum documento é assinado.
                                     </div>
-                                </form>
+                                @endif
                             </div>
 
                             {{-- Consola de testes AGT --}}
