@@ -144,7 +144,11 @@ class AgtProdutorAmbienteTest extends TenantTestCase
             ->assertSet('agt_basic_username', '')
             ->assertSet('credenciaisProprias', false)
             // Continua a haver credenciais utilizáveis — as partilhadas.
-            ->assertSet('hasGlobalCredentials', true);
+            ->assertSet('hasGlobalCredentials', true)
+            // E tem de continuar a ver-se qual é: campo vazio sem mais nada
+            // fazia parecer que a credencial se tinha perdido.
+            ->assertSet('usernameHerdado', 'ws.hml.Empresa')
+            ->assertSee('ws.hml.Empresa');
     }
 
     public function test_nao_se_grava_username_sem_password_no_primeiro_ambiente(): void

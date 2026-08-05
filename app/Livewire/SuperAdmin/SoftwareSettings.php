@@ -45,6 +45,15 @@ class SoftwareSettings extends Component
     public bool $credenciaisProprias = false;
 
     /**
+     * Username que este ambiente está a herdar das partilhadas.
+     *
+     * Não vai no campo — vai no placeholder. Pô-lo no campo fazia parecer que
+     * o ambiente já estava configurado; escondê-lo por completo fazia parecer
+     * que se tinha perdido. Continua a ser o que autentica.
+     */
+    public string $usernameHerdado = '';
+
+    /**
      * Estado da chave RSA do produtor — só leitura.
      *
      * A chave já existe e é gerada fora daqui; o ecrã serve para confirmar qual
@@ -338,6 +347,7 @@ class SoftwareSettings extends Component
         // configurado quando não estava. Em falta, o campo fica vazio e o
         // aviso ao lado explica de onde vem o que está a ser usado.
         $this->agt_basic_username    = $credenciais['proprias'] ? $credenciais['username'] : '';
+        $this->usernameHerdado       = $credenciais['proprias'] ? '' : $credenciais['username'];
         $this->hasGlobalCredentials  = $loja::temCredenciais($ambiente);
         $this->credenciaisProprias   = $credenciais['proprias'];
 

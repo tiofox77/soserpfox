@@ -331,10 +331,20 @@
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-600 mb-2">Username</label>
+                                            {{-- O username herdado vai no placeholder, não no campo.
+                                                 No campo parecia que este ambiente já estava
+                                                 configurado; escondido de todo parecia que se tinha
+                                                 perdido. É o que autentica hoje, e vê-se. --}}
                                             <input type="text" wire:model="agt_basic_username" autocomplete="off"
                                                    class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm"
-                                                   placeholder="Username fornecido pela AGT">
+                                                   placeholder="{{ $usernameHerdado !== '' ? $usernameHerdado . '  (partilhado — em uso)' : 'Username fornecido pela AGT' }}">
                                             @error('agt_basic_username') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
+                                            @if($usernameHerdado !== '')
+                                                <p class="mt-1 text-[11px] text-gray-500">
+                                                    Em uso: <strong class="font-mono">{{ $usernameHerdado }}</strong>, das credenciais
+                                                    partilhadas. Preencha os dois campos só para dar a este ambiente as suas.
+                                                </p>
+                                            @endif
                                         </div>
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-600 mb-2">Password</label>
