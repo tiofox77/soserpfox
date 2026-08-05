@@ -18,14 +18,26 @@
         <div class="p-6">
             <!-- Product Info -->
             <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <p class="text-xs text-gray-600 mb-1">Produto</p>
                         <p class="text-lg font-bold text-gray-900">{{ $adjustProductName }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600 mb-1">Stock Atual</p>
+                        {{-- Qual armazém: com seis deles, ajustar sem saber onde
+                             é como se corrige a prateleira errada. --}}
+                        <p class="text-xs text-gray-600 mb-1">Armazém</p>
+                        <p class="text-lg font-bold text-gray-900">{{ $adjustWarehouseName }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 mb-1">Neste armazém</p>
                         <p class="text-2xl font-bold text-blue-600">{{ number_format($adjustCurrentQty, 0) }}</p>
+                        <p class="text-[11px] text-gray-500">
+                            total do artigo: <strong>{{ number_format($adjustCurrentQty + $adjustTotalOutros, 0) }}</strong>
+                            @if($adjustTotalOutros > 0)
+                                ({{ number_format($adjustTotalOutros, 0) }} noutros armazéns)
+                            @endif
+                        </p>
                     </div>
                 </div>
             </div>
@@ -42,7 +54,7 @@
                             type="number" 
                             step="1" 
                             min="0"
-                            wire:model="adjustNewQty" 
+                            wire:model.live.debounce.300ms="adjustNewQty" 
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition text-2xl font-bold text-center"
                             placeholder="0">
                         @error('adjustNewQty') 
@@ -50,14 +62,31 @@
                         @enderror
                     </div>
 
-                    <!-- Difference -->
-                    @if($adjustNewQty && $adjustNewQty != $adjustCurrentQty)
-                        <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
+                    {{-- Diferença E o total resultante.
+                         Antes só se via a diferença: quem ajusta uma prateleira
+                         não fazia ideia de com quanto o artigo ficava ao todo,
+                         que é o número pelo qual depois se responde. --}}
+                    @if($adjustNewQty !== null && $adjustNewQty !== '' && (float) $adjustNewQty != (float) $adjustCurrentQty)
+                        @php
+                            $__delta = (float) $adjustNewQty - (float) $adjustCurrentQty;
+                            $__totalDepois = (float) $adjustNewQty + (float) $adjustTotalOutros;
+                        @endphp
+                        <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 space-y-2">
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-semibold text-gray-700">Diferença:</span>
-                                <span class="text-2xl font-bold {{ ($adjustNewQty - $adjustCurrentQty) > 0 ? 'text-green-600' : 'text-red-600' }}">
-                                    {{ ($adjustNewQty - $adjustCurrentQty) > 0 ? '+' : '' }}{{ number_format($adjustNewQty - $adjustCurrentQty, 0) }}
+                                <span class="text-sm font-semibold text-gray-700">Diferença neste armazém:</span>
+                                <span class="text-2xl font-bold {{ $__delta > 0 ? 'text-green-600' : 'text-red-600' }}">
+                                    {{ $__delta > 0 ? '+' : '' }}{{ number_format($__delta, 0) }}
                                 </span>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-yellow-300 pt-2">
+                                <span class="text-sm font-semibold text-gray-700">
+                                    {{ $adjustWarehouseName }} fica com:
+                                </span>
+                                <span class="text-xl font-bold text-gray-900">{{ number_format((float) $adjustNewQty, 0) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-semibold text-gray-700">Total do artigo fica com:</span>
+                                <span class="text-xl font-bold text-blue-700">{{ number_format($__totalDepois, 0) }}</span>
                             </div>
                         </div>
                     @endif

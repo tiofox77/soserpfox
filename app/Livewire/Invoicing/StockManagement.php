@@ -57,6 +57,17 @@ class StockManagement extends Component
     public $adjustNewQty;
     public $adjustNotes;
 
+    /**
+     * Contexto do ajuste: em QUE armazém se está a mexer e quanto o artigo tem
+     * ao todo.
+     *
+     * O modal mostrava só "Stock Atual" — o da linha — sem dizer de que armazém
+     * era nem quanto o artigo tinha no total. Com seis armazéns, ajustar às
+     * cegas é como o operador acaba a corrigir a prateleira errada.
+     */
+    public $adjustWarehouseName = '';
+    public $adjustTotalOutros = 0;
+
     // Transfer Form
     public $transferProductId;
     public $transferProductName;
@@ -144,7 +155,7 @@ class StockManagement extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para ajustar stock.');
         $stock = Stock::where('tenant_id', activeTenantId())
-            ->with('product')
+            ->with(['product', 'warehouse'])
             ->findOrFail($stockId);
 
         $this->adjustStockId = $stock->id;
@@ -154,6 +165,16 @@ class StockManagement extends Component
         $this->adjustCurrentQty = (int) $stock->quantity;
         $this->adjustNewQty = (int) $stock->quantity;
         $this->adjustNotes = '';
+
+        $this->adjustWarehouseName = $stock->warehouse->name ?? ('Armazém #' . $stock->warehouse_id);
+
+        // O que o artigo tem nos OUTROS armazéns. Somado à quantidade nova dá o
+        // total do artigo depois do ajuste — que é o número que interessa a
+        // quem está a conferir a prateleira e não vê os outros depósitos.
+        $this->adjustTotalOutros = (float) Stock::where('tenant_id', activeTenantId())
+            ->where('product_id', $stock->product_id)
+            ->where('id', '<>', $stock->id)
+            ->sum('quantity');
 
         $this->showAdjustModal = true;
     }

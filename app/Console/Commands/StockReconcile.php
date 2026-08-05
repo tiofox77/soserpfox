@@ -19,14 +19,101 @@ class StockReconcile extends Command
     protected $signature = 'stock:reconcile
                             {--tenant= : ID do tenant (opcional, todos se omitido)}
                             {--dry-run : Apenas mostra divergências, não corrige}
-                            {--fix-negatives : Zera linhas de invoicing_stocks com quantidade negativa (com movimento de ajuste registado) antes de reconciliar}';
+                            {--fix-negatives : Zera linhas de invoicing_stocks com quantidade negativa (com movimento de ajuste registado) antes de reconciliar}
+                            {--vendas : Só diagnostica: quantas linhas de venda não deixaram baixa de stock, e desde quando}';
 
     protected $description = 'Reconcilia invoicing_products.stock_quantity com a soma de invoicing_stocks';
+
+    /**
+     * Vendas que não deixaram baixa de stock.
+     *
+     * Responde à pergunta que o rastreio de um artigo levanta e não explica:
+     * "foram vendidas 12 e só saíram 10 — isto é de agora ou é herança?".
+     *
+     * Só CONTA. Não devolve números de documento, clientes nem valores — pode
+     * correr em produção sem expor nada.
+     *
+     * As linhas importadas do sistema anterior (source_billing 'P') contam-se à
+     * parte: nunca passaram por esta aplicação, por isso é natural não terem
+     * movimento e não são defeito nenhum.
+     */
+    private function diagnosticarVendasSemBaixa($tenantId): int
+    {
+        $this->info('=== Vendas sem baixa de stock ===');
+        $this->newLine();
+
+        $base = DB::table('invoicing_sales_invoice_items as it')
+            ->join('invoicing_sales_invoices as i', 'i.id', '=', 'it.sales_invoice_id')
+            ->join('invoicing_products as p', 'p.id', '=', 'it.product_id')
+            ->whereIn('i.status', ['sent', 'paid', 'partially_paid', 'overdue'])
+            ->whereNull('i.deleted_at')
+            // Serviços e artigos sem gestão de stock não têm baixa a fazer.
+            ->where('p.manage_stock', 1)
+            ->where('p.type', 'produto');
+
+        if ($tenantId) {
+            $base->where('i.tenant_id', $tenantId);
+        }
+
+        $semBaixa = fn () => (clone $base)->whereNotExists(function ($q) {
+            $q->select(DB::raw(1))
+              ->from('invoicing_stock_movements as m')
+              ->whereColumn('m.reference_id', 'i.id')
+              ->whereColumn('m.product_id', 'it.product_id')
+              ->where('m.type', 'out');
+        });
+
+        $linhas = [];
+
+        foreach ([
+            ['Linhas de venda com gestão de stock', (clone $base)->count()],
+            ['  sem baixa registada',               $semBaixa()->count()],
+            ['    importadas (nunca passaram aqui)', $semBaixa()->where('i.source_billing', 'P')->count()],
+            ['    feitas NESTA aplicação',           $semBaixa()->where(fn ($q) => $q->where('i.source_billing', '<>', 'P')->orWhereNull('i.source_billing'))->count()],
+        ] as [$rotulo, $valor]) {
+            $linhas[] = [$rotulo, number_format($valor, 0, ',', '.')];
+        }
+
+        $this->table(['', 'Linhas'], $linhas);
+
+        // O que interessa mesmo: continua a acontecer HOJE?
+        $recentes = $semBaixa()
+            ->where(fn ($q) => $q->where('i.source_billing', '<>', 'P')->orWhereNull('i.source_billing'));
+
+        $this->newLine();
+        $this->info('Das feitas nesta aplicação, por antiguidade:');
+
+        $porPeriodo = [];
+
+        foreach ([7 => 'últimos 7 dias', 30 => 'últimos 30 dias', 90 => 'últimos 90 dias'] as $dias => $rotulo) {
+            $porPeriodo[] = [$rotulo, (clone $recentes)->where('i.invoice_date', '>=', now()->subDays($dias))->count()];
+        }
+
+        $porPeriodo[] = ['mais antigas', (clone $recentes)->where('i.invoice_date', '<', now()->subDays(90))->count()];
+
+        $this->table(['Período', 'Linhas'], $porPeriodo);
+
+        $ultimas7 = (clone $recentes)->where('i.invoice_date', '>=', now()->subDays(7))->count();
+
+        $this->newLine();
+
+        if ($ultimas7 > 0) {
+            $this->error("ATENÇÃO: {$ultimas7} venda(s) da última semana sem baixa de stock. O problema é ACTUAL.");
+        } else {
+            $this->info('Nenhuma venda da última semana sem baixa. O que existe é herança, não um defeito activo.');
+        }
+
+        return self::SUCCESS;
+    }
 
     public function handle(): int
     {
         $tenantId = $this->option('tenant');
         $dryRun = $this->option('dry-run');
+
+        if ($this->option('vendas')) {
+            return $this->diagnosticarVendasSemBaixa($tenantId);
+        }
 
         $this->info('=== Stock Reconcile ===');
         $this->info($dryRun ? '(modo dry-run — nenhuma alteração será feita)' : '(modo REAL — dados serão corrigidos)');
