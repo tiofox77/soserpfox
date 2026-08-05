@@ -131,13 +131,15 @@ class AGTHttpClient
 
     private function client(): PendingRequest
     {
+        // Credenciais do PRODUTOR para ESTE ambiente. A AGT entrega conjuntos
+        // diferentes para homologação e produção; usar o de testes contra a API
+        // real dá 401 e nenhum documento passa.
+        $credenciais = AGTProducerStore::credenciais($this->environment);
+
         return Http::timeout(60)
             ->acceptJson()
             ->asJson()
-            ->withBasicAuth(
-                (string) config('services.agt.username'),
-                (string) config('services.agt.password')
-            )
+            ->withBasicAuth($credenciais['username'], $credenciais['password'])
             ->withHeaders([
                 'X-Tenant-Id' => (string) $this->tenantId,
             ]);

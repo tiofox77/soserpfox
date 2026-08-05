@@ -253,14 +253,56 @@
                                             Credenciais API do Produtor
                                         </h3>
                                         <p class="text-gray-500 text-xs mt-1">
-                                            Basic Auth emitido pela AGT ao produtor SOS ERP. Aplica-se a todas as empresas.
+                                            Basic Auth emitido pela AGT ao produtor SOS ERP. Cada empresa usa o conjunto
+                                            do ambiente em que está — quem está em homologação usa o de homologação,
+                                            quem está em produção usa o de produção.
                                         </p>
                                     </div>
-                                    <span class="inline-flex self-start items-center px-3 py-1.5 rounded-full text-xs font-bold
-                                        {{ $hasGlobalCredentials ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                                        <i class="fas fa-{{ $hasGlobalCredentials ? 'check-circle' : 'times-circle' }} mr-1.5"></i>
-                                        {{ $hasGlobalCredentials ? 'Configuradas' : 'Não configuradas' }}
-                                    </span>
+                                    <div class="flex items-center gap-2 self-start">
+                                        <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold
+                                            {{ $hasGlobalCredentials ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                            <i class="fas fa-{{ $hasGlobalCredentials ? 'check-circle' : 'times-circle' }} mr-1.5"></i>
+                                            {{ $hasGlobalCredentials ? 'Configuradas' : 'Não configuradas' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- Seletor de ambiente.
+                                     Escolhe qual dos dois conjuntos se está a PREENCHER. Não muda
+                                     o ambiente de nenhuma empresa — cada uma tem o seu, em
+                                     Faturação › Definições AGT, e é ele que decide qual se usa. --}}
+                                <div class="mb-5 rounded-xl border-2 {{ $produtorAmbiente === 'production' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50' }} p-4">
+                                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                                        <div class="flex-1">
+                                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">A configurar</label>
+                                            <select wire:model.live="produtorAmbiente"
+                                                    class="w-full sm:w-72 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                                                <option value="sandbox">Homologação (sandbox)</option>
+                                                <option value="production">Produção</option>
+                                            </select>
+                                        </div>
+                                        <div class="text-xs {{ $produtorAmbiente === 'production' ? 'text-red-700' : 'text-amber-800' }} sm:max-w-md">
+                                            @if($produtorAmbiente === 'production')
+                                                <i class="fas fa-triangle-exclamation mr-1"></i>
+                                                <strong>Produção.</strong> O que gravar aqui passa a assinar e a submeter
+                                                documentos reais das empresas que estejam em produção.
+                                            @else
+                                                <i class="fas fa-flask mr-1"></i>
+                                                <strong>Homologação.</strong> Só afecta as empresas em ambiente de testes.
+                                            @endif
+
+                                            @if(!$credenciaisProprias || !$chavesProprias)
+                                                <p class="mt-2 pt-2 border-t border-current/20">
+                                                    <i class="fas fa-circle-info mr-1"></i>
+                                                    Este ambiente ainda não tem
+                                                    @if(!$credenciaisProprias && !$chavesProprias) credenciais nem chave próprias
+                                                    @elseif(!$credenciaisProprias) credenciais próprias
+                                                    @else chave própria @endif
+                                                    e está a usar o conjunto antigo, partilhado com o outro ambiente.
+                                                </p>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <form wire:submit.prevent="saveAgtProducerCredentials">

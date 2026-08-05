@@ -31,6 +31,20 @@ class SoftwareSettings extends Component
     //
     // Até agora só existia por linha de comandos (agt:producer-key), o que
     // obrigava a acesso ao servidor para a instalar ou substituir.
+    /**
+     * Ambiente que este ecrã está a CONFIGURAR.
+     *
+     * Não é o ambiente activo de ninguém: cada empresa tem o seu, e é ele que
+     * decide qual destes conjuntos se usa ao assinar e ao submeter. Aqui só se
+     * escolhe qual dos dois se está a preencher — trocar o seletor não muda
+     * nada em produção.
+     */
+    public string $produtorAmbiente = 'sandbox';
+
+    /** As credenciais/chaves deste ambiente são as próprias, ou as legadas? */
+    public bool $credenciaisProprias = false;
+    public bool $chavesProprias = false;
+
     public string $producerPublicKey = '';
     public string $producerPrivateKey = '';
     public bool $hasProducerKeys = false;
@@ -158,11 +172,7 @@ class SoftwareSettings extends Component
 
     private function loadAgtProducerCredentials(): void
     {
-        $this->agt_basic_username = (string) config('services.agt.username', '');
-        $this->hasGlobalCredentials = $this->agt_basic_username !== ''
-            && !empty(config('services.agt.password'));
-
-        $this->carregarEstadoChaveProdutor();
+        $this->carregarEstadoProdutor();
     }
 
     /**
@@ -171,7 +181,10 @@ class SoftwareSettings extends Component
      */
     private function carregarEstadoChaveProdutor(): void
     {
-        $this->hasProducerKeys = SAFTHelper::keysExist();
+        $ambiente = $this->ambienteProdutor();
+        $caminho  = \App\Services\AGT\AGTProducerStore::publicKeyPath($ambiente);
+
+        $this->hasProducerKeys = \App\Services\AGT\AGTProducerStore::temChaves($ambiente);
         $this->producerKeyInfo = [];
 
         if (!$this->hasProducerKeys) {
@@ -180,7 +193,7 @@ class SoftwareSettings extends Component
 
         try {
             $disco = \Illuminate\Support\Facades\Storage::disk('local');
-            $pem = $disco->get('saft/public_key.pem');
+            $pem = $disco->get($caminho);
             $recurso = openssl_pkey_get_public($pem);
 
             if ($recurso) {
@@ -190,7 +203,12 @@ class SoftwareSettings extends Component
                     'tipo'        => ($detalhes['type'] ?? null) === OPENSSL_KEYTYPE_RSA ? 'RSA' : 'outro',
                     // SHA-256 do DER da chave pública: identifica o par sem o revelar
                     'impressao'   => strtoupper(substr(hash('sha256', $pem), 0, 32)),
-                    'actualizada' => date('d/m/Y H:i', $disco->lastModified('saft/public_key.pem')),
+                    'actualizada' => date('d/m/Y H:i', $disco->lastModified($caminho)),
+                    'ambiente'    => $this->rotuloAmbiente($ambiente),
+                    // Diz se este ambiente tem par próprio ou está a usar o
+                    // legado — sem isto, o ecrã dizia "configurada" nos dois e
+                    // parecia que já estavam separados quando não estavam.
+                    'propria'     => \App\Services\AGT\AGTProducerStore::temChavesProprias($ambiente),
                 ];
             }
         } catch (\Throwable $e) {
@@ -252,30 +270,40 @@ class SoftwareSettings extends Component
             return;
         }
 
-        $disco = \Illuminate\Support\Facades\Storage::disk('local');
+        $disco    = \Illuminate\Support\Facades\Storage::disk('local');
+        $ambiente = $this->ambienteProdutor();
+        $pasta    = \App\Services\AGT\AGTProducerStore::directory($ambiente);
 
         // Cópia da anterior: substituir a chave do produtor por engano deixaria
-        // todas as empresas sem forma de comunicar com a AGT.
-        if (SAFTHelper::keysExist()) {
+        // todas as empresas desse ambiente sem forma de comunicar com a AGT.
+        // A cópia guarda o ambiente no nome — sem isso, duas substituições no
+        // mesmo minuto em ambientes diferentes ficavam indistinguíveis.
+        $anteriorPublica = \App\Services\AGT\AGTProducerStore::publicKeyPath($ambiente);
+        $anteriorPrivada = \App\Services\AGT\AGTProducerStore::privateKeyPath($ambiente);
+
+        if ($disco->exists($anteriorPublica) && $disco->exists($anteriorPrivada)) {
             $carimbo = now()->format('Ymd_His');
-            $disco->put("saft/backup/{$carimbo}_public_key.pem", $disco->get('saft/public_key.pem'));
-            $disco->put("saft/backup/{$carimbo}_private_key.pem", $disco->get('saft/private_key.pem'));
+            $disco->put("saft/backup/{$carimbo}_{$ambiente}_public_key.pem", $disco->get($anteriorPublica));
+            $disco->put("saft/backup/{$carimbo}_{$ambiente}_private_key.pem", $disco->get($anteriorPrivada));
         }
 
-        $disco->put('saft/public_key.pem', $publica . "\n");
-        $disco->put('saft/private_key.pem', $privada . "\n");
+        // Grava SEMPRE na pasta do ambiente, nunca no caminho legado: é assim
+        // que os dois deixam de partilhar o mesmo par.
+        $disco->put($pasta . '/public_key.pem', $publica . "\n");
+        $disco->put($pasta . '/private_key.pem', $privada . "\n");
 
         \Illuminate\Support\Facades\Log::warning('AGT: chave do produtor substituída', [
-            'user_id' => auth()->id(),
-            'bits'    => $detalhes['bits'] ?? null,
-            'ip'      => request()?->ip(),
+            'ambiente' => $ambiente,
+            'user_id'  => auth()->id(),
+            'bits'     => $detalhes['bits'] ?? null,
+            'ip'       => request()?->ip(),
         ]);
 
         $this->producerPublicKey = '';
         $this->producerPrivateKey = '';
-        $this->carregarEstadoChaveProdutor();
+        $this->carregarEstadoProdutor();
 
-        session()->flash('message', 'Chave do produtor instalada. A anterior ficou guardada em saft/backup/.');
+        session()->flash('message', 'Chave do produtor instalada para ' . $this->rotuloAmbiente($ambiente) . '. A anterior ficou guardada em saft/backup/.');
         session()->flash('message-type', 'success');
     }
 
@@ -300,21 +328,30 @@ class SoftwareSettings extends Component
             return;
         }
 
-        $updates = ['AGT_API_USERNAME' => $username];
+        // Grava no conjunto do AMBIENTE seleccionado. A AGT entrega credenciais
+        // diferentes para homologação e produção, e antes só havia um par: pôr
+        // as de produção obrigava a apagar as de homologação, deixando quem
+        // ainda testava sem forma de o fazer.
+        $ambiente = $this->ambienteProdutor();
+        $prefixo  = $ambiente === 'production' ? 'AGT_PRODUCTION_API' : 'AGT_SANDBOX_API';
+
+        $updates = ["{$prefixo}_USERNAME" => $username];
         if ($this->agt_basic_password !== '') {
-            $updates['AGT_API_PASSWORD'] = $this->agt_basic_password;
+            $updates["{$prefixo}_PASSWORD"] = $this->agt_basic_password;
         }
 
         $this->writeEnvironmentValues($updates);
         Artisan::call('config:clear');
-        config(['services.agt.username' => $updates['AGT_API_USERNAME']]);
-        if (isset($updates['AGT_API_PASSWORD'])) {
-            config(['services.agt.password' => $updates['AGT_API_PASSWORD']]);
+
+        config(["services.agt.{$ambiente}.username" => $updates["{$prefixo}_USERNAME"]]);
+        if (isset($updates["{$prefixo}_PASSWORD"])) {
+            config(["services.agt.{$ambiente}.password" => $updates["{$prefixo}_PASSWORD"]]);
         }
 
         $this->agt_basic_password = '';
-        $this->hasGlobalCredentials = true;
-        session()->flash('message', 'Credenciais globais do produtor actualizadas com sucesso.');
+        $this->carregarEstadoProdutor();
+
+        session()->flash('message', 'Credenciais do produtor para ' . $this->rotuloAmbiente($ambiente) . ' actualizadas com sucesso.');
         session()->flash('message-type', 'success');
     }
 
@@ -322,21 +359,63 @@ class SoftwareSettings extends Component
     {
         abort_unless(auth()->user()?->isPlatformSuperAdmin(), 403);
 
+        $ambiente = $this->ambienteProdutor();
+        $prefixo  = $ambiente === 'production' ? 'AGT_PRODUCTION_API' : 'AGT_SANDBOX_API';
+
         $this->writeEnvironmentValues([
-            'AGT_API_USERNAME' => '',
-            'AGT_API_PASSWORD' => '',
+            "{$prefixo}_USERNAME" => '',
+            "{$prefixo}_PASSWORD" => '',
         ]);
         Artisan::call('config:clear');
         config([
-            'services.agt.username' => null,
-            'services.agt.password' => null,
+            "services.agt.{$ambiente}.username" => null,
+            "services.agt.{$ambiente}.password" => null,
         ]);
 
         $this->agt_basic_username = '';
         $this->agt_basic_password = '';
-        $this->hasGlobalCredentials = false;
-        session()->flash('message', 'Credenciais globais do produtor removidas.');
+        $this->carregarEstadoProdutor();
+
+        session()->flash('message', 'Credenciais do produtor para ' . $this->rotuloAmbiente($ambiente) . ' removidas.');
         session()->flash('message-type', 'success');
+    }
+
+    /** Ambiente que o ecrã está a configurar (não muda nada em produção). */
+    private function ambienteProdutor(): string
+    {
+        return \App\Services\AGT\AGTProducerStore::normalizar($this->produtorAmbiente);
+    }
+
+    private function rotuloAmbiente(string $ambiente): string
+    {
+        return $ambiente === 'production' ? 'PRODUÇÃO' : 'homologação';
+    }
+
+    /** Trocar o seletor recarrega o estado do outro ambiente. */
+    public function updatedProdutorAmbiente(): void
+    {
+        $this->carregarEstadoProdutor();
+    }
+
+    /**
+     * Estado do ambiente seleccionado: credenciais e chaves.
+     *
+     * Nunca traz a palavra-passe nem a chave privada para o ecrã — só diz se
+     * estão configuradas e se são as do ambiente ou as legadas.
+     */
+    private function carregarEstadoProdutor(): void
+    {
+        $ambiente = $this->ambienteProdutor();
+        $loja     = \App\Services\AGT\AGTProducerStore::class;
+
+        $credenciais = $loja::credenciais($ambiente);
+
+        $this->agt_basic_username    = $credenciais['username'];
+        $this->hasGlobalCredentials  = $loja::temCredenciais($ambiente);
+        $this->credenciaisProprias   = $credenciais['proprias'];
+        $this->chavesProprias        = $loja::temChavesProprias($ambiente);
+
+        $this->carregarEstadoChaveProdutor();
     }
 
     public function updatedSelectedAgtTenantId($tenantId): void

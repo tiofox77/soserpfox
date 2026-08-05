@@ -37,7 +37,20 @@ class AGTPayloadBuilder
     public function __construct(InvoicingSettings $settings, ?JwsSigner $signer = null)
     {
         $this->settings = $settings;
-        $this->softwareSigner = new JwsSigner();
+
+        // Assinatura do PRODUTOR com a chave do ambiente activo da empresa.
+        // Antes era sempre `saft/private_key.pem`: uma empresa em produção
+        // assinava com a chave de produtor de homologação e a AGT recusava.
+        $ambienteProdutor = AGTProducerStore::normalizar($settings->agt_environment ?? null);
+
+        $this->softwareSigner = new JwsSigner(
+            Storage::disk('local')->exists(AGTProducerStore::privateKeyPath($ambienteProdutor))
+                ? Storage::disk('local')->get(AGTProducerStore::privateKeyPath($ambienteProdutor))
+                : null,
+            Storage::disk('local')->exists(AGTProducerStore::publicKeyPath($ambienteProdutor))
+                ? Storage::disk('local')->get(AGTProducerStore::publicKeyPath($ambienteProdutor))
+                : null
+        );
         if ($signer) {
             $this->signer = $signer;
             return;

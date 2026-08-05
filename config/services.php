@@ -35,9 +35,28 @@ return [
         ],
     ],
 
+    /*
+     * Credenciais do PRODUTOR de software junto da AGT.
+     *
+     * A AGT entrega conjuntos diferentes para homologação e para produção. As
+     * chaves de topo (sem ambiente) são o par legado: continuam a servir de
+     * recurso para os dois ambientes enquanto os específicos não existirem —
+     * ver AGTProducerStore::credenciais(). É o que hoje autentica todas as
+     * submissões, e cortá-lo às cegas parava-as.
+     */
     'agt' => [
         'username' => env('AGT_API_USERNAME'),
         'password' => env('AGT_API_PASSWORD'),
+
+        'sandbox' => [
+            'username' => env('AGT_SANDBOX_API_USERNAME'),
+            'password' => env('AGT_SANDBOX_API_PASSWORD'),
+        ],
+
+        'production' => [
+            'username' => env('AGT_PRODUCTION_API_USERNAME'),
+            'password' => env('AGT_PRODUCTION_API_PASSWORD'),
+        ],
     ],
 
 ];

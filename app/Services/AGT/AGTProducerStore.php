@@ -1,0 +1,141 @@
+<?php
+
+namespace App\Services\AGT;
+
+use App\Models\Invoicing\InvoicingSettings;
+use Illuminate\Support\Facades\Storage;
+
+/**
+ * Credenciais e chaves do PRODUTOR de software, por ambiente.
+ *
+ * O produtor — o SOS ERP — tem as suas próprias credenciais e o seu próprio par
+ * RSA junto da AGT, distintos dos do contribuinte. E a AGT entrega conjuntos
+ * DIFERENTES para homologação e para produção, tal como faz com os do
+ * contribuinte.
+ *
+ * Até aqui havia um único conjunto: `saft/{public,private}_key.pem` e um par
+ * `AGT_API_USERNAME`/`AGT_API_PASSWORD`. Uma empresa em produção assinava com a
+ * chave de produtor de testes e autenticava-se com as credenciais de testes —
+ * e a AGT de produção recusa ambas. Instalar as de produção obrigava a apagar
+ * as de homologação, deixando quem ainda testava sem forma de o fazer.
+ *
+ * Estrutura, igual à que o AGTKeyStore já usa para o contribuinte:
+ *   saft/sandbox/{public,private}_key.pem
+ *   saft/production/{public,private}_key.pem
+ *
+ * O caminho legado `saft/{public,private}_key.pem` continua a ser lido como
+ * recurso, para as instalações que ainda não separaram os ambientes.
+ */
+class AGTProducerStore
+{
+    public const AMBIENTES = ['sandbox', 'production'];
+
+    public static function normalizar(?string $ambiente): string
+    {
+        return in_array($ambiente, self::AMBIENTES, true) ? $ambiente : 'sandbox';
+    }
+
+    /** Ambiente activo de uma empresa — é ele que decide o conjunto a usar. */
+    public static function ambienteDaEmpresa(?int $tenantId): string
+    {
+        if (!$tenantId) {
+            return 'sandbox';
+        }
+
+        return self::normalizar(InvoicingSettings::forTenant($tenantId)->agt_environment ?? null);
+    }
+
+    public static function directory(string $ambiente): string
+    {
+        return 'saft/' . self::normalizar($ambiente);
+    }
+
+    /**
+     * Caminho efectivo de uma chave do produtor.
+     *
+     * Recorre ao caminho legado quando o do ambiente ainda não existe — nos
+     * DOIS ambientes, ao contrário do que se faz com as chaves do contribuinte.
+     *
+     * A diferença é deliberada: no contribuinte sabia-se que as chaves antigas
+     * eram de homologação, e deixar produção cair nelas assinaria documentos
+     * reais com a chave errada. Aqui não se sabe qual é — o par legado pode ser
+     * o de produção, que é o que hoje assina os documentos de todas as empresas.
+     * Assumir que é de testes e cortá-lo em produção partia a facturação de
+     * quem já está a funcionar. Fica o recurso, e o ecrã diz claramente quando
+     * um ambiente está a usar o par legado em vez do seu.
+     */
+    public static function keyPath(string $ambiente, string $tipo): string
+    {
+        $ficheiro = $tipo === 'private' ? 'private_key.pem' : 'public_key.pem';
+        $doAmbiente = self::directory($ambiente) . '/' . $ficheiro;
+
+        if (Storage::disk('local')->exists($doAmbiente)) {
+            return $doAmbiente;
+        }
+
+        return 'saft/' . $ficheiro;
+    }
+
+    public static function publicKeyPath(string $ambiente): string
+    {
+        return self::keyPath($ambiente, 'public');
+    }
+
+    public static function privateKeyPath(string $ambiente): string
+    {
+        return self::keyPath($ambiente, 'private');
+    }
+
+    /** Há par de chaves utilizável neste ambiente (próprio ou legado)? */
+    public static function temChaves(string $ambiente): bool
+    {
+        $disco = Storage::disk('local');
+
+        return $disco->exists(self::publicKeyPath($ambiente))
+            && $disco->exists(self::privateKeyPath($ambiente));
+    }
+
+    /** As chaves deste ambiente são as PRÓPRIAS, ou está a usar as legadas? */
+    public static function temChavesProprias(string $ambiente): bool
+    {
+        $disco = Storage::disk('local');
+        $dir = self::directory($ambiente);
+
+        return $disco->exists($dir . '/public_key.pem')
+            && $disco->exists($dir . '/private_key.pem');
+    }
+
+    /**
+     * Credenciais de acesso à API da AGT para este ambiente.
+     *
+     * Recorre ao par sem ambiente pela mesma razão das chaves: é o que hoje
+     * autentica todas as submissões e cortá-lo às cegas parava-as.
+     *
+     * @return array{username:string, password:string, proprias:bool}
+     */
+    public static function credenciais(string $ambiente): array
+    {
+        $ambiente = self::normalizar($ambiente);
+
+        $utilizador = (string) config("services.agt.{$ambiente}.username", '');
+        $palavra    = (string) config("services.agt.{$ambiente}.password", '');
+
+        if ($utilizador !== '' && $palavra !== '') {
+            return ['username' => $utilizador, 'password' => $palavra, 'proprias' => true];
+        }
+
+        return [
+            'username' => (string) config('services.agt.username', ''),
+            'password' => (string) config('services.agt.password', ''),
+            'proprias' => false,
+        ];
+    }
+
+    /** Estão configuradas credenciais utilizáveis neste ambiente? */
+    public static function temCredenciais(string $ambiente): bool
+    {
+        $c = self::credenciais($ambiente);
+
+        return $c['username'] !== '' && $c['password'] !== '';
+    }
+}
