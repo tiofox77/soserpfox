@@ -19,6 +19,7 @@ class StockMovement extends Model
         'product_id',
         'type',
         'quantity',
+        'balance_before',
         'balance_after',
         'unit_cost',
         'total_cost',
@@ -33,6 +34,7 @@ class StockMovement extends Model
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'balance_before' => 'decimal:4',
         'balance_after' => 'decimal:4',
         'unit_cost' => 'decimal:2',
         'total_cost' => 'decimal:2',
@@ -73,12 +75,82 @@ class StockMovement extends Model
         parent::boot();
 
         static::created(function ($movement) {
-            if (static::$ignorarAplicacaoAoStock) {
-                return;
+            if (!static::$ignorarAplicacaoAoStock) {
+                $movement->updateStock();
             }
 
-            $movement->updateStock();
+            // Depois de o stock estar aplicado — venha daqui ou de quem chamou.
+            $movement->carimbarSaldos();
         });
+    }
+
+    /**
+     * Grava o saldo antes e depois deste movimento.
+     *
+     * A coluna "Saldo" do histórico vinha vazia em todas as linhas: só o ecrã
+     * de ajustes preenchia balance_after, e vendas, entradas e transferências
+     * deixavam-no nulo. Sem saldos não se lê o histórico — sobretudo nos
+     * ajustes, cuja quantidade é o valor FINAL e não uma variação.
+     *
+     * Corre depois de o stock estar aplicado, por isso o saldo lido É o de
+     * depois. O de antes deriva-se do efeito do movimento; num ajuste não pode
+     * derivar-se (a quantidade não é uma variação) e por isso só fica gravado
+     * quando quem o criou o indicar.
+     */
+    public function carimbarSaldos(): void
+    {
+        $depois = $this->balance_after !== null
+            ? (float) $this->balance_after
+            : $this->saldoActual();
+
+        if ($depois === null) {
+            return;
+        }
+
+        $antes = $this->balance_before !== null ? (float) $this->balance_before : null;
+
+        if ($antes === null) {
+            $qtd = (float) $this->quantity;
+
+            $antes = match ($this->type) {
+                'in'       => $depois - $qtd,
+                'out'      => $depois + $qtd,
+                // A perna que este movimento representa é a do warehouse_id.
+                'transfer' => $this->to_warehouse_id === $this->warehouse_id
+                    ? $depois - abs($qtd)
+                    : $depois + abs($qtd),
+                // Ajuste: a quantidade é o valor final, não dá para derivar.
+                default    => null,
+            };
+        }
+
+        $this->balance_after  = $depois;
+        $this->balance_before = $antes;
+
+        // saveQuietly: voltar a disparar `created` reaplicava o stock.
+        $this->saveQuietly();
+    }
+
+    /** Saldo actual do produto neste armazém, ou o agregado se não houver linha. */
+    private function saldoActual(): ?float
+    {
+        if (!$this->warehouse_id || !$this->product_id) {
+            return null;
+        }
+
+        $linha = Stock::where('tenant_id', $this->tenant_id)
+            ->where('warehouse_id', $this->warehouse_id)
+            ->where('product_id', $this->product_id)
+            ->first();
+
+        if ($linha) {
+            return (float) $linha->quantity;
+        }
+
+        // Sem linha: o produto pode viver do agregado (ver BaixaDeStock).
+        $produto = \App\Models\Product::find($this->product_id);
+
+        return $produto ? (float) ($produto->stock_quantity ?? 0) : null;
     }
 
     // Relacionamentos

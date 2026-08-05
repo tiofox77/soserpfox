@@ -68,7 +68,8 @@
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
                                 <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Quantidade</th>
-                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Saldo</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Saldo anterior</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Saldo actual</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Documento</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Observações</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Utilizador</th>
@@ -104,12 +105,27 @@
                                         {{ $movement->warehouse->name ?? 'N/A' }}
                                     </td>
                                     <td class="px-4 py-3 text-center whitespace-nowrap">
+                                        @php
+                                            // Num ajuste a quantidade gravada é o valor FINAL, não uma
+                                            // variação — "= 18" não dizia se subiu ou desceu, nem quanto.
+                                            // Com os dois saldos mostra-se a variação verdadeira.
+                                            $temSaldos = $movement->balance_before !== null && $movement->balance_after !== null;
+                                            $variacao = $temSaldos
+                                                ? (float) $movement->balance_after - (float) $movement->balance_before
+                                                : null;
+                                        @endphp
                                         @if($movement->type === 'adjustment')
-                                            {{-- Num ajuste a quantidade é o valor FINAL, não uma variação:
-                                                 pôr-lhe um "+" à frente lia-se como uma entrada. --}}
-                                            <span class="text-lg font-bold text-yellow-700">
-                                                = {{ number_format($movement->quantity, 2) }}
-                                            </span>
+                                            @if($variacao !== null)
+                                                <span class="text-lg font-bold {{ $variacao < 0 ? 'text-red-600' : ($variacao > 0 ? 'text-green-600' : 'text-gray-500') }}">
+                                                    {{ $variacao > 0 ? '+' : ($variacao < 0 ? '−' : '') }}{{ number_format(abs($variacao), 2) }}
+                                                </span>
+                                                <span class="block text-[10px] text-yellow-700 font-semibold uppercase tracking-wide">ajustada</span>
+                                            @else
+                                                <span class="text-lg font-bold text-yellow-700">
+                                                    = {{ number_format($movement->quantity, 2) }}
+                                                </span>
+                                                <span class="block text-[10px] text-gray-400">valor final</span>
+                                            @endif
                                         @elseif($movement->type === 'transfer')
                                             <span class="text-lg font-bold text-blue-600">
                                                 ⇄ {{ number_format($movement->quantity, 2) }}
@@ -120,8 +136,25 @@
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-center text-sm text-gray-700 whitespace-nowrap">
-                                        {{ $movement->balance_after !== null ? number_format($movement->balance_after, 2) : '—' }}
+                                    <td class="px-4 py-3 text-center text-sm whitespace-nowrap">
+                                        @if($movement->balance_before !== null)
+                                            <span class="font-mono {{ (float) $movement->balance_before < 0 ? 'text-red-600 font-bold' : 'text-gray-600' }}">
+                                                {{ number_format($movement->balance_before, 2) }}
+                                            </span>
+                                        @else
+                                            {{-- Movimentos anteriores a esta coluna existir. Melhor
+                                                 vazio do que um número reconstruído a fingir de registo. --}}
+                                            <span class="text-gray-300" title="Movimento anterior ao registo de saldos">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-sm whitespace-nowrap">
+                                        @if($movement->balance_after !== null)
+                                            <span class="font-mono font-bold {{ (float) $movement->balance_after < 0 ? 'text-red-600' : 'text-gray-800' }}">
+                                                {{ number_format($movement->balance_after, 2) }}
+                                            </span>
+                                        @else
+                                            <span class="text-gray-300" title="Movimento anterior ao registo de saldos">—</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap">
                                         @if($movement->batch_reference)
