@@ -54,6 +54,17 @@ class SoftwareSettings extends Component
     public string $usernameHerdado = '';
 
     /**
+     * Número do Processo de Certificação deste ambiente.
+     *
+     * A AGT certifica o software em separado em homologação e em produção, e
+     * emite uma resolução para cada. Havia um só, o de produção, e ia também
+     * nas chamadas a homologação — que respondia E39.
+     */
+    public string $certificacaoAmbiente = '';
+    public bool $certificacaoPropria = false;
+    public string $certificacaoHerdada = '';
+
+    /**
      * Estado da chave RSA do produtor — só leitura.
      *
      * A chave já existe e é gerada fora daqui; o ecrã serve para confirmar qual
@@ -247,6 +258,7 @@ class SoftwareSettings extends Component
             'agt_basic_password' => $this->credenciaisProprias
                 ? 'nullable|string|max:1000'
                 : 'required|string|max:1000',
+            'certificacaoAmbiente' => 'nullable|string|max:100',
         ]);
 
         $username = trim($this->agt_basic_username);
@@ -277,6 +289,19 @@ class SoftwareSettings extends Component
         config(["services.agt.{$ambiente}.username" => $updates["{$prefixo}_USERNAME"]]);
         if (isset($updates["{$prefixo}_PASSWORD"])) {
             config(["services.agt.{$ambiente}.password" => $updates["{$prefixo}_PASSWORD"]]);
+        }
+
+        // Número de certificação do mesmo ambiente. Guarda-se aqui porque é a
+        // mesma coisa: o que a AGT emitiu ao produtor para este ambiente.
+        $certificacao = trim($this->certificacaoAmbiente);
+        if ($certificacao !== '') {
+            \App\Models\SoftwareSetting::set(
+                'invoicing',
+                "saft_software_cert_{$ambiente}",
+                $certificacao,
+                'string',
+                'Processo de Certificação AGT — ' . $this->rotuloAmbiente($ambiente)
+            );
         }
 
         $this->agt_basic_password = '';
@@ -350,6 +375,10 @@ class SoftwareSettings extends Component
         $this->usernameHerdado       = $credenciais['proprias'] ? '' : $credenciais['username'];
         $this->hasGlobalCredentials  = $loja::temCredenciais($ambiente);
         $this->credenciaisProprias   = $credenciais['proprias'];
+
+        $this->certificacaoPropria  = $loja::temCertificacaoPropria($ambiente);
+        $this->certificacaoAmbiente = $this->certificacaoPropria ? $loja::numeroCertificacao($ambiente) : '';
+        $this->certificacaoHerdada  = $this->certificacaoPropria ? '' : $loja::numeroCertificacao($ambiente);
 
         $this->carregarEstadoChaveProdutor();
     }

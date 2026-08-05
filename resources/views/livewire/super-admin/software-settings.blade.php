@@ -362,6 +362,29 @@
                                         </div>
                                     </div>
 
+                                    {{-- Número da certificação, também por ambiente.
+                                         Vai dentro do que a jwsSoftwareSignature assina; o
+                                         de produção enviado a homologação dá E39. --}}
+                                    <div class="mt-5">
+                                        <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                            Processo de Certificação — {{ $produtorAmbiente === 'production' ? 'Produção' : 'Homologação' }}
+                                        </label>
+                                        <input type="text" wire:model="certificacaoAmbiente" autocomplete="off"
+                                               class="w-full md:w-1/2 px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 text-sm font-mono"
+                                               placeholder="{{ $certificacaoHerdada !== '' ? $certificacaoHerdada . '  (partilhado — em uso)' : 'FE/000/AGT/2026' }}">
+                                        @error('certificacaoAmbiente') <span class="block text-xs text-red-600 mt-1">{{ $message }}</span> @enderror
+                                        <p class="mt-1 text-[11px] text-gray-500">
+                                            @if($certificacaoHerdada !== '')
+                                                Em uso: <strong class="font-mono">{{ $certificacaoHerdada }}</strong>, do valor único antigo.
+                                                A AGT emite uma resolução por ambiente — se este não for o deste ambiente,
+                                                as submissões vêm recusadas com <strong>E39</strong>.
+                                            @else
+                                                Vai em <code class="text-[10px] bg-gray-100 px-1 rounded">softwareValidationNumber</code>,
+                                                dentro da assinatura do produtor.
+                                            @endif
+                                        </p>
+                                    </div>
+
                                     <div class="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
                                         @if($hasGlobalCredentials)
                                             <button type="button" wire:click="clearAgtProducerCredentials"

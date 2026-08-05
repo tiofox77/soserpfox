@@ -101,10 +101,16 @@ class AGTPayloadBuilder
     /** softwareInfo + jwsSoftwareSignature */
     public function softwareInfo(): array
     {
+        // O número de certificação é POR AMBIENTE: a AGT certifica o software
+        // em separado em homologação e em produção. Mandar o de produção para
+        // homologação dá E39.
+        $ambiente = AGTProducerStore::normalizar($this->settings->agt_environment ?? null);
+
         $detail = [
             'productId'                => softwareSetting('invoicing', 'saft_product_id', $this->settings->agt_product_id ?? 'SOS ERP'),
             'productVersion'           => softwareSetting('invoicing', 'saft_version', $this->settings->agt_product_version ?? '1.0'),
-            'softwareValidationNumber' => softwareSetting('invoicing', 'saft_software_cert', $this->settings->agt_software_validation_number ?? 'C_000'),
+            'softwareValidationNumber' => AGTProducerStore::numeroCertificacao($ambiente)
+                ?: ($this->settings->agt_software_validation_number ?? 'C_000'),
             'signatureVersion'         => 1,
         ];
 

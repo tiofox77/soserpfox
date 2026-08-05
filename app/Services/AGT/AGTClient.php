@@ -740,7 +740,9 @@ class AGTClient
         $detail = [
             'productId' => softwareSetting('invoicing', 'saft_product_id', $this->settings->agt_product_id ?? 'SOS ERP - SOLUÇÕES EMPRESARIAIS'),
             'productVersion' => softwareSetting('invoicing', 'saft_version', $this->settings->agt_product_version ?? '1.0'),
-            'softwareValidationNumber' => softwareSetting('invoicing', 'saft_software_cert', $this->settings->agt_software_validation_number ?? 'C_PENDING'),
+            // Por ambiente: o número de produção enviado a homologação dá E39.
+            'softwareValidationNumber' => AGTProducerStore::numeroCertificacao($this->environment)
+                ?: ($this->settings->agt_software_validation_number ?? 'C_PENDING'),
         ];
 
         return [

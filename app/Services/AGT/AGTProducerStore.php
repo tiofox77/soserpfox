@@ -138,4 +138,40 @@ class AGTProducerStore
 
         return $c['username'] !== '' && $c['password'] !== '';
     }
+
+    /**
+     * Número do Processo de Certificação do Software, POR AMBIENTE.
+     *
+     * A AGT certifica o software separadamente em cada ambiente e emite uma
+     * resolução para cada um. Vai em `softwareValidationNumber`, dentro do que
+     * a jwsSoftwareSignature assina.
+     *
+     * Havia um só, e era o de produção: as chamadas a homologação levavam-no e
+     * a AGT devolvia E39 — «os dados constantes na assinatura do produtor de
+     * software não estão de acordo com a informação constante no Processo de
+     * Certificação». A assinatura estava boa; o número é que era do outro
+     * ambiente.
+     */
+    public static function numeroCertificacao(string $ambiente): string
+    {
+        $ambiente = self::normalizar($ambiente);
+
+        $doAmbiente = (string) softwareSetting('invoicing', "saft_software_cert_{$ambiente}", '');
+
+        if (trim($doAmbiente) !== '') {
+            return trim($doAmbiente);
+        }
+
+        // Recurso ao valor único de sempre, para não parar quem ainda não os
+        // separou. O ecrã diz quando é este o caso.
+        return trim((string) softwareSetting('invoicing', 'saft_software_cert', ''));
+    }
+
+    /** O número deste ambiente é o próprio, ou está a usar o antigo partilhado? */
+    public static function temCertificacaoPropria(string $ambiente): bool
+    {
+        $ambiente = self::normalizar($ambiente);
+
+        return trim((string) softwareSetting('invoicing', "saft_software_cert_{$ambiente}", '')) !== '';
+    }
 }
