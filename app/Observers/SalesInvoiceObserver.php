@@ -123,45 +123,41 @@ class SalesInvoiceObserver
                     ]);
                 }
                 
-                // Atualiza stock (total).
-                // first() e NÃO firstOrCreate(): criar a linha a zero e depois
-                // descontar min(qtd, 0) = 0 não descontava nada E ainda punha o
-                // produto em regime multi-armazém, o que faz o POS deixar de
-                // usar o agregado legado — o produto passava a aparecer
-                // esgotado na caixa por causa de uma venda.
-                $stock = Stock::where('tenant_id', $invoice->tenant_id)
-                    ->where('warehouse_id', $invoice->warehouse_id)
-                    ->where('product_id', $item->product_id)
-                    ->first();
+                // Baixa pela regra única (ver BaixaDeStock): desconta a
+                // quantidade TODA, mesmo que o armazém fique negativo, e nunca
+                // salta a linha em silêncio.
+                //
+                // Antes: sem linha neste armazém fazia `continue` — não
+                // descontava e não escrevia movimento, e a venda desaparecia do
+                // rastreio; com stock a menos descontava só o que havia, e o
+                // movimento registava a quantidade toda. Era daí que vinha
+                // "vendidas 12, saíram 10" sem nada que explicasse a diferença.
+                $produto = \App\Models\Product::where('tenant_id', $invoice->tenant_id)
+                    ->find($item->product_id);
 
-                if (!$stock) {
-                    \Log::warning('SalesInvoiceObserver: produto sem linha neste armazém — saída não registada', [
-                        'invoice_id'   => $invoice->id,
-                        'product_id'   => $item->product_id,
-                        'warehouse_id' => $invoice->warehouse_id,
+                if (!$produto) {
+                    \Log::warning('SalesInvoiceObserver: produto não encontrado', [
+                        'invoice_id' => $invoice->id,
+                        'product_id' => $item->product_id,
                     ]);
                     continue;
                 }
 
-                $disponivel = (float) $stock->quantity;
-                $quantityToReduce = min((float) $item->quantity, $disponivel);
+                $ficou = \App\Services\Invoicing\BaixaDeStock::aplicar(
+                    (int) $invoice->tenant_id,
+                    $invoice->warehouse_id ? (int) $invoice->warehouse_id : null,
+                    $produto,
+                    (float) $item->quantity
+                );
 
-                if ($quantityToReduce > 0) {
-                    // save() Eloquent (não decrement): dispara o StockObserver que
-                    // ressincroniza o agregado e o hook saving (available_quantity).
-                    $stock->quantity = $disponivel - $quantityToReduce;
-                    $stock->save();
-                }
-
-                if ($quantityToReduce < (float) $item->quantity) {
-                    // O documento fiscal sai com a quantidade toda mas o stock só
-                    // desce o que havia: fica registado para se poder acertar.
-                    \Log::warning('SalesInvoiceObserver: Stock insuficiente', [
-                        'invoice_id'            => $invoice->id,
-                        'product_id'            => $item->product_id,
-                        'stock_disponivel'      => $disponivel,
-                        'quantidade_solicitada' => (float) $item->quantity,
-                        'quantidade_descontada' => $quantityToReduce,
+                if ($ficou !== null && $ficou < 0) {
+                    // Negativo é informação, não erro: vendeu-se mais do que lá
+                    // havia. Fica registado para se acertar.
+                    \Log::warning('SalesInvoiceObserver: armazém ficou negativo', [
+                        'invoice_id'   => $invoice->id,
+                        'product_id'   => $item->product_id,
+                        'warehouse_id' => $invoice->warehouse_id,
+                        'ficou'        => $ficou,
                     ]);
                 }
 

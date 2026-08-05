@@ -20,7 +20,7 @@ class StockReconcile extends Command
                             {--tenant= : ID do tenant (opcional, todos se omitido)}
                             {--fix : Corrige mesmo. Sem esta opção o comando apenas SIMULA — e é assim de propósito, porque se alcança por URL}
                             {--dry-run : Mantido por compatibilidade; simular já é o comportamento por omissão}
-                            {--fix-negatives : Zera linhas de invoicing_stocks com quantidade negativa (com movimento de ajuste registado) antes de reconciliar}
+                            {--fix-negatives : Zera linhas negativas (com movimento de ajuste registado). ATENÇÃO: desde que a venda passou a descontar tudo, um negativo diz que se vendeu mais do que havia — confirme a contagem física ANTES de zerar, senão apaga-se essa informação}
                             {--vendas : Só diagnostica: quantas linhas de venda não deixaram baixa de stock, e desde quando}';
 
     protected $description = 'Reconcilia invoicing_products.stock_quantity com a soma de invoicing_stocks';
@@ -140,6 +140,10 @@ class StockReconcile extends Command
             }
             $negatives = $negQuery->get();
             $this->warn("Linhas negativas encontradas: {$negatives->count()}");
+            // Um negativo deixou de ser um valor impossível: desde que a venda
+            // desconta a quantidade toda, diz que se vendeu mais do que havia
+            // naquele armazém. Zerá-lo sem contar fisicamente apaga isso.
+            $this->warn('Um negativo significa que se vendeu mais do que havia. Confirme a contagem física antes de zerar.');
             foreach ($negatives as $row) {
                 $old = (float) $row->quantity;
                 $this->line("  tenant {$row->tenant_id} | produto {$row->product_id} | armazém {$row->warehouse_id} | {$old} → 0");

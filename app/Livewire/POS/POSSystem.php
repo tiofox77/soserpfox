@@ -958,20 +958,16 @@ class POSSystem extends Component
                         // products.stock_quantity = SUM(invoicing_stocks) no save() da linha.
                         // (A escrita manual antiga sobrepunha o valor do observer com um
                         // cálculo em memória, perpetuando divergências agregado/armazéns.)
-                        $stockRow = $this->warehouseId
-                            ? Stock::where('tenant_id', activeTenantId())
-                                ->where('warehouse_id', $this->warehouseId)
-                                ->where('product_id', $product->id)
-                                ->first()
-                            : null;
-                        if ($stockRow) {
-                            $stockRow->quantity = max(0, (float) $stockRow->quantity - (float) $item->quantity);
-                            $stockRow->save();   // dispara StockObserver → agregado ressincronizado
-                        } else {
-                            // Tenant legado sem linhas de armazém: o agregado é a própria store
-                            $product->stock_quantity = max(0, (float) $product->stock_quantity - (float) $item->quantity);
-                            $product->save();
-                        }
+                        // Regra única (BaixaDeStock): desconta a quantidade toda,
+                        // mesmo que o armazém fique negativo. O travão em zero
+                        // que aqui estava fazia o stock descer menos do que o
+                        // movimento registava.
+                        \App\Services\Invoicing\BaixaDeStock::aplicar(
+                            (int) activeTenantId(),
+                            $this->warehouseId ? (int) $this->warehouseId : null,
+                            $product,
+                            (float) $item->quantity
+                        );
 
                         // Ledger: registar o movimento da venda. semAplicarStock para o hook
                         // created do StockMovement não voltar a debitar (o stock já foi

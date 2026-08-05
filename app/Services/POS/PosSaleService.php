@@ -252,20 +252,17 @@ class PosSaleService
                 if (!$isService && $productId && is_numeric($productId)) {
                     $product = Product::where("tenant_id", $tenantId)->find($productId);
                     if ($product) {
-                        $stockRow = $whId
-                            ? \App\Models\Invoicing\Stock::where('tenant_id', $tenantId)
-                                ->where('warehouse_id', $whId)
-                                ->where('product_id', $product->id)
-                                ->first()
-                            : null;
-                        if ($stockRow) {
-                            $stockRow->quantity = max(0, (float) $stockRow->quantity - $qty);
-                            $stockRow->save();   // dispara StockObserver → agregado ressincronizado
-                        } else {
-                            // Tenant legado sem linhas de armazém: agregado é a própria store
-                            $product->stock_quantity = max(0, (float) $product->stock_quantity - $qty);
-                            $product->save();
-                        }
+                        // Regra única (BaixaDeStock): desconta a quantidade toda,
+                        // mesmo que o armazém fique negativo. O max(0, …) que
+                        // aqui estava travava o stock em zero enquanto o
+                        // movimento registava a quantidade toda — era essa a
+                        // origem de "vendidas 12, saíram 10".
+                        \App\Services\Invoicing\BaixaDeStock::aplicar(
+                            (int) $tenantId,
+                            $whId ? (int) $whId : null,
+                            $product,
+                            (float) $qty
+                        );
 
                         // Ledger: movimento da venda (semAplicarStock para o hook created
                         // não voltar a debitar — o stock já foi atualizado acima).
