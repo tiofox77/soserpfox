@@ -57,8 +57,30 @@ class AGTPayloadBuilder
         }
 
         // Chaves do AMBIENTE activo — sandbox e produção têm pares diferentes.
-        $priv = AGTKeyStore::privateKeyPath((int) $settings->tenant_id);
-        $pub  = AGTKeyStore::publicKeyPath((int) $settings->tenant_id);
+        // O ambiente vai explícito: sem ele o AGTKeyStore ia relê-lo à base de
+        // dados e ignorava o que estas definições dizem.
+        $priv = AGTKeyStore::privateKeyPath((int) $settings->tenant_id, $ambienteProdutor);
+        $pub  = AGTKeyStore::publicKeyPath((int) $settings->tenant_id, $ambienteProdutor);
+
+        // Falta a chave da empresa: parar aqui, e dizer porquê.
+        //
+        // Antes seguia em frente. O disco `local` tem throw=false, por isso um
+        // get() a um ficheiro inexistente devolve null; o JwsSigner, ao receber
+        // null, ia buscar saft/private_key.pem — a chave do PRODUTOR. Os
+        // documentos da empresa saíam assinados pela chave errada, sem erro nem
+        // registo, e a AGT recusava-os com uma mensagem que não apontava para
+        // nada. Basta uma empresa passar a produção sem lá ter instalado as
+        // chaves para cair neste caso.
+        if (!Storage::disk('local')->exists($priv)) {
+            throw new \RuntimeException(sprintf(
+                'A empresa %d não tem chave privada do contribuinte para %s. '
+                . 'Instale o par do Portal do Contribuinte em Facturação › Definições AGT '
+                . 'antes de comunicar com a AGT.',
+                (int) $settings->tenant_id,
+                $ambienteProdutor === 'production' ? 'Produção' : 'Homologação'
+            ));
+        }
+
         $private = Storage::disk('local')->get($priv);
         $public = Storage::disk('local')->exists($pub)
             ? Storage::disk('local')->get($pub)
