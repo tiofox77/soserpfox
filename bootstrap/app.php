@@ -24,6 +24,14 @@ return Application::configure(basePath: dirname(__DIR__))
         
         // Middleware para registrar último login
         $middleware->append(\App\Http\Middleware\RecordLastLogin::class);
+
+        // Faz andar as submissões AGT aproveitando o tráfego.
+        //
+        // Este alojamento não tem worker de fila — mediram-se 165 tarefas
+        // paradas e 160 documentos presos em "Enviada" sem se saber o
+        // desfecho. Corre em `terminate`, depois de a resposta seguir para o
+        // browser, com tranca de um minuto por empresa.
+        $middleware->appendToGroup('web', \App\Http\Middleware\DespacharAgtPendentes::class);
         
         // Com o sistema em manutenção, as rotas de manutenção continuam a
         // responder.
