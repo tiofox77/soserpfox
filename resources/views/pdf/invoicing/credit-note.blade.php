@@ -12,52 +12,65 @@
             box-sizing: border-box;
         }
         
+        /*
+         * Página, para o DomPDF.
+         *
+         * O documento saía cortado à direita e a passar para uma segunda
+         * página. A folha estava escrita para o browser: a caixa tinha 210 mm
+         * de largura fixa e as margens da página vinham por omissão (cerca de
+         * 25 mm de cada lado), portanto 210 + 50 mm num papel de 210. O que
+         * excedia caía fora.
+         *
+         * O @page estava declarado dentro de @media print, e a margem que ele
+         * anulava nunca chegava a ser aplicada. Aqui fora, é o próprio papel
+         * que define a margem, e o conteúdo ocupa o que sobra.
+         */
+        @page {
+            size: A4 portrait;
+            margin: 10mm 12mm;
+        }
+
         body {
             font-family: Arial, sans-serif;
             font-size: 9px;
             line-height: 1.1;
             color: #000;
-            background: #f5f5f5;
+            background: #fff;
             margin: 0;
-            padding: 20px 0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
+            padding: 0;
         }
-        
+
+        /*
+         * display:flex não existe no DomPDF — era ignorado, e com ele o
+         * alinhamento que dele dependia. Blocos normais, que é o que ele sabe
+         * compor.
+         */
         .page-wrapper {
-            width: 210mm;
-            min-height: 297mm;
-            max-height: 297mm;
+            width: 100%;
             background: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin: 0 auto;
-            padding: 10mm 12mm;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            display: block;
         }
         
         .main-content {
-            flex: 1;
+            display: block;
         }
         
         .header-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            display: table;
+            width: 100%;
             margin-bottom: 8px;
         }
         
         .company-info {
-            flex: 0 0 60%;
+            display: table-cell;
+            width: 62%;
+            vertical-align: top;
         }
         
         .logo-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
+            display: block;
             margin-bottom: 6px;
         }
         
@@ -106,12 +119,10 @@
         }
         
         .right-section {
-            flex: 0 0 35%;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            position: relative;
-            margin-top: 0;
+            display: table-cell;
+            width: 38%;
+            vertical-align: top;
+            text-align: right;
         }
         
         .client-info {
@@ -233,14 +244,15 @@
         }
         
         .bottom-section {
-            display: flex;
-            justify-content: space-between;
+            display: table;
+            width: 100%;
             margin-bottom: 8px;
         }
         
         .left-bottom {
-            flex: 1;
-            margin-right: 15px;
+            display: table-cell;
+            vertical-align: top;
+            padding-right: 15px;
         }
         
         .tax-section {
@@ -328,7 +340,9 @@
         }
         
         .right-bottom {
-            flex: 0 0 200px;
+            display: table-cell;
+            width: 200px;
+            vertical-align: top;
         }
         
         .summary-section {
@@ -338,8 +352,8 @@
         }
         
         .summary-row {
-            display: flex;
-            justify-content: space-between;
+            display: block;
+            overflow: hidden;
             margin-bottom: 1px;
             font-size: 8px;
         }
