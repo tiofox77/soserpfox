@@ -138,6 +138,18 @@ trait HasAGTSignature
             $query->where('series_id', $this->series_id);
         }
 
+        // O anterior é o anterior A ESTE, não o último da série.
+        //
+        // Sem isto, pegava-se no de maior id — incluindo os EMITIDOS DEPOIS.
+        // Num documento novo passava despercebido (é ele o maior e ainda não
+        // tem hash), mas ao voltar a assinar um documento já existente a
+        // cadeia partia-se: três documentos seguidos ficavam a apontar todos
+        // para o mesmo anterior, e o encadeamento SAF-T deixa de provar
+        // sequência nenhuma.
+        if ($this->exists && $this->getKey()) {
+            $query->where($this->getKeyName(), '<', $this->getKey());
+        }
+
         $previous = $query->orderBy('id', 'desc')->first();
 
         return $previous?->hash ?? $previous?->saft_hash ?? '';
