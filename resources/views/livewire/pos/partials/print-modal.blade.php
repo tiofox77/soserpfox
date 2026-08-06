@@ -209,7 +209,10 @@
             <div class="text-[10px] text-center space-y-1 text-gray-700">
                 <p class="font-bold mb-2">═══════════════════════</p>
                 <p class="font-bold">Processado por programa validado</p>
-                <p class="font-bold">Certificado AGT Nº {{ softwareSetting('invoicing', 'saft_software_cert', \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId())->agt_software_validation_number ?? 'PENDENTE') }}</p>
+                {{-- Pelo AGTHelper, que resolve o número do AMBIENTE da empresa.
+                     Lido directamente da definição única, o talão dizia FE/324
+                     (produção) em documentos emitidos em homologação. --}}
+                <p class="font-bold">Certificado AGT Nº {{ \App\Helpers\AGTHelper::softwareValidationNumber() }}</p>
                 <p class="mt-1">Software: SOS ERP - SOLUÇÕES EMPRESARIAIS</p>
                 @if($lastInvoice->saft_hash)
                 <p class="mt-2 font-mono text-[8px] break-all">HASH: {{ substr($lastInvoice->saft_hash, 0, 4) }}-{{ $lastInvoice->hash_control ?? '1' }}</p>

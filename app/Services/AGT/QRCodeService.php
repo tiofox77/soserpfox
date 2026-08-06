@@ -164,6 +164,38 @@ class QRCodeService
      *
      * Conforme documentação: https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe?emissor=NIF&document=DOC_NO
      */
+    /** Quiosque de produção — o endereço público de consulta. */
+    public const QUIOSQUE_PRODUCAO = 'https://quiosqueagt.minfin.gov.ao';
+
+    /** Quiosque de homologação. Em http responde 302; em https, 200. */
+    public const QUIOSQUE_HOMOLOGACAO = 'https://quiosqueagt.hml.minfin.gov.ao';
+
+    /**
+     * Base do quiosque para o ambiente da empresa.
+     *
+     * O URL estava fixo no de produção. Um documento emitido em homologação
+     * levava impresso um QR que aponta para o quiosque real, onde ele não
+     * existe — quem o lesse via "factura não encontrada" e ficava a pensar que
+     * a submissão tinha falhado, quando o problema era o endereço.
+     *
+     * Os dois endereços podem ser mudados em software_settings
+     * (invoicing.agt_kiosk_url_sandbox / _production) sem tocar no código, para
+     * o dia em que a AGT os mudar.
+     */
+    public function quiosqueBase($tenantId = null): string
+    {
+        $ambiente = AGTProducerStore::ambienteDaEmpresa($tenantId ? (int) $tenantId : null);
+
+        if ($ambiente === 'production') {
+            return rtrim((string) softwareSetting('invoicing', 'agt_kiosk_url_production', self::QUIOSQUE_PRODUCAO), '/');
+        }
+
+        return rtrim(
+            (string) softwareSetting('invoicing', 'agt_kiosk_url_sandbox', self::QUIOSQUE_HOMOLOGACAO),
+            '/'
+        );
+    }
+
     public function generateQRUrl($document): string
     {
         $nifEmissor = $document->tenant?->nif ?? $document->tenant?->tax_id ?? '';
@@ -178,7 +210,11 @@ class QRCodeService
         // Conforme doc: espaços substituídos por %20
         $documentNoEncoded = str_replace(' ', '%20', $documentNo);
 
-        return "https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe?emissor={$nifEmissor}&document={$documentNoEncoded}";
+        // Base do AMBIENTE da empresa: um documento de homologação consulta-se
+        // no quiosque de homologação, não no real.
+        $base = $this->quiosqueBase($document->tenant_id ?? null);
+
+        return "{$base}/facturacao-eletronica/consultar-fe?emissor={$nifEmissor}&document={$documentNoEncoded}";
     }
 
     /**

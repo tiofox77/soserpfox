@@ -16,8 +16,31 @@ class AGTHelper
      */
     public const VALIDACAO_FALLBACK = 'FE/324/AGT/2026';
 
-    public static function softwareValidationNumber(): string
+    /**
+     * Número de certificação DA EMPRESA, pelo ambiente em que ela emite.
+     *
+     * A AGT certifica o software em separado em homologação e em produção. Ao
+     * passar o payload a usar o número do ambiente e deixar o rodapé impresso
+     * no valor único, reabriu-se a divergência que o comentário acima descreve:
+     * o talão dizia FE/324 (produção) num documento emitido em homologação.
+     *
+     * Sem empresa — a página pública, por exemplo — fica o valor único, que é o
+     * de produção e o que faz sentido mostrar a quem visita.
+     */
+    public static function softwareValidationNumber(?int $tenantId = null): string
     {
+        $tenantId = $tenantId ?: activeTenantId();
+
+        if ($tenantId) {
+            $doAmbiente = \App\Services\AGT\AGTProducerStore::numeroCertificacao(
+                \App\Services\AGT\AGTProducerStore::ambienteDaEmpresa((int) $tenantId)
+            );
+
+            if (trim($doAmbiente) !== '') {
+                return $doAmbiente;
+            }
+        }
+
         return (string) softwareSetting('invoicing', 'saft_software_cert', self::VALIDACAO_FALLBACK);
     }
 
