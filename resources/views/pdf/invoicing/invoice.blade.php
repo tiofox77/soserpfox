@@ -414,6 +414,7 @@
             }
         }
     </style>
+    @include("pdf.invoicing.partials.estilo-dompdf")
 </head>
 <body>
     <div class="page-wrapper">

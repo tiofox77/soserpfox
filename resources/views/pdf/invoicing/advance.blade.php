@@ -535,6 +535,7 @@
             }
         }
     </style>
+    @include("pdf.invoicing.partials.estilo-dompdf")
 </head>
 <body>
     
