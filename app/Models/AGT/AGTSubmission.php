@@ -150,6 +150,32 @@ class AGTSubmission extends Model
         ]);
     }
 
+    /**
+     * A comunicação falhou — o pedido pode nem ter chegado à AGT.
+     *
+     * NÃO é uma recusa. "Rejeitado" é um veredicto do fisco sobre o documento;
+     * um DNS que não resolve ou uma ligação que cai não dizem nada sobre ele.
+     *
+     * Tratava-se tudo como recusa: um `cURL error 28: Resolving timed out`
+     * deixava o documento marcado como rejeitado, fora da lista de pendentes,
+     * e nunca mais era tentado. Ficava para sempre por comunicar à AGT, com o
+     * ecrã a dizer que tinha sido recusado — e a factura impressa a remeter
+     * para um quiosque onde nunca ia aparecer.
+     *
+     * Fica em pending, que é o estado de quem ainda tem de ir. O submissionUUID
+     * é o mesmo, por isso reenviar é seguro mesmo que a primeira tentativa
+     * tenha chegado: a AGT reconhece-o e não duplica.
+     */
+    public function markAsCommunicationFailure(string $motivo): void
+    {
+        $this->update([
+            'status'        => self::STATUS_PENDING,
+            'error_code'    => 'COMMS',
+            'error_message' => $motivo,
+            'retry_count'   => $this->retry_count + 1,
+        ]);
+    }
+
     public function markAsValidated(string $agtReference, ?string $atcud, array $responsePayload): void
     {
         $submissionFields = [

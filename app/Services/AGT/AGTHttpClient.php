@@ -137,6 +137,17 @@ class AGTHttpClient
         $credenciais = AGTProducerStore::credenciais($this->environment);
 
         return Http::timeout(60)
+            // O DNS da AGT é intermitente: medido, resolve em 7 ms quase sempre
+            // e de vez em quando leva 11 s. Com o limite de 10 s do Laravel,
+            // isso dava `cURL error 28: Resolving timed out` e o documento
+            // ficava por comunicar.
+            ->connectTimeout(30)
+            // Duas tentativas extra, só em falha de LIGAÇÃO. Uma resposta da
+            // AGT — mesmo a recusar — nunca se repete: seria reenviar um
+            // documento que ela já viu.
+            ->retry(3, 1000, function ($excepcao) {
+                return $excepcao instanceof \Illuminate\Http\Client\ConnectionException;
+            }, throw: false)
             ->acceptJson()
             ->asJson()
             ->withBasicAuth($credenciais['username'], $credenciais['password'])
