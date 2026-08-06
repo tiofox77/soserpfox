@@ -1206,7 +1206,7 @@ class InvoiceCreate extends Component
                 $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
                 if (!empty($settings->agt_auto_submit)) {
                     try {
-                        $agtResult = $invoice->submitToAGT();
+                        $agtResult = $invoice->fresh()->submitToAGT();
                         $agtMessage = ($agtResult['success'] ?? false)
                             ? ' · AGT requestID: ' . ($agtResult['requestID'] ?? '—')
                             : ' · AGT erro: ' . ($agtResult['error'] ?? 'desconhecido');

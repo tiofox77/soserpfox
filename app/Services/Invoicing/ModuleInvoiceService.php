@@ -316,7 +316,7 @@ class ModuleInvoiceService
                 return;
             }
 
-            $resultado = $invoice->submitToAGT();
+            $resultado = $invoice->fresh()->submitToAGT();
 
             if (!($resultado['success'] ?? false)) {
                 Log::warning('Factura de módulo por comunicar à AGT', [

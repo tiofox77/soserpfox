@@ -144,9 +144,24 @@ class ReceiptCreate extends Component
 
             DB::commit();
 
+            // O recibo é documento fiscal (RC/RG) como qualquer outro, e não
+            // era enviado à AGT — ficava só na aplicação. Depois do commit: o
+            // recibo já está gravado e uma falha da AGT não o pode desfazer.
+            $mensagem = 'Recibo ' . ($this->isEdit ? 'atualizado' : 'criado') . ' com sucesso!';
+
+            if (!$this->isEdit && isset($receipt)) {
+                $agt = \App\Services\AGT\AutoSubmissao::submeter($receipt);
+
+                if ($agt['enviado']) {
+                    $mensagem .= ' Submetido à AGT.';
+                } elseif ($agt['erro']) {
+                    $mensagem .= ' Por submeter à AGT: ' . $agt['erro'];
+                }
+            }
+
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Recibo ' . ($this->isEdit ? 'atualizado' : 'criado') . ' com sucesso!'
+                'message' => $mensagem,
             ]);
 
             return redirect()->route('invoicing.receipts.index');

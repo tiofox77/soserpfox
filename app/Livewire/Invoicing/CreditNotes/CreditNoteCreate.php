@@ -408,7 +408,7 @@ class CreditNoteCreate extends Component
             $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
             if (!empty($settings->agt_auto_submit)) {
                 try {
-                    $agtResult = $creditNote->submitToAGT();
+                    $agtResult = $creditNote->fresh()->submitToAGT();
                 } catch (\Throwable $e) {
                     $agtResult = ['success' => false, 'error' => $e->getMessage()];
                 }

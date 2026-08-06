@@ -458,7 +458,7 @@ class DebitNoteCreate extends Component
 
             if (!empty($settings->agt_auto_submit)) {
                 try {
-                    $agtResult = $debitNote->submitToAGT();
+                    $agtResult = $debitNote->fresh()->submitToAGT();
                 } catch (\Throwable $e) {
                     $agtResult = ['success' => false, 'error' => $e->getMessage()];
                 }

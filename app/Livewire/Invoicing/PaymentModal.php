@@ -246,8 +246,22 @@ class PaymentModal extends Component
                 'new_status' => $this->invoice->status,
             ]);
 
+            // O recibo emitido no pagamento é documento fiscal (RC) e não era
+            // enviado à AGT — ficava só na aplicação. Depois do commit: já está
+            // gravado, e uma falha da AGT não o pode desfazer.
+            $avisoAgt = '';
+            if (isset($receipt)) {
+                $agt = \App\Services\AGT\AutoSubmissao::submeter($receipt);
+
+                if ($agt['enviado']) {
+                    $avisoAgt = ' | Recibo submetido à AGT';
+                } elseif ($agt['erro']) {
+                    $avisoAgt = ' | Recibo por submeter à AGT: ' . $agt['erro'];
+                }
+            }
+
             // Mensagem de sucesso com informação de adiantamento
-            $message = '✅ Pagamento registrado com sucesso! Status: ' . $this->invoice->status_label;
+            $message = '✅ Pagamento registrado com sucesso! Status: ' . $this->invoice->status_label . $avisoAgt;
             if (isset($overpayment) && $overpayment > 0) {
                 $message .= ' | 💰 Adiantamento de ' . number_format($overpayment, 2) . ' AOA criado automaticamente!';
             }
