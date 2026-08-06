@@ -1054,7 +1054,12 @@ class POSSystem extends Component
             try {
                 $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
                 if (!empty($settings->agt_auto_submit)) {
-                    $agtResult = $invoice->submitToAGT();
+                    // fresh(): este $invoice já teve a colecção `items` lida
+                    // pelo observer que corre na criação — quando ainda não
+                    // havia linhas nenhumas. O Eloquent guarda essa colecção
+                    // vazia e nunca mais a consulta, e o documento seguia para
+                    // a AGT com os totais preenchidos e ZERO linhas.
+                    $agtResult = $invoice->fresh()->submitToAGT();
                     \Log::info('POS: Fatura submetida à AGT', [
                         'invoice'   => $invoice->invoice_number,
                         'requestID' => $agtResult['requestID'] ?? null,

@@ -306,7 +306,11 @@ class PosSaleService
             try {
                 $settings = InvoicingSettings::forTenant($tenantId);
                 if (!empty($settings->agt_auto_submit)) {
-                    $invoice->submitToAGT();
+                    // fresh(): a colecção `items` deste objecto foi lida na
+                    // criação da factura, antes de existirem linhas, e o
+                    // Eloquent guardou-a vazia. Sem isto o documento seguia
+                    // para a AGT com os totais e ZERO linhas.
+                    $invoice->fresh()->submitToAGT();
                 }
             } catch (\Throwable $e) {
                 Log::error('PosSaleService: erro submeter AGT', [

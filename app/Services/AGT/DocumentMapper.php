@@ -70,7 +70,7 @@ class DocumentMapper
         $country = strtoupper(trim((string) ($client?->country ?? 'AO')));
         $customerCountry = in_array($country, ['ANGOLA', 'AO'], true) ? 'AO' : $country;
 
-        $items = $document->items ?? collect();
+        $items = $this->itensFrescos($document);
         // A NC inverte o sinal (preenche debitAmount); a ND acresce à dívida,
         // como uma factura, logo mantém creditAmount.
         $isCreditNote = ($type === 'NC');
@@ -130,6 +130,36 @@ class DocumentMapper
         }
 
         return $doc;
+    }
+
+    /**
+     * As linhas do documento, lidas de fresco quando a colecção pode estar
+     * em cache vazia.
+     *
+     * O documento é gravado ANTES das suas linhas, e quem corre no evento
+     * `created` — o observer que desconta stock, por exemplo — lê
+     * `$documento->items` nesse momento. O Eloquent guarda essa colecção
+     * vazia e nunca mais a consulta. A submissão à AGT, feita a seguir com o
+     * MESMO objecto, ia buscar a colecção em cache e enviava um documento com
+     * documentTotals preenchidos e ZERO linhas.
+     *
+     * A AGT recusava-o. Medido: o payload gravado da FR/000048 não tinha
+     * linha nenhuma, embora o talão mostrasse o artigo e a base de dados
+     * tivesse a linha lá.
+     */
+    private function itensFrescos(Model $document)
+    {
+        if (!method_exists($document, 'items')) {
+            return collect();
+        }
+
+        // Só se estiver carregada E vazia: é esse o caso suspeito. Carregada
+        // com conteúdo, ou por carregar, comporta-se como sempre.
+        if ($document->relationLoaded('items') && $document->items->isEmpty()) {
+            return $document->items()->get();
+        }
+
+        return $document->items ?? collect();
     }
 
     /**
