@@ -230,15 +230,30 @@ class InvoicingSeries extends Model
         
         $parts = [];
 
-        // ── Primeiro token: marca da casa ─────────────────────────────────
-        // Decisão do cliente: o número começa por SOS (SOS FT…, SOS FR…).
+        // ── Primeiro token: o TIPO do documento ───────────────────────────
         //
-        // Nota fiscal: a convenção SAFT-AO é "{tipo} {série}/{número}", em que o
-        // primeiro token é o tipo de documento (FT, FR, NC…) — é assim que o
-        // portal da AGT os apresenta. O tipo continua a ser enviado no campo
-        // 'documentType' do payload, mas deixa de constar do número.
-        // Reversão: trocar self::PREFIXO_NUMERO por $this->prefix aqui.
-        $parts[] = self::PREFIXO_NUMERO;
+        // Foi "SOS" durante algum tempo, por decisão de marca. A AGT recusa:
+        //
+        //   E32 — Código de série mal construído (SOS FR7626S6286N/000045).
+        //
+        // Medido contra a AGT de homologação, consultando o desfecho real de
+        // submissões já entregues:
+        //
+        //   25 documentos começados por "SOS"    → 25 recusados, todos com E32
+        //    5 documentos começados pelo tipo    →  5 validados
+        //
+        // Sem excepções de nenhum dos lados, e com a MESMA série nos dois
+        // grupos (FR FR7626S6286N/000001 passou, SOS FR7626S6286N/000045 não),
+        // o que isola o primeiro token como a única diferença.
+        //
+        // A convenção SAFT-AO é "{tipo} {série}/{número}": a AGT lê o primeiro
+        // token como o tipo do documento. Com "SOS" lá, não o reconhece — e os
+        // erros que vêm a seguir (E27 nas facturas, E14 nas notas de crédito)
+        // são consequência de ela não conseguir sequer classificar o documento.
+        //
+        // A marca continua visível no apelido interno mostrado nos ecrãs
+        // (SOS-FR-000045), que é onde não tem custo fiscal nenhum.
+        $parts[] = $this->prefix ?: self::PREFIXO_NUMERO;
 
         // ── Segundo token: a série ────────────────────────────────────────
         // Código atribuído pela AGT quando registada (obrigatório, é o elo com
