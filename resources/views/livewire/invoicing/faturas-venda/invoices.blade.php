@@ -7,11 +7,15 @@
     <div class="mb-4 sm:mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                {{-- Bloco @php...@endphp de propósito: a forma de uma linha,
-                     @php(...), parte a compilação quando a expressão tem
-                     comparações/ternários — o Blade fecha mal o <?php e o erro
-                     que sai é "unexpected token class", já dentro do HTML
-                     seguinte. Aqui rebentava a listagem inteira de faturas. --}}
+                {{-- Bloco de PHP em duas linhas, de propósito: a forma de uma
+                     linha parte a compilação quando a expressão tem ternários.
+
+                     E NÃO escrever aqui o nome dessas directivas por extenso.
+                     Este comentário tinha-as, e o compilador foi buscar a
+                     abertura DENTRO do comentário: engolia tudo até ao bloco
+                     seguinte — o título, o subtítulo e o botão de criar
+                     desapareciam da página, sem erro nenhum. Um comentário a
+                     avisar da armadilha caiu nela. --}}
                 @php
                     $__ehFR = $typeFilter === 'FR';
                 @endphp
