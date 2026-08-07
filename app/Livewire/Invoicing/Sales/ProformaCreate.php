@@ -711,7 +711,18 @@ class ProformaCreate extends Component
                     'order' => ++$order,
                     // Persistir os campos AGT já na proforma, para a conversão em
                     // fatura não perder o motivo de isenção.
-                    'tax_country_region'   => 'AO',
+                    //
+                    // A região era 'AO' FIXO. Cabinda tem regime próprio
+                    // (AO-CAB) e o que o determina é o local da operação: uma
+                    // proposta feita lá saía com a taxa continental, e a
+                    // factura que dela nascesse herdava o erro. Segue a
+                    // escolha do documento e, na falta dela, a província do
+                    // cliente — a mesma regra da factura de venda.
+                    'tax_country_region'   => in_array($this->tax_country_region, ['AO', 'AO-CAB'], true)
+                        ? $this->tax_country_region
+                        : \App\Services\Invoicing\TaxResolver::regionForClient(
+                            Client::find($this->client_id)
+                        ),
                     'tax_code'             => ($item->attributes['tax_rate'] ?? 0) > 0 ? 'NOR' : 'ISE',
                     'tax_exemption_code'   => ($item->attributes['tax_rate'] ?? 0) > 0 ? null
                         : \App\Models\Product::normalizeExemptionCode($item->attributes['exemption_reason'] ?? null),

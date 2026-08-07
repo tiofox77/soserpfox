@@ -54,4 +54,26 @@ class RegiaoFiscalDocumentosTest extends TenantTestCase
             ->test(\App\Livewire\Invoicing\Sales\ProformaCreate::class)
             ->assertSet('tax_country_region', '');
     }
+
+    public function test_a_regiao_escolhida_chega_as_linhas_gravadas(): void
+    {
+        // O selector sozinho não chega. A proforma gravava a região FIXA nas
+        // linhas: escolher Cabinda no ecrã não mudava nada, e a factura que
+        // nascesse dessa proforma herdava o erro. Foi assim que o selector
+        // esteve, por um commit, a não fazer nada.
+        $this->comPermissoes('invoicing.sales.proformas.create');
+
+        \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\Invoicing\Sales\ProformaCreate::class)
+            ->set('tax_country_region', 'AO-CAB')
+            ->assertSet('tax_country_region', 'AO-CAB');
+
+        $fonte = file_get_contents(base_path('app/Livewire/Invoicing/Sales/ProformaCreate.php'));
+
+        $this->assertStringNotContainsString(
+            "'tax_country_region'   => 'AO',",
+            $fonte,
+            'a região das linhas não pode voltar a ser um valor fixo'
+        );
+    }
 }
