@@ -200,13 +200,21 @@
                             <label class="block text-sm font-bold text-gray-700 mb-2">
                                 <i class="fas fa-hashtag mr-1 text-blue-600"></i>Série fiscal
                             </label>
-                            <select wire:model="series_id"
+                            {{-- .live: trocar a série muda o número que o
+                                 documento vai levar; o ecrã tem de acompanhar.
+                                 E @selected para a escolha sobreviver ao
+                                 redesenho — sem ele o <select> volta à primeira
+                                 opção enquanto o servidor fica noutra. --}}
+                            <select wire:model.live="series_id"
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
-                                <option value="">Série AGT padrão</option>
+                                @if($issuanceSeries->isEmpty())
+                                    <option value="">— sem série disponível —</option>
+                                @endif
                                 @foreach($issuanceSeries as $series)
-                                    <option value="{{ $series->id }}">
+                                    <option value="{{ $series->id }}" @selected((string) $series_id === (string) $series->id)>
                                         {{ $series->prefix }} {{ $series->series_code }}
                                         @if($series->agt_series_id) — {{ $series->agt_series_id }} ✓ AGT @endif
+                                        @if($series->is_default) (por omissão) @endif
                                     </option>
                                 @endforeach
                             </select>

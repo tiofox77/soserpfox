@@ -183,7 +183,46 @@ class InvoiceCreate extends Component
 
     public function updatedInvoiceType(): void
     {
+        // Mudar de FT para FR muda o conjunto de séries: a que estava
+        // escolhida deixa de servir. Escolhe-se a por omissão do tipo novo.
         $this->series_id = '';
+        $this->preSeleccionarSerie();
+    }
+
+    /**
+     * Deixa a série por omissão ESCOLHIDA no campo, em vez de implícita.
+     *
+     * O selector abria em "Série AGT padrão" — um valor vazio. O documento
+     * saía na série por omissão de qualquer maneira, mas o ecrã não dizia
+     * qual, e quem emitia não tinha como saber em que série ia ficar sem ir
+     * procurar às definições. Numa empresa com três séries de factura, isso é
+     * uma escolha fiscal feita às escuras.
+     *
+     * Continua a poder trocar-se; passa é a estar à vista.
+     */
+    public function preSeleccionarSerie(): void
+    {
+        if ($this->series_id) {
+            return;
+        }
+
+        $tipo = strtoupper((string) $this->invoice_type) === 'FR' ? 'pos' : 'invoice';
+
+        $serie = InvoicingSeries::where('tenant_id', activeTenantId())
+            ->where('document_type', $tipo)
+            ->where('is_active', true)
+            ->when(
+                \Illuminate\Support\Facades\Storage::disk('local')
+                    ->exists('agt/tenants/' . activeTenantId() . '/private_key.pem'),
+                fn ($q) => $q->whereNotNull('agt_series_id')
+            )
+            ->orderByDesc('is_default')
+            ->orderBy('series_code')
+            ->first();
+
+        if ($serie) {
+            $this->series_id = (string) $serie->id;
+        }
     }
 
     /**
@@ -252,6 +291,9 @@ class InvoiceCreate extends Component
             $this->warehouse_id = $defaultWarehouse->id;
         }
         
+        // A série fica escolhida à vista, não implícita (ver preSeleccionarSerie).
+        $this->preSeleccionarSerie();
+
         if ($id) {
             $this->isEdit = true;
             $this->invoiceId = $id;

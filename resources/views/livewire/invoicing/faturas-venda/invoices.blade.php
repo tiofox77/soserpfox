@@ -278,6 +278,10 @@
                                     <i class="fas fa-times"></i>
                                 @elseif($invoice->status === 'overdue')
                                     <i class="fas fa-exclamation-triangle"></i>
+                                @elseif($invoice->status === 'sent')
+                                    <i class="fas fa-paper-plane"></i>
+                                @elseif($invoice->status === 'credited')
+                                    <i class="fas fa-rotate-left"></i>
                                 @else
                                     <i class="fas fa-question"></i>
                                 @endif

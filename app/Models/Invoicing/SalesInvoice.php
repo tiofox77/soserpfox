@@ -281,9 +281,15 @@ class SalesInvoice extends Model
         return match($this->status) {
             'draft' => 'Rascunho',
             'pending' => 'Pendente',
+            // Faltavam os dois estados mais usados a seguir a "paga": `sent`
+            // (111 facturas) e `credited` (14). Caíam no `default`, que devolve
+            // o nome cru da coluna — o ecrã mostrava "Sent" e "Credited", em
+            // inglês, com o ícone de estado desconhecido ao lado.
+            'sent' => 'Emitida',
             'partially_paid' => 'Parcialmente Pago',
             'paid' => 'Pago',
             'overdue' => 'Atrasado',
+            'credited' => 'Creditada',
             'cancelled' => 'Cancelado',
             default => ucfirst($this->status),
         };
@@ -294,9 +300,13 @@ class SalesInvoice extends Model
         return match($this->status) {
             'draft' => 'gray',
             'pending' => 'yellow',
+            'sent' => 'indigo',
             'partially_paid' => 'blue',
             'paid' => 'green',
             'overdue' => 'red',
+            // Creditada não é erro nem sucesso: foi anulada por nota de
+            // crédito. Cor própria, para não se confundir com cancelada.
+            'credited' => 'purple',
             'cancelled' => 'red',
             default => 'gray',
         };
