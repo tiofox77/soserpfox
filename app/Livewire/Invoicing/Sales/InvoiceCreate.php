@@ -481,44 +481,14 @@ class InvoiceCreate extends Component
      */
     protected function lineTaxesFor($item): array
     {
-        $base = (float) $item->getPriceSum();
-        $taxas = [];
-
-        if (!empty($this->lineIec[$item->id])) {
-            $iec = \Illuminate\Support\Facades\DB::table('agt_iec_pautal_codes')
-                ->where('pautal_code', $this->lineIec[$item->id])->first();
-            if ($iec) {
-                $pct = (float) ($iec->rate_percentage ?? 0);
-                $taxas[] = [
-                    'tax_type'       => 'IEC',
-                    'tax_percentage' => $pct,
-                    'tax_amount'     => round($base * $pct / 100, 2),
-                    'pautal_code'    => $iec->pautal_code,
-                    'verba_no'       => null,
-                    'description'    => $iec->description,
-                ];
-            }
-        }
-
-        if (!empty($this->lineIs[$item->id])) {
-            $verba = \Illuminate\Support\Facades\DB::table('agt_is_verbas')
-                ->where('verba_no', $this->lineIs[$item->id])->first();
-            if ($verba) {
-                // A verba pode ser percentual ("1%") ou fixa ("AOA 100")
-                $numero = (float) preg_replace('/[^0-9.]/', '', (string) $verba->rate);
-                $fixa = ($verba->rate_type ?? '') === 'FIXED';
-                $taxas[] = [
-                    'tax_type'       => 'IS',
-                    'tax_percentage' => $fixa ? 0 : $numero,
-                    'tax_amount'     => $fixa ? round($numero, 2) : round($base * $numero / 100, 2),
-                    'pautal_code'    => null,
-                    'verba_no'       => (string) $verba->verba_no,
-                    'description'    => $verba->description,
-                ];
-            }
-        }
-
-        return $taxas;
+        // A regra vive no ImpostosDaLinha, partilhada com os outros
+        // documentos: o mesmo artigo com IEC tem de sair com o imposto na
+        // proforma e na factura, e nao so aqui.
+        return \App\Services\Invoicing\ImpostosDaLinha::calcular(
+            (float) $item->getPriceSum(),
+            $this->lineIec[$item->id] ?? null,
+            $this->lineIs[$item->id] ?? null
+        );
     }
 
     /** Impostos extra de uma linha, para a vista mostrar o valor calculado. */
