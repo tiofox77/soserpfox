@@ -92,6 +92,16 @@ class AGTHttpClient
             $success   = $response->successful() && !$hasErrors;
             $errorMsg  = $this->extractError($body);
 
+            // 429: a AGT manda abrandar. Não diz nada sobre o documento, e o
+            // corpo vem vazio — sem esta mensagem ficava um erro sem texto,
+            // que é indistinguível de uma recusa silenciosa.
+            if ($status === 429) {
+                $espera   = $response->header('Retry-After');
+                $errorMsg = 'A AGT recusou por excesso de pedidos (429)'
+                    . ($espera ? ", pede para esperar {$espera}s" : '')
+                    . '. O documento pode ter sido registado na tentativa anterior — consulte o estado antes de reenviar.';
+            }
+
             $log = AGTCommunicationLog::log(
                 $this->tenantId,
                 $serviceName,

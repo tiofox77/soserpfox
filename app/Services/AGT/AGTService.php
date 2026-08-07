@@ -248,11 +248,18 @@ class AGTService
                         'error' => $e->getMessage(),
                     ]);
                 }
-            } elseif ((int) ($result['status'] ?? 0) === 0) {
-                // Nem chegou a haver resposta: DNS que não resolveu, ligação
-                // caída, timeout. Não é uma recusa — é uma tentativa por
-                // repetir. Marcá-la como rejeitada tirava o documento da lista
-                // de pendentes e ele nunca mais era enviado.
+            } elseif ((int) ($result['status'] ?? 0) === 0 || (int) ($result['status'] ?? 0) === 429) {
+                // Não houve resposta, ou a AGT mandou abrandar (429).
+                //
+                // Nenhum dos dois é uma recusa do documento. Marcá-los como
+                // rejeitado tirava-o da lista de pendentes e nunca mais era
+                // enviado.
+                //
+                // O 429 é o mais traiçoeiro: mediu-se um caso em que o registo
+                // passou (requestID emitido, documento validado) e a chamada
+                // seguinte, a um segundo de distância, levou 429 — e era essa
+                // que o código tomava como resposta final. Um documento aceite
+                // pela AGT ficava marcado como recusado.
                 $submission->markAsCommunicationFailure(
                     (string) ($result['error'] ?: 'Falha de comunicação com a AGT')
                 );

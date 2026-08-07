@@ -443,9 +443,22 @@ class SalesReport extends Component
             $this->creditNoteItems = [];
             $this->loadStatistics();
 
+            // A devolução no POS era a única via de emitir uma nota de crédito
+            // que não a enviava à AGT — ficava só na aplicação, e no portal
+            // nunca aparecia. Depois do commit: a nota já está emitida e uma
+            // falha da AGT não a pode desfazer.
+            $agt = \App\Services\AGT\AutoSubmissao::submeter($creditNote);
+
+            $mensagem = 'Nota de Crédito ' . $creditNote->credit_note_number . ' emitida com sucesso!';
+            if ($agt['enviado']) {
+                $mensagem .= ' Submetida à AGT.';
+            } elseif ($agt['erro']) {
+                $mensagem .= ' Por submeter à AGT: ' . $agt['erro'];
+            }
+
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Nota de Crédito ' . $creditNote->credit_note_number . ' emitida com sucesso!'
+                'message' => $mensagem,
             ]);
 
         } catch (\Exception $e) {
