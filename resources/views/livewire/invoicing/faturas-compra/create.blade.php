@@ -49,6 +49,8 @@
                                     <i class="fas fa-plus mr-2"></i>Novo Fornecedor
                                 </button>
                             </div>
+                            @include("livewire.invoicing.partials.regiao-fiscal", ["cor" => "amber"])
+
                             @if($searchSupplier && $suppliers->count() > 0)
                             <div class="mt-2 max-h-60 overflow-y-auto border-2 border-gray-200 rounded-xl bg-white shadow-lg">
                                 @foreach($suppliers as $client)

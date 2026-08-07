@@ -76,4 +76,31 @@ class RegiaoFiscalDocumentosTest extends TenantTestCase
             'a região das linhas não pode voltar a ser um valor fixo'
         );
     }
+
+    public function test_as_compras_passam_a_ter_o_selector(): void
+    {
+        // As linhas de compra nem coluna tinham para a regiao: sem migracao,
+        // levar o selector a estes ecras seria decorativo.
+        foreach ([
+            "/invoicing/purchases/invoices/create"  => "invoicing.purchases.invoices.create",
+            "/invoicing/purchases/proformas/create" => "invoicing.purchases.proformas.create",
+        ] as $url => $permissao) {
+            $this->comPermissoes($permissao);
+
+            $this->actingAs($this->user)->get($url)
+                ->assertOk()
+                ->assertSee("Região fiscal")
+                ->assertSee("AO-CAB");
+        }
+    }
+
+    public function test_as_linhas_de_compra_tem_onde_guardar_a_regiao(): void
+    {
+        foreach (["invoicing_purchase_invoice_items", "invoicing_purchase_proforma_items"] as $tabela) {
+            $this->assertTrue(
+                \Illuminate\Support\Facades\Schema::hasColumn($tabela, "tax_country_region"),
+                $tabela . " tem de ter a coluna, senao o selector nao grava nada"
+            );
+        }
+    }
 }
