@@ -34,6 +34,7 @@ class ProformaController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.proforma', [
+                "paraPdf" => true,
                 'proforma' => $proforma,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

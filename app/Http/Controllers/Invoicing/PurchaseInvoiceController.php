@@ -31,6 +31,7 @@ class PurchaseInvoiceController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.purchase-invoice', [
+                "paraPdf" => true,
                 'invoice' => $invoice,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

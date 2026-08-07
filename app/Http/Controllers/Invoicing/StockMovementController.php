@@ -26,6 +26,7 @@ class StockMovementController extends Controller
         [$movimentos, $tenant, $armazem] = $this->carregarLote($reference);
 
         $pdf = Pdf::loadView('pdf.invoicing.stock-movement-batch', [
+                "paraPdf" => true,
             'reference'  => $reference,
             'movimentos' => $movimentos,
             'tenant'     => $tenant,

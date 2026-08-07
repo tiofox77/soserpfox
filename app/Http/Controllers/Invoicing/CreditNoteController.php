@@ -34,6 +34,7 @@ class CreditNoteController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.credit-note', [
+                "paraPdf" => true,
                 'creditNote' => $creditNote,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

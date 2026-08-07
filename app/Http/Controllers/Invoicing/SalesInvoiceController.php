@@ -31,6 +31,7 @@ class SalesInvoiceController extends Controller
         $qrCode = getAGTQRData($invoice, 80);
         
         $pdf = Pdf::loadView('pdf.invoicing.sales-invoice', [
+                "paraPdf" => true,
             'invoice' => $invoice,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,

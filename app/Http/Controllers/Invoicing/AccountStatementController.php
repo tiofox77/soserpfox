@@ -42,6 +42,7 @@ class AccountStatementController extends Controller
         $consulta = new ContaCorrenteQuery(activeTenantId(), $entidade, $titular->id, $de, $ate);
 
         $pdf = Pdf::loadView('pdf.invoicing.account-statement', [
+                "paraPdf" => true,
             'entidade'   => $entidade,
             'titular'    => $titular,
             'de'         => $de,

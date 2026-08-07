@@ -1,31 +1,35 @@
 {{--
-    Correcções de composição para o DomPDF.
+    Correcções de composição para o DomPDF — SÓ quando se está a gerar PDF.
 
-    Os modelos destes documentos são cópias uns dos outros e foram escritos
-    para o browser. O PDF é feito pelo DomPDF, que não percebe metade do que
-    lá está — e o resultado era o documento sair cortado à direita e a passar
-    para uma segunda página em branco.
+    Estes modelos servem duas coisas:
 
-    Duas causas, iguais em todos:
+      · a pré-visualização em /preview, que é o MESMO blade servido como HTML
+        ao browser. É a que se usa no dia-a-dia.
+      · o PDF, gerado pelo DomPDF.
 
-      · a caixa tinha 210 mm de largura FIXA e as margens da página vinham por
-        omissão (cerca de 25 mm de cada lado). Num papel de 210 mm, 210 + 50
-        não cabe, e o que excedia caía fora. O `@page` que anulava essas
-        margens estava declarado dentro de `@media print`, onde nunca chegava
-        a ser aplicado.
+    O que o browser precisa e o que o DomPDF precisa são opostos, e foi por
+    isso que aplicar estas regras aos dois partiu a pré-visualização: o rodapé
+    sobe ao fundo com margin-top:auto dentro de uma coluna flex, e ao desligar
+    o flex ficava a meio da página.
 
-      · `display: flex` não existe no DomPDF. Os blocos que dependiam dele —
-        cabeçalho com logótipo à esquerda e QR à direita, resumo de impostos ao
-        lado dos totais — desmontavam-se e empilhavam-se.
+    Tentou-se pô-las dentro de @media print, para o browser as ignorar. Não
+    serve: o DomPDF também as ignora aí — medido, os documentos voltaram a sair
+    em duas páginas. É a mesma razão pela qual o @page dentro de @media print
+    nunca chegava a ser aplicado.
 
-    Isto entra DEPOIS do estilo de cada modelo, de propósito: sobrepõe-se-lhe
-    sem obrigar a reescrever seis ficheiros, e sai de cena se algum deles
-    passar a ter folha própria.
+    Por isso quem CHAMA é que decide. Os controladores que geram PDF passam
+    `paraPdf => true`; a pré-visualização não passa nada e fica intacta.
 
-    Ao mexer aqui, lembre-se de que muda TODOS os documentos fiscais ao mesmo
-    tempo. Confirme com um PDF de cada tipo antes de dar por bom.
+    Ao mexer aqui, confirme os dois: um PDF de cada tipo (tem de sair numa
+    página) e a pré-visualização no browser (rodapé em baixo).
 --}}
+@if($paraPdf ?? false)
 <style>
+    /*
+     * A caixa tinha 210 mm de largura fixa e as margens da página vinham por
+     * omissão (cerca de 25 mm de cada lado). Num papel de 210 mm, 210 + 50 não
+     * cabe: o que excedia caía fora e empurrava o resto para outra folha.
+     */
     @page {
         size: A4 portrait;
         margin: 10mm 12mm;
@@ -55,7 +59,7 @@
         display: block;
     }
 
-    /* Duas colunas: tabela, que é o que o DomPDF compõe. */
+    /* display:flex não existe no DomPDF. Duas colunas fazem-se com tabela. */
     .header-section,
     .bottom-section {
         display: table;
@@ -94,3 +98,4 @@
         overflow: hidden;
     }
 </style>
+@endif

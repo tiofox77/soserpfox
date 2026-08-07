@@ -31,6 +31,7 @@ class PurchaseProformaController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.purchase-proforma', [
+                "paraPdf" => true,
                 'proforma' => $proforma,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

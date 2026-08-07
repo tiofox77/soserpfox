@@ -34,6 +34,7 @@ class ReceiptController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.receipt', [
+                "paraPdf" => true,
                 'receipt' => $receipt,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

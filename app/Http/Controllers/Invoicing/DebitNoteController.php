@@ -34,6 +34,7 @@ class DebitNoteController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.debit-note', [
+                "paraPdf" => true,
                 'debitNote' => $debitNote,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

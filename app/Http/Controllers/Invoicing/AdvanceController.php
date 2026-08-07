@@ -31,6 +31,7 @@ class AdvanceController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.advance', [
+                "paraPdf" => true,
                 'advance' => $advance,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,

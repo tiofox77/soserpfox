@@ -30,6 +30,7 @@ class InvoiceController extends Controller
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.invoice', [
+                "paraPdf" => true,
                 'invoice' => $invoice,
                 'tenant' => $tenant,
                 'bankAccounts' => $bankAccounts,
@@ -72,6 +73,7 @@ class InvoiceController extends Controller
         
         // Configurar PDF
         $pdf = Pdf::loadView('pdf.invoicing.invoice', [
+                "paraPdf" => true,
             'invoice' => $invoice,
             'tenant' => $tenant,
         ]);
