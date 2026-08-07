@@ -69,23 +69,7 @@
                                     <i class="fas fa-plus mr-2"></i>Novo Cliente
                                 </button>
                             </div>
-                            {{-- Região fiscal do documento: o regime de Cabinda depende do
-                                 LOCAL DA OPERAÇÃO, não só da sede do cliente — a mesma
-                                 entidade pode comprar em Luanda e em Cabinda. --}}
-                            <div class="mt-2 flex items-center gap-2">
-                                <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">
-                                    <i class="fas fa-map-marker-alt mr-1 text-amber-600"></i>Região fiscal
-                                </label>
-                                <select wire:model.live="tax_country_region"
-                                        class="text-xs px-2 py-1.5 border-2 border-gray-200 rounded-lg focus:border-amber-500">
-                                    <option value="">Automática (província do cliente)</option>
-                                    <option value="AO">AO — Angola continental</option>
-                                    <option value="AO-CAB">AO-CAB — Cabinda (regime próprio)</option>
-                                </select>
-                                <span class="text-[11px] font-bold px-2 py-1 rounded-full {{ $regiaoFiscal === 'AO-CAB' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600' }}">
-                                    a aplicar: {{ $regiaoFiscal }}
-                                </span>
-                            </div>
+                            @include("livewire.invoicing.partials.regiao-fiscal", ["cor" => "amber"])
 
                             @if($client_id && !$searchClient)
                                 @php

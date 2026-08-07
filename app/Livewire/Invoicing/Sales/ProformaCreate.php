@@ -25,6 +25,15 @@ class ProformaCreate extends Component
 
     // Form fields
     public $client_id = '';
+
+    /**
+     * Região fiscal do documento (AO ou AO-CAB).
+     *
+     * Vazio = deriva da província do cliente. Existe como escolha própria
+     * porque o regime de Cabinda depende do local da OPERAÇÃO: a mesma
+     * entidade pode comprar em Luanda e em Cabinda.
+     */
+    public $tax_country_region = '';
     public $warehouse_id = '';
     public $proforma_date;
     public $valid_until;
@@ -285,11 +294,23 @@ class ProformaCreate extends Component
             });
         }
 
+        // Região fiscal do adquirente: Cabinda tem regime de IVA próprio
+        // (AO-CAB). Faltava aqui — a proforma calculava sempre à taxa
+        // continental, e uma proposta feita em Cabinda saía com o imposto
+        // errado. Depende do LOCAL DA OPERAÇÃO, não só da sede do cliente, por
+        // isso escolhe-se no documento e só na falta se deriva da província.
+        $cliente = $this->client_id ? Client::find($this->client_id) : null;
+        $regiaoFiscal = in_array($this->tax_country_region, ['AO', 'AO-CAB'], true)
+            ? $this->tax_country_region
+            : \App\Services\Invoicing\TaxResolver::regionForClient($cliente);
+
         return view('livewire.invoicing.proformas-venda.create', array_merge([
             'clients' => $clients,
             'warehouses' => $warehouses,
             'cartItems' => $cartItems,
             'products' => $products,
+            'regiaoFiscal' => $regiaoFiscal,
+            'clienteProvincia' => $cliente->province ?? null,
         ], $totals));
     }
     public function addProduct($productId)

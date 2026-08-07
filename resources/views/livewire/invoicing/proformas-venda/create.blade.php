@@ -69,6 +69,8 @@
                                     <i class="fas fa-plus mr-2"></i>Novo Cliente
                                 </button>
                             </div>
+                            @include("livewire.invoicing.partials.regiao-fiscal", ["cor" => "amber"])
+
                             @if($client_id && !$searchClient)
                                 @php
                                     $selectedClient = $clients->where('id', $client_id)->first();
