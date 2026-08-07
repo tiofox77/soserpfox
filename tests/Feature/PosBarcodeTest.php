@@ -50,6 +50,12 @@ class PosBarcodeTest extends TenantTestCase
         return $p->fresh();
     }
 
+    /** A mesma chave do componente: o carrinho e por utilizador E empresa. */
+    private function chaveDoCarrinho(): string
+    {
+        return auth()->id() . "_t" . (activeTenantId() ?: 0);
+    }
+
     public function test_ler_um_codigo_poe_o_artigo_no_carrinho(): void
     {
         $p = $this->comCodigo('5601234567890', 10);
@@ -58,7 +64,7 @@ class PosBarcodeTest extends TenantTestCase
             ->set('search', '5601234567890')
             ->assertSet('search', '', 'o campo limpa-se para a leitura seguinte');
 
-        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session(auth()->id())->getContent();
+        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent();
 
         $this->assertTrue(
             $carrinho->contains(fn ($i) => (int) $i->id === $p->id),
@@ -95,7 +101,7 @@ class PosBarcodeTest extends TenantTestCase
                 return str_contains($carga['message'] ?? '', 'inactivo');
             });
 
-        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session(auth()->id())->getContent();
+        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent();
 
         $this->assertCount(0, $carrinho);
     }
@@ -110,7 +116,7 @@ class PosBarcodeTest extends TenantTestCase
             ->set('search', mb_substr($p->name, 0, 10))
             ->assertSet('search', mb_substr($p->name, 0, 10));
 
-        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session(auth()->id())->getContent();
+        $carrinho = \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent();
 
         $this->assertCount(0, $carrinho);
     }
@@ -123,7 +129,7 @@ class PosBarcodeTest extends TenantTestCase
             ->set('search', '560666')
             ->assertSet('search', '560666');
 
-        $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session(auth()->id())->getContent());
+        $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent());
     }
 
     public function test_o_codigo_de_outra_empresa_nao_entra(): void
@@ -143,6 +149,6 @@ class PosBarcodeTest extends TenantTestCase
 
         Livewire::test(POSSystem::class)->set('search', '5605555555555');
 
-        $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session(auth()->id())->getContent());
+        $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent());
     }
 }

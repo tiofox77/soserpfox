@@ -177,7 +177,7 @@ class POSSystem extends Component
 
     public function loadCart()
     {
-        $content = Cart::session(auth()->id())->getContent();
+        $content = Cart::session($this->cartKey())->getContent();
 
         // Ordem estável de inserção — a lib darryldecode/cart reordena (remove e
         // re-insere no fim) ao fazer update(), fazendo o item "saltar" para o final.
@@ -195,8 +195,8 @@ class POSSystem extends Component
         if ($changed) { session([$orderKey => $order]); }
 
         $this->cartItems = $content->sortBy(fn($item) => $order[$item->id] ?? PHP_INT_MAX)->values();
-        $this->cartSubtotal = Cart::session(auth()->id())->getSubTotal();
-        $this->cartQuantity = Cart::session(auth()->id())->getTotalQuantity();
+        $this->cartSubtotal = Cart::session($this->cartKey())->getSubTotal();
+        $this->cartQuantity = Cart::session($this->cartKey())->getTotalQuantity();
         
         // Obter configurações de impostos
         $settings = InvoicingSettings::forTenant(activeTenantId());
@@ -305,10 +305,10 @@ class POSSystem extends Component
                 continue;
             }
             // Adicionar 1 unidade (valida stock/lote); depois fixar a quantidade guardada.
-            if (!Cart::session(auth()->id())->get($pid)) {
+            if (!Cart::session($this->cartKey())->get($pid)) {
                 $this->addToCart($pid);
             }
-            if (Cart::session(auth()->id())->get($pid)) {
+            if (Cart::session($this->cartKey())->get($pid)) {
                 $this->updateQuantity($pid, $qty);   // fixa qty absoluta, auto-limitada ao stock
                 $restored++;
             }
@@ -340,6 +340,23 @@ class POSSystem extends Component
     {
         $this->amountReceived = $amount;
         $this->calculateChange();
+    }
+
+    /**
+     * Chave do carrinho: utilizador E empresa.
+     *
+     * Era só o utilizador. Quem tem mais de uma empresa — e há quem tenha —
+     * trocava de empresa e levava o carrinho atrás: artigos escolhidos numa
+     * ficavam lá para serem facturados na outra. O addToCart valida a empresa
+     * ao ENTRAR, mas o fecho da venda percorre o carrinho e cria as linhas sem
+     * voltar a verificar, por isso o artigo alheio passava.
+     *
+     * Com a empresa na chave, cada uma tem o seu carrinho e o outro fica
+     * intacto onde estava.
+     */
+    protected function cartKey(): string
+    {
+        return auth()->id() . '_t' . (activeTenantId() ?: 0);
     }
 
     /**
@@ -446,7 +463,7 @@ class POSSystem extends Component
         }
 
         // Verificar se já existe no carrinho
-        $cartItem = Cart::session(auth()->id())->get($productId);
+        $cartItem = Cart::session($this->cartKey())->get($productId);
         $currentQuantity = $cartItem ? $cartItem->quantity : 0;
         $newQuantity = $currentQuantity + 1;
         
@@ -504,7 +521,7 @@ class POSSystem extends Component
         // emitirem faturas com IVA 14%.
         $tx = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
 
-        Cart::session(auth()->id())->add([
+        Cart::session($this->cartKey())->add([
             'id' => $product->id,
             'name' => $product->name,
             'price' => $product->price,
@@ -588,7 +605,7 @@ class POSSystem extends Component
             }
         }
 
-        Cart::session(auth()->id())->update($itemId, [
+        Cart::session($this->cartKey())->update($itemId, [
             'quantity' => [
                 'relative' => false,
                 'value' => $quantity
@@ -600,7 +617,7 @@ class POSSystem extends Component
 
     public function increaseQuantity($itemId)
     {
-        $cartItem = Cart::session(auth()->id())->get($itemId);
+        $cartItem = Cart::session($this->cartKey())->get($itemId);
         
         if (!$cartItem) {
             $this->dispatch('notify', [
@@ -636,7 +653,7 @@ class POSSystem extends Component
             }
         }
         
-        Cart::session(auth()->id())->update($itemId, [
+        Cart::session($this->cartKey())->update($itemId, [
             'quantity' => 1
         ]);
         $this->loadCart();
@@ -655,9 +672,9 @@ class POSSystem extends Component
 
     public function decreaseQuantity($itemId)
     {
-        $item = Cart::session(auth()->id())->get($itemId);
+        $item = Cart::session($this->cartKey())->get($itemId);
         if ($item->quantity > 1) {
-            Cart::session(auth()->id())->update($itemId, [
+            Cart::session($this->cartKey())->update($itemId, [
                 'quantity' => -1
             ]);
             $this->loadCart();
@@ -671,7 +688,7 @@ class POSSystem extends Component
 
     public function removeFromCart($itemId)
     {
-        Cart::session(auth()->id())->remove($itemId);
+        Cart::session($this->cartKey())->remove($itemId);
         $this->loadCart();
         
         // Disparar evento para tocar som
@@ -685,7 +702,7 @@ class POSSystem extends Component
 
     public function clearCart()
     {
-        Cart::session(auth()->id())->clear();
+        Cart::session($this->cartKey())->clear();
         session()->forget('pos_cart_order_' . auth()->id());
         $this->loadCart();
         
@@ -919,6 +936,27 @@ class POSSystem extends Component
                 $isService = str_starts_with((string) $item->id, 'service_');
                 // Extrair ID numérico: 'service_21' -> 21, ou ID do produto
                 $productId = $isService ? (int) str_replace('service_', '', $item->id) : $item->id;
+
+                // O artigo é MESMO desta empresa?
+                //
+                // O addToCart valida a empresa ao entrar, mas quem valida não é
+                // quem grava: este ciclo cria as linhas a partir do carrinho, e
+                // o carrinho sobrevive à sessão. Um carrinho começado noutra
+                // empresa — há quem tenha duas — saía facturado nesta, com os
+                // artigos de lá. A chave do carrinho passou a incluir a
+                // empresa; isto é a segunda tranca, no sítio que grava.
+                if (!$isService && !Product::where('tenant_id', activeTenantId())->whereKey($productId)->exists()) {
+                    \Log::warning('POS: artigo de outra empresa recusado no fecho da venda', [
+                        'tenant_id'  => activeTenantId(),
+                        'product_id' => $productId,
+                        'artigo'     => $item->name,
+                    ]);
+
+                    throw new \DomainException(
+                        'O artigo "' . $item->name . '" não pertence a esta empresa. '
+                        . 'Limpe o carrinho e volte a adicioná-lo.'
+                    );
+                }
 
                 // Códigos SAFT-AO por linha
                 $taxCode    = ($taxType === 'isento' || $taxRate == 0) ? 'ISE' : 'NOR';
