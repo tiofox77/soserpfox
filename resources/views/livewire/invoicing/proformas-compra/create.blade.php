@@ -1,23 +1,11 @@
 <div class="p-6">
-    {{-- Header --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-invoice mr-3 text-orange-600"></i>
-                    {{ $isEdit ? 'Editar Proforma de Compra' : 'Nova Proforma de Compra' }}
-                </h2>
-                <p class="text-gray-600 mt-1">Crie orçamentos de compras de fornecedores</p>
-            </div>
-            <a href="{{ route('invoicing.purchases.proformas') }}" 
-               x-data="{ loading: false }" @click="loading = true"
-               :class="loading && 'opacity-70 pointer-events-none scale-95'"
-               class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95">
-                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
-                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
-            </a>
-        </div>
-    </div>
+    @include("livewire.invoicing.partials.cabecalho-criar-documento", [
+        "titulo"    => $isEdit ? "Editar Proforma de Compra" : "Nova Proforma de Compra",
+        "subtitulo" => "Orçamento pedido a fornecedor",
+        "icone"     => "fa-file-signature",
+        "cor"       => "amber",
+        "voltar"    => route("invoicing.purchases.proformas"),
+    ])
 
     {{-- Flash Messages --}}
     @if (session()->has('error'))

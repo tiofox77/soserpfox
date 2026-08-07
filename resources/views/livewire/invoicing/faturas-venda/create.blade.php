@@ -1,23 +1,11 @@
 <div class="p-6">
-    {{-- Header --}}
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 flex items-center">
-                    <i class="fas fa-file-invoice mr-3 text-purple-600"></i>
-                    {{ $isEdit ? 'Editar Fatura de Venda' : 'Nova Fatura de Venda' }}
-                </h2>
-                <p class="text-gray-600 mt-1">Crie orçamentos de compras de Clientees</p>
-            </div>
-            <a href="{{ route('invoicing.sales.invoices') }}" 
-               x-data="{ loading: false }" @click="loading = true"
-               :class="loading && 'opacity-70 pointer-events-none scale-95'"
-               class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95">
-                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
-                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
-            </a>
-        </div>
-    </div>
+    @include("livewire.invoicing.partials.cabecalho-criar-documento", [
+        "titulo"    => $isEdit ? "Editar Fatura de Venda" : "Nova Fatura de Venda",
+        "subtitulo" => "Documento fiscal de venda a cliente",
+        "icone"     => "fa-file-invoice",
+        "cor"       => "purple",
+        "voltar"    => route("invoicing.sales.invoices"),
+    ])
 
     {{-- Flash Messages --}}
     @if (session()->has('error'))
