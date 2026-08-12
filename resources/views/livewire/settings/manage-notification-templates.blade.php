@@ -107,6 +107,21 @@
         @endif
     </div>
 
+    {{-- Aviso da primeira visita. Sem isto, quem abrisse a página depois de ela
+         estar vazia não percebia de onde tinham vindo os modelos. --}}
+    @if($criadosAgora > 0)
+        <div class="mb-4 rounded-2xl border-2 border-green-300 bg-green-50 p-4">
+            <p class="font-bold text-green-800">
+                <i class="fas fa-circle-check mr-2"></i>
+                {{ $criadosAgora }} modelo(s) criado(s) para esta empresa
+            </p>
+            <p class="text-sm text-green-700 mt-1">
+                Esta empresa não tinha modelos de notificação — foram criados agora com os textos
+                padrão. Edite-os à vontade: o que alterar fica, e não volta a ser reposto.
+            </p>
+        </div>
+    @endif
+
     {{-- Contador de Templates --}}
     <div class="mb-4 flex items-center justify-between">
         <span class="text-sm text-gray-600 font-semibold">
@@ -135,8 +150,34 @@
                                     Inativo
                                 </span>
                             @endif
+
+                            @php
+                                $naoDispara = \App\Services\Notifications\ModelosPadrao::porQueNaoDispara(
+                                    $template->module, $template->trigger_event
+                                );
+                            @endphp
+
+                            @if($naoDispara)
+                                <span class="px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-800 font-semibold"
+                                      title="{{ $naoDispara }}">
+                                    <i class="fas fa-circle-info mr-1"></i>Ainda não dispara
+                                </span>
+                            @endif
                         </div>
-                        
+
+                        {{-- Um modelo activo que nunca dispara é pior do que não
+                             existir: fica a prometer um aviso que não vem, e
+                             ninguém percebe porquê. Diz-se aqui, com o motivo. --}}
+                        @if($naoDispara)
+                            <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                <p class="text-xs text-amber-800">
+                                    <i class="fas fa-triangle-exclamation mr-1"></i>
+                                    {{ $naoDispara }}
+                                    O modelo fica guardado e passa a funcionar quando esse caminho existir.
+                                </p>
+                            </div>
+                        @endif
+
                         @if($template->description)
                             <p class="text-sm text-gray-600 mb-3">{{ $template->description }}</p>
                         @endif

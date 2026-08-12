@@ -71,11 +71,19 @@ class SendScheduledNotifications extends Command
     
     protected function processTemplate(NotificationTemplate $template)
     {
-        // Se for evento reminder, usar ImmediateNotificationService
-        if ($template->module === 'events' && $template->trigger_event === 'date_approaching') {
-            return $this->processEventReminders($template);
-        }
-        
+        // O DESVIO QUE AQUI ESTAVA FOI REMOVIDO.
+        //
+        // Os lembretes de evento (`events` + `date_approaching`) eram
+        // encaminhados para o ImmediateNotificationService, um caminho
+        // completamente separado — e por isso fora do registo do que já foi
+        // enviado. Com o despacho a correr pelo tráfego, de dez em dez
+        // minutos, esse caminho reenviaria o mesmo lembrete a cada passagem.
+        //
+        // Passam pelo caminho normal, que resolve os destinatários da mesma
+        // maneira (técnicos designados, ou o cliente do evento) e escreve em
+        // notification_sends. O ImmediateNotificationService continua a servir
+        // as notificações imediatas, disparadas por acções do utilizador.
+
         $records = $this->getRecordsToNotify($template);
         
         if ($records->isEmpty()) {
@@ -105,7 +113,10 @@ class SendScheduledNotifications extends Command
                 foreach ($recipients['phones'] as $phone) {
                     $normalizedPhone = PhoneHelper::normalizeAngolanPhone($phone);
                     if (PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
-                        $this->sendWhatsApp($template, $normalizedPhone, $variables);
+                        // O id do registo entra na chave do que já foi enviado:
+                        // sem ele, avisar sobre a factura A impedia o aviso
+                        // sobre a factura B no mesmo dia.
+                        $this->sendWhatsApp($template, $normalizedPhone, $variables, $record->id ?? null);
                         $sent++;
                     }
                 }
@@ -116,7 +127,7 @@ class SendScheduledNotifications extends Command
                 foreach ($recipients['phones'] as $phone) {
                     $normalizedPhone = PhoneHelper::normalizeAngolanPhone($phone);
                     if (PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
-                        $this->sendSMS($template, $normalizedPhone, $variables);
+                        $this->sendSMS($template, $normalizedPhone, $variables, $record->id ?? null);
                         $sent++;
                     }
                 }
@@ -126,7 +137,7 @@ class SendScheduledNotifications extends Command
             if ($template->email_enabled && !empty($recipients['emails'])) {
                 foreach ($recipients['emails'] as $email) {
                     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                        $this->sendEmail($template, $email, $variables);
+                        $this->sendEmail($template, $email, $variables, $record->id ?? null);
                         $sent++;
                     }
                 }
@@ -193,22 +204,67 @@ class SendScheduledNotifications extends Command
             return collect();
         }
         
+        // A tabela pode não existir: `hr` apontava para `employees`, que nunca
+        // existiu neste sistema (é `hr_employees`), e `tasks`, `projects`,
+        // `crm_leads` e `financial_transactions` também não. Sem esta
+        // verificação, doze modelos de RH rebentavam a cada passagem e o erro
+        // ficava enterrado no log.
+        if (!\Illuminate\Support\Facades\Schema::hasTable($tableName)) {
+            Log::info('Modelo de notificação ignorado: tabela inexistente', [
+                'template' => $template->name,
+                'module'   => $template->module,
+                'tabela'   => $tableName,
+            ]);
+
+            return collect();
+        }
+
         $query = DB::table($tableName)->where('tenant_id', $template->tenant_id);
-        
+
         // Aplicar filtros baseados no trigger
         switch ($template->trigger_event) {
             case 'date_approaching':
                 $query = $this->applyDateApproachingFilter($query, $template);
                 break;
-                
+
             case 'created':
                 // Para eventos "created", processar apenas registros recentes (última hora)
                 $query->where('created_at', '>=', Carbon::now()->subHour());
                 break;
+
+            default:
+                // NADA, e é deliberado.
+                //
+                // Aqui não havia `default`, e um gatilho desconhecido — como
+                // `status_changed`, que dez dos modelos activos usam — caía sem
+                // filtro nenhum: a consulta devolvia a TABELA INTEIRA. Enquanto
+                // o email era um TODO e o SMS ia para o WhatsApp, isso não se
+                // via. No dia em que os canais passassem a funcionar, uma
+                // passagem mandava um aviso a todos os funcionários da empresa.
+                //
+                // Um gatilho que o código não sabe filtrar não pode significar
+                // "toda a gente". Significa ninguém, e fica dito no log.
+                Log::info('Modelo de notificação ignorado: gatilho sem regra de selecção', [
+                    'template' => $template->name,
+                    'gatilho'  => $template->trigger_event,
+                ]);
+
+                return collect();
         }
-        
-        return $query->get();
+
+        // Tecto por passagem. Mesmo com a selecção certa, um erro de dados não
+        // pode transformar-se em mil emails num pedido de utilizador.
+        return $query->limit(self::MAX_REGISTOS_POR_MODELO)->get();
     }
+
+    /**
+     * Quantos registos, no máximo, um modelo trata por passagem.
+     *
+     * Isto corre à boleia do pedido de quem está a trabalhar. O que sobrar fica
+     * para a passagem seguinte — a memória do que já saiu garante que não se
+     * repete o que já foi.
+     */
+    private const MAX_REGISTOS_POR_MODELO = 50;
     
     protected function applyDateApproachingFilter($query, NotificationTemplate $template)
     {
@@ -216,20 +272,28 @@ class SendScheduledNotifications extends Command
             return $query;
         }
         
-        // Calcular o momento exato para notificar
-        $notifyAt = Carbon::now()->addMinutes($template->notify_before_minutes);
-        
-        // Buscar campo de data baseado no módulo
         $dateField = $this->getDateField($template->module);
-        
-        if ($dateField) {
-            // Buscar registros cuja data está próxima
-            $query->whereBetween($dateField, [
-                $notifyAt->format('Y-m-d H:i:s'),
-                $notifyAt->addMinutes(30)->format('Y-m-d H:i:s') // Janela de 30 minutos
-            ]);
+
+        if (!$dateField) {
+            return $query;
         }
-        
+
+        // TUDO o que está dentro do prazo de aviso e ainda não passou.
+        //
+        // Aqui estava uma janela de trinta minutos a começar no instante exacto
+        // do aviso: `[agora + antecedência, +30min]`. Com o comando a correr
+        // duas vezes por dia, um registo tinha de cair naquela meia hora exacta
+        // para ser apanhado — praticamente nada era. E o que escorregasse pela
+        // janela nunca mais era avisado, porque a janela avança com o relógio.
+        //
+        // Assim apanha-se tudo o que está a chegar. O que impede a repetição já
+        // não é a estreiteza da janela: é a memória do que saiu
+        // (notification_sends), que é o que permite disparar isto pelo tráfego.
+        $query->whereBetween($dateField, [
+            Carbon::now()->format('Y-m-d H:i:s'),
+            Carbon::now()->addMinutes((int) $template->notify_before_minutes)->format('Y-m-d H:i:s'),
+        ]);
+
         return $query;
     }
     
@@ -237,7 +301,10 @@ class SendScheduledNotifications extends Command
     {
         $tables = [
             'events' => 'events_events',
-            'hr' => 'employees',
+            // `employees` nunca existiu neste sistema — a tabela é
+            // `hr_employees`. Os doze modelos de RH rebentavam a cada
+            // passagem, e o erro ficava enterrado no log do comando.
+            'hr' => 'hr_employees',
             'calendar' => 'calendar_events',
             'finance' => 'financial_transactions',
             'crm' => 'crm_leads',
@@ -266,20 +333,23 @@ class SendScheduledNotifications extends Command
         // Para cada módulo, definir como obter o destinatário
         switch ($module) {
             case 'events':
-                // Buscar técnicos do evento
+                // Técnicos do evento primeiro.
                 $recipients = $this->getEventTechnicians($record);
-                
-                if (!empty($recipients)) {
+
+                if (!empty($recipients['phones']) || !empty($recipients['emails'])) {
                     return $recipients;
                 }
-                
-                // Fallback: organizador ou contato
-                $phone = PhoneHelper::normalizeAngolanPhone($record->organizer_phone ?? $record->contact_phone);
-                return [
-                    'phones' => $phone ? [$phone] : [],
-                    'emails' => [$record->organizer_email ?? $record->contact_email],
-                ];
-                
+
+                // Sem técnicos, o contacto do evento é o CLIENTE.
+                //
+                // Aqui liam-se `organizer_phone`, `contact_phone`,
+                // `organizer_email` e `contact_email` — e nenhuma dessas quatro
+                // colunas existe em `events_events`. O evento tem `client_id`,
+                // e é na ficha do cliente que estão o email e o telefone. O
+                // recurso nunca devolveu um destinatário: só saía notificação
+                // de evento se houvesse técnicos designados.
+                return $this->contactoDoCliente($record->client_id ?? null);
+
             case 'hr':
                 $phone = PhoneHelper::normalizeAngolanPhone($record->phone);
                 return [
@@ -299,6 +369,34 @@ class SendScheduledNotifications extends Command
         }
     }
     
+    /**
+     * O email e o telefone de um cliente.
+     *
+     * Devolve listas vazias — nunca null — para o chamador não ter de
+     * distinguir "sem cliente" de "cliente sem contactos".
+     */
+    protected function contactoDoCliente($clientId): array
+    {
+        $vazio = ['phones' => [], 'emails' => []];
+
+        if (!$clientId) {
+            return $vazio;
+        }
+
+        $cliente = DB::table('invoicing_clients')->where('id', $clientId)->first();
+
+        if (!$cliente) {
+            return $vazio;
+        }
+
+        $telefone = PhoneHelper::normalizeAngolanPhone($cliente->phone ?? null);
+
+        return [
+            'phones' => $telefone ? [$telefone] : [],
+            'emails' => !empty($cliente->email) ? [$cliente->email] : [],
+        ];
+    }
+
     protected function getEventTechnicians($event): array
     {
         // Buscar IDs dos técnicos vinculados ao evento
@@ -331,54 +429,62 @@ class SendScheduledNotifications extends Command
             }
         }
         
-        // Se não houver técnicos vinculados, buscar TODOS os técnicos
-        if (empty($phones) && empty($emails)) {
-            $allTechnicians = DB::table('events_technicians')
-                ->where('tenant_id', $event->tenant_id)
-                ->select('phone', 'email', 'name')
-                ->get();
-            
-            foreach ($allTechnicians as $tech) {
-                if ($tech->phone) {
-                    $normalizedPhone = PhoneHelper::normalizeAngolanPhone($tech->phone);
-                    if (PhoneHelper::isValidAngolanPhone($normalizedPhone)) {
-                        $phones[] = $normalizedPhone;
-                    }
-                }
-                if ($tech->email) {
-                    $emails[] = $tech->email;
-                }
-            }
-        }
-        
+        // O RECURSO "TODOS OS TÉCNICOS" FOI REMOVIDO.
+        //
+        // Aqui, quando um evento não tinha ninguém designado, ia-se buscar
+        // TODOS os técnicos da empresa e avisavam-se todos. É a mesma ideia
+        // errada do `switch` sem `default`: a falta de um destinatário
+        // concreto a significar "toda a gente".
+        //
+        // Um evento sem técnico designado não tem a quem lembrar entre os
+        // técnicos — quem interessa avisar é o cliente, e é isso que o
+        // chamador faz a seguir quando isto vem vazio.
+
         return [
             'phones' => array_unique($phones),
             'emails' => array_unique($emails),
         ];
     }
     
-    protected function sendWhatsApp(NotificationTemplate $template, string $phone, array $variables)
+    /**
+     * O envio passou para App\Services\Notifications\EnvioDeNotificacoes.
+     *
+     * Aqui viviam três defeitos: o email era um TODO que só escrevia no log, o
+     * SMS chamava o WhatsApp, e não havia memória do que já tinha saído — cada
+     * passagem reenviava tudo a toda a gente.
+     *
+     * O serviço é partilhado com o despacho por tráfego, para não haver duas
+     * versões da mesma regra.
+     */
+    protected function envio(): \App\Services\Notifications\EnvioDeNotificacoes
+    {
+        return $this->envio ??= new \App\Services\Notifications\EnvioDeNotificacoes();
+    }
+
+    protected ?\App\Services\Notifications\EnvioDeNotificacoes $envio = null;
+
+    protected function sendWhatsAppAntigo(NotificationTemplate $template, string $phone, array $variables)
     {
         try {
             $settings = TenantNotificationSetting::getForTenant($template->tenant_id);
-            
+
             if (!$settings->whatsapp_account_sid || !$template->whatsapp_template_sid) {
                 return;
             }
-            
+
             $whatsapp = new WhatsAppService(
                 $settings->whatsapp_account_sid,
                 $settings->whatsapp_auth_token,
                 $settings->whatsapp_from_number
             );
-            
+
             $whatsapp->sendTemplate(
                 $phone,
                 $template->name,
                 $variables,
                 $template->whatsapp_template_sid
             );
-            
+
             Log::info('Scheduled WhatsApp sent', [
                 'template' => $template->name,
                 'phone' => $phone
@@ -392,15 +498,30 @@ class SendScheduledNotifications extends Command
         }
     }
     
-    protected function sendSMS(NotificationTemplate $template, string $phone, array $variables)
+    protected function sendWhatsApp(NotificationTemplate $template, string $phone, array $variables, ?int $recordId = null): void
     {
-        // Similar ao WhatsApp
-        $this->sendWhatsApp($template, $phone, $variables);
+        $this->envio()->enviar($template, 'whatsapp', $phone, $variables, $recordId);
     }
-    
-    protected function sendEmail(NotificationTemplate $template, string $email, array $variables)
+
+    /**
+     * SMS a sério.
+     *
+     * Isto era `$this->sendWhatsApp(...)` — ligar o SMS num modelo mandava um
+     * WhatsApp, e o resumo do comando contava-o como SMS.
+     */
+    protected function sendSMS(NotificationTemplate $template, string $phone, array $variables, ?int $recordId = null): void
     {
-        // TODO: Implementar envio de email
+        $this->envio()->enviar($template, 'sms', $phone, $variables, $recordId);
+    }
+
+    /** Email a sério. Era um TODO que só escrevia no log. */
+    protected function sendEmail(NotificationTemplate $template, string $email, array $variables, ?int $recordId = null): void
+    {
+        $this->envio()->enviar($template, 'email', $email, $variables, $recordId);
+    }
+
+    protected function sendEmailAntigo(NotificationTemplate $template, string $email, array $variables)
+    {
         Log::info('Email scheduled', [
             'template' => $template->name,
             'email' => $email,

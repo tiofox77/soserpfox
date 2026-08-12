@@ -25,7 +25,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Auth Token</label>
-                <input type="password" wire:model="whatsapp_auth_token" 
+                <input type="password" autocomplete="new-password" placeholder="{{ ($segredosGuardados['whatsapp_auth_token'] ?? false) ? '•••••••• (guardado)' : 'Escreva o token' }}" wire:model="whatsapp_auth_token" 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
             </div>
 
@@ -193,339 +193,74 @@
         </div>
     </div>
 
-    {{-- Configuração do Cron Job --}}
-    <div class="bg-white rounded-2xl shadow-lg border border-purple-100 p-6 mt-6">
+    {{-- Envio automático.
+
+         Aqui estavam 314 linhas a ensinar a configurar um cron job — caminho
+         do projecto, comando, frequências, instruções para cPanel, Linux e
+         Windows. Deixou de ser preciso: as notificações saem à boleia do
+         tráfego, tratadas depois de a resposta seguir para o browser, com uma
+         tranca de dez minutos por empresa.
+
+         Manter as instruções seria pior do que inútil: quem as seguisse ficava
+         com um cron a correr o mesmo comando que o sistema já corre sozinho. --}}
+    <div class="bg-white rounded-2xl shadow-lg border border-emerald-100 p-6 mt-6">
         <div class="flex items-center mb-4">
-            <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                <i class="fas fa-clock text-white"></i>
+            <div class="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center mr-3">
+                <i class="fas fa-bolt text-white"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-900">Automatização com Cron Job</h3>
+            <div>
+                <h3 class="text-lg font-bold text-gray-900">Envio automático</h3>
+                <p class="text-xs text-gray-500">Sem cron job, sem configuração no servidor</p>
+            </div>
         </div>
 
-        <div class="space-y-4">
-            {{-- Descrição --}}
-            <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                <p class="text-sm text-gray-700 mb-2">
-                    <i class="fas fa-info-circle text-purple-600 mr-2"></i>
-                    Configure o cron job no servidor para enviar notificações automaticamente baseadas nos templates criados.
-                </p>
+        <div class="bg-emerald-50 rounded-lg p-4 border border-emerald-200 mb-4">
+            <p class="text-sm text-gray-700">
+                <i class="fas fa-circle-check text-emerald-600 mr-2"></i>
+                As notificações dos modelos activos são enviadas <strong>sozinhas</strong>, enquanto
+                houver alguém a usar o sistema. Não é preciso configurar nada no servidor.
+            </p>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-3 mb-4">
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-1">Com que frequência</p>
+                <p class="text-sm text-gray-800">A cada 10 minutos, no máximo</p>
             </div>
-
-            {{-- Caminho do Projeto --}}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-folder text-purple-600 mr-2"></i>
-                    Caminho do Projeto
-                </label>
-                <div class="flex items-center">
-                    <input type="text" 
-                           value="{{ base_path() }}" 
-                           readonly
-                           id="projectPath"
-                           class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700">
-                    <button type="button" 
-                            onclick="copyToClipboard('projectPath')"
-                            class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                </div>
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-1">Quando</p>
+                <p class="text-sm text-gray-800">Com alguém a navegar no sistema</p>
             </div>
-
-            {{-- Comando Artisan --}}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-terminal text-purple-600 mr-2"></i>
-                    Comando de Notificações
-                </label>
-                <div class="flex items-center">
-                    <input type="text" 
-                           value="php artisan notifications:send-scheduled" 
-                           readonly
-                           id="artisanCommand"
-                           class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700">
-                    <button type="button" 
-                            onclick="copyToClipboard('artisanCommand')"
-                            class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                </div>
-            </div>
-
-            {{-- Comandos por Tipo de Servidor --}}
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-3">
-                    <i class="fas fa-cog text-purple-600 mr-2"></i>
-                    Configuração do Cron Job
-                </label>
-                
-                {{-- Tabs --}}
-                <div class="flex gap-2 mb-3" x-data="{ tab: 'cpanel' }">
-                    <button type="button" 
-                            @click="tab = 'cpanel'"
-                            :class="tab === 'cpanel' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'"
-                            class="px-4 py-2 rounded-lg text-sm font-semibold transition">
-                        cPanel
-                    </button>
-                    <button type="button" 
-                            @click="tab = 'linux'"
-                            :class="tab === 'linux' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'"
-                            class="px-4 py-2 rounded-lg text-sm font-semibold transition">
-                        Linux/SSH
-                    </button>
-                    <button type="button" 
-                            @click="tab = 'windows'"
-                            :class="tab === 'windows' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'"
-                            class="px-4 py-2 rounded-lg text-sm font-semibold transition">
-                        Windows
-                    </button>
-                </div>
-
-                {{-- cPanel Tab --}}
-                <div x-show="tab === 'cpanel'" class="space-y-3">
-                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                        <h5 class="text-sm font-bold text-gray-900 mb-2">
-                            <i class="fas fa-server text-blue-600 mr-2"></i>
-                            Configuração no cPanel
-                        </h5>
-                        <ol class="text-sm text-gray-700 space-y-2">
-                            <li>1. Acesse <strong>cPanel → Cron Jobs</strong></li>
-                            <li>2. Em "Add New Cron Job", configure:</li>
-                        </ol>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Frequência:</label>
-                        <div class="flex items-center gap-2">
-                            <input type="text" value="*/10" readonly class="w-16 px-2 py-1 bg-gray-50 border rounded text-center font-mono text-sm">
-                            <span class="text-xs">minutos</span>
-                            <input type="text" value="*" readonly class="w-16 px-2 py-1 bg-gray-50 border rounded text-center font-mono text-sm">
-                            <span class="text-xs">horas</span>
-                            <input type="text" value="*" readonly class="w-16 px-2 py-1 bg-gray-50 border rounded text-center font-mono text-sm">
-                            <span class="text-xs">dias</span>
-                            <input type="text" value="*" readonly class="w-16 px-2 py-1 bg-gray-50 border rounded text-center font-mono text-sm">
-                            <span class="text-xs">mês</span>
-                            <input type="text" value="*" readonly class="w-16 px-2 py-1 bg-gray-50 border rounded text-center font-mono text-sm">
-                            <span class="text-xs">dia semana</span>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Comando:</label>
-                        <div class="flex items-center">
-                            <textarea 
-                                   readonly
-                                   id="cronCommandCPanel"
-                                   rows="2"
-                                   class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700 resize-none">/usr/local/bin/php {{ str_replace('\\', '/', base_path()) }}/artisan notifications:send-scheduled</textarea>
-                            <button type="button" 
-                                    onclick="copyToClipboard('cronCommandCPanel')"
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition self-start">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Cole este comando no campo "Command" do cPanel
-                        </p>
-                    </div>
-                    
-                    <div class="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                        <p class="text-xs text-yellow-800">
-                            <i class="fas fa-exclamation-triangle mr-1"></i>
-                            <strong>Importante:</strong> Ajuste o caminho do PHP se necessário. Pode ser <code>/usr/bin/php</code> ou <code>/opt/alt/php80/usr/bin/php</code>
-                        </p>
-                    </div>
-                </div>
-
-                {{-- Linux/SSH Tab --}}
-                <div x-show="tab === 'linux'" class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Comando Completo:</label>
-                        <div class="flex items-center">
-                            <textarea 
-                                   readonly
-                                   id="cronCommandLinux"
-                                   rows="2"
-                                   class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700 resize-none">*/10 * * * * cd {{ str_replace('\\', '/', base_path()) }} && php artisan notifications:send-scheduled >> /dev/null 2>&1</textarea>
-                            <button type="button" 
-                                    onclick="copyToClipboard('cronCommandLinux')"
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition self-start">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <p class="text-xs text-gray-700 mb-2"><strong>Como configurar:</strong></p>
-                        <ol class="text-xs text-gray-600 space-y-1 ml-4 list-decimal">
-                            <li>Acesse o servidor via SSH</li>
-                            <li>Execute: <code class="bg-white px-2 py-1 rounded">crontab -e</code></li>
-                            <li>Cole a linha acima</li>
-                            <li>Salve: <code class="bg-white px-2 py-1 rounded">:wq</code> (vim) ou <code class="bg-white px-2 py-1 rounded">Ctrl+X</code> (nano)</li>
-                            <li>Verifique: <code class="bg-white px-2 py-1 rounded">crontab -l</code></li>
-                        </ol>
-                    </div>
-                </div>
-
-                {{-- Windows Tab --}}
-                <div x-show="tab === 'windows'" class="space-y-3">
-                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                        <h5 class="text-sm font-bold text-gray-900 mb-2">
-                            <i class="fab fa-windows text-blue-600 mr-2"></i>
-                            Agendador de Tarefas do Windows
-                        </h5>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Programa/Script:</label>
-                        <div class="flex items-center">
-                            <input type="text" 
-                                   readonly
-                                   id="windowsProgram"
-                                   value="php.exe"
-                                   class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700">
-                            <button type="button" 
-                                    onclick="copyToClipboard('windowsProgram')"
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Argumentos:</label>
-                        <div class="flex items-center">
-                            <input type="text" 
-                                   readonly
-                                   id="windowsArgs"
-                                   value="{{ base_path() }}\artisan notifications:send-scheduled"
-                                   class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700">
-                            <button type="button" 
-                                    onclick="copyToClipboard('windowsArgs')"
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Diretório Inicial:</label>
-                        <div class="flex items-center">
-                            <input type="text" 
-                                   readonly
-                                   id="windowsDir"
-                                   value="{{ base_path() }}"
-                                   class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700">
-                            <button type="button" 
-                                    onclick="copyToClipboard('windowsDir')"
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <p class="text-xs text-gray-700 mb-2"><strong>Como configurar:</strong></p>
-                        <ol class="text-xs text-gray-600 space-y-1 ml-4 list-decimal">
-                            <li>Abra <strong>Agendador de Tarefas</strong> do Windows</li>
-                            <li>Clique em <strong>"Criar Tarefa..."</strong></li>
-                            <li>Aba <strong>Geral</strong>: Nome e descrição</li>
-                            <li>Aba <strong>Disparadores</strong>: Novo → Repetir a cada 10 minutos</li>
-                            <li>Aba <strong>Ações</strong>: Novo → Cole os valores acima</li>
-                            <li>OK para salvar</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Nota Importante --}}
-            <div class="bg-green-50 rounded-lg p-4 border border-green-200">
-                <h5 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
-                    <i class="fas fa-check-circle text-green-600 mr-2"></i>
-                    Agora com suporte para cPanel!
-                </h5>
-                <p class="text-xs text-gray-700">
-                    Selecione a aba acima de acordo com seu tipo de hospedagem:
-                    <strong>cPanel</strong>, <strong>Linux/SSH</strong> ou <strong>Windows</strong>.
-                    Cada ambiente tem instruções específicas e otimizadas.
-                </p>
-            </div>
-
-            {{-- Teste Manual --}}
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-                <h4 class="text-sm font-bold text-gray-900 mb-2">
-                    <i class="fas fa-flask text-blue-600 mr-2"></i>
-                    Testar Manualmente
-                </h4>
-                <p class="text-sm text-gray-700 mb-3">Execute este comando para testar o envio de notificações:</p>
-                <div class="flex items-center">
-                    <input type="text" 
-                           value="php artisan notifications:send-scheduled" 
-                           readonly
-                           id="testCommand"
-                           class="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-l-lg text-sm font-mono text-gray-700">
-                    <button type="button" 
-                            onclick="copyToClipboard('testCommand')"
-                            class="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                </div>
-            </div>
-
-            {{-- Frequências Comuns --}}
-            <div>
-                <h4 class="text-sm font-bold text-gray-900 mb-3">
-                    <i class="fas fa-stopwatch text-purple-600 mr-2"></i>
-                    Frequências Comuns de Cron:
-                </h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
-                        <code class="text-purple-600 font-bold">*/5 * * * *</code>
-                        <span class="text-gray-600 ml-2">A cada 5 minutos</span>
-                    </div>
-                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
-                        <code class="text-purple-600 font-bold">*/10 * * * *</code>
-                        <span class="text-gray-600 ml-2">A cada 10 minutos</span>
-                    </div>
-                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
-                        <code class="text-purple-600 font-bold">*/15 * * * *</code>
-                        <span class="text-gray-600 ml-2">A cada 15 minutos</span>
-                    </div>
-                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
-                        <code class="text-purple-600 font-bold">0 * * * *</code>
-                        <span class="text-gray-600 ml-2">A cada hora</span>
-                    </div>
-                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
-                        <code class="text-purple-600 font-bold">0 0 * * *</code>
-                        <span class="text-gray-600 ml-2">Todo dia à meia-noite</span>
-                    </div>
-                    <div class="bg-gray-50 rounded p-2 border border-gray-200">
-                        <code class="text-purple-600 font-bold">0 9 * * *</code>
-                        <span class="text-gray-600 ml-2">Todo dia às 9h</span>
-                    </div>
-                </div>
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p class="text-xs font-bold text-gray-500 uppercase mb-1">Repetições</p>
+                <p class="text-sm text-gray-800">Um aviso por destinatário e por dia</p>
             </div>
         </div>
+
+        <div class="bg-amber-50 rounded-lg p-3 border border-amber-200 mb-4">
+            <p class="text-xs text-amber-800">
+                <i class="fas fa-circle-info mr-1"></i>
+                Como o envio depende de haver alguém a usar o sistema, num dia sem ninguém a
+                trabalhar as notificações ficam à espera — e saem no primeiro acesso seguinte.
+            </p>
+        </div>
+
+        {{-- O comando manual saiu daqui.
+
+             Era o último resto das instruções de cron: uma linha de terminal
+             num ecrã de definições. Quem usa esta página não tem acesso à
+             consola do servidor, e mostrar-lhe um comando que não pode correr
+             só levanta a dúvida de que talvez fosse preciso corrê-lo — que é
+             exactamente o contrário do que este painel diz.
+
+             Continua a existir para quem tem consola (`php artisan
+             notifications:send-scheduled`) e pela rota de manutenção. --}}
     </div>
 
-    <script>
-        function copyToClipboard(elementId) {
-            const element = document.getElementById(elementId);
-            element.select();
-            element.setSelectionRange(0, 99999); // Para mobile
-            
-            navigator.clipboard.writeText(element.value).then(() => {
-                // Toast notification
-                if (typeof toastr !== 'undefined') {
-                    toastr.success('Copiado para a área de transferência!');
-                } else {
-                    alert('Copiado para a área de transferência!');
-                }
-            }).catch(err => {
-                console.error('Erro ao copiar:', err);
-            });
-        }
-    </script>
+    {{-- O `copyToClipboard` saiu com os campos que o usavam: existia só para
+         copiar o caminho do projecto e o comando do cron, e ficou sem ninguém
+         a chamá-lo. Confirmado que mais nenhum ecrã de definições depende
+         dele. --}}
 
     {{-- Modal de Variáveis --}}
     @if($showVariablesModal)

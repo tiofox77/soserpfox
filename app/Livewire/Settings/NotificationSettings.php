@@ -59,17 +59,45 @@ class NotificationSettings extends Component
     public $availableWhatsAppTemplates = [];
     public $availableNotificationTemplates = []; // Templates do sistema
 
+    /**
+     * Quais destes campos são segredos, e se já há um gravado.
+     *
+     * Em Livewire, uma propriedade pública é serializada PARA DENTRO da página
+     * e volta em cada pedido. A senha do SMTP e os tokens das operadoras
+     * estavam em propriedades públicas: o `type="password"` do campo esconde os
+     * caracteres no ecrã e não no código-fonte, onde qualquer pessoa com as
+     * ferramentas do browser abertas os lia por extenso.
+     *
+     * Agora os campos abrem VAZIOS e só se gravam quando alguém escrever um
+     * valor novo. O que está guardado nunca sai do servidor; o ecrã limita-se
+     * a dizer que existe.
+     */
+    private const SEGREDOS = [
+        'smtp_password',
+        'sms_auth_token',
+        'sms_api_token',
+        'whatsapp_auth_token',
+    ];
+
+    /** Para o ecrã poder mostrar "já configurado" sem revelar o valor. */
+    public array $segredosGuardados = [];
+
     public function mount()
     {
         $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
         $settings = TenantNotificationSetting::getForTenant($tenantId);
-        
+
+        foreach (self::SEGREDOS as $campo) {
+            $this->segredosGuardados[$campo] = filled($settings->{$campo});
+        }
+
         // Email
         $this->email_enabled = $settings->email_enabled;
         $this->smtp_host = $settings->smtp_host;
         $this->smtp_port = $settings->smtp_port ?? 587;
         $this->smtp_username = $settings->smtp_username;
-        $this->smtp_password = $settings->smtp_password;
+        // A senha NÃO é carregada — ver a nota em SEGREDOS.
+        $this->smtp_password = '';
         $this->smtp_encryption = $settings->smtp_encryption ?? 'tls';
         $this->from_email = $settings->from_email;
         $this->from_name = $settings->from_name;
@@ -79,9 +107,9 @@ class NotificationSettings extends Component
         $this->sms_enabled = $settings->sms_enabled;
         $this->sms_provider = $settings->sms_provider ?? '';
         $this->sms_account_sid = $settings->sms_account_sid;
-        $this->sms_auth_token = $settings->sms_auth_token;
+        $this->sms_auth_token = '';       // segredo: não sai do servidor
         $this->sms_from_number = $settings->sms_from_number;
-        $this->sms_api_token = $settings->sms_api_token;
+        $this->sms_api_token = '';        // segredo: não sai do servidor
         $this->sms_sender_id = $settings->sms_sender_id;
         $this->sms_notifications = $settings->sms_notifications ?? TenantNotificationSetting::getDefaultSmsNotifications();
         
@@ -89,7 +117,7 @@ class NotificationSettings extends Component
         $this->whatsapp_enabled = $settings->whatsapp_enabled;
         $this->whatsapp_provider = $settings->whatsapp_provider ?? 'twilio';
         $this->whatsapp_account_sid = $settings->whatsapp_account_sid;
-        $this->whatsapp_auth_token = $settings->whatsapp_auth_token;
+        $this->whatsapp_auth_token = '';  // segredo: não sai do servidor
         $this->whatsapp_from_number = $settings->whatsapp_from_number;
         $this->whatsapp_business_account_id = $settings->whatsapp_business_account_id;
         $this->whatsapp_sandbox = $settings->whatsapp_sandbox;
@@ -125,18 +153,95 @@ class NotificationSettings extends Component
         })->toArray();
     }
 
+    /**
+     * As regras do que se grava.
+     *
+     * Não havia nenhuma: gravava-se um email inválido, uma porta "abc" ou um
+     * host vazio com o email ligado, e o erro só aparecia mais tarde, na
+     * primeira tentativa de envio — sem ninguém ligar uma coisa à outra.
+     *
+     * As regras dos canais só se aplicam quando o canal está LIGADO: quem tem
+     * o SMS desligado não tem de preencher nada dele para poder gravar o resto.
+     */
+    protected function rules(): array
+    {
+        return [
+            'smtp_host'     => 'exclude_unless:email_enabled,true|required|string|max:255',
+            'smtp_port'     => 'exclude_unless:email_enabled,true|required|integer|min:1|max:65535',
+            'smtp_username' => 'exclude_unless:email_enabled,true|nullable|string|max:255',
+            'from_email'    => 'exclude_unless:email_enabled,true|required|email|max:255',
+            'from_name'     => 'nullable|string|max:255',
+            'smtp_encryption' => 'nullable|in:tls,ssl,',
+
+            'sms_provider'  => 'exclude_unless:sms_enabled,true|required|string|max:50',
+            'sms_sender_id' => 'nullable|string|max:30',
+
+            'whatsapp_provider'    => 'exclude_unless:whatsapp_enabled,true|required|string|max:50',
+            'whatsapp_from_number' => 'exclude_unless:whatsapp_enabled,true|required|string|max:30',
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'smtp_host.required'  => 'Indique o servidor de saída (SMTP) — sem ele não sai email nenhum.',
+            'smtp_port.required'  => 'Indique a porta do servidor de saída.',
+            'smtp_port.integer'   => 'A porta tem de ser um número (normalmente 587 ou 465).',
+            'from_email.required' => 'Indique o endereço remetente.',
+            'from_email.email'    => 'O endereço remetente não é um email válido.',
+            'sms_provider.required'         => 'Escolha a operadora de SMS.',
+            'whatsapp_provider.required'    => 'Escolha o fornecedor de WhatsApp.',
+            'whatsapp_from_number.required' => 'Indique o número de origem do WhatsApp.',
+        ];
+    }
+
+    /**
+     * Um segredo só se grava quando alguém escreve um novo.
+     *
+     * Os campos abrem vazios de propósito (o valor guardado não viaja para o
+     * browser). Gravar o vazio apagaria a senha do SMTP de quem só veio mudar
+     * o nome do remetente.
+     */
+    private function segredoParaGravar(string $campo, TenantNotificationSetting $settings): array
+    {
+        $novo = trim((string) $this->{$campo});
+
+        return $novo === '' ? [] : [$campo => $novo];
+    }
+
+    /**
+     * O segredo a usar num teste de ligação: o que a pessoa acabou de escrever
+     * ou, se não escreveu nada, o que já está guardado.
+     *
+     * Sem isto, testar a ligação depois de recarregar a página falhava sempre
+     * com "senha em falta" — porque o campo abre vazio de propósito.
+     */
+    private function segredoEfectivo(string $campo): ?string
+    {
+        $escrito = trim((string) $this->{$campo});
+
+        if ($escrito !== '') {
+            return $escrito;
+        }
+
+        $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
+
+        return TenantNotificationSetting::getForTenant($tenantId)->{$campo};
+    }
+
     public function save()
     {
+        $this->validate();
+
         $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
         $settings = TenantNotificationSetting::getForTenant($tenantId);
-        
+
         $settings->update([
             // Email
             'email_enabled' => $this->email_enabled,
             'smtp_host' => $this->smtp_host,
             'smtp_port' => $this->smtp_port,
             'smtp_username' => $this->smtp_username,
-            'smtp_password' => $this->smtp_password,
             'smtp_encryption' => $this->smtp_encryption,
             'from_email' => $this->from_email,
             'from_name' => $this->from_name,
@@ -145,9 +250,7 @@ class NotificationSettings extends Component
             'sms_enabled' => $this->sms_enabled,
             'sms_provider' => $this->sms_provider,
             'sms_account_sid' => $this->sms_account_sid,
-            'sms_auth_token' => $this->sms_auth_token,
             'sms_from_number' => $this->sms_from_number,
-            'sms_api_token' => $this->sms_api_token,
             'sms_sender_id' => $this->sms_sender_id,
             'sms_notifications' => $this->sms_notifications,
             'sms_notification_templates' => $this->sms_notification_templates,
@@ -155,7 +258,6 @@ class NotificationSettings extends Component
             'whatsapp_enabled' => $this->whatsapp_enabled,
             'whatsapp_provider' => $this->whatsapp_provider,
             'whatsapp_account_sid' => $this->whatsapp_account_sid,
-            'whatsapp_auth_token' => $this->whatsapp_auth_token,
             'whatsapp_from_number' => $this->whatsapp_from_number,
             'whatsapp_business_account_id' => $this->whatsapp_business_account_id,
             'whatsapp_sandbox' => $this->whatsapp_sandbox,
@@ -163,7 +265,20 @@ class NotificationSettings extends Component
             'whatsapp_templates' => $this->whatsapp_templates,
             'whatsapp_notification_templates' => $this->whatsapp_notification_templates,
             'email_notification_templates' => $this->email_notification_templates,
-        ]);
+        ]
+            // Os segredos entram só se tiverem sido escritos agora. Um campo
+            // vazio significa "manter o que lá está", nunca "apagar".
+            + $this->segredoParaGravar('smtp_password', $settings)
+            + $this->segredoParaGravar('sms_auth_token', $settings)
+            + $this->segredoParaGravar('sms_api_token', $settings)
+            + $this->segredoParaGravar('whatsapp_auth_token', $settings));
+
+        // O ecrã volta a mostrar os campos vazios, agora a dizer que há
+        // segredo guardado.
+        foreach (self::SEGREDOS as $campo) {
+            $this->segredosGuardados[$campo] = filled($settings->fresh()->{$campo});
+            $this->{$campo} = '';
+        }
 
         $this->dispatch('show-toast', [
             'type' => 'success',
@@ -177,9 +292,21 @@ class NotificationSettings extends Component
             'smtp_host' => 'required',
             'smtp_port' => 'required|numeric',
             'smtp_username' => 'required',
-            'smtp_password' => 'required',
             'from_email' => 'required|email',
         ]);
+
+        // A senha vem do que está guardado quando o campo está vazio — que é o
+        // estado normal ao abrir a página.
+        $senha = $this->segredoEfectivo('smtp_password');
+
+        if (blank($senha)) {
+            $this->dispatch('show-toast', [
+                'type' => 'error',
+                'message' => 'Escreva a senha do SMTP antes de testar — não há nenhuma guardada.',
+            ]);
+
+            return;
+        }
 
         try {
             $port = $this->smtp_port ?? 587;
@@ -195,7 +322,7 @@ class NotificationSettings extends Component
                 'port' => $port,
                 'encryption' => $encryption,
                 'username' => $this->smtp_username,
-                'password' => $this->smtp_password,
+                'password' => $senha,
                 'timeout' => 15,
                 'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) config('app.url', 'http://localhost'), PHP_URL_HOST)),
                 'verify_peer' => false,
@@ -260,12 +387,19 @@ class NotificationSettings extends Component
     public function testSmsConnection()
     {
         if ($this->sms_provider === 'd7networks') {
-            $this->validate([
-                'sms_api_token' => 'required',
-            ]);
+            $token = $this->segredoEfectivo('sms_api_token');
+
+            if (blank($token)) {
+                $this->dispatch('show-toast', [
+                    'type' => 'error',
+                    'message' => 'Escreva o token da D7 Networks antes de testar — não há nenhum guardado.',
+                ]);
+
+                return;
+            }
 
             try {
-                $d7 = new \App\Services\D7NetworksService($this->sms_api_token, $this->sms_sender_id);
+                $d7 = new \App\Services\D7NetworksService($token, $this->sms_sender_id);
                 $result = $d7->testConnection();
 
                 if ($result['success']) {
@@ -309,8 +443,7 @@ class NotificationSettings extends Component
             'testPhone' => 'required|string',
             'testTemplateSid' => 'required|string',
             'whatsapp_account_sid' => 'required',
-            'whatsapp_auth_token' => 'required',
-            'whatsapp_from_number' => 'required',
+                        'whatsapp_from_number' => 'required',
         ], [
             'testTemplateSid.required' => 'Selecione um template para enviar o teste'
         ]);
@@ -331,7 +464,7 @@ class NotificationSettings extends Component
         try {
             $whatsapp = new WhatsAppService(
                 $this->whatsapp_account_sid,
-                $this->whatsapp_auth_token,
+                $this->segredoEfectivo('whatsapp_auth_token'),
                 $this->whatsapp_from_number
             );
             
@@ -381,7 +514,7 @@ class NotificationSettings extends Component
             // Criar WhatsApp service com configurações do tenant
             $whatsapp = new WhatsAppService(
                 $this->whatsapp_account_sid,
-                $this->whatsapp_auth_token,
+                $this->segredoEfectivo('whatsapp_auth_token'),
                 $this->whatsapp_from_number
             );
             
@@ -440,14 +573,13 @@ class NotificationSettings extends Component
     {
         $this->validate([
             'whatsapp_account_sid' => 'required',
-            'whatsapp_auth_token' => 'required',
-        ]);
+                    ]);
 
         try {
             // Criar WhatsApp service com configurações do tenant
             $whatsapp = new WhatsAppService(
                 $this->whatsapp_account_sid,
-                $this->whatsapp_auth_token,
+                $this->segredoEfectivo('whatsapp_auth_token'),
                 $this->whatsapp_from_number
             );
             

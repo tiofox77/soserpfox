@@ -48,8 +48,21 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Senha SMTP</label>
-                <input type="password" wire:model="smtp_password" 
+                {{-- O campo abre VAZIO de propósito: a senha guardada não sai do
+                     servidor. Antes vinha carregada numa propriedade pública do
+                     Livewire, e isso põe-na no código-fonte da página — o
+                     `type="password"` esconde os caracteres no ecrã, não no
+                     HTML. Sem este aviso, o campo vazio lê-se como "a minha
+                     senha desapareceu". --}}
+                <input type="password" wire:model="smtp_password" autocomplete="new-password"
+                       placeholder="{{ ($segredosGuardados['smtp_password'] ?? false) ? '•••••••• (guardada)' : 'Escreva a senha' }}"
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                @if($segredosGuardados['smtp_password'] ?? false)
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-lock mr-1 text-green-600"></i>
+                        Há uma senha guardada. Deixe em branco para a manter, ou escreva uma nova para a substituir.
+                    </p>
+                @endif
             </div>
 
             <div>

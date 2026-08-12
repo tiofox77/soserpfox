@@ -44,7 +44,30 @@ class TenantNotificationSetting extends Model
         'email_notification_templates', // Template ID para cada tipo Email
     ];
 
+    /**
+     * As credenciais nunca saem daqui numa serialização.
+     *
+     * O modelo é de configuração e não é devolvido por API nenhuma hoje — mas
+     * um `toArray()` num log, num evento ou numa resposta de diagnóstico
+     * levava a senha do SMTP e os tokens das operadoras consigo.
+     */
+    protected $hidden = [
+        'smtp_password',
+        'sms_auth_token',
+        'sms_api_token',
+        'whatsapp_auth_token',
+    ];
+
     protected $casts = [
+        // Cifrados em repouso. Estavam em texto simples: quem chegasse à base
+        // lia a senha de email da empresa e o token com que se gastam os SMS
+        // dela. Ver App\Casts\SegredoCifrado — lê texto simples antigo e
+        // escreve sempre cifrado, para não precisar de migração.
+        'smtp_password'       => \App\Casts\SegredoCifrado::class,
+        'sms_auth_token'      => \App\Casts\SegredoCifrado::class,
+        'sms_api_token'       => \App\Casts\SegredoCifrado::class,
+        'whatsapp_auth_token' => \App\Casts\SegredoCifrado::class,
+
         'email_enabled' => 'boolean',
         'sms_enabled' => 'boolean',
         'whatsapp_enabled' => 'boolean',

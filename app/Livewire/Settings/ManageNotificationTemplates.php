@@ -70,8 +70,26 @@ class ManageNotificationTemplates extends Component
     public $testPreviewBody = '';
     public $testPreviewSms = '';
     
+    /** Quantos modelos foram criados nesta visita (avisa-se uma vez). */
+    public int $criadosAgora = 0;
+
     public function mount()
     {
+        // Criar os modelos em falta ANTES de listar.
+        //
+        // O ecrã estava vazio em todas as empresas menos a primeira: os 24
+        // modelos existiam só lá, postos à mão, e não havia seeder nenhum.
+        // Quem abrisse isto noutra empresa via uma lista em branco e tinha de
+        // escrever tudo de raiz — assunto, corpo e variáveis para doze avisos.
+        //
+        // Só ACRESCENTA o que falta, nunca altera: um modelo que a empresa
+        // tenha reescrito não pode ser reposto por alguém abrir a página.
+        $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
+
+        if ($tenantId) {
+            $this->criadosAgora = \App\Services\Notifications\ModelosPadrao::garantirPara((int) $tenantId);
+        }
+
         $this->loadTemplates();
     }
     
