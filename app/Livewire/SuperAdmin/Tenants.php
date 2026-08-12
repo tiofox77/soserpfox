@@ -4,6 +4,9 @@ namespace App\Livewire\SuperAdmin;
 
 use App\Models\Tenant;
 use Livewire\Component;
+
+use function Illuminate\Support\defer;
+
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -118,26 +121,98 @@ class Tenants extends Component
             'is_active' => $this->is_active,
         ];
         if ($this->editingTenantId) {
-            Tenant::find($this->editingTenantId)->update($data);
-            $this->dispatch('success', message: 'Tenant atualizado com sucesso!');
-        } else {
-            $tenant = Tenant::create($data);
-            
-            // Criar roles padrão para o novo tenant
-            createDefaultRolesForTenant($tenant->id);
-            
-            // Criar dados contabilísticos padrão
-            initializeAccountingDataForTenant($tenant->id);
-            
-            \Log::info('Tenant criado pelo Super Admin com roles', [
-                'tenant_id' => $tenant->id,
-                'tenant_name' => $tenant->name,
-            ]);
-            
-            $this->dispatch('success', message: 'Tenant criado com sucesso com dados contabilísticos!');
+            $tenant = Tenant::with('activeSubscription.plan')->find($this->editingTenantId);
+
+            // A ficha não pode prometer menos do que o plano dá.
+            //
+            // Como o limite passou a ser imposto, um número na ficha abaixo do
+            // plano era só confusão: mostrava 10 a quem paga por 50, e o plano
+            // é que prevalecia na hora de adicionar alguém. Ao gravar, o
+            // número sobe para o do plano — nunca desce, porque a ficha serve
+            // para conceder MAIS.
+            $doPlano = (int) ($tenant->activeSubscription?->plan?->max_users ?? 0);
+
+            if ($doPlano > (int) $data['max_users']) {
+                $data['max_users'] = $doPlano;
+            }
+
+            $doPlanoStorage = (int) ($tenant->activeSubscription?->plan?->max_storage_mb ?? 0);
+
+            if ($doPlanoStorage > (int) $data['max_storage_mb']) {
+                $data['max_storage_mb'] = $doPlanoStorage;
+            }
+
+            $tenant->update($data);
+
+            $this->dispatch('success', message: 'Empresa actualizada.');
+            $this->closeModal();
+
+            return;
         }
 
-        $this->closeModal();
+        try {
+            // Tudo ou nada.
+            //
+            // Sem transacção, uma falha a criar os papéis ou o plano de contas
+            // deixava a empresa GRAVADA e meio montada: aparecia na lista, e
+            // quem lá entrasse não tinha permissões nem contabilidade. Não
+            // havia forma de perceber que estava incompleta a não ser tropeçar
+            // nisso.
+            $tenant = \DB::transaction(function () use ($data) {
+                $tenant = Tenant::create($data);
+
+                createDefaultRolesForTenant($tenant->id);
+                initializeAccountingDataForTenant($tenant->id);
+
+                $this->provisionar($tenant);
+
+                return $tenant;
+            });
+
+            \Log::info('Tenant criado pelo Super Admin', [
+                'tenant_id'   => $tenant->id,
+                'tenant_name' => $tenant->name,
+            ]);
+
+            $this->dispatch('success', message: "Empresa '{$tenant->name}' criada e configurada!");
+            $this->closeModal();
+        } catch (\Throwable $e) {
+            \Log::error('Falha ao criar tenant', ['erro' => $e->getMessage()]);
+
+            $this->dispatch('error', message: 'Não foi possível criar a empresa: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * O que uma empresa nova precisa para funcionar.
+     *
+     * Faltava aqui, e o efeito só aparecia mais tarde, ecrã a ecrã: as
+     * definições de RH e os modelos de notificação existiam agarrados à empresa
+     * 1 e nenhuma empresa nova os recebia — quem abrisse esses ecrãs via uma
+     * página em branco. Ambos foram corrigidos com catálogos próprios; aqui
+     * chamam-se para a empresa já nascer completa em vez de ser remendada na
+     * primeira visita.
+     *
+     * Cada passo falha em silêncio: uma empresa não pode deixar de ser criada
+     * porque um catálogo acessório teve um problema.
+     */
+    private function provisionar(Tenant $tenant): void
+    {
+        $passos = [
+            'definições de RH'         => fn () => \App\Services\HR\DefinicoesRH::garantirPara($tenant->id),
+            'modelos de notificação'   => fn () => \App\Services\Notifications\ModelosPadrao::garantirPara($tenant->id),
+        ];
+
+        foreach ($passos as $nome => $passo) {
+            try {
+                $passo();
+            } catch (\Throwable $e) {
+                \Log::warning("Provisionamento parcial da empresa: {$nome}", [
+                    'tenant_id' => $tenant->id,
+                    'erro'      => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     public function toggleStatus($id)
@@ -177,11 +252,21 @@ class Tenants extends Component
                 'deactivated_by' => auth()->id(),
             ]);
             
-            // Enviar notificação para todos os usuários do tenant (PODE DEMORAR)
-            $this->sendSuspensionNotification($tenant);
-            
-            $this->dispatch('warning', message: 
-                "⚠️ Tenant '{$tenant->name}' desativado! {$usersCount} usuário(s) notificados por email."
+            // Os emails saem DEPOIS da resposta.
+            //
+            // Isto era um ciclo síncrono com uma ligação SMTP por utilizador,
+            // dentro do pedido — o comentário original já dizia "PODE DEMORAR".
+            // Com trinta pessoas numa empresa, o pedido excedia o tempo e o
+            // administrador via um erro apesar de a desactivação ter sido
+            // gravada (o `update` acontece antes do envio).
+            //
+            // `defer` corre depois de a resposta seguir para o browser, no
+            // mesmo processo — não precisa de fila, que este alojamento não
+            // tem. O ecrã responde de imediato.
+            defer(fn () => $this->sendSuspensionNotification($tenant));
+
+            $this->dispatch('warning', message:
+                "⚠️ Empresa '{$tenant->name}' desactivada. A notificar {$usersCount} utilizador(es) por email."
             );
             
             $this->closeDeactivationModal();
@@ -206,10 +291,10 @@ class Tenants extends Component
                 'deactivated_by' => null,
             ]);
             
-            // Enviar notificação de reativação para todos os usuários (PODE DEMORAR)
-            $this->sendReactivationNotification($tenant);
-            
-            $this->dispatch('success', message: "✓ Tenant '{$tenant->name}' reativado! {$usersCount} usuário(s) notificados por email.");
+            // Depois da resposta, pela mesma razão da desactivação.
+            defer(fn () => $this->sendReactivationNotification($tenant));
+
+            $this->dispatch('success', message: "✓ Empresa '{$tenant->name}' reactivada. A notificar {$usersCount} utilizador(es) por email.");
             
         } finally {
             $this->activatingTenantId = null; // Desativar loading
@@ -329,8 +414,78 @@ class Tenants extends Component
         $this->createNewUser = 0; // Reset para "existente"
     }
     
+    /**
+     * O papel indicado pertence mesmo a esta empresa?
+     *
+     * O `$roleId` vem do browser. O menu do ecrã só mostra papéis desta
+     * empresa, mas quem monte o pedido à mão podia indicar o de OUTRA — e o
+     * `Role::find()` aceitava-o sem perguntar nada. O resultado era dar a
+     * alguém as permissões definidas por uma empresa diferente.
+     *
+     * É a mesma lição que este sistema já aprendeu com os artigos no POS: o
+     * que vem do browser filtra-se sempre pela empresa.
+     */
+    private function papelDaEmpresa($roleId, int $tenantId): ?\Spatie\Permission\Models\Role
+    {
+        if (!$roleId) {
+            return null;
+        }
+
+        return \Spatie\Permission\Models\Role::where('id', $roleId)
+            ->where('tenant_id', $tenantId)
+            ->first();
+    }
+
+    /*
+     * A regra do limite vive no MODELO — Tenant::limiteDeUtilizadores() e
+     * Tenant::cabeMaisUmUtilizador(). Estava aqui, mas então só este ecrã a
+     * conhecia: qualquer outro sítio que perguntasse "cabe mais um?"
+     * responderia outra coisa.
+     */
+
+    /**
+     * O plano da empresa que está a ser editada, para o formulário poder
+     * mostrar o que ela de facto tem direito.
+     */
+    public function getPlanoDoTenantEmEdicaoProperty(): ?\App\Models\Plan
+    {
+        if (!$this->editingTenantId) {
+            return null;
+        }
+
+        return Tenant::with('activeSubscription.plan')
+            ->find($this->editingTenantId)
+            ?->activeSubscription?->plan;
+    }
+
     public function addUserToTenant()
     {
+        $tenant = Tenant::find($this->managingTenantId);
+
+        if (!$tenant) {
+            $this->dispatch('error', message: 'Empresa não encontrada.');
+
+            return;
+        }
+
+        if (!$tenant->cabeMaisUmUtilizador()) {
+            $this->dispatch('error', message: sprintf(
+                'Esta empresa já tem %d utilizador(es) e o limite é %d. Aumente o limite na ficha da empresa ou mude o plano.',
+                $tenant->users()->count(),
+                $tenant->limiteDeUtilizadores()
+            ));
+
+            return;
+        }
+
+        // O papel é validado ANTES de se criar seja o que for: recusar depois
+        // de o utilizador existir deixava uma conta órfã sem permissões.
+        if (!$this->papelDaEmpresa($this->selectedRoleId, $tenant->id)) {
+            $this->dispatch('error', message: 'Escolha um papel válido para esta empresa.');
+
+            return;
+        }
+
         if ($this->createNewUser == 1 || $this->createNewUser === true) {
             // Criar novo usuário
             $this->validate([
@@ -348,45 +503,37 @@ class Tenants extends Component
                 'password' => \Hash::make($this->newUserPassword),
                 'is_active' => true,
             ]);
-            
-            $tenant = \App\Models\Tenant::find($this->managingTenantId);
-            $emailSent = false;
-            $smsSent = false;
-            
-            // Enviar email de boas-vindas com credenciais (usando lógica do RegisterWizard)
-            try {
-                $this->sendNewUserWelcomeEmail($user, $this->newUserPassword, $tenant);
-                $emailSent = true;
-            } catch (\Exception $e) {
-                \Log::error('Erro ao enviar email de boas-vindas', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage()
-                ]);
-            }
-            
-            // Enviar SMS de boas-vindas
-            if ($this->newUserPhone) {
+
+            // Email e SMS DEPOIS da resposta.
+            //
+            // Eram síncronos: uma ligação SMTP e uma chamada à operadora dentro
+            // do pedido. O ecrã ficava parado à espera, e um SMTP lento fazia
+            // parecer que a criação tinha falhado — quando o utilizador já
+            // estava criado.
+            //
+            // A senha é passada por valor ao fecho e não fica em lado nenhum
+            // depois disto.
+            $senha  = $this->newUserPassword;
+            $phone  = $this->newUserPhone;
+
+            defer(function () use ($user, $senha, $phone, $tenant) {
                 try {
-                    $smsService = new \App\Services\SmsService();
-                    $result = $smsService->sendNewAccountSms($user, $this->newUserPassword, $tenant);
-                    $smsSent = $result['success'] ?? false;
-                } catch (\Exception $e) {
-                    \Log::error('Erro ao enviar SMS de boas-vindas', [
-                        'user_id' => $user->id,
-                        'error' => $e->getMessage()
-                    ]);
+                    $this->sendNewUserWelcomeEmail($user, $senha, $tenant);
+                } catch (\Throwable $e) {
+                    \Log::error('Email de boas-vindas não enviado', ['user_id' => $user->id, 'erro' => $e->getMessage()]);
                 }
-            }
-            
-            $userId = $user->id;
-            
-            // Mensagem de sucesso com status de envios
-            $statusParts = [];
-            if ($emailSent) $statusParts[] = '📧 Email enviado';
-            if ($smsSent) $statusParts[] = '📱 SMS enviado';
-            
-            $statusMessage = !empty($statusParts) ? ' (' . implode(', ', $statusParts) . ')' : '';
-            $message = '✅ Usuário criado com sucesso!' . $statusMessage;
+
+                if ($phone) {
+                    try {
+                        (new \App\Services\SmsService())->sendNewAccountSms($user, $senha, $tenant);
+                    } catch (\Throwable $e) {
+                        \Log::error('SMS de boas-vindas não enviado', ['user_id' => $user->id, 'erro' => $e->getMessage()]);
+                    }
+                }
+            });
+
+            $userId  = $user->id;
+            $message = '✅ Utilizador criado. A enviar as credenciais por email' . ($phone ? ' e SMS' : '') . '.';
         } else {
             // Adicionar usuário existente
             $this->validate([
@@ -432,47 +579,73 @@ class Tenants extends Component
             ]);
         }
         
-        // Atribuir role usando Spatie Permission
+        // Atribuir papel. Já foi validado como sendo desta empresa lá em cima.
         setPermissionsTeamId($this->managingTenantId);
-        $role = \Spatie\Permission\Models\Role::find($this->selectedRoleId);
-        if ($role) {
-            $user->assignRole($role);
-        }
-        
+        $user->assignRole($this->papelDaEmpresa($this->selectedRoleId, $this->managingTenantId));
+
+        // A senha escrita não fica na memória do componente — e portanto não
+        // volta a viajar para o browser no render seguinte.
+        $this->newUserPassword = '';
+
         $this->dispatch('success', message: $message);
         $this->closeAddUserModal();
     }
-    
+
     public function removeUserFromTenant($userId)
     {
-        $user = \App\Models\User::find($userId);
-        
-        // Remover roles do tenant
+        $tenant = Tenant::find($this->managingTenantId);
+        $user   = \App\Models\User::find($userId);
+
+        if (!$tenant || !$user) {
+            return;
+        }
+
+        // Não deixar a empresa sem ninguém.
+        //
+        // Não havia guarda nenhuma: dava para tirar o último utilizador e a
+        // empresa ficava sem forma de lá entrar — e sem forma de voltar atrás
+        // a partir deste ecrã, porque adicionar exige escolher um papel que
+        // alguém tem de conseguir gerir.
+        if ($tenant->users()->count() <= 1) {
+            $this->dispatch('error', message:
+                'Esta é a última pessoa com acesso a esta empresa. Adicione outra antes de a remover, '
+                . 'ou desactive a empresa.'
+            );
+
+            return;
+        }
+
         setPermissionsTeamId($this->managingTenantId);
         $user->roles()->wherePivot('tenant_id', $this->managingTenantId)->detach();
-        
-        // Remover da pivot table
         $user->tenants()->detach($this->managingTenantId);
-            
-        $this->dispatch('success', message: 'Usuário removido do tenant com sucesso!');
+
+        $this->dispatch('success', message: 'Utilizador removido desta empresa.');
     }
-    
+
     public function updateUserRole($userId, $roleId)
     {
         $user = \App\Models\User::find($userId);
-        
-        setPermissionsTeamId($this->managingTenantId);
-        
-        // Remover roles antigas do tenant
-        $user->roles()->wherePivot('tenant_id', $this->managingTenantId)->detach();
-        
-        // Atribuir nova role
-        $role = \Spatie\Permission\Models\Role::find($roleId);
-        if ($role) {
-            $user->assignRole($role);
+
+        if (!$user || !$this->managingTenantId) {
+            return;
         }
-            
-        $this->dispatch('success', message: 'Role atualizada com sucesso!');
+
+        // O papel TEM de ser desta empresa. O `Role::find()` que aqui estava
+        // aceitava qualquer id vindo do browser, incluindo o de outra empresa.
+        $papel = $this->papelDaEmpresa($roleId, $this->managingTenantId);
+
+        if (!$papel) {
+            $this->dispatch('error', message: 'Esse papel não pertence a esta empresa.');
+
+            return;
+        }
+
+        setPermissionsTeamId($this->managingTenantId);
+
+        $user->roles()->wherePivot('tenant_id', $this->managingTenantId)->detach();
+        $user->assignRole($papel);
+
+        $this->dispatch('success', message: "Papel alterado para {$papel->name}.");
     }
     
     // Plan Management

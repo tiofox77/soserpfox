@@ -95,6 +95,20 @@
                             </label>
                             <input wire:model="max_users" type="number" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                             @error('max_users') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+
+                            {{-- O plano é o que o cliente paga. Um número aqui
+                                 abaixo do plano era só confusão: mostrava 10 a
+                                 quem paga por 50, e era o plano que prevalecia
+                                 na hora de adicionar alguém. --}}
+                            @if($this->planoDoTenantEmEdicao)
+                                <p class="text-xs mt-1 {{ (int) $max_users < (int) $this->planoDoTenantEmEdicao->max_users ? 'text-amber-600 font-semibold' : 'text-gray-500' }}">
+                                    <i class="fas fa-crown mr-1"></i>
+                                    Plano {{ $this->planoDoTenantEmEdicao->name }}: {{ $this->planoDoTenantEmEdicao->max_users }} utilizadores.
+                                    @if((int) $max_users < (int) $this->planoDoTenantEmEdicao->max_users)
+                                        Ao gravar, sobe para {{ $this->planoDoTenantEmEdicao->max_users }} — a ficha só serve para conceder mais.
+                                    @endif
+                                </p>
+                            @endif
                         </div>
                         
                         <div>
@@ -103,6 +117,13 @@
                             </label>
                             <input wire:model="max_storage_mb" type="number" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                             @error('max_storage_mb') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+
+                            @if($this->planoDoTenantEmEdicao)
+                                <p class="text-xs mt-1 {{ (int) $max_storage_mb < (int) $this->planoDoTenantEmEdicao->max_storage_mb ? 'text-amber-600 font-semibold' : 'text-gray-500' }}">
+                                    <i class="fas fa-crown mr-1"></i>
+                                    Plano: {{ number_format((int) $this->planoDoTenantEmEdicao->max_storage_mb) }} MB.
+                                </p>
+                            @endif
                         </div>
                         
                         <div class="col-span-2">

@@ -95,7 +95,16 @@
                                         <i class="fas fa-users text-green-600"></i>
                                         <span class="text-sm text-gray-700">Máx. Utilizadores</span>
                                     </div>
-                                    <span class="font-bold text-gray-900">{{ $viewingTenant->max_users }}</span>
+                                    {{-- O limite que VALE, não o número da ficha:
+                                         se o plano dá mais, é o plano que manda. --}}
+                                    <span class="font-bold text-gray-900">
+                                        {{ $viewingTenant->limiteDeUtilizadores() ?: '—' }}
+                                        @if($viewingTenant->fichaAbaixoDoPlano())
+                                            <span class="block text-[11px] font-normal text-amber-600">
+                                                pelo plano (ficha diz {{ $viewingTenant->max_users }})
+                                            </span>
+                                        @endif
+                                    </span>
                                 </div>
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-2">

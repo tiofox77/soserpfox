@@ -188,7 +188,21 @@ class Tenant extends Model
             }
         });
         
-        static::deleting(function ($tenant) {
+        /**
+         * A cascata só corre numa eliminação DEFINITIVA.
+         *
+         * Estava em `deleting`, que também dispara no soft delete — e o
+         * resultado era incoerente ao ponto de ser perigoso: a empresa ficava
+         * soft-deleted, portanto recuperável, mas os utilizadores, os papéis e
+         * as subscrições dela levavam `forceDelete` e desapareciam para
+         * sempre. Quem restaurasse a empresa encontrava-a sem ninguém lá
+         * dentro e sem papéis — inutilizável.
+         *
+         * Com `forceDeleting`, um soft delete apenas esconde a empresa e nada
+         * se destrói. A destruição fica reservada a quem a peça de facto, e só
+         * passa pela guarda de `canBeDeleted()`.
+         */
+        static::forceDeleting(function ($tenant) {
             \Log::info("🗑️ INICIANDO EXCLUSÃO EM CASCATA DO TENANT", [
                 'tenant_id' => $tenant->id,
                 'tenant_name' => $tenant->name,
@@ -293,11 +307,29 @@ class Tenant extends Model
                     \Log::info("   📨 {$invitations->count()} convites deletados");
                 }
                 
+                // 12. O RESTO — todas as outras tabelas com `tenant_id`.
+                //
+                // Os onze passos acima tratavam OITO tabelas. Medido nesta
+                // base, 142 têm `tenant_id`: as outras 134 ficavam com linhas a
+                // apontar para uma empresa que já não existe, invisíveis
+                // porque os filtros por empresa nunca mais as devolvem.
+                //
+                // A lista é lida do esquema e não escrita à mão, senão ficava
+                // desactualizada na primeira migração que acrescentasse uma
+                // tabela — e o sintoma disso é silencioso.
+                $limpeza = \App\Services\Tenants\EliminacaoDeEmpresa::limpar($tenant->id);
+
+                \Log::info("   🧹 {$limpeza['passagens']} passagem(ns), "
+                    . count($limpeza['apagadas']) . ' tabela(s) limpa(s), '
+                    . array_sum($limpeza['apagadas']) . ' linha(s)');
+
                 \DB::commit();
-                
+
                 \Log::info("✅ EXCLUSÃO EM CASCATA CONCLUÍDA COM SUCESSO", [
                     'tenant_id' => $tenant->id,
                     'tenant_name' => $tenant->name,
+                    'tabelas_limpas' => count($limpeza['apagadas']),
+                    'por_limpar' => array_keys($limpeza['por_apagar']),
                 ]);
                 
             } catch (\Exception $e) {
@@ -742,32 +774,136 @@ class Tenant extends Model
      * Verificar se o tenant pode ser deletado
      * (não pode ter faturas emitidas)
      */
+    /**
+     * Actividade que impede apagar uma empresa: tabela => o que representa.
+     *
+     * A guarda anterior olhava para as facturas e mais nada. Uma empresa com
+     * três anos de movimentos de stock, lançamentos contabilísticos, recibos e
+     * trilha de auditoria — mas sem uma factura de venda emitida — era
+     * apagável, e ia-se abaixo com tudo isso atrás.
+     *
+     * Medido nesta base: 142 tabelas têm `tenant_id` e a cascata trata 8. Uma
+     * eliminação deixa 134 tabelas com linhas órfãs, a apontar para uma empresa
+     * que já não existe. Entre elas a `audit_trail`, que é append-only e cujas
+     * linhas nunca poderão ser limpas.
+     *
+     * A conclusão é que uma empresa COM actividade não se apaga — desactiva-se.
+     * Apagar fica reservado ao caso que o justifica: uma empresa criada por
+     * engano, que nunca fez nada.
+     */
+    private const ACTIVIDADE_QUE_IMPEDE_APAGAR = [
+        'invoicing_sales_invoices'   => 'facturas de venda',
+        'invoicing_receipts'         => 'recibos',
+        'invoicing_credit_notes'     => 'notas de crédito',
+        'invoicing_debit_notes'      => 'notas de débito',
+        'invoicing_purchase_invoices' => 'facturas de compra',
+        'invoicing_stock_movements'  => 'movimentos de stock',
+        'invoicing_pos_shifts'       => 'turnos de caixa',
+        'accounting_moves'           => 'lançamentos contabilísticos',
+        'treasury_transactions'      => 'movimentos de tesouraria',
+        'hr_payrolls'                => 'folhas de salários',
+        'agt_submissions'            => 'comunicações à AGT',
+    ];
+
+    /*
+     * A TRILHA DE AUDITORIA NÃO ENTRA NESTA LISTA, e foi preciso medir para
+     * perceber porquê.
+     *
+     * Parecia o melhor sinal de todos — é append-only e regista tudo. Mas uma
+     * empresa acabada de criar já nasce com três linhas lá: o próprio
+     * provisionamento cria o armazém, os métodos de pagamento e a série FR, e
+     * esses modelos são auditados.
+     *
+     * Ou seja, a trilha bloquearia TODAS as empresas, incluindo a criada por
+     * engano há cinco minutos que é o único caso em que apagar faz sentido. É
+     * um sinal de que o sistema mexeu, não de que a empresa trabalhou.
+     *
+     * Consequência assumida: apagar uma empresa deixa essas poucas linhas de
+     * auditoria órfãs. Como só se apagam empresas sem actividade nenhuma, são
+     * meia dúzia de registos a dizer que um armazém foi criado — e a trilha
+     * recusa eliminações por desenho, que é a garantia que interessa manter.
+     */
+
+    /**
+     * O limite de utilizadores que vale de facto para esta empresa.
+     *
+     * O MAIOR entre a ficha e o plano. O campo "Máx. Utilizadores" da ficha
+     * existia desde sempre e nunca era verificado, portanto ninguém reparou que
+     * se afasta do plano: medido nesta base, três das seis empresas tinham a
+     * ficha ABAIXO do que pagam — uma delas dizia 3 na ficha, com plano
+     * Business de 50, e já lá trabalhavam 5 pessoas.
+     *
+     * O plano é o que o cliente paga; a ficha serve para conceder MAIS do que
+     * o plano dá, nunca menos.
+     *
+     * Vive no modelo e não no ecrã de super-admin para que todos os sítios que
+     * perguntem "cabe mais um?" respondam o mesmo.
+     */
+    public function limiteDeUtilizadores(): int
+    {
+        return max(
+            (int) ($this->max_users ?? 0),
+            (int) ($this->activeSubscription?->plan?->max_users ?? 0)
+        );
+    }
+
+    /** A ficha está a prometer menos do que o plano dá? */
+    public function fichaAbaixoDoPlano(): bool
+    {
+        $doPlano = (int) ($this->activeSubscription?->plan?->max_users ?? 0);
+
+        return $doPlano > 0 && (int) ($this->max_users ?? 0) < $doPlano;
+    }
+
+    /** Ainda cabe mais um utilizador nesta empresa? */
+    public function cabeMaisUmUtilizador(): bool
+    {
+        $limite = $this->limiteDeUtilizadores();
+
+        return $limite <= 0 || $this->users()->count() < $limite;
+    }
+
+    /**
+     * Esta empresa pode ser apagada?
+     *
+     * @return array{can_delete:bool, reason:?string, encontrado:array<string,int>}
+     */
     public function canBeDeleted()
     {
-        // Verificar se tem faturas
-        if ($this->invoices()->exists()) {
-            return [
-                'can_delete' => false,
-                'reason' => 'Não é possível excluir uma empresa que já tem faturas emitidas.',
-                'invoices_count' => $this->invoices()->count(),
-            ];
-        }
-        
-        // Verificar se tem sales_invoices (módulo de faturação)
-        if (class_exists('\App\Models\Invoicing\SalesInvoice')) {
-            $salesInvoicesCount = \App\Models\Invoicing\SalesInvoice::where('tenant_id', $this->id)->count();
-            if ($salesInvoicesCount > 0) {
-                return [
-                    'can_delete' => false,
-                    'reason' => 'Não é possível excluir uma empresa que já tem faturas emitidas.',
-                    'invoices_count' => $salesInvoicesCount,
-                ];
+        $encontrado = [];
+
+        foreach (self::ACTIVIDADE_QUE_IMPEDE_APAGAR as $tabela => $descricao) {
+            if (!\Illuminate\Support\Facades\Schema::hasTable($tabela)) {
+                continue;
+            }
+
+            $n = \DB::table($tabela)->where('tenant_id', $this->id)->count();
+
+            if ($n > 0) {
+                $encontrado[$descricao] = $n;
             }
         }
-        
+
+        // A tabela antiga de facturas, que pode existir em instalações antigas.
+        if ($this->invoices()->exists()) {
+            $encontrado['facturas'] = $this->invoices()->count();
+        }
+
+        if (empty($encontrado)) {
+            return ['can_delete' => true, 'reason' => null, 'encontrado' => []];
+        }
+
+        $lista = [];
+        foreach ($encontrado as $descricao => $n) {
+            $lista[] = "{$n} {$descricao}";
+        }
+
         return [
-            'can_delete' => true,
-            'reason' => null,
+            'can_delete' => false,
+            'reason' => 'Esta empresa tem actividade registada e não pode ser apagada: '
+                . implode(', ', $lista) . '. '
+                . 'Desactive-a — os dados ficam guardados e ninguém entra.',
+            'encontrado' => $encontrado,
         ];
     }
 }
