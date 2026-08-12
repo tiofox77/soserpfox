@@ -3,6 +3,7 @@
 namespace App\Livewire\Invoicing;
 
 use App\Models\AuditTrail;
+use App\Services\Audit\LeituraDaTrilha;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -110,6 +111,14 @@ class AuditTrailViewer extends Component
             ->orderBy('actor_name')
             ->get();
 
-        return view('livewire.invoicing.audit-trail-viewer', compact('registos', 'eventos', 'canais', 'actores'));
+        // Resolve de uma vez os artigos, armazéns e pessoas de que a página
+        // precisa — se fosse por linha eram centenas de consultas por render.
+        // A linha aberta em detalhe entra também, para não pagar consultas
+        // avulsas a seguir.
+        $leitura = (new LeituraDaTrilha)->preparar(
+            $registos->getCollection()->merge(array_filter([$this->linhaAberta]))
+        );
+
+        return view('livewire.invoicing.audit-trail-viewer', compact('registos', 'eventos', 'canais', 'actores', 'leitura'));
     }
 }

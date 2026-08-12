@@ -132,8 +132,16 @@
                         </span>
 
                         <span class="text-sm text-gray-900 flex-1 min-w-0">
-                            <span class="block truncate">
-                                <strong>{{ class_basename($r->auditable_type) ?: '—' }}</strong>
+                            {{-- O que aconteceu, em palavras. Antes dizia
+                                 "StockMovement" e obrigava a abrir o detalhe
+                                 para descobrir que artigo tinha saído de onde. --}}
+                            <span class="block truncate font-medium">
+                                {{ $leitura->frase($r) }}
+                            </span>
+
+                            <span class="block text-xs text-gray-400 truncate">
+                                {{ $leitura->nomeDoModelo(class_basename($r->auditable_type)) ?: 'acto' }}
+                                @if($r->auditable_id) #{{ $r->auditable_id }} @endif
                                 @if($r->auditable_label) · {{ $r->auditable_label }} @endif
                             </span>
 
@@ -144,7 +152,7 @@
                                 <span class="block text-xs text-gray-500 truncate">
                                     @foreach(array_slice($r->metadata, 0, 4) as $chave => $valor)
                                         @continue(is_array($valor) || $valor === null || $valor === '')
-                                        <span class="mr-2">{{ $chave }}: <span class="text-gray-700">{{ \Illuminate\Support\Str::limit((string) $valor, 30) }}</span></span>
+                                        <span class="mr-2">{{ $leitura->rotuloDoCampo($chave) }}: <span class="text-gray-700">{{ \Illuminate\Support\Str::limit((string) $leitura->valor($chave, $valor), 30) }}</span></span>
                                     @endforeach
                                 </span>
                             @endif
@@ -152,7 +160,7 @@
                             {{-- Que campos mudaram, sem abrir nada. --}}
                             @if($r->event === 'updated' && $r->new_values)
                                 <span class="block text-xs text-blue-600 truncate">
-                                    alterou: {{ implode(', ', array_slice(array_keys($r->new_values), 0, 6)) }}@if(count($r->new_values) > 6) …@endif
+                                    alterou: {{ implode(', ', array_map(fn ($c) => $leitura->rotuloDoCampo($c), array_slice(array_keys($r->new_values), 0, 6))) }}@if(count($r->new_values) > 6) …@endif
                                 </span>
                             @endif
                         </span>
@@ -198,12 +206,19 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
              wire:click.self="fechar">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-                <div class="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white">
-                    <h3 class="font-bold text-gray-900">
-                        {{ $l->event }} · {{ class_basename($l->auditable_type) ?: 'acto' }}
-                        @if($l->auditable_label) <span class="text-gray-500">· {{ $l->auditable_label }}</span> @endif
-                    </h3>
-                    <button wire:click="fechar" class="text-gray-400 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+                <div class="px-6 py-4 border-b sticky top-0 bg-white">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <h3 class="font-bold text-gray-900">{{ $leitura->frase($l) }}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                {{ $l->event }} ·
+                                {{ $leitura->nomeDoModelo(class_basename($l->auditable_type)) ?: 'acto' }}
+                                @if($l->auditable_id) #{{ $l->auditable_id }} @endif
+                                @if($l->auditable_label) · {{ $l->auditable_label }} @endif
+                            </p>
+                        </div>
+                        <button wire:click="fechar" class="text-gray-400 hover:text-gray-700 shrink-0"><i class="fas fa-times text-xl"></i></button>
+                    </div>
                 </div>
 
                 <div class="p-6 space-y-4">
@@ -219,29 +234,45 @@
                     @if($l->tenant_id !== $l->context_tenant_id && $l->context_tenant_id)
                         <div class="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                             <strong><i class="fas fa-triangle-exclamation mr-1"></i>Empresas diferentes.</strong>
-                            O registo pertence à empresa {{ $l->tenant_id }} mas o acto foi praticado com a
-                            empresa {{ $l->context_tenant_id }} activa.
+                            O registo pertence a {{ $leitura->rotuloDaReferencia('tenant_id', (int) $l->tenant_id) }}
+                            mas o acto foi praticado com {{ $leitura->rotuloDaReferencia('tenant_id', (int) $l->context_tenant_id) }} activa.
                         </div>
                     @endif
 
                     @if($l->old_values || $l->new_values)
                         <div>
-                            <h4 class="font-bold text-sm text-gray-700 mb-2">O que mudou</h4>
+                            <h4 class="font-bold text-sm text-gray-700 mb-2">
+                                {{ $l->event === 'created' ? 'O que foi registado' : 'O que mudou' }}
+                            </h4>
                             <div class="rounded-xl border overflow-hidden">
                                 <table class="w-full text-sm">
                                     <thead class="bg-gray-50 text-xs text-gray-600">
                                         <tr>
                                             <th class="text-left px-3 py-2">Campo</th>
-                                            <th class="text-left px-3 py-2">Antes</th>
-                                            <th class="text-left px-3 py-2">Depois</th>
+                                            @if($l->event !== 'created')
+                                                <th class="text-left px-3 py-2">Antes</th>
+                                            @endif
+                                            <th class="text-left px-3 py-2">{{ $l->event === 'created' ? 'Valor' : 'Depois' }}</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y">
-                                        @foreach(array_unique(array_merge(array_keys((array) $l->old_values), array_keys((array) $l->new_values))) as $campo)
-                                            <tr>
-                                                <td class="px-3 py-2 font-mono text-xs">{{ $campo }}</td>
-                                                <td class="px-3 py-2 text-red-700">{{ \Illuminate\Support\Str::limit(json_encode(($l->old_values ?? [])[$campo] ?? null, JSON_UNESCAPED_UNICODE), 60) }}</td>
-                                                <td class="px-3 py-2 text-green-700">{{ \Illuminate\Support\Str::limit(json_encode(($l->new_values ?? [])[$campo] ?? null, JSON_UNESCAPED_UNICODE), 60) }}</td>
+                                        {{-- Nome do campo em português e referências
+                                             resolvidas: "Armazém · SALA DE VENDAS (#12)"
+                                             em vez de "warehouse_id · 12". O número vai
+                                             junto porque o nome é o de hoje e o registo
+                                             é do passado. --}}
+                                        @foreach($leitura->campos($l) as $linha)
+                                            <tr class="{{ $linha['referencia'] ? 'bg-slate-50/60' : '' }}">
+                                                <td class="px-3 py-2 font-medium text-gray-700">
+                                                    {{ $linha['rotulo'] }}
+                                                    <span class="block font-mono text-[10px] text-gray-400">{{ $linha['campo'] }}</span>
+                                                </td>
+                                                @if($l->event !== 'created')
+                                                    <td class="px-3 py-2 text-red-700">{{ $linha['antes'] === null ? '—' : \Illuminate\Support\Str::limit($linha['antes'], 60) }}</td>
+                                                @endif
+                                                <td class="px-3 py-2 {{ $l->event === 'created' ? 'text-gray-900' : 'text-green-700' }}">
+                                                    {{ $linha['depois'] === null ? '—' : \Illuminate\Support\Str::limit($linha['depois'], 60) }}
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -253,7 +284,18 @@
                     @if($l->metadata)
                         <div>
                             <h4 class="font-bold text-sm text-gray-700 mb-2">Contexto</h4>
-                            <pre class="bg-gray-50 rounded-xl p-3 text-xs overflow-x-auto">{{ json_encode($l->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
+                            <div class="rounded-xl border overflow-hidden">
+                                <table class="w-full text-sm">
+                                    <tbody class="divide-y">
+                                        @foreach($l->metadata as $chave => $valor)
+                                            <tr>
+                                                <td class="px-3 py-2 font-medium text-gray-700 w-1/3">{{ $leitura->rotuloDoCampo($chave) }}</td>
+                                                <td class="px-3 py-2 text-gray-900">{{ $leitura->valor($chave, $valor) ?? '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     @endif
 
