@@ -16,7 +16,13 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             ModuleSeeder::class,
             PlanSeeder::class,
+            ModulePlansSeeder::class,
             SuperAdminSeeder::class,
+            // Tabelas de referência AGT (DS.120 v1.1)
+            AGTTaxExemptionCodeSeeder::class,
+            AGTIsVerbaSeeder::class,
+            AGTCaeCodeSeeder::class,
+            AGTIecPautalCodeSeeder::class,
         ]);
     }
 }

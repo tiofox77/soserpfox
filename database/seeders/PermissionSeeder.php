@@ -84,6 +84,20 @@ class PermissionSeeder extends Seeder
             'salon.products.view', 'salon.products.create', 'salon.products.edit',
             'salon.pos.access', 'salon.pos.sell',
             'salon.reports.view',
+
+            // Restaurante
+            'restaurant.dashboard.view',
+            'restaurant.floor.view', 'restaurant.floor.manage',
+            'restaurant.orders.view', 'restaurant.orders.create', 'restaurant.orders.edit',
+            'restaurant.orders.transfer', 'restaurant.orders.split', 'restaurant.orders.cancel',
+            'restaurant.kitchen.view', 'restaurant.kitchen.manage',
+            'restaurant.checkout.view', 'restaurant.checkout.charge', 'restaurant.checkout.discount',
+            'restaurant.reservations.view', 'restaurant.reservations.create', 'restaurant.reservations.edit',
+            'restaurant.menu.view', 'restaurant.menu.manage',
+            'restaurant.recipes.view', 'restaurant.recipes.manage',
+            'restaurant.stock.view', 'restaurant.stock.waste',
+            'restaurant.reports.view',
+            'restaurant.settings.view', 'restaurant.settings.edit',
             
             // Configurações
             'settings.view', 'settings.edit',

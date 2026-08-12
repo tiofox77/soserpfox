@@ -8,81 +8,73 @@ use App\Models\Tenant;
 
 class PeriodSeeder extends Seeder
 {
+    /** Meses do exercício, na ordem em que são criados. */
+    private const MESES = [
+        1  => ['JAN', 'Janeiro'],
+        2  => ['FEV', 'Fevereiro'],
+        3  => ['MAR', 'Março'],
+        4  => ['ABR', 'Abril'],
+        5  => ['MAI', 'Maio'],
+        6  => ['JUN', 'Junho'],
+        7  => ['JUL', 'Julho'],
+        8  => ['AGO', 'Agosto'],
+        9  => ['SET', 'Setembro'],
+        10 => ['OUT', 'Outubro'],
+        11 => ['NOV', 'Novembro'],
+        12 => ['DEZ', 'Dezembro'],
+    ];
+
     public function run(): void
     {
-        $tenants = Tenant::where('is_active', true)->get();
-        
-        foreach ($tenants as $tenant) {
-            $currentYear = now()->year;
-            
-            // Criar 12 períodos (meses) para o ano atual
-            $months = [
-                ['code' => 'JAN', 'name' => 'Janeiro ' . $currentYear, 'month' => 1],
-                ['code' => 'FEV', 'name' => 'Fevereiro ' . $currentYear, 'month' => 2],
-                ['code' => 'MAR', 'name' => 'Março ' . $currentYear, 'month' => 3],
-                ['code' => 'ABR', 'name' => 'Abril ' . $currentYear, 'month' => 4],
-                ['code' => 'MAI', 'name' => 'Maio ' . $currentYear, 'month' => 5],
-                ['code' => 'JUN', 'name' => 'Junho ' . $currentYear, 'month' => 6],
-                ['code' => 'JUL', 'name' => 'Julho ' . $currentYear, 'month' => 7],
-                ['code' => 'AGO', 'name' => 'Agosto ' . $currentYear, 'month' => 8],
-                ['code' => 'SET', 'name' => 'Setembro ' . $currentYear, 'month' => 9],
-                ['code' => 'OUT', 'name' => 'Outubro ' . $currentYear, 'month' => 10],
-                ['code' => 'NOV', 'name' => 'Novembro ' . $currentYear, 'month' => 11],
-                ['code' => 'DEZ', 'name' => 'Dezembro ' . $currentYear, 'month' => 12],
-            ];
-            
-            foreach ($months as $month) {
-                $dateStart = date('Y-m-01', strtotime($currentYear . '-' . $month['month'] . '-01'));
-                $dateEnd = date('Y-m-t', strtotime($currentYear . '-' . $month['month'] . '-01'));
-                
-                Period::create([
-                    'tenant_id' => $tenant->id,
-                    'code' => $month['code'] . '/' . $currentYear,
-                    'name' => $month['name'],
-                    'date_start' => $dateStart,
-                    'date_end' => $dateEnd,
-                    'state' => 'open',
-                ]);
-            }
-            
-            echo "✅ Criados 12 períodos para {$tenant->name} ({$currentYear})\n";
+        foreach (Tenant::where('is_active', true)->get() as $tenant) {
+            $criados = $this->runForTenant($tenant->id);
+            echo "✅ {$tenant->name}: {$criados} períodos criados (" . now()->year . ")\n";
         }
     }
-    
+
     /**
-     * Run seeder for a specific tenant (used when creating new company)
+     * Cria os 12 períodos mensais de um exercício para uma empresa.
+     *
+     * INCREMENTAL: só cria os meses em falta. Um período já existente é
+     * preservado tal como está — pode ter sido fechado, e reabri-lo em silêncio
+     * corromperia a contabilidade.
+     *
+     * @param  int|null $ano  Exercício a criar. Por omissão, o ano corrente.
+     * @return int            Número de períodos efectivamente criados.
      */
-    public function runForTenant(int $tenantId): void
+    public function runForTenant(int $tenantId, ?int $ano = null): int
     {
-        $currentYear = now()->year;
-        
-        $months = [
-            ['code' => 'JAN', 'name' => 'Janeiro ' . $currentYear, 'month' => 1],
-            ['code' => 'FEV', 'name' => 'Fevereiro ' . $currentYear, 'month' => 2],
-            ['code' => 'MAR', 'name' => 'Março ' . $currentYear, 'month' => 3],
-            ['code' => 'ABR', 'name' => 'Abril ' . $currentYear, 'month' => 4],
-            ['code' => 'MAI', 'name' => 'Maio ' . $currentYear, 'month' => 5],
-            ['code' => 'JUN', 'name' => 'Junho ' . $currentYear, 'month' => 6],
-            ['code' => 'JUL', 'name' => 'Julho ' . $currentYear, 'month' => 7],
-            ['code' => 'AGO', 'name' => 'Agosto ' . $currentYear, 'month' => 8],
-            ['code' => 'SET', 'name' => 'Setembro ' . $currentYear, 'month' => 9],
-            ['code' => 'OUT', 'name' => 'Outubro ' . $currentYear, 'month' => 10],
-            ['code' => 'NOV', 'name' => 'Novembro ' . $currentYear, 'month' => 11],
-            ['code' => 'DEZ', 'name' => 'Dezembro ' . $currentYear, 'month' => 12],
-        ];
-        
-        foreach ($months as $month) {
-            $dateStart = date('Y-m-01', strtotime($currentYear . '-' . $month['month'] . '-01'));
-            $dateEnd = date('Y-m-t', strtotime($currentYear . '-' . $month['month'] . '-01'));
-            
+        $ano = $ano ?: (int) now()->year;
+
+        // Códigos já existentes deste exercício — evita o "Duplicate entry" do
+        // índice único (tenant_id, code), que era o que rebentava ao repetir.
+        $existentes = array_flip(
+            Period::where('tenant_id', $tenantId)
+                ->where('code', 'like', '%/' . $ano)
+                ->pluck('code')
+                ->all()
+        );
+
+        $criados = 0;
+        foreach (self::MESES as $mes => [$sigla, $nome]) {
+            $code = $sigla . '/' . $ano;
+            if (isset($existentes[$code])) {
+                continue;
+            }
+
+            $primeiroDia = sprintf('%04d-%02d-01', $ano, $mes);
+
             Period::create([
-                'tenant_id' => $tenantId,
-                'code' => $month['code'] . '/' . $currentYear,
-                'name' => $month['name'],
-                'date_start' => $dateStart,
-                'date_end' => $dateEnd,
-                'state' => 'open',
+                'tenant_id'  => $tenantId,
+                'code'       => $code,
+                'name'       => $nome . ' ' . $ano,
+                'date_start' => $primeiroDia,
+                'date_end'   => date('Y-m-t', strtotime($primeiroDia)),
+                'state'      => 'open',
             ]);
+            $criados++;
         }
+
+        return $criados;
     }
 }

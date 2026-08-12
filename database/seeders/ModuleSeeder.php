@@ -67,7 +67,10 @@ class ModuleSeeder extends Seeder
                 'name' => 'Inventário',
                 'slug' => 'inventario',
                 'description' => 'Gestão de stock, armazéns e movimentos de inventário',
-                'icon' => 'package',
+                // `package` não existe no Font Awesome 6 — é `box`. Dava
+                // `fas fa-package`, uma classe sem desenho nenhum, e o módulo
+                // aparecia sem ícone pelo mesmo motivo que as Notificações.
+                'icon' => 'box',
                 'is_core' => false,
                 'is_active' => false,
                 'order' => 6,
@@ -123,13 +126,55 @@ class ModuleSeeder extends Seeder
                 'order' => 11,
                 'dependencies' => ['invoicing'],
             ],
+            [
+                'name' => 'Tesouraria',
+                'slug' => 'treasury',
+                'description' => 'Gestão de caixas, bancos, métodos de pagamento e transações. Acompanha sempre a Faturação (os pagamentos dependem da tesouraria).',
+                'icon' => 'wallet',
+                'is_core' => false,
+                'is_active' => true,
+                'order' => 12,
+                'dependencies' => ['invoicing'],
+            ],
+            [
+                'name' => 'Gestão de Restaurante',
+                'slug' => 'restaurant',
+                'description' => 'Sala, mesas, comandas, cozinha, receitas e checkout integrado com Facturação e Tesouraria.',
+                'icon' => 'utensils',
+                'is_core' => false,
+                'is_active' => true,
+                'order' => 13,
+                'dependencies' => ['invoicing'],
+            ],
+            [
+                // Faltava aqui. O módulo existia na base de produção, posto à
+                // mão, e não nesta lista — numa instalação de raiz não era
+                // criado, e como as rotas estão atrás de `tenant.module:
+                // notifications`, ninguém lá chegava.
+                'name' => 'Notificações',
+                'slug' => 'notifications',
+                'description' => 'Notificações por Email, SMS e WhatsApp, com modelos por evento.',
+                // Nome de ícone SEM prefixo, como todos os outros: quem desenha
+                // compõe `fas fa-{icon}`. Na base estava `ri-notification-3-line`,
+                // do Remix Icons, que dava `fas fa-ri-notification-3-line` — uma
+                // classe que não existe, e por isso um espaço em branco.
+                'icon' => 'bell',
+                'is_core' => false,
+                'is_active' => true,
+                'order' => 14,
+                'dependencies' => null,
+            ],
         ];
 
         foreach ($modules as $module) {
-            Module::firstOrCreate(
-                ['slug' => $module['slug']],
-                $module
-            );
+            // `updateOrCreate` nestes dois: são os que tiveram o registo
+            // corrigido depois de já existir na base, e um `firstOrCreate`
+            // deixava o valor errado lá para sempre.
+            if (in_array($module['slug'], ['restaurant', 'notifications', 'inventario'], true)) {
+                Module::updateOrCreate(['slug' => $module['slug']], $module);
+            } else {
+                Module::firstOrCreate(['slug' => $module['slug']], $module);
+            }
         }
     }
 }

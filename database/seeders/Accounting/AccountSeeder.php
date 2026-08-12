@@ -2,187 +2,194 @@
 
 namespace Database\Seeders\Accounting;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Plano de contas — PGC-AO (Plano Geral de Contabilidade de Angola, Decreto 82/01).
+ *
+ * Estrutura de classes (PGC-AO, ao contrário do SNC português):
+ *   1 Meios Fixos e Investimentos | 2 Existências | 3 Terceiros
+ *   4 Meios Monetários | 5 Capital e Reservas
+ *   6 Proveitos e Ganhos por Natureza | 7 Custos e Perdas por Natureza | 8 Resultados
+ *
+ * O campo `type` (asset/liability/equity/revenue/expense) é a âncora usada pelas
+ * demonstrações financeiras (agnósticas ao plano). Os `integration_key` são preservados
+ * para que a integração faturas→lançamentos continue a mapear as contas certas.
+ *
+ * NOTA: os códigos de IVA/retenções (classe 3.4 Estado) seguem uma convenção corrente
+ * pós-Lei do IVA 2019 e devem ser validados pelo contabilista da empresa.
+ */
 class AccountSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $tenants = \App\Models\Tenant::where('is_active', true)->get();
-        
         if ($tenants->isEmpty()) {
-            \Log::warning('❌ Nenhum tenant ativo encontrado!');
             return;
         }
-        
-        $accounts = $this->getSNCAccounts();
-        
+
+        $accounts = $this->getPGCAccounts();
+
         foreach ($tenants as $tenant) {
-            $existingCount = DB::table('accounting_accounts')
-                ->where('tenant_id', $tenant->id)
-                ->count();
-            
-            if ($existingCount > 0) {
-                \Log::info("⚠️  Tenant {$tenant->name} já possui {$existingCount} contas. Pulando...");
+            $existing = DB::table('accounting_accounts')->where('tenant_id', $tenant->id)->count();
+            if ($existing > 0) {
+                // Não sobrescreve planos existentes (tenants antigos mantêm o seu plano).
                 continue;
             }
-            
-            foreach ($accounts as $account) {
-                DB::table('accounting_accounts')->insert(array_merge($account, [
-                    'tenant_id' => $tenant->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]));
-            }
-            
-            \Log::info("✅ Criadas " . count($accounts) . " contas para {$tenant->name}");
+            $this->insertFor($tenant->id, $accounts);
         }
     }
-    
+
     /**
-     * Run seeder for a specific tenant (used when creating new company)
+     * Corre para uma empresa específica.
+     *
+     * INCREMENTAL: acrescenta apenas as contas do PGC-AO que ainda não existem
+     * (comparadas pelo código). Nunca toca nas contas já existentes — o cliente
+     * pode tê-las renomeado ou ter contas próprias — e nunca apaga nada.
+     *
+     * Antes desistia se existisse pelo menos uma conta, pelo que empresas
+     * antigas nunca recebiam contas novas acrescentadas ao plano.
+     *
+     * @return int Número de contas efectivamente criadas.
      */
-    public function runForTenant(int $tenantId): void
+    public function runForTenant(int $tenantId): int
     {
-        $accounts = $this->getSNCAccounts();
-        
+        return $this->insertFor($tenantId, $this->getPGCAccounts());
+    }
+
+    private function insertFor(int $tenantId, array $accounts): int
+    {
+        $existentes = DB::table('accounting_accounts')
+            ->where('tenant_id', $tenantId)
+            ->pluck('code')
+            ->all();
+        $existentes = array_flip($existentes);
+
+        $criadas = 0;
         foreach ($accounts as $account) {
+            if (isset($existentes[$account['code']])) {
+                continue;
+            }
+
             DB::table('accounting_accounts')->insert(array_merge($account, [
                 'tenant_id' => $tenantId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]));
+            $criadas++;
         }
+
+        return $criadas;
     }
-    
-    private function getSNCAccounts(): array
+
+    /**
+     * Plano de contas PGC-AO (Angola). type: asset|liability|equity|revenue|expense.
+     */
+    private function getPGCAccounts(): array
     {
-        // Carregar contas importadas do Excel (se existir)
-        $importedFile = database_path('seeders/Accounting/imported_accounts.php');
-        
-        if (file_exists($importedFile)) {
-            \Log::info('📄 Usando plano de contas importado do Excel');
-            return require $importedFile;
-        }
-        
-        // Usar contas padrão embutidas no seeder
-        \Log::info('📄 Usando plano de contas padrão embutido');
+        $a = fn ($code, $name, $type, $nature, $level, $view = false, $key = null) => [
+            'code' => $code, 'name' => $name, 'type' => $type, 'nature' => $nature,
+            'level' => $level, 'is_view' => $view, 'blocked' => false, 'parent_id' => null,
+            'integration_key' => $key,
+        ];
+
         return [
-            // ===== CLASSE 1 - ACTIVO =====
-            // Disponibilidades
-            ['code' => '11', 'name' => 'Disponibilidades', 'type' => 'asset', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '111', 'name' => 'Caixa', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'cash'],
-            ['code' => '1111', 'name' => 'Caixa Principal', 'type' => 'asset', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '112', 'name' => 'Depósitos à Ordem', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'bank'],
-            ['code' => '1121', 'name' => 'Banco BFA', 'type' => 'asset', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '1122', 'name' => 'Banco BAI', 'type' => 'asset', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Clientes
-            ['code' => '21', 'name' => 'Clientes', 'type' => 'asset', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'receivables'],
-            ['code' => '211', 'name' => 'Clientes c/c', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '2111', 'name' => 'Clientes Gerais', 'type' => 'asset', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '218', 'name' => 'Clientes de Cobrança Duvidosa', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Inventários
-            ['code' => '31', 'name' => 'Compras', 'type' => 'asset', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '311', 'name' => 'Mercadorias', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'inventory'],
-            ['code' => '32', 'name' => 'Matérias-Primas', 'type' => 'asset', 'nature' => 'debit', 'level' => 1, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Imobilizado
-            ['code' => '42', 'name' => 'Imobilizações Corpóreas', 'type' => 'asset', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'fixed_assets'],
-            ['code' => '423', 'name' => 'Equipamento Básico', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '424', 'name' => 'Equipamento de Transporte', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // ===== CLASSE 2 - PASSIVO =====
-            // Fornecedores
-            ['code' => '22', 'name' => 'Fornecedores', 'type' => 'liability', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'payables'],
-            ['code' => '221', 'name' => 'Fornecedores c/c', 'type' => 'liability', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '2211', 'name' => 'Fornecedores Gerais', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
+            // ===================== CLASSE 1 — MEIOS FIXOS E INVESTIMENTOS =====================
+            $a('11', 'Imobilizações Corpóreas', 'asset', 'debit', 1, true, 'fixed_assets'),
+            $a('112', 'Edifícios e Outras Construções', 'asset', 'debit', 2),
+            $a('113', 'Equipamento Básico', 'asset', 'debit', 2),
+            $a('114', 'Equipamento de Transporte', 'asset', 'debit', 2),
+            $a('115', 'Equipamento Administrativo', 'asset', 'debit', 2),
+            $a('12', 'Imobilizações Incorpóreas', 'asset', 'debit', 1, true),
+            $a('13', 'Investimentos Financeiros', 'asset', 'debit', 1, true),
+            $a('18', 'Amortizações Acumuladas', 'asset', 'credit', 1, true, 'depreciation_accumulated'),
+            $a('182', 'Amortizações Acum. — Imobilizações Corpóreas', 'asset', 'credit', 2),
+
+            // ===================== CLASSE 2 — EXISTÊNCIAS =====================
+            $a('21', 'Compras', 'asset', 'debit', 1, true),
+            $a('211', 'Compras de Mercadorias', 'asset', 'debit', 2),
+            $a('22', 'Matérias-Primas, Subsidiárias e de Consumo', 'asset', 'debit', 1, true),
+            $a('26', 'Mercadorias', 'asset', 'debit', 1, true, 'inventory'),
+            $a('261', 'Mercadorias em Armazém', 'asset', 'debit', 2),
+
+            // ===================== CLASSE 3 — TERCEIROS =====================
+            $a('31', 'Clientes', 'asset', 'debit', 1, true, 'receivables'),
+            $a('311', 'Clientes c/c', 'asset', 'debit', 2),
+            $a('3111', 'Clientes Gerais', 'asset', 'debit', 3),
+            $a('318', 'Clientes de Cobrança Duvidosa', 'asset', 'debit', 2),
+            $a('32', 'Fornecedores', 'liability', 'credit', 1, true, 'payables'),
+            $a('321', 'Fornecedores c/c', 'liability', 'credit', 2),
+            $a('3211', 'Fornecedores Gerais', 'liability', 'credit', 3),
+            $a('33', 'Empréstimos', 'liability', 'credit', 1, true),
+            $a('331', 'Empréstimos Bancários', 'liability', 'credit', 2),
             // Estado e Outros Entes Públicos
-            ['code' => '24', 'name' => 'Estado e Outros Entes Públicos', 'type' => 'liability', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // IVA
-            ['code' => '2431', 'name' => 'IVA - Liquidado', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'vat_collected'],
-            ['code' => '2432', 'name' => 'IVA - Dedutível', 'type' => 'asset', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'vat_paid'],
-            ['code' => '2433', 'name' => 'IVA - Apuramento', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'vat_settlement'],
-            
-            // Retenções
-            ['code' => '2441', 'name' => 'Retenções na Fonte - IRT', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'withholding_irt'],
-            ['code' => '2442', 'name' => 'Retenções na Fonte - Serviços', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'withholding_services'],
-            
-            // Segurança Social
-            ['code' => '2451', 'name' => 'INSS - Empregado', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'inss_employee'],
-            ['code' => '2452', 'name' => 'INSS - Empregador', 'type' => 'liability', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'inss_employer'],
-            
+            $a('34', 'Estado', 'liability', 'credit', 1, true),
+            $a('341', 'IVA', 'liability', 'credit', 2, true),
+            $a('3411', 'IVA Liquidado', 'liability', 'credit', 3, false, 'vat_collected'),
+            $a('3412', 'IVA Dedutível', 'asset', 'debit', 3, false, 'vat_paid'),
+            $a('3413', 'IVA Apuramento', 'liability', 'credit', 3, false, 'vat_settlement'),
+            $a('342', 'Retenções na Fonte', 'liability', 'credit', 2, true),
+            $a('3421', 'Retenção na Fonte — IRT', 'liability', 'credit', 3, false, 'withholding_irt'),
+            $a('3422', 'Retenção na Fonte — Serviços', 'liability', 'credit', 3, false, 'withholding_services'),
+            $a('343', 'Segurança Social (INSS)', 'liability', 'credit', 2, true),
+            $a('3431', 'INSS — Empregado', 'liability', 'credit', 3, false, 'inss_employee'),
+            $a('3432', 'INSS — Empregador', 'liability', 'credit', 3, false, 'inss_employer'),
             // Pessoal
-            ['code' => '23', 'name' => 'Pessoal', 'type' => 'liability', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '231', 'name' => 'Remunerações a Pagar', 'type' => 'liability', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'salaries_payable'],
-            ['code' => '232', 'name' => 'Adiantamentos', 'type' => 'asset', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Empréstimos
-            ['code' => '25', 'name' => 'Financiamentos Obtidos', 'type' => 'liability', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '251', 'name' => 'Empréstimos Bancários', 'type' => 'liability', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // ===== CLASSE 5 - CAPITAL PRÓPRIO =====
-            ['code' => '51', 'name' => 'Capital', 'type' => 'equity', 'nature' => 'credit', 'level' => 1, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '511', 'name' => 'Capital Social', 'type' => 'equity', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'share_capital'],
-            ['code' => '56', 'name' => 'Reservas', 'type' => 'equity', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '561', 'name' => 'Reservas Legais', 'type' => 'equity', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '59', 'name' => 'Resultados Transitados', 'type' => 'equity', 'nature' => 'credit', 'level' => 1, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'retained_earnings'],
-            
-            // ===== CLASSE 7 - RENDIMENTOS =====
-            ['code' => '71', 'name' => 'Vendas', 'type' => 'revenue', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'sales'],
-            ['code' => '711', 'name' => 'Vendas de Mercadorias', 'type' => 'revenue', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '7111', 'name' => 'Vendas de Mercadorias - Mercado Interno', 'type' => 'revenue', 'nature' => 'credit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '72', 'name' => 'Prestações de Serviços', 'type' => 'revenue', 'nature' => 'credit', 'level' => 1, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'services'],
-            ['code' => '721', 'name' => 'Serviços Prestados', 'type' => 'revenue', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '78', 'name' => 'Outros Rendimentos', 'type' => 'revenue', 'nature' => 'credit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '781', 'name' => 'Rendimentos Suplementares', 'type' => 'revenue', 'nature' => 'credit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // ===== CLASSE 6 - GASTOS =====
-            ['code' => '61', 'name' => 'Custo das Mercadorias Vendidas', 'type' => 'expense', 'nature' => 'debit', 'level' => 1, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'cogs'],
-            ['code' => '611', 'name' => 'CMVMC', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Fornecimentos e Serviços Externos
-            ['code' => '62', 'name' => 'Fornecimentos e Serviços Externos', 'type' => 'expense', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '621', 'name' => 'Subcontratos', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '622', 'name' => 'Serviços Especializados', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6221', 'name' => 'Trabalhos Especializados', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6222', 'name' => 'Publicidade e Propaganda', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '623', 'name' => 'Materiais', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6231', 'name' => 'Ferramentas e Utensílios', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6232', 'name' => 'Material de Escritório', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '625', 'name' => 'Deslocações e Estadas', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '626', 'name' => 'Serviços Diversos', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6261', 'name' => 'Rendas e Alugueres', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6262', 'name' => 'Comunicações', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6263', 'name' => 'Seguros', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Gastos com Pessoal
-            ['code' => '63', 'name' => 'Gastos com Pessoal', 'type' => 'expense', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'payroll'],
-            ['code' => '631', 'name' => 'Remunerações do Pessoal', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6311', 'name' => 'Remunerações Certas e Permanentes', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6312', 'name' => 'Subsídios', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '635', 'name' => 'Encargos sobre Remunerações', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '6351', 'name' => 'Encargos INSS', 'type' => 'expense', 'nature' => 'debit', 'level' => 3, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // Depreciações
-            ['code' => '64', 'name' => 'Gastos de Depreciação e Amortização', 'type' => 'expense', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '642', 'name' => 'Depreciações - Imobilizações Corpóreas', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'depreciation'],
-            
-            // Outros Gastos
-            ['code' => '68', 'name' => 'Outros Gastos', 'type' => 'expense', 'nature' => 'debit', 'level' => 1, 'is_view' => true, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '681', 'name' => 'Impostos', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            ['code' => '688', 'name' => 'Outros Gastos e Perdas', 'type' => 'expense', 'nature' => 'debit', 'level' => 2, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => null],
-            
-            // ===== CLASSE 8 - RESULTADOS =====
-            ['code' => '81', 'name' => 'Resultado Líquido do Exercício', 'type' => 'equity', 'nature' => 'credit', 'level' => 1, 'is_view' => false, 'blocked' => false, 'parent_id' => null, 'integration_key' => 'net_income'],
+            $a('36', 'Pessoal', 'liability', 'credit', 1, true),
+            $a('361', 'Remunerações a Pagar', 'liability', 'credit', 2, false, 'salaries_payable'),
+            $a('362', 'Adiantamentos ao Pessoal', 'asset', 'debit', 2),
+
+            // ===================== CLASSE 4 — MEIOS MONETÁRIOS =====================
+            $a('43', 'Depósitos à Ordem', 'asset', 'debit', 1, true, 'bank'),
+            $a('431', 'Banco BFA', 'asset', 'debit', 2),
+            $a('432', 'Banco BAI', 'asset', 'debit', 2),
+            $a('45', 'Caixa', 'asset', 'debit', 1, true, 'cash'),
+            $a('451', 'Caixa Principal', 'asset', 'debit', 2),
+
+            // ===================== CLASSE 5 — CAPITAL E RESERVAS =====================
+            $a('51', 'Capital', 'equity', 'credit', 1, true),
+            $a('511', 'Capital Social', 'equity', 'credit', 2, false, 'share_capital'),
+            $a('55', 'Reservas', 'equity', 'credit', 1, true),
+            $a('551', 'Reservas Legais', 'equity', 'credit', 2),
+            $a('56', 'Resultados Transitados', 'equity', 'credit', 1, false, 'retained_earnings'),
+
+            // ===================== CLASSE 6 — PROVEITOS E GANHOS POR NATUREZA =====================
+            $a('61', 'Vendas', 'revenue', 'credit', 1, true, 'sales'),
+            $a('611', 'Vendas de Mercadorias', 'revenue', 'credit', 2),
+            $a('62', 'Prestações de Serviços', 'revenue', 'credit', 1, true, 'services'),
+            $a('621', 'Serviços Prestados', 'revenue', 'credit', 2),
+            $a('68', 'Outros Proveitos e Ganhos', 'revenue', 'credit', 1, true),
+            $a('681', 'Proveitos Suplementares', 'revenue', 'credit', 2),
+
+            // ===================== CLASSE 7 — CUSTOS E PERDAS POR NATUREZA =====================
+            $a('71', 'Custo das Existências Vendidas e Consumidas', 'expense', 'debit', 1, true, 'cogs'),
+            $a('711', 'CEVC — Mercadorias', 'expense', 'debit', 2),
+            $a('72', 'Fornecimentos e Serviços de Terceiros', 'expense', 'debit', 1, true),
+            $a('721', 'Subcontratos', 'expense', 'debit', 2),
+            $a('722', 'Serviços Especializados', 'expense', 'debit', 2),
+            $a('7221', 'Trabalhos Especializados', 'expense', 'debit', 3),
+            $a('7222', 'Publicidade e Propaganda', 'expense', 'debit', 3),
+            $a('723', 'Materiais', 'expense', 'debit', 2),
+            $a('725', 'Deslocações e Estadas', 'expense', 'debit', 2),
+            $a('726', 'Serviços Diversos', 'expense', 'debit', 2),
+            $a('7261', 'Rendas e Alugueres', 'expense', 'debit', 3),
+            $a('7262', 'Comunicações', 'expense', 'debit', 3),
+            $a('7263', 'Seguros', 'expense', 'debit', 3),
+            $a('73', 'Custos com o Pessoal', 'expense', 'debit', 1, true, 'payroll'),
+            $a('731', 'Remunerações do Pessoal', 'expense', 'debit', 2),
+            $a('7311', 'Remunerações Certas e Permanentes', 'expense', 'debit', 3),
+            $a('7312', 'Subsídios', 'expense', 'debit', 3),
+            $a('735', 'Encargos sobre Remunerações', 'expense', 'debit', 2),
+            $a('7351', 'Encargos INSS (Empregador)', 'expense', 'debit', 3),
+            $a('77', 'Amortizações do Exercício', 'expense', 'debit', 1, true, 'depreciation'),
+            $a('772', 'Amortizações — Imobilizações Corpóreas', 'expense', 'debit', 2),
+            $a('78', 'Outros Custos e Perdas', 'expense', 'debit', 1, true),
+            $a('781', 'Impostos', 'expense', 'debit', 2),
+            $a('788', 'Outros Custos e Perdas', 'expense', 'debit', 2),
+
+            // ===================== CLASSE 8 — RESULTADOS =====================
+            $a('88', 'Resultado Líquido do Exercício', 'equity', 'credit', 1, false, 'net_income'),
         ];
     }
 }
