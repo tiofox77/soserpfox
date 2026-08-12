@@ -351,4 +351,52 @@ class AnalyticsEcraTest extends TenantTestCase
         Http::assertNothingSent();
         $this->assertNull(AnalyticsEvent::where('ip', '196.216.2.3')->value('country'));
     }
+
+    // ============ utilizadores não são visitantes ============
+
+    /**
+     * Quem tem sessão iniciada sai da conta dos visitantes.
+     *
+     * Toda a secção de captação existe para responder a "quem nos descobriu e
+     * por onde". Um cliente a trabalhar no ERP entrava na mesma conta: inflava
+     * os visitantes, as sessões e as páginas vistas, e aparecia classificado
+     * como tráfego "directo" que na verdade já paga.
+     */
+    public function test_quem_esta_autenticado_nao_conta_como_visitante(): void
+    {
+        \App\Models\AnalyticsEvent::query()->delete();
+
+        // Um visitante anónimo.
+        \App\Models\AnalyticsEvent::create([
+            'visitor_id' => 'anon-1', 'session_id' => 's1', 'type' => 'pageview',
+            'path' => '/', 'created_at' => now(),
+        ]);
+
+        // Um cliente a trabalhar.
+        \App\Models\AnalyticsEvent::create([
+            'visitor_id' => 'user-1', 'session_id' => 's2', 'type' => 'pageview',
+            'path' => '/invoicing/faturas-venda', 'user_id' => $this->user->id,
+            'created_at' => now(),
+        ]);
+
+        Livewire::test(\App\Livewire\SuperAdmin\Analytics::class)
+            ->assertViewHas('totalVisitors', 1)
+            ->assertViewHas('online', 1);
+    }
+
+    /** E aparece, com nome, no painel dos utilizadores. */
+    public function test_o_utilizador_autenticado_aparece_no_painel_proprio(): void
+    {
+        \App\Models\AnalyticsEvent::query()->delete();
+
+        \App\Models\AnalyticsEvent::create([
+            'visitor_id' => 'user-1', 'session_id' => 's2', 'type' => 'pageview',
+            'path' => '/pos', 'user_id' => $this->user->id, 'created_at' => now(),
+        ]);
+
+        Livewire::test(\App\Livewire\SuperAdmin\Analytics::class)
+            ->assertViewHas('utilizadoresOnline', 1)
+            ->assertSee($this->user->name)
+            ->assertSee('/pos');
+    }
 }

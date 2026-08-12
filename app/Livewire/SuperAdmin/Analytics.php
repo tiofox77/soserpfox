@@ -106,6 +106,16 @@ class Analytics extends Component
     {
         $q = AnalyticsEvent::whereBetween('created_at', [$this->dateFrom(), $this->dateTo()]);
 
+        // Quem tem sessão iniciada NÃO é visitante.
+        //
+        // Toda esta secção existe para responder a "quem nos descobriu e por
+        // onde" — captação. Um cliente a trabalhar no ERP entrava na mesma
+        // conta: inflava os visitantes, as sessões e as páginas vistas, e
+        // aparecia classificado como tráfego "directo" que na verdade é gente
+        // que já paga. Os utilizadores autenticados têm painel próprio, mais
+        // abaixo (`utilizadoresActivos`).
+        $q->whereNull('user_id');
+
         if ($this->deviceFilter)  { $q->where('device_type', $this->deviceFilter); }
         if ($this->countryFilter) { $q->where('country', $this->countryFilter); }
         if ($this->browserFilter) { $q->where('browser', $this->browserFilter); }
@@ -156,16 +166,62 @@ class Analytics extends Component
         // Sem período nem filtros: "agora" é agora.
         $agoraDesde = Carbon::now()->subMinutes(self::MINUTOS_ONLINE);
 
+        // "Online" conta só quem ainda não tem conta — os clientes a trabalhar
+        // estão no painel de utilizadores, com nome.
         $online = AnalyticsEvent::where('created_at', '>=', $agoraDesde)
+            ->whereNull('user_id')
             ->distinct()->count('visitor_id');
 
         $onlinePaginas = AnalyticsEvent::where('created_at', '>=', $agoraDesde)
+            ->whereNull('user_id')
             ->where('type', 'pageview')
             ->select('path', DB::raw('COUNT(DISTINCT visitor_id) as visitantes'))
             ->groupBy('path')
             ->orderByDesc('visitantes')
             ->limit(6)
             ->get();
+
+        // ── Quem está DENTRO do sistema ─────────────────────────────────────
+        //
+        // Não são visitantes: são clientes a trabalhar. O ecrã contava-os como
+        // tráfego anónimo e eles desapareciam no meio de quem passa pelo site.
+        // Aqui aparecem com nome, empresa, o que estão a ver e há quanto tempo.
+        $ultimoEventoPorUtilizador = AnalyticsEvent::whereNotNull('user_id')
+            ->where('created_at', '>=', Carbon::now()->subDay())
+            ->select('user_id', DB::raw('MAX(id) as ultimo'), DB::raw('COUNT(*) as acessos'))
+            ->groupBy('user_id')
+            ->orderByDesc('ultimo')
+            ->limit(50)
+            ->get();
+
+        $utilizadoresActivos = collect();
+
+        if ($ultimoEventoPorUtilizador->isNotEmpty()) {
+            $acessosPorUtilizador = $ultimoEventoPorUtilizador->pluck('acessos', 'user_id');
+
+            $utilizadoresActivos = AnalyticsEvent::with([
+                    'user' => fn ($q) => $q->select('id', 'name', 'email', 'tenant_id'),
+                ])
+                ->whereIn('id', $ultimoEventoPorUtilizador->pluck('ultimo'))
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($evento) use ($acessosPorUtilizador, $agoraDesde) {
+                    return (object) [
+                        'user'        => $evento->user,
+                        'nome'        => $evento->user?->name ?? 'Utilizador #' . $evento->user_id,
+                        'email'       => $evento->user?->email,
+                        'empresa'     => $evento->tenant?->name ?? $evento->user?->tenant?->name,
+                        'path'        => $evento->path,
+                        'visto'       => $evento->created_at,
+                        'agora'       => $evento->created_at >= $agoraDesde,
+                        'acessos'     => (int) ($acessosPorUtilizador[$evento->user_id] ?? 0),
+                        'device_type' => $evento->device_type,
+                        'city'        => $evento->city,
+                    ];
+                });
+        }
+
+        $utilizadoresOnline = $utilizadoresActivos->where('agora', true)->count();
 
         // ── Números do período ──────────────────────────────────────────────
         //
@@ -429,6 +485,7 @@ class Analytics extends Component
 
         return view('livewire.super-admin.analytics', compact(
             'online', 'onlinePaginas',
+            'utilizadoresActivos', 'utilizadoresOnline',
             'totalVisitors', 'totalSessions', 'totalPageviews', 'totalCtaClicks', 'totalSearches',
             'registerClicks', 'whatsappClicks', 'moduleClicks', 'convRate',
             'paginasPorSessao', 'taxaRejeicao', 'visitorsTrend',

@@ -47,8 +47,9 @@
             <div>
                 <p class="text-3xl font-extrabold leading-none">{{ $online }}</p>
                 <p class="text-xs text-slate-300 uppercase font-bold mt-0.5">
-                    {{ $online === 1 ? 'pessoa agora' : 'pessoas agora' }}
+                    {{ $online === 1 ? 'visitante agora' : 'visitantes agora' }}
                 </p>
+                <p class="text-[10px] text-slate-500 mt-0.5">sem sessão iniciada</p>
             </div>
         </div>
 
@@ -68,6 +69,77 @@
             @endif
         </div>
     </div>
+</div>
+
+{{-- Quem está DENTRO do sistema.
+
+     Estes não são visitantes: são clientes a trabalhar. Contavam para os
+     visitantes, para as sessões e para as páginas vistas, e apareciam
+     classificados como tráfego "directo" — o que enchia os números de
+     captação com gente que já paga. Agora têm o seu sítio, com nome. --}}
+<div class="bg-white rounded-2xl shadow-lg p-4 mb-6 border-l-4 border-blue-500" wire:poll.30s>
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-gray-900 flex items-center">
+            <i class="fas fa-user-check text-blue-600 mr-2"></i>
+            Utilizadores no sistema
+            @if($utilizadoresOnline > 0)
+                <span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">
+                    {{ $utilizadoresOnline }} agora
+                </span>
+            @endif
+        </h3>
+        <span class="text-xs text-gray-500">últimas 24 horas</span>
+    </div>
+
+    @if($utilizadoresActivos->isEmpty())
+        <p class="text-sm text-gray-500 py-4 text-center">
+            Ninguém autenticado nas últimas 24 horas.
+        </p>
+    @else
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-xs text-gray-500 uppercase border-b border-gray-200">
+                        <th class="py-2 pr-4 font-semibold">Utilizador</th>
+                        <th class="py-2 pr-4 font-semibold">Empresa</th>
+                        <th class="py-2 pr-4 font-semibold">Onde está</th>
+                        <th class="py-2 pr-4 font-semibold text-right">Páginas</th>
+                        <th class="py-2 font-semibold text-right">Visto</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @foreach($utilizadoresActivos as $u)
+                        <tr wire:key="util-{{ $u->user?->id ?? $loop->index }}" class="hover:bg-gray-50">
+                            <td class="py-2 pr-4">
+                                <div class="flex items-center">
+                                    <span class="relative flex h-2 w-2 mr-2 shrink-0">
+                                        @if($u->agora)
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                        @endif
+                                        <span class="relative inline-flex rounded-full h-2 w-2 {{ $u->agora ? 'bg-green-500' : 'bg-gray-300' }}"></span>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-gray-900 truncate">{{ $u->nome }}</p>
+                                        @if($u->email)
+                                            <p class="text-xs text-gray-500 truncate">{{ $u->email }}</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-2 pr-4 text-gray-700">{{ $u->empresa ?? '—' }}</td>
+                            <td class="py-2 pr-4">
+                                <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{{ $u->path ?: '/' }}</code>
+                            </td>
+                            <td class="py-2 pr-4 text-right text-gray-700">{{ $u->acessos }}</td>
+                            <td class="py-2 text-right text-gray-500 text-xs whitespace-nowrap">
+                                {{ $u->agora ? 'agora' : $u->visto?->diffForHumans(short: true) }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 </div>
 
 {{-- Filtros.

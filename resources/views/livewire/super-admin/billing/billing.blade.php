@@ -15,7 +15,7 @@
     </div>
 
     {{-- SAFT-AO (Software AGT) — APENAS DONO DO SISTEMA --}}
-    @if(auth()->user()->is_super_admin)
+    @if(auth()->user()->isPlatformSuperAdmin())
     <div class="mb-6 bg-white rounded-2xl shadow-lg p-6 border-2 border-red-200" x-data="{ open: false }">
         <button @click="open = !open" class="w-full flex items-center justify-between">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
@@ -149,15 +149,15 @@
                                             <i class="fas fa-building text-white"></i>
                                         </div>
                                         <div>
-                                            <h4 class="font-bold text-gray-900">{{ $order->tenant->name }}</h4>
-                                            <p class="text-xs text-gray-600">{{ $order->user->name }} • {{ $order->user->email }}</p>
+                                            <h4 class="font-bold text-gray-900">{{ $order->tenant?->name ?? '— empresa apagada —' }}</h4>
+                                            <p class="text-xs text-gray-600">{{ $order->user?->name ?? 'utilizador apagado' }} • {{ $order->user?->email ?? '—' }}</p>
                                         </div>
                                     </div>
                                     
                                     <div class="grid grid-cols-4 gap-4 mb-3">
                                         <div>
                                             <p class="text-xs text-gray-500 mb-1">Plano</p>
-                                            <p class="font-semibold text-gray-900">{{ $order->plan->name }}</p>
+                                            <p class="font-semibold text-gray-900">{{ $order->plan?->name ?? '— plano apagado —' }}</p>
                                         </div>
                                         <div>
                                             <p class="text-xs text-gray-500 mb-1">Valor</p>
@@ -165,7 +165,7 @@
                                         </div>
                                         <div>
                                             <p class="text-xs text-gray-500 mb-1">Ciclo</p>
-                                            <p class="font-semibold text-gray-900">{{ $order->billing_cycle === 'yearly' ? 'Anual' : 'Mensal' }}</p>
+                                            <p class="font-semibold text-gray-900">{{ \App\Livewire\SuperAdmin\Billing::nomeDoCiclo($order->billing_cycle) }}</p>
                                         </div>
                                         <div>
                                             <p class="text-xs text-gray-500 mb-1">Data</p>
@@ -194,15 +194,16 @@
                                             <i class="fas fa-spinner fa-spin mr-1"></i>Processando...
                                         </span>
                                     </button>
-                                    <button wire:click="rejectOrder({{ $order->id }})"
-                                            wire:confirm="Rejeitar este pedido? O cliente receberá um email de notificação."
+                                    {{-- Abre a caixa que pergunta o motivo. Rejeitava-se às
+                                         escuras e o cliente recebia "Não especificado". --}}
+                                    <button wire:click="openRejectModal({{ $order->id }})"
                                             wire:loading.attr="disabled"
-                                            wire:target="rejectOrder({{ $order->id }})"
+                                            wire:target="openRejectModal({{ $order->id }})"
                                             class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition disabled:opacity-50">
-                                        <span wire:loading.remove wire:target="rejectOrder({{ $order->id }})">
+                                        <span wire:loading.remove wire:target="openRejectModal({{ $order->id }})">
                                             <i class="fas fa-times mr-1"></i>Rejeitar
                                         </span>
-                                        <span wire:loading wire:target="rejectOrder({{ $order->id }})">
+                                        <span wire:loading wire:target="openRejectModal({{ $order->id }})">
                                             <i class="fas fa-spinner fa-spin mr-1"></i>Processando...
                                         </span>
                                     </button>
@@ -275,8 +276,8 @@
                                             <i class="fas fa-crown text-white"></i>
                                         </div>
                                         <div>
-                                            <h4 class="font-bold text-gray-900">{{ $subscription->tenant->name }}</h4>
-                                            <p class="text-sm text-gray-600">Plano: <span class="font-semibold text-purple-600">{{ $subscription->plan->name }}</span></p>
+                                            <h4 class="font-bold text-gray-900">{{ $subscription->tenant?->name ?? '— empresa apagada —' }}</h4>
+                                            <p class="text-sm text-gray-600">Plano: <span class="font-semibold text-purple-600">{{ $subscription->plan?->name ?? '— plano apagado —' }}</span></p>
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-2">
@@ -302,7 +303,7 @@
                                     </div>
                                     <div>
                                         <p class="text-xs text-gray-500 mb-1">Ciclo</p>
-                                        <p class="font-semibold text-gray-900">{{ $subscription->billing_cycle === 'yearly' ? 'Anual' : 'Mensal' }}</p>
+                                        <p class="font-semibold text-gray-900">{{ \App\Livewire\SuperAdmin\Billing::nomeDoCiclo($subscription->billing_cycle) }}</p>
                                     </div>
                                     <div>
                                         <p class="text-xs text-gray-500 mb-1">Início</p>
@@ -315,11 +316,22 @@
                                     <div>
                                         <p class="text-xs text-gray-500 mb-1">Dias Restantes</p>
                                         @php
-                                            $daysLeft = $subscription->current_period_end ? $subscription->current_period_end->diffInDays(now(), false) : null;
+                                            // Dias inteiros e com sinal: negativo = já passou.
+                                            // Imprimia-se o float cru do Carbon — "12.208333320301
+                                            // dias" — e um período vencido aparecia em verde, como
+                                            // se ainda faltassem esses dias.
+                                            $fim  = $subscription->current_period_end;
+                                            $dias = $fim ? (int) floor(now()->startOfDay()->diffInDays($fim->copy()->startOfDay(), false)) : null;
                                         @endphp
-                                        <p class="font-semibold {{ $daysLeft && $daysLeft > 0 ? 'text-red-600' : 'text-green-600' }}">
-                                            {{ $daysLeft !== null ? abs($daysLeft) . ' dias' : 'N/A' }}
-                                        </p>
+                                        @if($dias === null)
+                                            <p class="font-semibold text-gray-400">—</p>
+                                        @elseif($dias < 0)
+                                            <p class="font-semibold text-red-600">Vencida há {{ abs($dias) }} dia(s)</p>
+                                        @elseif($dias === 0)
+                                            <p class="font-semibold text-orange-600">Termina hoje</p>
+                                        @else
+                                            <p class="font-semibold {{ $dias <= 7 ? 'text-orange-600' : 'text-green-600' }}">{{ $dias }} dia(s)</p>
+                                        @endif
                                     </div>
                                 </div>
 
@@ -357,7 +369,7 @@
                                             <i class="fas fa-puzzle-piece text-blue-500 mr-2"></i>Módulos Incluídos ({{ $subscription->plan->modules->count() }})
                                         </h5>
                                         <div class="grid grid-cols-4 gap-2">
-                                            @foreach($subscription->plan->modules as $module)
+                                            @foreach($subscription->plan?->modules ?? [] as $module)
                                                 <div class="flex items-center px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs">
                                                     <i class="fas fa-{{ $module->icon }} text-blue-600 mr-2"></i>
                                                     <span class="font-medium text-blue-700">{{ $module->name }}</span>
@@ -369,18 +381,22 @@
 
                                     {{-- Ações --}}
                                     <div class="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
-                                        <button wire:click="editSubscription({{ $subscription->id }})"
-                                                class="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition">
-                                            <i class="fas fa-edit mr-1"></i>Alterar Plano / Ciclo
-                                        </button>
+                                        {{-- Só nas linhas que ainda contam: editar uma expirada
+                                             ou cancelada não tem alvo nenhum. --}}
+                                        @if(in_array($subscription->status, ['active', 'pending', 'trial'], true))
+                                            <button wire:click="editSubscription({{ $subscription->id }})"
+                                                    class="px-4 py-2 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition">
+                                                <i class="fas fa-edit mr-1"></i>Alterar Plano / Ciclo
+                                            </button>
+                                        @endif
                                         @if($subscription->status === 'active')
                                             <button wire:click="cancelSubscription({{ $subscription->id }})"
-                                                    wire:confirm="Cancelar esta subscrição? O tenant perderá acesso ao plano no final do período."
+                                                    wire:confirm="Cancelar esta subscrição? A empresa mantém o acesso até ao fim do período já pago."
                                                     class="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium hover:bg-orange-100 transition">
                                                 <i class="fas fa-ban mr-1"></i>Cancelar Subscrição
                                             </button>
                                         @endif
-                                        @if($subscription->status !== 'active')
+                                        @if(!in_array($subscription->status, ['active', 'trial'], true))
                                             <button wire:click="deleteSubscription({{ $subscription->id }})"
                                                     wire:confirm="Excluir esta subscrição permanentemente?"
                                                     class="px-4 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition">
@@ -483,7 +499,7 @@
                                         <i class="fas fa-edit mr-1"></i>Editar
                                     </button>
                                     @if($invoice->status === 'pending')
-                                        <button wire:click="markAsPaid({{ $invoice->id }})" class="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition">
+                                        <button wire:click="marcarFacturaComoPaga({{ $invoice->id }})" class="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition">
                                             <i class="fas fa-check mr-1"></i>Marcar Paga
                                         </button>
                                     @endif
@@ -730,19 +746,19 @@
                         </div>
 
                         {{-- Toggle: Marcar como Pago --}}
-                        <div class="bg-gradient-to-br {{ $markAsPaid ? 'from-green-50 to-emerald-50 border-green-300' : 'from-yellow-50 to-orange-50 border-yellow-300' }} border-2 rounded-xl p-4">
+                        <div class="bg-gradient-to-br {{ $marcarComoPago ? 'from-green-50 to-emerald-50 border-green-300' : 'from-yellow-50 to-orange-50 border-yellow-300' }} border-2 rounded-xl p-4">
                             <label class="flex items-start cursor-pointer">
-                                <input type="checkbox" wire:model.live="markAsPaid" class="mt-1 w-5 h-5 rounded text-green-600 focus:ring-green-500">
+                                <input type="checkbox" wire:model.live="marcarComoPago" class="mt-1 w-5 h-5 rounded text-green-600 focus:ring-green-500">
                                 <div class="ml-3 flex-1">
                                     <p class="font-bold text-sm text-gray-900">
-                                        @if($markAsPaid)
+                                        @if($marcarComoPago)
                                             <i class="fas fa-check-circle text-green-600 mr-1"></i>Marcar como PAGO
                                         @else
                                             <i class="fas fa-clock text-yellow-600 mr-1"></i>Aguardar Pagamento (Pending)
                                         @endif
                                     </p>
                                     <p class="text-xs text-gray-600 mt-1">
-                                        @if($markAsPaid)
+                                        @if($marcarComoPago)
                                             Subscrição fica <strong>activa imediatamente</strong>, módulos sincronizados e <strong>fatura paga</strong> gerada.
                                         @else
                                             Subscrição fica <strong>pending</strong> aguardando o pagamento ser confirmado.
@@ -753,7 +769,7 @@
                         </div>
 
                         {{-- Detalhes de Pagamento (apenas se marcado como pago) --}}
-                        @if($markAsPaid)
+                        @if($marcarComoPago)
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50/50 border border-green-200 rounded-xl">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">
@@ -791,7 +807,7 @@
                             <div class="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-4 text-white shadow-lg">
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <p class="text-purple-200 text-xs uppercase font-bold tracking-wide">Total a {{ $markAsPaid ? 'Cobrar' : 'Aguardar' }}</p>
+                                        <p class="text-purple-200 text-xs uppercase font-bold tracking-wide">Total a {{ $marcarComoPago ? 'Cobrar' : 'Aguardar' }}</p>
                                         <p class="text-sm text-purple-100 mt-0.5">{{ $selectedPlan->name }} • {{ $resumeCycle }}</p>
                                     </div>
                                     <div class="text-right">
@@ -811,8 +827,8 @@
                                     wire:loading.attr="disabled" wire:target="saveSubscription"
                                     class="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white rounded-xl font-semibold shadow-lg transition disabled:opacity-50">
                                 <span wire:loading.remove wire:target="saveSubscription">
-                                    <i class="fas {{ $markAsPaid ? 'fa-check-circle' : 'fa-save' }} mr-2"></i>
-                                    {{ $markAsPaid ? 'Salvar e Marcar como Pago' : 'Salvar (Pending)' }}
+                                    <i class="fas {{ $marcarComoPago ? 'fa-check-circle' : 'fa-save' }} mr-2"></i>
+                                    {{ $marcarComoPago ? 'Salvar e Marcar como Pago' : 'Salvar (Pending)' }}
                                 </span>
                                 <span wire:loading wire:target="saveSubscription">
                                     <i class="fas fa-spinner fa-spin mr-2"></i>A processar…
@@ -820,6 +836,76 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Modal: motivo da recusa.
+
+         A coluna `rejection_reason` existe desde sempre e nunca era escrita:
+         quem via o pedido recusado recebia um email a dizer "Não especificado"
+         e ficava sem saber se o comprovativo estava ilegível, se o valor não
+         batia certo, ou o quê. Voltava a submeter o mesmo e era recusado outra
+         vez. --}}
+    @if($showRejectModal && $rejectingOrder)
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data x-cloak>
+            <div class="flex items-center justify-center min-h-screen px-4">
+                <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" wire:click="closeRejectModal"></div>
+
+                <div class="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+                    <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-white">
+                            <i class="fas fa-times-circle mr-2"></i>Recusar pedido
+                        </h3>
+                        <button wire:click="closeRejectModal" class="text-white hover:bg-white/20 rounded-lg p-2 transition">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="p-6 space-y-4">
+                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm">
+                            <p class="font-semibold text-gray-900">{{ $rejectingOrder->tenant?->name ?? '— empresa apagada —' }}</p>
+                            <p class="text-gray-600">
+                                {{ $rejectingOrder->plan?->name ?? '—' }} ·
+                                {{ \App\Livewire\SuperAdmin\Billing::nomeDoCiclo($rejectingOrder->billing_cycle) }} ·
+                                {{ number_format($rejectingOrder->amount, 2, ',', '.') }} Kz
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Motivo da recusa <span class="text-red-600">*</span>
+                            </label>
+                            <textarea wire:model="rejectionReason" rows="4"
+                                      class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-200 transition"
+                                      placeholder="Ex: O comprovativo anexado é de uma transferência de 24.900 Kz e o plano custa 44.900 Kz."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">
+                                <i class="fas fa-circle-info mr-1"></i>É isto que o cliente vai ler no email.
+                            </p>
+                            @error('rejectionReason')
+                                <span class="text-red-600 text-xs mt-1 block">
+                                    <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
+                                </span>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                        <button type="button" wire:click="closeRejectModal"
+                                class="px-5 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
+                            Cancelar
+                        </button>
+                        <button type="button" wire:click="rejectOrder" wire:loading.attr="disabled"
+                                class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition disabled:opacity-50">
+                            <span wire:loading.remove wire:target="rejectOrder">
+                                <i class="fas fa-times mr-2"></i>Recusar e avisar o cliente
+                            </span>
+                            <span wire:loading wire:target="rejectOrder">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>A enviar...
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

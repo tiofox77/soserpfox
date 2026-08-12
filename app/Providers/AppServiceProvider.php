@@ -160,6 +160,22 @@ class AppServiceProvider extends ServiceProvider
         // Histórico de produtos: quem criou, alterou, eliminou ou restaurou.
         \App\Models\Product::observe(\App\Observers\ProductActivityObserver::class);
 
+        // Todo o correio que sai fica registado em /superadmin/email-logs.
+        //
+        // Registar em cada sítio que envia é uma lista que nunca fica
+        // completa: o ecrã mostrava dois registos — os envios de teste do SMTP
+        // — e tudo o resto saía sem rasto. Aqui apanha-se no evento do próprio
+        // Laravel, por onde passa obrigatoriamente todo o correio.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Mail\Events\MessageSending::class,
+            [\App\Listeners\RegistarEmailEnviado::class, 'aoEnviar']
+        );
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Mail\Events\MessageSent::class,
+            [\App\Listeners\RegistarEmailEnviado::class, 'aoSair']
+        );
+
         // Entradas e saídas do sistema.
         //
         // Não são alterações de modelo, portanto o observer não as vê — e são
