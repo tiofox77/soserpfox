@@ -154,6 +154,48 @@
                                     {{ $tenant->users_count ?? 0 }} users
                                 </span>
                             </div>
+
+                            {{-- Está viva ou é só uma linha na base?
+
+                                 A lista dava nome, plano e número de utilizadores,
+                                 e com isso um cliente que factura todos os dias e
+                                 outro que se registou e nunca mais voltou são duas
+                                 linhas iguais. --}}
+                            @php $v = $sinais[$tenant->id] ?? null; @endphp
+                            @if($v)
+                                <div class="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-{{ $v->estado['cor'] }}-100 text-{{ $v->estado['cor'] }}-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-{{ $v->estado['cor'] }}-500 mr-1.5"></span>
+                                        {{ $v->estado['texto'] }}
+                                    </span>
+
+                                    <span class="text-xs text-gray-600" title="Facturas emitidas nos últimos 30 dias">
+                                        <i class="fas fa-file-invoice text-gray-400 mr-1"></i>
+                                        <strong>{{ $v->facturas_30d }}</strong> factura(s)/30d
+                                    </span>
+
+                                    <span class="text-xs text-gray-600" title="Artigos no catálogo">
+                                        <i class="fas fa-box text-gray-400 mr-1"></i>
+                                        <strong>{{ number_format($v->artigos, 0, ',', '.') }}</strong> artigo(s)
+                                    </span>
+
+                                    <span class="text-xs text-gray-600" title="Movimentos de stock nos últimos 30 dias">
+                                        <i class="fas fa-right-left text-gray-400 mr-1"></i>
+                                        <strong>{{ $v->movimentos_30d }}</strong> mov./30d
+                                    </span>
+
+                                    <span class="text-xs text-gray-600" title="Utilizadores que entraram nos últimos 30 dias">
+                                        <i class="fas fa-user-clock text-gray-400 mr-1"></i>
+                                        <strong>{{ $v->entraram_30d }}</strong>/{{ $v->utilizadores }} activo(s)
+                                    </span>
+
+                                    <span class="text-xs {{ $v->ultima_entrada && $v->ultima_entrada->gt(now()->subDays(30)) ? 'text-gray-600' : 'text-red-600 font-semibold' }}"
+                                          title="Última vez que alguém desta empresa entrou">
+                                        <i class="fas fa-right-to-bracket text-gray-400 mr-1"></i>
+                                        {{ $v->ultima_entrada ? 'entrou ' . $v->ultima_entrada->diffForHumans(short: true) : 'nunca entrou' }}
+                                    </span>
+                                </div>
+                            @endif
                             
                             <!-- Actions -->
                             <div class="flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

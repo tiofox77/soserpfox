@@ -772,6 +772,15 @@ class Tenants extends Component
             ->latest()
             ->paginate(10);
 
+        // Está viva ou é só uma linha na base?
+        //
+        // A lista mostrava nome, plano e número de utilizadores — e com isso
+        // não se distingue um cliente que factura todos os dias de um que se
+        // registou, abriu duas páginas e nunca mais voltou.
+        //
+        // Seis consultas fixas para a página inteira, e não seis por empresa.
+        $sinais = \App\Services\Tenants\SinaisDeVida::para($tenants->getCollection());
+
         // Para modal de usuários
         $tenantUsers = [];
         $availableUsers = [];
@@ -811,7 +820,7 @@ class Tenants extends Component
             $managingPlanTenant = Tenant::with('activeSubscription.plan')->find($this->managingPlanTenantId);
         }
 
-        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant'));
+        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'sinais', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant'));
     }
     
     protected function sendSuspensionNotification($tenant)

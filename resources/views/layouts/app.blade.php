@@ -2139,6 +2139,12 @@
 
                 <!-- Page Content -->
                 <main id="app-main" :class="{ 'first-load': firstLoad }" class="flex-1 overflow-y-auto bg-gray-50 p-3 sm:p-4 lg:p-6">
+                    {{-- Avisos do dono da plataforma (manutenções, mudanças de
+                         preço, obrigações novas da AGT). Vive aqui porque tem
+                         de aparecer em qualquer página; sem mensagens no ar,
+                         custa uma leitura de cache. --}}
+                    @livewire('mensagens-da-plataforma')
+
                     {{ $slot ?? '' }}
                     @yield('content')
                 </main>

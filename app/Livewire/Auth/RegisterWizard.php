@@ -729,6 +729,17 @@ class RegisterWizard extends Component
                 'has_payment' => $hasPaidProof,
                 'has_trial' => $hasTrialPeriod
             ]);
+
+            // Avisar o dono da plataforma que entrou uma empresa nova, e com
+            // que plano. Sem isto, quem descobria um cliente novo era quem se
+            // lembrasse de abrir a lista de empresas.
+            try {
+                app(\App\Services\Billing\AvisoDePagamentoPendente::class)
+                    ->empresaRegistada($tenant, $plan, $status);
+            } catch (\Throwable $e) {
+                // Ninguém perde a conta por causa de um aviso.
+                \Log::warning('Aviso de empresa registada falhou', ['erro' => $e->getMessage()]);
+            }
             
             // 6. Criar pedido (Order). Se a subscription foi auto-activada (trial via auto_activate),
             //    o pedido nasce 'approved' para não ficar pendente no painel do Super Admin.

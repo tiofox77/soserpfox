@@ -285,6 +285,7 @@
                         ['route' => 'superadmin.billing', 'icon' => 'fas fa-file-invoice-dollar', 'color' => 'text-emerald-400', 'label' => 'Faturação / Billing'],
                     ],
                     'Comunicação' => [
+                        ['route' => 'superadmin.mensagens', 'icon' => 'fas fa-bullhorn', 'color' => 'text-indigo-400', 'label' => 'Mensagens às Empresas'],
                         ['route' => 'superadmin.contact-messages', 'icon' => 'fas fa-comments', 'color' => 'text-cyan-400', 'label' => 'Mensagens de Contacto'],
                         ['route' => 'superadmin.email-templates', 'icon' => 'fas fa-envelope', 'color' => 'text-blue-400', 'label' => 'Email Templates'],
                         ['route' => 'superadmin.smtp-settings', 'icon' => 'fas fa-server', 'color' => 'text-emerald-400', 'label' => 'SMTP'],

@@ -80,6 +80,46 @@ class AvisoDePagamentoPendente
     }
 
     /**
+     * Uma empresa nova acabou de se registar.
+     *
+     * Não é um pedido de aprovação — é para saber que existe, e com que plano
+     * entrou. Sem isto, quem descobria um cliente novo era quem se lembrasse
+     * de abrir a lista de empresas.
+     *
+     * O plano diz muito: quem entra no gratuito é uma coisa, quem entra no
+     * Enterprise é outra e provavelmente merece um telefonema no mesmo dia.
+     */
+    public function empresaRegistada(\App\Models\Tenant $empresa, ?\App\Models\Plan $plano, string $estado): void
+    {
+        if (!self::ligado()) {
+            return;
+        }
+
+        $chave = "aviso-registo:{$empresa->id}";
+
+        if (!\Cache::add($chave, true, now()->addHours(6))) {
+            return;
+        }
+
+        $comoEntrou = match ($estado) {
+            'trial'   => 'em teste',
+            'active'  => 'activa',
+            'pending' => 'a aguardar pagamento',
+            default   => $estado,
+        };
+
+        $texto = sprintf(
+            'SOSERP: empresa nova - %s. Plano %s (%s). NIF %s.',
+            mb_strimwidth($empresa->name ?? 'sem nome', 0, 30, '…'),
+            $plano?->name ?? 'sem plano',
+            $comoEntrou,
+            $empresa->nif ?: '—'
+        );
+
+        $this->enviar(self::numero(), $texto, 'empresa_registada', ['tenant_id' => $empresa->id]);
+    }
+
+    /**
      * O texto tem de caber num ecrã de telemóvel e dizer o que é preciso
      * saber para decidir se vale a pena abrir o portátil: quem, quanto, e o
      * que está à espera.
@@ -130,33 +170,43 @@ class AvisoDePagamentoPendente
             return;
         }
 
-        $numero = self::numero();
+        $this->enviar(self::numero(), $texto, 'pagamento_pendente', [
+            'order_id' => $order->id,
+            'ocasiao'  => $ocasiao,
+        ]);
+    }
 
-        // defer(): corre depois da resposta seguir, no mesmo processo. Sem
-        // worker de filas nesta máquina, é isto que evita pôr o cliente à
-        // espera da operadora no meio de uma compra.
-        defer(function () use ($numero, $texto, $order, $ocasiao) {
+    /**
+     * O envio, com as duas garantias que importam.
+     *
+     * defer(): corre depois da resposta seguir, no mesmo processo. Sem worker
+     * de filas nesta máquina, é isto que evita pôr o cliente à espera da
+     * operadora no meio de uma compra ou de um registo.
+     *
+     * try/catch: nada disto pode fazer rebentar quem nos chamou. Quem está a
+     * pagar não perde a compra porque a operadora está em baixo, e quem se
+     * está a registar não perde a conta.
+     */
+    private function enviar(string $numero, string $texto, string $tipo, array $contexto = []): void
+    {
+        defer(function () use ($numero, $texto, $tipo, $contexto) {
             try {
                 app(SmsService::class)->send(
                     $numero,
                     $texto,
-                    'pagamento_pendente',
+                    $tipo,
                     null,
                     null                    // configuração da PLATAFORMA, não da empresa
                 );
 
-                Log::info('Aviso de pagamento pendente enviado', [
-                    'order_id' => $order->id,
-                    'ocasiao'  => $ocasiao,
-                    'para'     => $numero,
+                Log::info('Aviso ao administrador enviado', $contexto + [
+                    'tipo' => $tipo,
+                    'para' => $numero,
                 ]);
             } catch (\Throwable $e) {
-                // Quem está a pagar não pode perder a compra porque a
-                // operadora está em baixo.
-                Log::error('Aviso de pagamento pendente falhou', [
-                    'order_id' => $order->id,
-                    'ocasiao'  => $ocasiao,
-                    'erro'     => $e->getMessage(),
+                Log::error('Aviso ao administrador falhou', $contexto + [
+                    'tipo' => $tipo,
+                    'erro' => $e->getMessage(),
                 ]);
             }
         });

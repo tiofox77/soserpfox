@@ -187,4 +187,39 @@ class AvisoPagamentoPendenteTest extends TenantTestCase
 
         $this->assertLessThanOrEqual(160, mb_strlen(self::$enviados[0]['texto']));
     }
+
+    // ==================== empresa nova ====================
+
+    /**
+     * O super admin fica a saber que entrou um cliente, e com que plano.
+     *
+     * Sem isto, quem descobria uma empresa nova era quem se lembrasse de
+     * abrir a lista. E o plano diz muito: quem entra no gratuito é uma coisa,
+     * quem entra no Enterprise é outra e merece um telefonema no mesmo dia.
+     */
+    public function test_uma_empresa_nova_avisa_o_super_admin_com_o_plano(): void
+    {
+        $plano = $this->plano();
+
+        app(AvisoDePagamentoPendente::class)->empresaRegistada($this->tenant, $plano, 'trial');
+
+        $this->assertCount(1, self::$enviados);
+        $this->assertSame('939729902', self::$enviados[0]['para']);
+        $this->assertSame('empresa_registada', self::$enviados[0]['tipo']);
+        $this->assertStringContainsString('Business', self::$enviados[0]['texto']);
+        $this->assertStringContainsString('em teste', self::$enviados[0]['texto']);
+        $this->assertStringContainsString($this->tenant->nif, self::$enviados[0]['texto']);
+    }
+
+    /** Uma empresa avisa uma vez, não uma vez por página que abrir. */
+    public function test_a_mesma_empresa_nao_avisa_duas_vezes(): void
+    {
+        $plano = $this->plano();
+        $servico = app(AvisoDePagamentoPendente::class);
+
+        $servico->empresaRegistada($this->tenant, $plano, 'active');
+        $servico->empresaRegistada($this->tenant, $plano, 'active');
+
+        $this->assertCount(1, self::$enviados);
+    }
 }
