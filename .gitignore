@@ -27,3 +27,22 @@ Thumbs.db
 .env.twilio
 *-credentials.php
 *-config-local.php
+.last_deploy_sha
+
+# Despejos da base de dados. Nunca entram no repositório: o farmasequel.sql
+# que estava na raiz tinha 653 MB de dados reais de clientes.
+*.sql
+*.sql.gz
+/storage/app/db-dump
+
+# Trabalho de diagnóstico e ficheiros de rascunho
+/diag.txt
+/logs.txt
+/output
+/tmp
+/scratchpad*.php
+/sma_products_schema.txt
+*.tmp.php
+
+# Sessões e worktrees do Claude Code
+/.claude
