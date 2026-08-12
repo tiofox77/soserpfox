@@ -17,16 +17,81 @@
         </div>
     </div>
 
+    {{-- Os cartões de estado: contagem e filtro ao mesmo tempo.
+
+         Contados ANTES do filtro de estado — clicar num cartão não pode zerar
+         os outros, senão nunca se conseguia trocar de cartão. --}}
+    <div class="mb-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+        @foreach([
+            'activa'     => ['A facturar',  'green',  'fa-file-invoice-dollar'],
+            'a_usar'     => ['A usar',      'blue',   'fa-computer'],
+            'a_montar'   => ['A montar',    'amber',  'fa-screwdriver-wrench'],
+            'adormecida' => ['Adormecidas', 'orange', 'fa-moon'],
+            'vazia'      => ['Nunca usaram','red',    'fa-ghost'],
+        ] as $chave => [$rotulo, $cor, $icone])
+            <button wire:click="filtrarPorEstado('{{ $chave }}')"
+                    class="text-left rounded-xl p-3 border-2 transition
+                           {{ $filtroEstado === $chave
+                              ? 'border-' . $cor . '-500 bg-' . $cor . '-50 shadow'
+                              : 'border-transparent bg-white shadow-sm hover:shadow' }}">
+                <div class="flex items-center justify-between">
+                    <span class="text-2xl font-extrabold text-{{ $cor }}-600">{{ $contagens[$chave] ?? 0 }}</span>
+                    <i class="fas {{ $icone }} text-{{ $cor }}-400"></i>
+                </div>
+                <p class="text-xs font-bold text-gray-600 mt-1">{{ $rotulo }}</p>
+                @if($filtroEstado === $chave)
+                    <p class="text-[10px] text-{{ $cor }}-600 font-semibold">a filtrar — clique para largar</p>
+                @endif
+            </button>
+        @endforeach
+    </div>
+
     <!-- Search and Filters -->
-    <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
-        <div class="flex items-center space-x-4">
-            <div class="flex-1 relative">
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-4">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex-1 min-w-[220px] relative">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Pesquisar tenants..." 
-                       class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome, email, NIF..."
+                       class="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
             </div>
+
+            <select wire:model.live="filtroPlano" title="Filtrar pelo plano em vigor"
+                    class="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos os planos</option>
+                @foreach($planosParaFiltro as $p)
+                    <option value="{{ $p->id }}">{{ $p->name }}</option>
+                @endforeach
+            </select>
+
+            <select wire:model.live="filtroActivo" title="Activas ou desactivadas"
+                    class="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">Activas e desactivadas</option>
+                <option value="1">Só activas</option>
+                <option value="0">Só desactivadas</option>
+            </select>
+
+            <select wire:model.live="ordenar" title="Ordenação"
+                    class="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500">
+                @foreach(\App\Livewire\SuperAdmin\Tenants::ORDENACOES as $chave => $rotulo)
+                    <option value="{{ $chave }}">{{ $rotulo }}</option>
+                @endforeach
+            </select>
+
+            <select wire:model.live="porPagina" title="Empresas por página"
+                    class="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="10">10 / página</option>
+                <option value="25">25 / página</option>
+                <option value="50">50 / página</option>
+            </select>
+
+            @if($this->temFiltros)
+                <button wire:click="limparFiltros"
+                        class="px-3 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                    <i class="fas fa-times mr-1"></i>Limpar
+                </button>
+            @endif
         </div>
     </div>
 

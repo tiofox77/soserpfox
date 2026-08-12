@@ -18,6 +18,25 @@ class Tenants extends Component
     use WithPagination;
 
     public $search = '';
+
+    // Filtros. A lista serve para responder a perguntas — "quem está
+    // adormecido?", "quem está no Business?", "quem desactivámos?" — e sem
+    // filtros a única resposta possível era ler as páginas todas à mão.
+    public $filtroEstado = '';      // '' | activa | a_usar | a_montar | adormecida | vazia
+    public $filtroPlano  = '';      // '' | id do plano
+    public $filtroActivo = '';      // '' | '1' | '0'
+    public $ordenar      = 'recentes';
+    public $porPagina    = 10;
+
+    public const ORDENACOES = [
+        'recentes' => 'Mais recentes',
+        'antigas'  => 'Mais antigas',
+        'nome'     => 'Nome (A–Z)',
+        'entrada'  => 'Última entrada',
+        'facturas' => 'Mais facturas (30d)',
+        'artigos'  => 'Maior catálogo',
+    ];
+
     public $showModal = false;
     public $editingTenantId = null;
     
@@ -80,6 +99,53 @@ class Tenants extends Component
 
     public function updatingSearch()
     {
+        $this->resetPage();
+    }
+
+    // Qualquer filtro volta à primeira página — filtrar na página 3 mostrava
+    // "nenhum resultado" com resultados a existir na primeira.
+    public function updatingFiltroEstado()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFiltroPlano()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFiltroActivo()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingOrdenar()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingPorPagina()
+    {
+        $this->resetPage();
+    }
+
+    public function limparFiltros(): void
+    {
+        $this->reset(['search', 'filtroEstado', 'filtroPlano', 'filtroActivo']);
+        $this->ordenar = 'recentes';
+        $this->resetPage();
+    }
+
+    public function getTemFiltrosProperty(): bool
+    {
+        return $this->search !== '' || $this->filtroEstado !== ''
+            || $this->filtroPlano !== '' || $this->filtroActivo !== '';
+    }
+
+    /** Um clique num cartão de estado liga (ou desliga) esse filtro. */
+    public function filtrarPorEstado(string $estado): void
+    {
+        $this->filtroEstado = $this->filtroEstado === $estado ? '' : $estado;
         $this->resetPage();
     }
 
@@ -759,8 +825,20 @@ class Tenants extends Component
 
     public function render()
     {
-        $tenants = Tenant::with(['activeSubscription.plan', 'modules'])
-            ->withCount('users')
+        // A lista constrói-se em três tempos:
+        //
+        //   1. os ids que passam nos filtros de base (pesquisa, plano, activo)
+        //      — uma consulta leve, só id/nome/data;
+        //   2. os sinais de vida de TODOS esses ids — seis consultas fixas,
+        //      seja qual for o número de empresas, e é isso que torna barato
+        //      filtrar e ordenar por vitalidade, que a base de dados não sabe
+        //      calcular;
+        //   3. os modelos completos só da página que se vai mostrar.
+        //
+        // O total é 8-9 consultas por render, constante com o tamanho da lista.
+        $porPagina = in_array((int) $this->porPagina, [10, 25, 50], true) ? (int) $this->porPagina : 10;
+
+        $base = Tenant::query()
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
@@ -769,17 +847,55 @@ class Tenants extends Component
                       ->orWhere('nif', 'like', '%' . $this->search . '%');
                 });
             })
-            ->latest()
-            ->paginate(10);
+            ->when($this->filtroActivo !== '', fn ($q) => $q->where('is_active', $this->filtroActivo === '1'))
+            ->when($this->filtroPlano !== '', function ($q) {
+                $q->whereHas('subscriptions', fn ($s) => $s
+                    ->where('plan_id', (int) $this->filtroPlano)
+                    ->whereIn('status', ['active', 'trial']));
+            })
+            ->get(['id', 'name', 'created_at']);
 
-        // Está viva ou é só uma linha na base?
-        //
-        // A lista mostrava nome, plano e número de utilizadores — e com isso
-        // não se distingue um cliente que factura todos os dias de um que se
-        // registou, abriu duas páginas e nunca mais voltou.
-        //
-        // Seis consultas fixas para a página inteira, e não seis por empresa.
-        $sinais = \App\Services\Tenants\SinaisDeVida::para($tenants->getCollection());
+        $sinais = \App\Services\Tenants\SinaisDeVida::para($base->pluck('id'));
+
+        // As contagens por estado — os cartões do topo — contam-se ANTES do
+        // filtro de estado, senão clicar num cartão zerava todos os outros.
+        $contagens = collect($sinais)
+            ->groupBy(fn ($s) => $s->estado['chave'])
+            ->map->count();
+
+        $filtrados = $this->filtroEstado === ''
+            ? $base
+            : $base->filter(fn ($t) => ($sinais[$t->id]->estado['chave'] ?? '') === $this->filtroEstado);
+
+        $ordenados = match ($this->ordenar) {
+            'antigas'  => $filtrados->sortBy('created_at'),
+            'nome'     => $filtrados->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE),
+            // Datas nulas para o fim: quem nunca entrou não pode aparecer à
+            // frente de quem entrou ontem.
+            'entrada'  => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->ultima_entrada?->timestamp ?? -1),
+            'facturas' => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->facturas_30d ?? 0),
+            'artigos'  => $filtrados->sortByDesc(fn ($t) => $sinais[$t->id]->artigos ?? 0),
+            default    => $filtrados->sortByDesc('created_at'),
+        };
+
+        $pagina  = max(1, (int) $this->getPage());
+        $doPagia = $ordenados->slice(($pagina - 1) * $porPagina, $porPagina)->pluck('id')->values();
+
+        // Só agora os modelos completos, e só os da página.
+        $modelos = Tenant::with(['activeSubscription.plan', 'modules'])
+            ->withCount('users')
+            ->whereIn('id', $doPagia)
+            ->get()
+            ->sortBy(fn ($t) => $doPagia->search($t->id))
+            ->values();
+
+        $tenants = new \Illuminate\Pagination\LengthAwarePaginator(
+            $modelos,
+            $ordenados->count(),
+            $porPagina,
+            $pagina,
+            ['path' => request()->url(), 'pageName' => 'page']
+        );
 
         // Para modal de usuários
         $tenantUsers = [];
@@ -820,7 +936,10 @@ class Tenants extends Component
             $managingPlanTenant = Tenant::with('activeSubscription.plan')->find($this->managingPlanTenantId);
         }
 
-        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'sinais', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant'));
+        // Para o filtro por plano — sempre, e não só com a modal aberta.
+        $planosParaFiltro = \App\Models\Plan::where('is_active', true)->orderBy('order')->get(['id', 'name']);
+
+        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'sinais', 'contagens', 'planosParaFiltro', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant'));
     }
     
     protected function sendSuspensionNotification($tenant)

@@ -363,8 +363,15 @@ class DefinicoesRHTest extends TenantTestCase
                 }
             }
 
-            // (b) listas de chaves passadas a leituras dinâmicas
-            if (preg_match("/\\\$keys\s*=\s*\[(.*?)\];/s", $conteudo, $bloco)
+            // (b) listas de chaves passadas a leituras dinâmicas.
+            //
+            // Só em ficheiros que falem de HRSetting: a regra foi feita para o
+            // loadHRSettings() do processamento salarial, mas `$keys = [...]`
+            // é um nome que qualquer código usa — o RegisterWizard passou a
+            // guardar UTMs numa variável assim e o detector acusava
+            // `utm_source` como definição de RH em falta.
+            if (str_contains($conteudo, 'HRSetting')
+                && preg_match("/\\\$keys\s*=\s*\[(.*?)\];/s", $conteudo, $bloco)
                 && preg_match_all("/'([a-z][a-z0-9_]{3,})'/", $bloco[1], $m)) {
                 foreach ($m[1] as $k) {
                     $lidas[$k] = str_replace($raiz . DIRECTORY_SEPARATOR, '', $f->getPathname());
