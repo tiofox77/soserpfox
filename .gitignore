@@ -36,13 +36,18 @@ Thumbs.db
 /storage/app/db-dump
 
 # Trabalho de diagnóstico e ficheiros de rascunho
-/diag.txt
+/diag*.txt
+/diag*.log
+/d.log
 /logs.txt
-/output
 /tmp
 /scratchpad*.php
 /sma_products_schema.txt
 *.tmp.php
+
+# Renderizações de marketing (anúncios, capturas de ecrã para redes sociais).
+# Não é código: sai de ferramentas de imagem e volta a sair quando for preciso.
+/output
 
 # Sessões e worktrees do Claude Code
 /.claude
