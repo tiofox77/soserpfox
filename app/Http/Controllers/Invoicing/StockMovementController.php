@@ -20,13 +20,37 @@ use Barryvdh\DomPDF\Facade\Pdf;
  */
 class StockMovementController extends Controller
 {
+    /**
+     * A vista certa para o lote.
+     *
+     * Uma transferência não cabe no documento de entradas e saídas: tem DOIS
+     * armazéns e cada produto tem duas pernas, uma de cada lado. Metê-la no
+     * mesmo layout dava uma tabela onde o mesmo artigo aparecia duas vezes com
+     * sinais opostos e sem dizer de onde para onde foi.
+     */
+    private function vistaDoLote($movimentos): string
+    {
+        // Inter-empresas fica no documento de entradas e saídas, apesar de a
+        // perna de saída ser do tipo `transfer`. Dentro de cada empresa a
+        // movimentação tem UM lado só — a outra perna pertence à outra
+        // empresa e nem sequer é visível daqui. No documento de transferência,
+        // que junta as duas pernas de cada artigo, saía metade da tabela vazia.
+        if ($movimentos->contains(fn ($m) => $m->reference_type === 'inter_company')) {
+            return 'pdf.invoicing.stock-movement-batch';
+        }
+
+        return $movimentos->contains(fn ($m) => $m->type === 'transfer')
+            ? 'pdf.invoicing.stock-transfer-batch'
+            : 'pdf.invoicing.stock-movement-batch';
+    }
+
     /** PDF do lote, para ver e imprimir. */
     public function batchPdf(string $reference)
     {
         [$movimentos, $tenant, $armazem] = $this->carregarLote($reference);
 
-        $pdf = Pdf::loadView('pdf.invoicing.stock-movement-batch', [
-                "paraPdf" => true,
+        $pdf = Pdf::loadView($this->vistaDoLote($movimentos), [
+            'paraPdf'    => true,
             'reference'  => $reference,
             'movimentos' => $movimentos,
             'tenant'     => $tenant,
@@ -89,7 +113,7 @@ class StockMovementController extends Controller
     {
         [$movimentos, $tenant, $armazem] = $this->carregarLote($reference);
 
-        return view('pdf.invoicing.stock-movement-batch', [
+        return view($this->vistaDoLote($movimentos), [
             'reference'  => $reference,
             'movimentos' => $movimentos,
             'tenant'     => $tenant,
@@ -112,8 +136,13 @@ class StockMovementController extends Controller
         // imprimir o comprovativo dela: um papel com `edit` e sem `view`
         // registava o lote e depois levava 403 ao abrir o documento — o
         // trabalho ficava feito e o papel por imprimir.
+        // A permissão de transferência também serve, pelo mesmo motivo: quem
+        // transfere entre armazéns tem de conseguir imprimir a guia, e essa
+        // gente costuma ter `warehouse-transfer.create` sem ter nada de stock.
         abort_unless(
-            $utilizador?->can('invoicing.stock.view') || $utilizador?->can('invoicing.stock.edit'),
+            $utilizador?->can('invoicing.stock.view')
+            || $utilizador?->can('invoicing.stock.edit')
+            || $utilizador?->can('invoicing.warehouse-transfer.create'),
             403,
             'Sem permissão para ver movimentações de stock.'
         );

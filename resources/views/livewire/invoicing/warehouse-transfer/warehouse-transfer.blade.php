@@ -86,12 +86,14 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Data</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Referência</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Quantidade</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Observações</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Usuário</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Documento</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
@@ -99,6 +101,15 @@
                     <tr class="hover:bg-purple-50/50 transition">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {{ $movement->created_at->format('d/m/Y H:i') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($movement->batch_reference)
+                                <span class="font-mono text-sm font-bold text-indigo-700">{{ $movement->batch_reference }}</span>
+                            @else
+                                {{-- Movimentações anteriores à referência MOV/ não têm número:
+                                     o que lá está é um crc32 que não serve para ninguém. --}}
+                                <span class="text-xs text-gray-400 italic">sem referência</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @if($movement->type == 'transfer')
@@ -122,10 +133,10 @@
                                     {{ $movement->product->name ?? 'N/A' }}
                                 @endif
                             </div>
-                            @if($movement->reference_id)
-                                <button 
-                                    x-data 
-                                    @click="$wire.selectedBatchId = {{ $movement->reference_id }}; $wire.openDetailsModal()"
+                            @if($movement->batch_reference || $movement->reference_id)
+                                <button
+                                    x-data
+                                    @click="$wire.selectedBatchRef = @js($movement->batch_reference); $wire.selectedBatchId = {{ (int) $movement->reference_id }}; $wire.openDetailsModal()"
                                     class="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer">
                                     <i class="fas fa-eye mr-1"></i>Ver detalhes
                                 </button>
@@ -151,10 +162,28 @@
                         <td class="px-6 py-4 text-sm text-gray-700">
                             {{ $movement->user->name ?? '-' }}
                         </td>
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
+                            @if($movement->batch_reference)
+                                <a href="{{ route('invoicing.stock.batch-preview', ['reference' => $movement->batch_reference]) }}"
+                                   target="_blank"
+                                   title="Ver documento"
+                                   class="inline-flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $movement->batch_reference]) }}"
+                                   target="_blank"
+                                   title="Descarregar PDF"
+                                   class="inline-flex items-center px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-semibold transition ml-1">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                            @else
+                                <span class="text-xs text-gray-400">—</span>
+                            @endif
+                        </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center">
+                        <td colspan="9" class="px-6 py-12 text-center">
                             <div class="flex flex-col items-center justify-center">
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-history text-gray-400 text-3xl"></i>
@@ -182,4 +211,5 @@
     @include('livewire.invoicing.warehouse-transfer.partials.adjust-quantity-modal')
     @include('livewire.invoicing.warehouse-transfer.partials.transfer-details-modal')
     @include('livewire.invoicing.warehouse-transfer.partials.adjust-details-modal')
+    @include('livewire.invoicing.warehouse-transfer.partials.comprovativo-modal')
 </div>

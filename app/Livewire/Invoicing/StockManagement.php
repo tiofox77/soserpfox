@@ -332,6 +332,10 @@ class StockManagement extends Component
      */
     public function addEntryItem($productId)
     {
+        // Antes de tudo: uma actualização atrasada pode ter deixado uma linha
+        // sem produto, e o ciclo abaixo lê `product_id` sem perguntar.
+        $this->limparEntryItems();
+
         $product = Product::where('tenant_id', activeTenantId())->find($productId);
         if (!$product) {
             return;
@@ -368,11 +372,52 @@ class StockManagement extends Component
         $this->entryProductSearch = '';
     }
 
+    /**
+     * Tira uma linha SEM reindexar as outras.
+     *
+     * Era `array_splice`, que reindexa — e as ligações do formulário são por
+     * ÍNDICE (`entryItems.20.quantity`), com meio segundo de espera antes de
+     * enviarem. Escrever uma quantidade e, antes desse meio segundo, remover
+     * uma linha acima: a remoção chegava primeiro e deslocava tudo; a
+     * quantidade chegava a seguir para um índice que já era de outro produto.
+     *
+     * Dava duas coisas, e a segunda é pior:
+     *
+     *   · se o índice ficasse para lá do fim, o Livewire CRIAVA a entrada só
+     *     com a quantidade — sem `product_id` — e o código seguinte rebentava
+     *     com "Undefined array key product_id". Foi o erro visto em produção.
+     *   · se o índice ainda existisse, a quantidade ia parar ao PRODUTO
+     *     ERRADO, sem erro nenhum.
+     *
+     * Com `unset` os índices que sobram continuam a apontar para os mesmos
+     * produtos. A lista fica com buracos, e é por isso que tudo o que a
+     * percorre usa as chaves em vez de assumir 0..n-1.
+     */
     public function removeEntryItem(int $index)
     {
-        if (isset($this->entryItems[$index])) {
-            array_splice($this->entryItems, $index, 1);
-        }
+        unset($this->entryItems[$index]);
+    }
+
+    /**
+     * Deita fora as linhas que o Livewire criou sem produto.
+     *
+     * Uma actualização atrasada para um índice que já não existe faz nascer
+     * uma linha só com `quantity`. Não há nada a aproveitar nela — não se sabe
+     * de que produto era — e o que não pode acontecer é chegar a lado nenhum
+     * que leia `product_id`.
+     *
+     * @return int quantas foram descartadas
+     */
+    protected function limparEntryItems(): int
+    {
+        $antes = count($this->entryItems);
+
+        $this->entryItems = array_filter(
+            $this->entryItems,
+            fn ($item) => is_array($item) && !empty($item['product_id'])
+        );
+
+        return $antes - count($this->entryItems);
     }
 
     public function clearEntryItems()
@@ -383,6 +428,12 @@ class StockManagement extends Component
     public function saveEntry()
     {
         abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para criar entradas de stock.');
+
+        // Uma linha sem produto faria a validação abaixo falhar com uma
+        // mensagem que ninguém entende ("entryItems.7.product_id é
+        // obrigatório", de uma linha que não está no ecrã). Descarta-se antes:
+        // não há nada a aproveitar nela, porque nem se sabe de que produto era.
+        $this->limparEntryItems();
 
         $empresa = activeTenantId();
 

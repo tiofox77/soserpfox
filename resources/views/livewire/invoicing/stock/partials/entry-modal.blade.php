@@ -199,7 +199,12 @@
                                         $new = max(0, $current + $delta * (float) ($item['quantity'] ?? 0));
                                         $insufficient = $isSub && (float) ($item['quantity'] ?? 0) > $current;
                                     @endphp
-                                    <tr wire:key="entry-item-{{ $item['product_id'] }}" class="{{ $isSub ? 'bg-red-50/40' : '' }}">
+                                    {{-- Uma actualização atrasada pode deixar uma
+                                         linha sem produto (ver limparEntryItems).
+                                         Ela é descartada do lado do servidor, mas
+                                         o render pode apanhá-la a meio — e sem
+                                         este `?? $i` a página rebentava aqui. --}}
+                                    <tr wire:key="entry-item-{{ $item['product_id'] ?? 'x' . $i }}" class="{{ $isSub ? 'bg-red-50/40' : '' }}">
                                         <td class="px-3 py-2 align-middle">
                                             <p class="font-semibold text-gray-900 truncate">{{ $item['product_name'] }}</p>
                                             <p class="text-[11px] text-gray-500">

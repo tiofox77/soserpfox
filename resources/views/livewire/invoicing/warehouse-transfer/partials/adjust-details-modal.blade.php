@@ -57,12 +57,33 @@
                     </div>
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-yellow-200">
-                    <p class="text-xs text-gray-600 mb-1">Responsável</p>
-                    <p class="font-bold text-gray-900">
-                        <i class="fas fa-user mr-1 text-yellow-600"></i>
-                        {{ $first['user']['name'] ?? 'N/A' }}
-                    </p>
+                <div class="mt-4 pt-4 border-t border-yellow-200 flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p class="text-xs text-gray-600 mb-1">Responsável</p>
+                        <p class="font-bold text-gray-900">
+                            <i class="fas fa-user mr-1 text-yellow-600"></i>
+                            {{ $first['user']['name'] ?? 'N/A' }}
+                        </p>
+                    </div>
+
+                    @if(!empty($first['batch_reference']))
+                        <div class="text-right">
+                            <p class="text-xs text-gray-600 mb-1">Referência</p>
+                            <p class="font-mono font-bold text-indigo-700">{{ $first['batch_reference'] }}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="{{ route('invoicing.stock.batch-preview', ['reference' => $first['batch_reference']]) }}"
+                               target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-1 px-3 py-2 bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-semibold transition">
+                                <i class="fas fa-eye"></i> Ver
+                            </a>
+                            <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $first['batch_reference']]) }}"
+                               target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </a>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -80,9 +101,16 @@
                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Código</th>
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Quantidade Ajustada</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Custo Unit.</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase border-l">Saldo Anterior</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Saldo Actual</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase border-l">Custo Unit.</th>
                         </tr>
                     </thead>
+                    @php
+                        $qtdFmt = fn ($v) => $v === null
+                            ? '—'
+                            : rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
+                    @endphp
                     <tbody class="bg-white divide-y divide-gray-100">
                         @foreach($selectedBatchDetails as $detail)
                             <tr class="hover:bg-yellow-50">
@@ -104,7 +132,17 @@
                                         {{ $detail['quantity'] > 0 ? '+' : '' }}{{ number_format(abs($detail['quantity']), 2) }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-right text-sm text-gray-700">
+                                {{-- Num ajuste, o saldo anterior é o que dá sentido
+                                     ao número: sem ele "+6" não diz de quanto para
+                                     quanto. Os ajustes anteriores a estas colunas
+                                     mostram "—" em vez de um valor reconstruído. --}}
+                                <td class="px-4 py-3 text-right text-sm text-gray-500 border-l">
+                                    {{ $qtdFmt($detail['balance_before'] ?? null) }}
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm font-bold {{ isset($detail['balance_after']) && (float) $detail['balance_after'] <= 0 ? 'text-red-600' : 'text-gray-900' }}">
+                                    {{ $qtdFmt($detail['balance_after'] ?? null) }}
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm text-gray-700 border-l">
                                     {{ number_format($detail['unit_cost'], 2) }} Kz
                                 </td>
                             </tr>

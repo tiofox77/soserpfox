@@ -85,6 +85,27 @@
                         </p>
                     </div>
                 </div>
+
+                @if(!empty($first['batch_reference']))
+                    <div class="mt-4 pt-4 border-t border-blue-200 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs text-gray-600 mb-1">Referência</p>
+                            <p class="font-mono font-bold text-indigo-700">{{ $first['batch_reference'] }}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="{{ route('invoicing.stock.batch-preview', ['reference' => $first['batch_reference']]) }}"
+                               target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-1 px-3 py-2 bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-semibold transition">
+                                <i class="fas fa-eye"></i> Ver
+                            </a>
+                            <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $first['batch_reference']]) }}"
+                               target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </a>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <!-- Products Table -->
@@ -98,19 +119,39 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
-                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Código</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Quantidade</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Custo Unit.</th>
-                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Total</th>
+                            <th rowspan="2" class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase align-bottom">Produto</th>
+                            <th rowspan="2" class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase align-bottom">Código</th>
+                            <th rowspan="2" class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase align-bottom">Quantidade</th>
+                            <th colspan="2" class="px-4 py-2 text-center text-xs font-bold text-red-700 uppercase border-l">Origem</th>
+                            <th colspan="2" class="px-4 py-2 text-center text-xs font-bold text-green-700 uppercase border-l">Destino</th>
+                            <th rowspan="2" class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase align-bottom border-l">Total</th>
+                        </tr>
+                        <tr class="text-[11px] text-gray-500 uppercase">
+                            <th class="px-4 py-1 text-right font-semibold border-l">Antes</th>
+                            <th class="px-4 py-1 text-right font-semibold">Ficou</th>
+                            <th class="px-4 py-1 text-right font-semibold border-l">Antes</th>
+                            <th class="px-4 py-1 text-right font-semibold">Ficou</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
                         @php
-                            // Mostrar apenas os produtos com quantidade positiva (destino)
-                            $transferProducts = collect($selectedBatchDetails)->where('quantity', '>', 0);
+                            // Uma linha por artigo, com as duas pernas juntas: a
+                            // negativa é a origem, a positiva o destino. Antes
+                            // mostrava-se só a positiva, e por isso não havia
+                            // forma de ver com quanto a origem tinha ficado.
+                            $porProduto = collect($selectedBatchDetails)->groupBy('product_id');
+
+                            $qtdFmt = fn ($v) => $v === null
+                                ? '—'
+                                : rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
                         @endphp
-                        @foreach($transferProducts as $detail)
+                        @foreach($porProduto as $pernas)
+                            @php
+                                $saidaMov   = collect($pernas)->first(fn ($d) => (float) $d['quantity'] < 0);
+                                $entradaMov = collect($pernas)->first(fn ($d) => (float) $d['quantity'] > 0);
+                                $ref        = $entradaMov ?: $saidaMov;
+                                $movida     = abs((float) $ref['quantity']);
+                            @endphp
                             <tr class="hover:bg-blue-50">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center">
@@ -118,24 +159,38 @@
                                             <i class="fas fa-box text-white"></i>
                                         </div>
                                         <div>
-                                            <p class="font-bold text-sm text-gray-900">{{ $detail['product']['name'] }}</p>
+                                            <p class="font-bold text-sm text-gray-900">{{ $ref['product']['name'] ?? '(produto removido)' }}</p>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-600">
-                                    {{ $detail['product']['code'] }}
+                                    {{ $ref['product']['code'] ?? '—' }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <span class="font-bold text-lg text-green-600">
-                                        {{ number_format($detail['quantity'], 2) }}
+                                    <span class="font-bold text-lg text-indigo-600">
+                                        {{ $qtdFmt($movida) }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-right text-sm text-gray-700">
-                                    {{ number_format($detail['unit_cost'], 2) }} Kz
+
+                                {{-- Saldos gravados no momento do movimento. As
+                                     transferências anteriores a estas colunas
+                                     mostram "—" em vez de um número inventado. --}}
+                                <td class="px-4 py-3 text-right text-sm text-gray-500 border-l">
+                                    {{ $qtdFmt($saidaMov['balance_before'] ?? null) }}
                                 </td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-4 py-3 text-right text-sm font-bold {{ isset($saidaMov['balance_after']) && (float) $saidaMov['balance_after'] <= 0 ? 'text-red-600' : 'text-gray-900' }}">
+                                    {{ $qtdFmt($saidaMov['balance_after'] ?? null) }}
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm text-gray-500 border-l">
+                                    {{ $qtdFmt($entradaMov['balance_before'] ?? null) }}
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm font-bold text-green-700">
+                                    {{ $qtdFmt($entradaMov['balance_after'] ?? null) }}
+                                </td>
+
+                                <td class="px-4 py-3 text-right border-l">
                                     <span class="font-bold text-gray-900">
-                                        {{ number_format($detail['quantity'] * $detail['unit_cost'], 2) }} Kz
+                                        {{ number_format($movida * (float) ($ref['unit_cost'] ?? 0), 2) }} Kz
                                     </span>
                                 </td>
                             </tr>
@@ -143,15 +198,18 @@
                     </tbody>
                     <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                         <tr>
-                            <td colspan="4" class="px-4 py-3 text-right font-bold text-gray-900">
+                            <td colspan="7" class="px-4 py-3 text-right font-bold text-gray-900">
                                 TOTAL GERAL:
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <span class="font-bold text-xl text-blue-600">
                                     @php
-                                        $total = $transferProducts->sum(function($item) {
-                                            return $item['quantity'] * $item['unit_cost'];
-                                        });
+                                        // Só a perna positiva entra na soma: a negativa é
+                                        // o mesmo artigo do outro lado e contá-la duplicava
+                                        // o valor da transferência.
+                                        $total = collect($selectedBatchDetails)
+                                            ->filter(fn ($d) => (float) $d['quantity'] > 0)
+                                            ->sum(fn ($d) => (float) $d['quantity'] * (float) ($d['unit_cost'] ?? 0));
                                     @endphp
                                     {{ number_format($total, 2) }} Kz
                                 </span>

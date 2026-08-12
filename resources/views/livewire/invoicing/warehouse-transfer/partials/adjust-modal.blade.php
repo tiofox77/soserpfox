@@ -98,17 +98,10 @@
 
                     <!-- Products Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-2">
-                        @php
-                            $filteredAdjustProducts = $products;
-                            if($adjustSearch) {
-                                $filteredAdjustProducts = $products->filter(function($prod) use ($adjustSearch) {
-                                    return stripos($prod->name, $adjustSearch) !== false || 
-                                           stripos($prod->code, $adjustSearch) !== false;
-                                });
-                            }
-                        @endphp
-
-                        @forelse($filteredAdjustProducts as $prod)
+                        {{-- A pesquisa e o limite são feitos em SQL, no
+                             componente. Aqui filtrava-se em PHP a colecção
+                             inteira — que era o catálogo todo. --}}
+                        @forelse($products as $prod)
                             <div wire:click="selectProductForAdjust({{ $prod->id }})"
                                  class="p-4 border-2 rounded-xl cursor-pointer transition border-gray-200 hover:border-yellow-400 hover:shadow-lg bg-white hover:scale-105">
                                 <div class="flex items-start justify-between mb-2">
@@ -118,13 +111,11 @@
                                     </div>
                                 </div>
                                 @if($adjustWarehouse)
-                                    @php
-                                        $stock = \App\Models\Invoicing\Stock::where('tenant_id', activeTenantId())
-                                            ->where('warehouse_id', $adjustWarehouse)
-                                            ->where('product_id', $prod->id)
-                                            ->first();
-                                        $qty = $stock ? $stock->quantity : 0;
-                                    @endphp
+                                    {{-- O stock vem na mesma consulta dos artigos.
+                                         Aqui estava um Stock::where()->first() por
+                                         cartão: com 5.729 artigos eram 5.729
+                                         consultas por render. --}}
+                                    @php $qty = (float) ($prod->stock_no_armazem ?? 0); @endphp
                                     <div class="mt-2 pt-2 border-t border-gray-200">
                                         <p class="text-xs text-gray-600">Stock atual:</p>
                                         <p class="text-sm font-bold text-blue-600">
@@ -136,10 +127,25 @@
                         @empty
                             <div class="col-span-3 text-center py-8 text-gray-500">
                                 <i class="fas fa-search text-3xl mb-2"></i>
-                                <p>Nenhum produto encontrado</p>
+                                @if(!$adjustWarehouse)
+                                    <p>Escolha primeiro o armazém</p>
+                                @elseif($adjustSearch)
+                                    <p>Nenhum produto encontrado para "{{ $adjustSearch }}"</p>
+                                @else
+                                    <p>Nenhum produto no catálogo</p>
+                                @endif
                             </div>
                         @endforelse
                     </div>
+
+                    {{-- Dizer que a lista está cortada. Sem isto, quem não
+                         encontrasse o artigo concluía que ele não existe. --}}
+                    @if($products->count() >= 50)
+                        <p class="text-xs text-gray-500 text-center mt-2">
+                            <i class="fas fa-circle-info mr-1"></i>
+                            A mostrar os primeiros 50 artigos — escreva acima para encontrar outro.
+                        </p>
+                    @endif
                 </div>
 
                 <!-- Step 3: Cart -->
@@ -156,8 +162,11 @@
                     </div>
                     
                     <div class="space-y-3">
+                        {{-- `wire:key` pelo produto: sem ele o Livewire reutiliza
+                             as linhas por POSIÇÃO. --}}
                         @foreach($adjustItems as $index => $item)
-                            <div class="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-orange-200 shadow-sm">
+                            <div wire:key="linha-{{ $item['product_id'] ?? 'x' . $index }}"
+                                 class="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-orange-200 shadow-sm">
                                 <div class="flex items-center flex-1">
                                     <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-yellow-600 rounded-xl flex items-center justify-center mr-4">
                                         <i class="fas fa-box text-white text-lg"></i>
@@ -167,9 +176,15 @@
                                         <p class="text-sm text-gray-600">📦 {{ $item['product_code'] }}</p>
                                     </div>
                                 </div>
+                                {{-- Editável no próprio carrinho, como na
+                                     transferência. `.blur` e não `.live`: com
+                                     validação a cada tecla, escrever "10" dava
+                                     erro no "1". --}}
                                 <div class="text-right mr-4">
-                                    <p class="text-xs text-gray-600 mb-1">Quantidade</p>
-                                    <p class="text-2xl font-bold text-orange-600">{{ number_format($item['quantity'], 2) }}</p>
+                                    <label class="block text-xs text-gray-600 mb-1" for="qtd-a-{{ $index }}">Quantidade</label>
+                                    <input id="qtd-a-{{ $index }}" type="number" min="0.01" step="0.01" inputmode="decimal"
+                                           wire:model.blur="adjustItems.{{ $index }}.quantity"
+                                           class="w-28 px-3 py-2 text-right text-2xl font-bold text-orange-600 rounded-xl border-2 border-orange-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                                 </div>
                                 <button type="button" wire:click="removeProductFromAdjust({{ $index }})"
                                         class="text-red-600 hover:text-white hover:bg-red-600 p-3 rounded-xl transition">

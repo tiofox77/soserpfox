@@ -71,17 +71,28 @@
 <body>
 
 @php
-    $entradas = $movimentos->where('type', 'in');
-    $saidas   = $movimentos->where('type', 'out');
+    // Classificação pelo EFEITO no armazém, não pelo `type`. As entradas e
+    // saídas do ecrã de movimentação gravam a quantidade sempre positiva e
+    // distinguem-se por `type`; os ajustes do ecrã de transferências gravam-na
+    // com sinal e ficam ambos em `adjustment`. Filtrar só por `type` deixava as
+    // linhas de ajuste fora dos dois totais — apareciam na tabela e não somavam
+    // em lado nenhum.
+    $ehSaida = fn ($m) => $m->type === 'out' || (float) $m->quantity < 0;
 
-    $qtdEntradas  = $entradas->sum(fn ($m) => (float) $m->quantity);
-    $qtdSaidas    = $saidas->sum(fn ($m) => (float) $m->quantity);
+    $saidas   = $movimentos->filter($ehSaida);
+    $entradas = $movimentos->reject($ehSaida);
+
+    // Valor absoluto: os ajustes de saída trazem a quantidade negativa e sem
+    // isto o total de saídas vinha negativo, para ser mostrado a seguir a um
+    // "−" escrito à mão — dois sinais para a mesma coisa.
+    $qtdEntradas  = $entradas->sum(fn ($m) => abs((float) $m->quantity));
+    $qtdSaidas    = $saidas->sum(fn ($m) => abs((float) $m->quantity));
 
     // Os dois totais de valor são somados. Somar só as entradas deixava na
     // coluna "Total" linhas de saída que ninguém conseguia reconciliar com o
     // rodapé — quem confere um documento soma a coluna.
-    $valorEntradas = $entradas->sum(fn ($m) => (float) $m->quantity * (float) ($m->unit_cost ?? 0));
-    $valorSaidas   = $saidas->sum(fn ($m) => (float) $m->quantity * (float) ($m->unit_cost ?? 0));
+    $valorEntradas = $entradas->sum(fn ($m) => abs((float) $m->quantity) * (float) ($m->unit_cost ?? 0));
+    $valorSaidas   = $saidas->sum(fn ($m) => abs((float) $m->quantity) * (float) ($m->unit_cost ?? 0));
 
     $primeiro = $movimentos->first();
 
@@ -142,16 +153,17 @@
             <th>Produto</th>
             <th class="text-center" style="width:58px;">Op.</th>
             <th class="text-right" style="width:62px;">Qtd.</th>
-            <th class="text-right" style="width:74px;">Custo un.</th>
-            <th class="text-right" style="width:82px;">Total (Kz)</th>
-            <th class="text-right" style="width:62px;">Saldo</th>
+            <th class="text-right" style="width:70px;">Custo un.</th>
+            <th class="text-right" style="width:78px;">Total (Kz)</th>
+            <th class="text-right" style="width:56px;">Antes</th>
+            <th class="text-right" style="width:56px;">Ficou</th>
         </tr>
     </thead>
     <tbody>
         @foreach($movimentos as $i => $m)
             @php
-                $saida = $m->type === 'out';
-                $total = (float) $m->quantity * (float) ($m->unit_cost ?? 0);
+                $saida = $ehSaida($m);
+                $total = abs((float) $m->quantity) * (float) ($m->unit_cost ?? 0);
             @endphp
             <tr class="{{ $saida ? 'line-out' : '' }}">
                 <td class="text-center">{{ $i + 1 }}</td>
@@ -163,13 +175,17 @@
                     @endif
                 </td>
                 <td class="text-center {{ $saida ? 'op-out' : 'op-in' }}">{{ $saida ? '− Saída' : '+ Entrada' }}</td>
-                <td class="text-right">{{ $qtd($m->quantity) }}</td>
+                {{-- Valor absoluto: o sinal já está na coluna da operação, e um
+                     "-3" ao lado de "− Saída" lê-se como duas negações. --}}
+                <td class="text-right">{{ $qtd(abs((float) $m->quantity)) }}</td>
                 <td class="text-right">{{ $m->unit_cost !== null ? number_format((float) $m->unit_cost, 2, ',', '.') : '—' }}</td>
                 <td class="text-right">{{ $total > 0 ? number_format($total, 2, ',', '.') : '—' }}</td>
-                {{-- Saldo gravado no momento do movimento. Numa reimpressão, o
+                {{-- Saldos gravados no momento do movimento. Numa reimpressão, o
                      stock de hoje já não é o de então — mostrar o actual seria
-                     escrever no documento uma coisa que nunca aconteceu. --}}
-                <td class="text-right">{{ $m->balance_after !== null ? $qtd($m->balance_after) : '—' }}</td>
+                     escrever no documento uma coisa que nunca aconteceu. Os
+                     movimentos anteriores a estas colunas mostram "—". --}}
+                <td class="text-right" style="color:#6b7280;">{{ $m->balance_before !== null ? $qtd($m->balance_before) : '—' }}</td>
+                <td class="text-right" style="font-weight:bold;">{{ $m->balance_after !== null ? $qtd($m->balance_after) : '—' }}</td>
             </tr>
         @endforeach
     </tbody>
@@ -180,7 +196,7 @@
                 <td class="text-right op-in">+ {{ $qtd($qtdEntradas) }}</td>
                 <td></td>
                 <td class="text-right">{{ number_format($valorEntradas, 2, ',', '.') }}</td>
-                <td></td>
+                <td colspan="2"></td>
             </tr>
         @endif
         @if($saidas->isNotEmpty())
@@ -189,7 +205,7 @@
                 <td class="text-right op-out">− {{ $qtd($qtdSaidas) }}</td>
                 <td></td>
                 <td class="text-right">{{ number_format($valorSaidas, 2, ',', '.') }}</td>
-                <td></td>
+                <td colspan="2"></td>
             </tr>
         @endif
         @if($entradas->isNotEmpty() && $saidas->isNotEmpty())
@@ -205,7 +221,7 @@
                 <td class="text-right">{{ ($variacaoQtd >= 0 ? '+ ' : '− ') . $qtd(abs($variacaoQtd)) }}</td>
                 <td></td>
                 <td class="text-right">{{ ($variacaoValor >= 0 ? '+ ' : '− ') . number_format(abs($variacaoValor), 2, ',', '.') }}</td>
-                <td></td>
+                <td colspan="2"></td>
             </tr>
         @endif
     </tfoot>
