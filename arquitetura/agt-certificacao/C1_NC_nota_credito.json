@@ -1,0 +1,607 @@
+{
+    "schemaVersion": "1.2",
+    "submissionUUID": "5b49f5a8-1802-46d5-b84c-185bc8b3805c",
+    "taxRegistrationNumber": "5001363476",
+    "submissionTimeStamp": "2026-07-30T13:26:58Z",
+    "softwareInfo": {
+        "softwareInfoDetail": {
+            "productId": "SOS ERP - SOLUÇÕES EMPRESARIAIS",
+            "productVersion": "1",
+            "softwareValidationNumber": "FE/351/AGT/2026",
+            "signatureVersion": 1
+        },
+        "jwsSoftwareSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJwcm9kdWN0SWQiOiJTT1MgRVJQIC0gU09MVcOHw5VFUyBFTVBSRVNBUklBSVMiLCJwcm9kdWN0VmVyc2lvbiI6IjEiLCJzb2Z0d2FyZVZhbGlkYXRpb25OdW1iZXIiOiJGRS8zNTEvQUdULzIwMjYifQ.IX5DOLq7hE4fLkHRS5GmXRmFfC0p3IlRefugzBBzSOrVH3S_Zdn_yvfLk_RbgGaHpfJGB6h0UaBM1ypcNGIR_OBrZ8AJmqqKK0zxNRAhyW0EuKK_wDo_N9qanyGKgpBOrzrk891O-N7tuJeumqoDj7e1DeVnVpVHW-jx2vIa2BPHvGCLyU4nNCuc8jgCA2WvbVQOWfmaB0RledQw-fM2nh2XuWysia8JHfKR8rZABPRBNfvXR98IfIxQrR3tqDQsEXfahWnl4nCXS8-VhnhemqG8GGcnj8ZGmqQ35K0wjymd6vWicX-qNdkl6oNN-VWrKJccotAxF1Qxk3LI1pj7FA"
+    },
+    "numberOfEntries": "12",
+    "documents": [
+        {
+            "documentNo": "SOS NC7626S7057N/000016",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:42Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-NORMAL",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 100000,
+                    "unitPrice": 100000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000109",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 100000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 14000,
+                            "taxPercentage": 14
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 14000,
+                "netTotal": 100000,
+                "grossTotal": 114000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMTYiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MTQwMDAsIm5ldFRvdGFsIjoxMDAwMDAsImdyb3NzVG90YWwiOjExNDAwMH19.c4bHe9N_OJlHS6lJ6iQutnVg-gJ1K6u8HyutkCnBN2t29hVUzW-JhrFbYYq-oQ-VG2YzVgO_dmf8Cjn0GBfSv7GBgExVSACYZzoM4H-mViAlJWoJlngR8qWX1wruVrlmcrzHtanemrIaUgT1lfGFWGuFHCbCJ0ZJJI5Lrmt0nTIbhCcd0UWP7sGjVRyH4itQK0KS9NhOg3e8mGTGSaRE-nifbom5Fo12lmdWPc1aUbb8UWLjEv7eJ7yHfhfDkQ8rIJb8zQ3arGgbyRc_SMTK4LRJzXMvaIzHfBD6hNI8pBPGNcoyMk0WM9t5vxtNi3YkclB4PyWnumqFaMuE01zVmw"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000017",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:43Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-NORMAL",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 100000,
+                    "unitPrice": 100000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000110",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 100000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO-CAB",
+                            "taxCode": "NOR",
+                            "taxContribution": 14000,
+                            "taxPercentage": 14
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 14000,
+                "netTotal": 100000,
+                "grossTotal": 114000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMTciLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MTQwMDAsIm5ldFRvdGFsIjoxMDAwMDAsImdyb3NzVG90YWwiOjExNDAwMH19.NGK77Z1nGKCotRoDQlxKoKizGC39f-thYPhbTOmIF-yeitgCWtfCZb0TkvDUagwknZxTEWQlsLvd3JX4CJduKJ2ISqcfjI9pmBe9HHVpxK78qyKKUz6Lml0sdqqTlsZU2t4yW7lPd0MfrVEnVpEgUg6lpW-mTqaTwzVY-Tj7Q83Xnggc_TISXhKP_9QrzoP568AMiiI2BapsGC3jUEB6Xt51S-F9xZ8aYxSTyuwdKiQeMdMALSipg9T3fzVBmh4JWLO4m4npgf3b-mfk5E-qnGcu0b_jEcBsWfQyBBd7WQs_PWBENiZ2MEDf5eklSFp5GkcdDdP0tTtEoLGDySo68g"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000018",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:43Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-RED7",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 80000,
+                    "unitPrice": 80000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000111",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 80000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "RED",
+                            "taxContribution": 5600,
+                            "taxPercentage": 7
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 5600,
+                "netTotal": 80000,
+                "grossTotal": 85600
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMTgiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6NTYwMCwibmV0VG90YWwiOjgwMDAwLCJncm9zc1RvdGFsIjo4NTYwMH19.misQxGGTGNgwEkIF7AcR_e7ObiK1hHKhMGtNcBrJ6Hv-WEpchEOBNP_rcF5yTnT1P0QFAiiyU_AwVbRMTwNFczVZlJIGB_PCypY3aDbFCw4fHgyFD0iCV370O7cD-TL6oEy_bzhqPLI15ZJTWvmHVX7LVGff16Ec5m2zPF_AFhXnu1dDhmV55PB76EBAgI-4Yq7sVBIMs9kB2SbKGbU9EZxfhjqwWyvfCiBkCryw82Q25tYexHUbOSc8ARIUC60l6yBDJ_du8wfRkiiWH3eot3hNZPbRX5KQoe4n9gba18QqhCDb6ZhOan3ZX7uVd7XTfB_YXof5xGp-03sXoWFE7A"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000019",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:43Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-RED5",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 60000,
+                    "unitPrice": 60000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000112",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 60000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "RED",
+                            "taxContribution": 3000,
+                            "taxPercentage": 5
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 3000,
+                "netTotal": 60000,
+                "grossTotal": 63000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMTkiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MzAwMCwibmV0VG90YWwiOjYwMDAwLCJncm9zc1RvdGFsIjo2MzAwMH19.IHseaqWNDwwnKcwSrf6TkjQBTyukuI_kjW5iNiEP3ODpGgJzgBJBfLTXeWOlqRi8GxgcSfU4K1Sh0_r6FB6DyzDGkWzJJzhNcHmGKnu5-SnJaXHvB79lKnkzG0C0XiysOYye0AhZDSeQ20JH6KJ975hZHztWu9Ym9k6qhe3Lj9sjaabAuS4taJPVyojE3mIoV8ngKTUEZx_rzkk9QC5XGku_SXcS3dKLmZB0Bm4rP78s6hoByxZioiMbu7WEuwWRsEPuwg3E-UOHrIxsXjPQsdAKSEZwfSMspqwe2Dv71JYKcVSXZVsda-1aue1l_kiD3YS_EFyiZpxV52gi2j5Mlg"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000020",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:44Z",
+            "customerTaxID": "999999999",
+            "customerCountry": "PT",
+            "companyName": "CERT Consumidor Final",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-IEC",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 50000,
+                    "unitPrice": 50000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000113",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 50000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 8750,
+                            "taxPercentage": 14
+                        },
+                        {
+                            "taxType": "IEC",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 12500,
+                            "taxPercentage": 25
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 21250,
+                "netTotal": 50000,
+                "grossTotal": 71250
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjAiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6Ijk5OTk5OTk5OSIsImN1c3RvbWVyQ291bnRyeSI6IlBUIiwiY29tcGFueU5hbWUiOiJDRVJUIENvbnN1bWlkb3IgRmluYWwiLCJkb2N1bWVudFRvdGFscyI6eyJ0YXhQYXlhYmxlIjoyMTI1MCwibmV0VG90YWwiOjUwMDAwLCJncm9zc1RvdGFsIjo3MTI1MH19.TjAXxg9WxFuoOsP-VZgzuI5pAWt_MSe21ETxEXjIw_bEiYp9YFeUgY6zqIjAs5gURw1T0RxbLgx_ZiRybg2QNC2FgJSct0MnEMPBHdegyig0rqe_0ghF4YJY3wiEhy0MCYWklhdHgR30WPNaUfxFOHZQ0BAvBVO_1_aijNDTtXxP_pZwzkao6EoeHuKVrFC_t7e4RT5vgEWdwroE_kw6HqYf4X9uEfpi3k1ajYK-ct1fq62nW_0Cd6EY24ChlCAsFd-AcbgksE0aVfihysNJCYEo_bp9vxUr8jtunEneH_rqpD8t5VtlAJFtoS92OjQG-zki5YFIWsj82BEXW6WkoQ"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000021",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:44Z",
+            "customerTaxID": "999999999",
+            "customerCountry": "PT",
+            "companyName": "CERT Consumidor Final",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-EXPORTACAO",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 200000,
+                    "unitPrice": 200000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000114",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 200000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "ISE",
+                            "taxContribution": 0,
+                            "taxPercentage": 0,
+                            "taxExemptionCode": "M04",
+                            "taxExemptionReason": "Regime Especial de Isenção (Artigo 53.º)"
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 0,
+                "netTotal": 200000,
+                "grossTotal": 200000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjEiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6Ijk5OTk5OTk5OSIsImN1c3RvbWVyQ291bnRyeSI6IlBUIiwiY29tcGFueU5hbWUiOiJDRVJUIENvbnN1bWlkb3IgRmluYWwiLCJkb2N1bWVudFRvdGFscyI6eyJ0YXhQYXlhYmxlIjowLCJuZXRUb3RhbCI6MjAwMDAwLCJncm9zc1RvdGFsIjoyMDAwMDB9fQ.ZN3C3clbZN5SjIKPyV-g1iQnjvnsGLDmOsXwfjnTyL1Ser668zM2YNcQIDRRUTR-CCpxM7FC7iBXfKXxvdAA7-NWBVE0jS-9cF-LZBwMXz-hTpfnEiUraIAsI85woU0nzZ8Ec3yreeTr9318ZypFSrUVoB_hIUn-lHGF7YlM_jOBLF7ILl6TrYWaTRGHVF28w0uVDzeOpszS_sEkeZ-jquBBwH9oyw7gJMbq5e_1GyvyGCMzRvjit0qFP9m4nVUlrdmP-8S4X78i1HMb3tpXatBEp6cw8BKFG-awFJXRir4jojy_3tBULmJozVoQA35yp7J41ICd0aXHKHYwM6BGPA"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000022",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:45Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-ISENTO",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 90000,
+                    "unitPrice": 90000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000115",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 90000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "ISE",
+                            "taxContribution": 0,
+                            "taxPercentage": 0,
+                            "taxExemptionCode": "M01",
+                            "taxExemptionReason": "Artigo 9.º, n.º 1 - Operações isentas"
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 0,
+                "netTotal": 90000,
+                "grossTotal": 90000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjIiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MCwibmV0VG90YWwiOjkwMDAwLCJncm9zc1RvdGFsIjo5MDAwMH19.Z6bN4oHoqIe2cDGFsoCwwH2owKtEFz0mS9hLq799EYsH6llZYxm84i6TEIZnW1VaoPzTb3gAp07cf1NDZ-5acWvFRRCFHGKhysWVDam8_yUh7xtLgNRrQ7ya1_Mst6XmKHl8YQXQTkmQf6se1xPDqtOjUp7wjmmkXlnjSjRF92TbUr3YxamaFFo65K21v84NsdLW3xHjWFUgJ_uHc33DRlxUsfkqAi7Db6vt8xK3xiVORRzVsPztv7a6Cpy5d0RJeYg5uVA3_x-9vAd_-3JpZ9tYHZ9ol6J4ZZ1qu6TdDLGfhXMBEU3nh3i875_SfFCF3lezQXFE4L9UiaJo5F-JlQ"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000023",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:45Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-NAOSUJEITO",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 70000,
+                    "unitPrice": 70000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000116",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 70000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "ISE",
+                            "taxContribution": 0,
+                            "taxPercentage": 0,
+                            "taxExemptionCode": "M99",
+                            "taxExemptionReason": "Outros motivos de isenção"
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 0,
+                "netTotal": 70000,
+                "grossTotal": 70000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjMiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MCwibmV0VG90YWwiOjcwMDAwLCJncm9zc1RvdGFsIjo3MDAwMH19.e4ZlBl-BcjcsujyDIxlZuPM3r32FdJtcvuyfCzwBiTLNLLbLKm-PLfppARTbi4yzsvqYti-s5RQAg8j05ovJiUrUFKkRnwqkFTtdzEBr5vBhlA-Gia1BYUmtBJ6htpeX7LSu8lfY6W0X_QxCD3E7JxIFOz85q5qrbeJdcmVSROTfeUVSxlxgabODig9SU4EH2qWRu9FUQ-zTCRVOsHikIgZUlC2y7j-PKPQRHBWSliSfVO-__ycg5AMExN28ImIjEjb4107-13K8zt42BQ7_Tr5rFXr2OXCtW7t56DpXUl5KO_k--67QD8Hu7xPu3hI3V8gSSog8QwHBkjUHmIZBQg"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000024",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:45Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-NORMAL",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 100000,
+                    "unitPrice": 100000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000117",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 100000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 14000,
+                            "taxPercentage": 14
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 14000,
+                "netTotal": 100000,
+                "grossTotal": 114000
+            },
+            "withholdingTaxList": [
+                {
+                    "withholdingTaxType": "IRT",
+                    "withholdingTaxDescription": "Imposto sobre o Rendimento do Trabalho",
+                    "withholdingTaxAmount": 6500
+                }
+            ],
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjQiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MTQwMDAsIm5ldFRvdGFsIjoxMDAwMDAsImdyb3NzVG90YWwiOjExNDAwMH19.Ma6HXttIyGrfdT4ZVgCjxEqzS8CxJh9aeM5y27P_oDwbD8LFeN9WKdjqWFqbhmvgQVLkkMC6y9hZAWOtclsMx1ACRpL4RLZ5AAbyBjfgX6HuAmA_dqVMcQ5VOvOUKmyy40RmJ0nAvZpdSNeeobVOhNVScsOczotdzveFfYfMUtPEvdRRMNlgV4FyP0MB5gtjoDFraggZLaiu1ITKc6tDug0_XR4OsG9Np4l6uNh9icEKUkrF11kJVsNWpXGkcTh7v6E9y2d3YU8e6-DO8fipPJb0OA1A-muLAeYruzyUZf9iHfPVML6GxYZyDih-EHPgpmT-5r5O6Zs9OZr7l7bYXg"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000025",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:46Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-NORMAL",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 100000,
+                    "unitPrice": 100000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000118",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 100000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 14000,
+                            "taxPercentage": 14
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 14000,
+                "netTotal": 100000,
+                "grossTotal": 114000
+            },
+            "withholdingTaxList": [
+                {
+                    "withholdingTaxType": "IAC",
+                    "withholdingTaxDescription": "Imposto sobre a Aplicação de Capitais",
+                    "withholdingTaxAmount": 10000
+                }
+            ],
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjUiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6MTQwMDAsIm5ldFRvdGFsIjoxMDAwMDAsImdyb3NzVG90YWwiOjExNDAwMH19.o_2i46v74zUs4aQkOy-JB5NXZryKxNvm-DmVhkRdBFfOZ1wA8Pcqzdipnt5bmvjFxoxTNhNAQYTHmtM-ceOjnbO4XWl0Yfpu5alwhSKSvVdPuEBlFOsIgEZbgerXFGrlCZr1xzu5hdpaZZ0e3MlzlEO4dSxc7iPVJoSz0nZsm6KpZvvuzf9t6UcP29XxkibOk-7xCAI_8PWhAjqwieDdmazzL2MTrgs7Lfi2y-KyU1f2indmbxmeg67VeUF1o9Kh6IAgtKBd9Z_ooQ98oLZzVRvD9PrCMMdIkYOIqBsYG0pL_LXvJ8Y4RU5xpTGNHS5gTCc8mxGjXxbu98sfqBhd7g"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000026",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:56Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-SELO",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 300000,
+                    "unitPrice": 300000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000119",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 300000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 42000,
+                            "taxPercentage": 14
+                        },
+                        {
+                            "taxType": "IS",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "23.3",
+                            "taxContribution": 3000,
+                            "taxPercentage": 1
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 45000,
+                "netTotal": 300000,
+                "grossTotal": 345000
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjYiLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6NDUwMDAsIm5ldFRvdGFsIjozMDAwMDAsImdyb3NzVG90YWwiOjM0NTAwMH19.m_uCJPPkEuNZpA5-7ioOO-OAkp44ytRnlfgr6cMQ0kWr7nUOZnPPu2L81aOLe9QfcfvJahXJOiyRnDWJ6KMmbhfwgol3SV3lMS7oOk3bn2mUe7C5FQEo0DjPnMg-9ly4oUaKWoXHkv9ZJaDqFPGxUjHvpYd17Hx5vUUNv2os460vj_QSRUc99_CvWi4u7MSJVXAOuEYEADiI9yy6aAUEoU8z3nvYEVixcqC_oNb4HCd6y18lYAkQzctujax928oGlTxzZkAdseRqmmk8jzyhbx5MYNSGZZBP1IPQh6Tjpza5HSEdM8klZzOvgP7b1AAse4AoK5qMJVuJ6MGnYn-dZA"
+        },
+        {
+            "documentNo": "SOS NC7626S7057N/000027",
+            "documentStatus": "N",
+            "documentDate": "2026-07-30",
+            "documentType": "NC",
+            "eacCode": "00000",
+            "systemEntryDate": "2026-07-30T13:26:57Z",
+            "customerTaxID": "5001363476",
+            "customerCountry": "AO",
+            "companyName": "CERT Cliente Angola (NIF proprio)",
+            "lines": [
+                {
+                    "lineNumber": 1,
+                    "productCode": "CERT-IECSELO",
+                    "productDescription": "Produto",
+                    "quantity": 1,
+                    "unitOfMeasure": "un",
+                    "unitPriceBase": 120000,
+                    "unitPrice": 120000,
+                    "referenceInfo": {
+                        "reference": "SOS FT7626S9153N/000120",
+                        "referenceItemLineNo": 1,
+                        "reason": "Anulação"
+                    },
+                    "debitAmount": 120000,
+                    "creditAmount": 0,
+                    "taxes": [
+                        {
+                            "taxType": "IVA",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 21840,
+                            "taxPercentage": 14
+                        },
+                        {
+                            "taxType": "IEC",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "NOR",
+                            "taxContribution": 36000,
+                            "taxPercentage": 30
+                        },
+                        {
+                            "taxType": "IS",
+                            "taxCountryRegion": "AO",
+                            "taxCode": "16.2.4",
+                            "taxContribution": 840,
+                            "taxPercentage": 0.7
+                        }
+                    ],
+                    "settlementAmount": 0
+                }
+            ],
+            "documentTotals": {
+                "taxPayable": 58680,
+                "netTotal": 120000,
+                "grossTotal": 178680
+            },
+            "jwsDocumentSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJkb2N1bWVudE5vIjoiU09TIE5DNzYyNlM3MDU3Ti8wMDAwMjciLCJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwiZG9jdW1lbnRUeXBlIjoiTkMiLCJkb2N1bWVudERhdGUiOiIyMDI2LTA3LTMwIiwiY3VzdG9tZXJUYXhJRCI6IjUwMDEzNjM0NzYiLCJjdXN0b21lckNvdW50cnkiOiJBTyIsImNvbXBhbnlOYW1lIjoiQ0VSVCBDbGllbnRlIEFuZ29sYSAoTklGIHByb3ByaW8pIiwiZG9jdW1lbnRUb3RhbHMiOnsidGF4UGF5YWJsZSI6NTg2ODAsIm5ldFRvdGFsIjoxMjAwMDAsImdyb3NzVG90YWwiOjE3ODY4MH19.cP4HKsfv5PLJVJhCqcBjgQ5c3CIfSA9MBhPMyo2vn5QHoiztgeJWBLWafjJdpFCzA2bXAmLOO1m8WF9Vq-HvDRNdtqga5K6ndAZqxz6NEAGYx70uHgM9Z72-h7TNZnheSI1j20E-mrPztXVNigMAmhj2jMBvcZtjHUATvL5kJQ_-a4KvACMD70Y4TJo9MwbvPgLwuTt-wE3diCby8By0SEK_cxptpmgucFb4EPIF5UJBVLB0qE8QtG9ma7GD8RjXjvHslK9pEcWza_BwzubbH22wEDK0VHNWRfpy1gYBu9g72Zo-2mglcYUkndeG4JgKCmgbtkI78vbdSSp4zybHBA"
+        }
+    ],
+    "jwsSignature": "eyJ0eXAiOiJKT1NFIiwiYWxnIjoiUlMyNTYifQ.eyJ0YXhSZWdpc3RyYXRpb25OdW1iZXIiOiI1MDAxMzYzNDc2IiwibnVtYmVyT2ZFbnRyaWVzIjoiMTIiLCJzdWJtaXNzaW9uVGltZVN0YW1wIjoiMjAyNi0wNy0zMFQxMzoyNjo1OFoifQ.XSTPXwJM6APufTarA9WwmY_8_kTJaYvuTG7rR226TkxszBwN9RfxiiR9TZij4PzGvwnlOiIZSNxEiTCfgqpd5FNm3XU9-fxwI2GBtdx6-2JFgLw-4FYIg2HUcysWNhPxL1VtzLl53gUHzW3j8iuLTYTxugb1_Vc7qtRLfv3JcgJEPCQGNvp2-t4nwom_7arFliGqwPIYbHsY31FkTqx61jrRERwTEJxv63TkI3wsCkZxFgC7w8jiapIAfdYx-TF8_wDnP27FPOhS73rgrRQmXTJKnV3pCY2teHvJKtEUNKwkdLNBnndJARfG0OwSf7BWbSKjiRWwn_Fg7lNGOneeeg"
+}
