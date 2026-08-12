@@ -17,7 +17,7 @@
 |---|------|----------|--------|-------|
 | 1.1 | Employee — adicionar campos doc | `app/Models/HR/Employee.php` | [x] | Adicionados: `base_salary`, `food_benefit`, `transport_benefit`, `family_allowance`, `position_subsidy`, `performance_subsidy`, `employment_status` |
 | 1.2 | OvertimeRecord (renomear Overtime) | `app/Models/HR/Overtime.php` | [x] | Adicionados: `input_type`, `direct_hours`, `period_type`, `is_night_shift`, `rate`, `amount`, `created_by` |
-| 1.3 | SalaryAdvance | `app/Models/HR/SalaryAdvance.php` | [~] | Existe. Alinhar `remaining_installments` (doc) vs `installments - installments_paid` (atual) |
+| 1.3 | SalaryAdvance | `app/Models/HR/SalaryAdvance.php` | [x] | `remaining_installments` é ACESSOR (installments − installments_paid), NÃO coluna. **Bug corrigido 2026-07:** `PayrollCalculatorHelper::loadSalaryAdvances()` filtrava `where('remaining_installments','>',0)` → SQL error (coluna inexistente) sempre que o funcionário tinha adiantamentos → agora `whereColumn('installments_paid','<','installments')`. (O caminho persistido `PayrollService::calculateAdvanceDeduction` usa `status='in_deduction'`+`balance`, já correto.) |
 | 1.4 | **SalaryDiscount** | `app/Models/HR/SalaryDiscount.php` | [x] | Criado — modelo + migration + CRUD completo |
 | 1.5 | Attendance — adicionar campos | `app/Models/HR/Attendance.php` | [x] | Adicionados: `time_in`, `time_out`, `hourly_rate`, `affects_payroll`, `remarks` |
 | 1.6 | **IRTTaxBracket** | `app/Models/HR/IRTTaxBracket.php` | [x] | Criado — escalões IRT Angola com calculateIRT() |
@@ -131,7 +131,7 @@
 
 | Fase | Total | Feito | % |
 |------|-------|-------|---|
-| Models | 9 | 8 | 89% |
+| Models | 9 | 9 | 100% |
 | Migrations | 6 | 6 | 100% |
 | Helper | 2 | 2 | 100% |
 | Components | 7 | 7 | 100% |
@@ -140,6 +140,18 @@
 | Routes | 3 | 3 | 100% |
 | Seeders | 2 | 2 | 100% |
 | Sidebar | 2 | 2 | 100% |
-| **TOTAL** | **37** | **36** | **97%** |
+| **TOTAL** | **37** | **37** | **100%** |
 
-> **Restante 1 item (1.3):** SalaryAdvance model — `remaining_installments` já funciona como accessor (`installments - installments_paid`). Alinhamento funcional completo, sem coluna DB necessária.
+---
+
+## Atualizações 2026-07 (correções de produção, testadas + deployed)
+
+O checklist original (mar/2025) estava "97%" mas o motor de cálculo tinha bugs reais, corrigidos e validados via preview/testes com rollback:
+
+- **Motor de payroll consolidado num só** — antes havia 3 cópias divergentes da matemática (`PayrollCalculatorHelper::calculate`, `PayrollService::calculateTaxes`, `PayrollItem::calculate`). Agora `PayrollItem::calculate()` é o motor único; `PayrollService::calculateTaxes()` delega; ambos os caminhos passam por `createPayrollItem()` (idempotente). O `processEmployeePayroll` estava partido (gerava `gross=0`).
+- **Presenças/licenças** (`calculateAttendanceData` reescrito dia-a-dia): licença **paga** aprovada agora é paga (não descontada); modelo real = `hr_attendances.status` só `present`/`absent` + `is_late`/`leave_id`, licença via `hr_leaves.paid`. Sem status `late`/`half_day`/`leave` (o helper lia-os → código morto, corrigido).
+- **Dedução de atraso** reposta (estava ausente no motor persistido); **origem dos subsídios** (campo do funcionário → senão HRSetting global); **alimentação em espécie** configurável (`food_paid_in_kind`).
+- **IRT** (`IRTTaxBracket::calculateIRT`): tabela contínua, `tax_rate` guardado como FRAÇÃO (0.16) → sem `/100`. Ver [[irt-payroll-tax]].
+- **Carbon 3 signed-diff** corrigido em vários sítios (férias/licenças davam dias negativos).
+- **SalaryAdvance query bug** (1.3) — corrigido (ver acima).
+- **NOVO: Integração Folha → Contabilidade** — `PostingService::postPayroll()` gera o lançamento contabilístico balanceado ao aprovar a folha (opt-in por `tenant.accounting_integration_enabled`, protegido por try/catch). Ver módulo Contabilidade.
