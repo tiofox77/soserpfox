@@ -327,11 +327,39 @@
                                 <p class="text-gray-600 mt-2">Selecione o plano ideal para seu negócio</p>
                             </div>
 
+                            @error('selected_plan_id')
+                                <div class="mb-6 bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-amber-900 flex items-start">
+                                    <i class="fas fa-circle-exclamation mt-1 mr-3"></i>
+                                    <span class="text-sm">{{ $message }}</span>
+                                </div>
+                            @enderror
+
+                            {{-- A cortesia é uma só. Quem já a gastou continua a
+                                 ver os planos todos, mas o gratuito fecha e os
+                                 pagos deixam de anunciar dias grátis que já não
+                                 vai receber — prometer e não cumprir a seguir
+                                 é pior do que dizer já. --}}
+                            @php
+                                $direito = $this->direitoACortesia;
+                            @endphp
+
+                            @if($direito->jaTeveTeste() || $direito->jaTeveGratuito())
+                                <div class="mb-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-blue-900 flex items-start">
+                                    <i class="fas fa-circle-info mt-1 mr-3"></i>
+                                    <span class="text-sm">{{ $direito->motivoSemTeste() }}</span>
+                                </div>
+                            @endif
+
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                                 @foreach($plans as $plan)
-                                    <div wire:click="$set('selected_plan_id', {{ $plan->id }})" 
-                                         class="cursor-pointer border-2 rounded-2xl p-6 transition {{ $selected_plan_id == $plan->id ? 'border-purple-500 bg-purple-50 shadow-lg scale-105' : 'border-gray-200 hover:border-purple-300' }}">
-                                        
+                                    @php
+                                        $recusa   = $direito->motivoParaRecusar($plan);
+                                        $comTeste = $direito->temDireitoATeste($plan);
+                                    @endphp
+                                    <div @if(!$recusa) wire:click="$set('selected_plan_id', {{ $plan->id }})" @endif
+                                         @if($recusa) title="{{ $recusa }}" @endif
+                                         class="border-2 rounded-2xl p-6 transition {{ $recusa ? 'opacity-60 border-gray-200 bg-gray-50 cursor-not-allowed' : 'cursor-pointer ' . ($selected_plan_id == $plan->id ? 'border-purple-500 bg-purple-50 shadow-lg scale-105' : 'border-gray-200 hover:border-purple-300') }}">
+
                                         @if($plan->is_featured)
                                             <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-3">
                                                 <i class="fas fa-star mr-1"></i>POPULAR
@@ -340,7 +368,7 @@
 
                                         <h3 class="text-xl font-bold text-gray-900 mb-2">{{ $plan->name }}</h3>
                                         <p class="text-gray-600 text-sm mb-4">{{ $plan->description }}</p>
-                                        
+
                                         <div class="mb-4">
                                             <span class="text-3xl font-bold text-gray-900">{{ number_format($plan->price_monthly, 0) }}</span>
                                             <span class="text-gray-600 text-sm"> Kz/mês</span>
@@ -355,13 +383,20 @@
                                                 <i class="fas fa-check text-green-500 mr-2 text-xs"></i>
                                                 {{ $plan->max_companies >= 999 ? 'Ilimitadas' : $plan->max_companies }} Empresas
                                             </li>
-                                            <li class="flex items-center text-gray-700">
-                                                <i class="fas fa-check text-green-500 mr-2 text-xs"></i>
-                                                {{ $plan->trial_days }} dias grátis
-                                            </li>
+                                            @if($plan->trial_days > 0)
+                                                <li class="flex items-center {{ $comTeste ? 'text-gray-700' : 'text-gray-400 line-through' }}">
+                                                    <i class="fas {{ $comTeste ? 'fa-check text-green-500' : 'fa-xmark text-gray-400' }} mr-2 text-xs"></i>
+                                                    {{ $plan->trial_days }} dias grátis
+                                                </li>
+                                            @endif
                                         </ul>
 
-                                        @if($selected_plan_id == $plan->id)
+                                        @if($recusa)
+                                            <div class="bg-gray-200 text-gray-600 text-center py-2 rounded-lg font-semibold text-sm">
+                                                <i class="fas fa-lock mr-2"></i>Já utilizado
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-2 leading-snug">{{ $recusa }}</p>
+                                        @elseif($selected_plan_id == $plan->id)
                                             <div class="bg-purple-600 text-white text-center py-2 rounded-lg font-semibold">
                                                 <i class="fas fa-check-circle mr-2"></i>Selecionado
                                             </div>
@@ -411,10 +446,16 @@
                                         </div>
                                     </div>
                                     <div class="mt-4 pt-4 border-t border-white/20 flex items-center justify-between flex-wrap gap-2">
-                                        @if($selectedPlan->trial_days > 0)
+                                        {{-- Só se anuncia o teste a quem o vai receber. --}}
+                                        @if($selectedPlan->trial_days > 0 && $this->temDireitoATeste)
                                             <div class="flex items-center text-sm">
                                                 <i class="fas fa-gift mr-2"></i>
                                                 {{ $selectedPlan->trial_days }} dias de teste grátis inclusos
+                                            </div>
+                                        @elseif($selectedPlan->trial_days > 0)
+                                            <div class="flex items-center text-sm opacity-90">
+                                                <i class="fas fa-circle-info mr-2"></i>
+                                                Sem período de teste — já foi utilizado nesta conta
                                             </div>
                                         @else
                                             <span></span>

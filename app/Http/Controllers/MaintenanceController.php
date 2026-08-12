@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -27,6 +28,8 @@ class MaintenanceController extends Controller
     protected array $allowedCommands = [
         'plans:update-pricing',
         'create:fox-friendly-plan',
+        // Quem já gastou o plano gratuito ou o período de teste. Só contagens.
+        'cortesias:estado',
         'admin:set-email',
         'tenants:delete',
         'optimize:clear',
@@ -80,6 +83,19 @@ class MaintenanceController extends Controller
         // Número de validação do software AGT (definição global). Sem --numero
         // apenas mostra o valor actual.
         'agt:set-software-cert',
+        // RH — cria as definições em falta nas empresas com o módulo activo.
+        // Só ACRESCENTA: nunca altera um valor que a empresa tenha mudado.
+        'hr:settings-sync',
+        // Notificações dos modelos activos. Já corre sozinho à boleia do
+        // tráfego; isto serve para forçar uma passagem e ver o resultado.
+        // Não duplica nada — o que saiu hoje não volta a sair.
+        'notifications:send-scheduled',
+        // Modelos padrão nas empresas com o módulo activo. Só acrescenta o que
+        // falta; nunca altera um modelo que a empresa tenha reescrito.
+        'notifications:templates-sync',
+        // Põe a ficha de cada empresa a dizer, no mínimo, o que o plano dá.
+        // Só SOBE limites, nunca desce.
+        'tenants:alinhar-limites',
     ];
 
     /**
@@ -567,6 +583,141 @@ class MaintenanceController extends Controller
      * Compara com o conjunto canónico (getDefaultRolePermissionMap) e assinala
      * tenants com roles em falta ou roles a mais. Filtro opcional ?name= ou ?nif=.
      */
+    /**
+     * Rastreio de UM artigo: vendido, saído, e o que resta.
+     *
+     * Responde à pergunta que um utilizador levanta e a aplicação não explica:
+     * "venderam 9 e restam 3 — onde estão as outras?".
+     *
+     * A diferença entre VENDIDO e SAÍDAS diz se houve vendas que não deixaram
+     * baixa de stock. A diferença entre SAÍDAS e o que RESTA diz se alguém
+     * mexeu no stock sem passar pelo livro de movimentos.
+     *
+     * Só CONTAGENS e quantidades. Não devolve números de documento, clientes
+     * nem valores — pode correr em produção sem expor nada de ninguém.
+     */
+    public function diagProduto(Request $request, string $token)
+    {
+        $tenantId = (int) $request->query('tenant');
+        $termo    = trim((string) $request->query('q'));
+
+        if (!$tenantId || $termo === '') {
+            return response()->json(['erro' => 'Indique ?tenant=ID&q=codigo-ou-nome'], 422);
+        }
+
+        $produtos = DB::table('invoicing_products')
+            ->where('tenant_id', $tenantId)
+            ->where(function ($q) use ($termo) {
+                $q->where('barcode', $termo)
+                  ->orWhere('sku', $termo)
+                  ->orWhere('name', 'like', '%' . $termo . '%');
+            })
+            ->limit(5)
+            ->get(['id', 'name', 'barcode', 'sku', 'stock_quantity']);
+
+        $saida = [];
+
+        foreach ($produtos as $p) {
+            $vendido = DB::table('invoicing_sales_invoice_items as it')
+                ->join('invoicing_sales_invoices as i', 'i.id', '=', 'it.sales_invoice_id')
+                ->where('i.tenant_id', $tenantId)
+                ->where('it.product_id', $p->id)
+                ->whereNull('i.deleted_at')
+                ->whereIn('i.status', ['sent', 'paid', 'partially_paid', 'overdue'])
+                ->selectRaw('COALESCE(SUM(it.quantity),0) q, COUNT(*) n, MIN(i.invoice_date) de, MAX(i.invoice_date) ate')
+                ->first();
+
+            $movimentos = DB::table('invoicing_stock_movements')
+                ->where('tenant_id', $tenantId)->where('product_id', $p->id)
+                ->selectRaw('type, COALESCE(SUM(quantity),0) q, COUNT(*) n')
+                ->groupBy('type')->get()->keyBy('type');
+
+            $porArmazem = DB::table('invoicing_stocks as s')
+                ->join('invoicing_warehouses as w', 'w.id', '=', 's.warehouse_id')
+                ->where('s.tenant_id', $tenantId)->where('s.product_id', $p->id)
+                ->get(['w.name', 's.quantity'])
+                ->mapWithKeys(fn ($r) => [$r->name => (float) $r->quantity]);
+
+            $saidas = (float) ($movimentos['out']->q ?? 0);
+
+            // Vendas por DIA: é assim que se confronta o que o operador diz
+            // ("vendi 9") com o que o sistema registou. O total do artigo não
+            // serve para isso.
+            $porDia = DB::table('invoicing_sales_invoice_items as it')
+                ->join('invoicing_sales_invoices as i', 'i.id', '=', 'it.sales_invoice_id')
+                ->where('i.tenant_id', $tenantId)
+                ->where('it.product_id', $p->id)
+                ->whereNull('i.deleted_at')
+                ->whereIn('i.status', ['sent', 'paid', 'partially_paid', 'overdue'])
+                ->selectRaw('DATE(i.invoice_date) dia, SUM(it.quantity) q, COUNT(*) n')
+                ->groupBy('dia')->orderBy('dia')
+                ->get()
+                ->mapWithKeys(fn ($r) => [$r->dia => ['unidades' => (float) $r->q, 'documentos' => (int) $r->n]]);
+
+            // Cronologia: entradas, saídas e ajustes por ordem, com os saldos.
+            // Um ajuste grava o valor FINAL, por isso sem o saldo anterior não
+            // se sabe se subiu ou desceu — nem quanto.
+            $cronologia = DB::table('invoicing_stock_movements')
+                ->where('tenant_id', $tenantId)->where('product_id', $p->id)
+                ->orderBy('id')
+                ->get(['created_at', 'type', 'quantity', 'balance_before', 'balance_after', 'warehouse_id'])
+                ->map(fn ($m) => [
+                    'quando'  => (string) $m->created_at,
+                    'tipo'    => $m->type,
+                    'qtd'     => (float) $m->quantity,
+                    'antes'   => $m->balance_before === null ? null : (float) $m->balance_before,
+                    'depois'  => $m->balance_after === null ? null : (float) $m->balance_after,
+                ]);
+
+            $saida[] = [
+                'produto'          => $p->name,
+                'codigo'           => $p->barcode ?: $p->sku,
+                'agregado'         => (float) $p->stock_quantity,
+                'soma_armazens'    => round($porArmazem->sum(), 3),
+                'por_armazem'      => $porArmazem,
+                'vendido'          => (float) $vendido->q,
+                'linhas_de_venda'  => (int) $vendido->n,
+                'primeira_venda'   => $vendido->de,
+                'ultima_venda'     => $vendido->ate,
+                'movimentos'       => $movimentos->map(fn ($m) => ['quantidade' => (float) $m->q, 'n' => (int) $m->n]),
+                'vendido_sem_baixa' => round((float) $vendido->q - $saidas, 3),
+                'vendas_por_dia'    => $porDia,
+                'cronologia'        => $cronologia,
+
+                // Números de documento das vendas deste artigo.
+                //
+                // Deliberadamente fora do diagnóstico até aqui: queria-o
+                // utilizável em produção sem expor nada. O número do documento
+                // é o mínimo para uma auditoria de stock — quem pergunta "onde
+                // foram as unidades" precisa de saber em que factura saíram.
+                // Continua sem cliente e sem valores.
+                'facturas' => DB::table('invoicing_sales_invoice_items as it')
+                    ->join('invoicing_sales_invoices as i', 'i.id', '=', 'it.sales_invoice_id')
+                    ->where('i.tenant_id', $tenantId)
+                    ->where('it.product_id', $p->id)
+                    ->whereNull('i.deleted_at')
+                    ->whereIn('i.status', ['sent', 'paid', 'partially_paid', 'overdue', 'credited'])
+                    ->orderBy('i.invoice_date')->orderBy('i.id')
+                    ->limit(200)
+                    ->get(['i.invoice_number', 'i.invoice_date', 'i.created_at', 'i.status', 'it.quantity'])
+                    ->map(fn ($f) => [
+                        'documento' => $f->invoice_number,
+                        'data'      => $f->invoice_date,
+                        'emitida'   => $f->created_at,
+                        'estado'    => $f->status,
+                        'qtd'       => (float) $f->quantity,
+                    ]),
+            ];
+        }
+
+        return response()->json([
+            'empresa'   => $tenantId,
+            'procurado' => $termo,
+            'artigos'   => $saida,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+
     public function diagRoles(Request $request, string $token)
     {
         $this->ensureToken($token);

@@ -239,7 +239,15 @@
                         @endif
 
                         <!-- Action Button -->
-                        @if($currentPlan && $plan->id === $currentPlan->id)
+                        {{-- Cortesia gasta: o plano gratuito fecha. Um botao que
+                             nao faz nada e pior do que um botao que explica. --}}
+                        @php $recusa = $this->direitoACortesia->motivoParaRecusar($plan); @endphp
+                        @if($recusa)
+                            <button disabled title="{{ $recusa }}" class="w-full px-6 py-3 bg-gray-200 text-gray-500 rounded-xl font-semibold cursor-not-allowed">
+                                <i class="fas fa-lock mr-2"></i>Ja utilizado
+                            </button>
+                            <p class="text-xs text-gray-500 mt-2 leading-snug">{{ $recusa }}</p>
+                        @elseif($currentPlan && $plan->id === $currentPlan->id)
                             <button disabled class="w-full px-6 py-3 bg-gray-300 text-gray-600 rounded-xl font-semibold cursor-not-allowed">
                                 <i class="fas fa-check mr-2"></i>Plano Atual
                             </button>
@@ -350,9 +358,17 @@
                         @endif
 
                         {{-- Action Button --}}
+                        @php $recusa = $this->direitoACortesia->motivoParaRecusar($plan); @endphp
+                        @if($recusa)
+                            <button disabled title="{{ $recusa }}" class="w-full px-5 py-3 bg-gray-200 text-gray-500 rounded-xl font-bold text-center text-sm cursor-not-allowed">
+                                <i class="fas fa-lock mr-2"></i>Ja utilizado
+                            </button>
+                            <p class="text-xs text-gray-500 mt-2 leading-snug">{{ $recusa }}</p>
+                        @else
                         <button wire:click="openUpgradeModal({{ $plan->id }})" class="w-full px-5 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold transition shadow-lg text-center text-sm">
                             <i class="fas fa-shopping-cart mr-2"></i>Selecionar Plano
                         </button>
+                        @endif
                     </div>
                 @endforeach
             </div>

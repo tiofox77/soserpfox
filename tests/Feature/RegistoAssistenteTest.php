@@ -254,4 +254,107 @@ class RegistoAssistenteTest extends TestCase
             ->assertOk()
             ->assertSee(route('register', ['plan' => $pago->slug]), false);
     }
+
+    // ==================== cortesia: uma só, para sempre ====================
+
+    /**
+     * Um utilizador autenticado que já gastou o gratuito na primeira empresa
+     * e volta ao assistente para abrir a segunda.
+     *
+     * É este o caminho real: registar outra vez de raiz com o mesmo NIF não
+     * chega a acontecer, porque o passo 2 já exige `unique:tenants,nif`.
+     */
+    private function donoQueJaGastouOGratuito(): \App\Models\User
+    {
+        $gratis = Plan::create([
+            'name' => 'Grátis Antigo', 'slug' => 'gratis-antigo-' . uniqid(),
+            'description' => 'x', 'price_monthly' => 0, 'price_yearly' => 0,
+            'trial_days' => 180, 'max_users' => 3, 'max_companies' => 3,
+            'is_active' => false, 'order' => 99,
+        ]);
+
+        $primeira = \App\Models\Tenant::create([
+            'name'  => 'Primeira', 'slug' => 'primeira-' . uniqid(),
+            'nif'   => (string) random_int(500000000, 599999999),
+            'email' => 'a' . uniqid() . '@exemplo.ao', 'is_active' => true,
+        ]);
+
+        $primeira->subscriptions()->create([
+            'plan_id' => $gratis->id, 'status' => 'expired',
+            'billing_cycle' => 'monthly', 'amount' => 0,
+            'trial_ends_at' => now()->subDay(),
+        ]);
+
+        $dono = \App\Models\User::create([
+            'name' => 'Dono', 'email' => 'dono' . uniqid() . '@exemplo.ao',
+            'password' => bcrypt('secret'), 'tenant_id' => $primeira->id,
+        ]);
+        $dono->tenants()->syncWithoutDetaching([$primeira->id]);
+
+        return $dono;
+    }
+
+    public function test_o_registo_recusa_o_gratuito_a_quem_ja_o_usou(): void
+    {
+        $gratis = $this->planoGratuito();
+
+        Livewire::actingAs($this->donoQueJaGastouOGratuito())
+            ->test(RegisterWizard::class)
+            ->set('selected_plan_id', $gratis->id)
+            ->set('currentStep', 3)
+            ->assertSee('Já utilizado')
+            ->call('nextStep')
+            ->assertHasErrors('selected_plan_id')
+            ->assertSet('currentStep', 3);
+    }
+
+    public function test_um_plano_pago_passa_a_quem_ja_gastou_a_cortesia(): void
+    {
+        $pago = $this->planoPago();
+
+        Livewire::actingAs($this->donoQueJaGastouOGratuito())
+            ->test(RegisterWizard::class)
+            ->set('selected_plan_id', $pago->id)
+            ->assertSet('temDireitoATeste', false)
+            ->set('currentStep', 3)
+            ->call('nextStep')
+            ->assertHasNoErrors()
+            ->assertSet('currentStep', 4);
+    }
+
+    /** O plano do link deixa de valer se a conta já o gastou. */
+    public function test_o_gratuito_vindo_do_link_devolve_a_escolha_quando_ja_foi_usado(): void
+    {
+        $gratis = $this->planoGratuito();
+        $this->planoPago();
+
+        Livewire::actingAs($this->donoQueJaGastouOGratuito())
+            ->withQueryParams(['plan' => 'amigo-teste'])
+            ->test(RegisterWizard::class)
+            // Já autenticado, o NIF antigo é conhecido logo no arranque: o
+            // plano do link não chega sequer a fixar-se.
+            ->assertSet('planoVeioDoLink', false)
+            ->set('company_name', 'Padaria Central')
+            ->set('company_nif', (string) random_int(500000000, 599999999))
+            ->call('nextStep')
+            ->assertSet('currentStep', 3)
+            ->assertSee('Já utilizado');
+    }
+
+    /** Sem teste, o comprovativo volta a ser obrigatório. */
+    public function test_sem_direito_a_teste_o_comprovativo_passa_a_ser_exigido(): void
+    {
+        $pago = $this->planoPago();
+        $pago->update(['trial_days' => 30]);
+
+        Livewire::actingAs($this->donoQueJaGastouOGratuito())
+            ->test(RegisterWizard::class)
+            ->set('company_name', 'Padaria Central')
+            ->set('company_nif', (string) random_int(500000000, 599999999))
+            ->set('selected_plan_id', $pago->id)
+            ->set('currentStep', 4)
+            ->assertSee('Sem período de teste')
+            ->call('register')
+            ->assertHasErrors(['payment_reference', 'payment_proof']);
+    }
 }

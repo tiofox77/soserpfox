@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\Plan;
 use App\Models\Order;
 use App\Models\EmailTemplate;
+use App\Services\Subscriptions\DireitoACortesia;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Hash;
@@ -95,7 +96,10 @@ class RegisterWizard extends Component
                 // escolher outra vez aqui. O passo continua a existir para
                 // quem chegue sem plano, e este pode sempre voltar atrás para
                 // o mudar — o que não pode é ser obrigado a repetir a escolha.
-                $this->planoVeioDoLink = true;
+                //
+                // A não ser que o plano do link já não esteja disponível para
+                // ele: aí é preciso escolher outro, e o passo tem de voltar.
+                $this->planoVeioDoLink = $this->direitoACortesia->podeEscolher($campaignPlan);
             }
         }
         
@@ -271,9 +275,39 @@ class RegisterWizard extends Component
     // Step 3 validation
     protected function validateStep3()
     {
-        return $this->validate([
+        $this->validate([
             'selected_plan_id' => 'required|exists:plans,id',
         ]);
+
+        // O plano gratuito é de uma vez só. O ecrã já o mostra fechado, mas a
+        // escolha viaja no pedido e o pedido é do lado de fora.
+        $recusa = $this->direitoACortesia->motivoParaRecusar($this->planoEscolhido);
+
+        if ($recusa) {
+            $this->addError('selected_plan_id', $recusa);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'selected_plan_id' => $recusa,
+            ]);
+        }
+
+        return true;
+    }
+
+    /**
+     * O que esta conta ainda pode receber de graça.
+     *
+     * No registo a identidade é o NIF da empresa — e o utilizador, quando já
+     * está autenticado a criar mais uma empresa.
+     */
+    public function getDireitoACortesiaProperty(): DireitoACortesia
+    {
+        return DireitoACortesia::de(auth()->user(), $this->company_nif);
+    }
+
+    /** Este plano começa em período de teste, ou fica a aguardar pagamento? */
+    public function getTemDireitoATesteProperty(): bool
+    {
+        return $this->direitoACortesia->temDireitoATeste($this->planoEscolhido);
     }
     
     // Step 4 validation
@@ -291,8 +325,10 @@ class RegisterWizard extends Component
 
         // Em período de teste ainda não há transferência feita, por isso a
         // referência e o comprovativo ficam por preencher — como já era.
-        $emTeste = (int) ($this->planoEscolhido?->trial_days ?? 0) > 0;
-        $regra   = $emTeste ? 'nullable' : 'required';
+        //
+        // Mas só para quem tem direito ao teste: a quem já o gastou, o plano
+        // começa a pagar, e a prova do pagamento volta a ser obrigatória.
+        $regra = $this->temDireitoATeste ? 'nullable' : 'required';
 
         return $this->validate([
             'payment_method'    => 'required|in:transfer',
@@ -355,6 +391,22 @@ class RegisterWizard extends Component
                 $this->passoAntesDaSenha = null;
             } elseif ($this->currentStep == 2) {
                 $this->validateStep2();
+
+                // Só agora se sabe o NIF, e é por ele que se descobre se a
+                // empresa já gastou o gratuito. Se o plano do link deixou de
+                // estar disponível, a pergunta tem de voltar — mais vale aqui
+                // do que no fim, depois de tudo preenchido.
+                $recusa = $this->direitoACortesia->motivoParaRecusar($this->planoEscolhido);
+
+                if ($recusa) {
+                    $this->planoVeioDoLink  = false;
+                    $this->selected_plan_id = null;
+                    $this->currentStep      = 3;
+                    session()->flash('warning', $recusa . ' Escolha outro plano para continuar.');
+                    $this->saveWizardProgress();
+
+                    return;
+                }
 
                 // Com o plano já escolhido no link, salta-se a pergunta.
                 $this->currentStep = $this->temPassoDePlano ? 3 : 4;
@@ -591,39 +643,41 @@ class RegisterWizard extends Component
             \Log::info('Criando subscription...');
             $plan = Plan::find($this->selected_plan_id);
             
+            // Cortesia é uma só, para sempre: quem já teve o plano gratuito ou
+            // já gastou um período de teste subscreve à mesma, mas a pagar. O
+            // plano fica pendente em vez de arrancar sozinho.
+            //
+            // Sem isto o sistema oferecia-se em ciclo: 180 dias de FOX
+            // Friendly, 30 de teste do Business, 30 do Enterprise, 14 do
+            // Pacote Vendas — ano e meio de ERP completo sem uma factura.
+            $direito = DireitoACortesia::de($user, $tenant->nif);
+
             // Determinar status baseado em pagamento e configuração do plano
             $hasPaidProof = $this->payment_reference || $paymentProofPath;
             $trialDays = (int) $plan->trial_days; // Converter para inteiro
-            $hasTrialPeriod = $trialDays > 0;
+            $hasTrialPeriod = $trialDays > 0 && $direito->temDireitoATeste($plan);
             $autoActivate = (bool) $plan->auto_activate; // Ativação automática
+
+            if ($trialDays > 0 && !$hasTrialPeriod) {
+                \Log::info('Período de teste não concedido — cortesia já utilizada', [
+                    'tenant_id'    => $tenant->id,
+                    'plan'         => $plan->slug,
+                    'ja_gratuito'  => $direito->jaTeveGratuito(),
+                    'ja_teste'     => $direito->jaTeveTeste(),
+                ]);
+            }
             
             // Lógica de ativação
             $now = now();
             
-            if ($autoActivate && !$hasPaidProof && $hasTrialPeriod) {
-                // ATIVAÇÃO AUTOMÁTICA COM TRIAL
-                $status = 'trial';
-                $trialEndsAt = $now->copy()->addDays($trialDays);
-                $periodStart = $now;
-                $periodEnd = $trialEndsAt;
-                \Log::info('Ativação automática com trial', ['trial_days' => $trialDays]);
-                
-            } elseif ($autoActivate && !$hasPaidProof && !$hasTrialPeriod) {
-                // ATIVAÇÃO AUTOMÁTICA SEM TRIAL (ativa direto por 30 dias)
-                $status = 'active';
-                $trialEndsAt = null;
-                $periodStart = $now;
-                $periodEnd = $now->copy()->addDays(30); // 30 dias de cortesia
-                \Log::info('Ativação automática sem trial', ['days' => 30]);
-                
-            } elseif ($hasPaidProof) {
+            if ($hasPaidProof) {
                 // PAGOU: aguarda aprovação
                 $status = 'pending';
                 $trialEndsAt = null;
                 $periodStart = null;
                 $periodEnd = null;
                 \Log::info('Aguardando aprovação de pagamento');
-                
+
             } elseif ($hasTrialPeriod && ($autoActivate || (float) ($plan->price_monthly ?? 0) <= 0)) {
                 // TRIAL só para planos GRATUITOS ou marcados para auto-ativação.
                 // ANTES bastava trial_days > 0 e qualquer plano PAGO era activado
@@ -634,6 +688,20 @@ class RegisterWizard extends Component
                 $periodStart = $now;
                 $periodEnd = $trialEndsAt;
                 \Log::info('Trial iniciado (plano gratuito/auto-ativável)', ['trial_days' => $trialDays]);
+
+            } elseif ($autoActivate && $trialDays === 0) {
+                // Plano auto-activável que nunca teve período de teste: activa
+                // 30 dias de cortesia.
+                //
+                // A condição era `!$hasTrialPeriod`, que passou a significar
+                // duas coisas diferentes — "o plano não tem teste" e "o teste
+                // foi negado". Na segunda, isto entregava 30 dias grátis a
+                // quem tinha acabado de os perder.
+                $status = 'active';
+                $trialEndsAt = null;
+                $periodStart = $now;
+                $periodEnd = $now->copy()->addDays(30);
+                \Log::info('Ativação automática sem trial', ['days' => 30]);
 
             } else {
                 // SEM TRIAL e SEM AUTO-ATIVAÇÃO: aguarda aprovação

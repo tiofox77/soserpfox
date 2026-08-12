@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Tenant;
 use App\Models\Order;
+use App\Services\Subscriptions\DireitoACortesia;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -710,20 +711,42 @@ class MyAccount extends Component
     // ==================== UPGRADE ====================
 
     /**
-     * Um plano promocional (ex.: FOX Friendly) só pode ser ativado UMA VEZ por
-     * empresa. Devolve true se esta empresa já teve alguma subscrição a este plano
-     * (qualquer estado: trial, ativa, expirada, cancelada).
+     * O que esta conta ainda pode receber de graça.
+     *
+     * A regra vive em DireitoACortesia, partilhada com o registo: uma cortesia
+     * por cliente, para sempre — plano gratuito ou período de teste, o
+     * primeiro que se usar gasta o direito ao outro.
      */
-    private function promotionalAlreadyUsed($plan, $tenant = null): bool
+    public function getDireitoACortesiaProperty(): DireitoACortesia
     {
-        if (!$plan || !$plan->is_promotional) {
-            return false;
+        $empresa = auth()->user()?->activeTenant();
+
+        return $empresa
+            ? DireitoACortesia::daEmpresa($empresa, auth()->user())
+            : DireitoACortesia::de(auth()->user());
+    }
+
+    /**
+     * Porque é que este plano não pode ser escolhido — ou null se puder.
+     *
+     * Antes olhava só para a bandeira `is_promotional` e só para o MESMO
+     * plano na MESMA empresa: bastava criar outra empresa, ou saltar do FOX
+     * Friendly para os 30 dias de teste do Business e daí para os do
+     * Enterprise, e a casa continuava a pagar.
+     */
+    private function motivoParaRecusarPlano($plan, $tenant = null): ?string
+    {
+        if (!$plan) {
+            return null;
         }
+
         $tenant = $tenant ?: auth()->user()?->activeTenant();
-        if (!$tenant) {
-            return false;
-        }
-        return $tenant->subscriptions()->where('plan_id', $plan->id)->exists();
+
+        $direito = $tenant
+            ? DireitoACortesia::daEmpresa($tenant, auth()->user())
+            : DireitoACortesia::de(auth()->user());
+
+        return $direito->motivoParaRecusar($plan);
     }
 
     /**
@@ -753,9 +776,9 @@ class MyAccount extends Component
             return;
         }
 
-        // Plano promocional (ex.: FOX Friendly): só 1x por empresa
-        if ($this->promotionalAlreadyUsed($plan)) {
-            $this->dispatch('error', message: "O plano promocional \"{$plan->name}\" só pode ser ativado uma vez por empresa. Esta empresa já o utilizou.");
+        // Cortesia é uma só, para sempre: gratuito ou teste, o primeiro gasta o outro.
+        if ($recusa = $this->motivoParaRecusarPlano($plan)) {
+            $this->dispatch('error', message: $recusa);
             return;
         }
 
@@ -813,9 +836,9 @@ class MyAccount extends Component
             return;
         }
 
-        // Plano promocional só 1x por empresa (defesa dupla — o modal pode ser contornado)
-        if ($this->promotionalAlreadyUsed($this->selectedPlanForUpgrade, $activeTenant)) {
-            $this->dispatch('error', message: "O plano promocional \"{$this->selectedPlanForUpgrade->name}\" só pode ser ativado uma vez por empresa. Esta empresa já o utilizou.");
+        // Defesa dupla — o modal pode ser contornado, o pedido vem de fora.
+        if ($recusa = $this->motivoParaRecusarPlano($this->selectedPlanForUpgrade, $activeTenant)) {
+            $this->dispatch('error', message: $recusa);
             return;
         }
 
@@ -838,7 +861,15 @@ class MyAccount extends Component
             }
             
             // Determinar se este plano tem auto-activação (ex.: FOX Friendly trial)
-            $autoActivate = (bool) $plan->auto_activate && (int) $plan->trial_days > 0 && !$proofPath;
+            // O período de teste só se dá a quem ainda o tem por gastar. A
+            // quem já o usou, o pedido segue o caminho normal: transferência,
+            // comprovativo, aprovação.
+            $direito = DireitoACortesia::daEmpresa($activeTenant, $user);
+
+            $autoActivate = (bool) $plan->auto_activate
+                && (int) $plan->trial_days > 0
+                && !$proofPath
+                && $direito->temDireitoATeste($plan);
 
             // BUG-05 FIX: Criar pedido. Se tem auto-activação, criar como pending e
             // imediatamente actualizar para 'approved' — o OrderObserver despacha
