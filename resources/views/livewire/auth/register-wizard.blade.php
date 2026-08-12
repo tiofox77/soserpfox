@@ -286,6 +286,41 @@
                                     @enderror
                                 </div>
 
+                                {{-- Regime fiscal AGT.
+
+                                     Não se perguntava, e toda a gente nascia no
+                                     Regime Geral a liquidar IVA a 14% — errado
+                                     para o simplificado e para a não sujeição,
+                                     até alguém descobrir o ecrã /empresa. É o
+                                     regime que decide os impostos com que a
+                                     empresa é provisionada. --}}
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-scale-balanced text-purple-500 mr-2"></i>Regime fiscal (AGT) *
+                                    </label>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        @foreach(\App\Models\Tenant::REGIMES as $chave => $regime)
+                                            <label class="cursor-pointer">
+                                                <input type="radio" wire:model.live="company_regime" value="{{ $chave }}" class="peer sr-only">
+                                                <div class="h-full p-3 border-2 rounded-xl transition
+                                                            {{ $company_regime === $chave ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300' }}">
+                                                    <p class="font-bold text-sm text-gray-900">{{ $regime['label'] }}</p>
+                                                    <p class="text-xs text-gray-600 mt-1 leading-snug">{{ $regime['description'] }}</p>
+                                                    <p class="text-[11px] text-gray-400 mt-1">{{ $regime['turnover'] }}</p>
+                                                </div>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2">
+                                        <i class="fas fa-circle-info mr-1"></i>Na dúvida, confirme no seu cartão de contribuinte — pode alterar depois em Dados da Empresa.
+                                    </p>
+                                    @error('company_regime')
+                                        <p class="mt-2 text-sm text-red-600 flex items-center">
+                                            <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
+                                        </p>
+                                    @enderror
+                                </div>
+
                                 <!-- Address -->
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">

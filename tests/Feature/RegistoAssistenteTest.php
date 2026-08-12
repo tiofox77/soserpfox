@@ -357,4 +357,81 @@ class RegistoAssistenteTest extends TestCase
             ->call('register')
             ->assertHasErrors(['payment_reference', 'payment_proof']);
     }
+
+    // ==================== regime fiscal ====================
+
+    /** O passo da empresa pergunta o regime, com o Geral pré-escolhido. */
+    public function test_o_passo_da_empresa_pergunta_o_regime(): void
+    {
+        $this->planoGratuito();
+
+        Livewire::test(RegisterWizard::class)
+            ->assertSet('company_regime', \App\Models\Tenant::REGIME_GERAL)
+            ->set('currentStep', 2)
+            ->assertSee('Regime fiscal')
+            ->assertSee('Regime Geral')
+            ->assertSee('Regime Simplificado');
+    }
+
+    public function test_um_regime_inventado_nao_passa(): void
+    {
+        $this->planoGratuito();
+
+        Livewire::test(RegisterWizard::class)
+            ->set('currentStep', 2)
+            ->set('company_name', 'Padaria Central')
+            ->set('company_nif', (string) random_int(500000000, 599999999))
+            ->set('company_regime', 'regime_inventado')
+            ->call('nextStep')
+            ->assertHasErrors('company_regime')
+            ->assertSet('currentStep', 2);
+    }
+
+    /**
+     * O regime escolhido fica gravado na empresa.
+     *
+     * É ele que decide os impostos com que a empresa é provisionada: sem esta
+     * pergunta, toda a gente nascia no Regime Geral a liquidar IVA a 14% —
+     * errado para o simplificado e para a não sujeição.
+     */
+    public function test_o_regime_escolhido_fica_gravado_na_empresa(): void
+    {
+        $gratis = $this->planoGratuito();
+        $nif = (string) random_int(500000000, 599999999);
+
+        Livewire::test(RegisterWizard::class)
+            ->set('name', 'Ana')
+            ->set('email', 'ana' . uniqid() . '@exemplo.ao')
+            ->set('password', 'segredo-forte-123')
+            ->set('password_confirmation', 'segredo-forte-123')
+            ->set('company_name', 'Padaria Simplificada')
+            ->set('company_nif', $nif)
+            ->set('company_regime', \App\Models\Tenant::REGIME_SIMPLIFICADO)
+            ->set('selected_plan_id', $gratis->id)
+            ->call('register')
+            ->assertHasNoErrors();
+
+        $empresa = \App\Models\Tenant::where('nif', $nif)->first();
+
+        $this->assertNotNull($empresa, 'O registo tinha de criar a empresa.');
+        $this->assertSame(\App\Models\Tenant::REGIME_SIMPLIFICADO, $empresa->regime);
+    }
+
+    /** O regime sobrevive ao refresh, como o resto da empresa. */
+    public function test_o_regime_sobrevive_ao_refresh(): void
+    {
+        $this->planoGratuito();
+
+        session(['wizard_progress' => [
+            'currentStep'    => 2,
+            'name'           => 'Ana',
+            'email'          => 'ana@exemplo.ao',
+            'company_name'   => 'Padaria Central',
+            'company_nif'    => '5417123456',
+            'company_regime' => \App\Models\Tenant::REGIME_NAO_SUJEICAO,
+        ]]);
+
+        Livewire::test(RegisterWizard::class)
+            ->assertSet('company_regime', \App\Models\Tenant::REGIME_NAO_SUJEICAO);
+    }
 }

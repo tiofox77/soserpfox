@@ -39,6 +39,16 @@ class RegisterWizard extends Component
     public $company_address = '';
     public $company_phone = '';
     public $company_email = '';
+
+    /**
+     * Regime fiscal AGT.
+     *
+     * O assistente não perguntava e toda a gente nascia no default da coluna
+     * — Regime Geral, a liquidar IVA a 14%. Uma empresa do simplificado ou da
+     * não sujeição facturava com impostos errados até alguém descobrir o ecrã
+     * /empresa e corrigir. A área de conta já perguntava; o registo não.
+     */
+    public $company_regime = Tenant::REGIME_GERAL;
     
     // Step 3: Plan selection
     public $selected_plan_id = null;
@@ -65,6 +75,7 @@ class RegisterWizard extends Component
     
     public function mount()
     {
+        $this->captureAcquisition();
         $this->plans = Plan::where('is_active', true)->orderBy('order')->get();
         $requestedPlan = request()->query('plan');
         
@@ -114,6 +125,24 @@ class RegisterWizard extends Component
             }
         }
     }
+
+    /** Guarda a origem publicitária durante todo o assistente. */
+    protected function captureAcquisition(): void
+    {
+        $keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+        $incoming = array_filter(request()->only($keys), fn ($value) => is_string($value) && $value !== '');
+
+        if ($incoming !== []) {
+            session(['registration_acquisition' => array_merge(
+                session('registration_acquisition', []),
+                $incoming
+            )]);
+        }
+
+        if (!session()->has('registration_visitor_id')) {
+            session(['registration_visitor_id' => (string) \Illuminate\Support\Str::uuid()]);
+        }
+    }
     
     /**
      * Carregar progresso salvo da sessão
@@ -135,6 +164,7 @@ class RegisterWizard extends Component
             // Restaurar dados da empresa (step 2)
             $this->company_name = $progress['company_name'] ?? $this->company_name;
             $this->company_nif = $progress['company_nif'] ?? $this->company_nif;
+            $this->company_regime = $progress['company_regime'] ?? $this->company_regime;
             $this->company_address = $progress['company_address'] ?? $this->company_address;
             $this->company_phone = $progress['company_phone'] ?? $this->company_phone;
             $this->company_email = $progress['company_email'] ?? $this->company_email;
@@ -229,6 +259,7 @@ class RegisterWizard extends Component
                 'email' => $this->email,
                 'company_name' => $this->company_name,
                 'company_nif' => $this->company_nif,
+                'company_regime' => $this->company_regime,
                 'company_address' => $this->company_address,
                 'company_phone' => $this->company_phone,
                 'company_email' => $this->company_email,
@@ -266,9 +297,13 @@ class RegisterWizard extends Component
         return $this->validate([
             'company_name' => 'required|min:3',
             'company_nif' => 'required|min:5|unique:tenants,nif',
+            'company_regime' => 'required|in:' . implode(',', array_keys(Tenant::REGIMES)),
             'company_address' => 'nullable',
             'company_phone' => 'nullable',
             'company_email' => 'nullable|email',
+        ], [
+            'company_regime.required' => 'Escolha o regime fiscal da empresa.',
+            'company_regime.in'       => 'Regime fiscal inválido.',
         ]);
     }
     
@@ -577,6 +612,10 @@ class RegisterWizard extends Component
                 'name' => $this->company_name,
                 'company_name' => $this->company_name,
                 'nif' => $this->company_nif,
+                // O regime tem de entrar NA criação: é ele que decide os
+                // impostos com que a empresa é provisionada. Corrigir depois
+                // já obriga o TaxRegimeSyncer a reescrever tudo.
+                'regime' => Tenant::canonicalRegime($this->company_regime),
                 'address' => $this->company_address,
                 'phone' => $this->company_phone,
                 'email' => $this->company_email ?: $this->email,
@@ -810,6 +849,51 @@ class RegisterWizard extends Component
             
             \Log::info('Commit da transação...');
             DB::commit();
+
+            // Registo interno da conversão: continua disponível mesmo quando
+            // o browser bloqueia o Pixel da Meta.
+            $acquisition = session('registration_acquisition', []);
+            try {
+                $event = [
+                    'visitor_id' => session('registration_visitor_id', (string) \Illuminate\Support\Str::uuid()),
+                    'session_id' => (string) \Illuminate\Support\Str::uuid(),
+                    'type' => 'conversion',
+                    'event_name' => 'complete_registration',
+                    'url' => request()->fullUrl(),
+                    'path' => '/register',
+                    'referrer' => request()->headers->get('referer'),
+                    'utm_source' => $acquisition['utm_source'] ?? null,
+                    'utm_medium' => $acquisition['utm_medium'] ?? null,
+                    'utm_campaign' => $acquisition['utm_campaign'] ?? null,
+                    'utm_term' => $acquisition['utm_term'] ?? null,
+                    'utm_content' => $acquisition['utm_content'] ?? null,
+                    'ip' => request()->ip(),
+                    'user_id' => $user->id,
+                    'meta' => [
+                        'tenant_id' => $tenant->id,
+                        'plan_id' => $plan->id,
+                        'plan_slug' => $plan->slug,
+                        'subscription_status' => $status,
+                        'fbclid' => $acquisition['fbclid'] ?? null,
+                        'gclid' => $acquisition['gclid'] ?? null,
+                    ],
+                    'user_agent' => substr((string) request()->userAgent(), 0, 500),
+                    'created_at' => now(),
+                ];
+                if (\Illuminate\Support\Facades\Schema::hasColumn('analytics_events', 'tenant_id')) {
+                    $event['tenant_id'] = $tenant->id;
+                }
+                \App\Models\AnalyticsEvent::create($event);
+            } catch (\Throwable $trackingError) {
+                \Log::warning('Falha ao guardar conversão de cadastro', ['erro' => $trackingError->getMessage()]);
+            }
+
+            session()->flash('meta_registration_completed', [
+                'event_id' => 'registration-' . $tenant->id . '-' . \Illuminate\Support\Str::uuid(),
+                'plan' => $plan->slug,
+                'status' => $status,
+            ]);
+            session()->forget(['registration_acquisition', 'registration_visitor_id']);
             \Log::info('Transação commitada com sucesso!');
             
             // ========================================
