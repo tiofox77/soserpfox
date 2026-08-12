@@ -39,7 +39,7 @@
             <div class="ml-6 flex-1">
                 <h3 class="text-2xl font-bold mb-2 flex items-center">
                     <span>🎉 FOX Friendly Ativo!</span>
-                    <span class="ml-3 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm">6 meses GRÁTIS</span>
+                    <span class="ml-3 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm">3 meses GRÁTIS</span>
                 </h3>
                 <p class="text-white/90 mb-3">
                     Você tem acesso <strong>completo e ilimitado</strong> a todos os módulos do sistema! 

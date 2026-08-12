@@ -1990,7 +1990,7 @@
                              x-transition
                              class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs rounded-lg shadow-lg whitespace-nowrap">
                             <div class="font-bold">🦊 FOX Friendly Active!</div>
-                            <div class="text-xs opacity-90">6 meses grátis • Todos os módulos</div>
+                            <div class="text-xs opacity-90">3 meses grátis • Todos os módulos</div>
                             <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
                                 <div class="border-4 border-transparent border-t-red-500"></div>
                             </div>

@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\DB;
  * Cada cliente tem direito a UMA cortesia. Uma só, para sempre.
  *
  * Chamamos cortesia ao que se dá sem receber nada em troca: o plano gratuito
- * e o período de teste. Sem esta regra, o sistema oferece-se em ciclo — 180
+ * e o período de teste. Sem esta regra, o sistema oferece-se em ciclo — 90
  * dias de FOX Friendly, depois 30 de teste do Business, depois 30 do
- * Enterprise, depois 14 do Pacote Vendas... um ano e meio de ERP completo sem
+ * Enterprise, depois 14 do Pacote Vendas... quase um ano de ERP completo sem
  * uma factura pelo meio, e ainda sobram planos.
  *
  * As três regras, ditas pelo cliente e traduzidas para aqui:

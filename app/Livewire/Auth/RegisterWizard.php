@@ -647,9 +647,9 @@ class RegisterWizard extends Component
             // já gastou um período de teste subscreve à mesma, mas a pagar. O
             // plano fica pendente em vez de arrancar sozinho.
             //
-            // Sem isto o sistema oferecia-se em ciclo: 180 dias de FOX
+            // Sem isto o sistema oferecia-se em ciclo: 90 dias de FOX
             // Friendly, 30 de teste do Business, 30 do Enterprise, 14 do
-            // Pacote Vendas — ano e meio de ERP completo sem uma factura.
+            // Pacote Vendas — meses de ERP completo sem uma factura.
             $direito = DireitoACortesia::de($user, $tenant->nif);
 
             // Determinar status baseado em pagamento e configuração do plano

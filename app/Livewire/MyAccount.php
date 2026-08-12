@@ -784,7 +784,7 @@ class MyAccount extends Component
 
         $this->selectedPlanForUpgrade = $plan;
         // Planos com trial e auto-ativação ficam fixos no ciclo equivalente ao trial
-        // (ex.: FOX Friendly com 180 dias → 'semiannual'). O utilizador não pode escolher outro.
+        // (ex.: FOX Friendly com 90 dias → 'quarterly'). O utilizador não pode escolher outro.
         if ($plan->auto_activate && (int) $plan->trial_days > 0) {
             $this->upgradeBillingCycle = match (true) {
                 $plan->trial_days >= 360 => 'yearly',

@@ -122,19 +122,34 @@ class IconesDoSiteTest extends TestCase
     }
 
     /**
-     * A página de erro renderiza — e com ícones.
+     * As páginas de erro renderizam — e com ícones.
      *
      * Sem este teste, o que se descobre é em produção, com o 404 a devolver
      * 500 a toda a gente que apanhe um link partido.
      */
-    public function test_a_pagina_de_erro_renderiza_com_icones(): void
+    public function test_as_paginas_de_erro_renderizam_com_icones(): void
     {
-        $html = view('errors.minimal', [
+        foreach ([401, 402, 403, 404, 419, 429, 500, 503] as $codigo) {
+            $html = view("errors.{$codigo}", [
+                'exception' => new \Symfony\Component\HttpKernel\Exception\HttpException($codigo, 'teste'),
+            ])->render();
+
+            $this->assertStringContainsString('brand/favicon-32x32.png', $html, "Sem ícones no {$codigo}");
+            $this->assertStringContainsString('apple-touch-icon.png', $html, "Sem apple-touch-icon no {$codigo}");
+            $this->assertStringContainsString('SOS ERP', $html, "Sem marca no {$codigo}");
+        }
+    }
+
+    /** Em português e com saída — não o ecrã cinzento do Laravel. */
+    public function test_as_paginas_de_erro_sao_da_casa(): void
+    {
+        $html = view('errors.404', [
             'exception' => new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('teste'),
         ])->render();
 
-        $this->assertStringContainsString('brand/favicon-32x32.png', $html);
-        $this->assertStringContainsString('apple-touch-icon.png', $html);
+        $this->assertStringContainsString('Esta página não existe', $html);
+        $this->assertStringContainsString('Voltar ao início', $html);
+        $this->assertStringNotContainsString('Not Found', $html);
     }
 
     public function test_uma_rota_que_nao_existe_devolve_404(): void

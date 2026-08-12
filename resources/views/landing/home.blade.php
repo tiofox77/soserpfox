@@ -228,8 +228,17 @@
              "acceptedAnswer": {"@type": "Answer", "text": "Sim. Atendemos as 18 províncias: Luanda, Benguela, Huíla, Huambo, Cabinda, Cuanza Norte, Cuanza Sul, Bié, Cunene, Lunda Norte, Lunda Sul, Malanje, Moxico, Namibe, Uíge, Zaire, Bengo e Cuando Cubango. Servidores em Luanda garantem baixa latência."}},
             {"@type": "Question", "name": "Posso emitir faturas mesmo sem internet?",
              "acceptedAnswer": {"@type": "Answer", "text": "Sim. O POS SOSERP funciona 100% offline e sincroniza automaticamente quando recupera ligação à internet — ideal para Angola onde a conectividade pode falhar."}},
+            {{-- Os preços saem dos planos, não da cabeça de quem escreveu isto.
+                 Estava aqui "15.000 Kz (Starter), 35.000 (Business), 75.000
+                 (Enterprise)" — números que nunca existiram em plano nenhum, e
+                 que o Google mostrava nos resultados de pesquisa. --}}
+            @php
+                $planoDeEntrada = $plans->where('price_monthly', '>', 0)->sortBy('price_monthly')->first();
+                $planoDeTopo    = $plans->sortByDesc('price_monthly')->first();
+                $diasDeTeste    = (int) ($planoDeEntrada->trial_days ?? 14);
+            @endphp
             {"@type": "Question", "name": "Quanto custa o SOSERP em Kwanzas?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Planos começam em 15.000 Kz/mês (Starter), 35.000 Kz (Business) e 75.000 Kz (Enterprise). Existe um período de 14 dias gratuitos sem cartão de crédito."}},
+             "acceptedAnswer": {"@type": "Answer", "text": "Os planos começam em {{ number_format($planoDeEntrada->price_monthly ?? 0, 0, ',', '.') }} Kz/mês e vão até {{ number_format($planoDeTopo->price_monthly ?? 0, 0, ',', '.') }} Kz/mês. Todos incluem {{ $diasDeTeste }} dias gratuitos, sem cartão de crédito."}},
             {"@type": "Question", "name": "Calcula IRT e INSS automaticamente?",
              "acceptedAnswer": {"@type": "Answer", "text": "Sim. O módulo de RH calcula automaticamente o Imposto sobre o Rendimento do Trabalho (IRT) e contribuições para o INSS conforme a legislação angolana atualizada."}},
             {"@type": "Question", "name": "É possível gerir várias empresas com uma só conta?",

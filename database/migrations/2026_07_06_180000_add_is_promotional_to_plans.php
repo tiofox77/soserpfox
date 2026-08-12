@@ -24,7 +24,7 @@ return new class extends Migration
             });
         }
 
-        // FOX Friendly é promocional (6 meses grátis, uma vez por empresa)
+        // FOX Friendly é promocional (promoção de entrada, uma vez por empresa)
         DB::table('plans')->where('slug', 'fox-friendly')->update(['is_promotional' => true]);
     }
 

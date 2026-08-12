@@ -22,7 +22,7 @@ class CreateFoxFriendlyPlan extends Command
      *
      * @var string
      */
-    protected $description = 'Cria o plano FOX Friendly com 6 meses grátis e todos os módulos';
+    protected $description = 'Cria o plano FOX Friendly com 3 meses grátis e todos os módulos';
 
     /**
      * Execute the console command.
@@ -49,8 +49,8 @@ class CreateFoxFriendlyPlan extends Command
         $plan->fill([
             'name' => '🦊 FOX Friendly',
             'slug' => 'fox-friendly',
-            'description' => '🦊 Plano promocional com 6 meses grátis! Acesso completo a todos os módulos do sistema.',
-            'price_monthly' => 0, // Grátis nos primeiros 6 meses
+            'description' => '🦊 Plano promocional com 3 meses grátis! Acesso completo a todos os módulos do sistema.',
+            'price_monthly' => 0, // Grátis nos primeiros 3 meses
             'price_quarterly' => 0,
             'price_semiannual' => 0,
             'price_yearly' => 0,
@@ -62,7 +62,7 @@ class CreateFoxFriendlyPlan extends Command
                 '999 utilizadores',
                 '50 empresas',
                 '100GB de armazenamento',
-                '6 meses totalmente GRÁTIS',
+                '3 meses totalmente GRÁTIS',
                 'Suporte prioritário',
                 'Atualizações automáticas',
                 'Backup diário',
@@ -71,7 +71,7 @@ class CreateFoxFriendlyPlan extends Command
             'included_modules' => $allModules, // TODOS os módulos
             'is_active' => true,
             'is_featured' => true,
-            'trial_days' => 180, // 6 meses = 180 dias
+            'trial_days' => 90, // 3 meses = 90 dias
             'auto_activate' => true, // Activação automática imediata (sem aprovação manual)
             'order' => 1, // Primeiro na lista
         ]);
@@ -104,7 +104,7 @@ class CreateFoxFriendlyPlan extends Command
         $this->info('✓ Plano FOX Friendly criado com sucesso!');
         $this->info('  - Nome: ' . $plan->name);
         $this->info('  - Slug: ' . $plan->slug);
-        $this->info('  - Trial: ' . $plan->trial_days . ' dias (6 meses)');
+        $this->info('  - Trial: ' . $plan->trial_days . ' dias (3 meses)');
         $this->info('  - Auto-activate: ' . ($plan->auto_activate ? 'SIM' : 'NÃO'));
         $this->info('  - Módulos: ' . count($plan->included_modules));
         $this->info('  - Usuários: ' . $plan->max_users);
