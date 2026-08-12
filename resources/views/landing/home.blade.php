@@ -26,7 +26,6 @@
     <meta name="revisit-after" content="3 days">
     <meta name="distribution" content="global">
     <meta name="copyright" content="© {{ date('Y') }} {{ $appName }} — Softec Angola">
-    <meta name="theme-color" content="#2563eb">
     <meta name="msapplication-TileColor" content="#2563eb">
     @if(!empty($settings['google_site_verification']))
     <meta name="google-site-verification" content="{{ $settings['google_site_verification'] }}">
@@ -72,17 +71,12 @@
     <meta name="twitter:image:alt" content="{{ $appName }} dashboard">
     <meta name="twitter:site" content="@soserp_angola">
 
-    {{-- Favicons multi-formato --}}
-    <link rel="icon" type="image/x-icon" sizes="any" href="{{ $favicon }}">
-    <link rel="icon" type="image/png" sizes="48x48" href="{{ asset('brand/favicon-48x48.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('brand/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('brand/favicon-16x16.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
-    <link rel="shortcut icon" href="{{ $favicon }}">
-    <link rel="mask-icon" href="{{ $favicon }}" color="#2563eb">
+    @include('partials.favicon')
 
     <link rel="canonical" href="{{ $canonical }}">
-    <link rel="manifest" href="/manifest.json">
+    {{-- O manifest é servido pelo PwaController; o manifest.json estático foi
+         apagado e este link dava 404 em todas as visitas à página inicial. --}}
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <link rel="sitemap" type="application/xml" href="/sitemap.xml">
     <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
     <link rel="dns-prefetch" href="//fonts.googleapis.com">

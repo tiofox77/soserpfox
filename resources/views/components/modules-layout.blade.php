@@ -7,15 +7,14 @@
     <title>{{ $title }} — {{ function_exists('app_name') ? app_name() : 'SOSERP' }}</title>
     <meta name="description" content="{{ $description }}">
     <meta name="robots" content="index, follow">
-    @if(function_exists('app_favicon') && app_favicon())
-        <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
-    @else
-        <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    @endif
+    @include('partials.favicon')
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="{{ asset('js/sos-tracker.js') }}?v=1" defer></script>
+    {{-- v=2: o recolector passou a medir o tempo em página e a registar
+         pesquisas. Sem subir a versão, os browsers serviam o ficheiro antigo
+         da cache e nada disso chegava cá. --}}
+    <script src="{{ asset('js/sos-tracker.js') }}?v=2" defer></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .feature-card { transition: all 0.3s; }

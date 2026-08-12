@@ -6,7 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'Módulo' }} — SOSERP</title>
     <meta name="description" content="{{ $description ?? '' }}">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    @php
+        $pageUrl = url()->current();
+        $pageTitle = ($title ?? 'Módulo') . ' — SOSERP';
+        $pageDescription = $description ?? 'SOSERP — software de gestão empresarial para Angola.';
+        $shareImage = asset('brand/soserp-og-1200x630.png');
+    @endphp
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="{{ $pageUrl }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ $pageUrl }}">
+    <meta property="og:title" content="{{ $pageTitle }}">
+    <meta property="og:description" content="{{ $pageDescription }}">
+    <meta property="og:image" content="{{ $shareImage }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{{ $shareImage }}">
+    @include('partials.favicon')
+    <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>

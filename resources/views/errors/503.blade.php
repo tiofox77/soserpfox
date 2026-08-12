@@ -17,6 +17,7 @@
         @endif
     @endisset
     <title>Manutenção · SOS ERP</title>
+    @include('partials.favicon')
     <style>
         *{ box-sizing:border-box; margin:0; padding:0; }
         body{

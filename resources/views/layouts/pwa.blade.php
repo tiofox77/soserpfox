@@ -7,11 +7,9 @@
     <title>{{ $title ?? 'SOS ERP — PWA Faturação' }}</title>
 
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
-    <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa/icon-192x192.png">
-    <link rel="apple-touch-icon" href="/pwa/icon-192x192.png">
+    @include('partials.favicon')
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

@@ -95,6 +95,22 @@ class PwaController extends Controller
 
         $logoPath = function_exists('app_logo_path') ? app_logo_path() : null;
 
+        // Um logótipo largo não dá um ícone de telemóvel. O da SOSERP é
+        // 822x412 — emblema à esquerda, "SOS ERP" à direita — e o que ia
+        // parar ao ecrã inicial era o banner encolhido ao meio de um quadrado
+        // branco, ilegível. Nesses casos usa-se o ícone da marca.
+        if ($logoPath && is_file($logoPath)) {
+            $medidas = @getimagesize($logoPath);
+
+            if ($medidas && $medidas[1] > 0) {
+                $proporcao = $medidas[0] / $medidas[1];
+
+                if ($proporcao < 0.8 || $proporcao > 1.25) {
+                    $logoPath = null;
+                }
+            }
+        }
+
         // Sem logo do sistema → fallback para o PNG default mais próximo
         if (!$logoPath || !is_file($logoPath)) {
             $fallback = public_path('pwa/default/icon-' . $size . 'x' . $size . '.png');

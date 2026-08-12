@@ -29,12 +29,10 @@
     <meta name="twitter:image" content="{{ asset('images/og-image.png') }}">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    @include('partials.favicon')
     
     <!-- PWA -->
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
-    <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SOS ERP">

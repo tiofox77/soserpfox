@@ -31,18 +31,13 @@
     <meta name="twitter:image" content="{{ app_logo() ?? asset('images/logo.png') }}">
     
     <!-- Favicon -->
-    @if(app_favicon())
-    <link rel="icon" type="image/x-icon" href="{{ app_favicon() }}">
-    <link rel="apple-touch-icon" href="{{ app_favicon() }}">
-    @endif
+    @include('partials.favicon')
     
     <!-- PWA -->
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
-    <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ function_exists('app_name') ? app_name() : config('app.name', 'SOS ERP') }}">
-    <link rel="apple-touch-icon" sizes="192x192" href="{{ url('/pwa/icon-192.png') }}">
     
     <!-- Canonical URL -->
     <link rel="canonical" href="{{ url()->current() }}">
@@ -1695,10 +1690,24 @@
                     @if(auth()->user()->isSuperAdmin() || auth()->user()->canAccessModuleMenu('notifications'))
                         <!-- Notifications Module -->
                         <div class="mt-6">
-                            <a href="{{ route('notifications.settings') }}" 
-                               class="flex items-center px-4 py-3 {{ request()->routeIs('notifications.*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
-                                <i class="ri-notification-3-line text-2xl text-yellow-400"></i>
+                            {{-- O ícone estava em `ri-notification-3-line`, que é
+                                 uma classe do Remix Icons. O sistema carrega
+                                 Font Awesome 6 e mais nada — a classe não
+                                 existia e o menu ficava com um espaço em
+                                 branco onde devia estar o sino. --}}
+                            <a href="{{ route('notifications.settings') }}"
+                               class="flex items-center px-4 py-3 {{ request()->routeIs('notifications.settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                <i class="fas fa-bell w-5 text-xl text-yellow-400"></i>
                                 <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Notificações</span>
+                            </a>
+
+                            {{-- O ecrã de modelos existe em /notifications/templates
+                                 e não estava em lado nenhum do menu: só se lá
+                                 chegava por um link dentro das definições. --}}
+                            <a href="{{ route('notifications.templates') }}"
+                               class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('notifications.templates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                <i class="fas fa-file-lines w-5 text-slate-300 text-sm"></i>
+                                <span x-show="sidebarOpen" class="ml-3 text-sm">Modelos</span>
                             </a>
                         </div>
                     @endif
