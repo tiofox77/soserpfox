@@ -7,11 +7,44 @@ use App\Models\Order;
 class OrderObserver
 {
     /**
+     * Um pedido novo à espera de pagamento.
+     *
+     * O aviso por SMS existe porque a lista de pendentes só é vista por quem
+     * se lembrar de abrir /superadmin/billing — e entretanto há um cliente a
+     * pagar e sem acesso.
+     */
+    public function created(Order $order): void
+    {
+        try {
+            app(\App\Services\Billing\AvisoDePagamentoPendente::class)->pedidoCriado($order);
+        } catch (\Throwable $e) {
+            // Nunca fazer rebentar a criação do pedido por causa de um aviso.
+            \Log::warning('Aviso de pedido pendente falhou', [
+                'order_id' => $order->id,
+                'erro'     => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Handle the Order "updated" event.
      * Executa após o update ser salvo
      */
     public function updated(Order $order): void
     {
+        // O comprovativo acabou de ser anexado: é AGORA que há um documento
+        // para conferir, e é este o aviso que interessa ao administrador.
+        if ($order->wasChanged('payment_proof') && $order->payment_proof && $order->status === 'pending') {
+            try {
+                app(\App\Services\Billing\AvisoDePagamentoPendente::class)->comprovativoAnexado($order);
+            } catch (\Throwable $e) {
+                \Log::warning('Aviso de comprovativo falhou', [
+                    'order_id' => $order->id,
+                    'erro'     => $e->getMessage(),
+                ]);
+            }
+        }
+
         // Verificar se o status mudou para 'approved'
         if ($order->wasChanged('status') && $order->status === 'approved') {
             \Log::info("✅ OrderObserver: Pedido aprovado, iniciando processamento", [

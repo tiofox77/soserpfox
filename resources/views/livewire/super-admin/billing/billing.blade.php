@@ -532,7 +532,7 @@
 
     {{-- Modal (mantido do original) --}}
     @if($showModal)
-        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showModal') }" x-show="show" x-cloak>
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showModal') }" x-show="show" x-cloak @keydown.escape.window="$wire.closeModal()">
             <div class="flex items-center justify-center min-h-screen px-4 py-6">
                 <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity backdrop-blur-sm" wire:click="closeModal"></div>
                 
@@ -650,7 +650,7 @@
 
     {{-- Modal: Subscription (Criar/Editar plano + ciclo + marcar como pago) --}}
     @if($showSubscriptionModal)
-        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showSubscriptionModal') }" x-show="show" x-cloak>
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showSubscriptionModal') }" x-show="show" x-cloak @keydown.escape.window="$wire.closeSubscriptionModal()">
             <div class="flex items-start justify-center min-h-screen px-4 py-6">
                 <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" wire:click="closeSubscriptionModal"></div>
 
@@ -672,17 +672,31 @@
                     </div>
 
                     <form wire:submit.prevent="saveSubscription" class="p-6 max-h-[75vh] overflow-y-auto space-y-5">
-                        {{-- Tenant --}}
+                        {{-- Empresa.
+
+                             A editar, o selector fica fechado: uma edição não
+                             muda a subscrição de dono. Estava aberto, e trocar
+                             de empresa aqui era silenciosamente ignorado ao
+                             gravar — o ecrã deixava fazer uma coisa que não
+                             fazia nada. --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-building text-blue-500 mr-1"></i>Tenant *
+                                <i class="fas fa-building text-blue-500 mr-1"></i>Empresa *
                             </label>
-                            <select wire:model.live="tenant_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
-                                <option value="">Selecione um tenant…</option>
-                                @foreach($tenants as $t)
-                                    <option value="{{ $t->id }}">{{ $t->name }} {{ $t->company_name ? '— ' . $t->company_name : '' }}</option>
-                                @endforeach
-                            </select>
+                            @if($editingSubscriptionId)
+                                @php $empresaEmEdicao = $tenants->firstWhere('id', $tenant_id); @endphp
+                                <div class="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-gray-700 font-semibold">
+                                    <i class="fas fa-lock text-gray-400 mr-2"></i>{{ $empresaEmEdicao->name ?? 'Empresa #' . $tenant_id }}
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">A empresa de uma subscrição não se altera. Para mudar de empresa, crie uma nova subscrição.</p>
+                            @else
+                                <select wire:model.live="tenant_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                                    <option value="">Selecione uma empresa…</option>
+                                    @foreach($tenants as $t)
+                                        <option value="{{ $t->id }}">{{ $t->name }} {{ $t->company_name ? '— ' . $t->company_name : '' }}</option>
+                                    @endforeach
+                                </select>
+                            @endif
                             @error('tenant_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
 
@@ -849,7 +863,7 @@
          batia certo, ou o quê. Voltava a submeter o mesmo e era recusado outra
          vez. --}}
     @if($showRejectModal && $rejectingOrder)
-        <div class="fixed inset-0 z-50 overflow-y-auto" x-data x-cloak>
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data x-cloak @keydown.escape.window="$wire.closeRejectModal()">
             <div class="flex items-center justify-center min-h-screen px-4">
                 <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" wire:click="closeRejectModal"></div>
 

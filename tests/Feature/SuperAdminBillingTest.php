@@ -418,4 +418,70 @@ class SuperAdminBillingTest extends TenantTestCase
 
         $this->assertSame('active', $sub->refresh()->status);
     }
+
+    // ==================== as modais ====================
+
+    /** As três abrem e fecham, e não deixam estado da vez anterior. */
+    public function test_as_modais_abrem_e_fecham_limpas(): void
+    {
+        $plano  = $this->plano('business', 44900);
+        $sub    = $this->subscricao($plano, 'active');
+        $pedido = $this->pedidoPendente($plano);
+
+        $componente = Livewire::test(Billing::class);
+
+        // Modal da factura
+        $componente->call('create')->assertSet('showModal', true)
+            ->set('description', 'rascunho')
+            ->call('closeModal')
+            ->assertSet('showModal', false)
+            ->assertSet('description', null)
+            ->assertSet('editingInvoiceId', null);
+
+        // Modal da subscrição
+        $componente->call('editSubscription', $sub->id)->assertSet('showSubscriptionModal', true)
+            ->call('closeSubscriptionModal')
+            ->assertSet('showSubscriptionModal', false)
+            ->assertSet('editingSubscriptionId', null)
+            ->assertSet('plan_id', null);
+
+        // Modal da recusa
+        $componente->call('openRejectModal', $pedido->id)->assertSet('showRejectModal', true)
+            ->set('rejectionReason', 'a meio de escrever')
+            ->call('closeRejectModal')
+            ->assertSet('showRejectModal', false)
+            ->assertSet('rejectionReason', '')
+            ->assertSet('rejectingOrder', null);
+    }
+
+    /**
+     * Um erro de validação não sobrevive ao fecho da modal.
+     *
+     * Reaparecia na abertura seguinte, a apontar para campos entretanto
+     * limpos: a modal abria com queixas de uma tentativa que já não existia.
+     */
+    public function test_os_erros_nao_sobrevivem_ao_fecho_da_modal(): void
+    {
+        Livewire::test(Billing::class)
+            ->call('create')
+            ->set('description', '')
+            ->set('tenant_id', null)
+            ->call('save')
+            ->assertHasErrors()
+            ->call('closeModal')
+            ->call('create')
+            ->assertHasNoErrors();
+    }
+
+    /** A editar, a empresa está fechada — a subscrição não muda de dono. */
+    public function test_a_modal_de_edicao_nao_deixa_trocar_de_empresa(): void
+    {
+        $plano = $this->plano('business', 44900);
+        $sub   = $this->subscricao($plano, 'active');
+
+        Livewire::test(Billing::class)
+            ->call('editSubscription', $sub->id)
+            ->assertSee('A empresa de uma subscrição não se altera')
+            ->assertDontSee('Selecione uma empresa…');
+    }
 }
