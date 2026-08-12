@@ -45,12 +45,27 @@ class RegisterWizard extends Component
     
     // Step 4: Payment
     public $payment_method = 'transfer';
+
+    /**
+     * O plano veio escolhido do link (página inicial ou campanha)?
+     *
+     * Serve para não perguntar duas vezes a mesma coisa: quem carregou em
+     * "Começar Agora" no cartão de um plano já disse qual queria.
+     */
+    public bool $planoVeioDoLink = false;
+
+    /**
+     * Em que passo a pessoa estava quando o refresh levou a palavra-passe.
+     * Assim que a reescrever, volta para lá em vez de repetir o assistente.
+     */
+    public ?int $passoAntesDaSenha = null;
     public $payment_proof = null;
     public $payment_reference = '';
     
     public function mount()
     {
         $this->plans = Plan::where('is_active', true)->orderBy('order')->get();
+        $requestedPlan = request()->query('plan');
         
         // Verificar se usuário está logado
         if (auth()->check()) {
@@ -67,6 +82,22 @@ class RegisterWizard extends Component
         
         // Restaurar progresso salvo na sessão
         $this->loadWizardProgress();
+
+        // Links de campanha podem pré-selecionar um plano pelo slug, por exemplo:
+        // /subscrever/fox-friendly -> /register?plan=fox-friendly
+        // O parâmetro explícito prevalece sobre o progresso antigo do wizard.
+        if (is_string($requestedPlan) && $requestedPlan !== '') {
+            $campaignPlan = $this->plans->firstWhere('slug', $requestedPlan);
+            if ($campaignPlan) {
+                $this->selected_plan_id = $campaignPlan->id;
+
+                // Quem já escolheu o plano na página inicial não tem de o
+                // escolher outra vez aqui. O passo continua a existir para
+                // quem chegue sem plano, e este pode sempre voltar atrás para
+                // o mudar — o que não pode é ser obrigado a repetir a escolha.
+                $this->planoVeioDoLink = true;
+            }
+        }
         
         // Verificar se há dados incompletos após refresh
         $this->checkAndResetIfIncomplete();
@@ -106,7 +137,11 @@ class RegisterWizard extends Component
             
             // Restaurar plano selecionado (step 3)
             $this->selected_plan_id = $progress['selected_plan_id'] ?? $this->selected_plan_id;
-            
+            // ...e se ele veio do link, para não voltar a perguntar depois de
+            // um F5 a meio do registo.
+            $this->planoVeioDoLink = (bool) ($progress['planoVeioDoLink'] ?? $this->planoVeioDoLink);
+            $this->passoAntesDaSenha = $progress['passoAntesDaSenha'] ?? $this->passoAntesDaSenha;
+
             // Restaurar dados de pagamento (step 4)
             $this->payment_method = $progress['payment_method'] ?? $this->payment_method;
             $this->payment_reference = $progress['payment_reference'] ?? $this->payment_reference;
@@ -119,31 +154,41 @@ class RegisterWizard extends Component
      */
     protected function checkAndResetIfIncomplete()
     {
-        // Se usuário não logado e está em passo > 1, verificar se step 1 está completo
-        if (!$this->isLoggedIn && $this->currentStep > 1) {
-            if (empty($this->name) || empty($this->email) || empty($this->password)) {
-                \Log::info('Dados incompletos no Step 1 detectados. Reiniciando wizard.');
-                $this->resetToStart('Dados do usuário incompletos. Por favor, preencha novamente.');
+        // A palavra-passe é a única coisa que não fica guardada — é uma
+        // credencial, não tem que ficar na sessão do servidor à espera.
+        //
+        // Só que a seguir a um F5 ela vem sempre vazia, e daqui saía um
+        // resetToStart(): a empresa, o NIF, a morada, o plano, tudo apagado
+        // por causa do único campo que de propósito não se guarda. Bastava
+        // uma recarga, um toque no telemóvel, um erro de rede.
+        //
+        // Agora não se perde nada: volta-se ao passo 1 só para reescrever a
+        // palavra-passe e segue-se dali direto para onde a pessoa estava.
+        if (!$this->isLoggedIn && $this->currentStep > 1 && empty($this->password)) {
+            if (empty($this->name) || empty($this->email)) {
+                \Log::info('Dados do utilizador em falta. Reiniciando wizard.');
+                $this->resetToStart('Dados do utilizador incompletos. Por favor, preencha novamente.');
                 return;
             }
+
+            $this->passoAntesDaSenha = $this->currentStep;
+            $this->currentStep       = 1;
+
+            session()->flash('info', 'Os seus dados foram guardados. Confirme a palavra-passe para continuar de onde parou.');
+            return;
         }
-        
-        // Se está no passo 2 ou superior, verificar se step 2 está completo
-        if ($this->currentStep > 2) {
-            if (empty($this->company_name) || empty($this->company_nif)) {
-                \Log::info('Dados incompletos no Step 2 detectados. Reiniciando wizard.');
-                $this->resetToStart('Dados da empresa incompletos. Por favor, preencha novamente.');
-                return;
-            }
+
+        // Estes campos são guardados na sessão; se faltam, faltam mesmo.
+        if ($this->currentStep > 2 && (empty($this->company_name) || empty($this->company_nif))) {
+            \Log::info('Dados incompletos no Step 2 detectados. Reiniciando wizard.');
+            $this->resetToStart('Dados da empresa incompletos. Por favor, preencha novamente.');
+            return;
         }
-        
-        // Se está no passo 3 ou superior, verificar se step 3 está completo
-        if ($this->currentStep > 3) {
-            if (empty($this->selected_plan_id)) {
-                \Log::info('Plano não selecionado detectado. Reiniciando wizard.');
-                $this->resetToStart('Nenhum plano foi selecionado. Por favor, selecione um plano.');
-                return;
-            }
+
+        if ($this->currentStep > 3 && empty($this->selected_plan_id)) {
+            \Log::info('Plano não selecionado detectado. Reiniciando wizard.');
+            $this->resetToStart('Nenhum plano foi selecionado. Por favor, selecione um plano.');
+            return;
         }
     }
     
@@ -184,6 +229,8 @@ class RegisterWizard extends Component
                 'company_phone' => $this->company_phone,
                 'company_email' => $this->company_email,
                 'selected_plan_id' => $this->selected_plan_id,
+                'planoVeioDoLink' => $this->planoVeioDoLink,
+                'passoAntesDaSenha' => $this->passoAntesDaSenha,
                 'payment_method' => $this->payment_method,
                 'payment_reference' => $this->payment_reference,
                 'saved_at' => now()->toDateTimeString(),
@@ -232,38 +279,90 @@ class RegisterWizard extends Component
     // Step 4 validation
     protected function validateStep4()
     {
-        $plan = Plan::find($this->selected_plan_id);
-        $isTrial = $plan && $plan->trial_days > 0;
-        
-        $rules = [
-            'payment_method' => 'required|in:transfer',
-            'payment_reference' => $isTrial ? 'nullable|string|max:255' : 'required|string|max:255',
-        ];
-        
-        // Se não é trial, comprovativo é obrigatório
-        if (!$isTrial) {
-            $rules['payment_proof'] = 'required|file|mimes:pdf,jpg,jpeg,png|max:5120'; // 5MB
-        } else {
-            $rules['payment_proof'] = 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120';
+        // Sem nada a pagar não há nada a validar.
+        //
+        // A regra anterior olhava só para `trial_days` e tornava a referência
+        // e o comprovativo opcionais. Mas o passo continuava lá, a mostrar
+        // "Valor: 0.00 Kz", o IBAN da empresa e o aviso de que era preciso
+        // anexar o comprovativo — para um plano que custa zero.
+        if ($this->naoHaNadaAPagar) {
+            return true;
         }
-        
-        return $this->validate($rules);
+
+        // Em período de teste ainda não há transferência feita, por isso a
+        // referência e o comprovativo ficam por preencher — como já era.
+        $emTeste = (int) ($this->planoEscolhido?->trial_days ?? 0) > 0;
+        $regra   = $emTeste ? 'nullable' : 'required';
+
+        return $this->validate([
+            'payment_method'    => 'required|in:transfer',
+            'payment_reference' => $regra . '|string|max:255',
+            'payment_proof'     => $regra . '|file|mimes:pdf,jpg,jpeg,png|max:5120',
+        ], [
+            'payment_reference.required' => 'Indique a referência da transferência.',
+            'payment_proof.required'     => 'Anexe o comprovativo da transferência.',
+        ]);
     }
     
+    /** O plano escolhido, ou null. */
+    public function getPlanoEscolhidoProperty(): ?Plan
+    {
+        return $this->selected_plan_id ? Plan::find($this->selected_plan_id) : null;
+    }
+
+    /**
+     * O plano é gratuito?
+     *
+     * Só o preço conta. O período de teste não entra aqui de propósito:
+     * todos os planos têm um, e se contasse ninguém pagava no registo.
+     * Num plano a 0 Kz, mostrar o IBAN, pedir a referência da transferência
+     * e exigir o comprovativo é pedir a prova de um pagamento que ninguém
+     * fez — o ecrã chegava a escrever "Valor: 0.00 Kz" e a exigi-lo à mesma.
+     */
+    public function getNaoHaNadaAPagarProperty(): bool
+    {
+        $plano = $this->planoEscolhido;
+
+        if (!$plano) {
+            return false;
+        }
+
+        // Mensal: é o ciclo com que o registo cria sempre a subscrição.
+        return (float) ($plano->getPrice('monthly') ?? 0) <= 0;
+    }
+
+    /** Há pagamento a tratar no último passo? */
+    public function getTemPassoDePagamentoProperty(): bool
+    {
+        return !$this->naoHaNadaAPagar;
+    }
+
+    /** O passo da escolha do plano só existe se ele não veio já escolhido. */
+    public function getTemPassoDePlanoProperty(): bool
+    {
+        return !$this->planoVeioDoLink;
+    }
+
     public function nextStep()
     {
         try {
             if ($this->currentStep == 1) {
                 $this->validateStep1();
-                $this->currentStep = 2;
+
+                // Voltou aqui só para reescrever a palavra-passe depois de um
+                // refresh: segue direto para onde estava.
+                $this->currentStep       = $this->passoAntesDaSenha ?: 2;
+                $this->passoAntesDaSenha = null;
             } elseif ($this->currentStep == 2) {
                 $this->validateStep2();
-                $this->currentStep = 3;
+
+                // Com o plano já escolhido no link, salta-se a pergunta.
+                $this->currentStep = $this->temPassoDePlano ? 3 : 4;
             } elseif ($this->currentStep == 3) {
                 $this->validateStep3();
                 $this->currentStep = 4;
             }
-            
+
             // Salvar progresso após avançar
             $this->saveWizardProgress();
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -279,15 +378,18 @@ class RegisterWizard extends Component
     protected function checkIfDataLostAndReset($validationException)
     {
         $errors = $validationException->errors();
-        
-        // Se há muitos erros (>= 3), provavelmente refresh perdeu dados
+
+        // Muitos erros de uma vez é, quase sempre, um formulário ainda por
+        // preencher — não um refresh que comeu os dados. Apagar tudo aqui
+        // castigava quem se limitou a carregar em "Próximo" cedo demais e
+        // levava com a empresa e o plano deitados fora.
+        //
+        // A mensagem de cada campo já diz o que falta; fica só o registo.
         if (count($errors) >= 3) {
-            \Log::warning('Múltiplos erros de validação detectados, possível perda de dados após refresh', [
+            \Log::warning('Vários erros de validação de uma vez', [
                 'errors_count' => count($errors),
-                'current_step' => $this->currentStep
+                'current_step' => $this->currentStep,
             ]);
-            
-            $this->resetToStart('Dados do formulário foram perdidos. Por favor, preencha novamente desde o início.');
         }
     }
     
@@ -306,12 +408,35 @@ class RegisterWizard extends Component
     {
         // Se usuário logado, não deixar voltar para o passo 1
         $minStep = $this->isLoggedIn ? 2 : 1;
-        
-        if ($this->currentStep > $minStep) {
-            $this->currentStep--;
-            // Salvar progresso ao voltar
-            $this->saveWizardProgress();
+
+        if ($this->currentStep <= $minStep) {
+            return;
         }
+
+        $anterior = $this->currentStep - 1;
+
+        // Saltar para trás os passos que não se aplicam, senão o botão
+        // "Anterior" levava a um ecrã vazio que o "Seguinte" volta a saltar —
+        // e a pessoa ficava presa a saltitar entre os dois.
+        if ($anterior === 3 && !$this->temPassoDePlano) {
+            $anterior = 2;
+        }
+
+        $this->currentStep = max($minStep, $anterior);
+
+        $this->saveWizardProgress();
+    }
+
+    /**
+     * Voltar a escolher o plano, mesmo tendo vindo escolhido do link.
+     *
+     * Não perguntar duas vezes não pode virar não deixar mudar de ideias.
+     */
+    public function escolherOutroPlano(): void
+    {
+        $this->planoVeioDoLink = false;
+        $this->currentStep = 3;
+        $this->saveWizardProgress();
     }
     
     // Salvar automaticamente quando campos mudarem
@@ -445,6 +570,15 @@ class RegisterWizard extends Component
             initializeAccountingDataForTenant($tenant->id);
             \Log::info('Dados de contabilidade criados com sucesso');
             
+            // Plano gratuito não leva dados de pagamento. Podem ter ficado de
+            // uma escolha anterior — o assistente guarda o progresso — e uma
+            // referência esquecida punha a conta a "aguardar aprovação" de um
+            // pagamento de 0 Kz que nunca ninguém iria aprovar.
+            if ($this->naoHaNadaAPagar) {
+                $this->payment_reference = '';
+                $this->payment_proof     = null;
+            }
+
             // 4. Salvar comprovativo de pagamento se houver
             $paymentProofPath = null;
             if ($this->payment_proof) {

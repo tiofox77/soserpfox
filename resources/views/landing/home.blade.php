@@ -10,8 +10,9 @@
         $seoTitle = $settings['seo_title'] ?? 'SOS ERP — Software de Gestão Empresarial em Angola | Faturação Certificada AGT';
         $seoDesc = $settings['seo_description'] ?? 'Software de gestão 100% angolano: faturação certificada pela AGT, POS, RH com IRT/INSS, hotelaria, salão e oficina. Atende Luanda, Benguela, Huíla, Cabinda e todas as 18 províncias. Comece grátis hoje.';
         $seoKw = $settings['seo_keywords'] ?? 'ERP Angola, software gestão Angola, faturação AGT, faturação certificada Angola, sistema gestão Luanda, ERP Luanda, software contabilidade Angola, POS Angola, gestão RH Angola, folha pagamento Angola, IRT INSS, software hotel Angola, gestão salão beleza Luanda, oficina auto Angola, sistema multi-empresa, ERP em kwanzas, SAFT-AO, ERP cloud Angola, gestão empresarial Benguela, software Cabinda, Huíla gestão, Huambo software, sistema POS Talatona, software Lobito';
-        $ogImage = !empty($settings['seo_og_image']) ? asset('storage/' . $settings['seo_og_image']) : (!empty($settings['app_logo']) ? asset('storage/' . $settings['app_logo']) : asset('img/og-image.png'));
-        $favicon = !empty($settings['app_favicon']) ? asset('storage/' . $settings['app_favicon']) : '/favicon.ico';
+        $brandLogo = asset('brand/soserp-logo-square-512.png');
+        $ogImage = !empty($settings['seo_og_image']) ? asset('storage/' . $settings['seo_og_image']) : asset('brand/soserp-og-1200x630.png');
+        $favicon = asset('favicon.ico');
     @endphp
 
     <title>{{ $seoTitle }}</title>
@@ -72,10 +73,11 @@
     <meta name="twitter:site" content="@soserp_angola">
 
     {{-- Favicons multi-formato --}}
-    <link rel="icon" type="image/x-icon" href="{{ $favicon }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ $favicon }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ $favicon }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ $favicon }}">
+    <link rel="icon" type="image/x-icon" sizes="any" href="{{ $favicon }}">
+    <link rel="icon" type="image/png" sizes="48x48" href="{{ asset('brand/favicon-48x48.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('brand/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('brand/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ $favicon }}">
     <link rel="mask-icon" href="{{ $favicon }}" color="#2563eb">
 
@@ -86,7 +88,9 @@
     <link rel="dns-prefetch" href="//fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <script src="{{ asset('js/sos-tracker.js') }}?v=1" defer></script>
+    {{-- v=2: o recolector passou a medir o tempo em página e a registar
+         pesquisas. Sem subir a versão, os browsers serviam o antigo da cache. --}}
+    <script src="{{ asset('js/sos-tracker.js') }}?v=2" defer></script>
 
     {{-- JSON-LD: Organization + LocalBusiness Angola --}}
     <script type="application/ld+json">
@@ -97,7 +101,13 @@
         "name": "{{ $appName }}",
         "alternateName": ["SOSERP", "SOS ERP Angola", "Softec Angola"],
         "url": "{{ $canonical }}",
-        "logo": "{{ $ogImage }}",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "{{ $brandLogo }}",
+            "contentUrl": "{{ $brandLogo }}",
+            "width": 512,
+            "height": 512
+        },
         "image": "{{ $ogImage }}",
         "description": "{{ $seoDesc }}",
         "foundingDate": "2024",
@@ -1113,8 +1123,12 @@
                             @endif
                         </div>
 
-                        <!-- CTA Button -->
-                        <a href="{{ route('register') }}" class="block w-full text-center bg-gradient-to-r {{ $gradient }} text-white px-6 py-4 rounded-xl font-bold hover:shadow-xl transition-all duration-300 mb-6">
+                        {{-- O botão leva o PLANO consigo.
+                             Ligava a /register sem mais nada, e quem carregasse
+                             em "Começar Agora" no cartão do Business era
+                             recebido com a pergunta "qual plano quer?" — a
+                             escolha que acabara de fazer. --}}
+                        <a href="{{ route('register', ['plan' => $plan->slug]) }}" class="block w-full text-center bg-gradient-to-r {{ $gradient }} text-white px-6 py-4 rounded-xl font-bold hover:shadow-xl transition-all duration-300 mb-6">
                             <span class="inline-flex items-center">
                             @if($isFox)
                                 🦊 Começar GRÁTIS

@@ -126,6 +126,9 @@
                     <!-- Line -->
                     <div class="flex-1 h-1 {{ $currentStep >= 3 ? 'bg-white' : 'bg-white/30' }} mx-4 transition"></div>
 
+                    {{-- O passo da escolha do plano so aparece se ele nao
+                         veio ja escolhido do link. --}}
+                    @if($this->temPassoDePlano)
                     <!-- Step 3 -->
                     <div class="flex items-center flex-1">
                         <div class="relative">
@@ -143,19 +146,27 @@
                         </div>
                     </div>
 
+                    @endif
+
                     <!-- Line -->
                     <div class="flex-1 h-1 {{ $currentStep >= 4 ? 'bg-white' : 'bg-white/30' }} mx-4 transition"></div>
 
+                    {{-- O último passo. Chama-se "Pagamento" quando há alguma
+                         coisa a pagar e "Confirmação" quando não há — o número
+                         desce um se o passo do plano não estiver a contar. --}}
+                    @php
+                        $numeroDoUltimo = ($isLoggedIn ? 3 : 4) - ($this->temPassoDePlano ? 0 : 1);
+                    @endphp
                     <!-- Step 4 -->
                     <div class="flex items-center flex-1">
                         <div class="relative">
                             <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg {{ $currentStep >= 4 ? 'bg-white text-purple-600' : 'bg-white/30 text-white' }} transition">
-                                {{ $isLoggedIn ? '3' : '4' }}
+                                {{ $numeroDoUltimo }}
                             </div>
                         </div>
                         <div class="ml-3 text-white">
-                            <div class="text-sm font-semibold">Passo {{ $isLoggedIn ? '3' : '4' }}</div>
-                            <div class="text-xs opacity-90">Pagamento</div>
+                            <div class="text-sm font-semibold">Passo {{ $numeroDoUltimo }}</div>
+                            <div class="text-xs opacity-90">{{ $this->temPassoDePagamento ? 'Pagamento' : 'Confirmação' }}</div>
                         </div>
                     </div>
                 </div>
@@ -183,7 +194,7 @@
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-user text-blue-500 mr-2"></i>Nome Completo *
                                     </label>
-                                    <input wire:model="name" type="text" required
+                                    <input wire:model.blur="name" type="text" required
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition @error('name') border-red-500 @enderror"
                                            placeholder="João Silva">
                                     @error('name')
@@ -198,7 +209,7 @@
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-envelope text-blue-500 mr-2"></i>Email *
                                     </label>
-                                    <input wire:model="email" type="email" required
+                                    <input wire:model.blur="email" type="email" required
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition @error('email') border-red-500 @enderror"
                                            placeholder="joao@empresa.vip">
                                     @error('email')
@@ -250,7 +261,7 @@
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-building text-purple-500 mr-2"></i>Nome da Empresa *
                                     </label>
-                                    <input wire:model="company_name" type="text" required
+                                    <input wire:model.blur="company_name" type="text" required
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition @error('company_name') border-red-500 @enderror"
                                            placeholder="Minha Empresa Lda">
                                     @error('company_name')
@@ -265,7 +276,7 @@
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-id-card text-purple-500 mr-2"></i>NIF *
                                     </label>
-                                    <input wire:model="company_nif" type="text" required
+                                    <input wire:model.blur="company_nif" type="text" required
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition @error('company_nif') border-red-500 @enderror"
                                            placeholder="123456789">
                                     @error('company_nif')
@@ -280,7 +291,7 @@
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-map-marker-alt text-purple-500 mr-2"></i>Endereço
                                     </label>
-                                    <input wire:model="company_address" type="text"
+                                    <input wire:model.blur="company_address" type="text"
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
                                            placeholder="Rua exemplo, Luanda">
                                 </div>
@@ -291,7 +302,7 @@
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                                             <i class="fas fa-phone text-purple-500 mr-2"></i>Telefone
                                         </label>
-                                        <input wire:model="company_phone" type="text"
+                                        <input wire:model.blur="company_phone" type="text"
                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
                                                placeholder="+244 923 456 789">
                                     </div>
@@ -299,7 +310,7 @@
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                                             <i class="fas fa-envelope text-purple-500 mr-2"></i>Email da Empresa
                                         </label>
-                                        <input wire:model="company_email" type="email"
+                                        <input wire:model.blur="company_email" type="email"
                                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
                                                placeholder="contato@empresa.vip">
                                     </div>
@@ -370,8 +381,13 @@
                     @if($currentStep == 4)
                         <div class="max-w-2xl mx-auto">
                             <div class="text-center mb-8">
-                                <h2 class="text-3xl font-bold text-gray-900">Método de Pagamento</h2>
-                                <p class="text-gray-600 mt-2">Como deseja efetuar o pagamento?</p>
+                                @if($this->temPassoDePagamento)
+                                    <h2 class="text-3xl font-bold text-gray-900">Método de Pagamento</h2>
+                                    <p class="text-gray-600 mt-2">Como deseja efetuar o pagamento?</p>
+                                @else
+                                    <h2 class="text-3xl font-bold text-gray-900">Confirmação</h2>
+                                    <p class="text-gray-600 mt-2">Este plano é gratuito — não há nada a pagar.</p>
+                                @endif
                             </div>
 
                             <!-- Plano Selecionado Resumo -->
@@ -387,18 +403,36 @@
                                         </div>
                                         <div class="text-right">
                                             <div class="text-sm opacity-90 mb-1">Valor Mensal</div>
-                                            <div class="text-3xl font-bold">{{ number_format($selectedPlan->price_monthly, 0) }} Kz</div>
+                                            {{-- "0 Kz" para um plano gratuito lê-se como um preço
+                                                 por apurar. Escreve-se o que é. --}}
+                                            <div class="text-3xl font-bold">
+                                                {{ $this->naoHaNadaAPagar ? 'Grátis' : number_format($selectedPlan->price_monthly, 0) . ' Kz' }}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="mt-4 pt-4 border-t border-white/20">
-                                        <div class="flex items-center text-sm">
-                                            <i class="fas fa-gift mr-2"></i>
-                                            {{ $selectedPlan->trial_days }} dias de teste grátis inclusos
-                                        </div>
+                                    <div class="mt-4 pt-4 border-t border-white/20 flex items-center justify-between flex-wrap gap-2">
+                                        @if($selectedPlan->trial_days > 0)
+                                            <div class="flex items-center text-sm">
+                                                <i class="fas fa-gift mr-2"></i>
+                                                {{ $selectedPlan->trial_days }} dias de teste grátis inclusos
+                                            </div>
+                                        @else
+                                            <span></span>
+                                        @endif
+
+                                        {{-- Não perguntar duas vezes não pode virar não
+                                             deixar mudar de ideias. --}}
+                                        @if(!$this->temPassoDePlano)
+                                            <button type="button" wire:click="escolherOutroPlano"
+                                                    class="text-sm font-semibold underline underline-offset-2 hover:opacity-80 transition">
+                                                <i class="fas fa-exchange-alt mr-1"></i>Escolher outro plano
+                                            </button>
+                                        @endif
                                     </div>
                                 </div>
                             @endif
 
+                            @if($this->temPassoDePagamento)
                             <!-- Método de Pagamento -->
                             <div class="mb-6">
                                 <label class="block text-sm font-semibold text-gray-700 mb-4">
@@ -467,7 +501,7 @@
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-hashtag text-blue-500 mr-2"></i>Referência da Transferência
                                     </label>
-                                    <input wire:model="payment_reference" type="text"
+                                    <input wire:model.blur="payment_reference" type="text"
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                                            placeholder="Ex: TRF123456789">
                                     <p class="text-xs text-gray-500 mt-1">
@@ -538,6 +572,20 @@
                                     <div wire:loading wire:target="payment_proof" class="mt-2 text-sm text-blue-600">
                                         <i class="fas fa-spinner fa-spin mr-2"></i>Carregando ficheiro...
                                     </div>
+                                </div>
+                            @endif
+                            @else
+                                {{-- Plano gratuito: nada de IBAN, referência nem
+                                     comprovativo. Só falta aceitar os termos. --}}
+                                <div class="mb-6 bg-green-50 border-2 border-green-200 rounded-xl p-6 text-center">
+                                    <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <i class="fas fa-check text-green-600 text-2xl"></i>
+                                    </div>
+                                    <h4 class="font-bold text-gray-900 mb-1">Sem pagamento a efetuar</h4>
+                                    <p class="text-sm text-gray-600">
+                                        O plano <strong>{{ $selectedPlan->name ?? '' }}</strong> não tem custo.
+                                        A conta fica activa assim que concluir o registo.
+                                    </p>
                                 </div>
                             @endif
 
