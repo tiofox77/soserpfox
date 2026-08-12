@@ -70,8 +70,25 @@
         </div>
     </div>
 
+    {{-- Aviso da primeira visita: as definições acabaram de ser criadas.
+         Sem isto, quem abrisse a página depois de ela estar vazia não percebia
+         o que tinha mudado nem de onde vinham os valores. --}}
+    @if($criadasAgora > 0)
+        <div class="mb-6 rounded-2xl border-2 border-green-300 bg-green-50 p-4">
+            <p class="font-bold text-green-800">
+                <i class="fas fa-circle-check mr-2"></i>
+                {{ $criadasAgora }} configuração(ões) criada(s) para esta empresa
+            </p>
+            <p class="text-sm text-green-700 mt-1">
+                Esta empresa não tinha configurações de RH — foram criadas agora com os valores
+                da legislação laboral angolana. Confira-as antes do próximo processamento de salários:
+                são elas que decidem o INSS, as isenções e o cálculo das horas extra.
+            </p>
+        </div>
+    @endif
+
     {{-- Configurações por Categoria --}}
-    @foreach($settings as $category => $categorySettings)
+    @forelse($settings as $category => $categorySettings)
         <div class="bg-white rounded-2xl shadow-lg mb-6 overflow-hidden border-l-4 
             @if($category === 'general') border-blue-500
             @elseif($category === 'worktime') border-indigo-500
@@ -124,8 +141,21 @@
             <div class="p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     @foreach($categorySettings as $setting)
-                        <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 hover:border-purple-300 transition-all">
+                        @php
+                            // Definições que ainda nenhum cálculo lê. Mostrá-las
+                            // como campos vulgares é mentir: edita-se, grava, e
+                            // não acontece nada — que é exactamente a impressão
+                            // de "isto não funciona".
+                            $informativa = in_array($setting->key, \App\Services\HR\DefinicoesRH::INFORMATIVAS, true);
+                        @endphp
+                        <div class="p-5 rounded-xl border transition-all {{ $informativa ? 'bg-amber-50/50 border-amber-200' : 'bg-gray-50 border-gray-200 hover:border-purple-300' }}">
                             <div class="mb-3">
+                                @if($informativa)
+                                    <span class="inline-flex items-center gap-1 mb-2 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold"
+                                          title="O valor fica guardado, mas nenhum cálculo o usa ainda">
+                                        <i class="fas fa-circle-info"></i> Registo apenas — ainda não entra no cálculo
+                                    </span>
+                                @endif
                                 <label class="font-bold text-gray-800 flex items-center justify-between">
                                     <span>{{ $setting->label }}</span>
                                     <span class="text-xs px-2 py-1 rounded-full 
@@ -158,7 +188,7 @@
                                 <div class="relative">
                                     <input type="number" 
                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
-                                           wire:model.live="editingSettings.{{ $setting->key }}"
+                                           wire:model.blur="editingSettings.{{ $setting->key }}"
                                            wire:blur="saveSetting('{{ $setting->key }}')"
                                            wire:keydown.enter="saveSetting('{{ $setting->key }}')"
                                            value="{{ $setting->value }}"
@@ -172,7 +202,7 @@
                                 <div class="relative">
                                     <input type="number" 
                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
-                                           wire:model.live="editingSettings.{{ $setting->key }}"
+                                           wire:model.blur="editingSettings.{{ $setting->key }}"
                                            wire:blur="saveSetting('{{ $setting->key }}')"
                                            wire:keydown.enter="saveSetting('{{ $setting->key }}')"
                                            value="{{ $setting->value }}"
@@ -188,7 +218,7 @@
                                     <div class="relative flex-1">
                                         <input type="number" 
                                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
-                                               wire:model.live="editingSettings.{{ $setting->key }}"
+                                               wire:model.blur="editingSettings.{{ $setting->key }}"
                                                wire:blur="saveSetting('{{ $setting->key }}')"
                                                wire:keydown.enter="saveSetting('{{ $setting->key }}')"
                                                value="{{ $setting->value }}"
@@ -205,7 +235,7 @@
                                 <div class="relative">
                                     <input type="text" 
                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
-                                           wire:model.live="editingSettings.{{ $setting->key }}"
+                                           wire:model.blur="editingSettings.{{ $setting->key }}"
                                            wire:blur="saveSetting('{{ $setting->key }}')"
                                            wire:keydown.enter="saveSetting('{{ $setting->key }}')"
                                            value="{{ $setting->value }}"
@@ -245,7 +275,31 @@
                 </div>
             </div>
         </div>
-    @endforeach
+    @empty
+        {{-- O ecrã era um @foreach sem saída vazia: quando não havia definições
+             — que era o caso de todas as empresas menos a primeira — a página
+             mostrava o cabeçalho, o filtro, e mais NADA. Sem lista, sem aviso,
+             sem explicação. Lia-se como "não funciona". --}}
+        <div class="bg-white rounded-2xl shadow-lg p-10 text-center mb-6">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-sliders-h text-gray-400 text-3xl"></i>
+            </div>
+            @if($categoryFilter !== 'all')
+                <h3 class="font-bold text-gray-900 text-lg mb-1">Nenhuma configuração nesta categoria</h3>
+                <p class="text-gray-500 text-sm mb-4">Escolha outra categoria ou veja todas.</p>
+                <button wire:click="$set('categoryFilter', 'all')"
+                        class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition">
+                    Ver todas as categorias
+                </button>
+            @else
+                <h3 class="font-bold text-gray-900 text-lg mb-1">Sem configurações de RH</h3>
+                <p class="text-gray-500 text-sm">
+                    Não foi possível criar as configurações desta empresa. Comunique ao suporte —
+                    entretanto o processamento de salários usa os valores por omissão do sistema.
+                </p>
+            @endif
+        </div>
+    @endforelse
 
     {{-- Informação sobre Legislação Angolana --}}
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">

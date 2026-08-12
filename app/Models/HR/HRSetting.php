@@ -167,13 +167,17 @@ class HRSetting extends Model
 
     public function getCategoryNameAttribute()
     {
+        // `worktime` e `benefits` faltavam, e são 17 das 59 definições — quase
+        // um terço aparecia como "Outro" onde quer que este acessor fosse usado.
         return match($this->category) {
-            'general' => 'Geral',
-            'payroll' => 'Folha de Pagamento',
+            'general'  => 'Geral',
+            'worktime' => 'Horário de Trabalho',
+            'payroll'  => 'Folha de Pagamento',
             'vacation' => 'Férias',
             'overtime' => 'Horas Extras',
-            'leave' => 'Licenças',
-            default => 'Outro',
+            'leave'    => 'Licenças',
+            'benefits' => 'Subsídios',
+            default    => 'Outro',
         };
     }
 
