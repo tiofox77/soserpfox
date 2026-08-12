@@ -22,8 +22,17 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!--
+            MySQL, e nao sqlite em memoria: 85 das 272 migracoes usam SQL
+            especifico do MySQL (ENUM, ALTER TABLE MODIFY, DB::statement) e o
+            esquema nao se constroi em sqlite.
+
+            Base separada da de desenvolvimento. Preparar uma vez com:
+                php scripts/prepare_test_db.php
+            Os testes correm em transaccao, por isso nao e preciso repetir.
+        -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="soserp_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

@@ -433,8 +433,33 @@ class POSSystem extends Component
         $this->addToCart($produto->id);
     }
 
+    /**
+     * A pesquisa que levou a escolher um artigo.
+     *
+     * Registada AQUI e não em cada tecla premida, por duas razões que se
+     * anulariam uma à outra se fosse ao contrário: gravar por tecla escreveria
+     * "ami", "amid" e "amido" como três pesquisas — e o painel dos mais
+     * pesquisados mostraria prefixos em vez de nomes —, e obrigaria a uma
+     * consulta por tecla no ecrã mais usado do sistema.
+     *
+     * Assim é um registo por pesquisa a sério, e com a informação que mais vale:
+     * o termo que levou alguém a escolher alguma coisa.
+     */
+    private function registarPesquisaQueLevouAEscolha(): void
+    {
+        $termo = trim((string) $this->search);
+
+        if ($termo === '') {
+            return;
+        }
+
+        \App\Services\Analytics\RegistoDeVisita::pesquisa($termo, 'pos');
+    }
+
     public function addToCart($productId)
     {
+        $this->registarPesquisaQueLevouAEscolha();
+
         // Scope ao tenant: $productId vem do browser. Sem o filtro, um produto
         // de OUTRA empresa passava — o stockInWarehouse() não encontrava linhas
         // (filtra por tenant), caía no agregado stock_quantity da empresa alheia

@@ -23,3 +23,17 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# Bypass ModSecurity/WAF para endpoints Livewire (evita 403 Forbidden em payloads AJAX)
+<IfModule mod_security.c>
+    <If "%{REQUEST_URI} =~ m#^/livewire/(update|message|upload|preview-file|livewire-js)#">
+        SecRuleEngine Off
+        SecRequestBodyAccess Off
+    </If>
+</IfModule>
+
+# Aumentar limites de POST para payloads grandes do Livewire (uploads, listas longas)
+<IfModule mod_php.c>
+    php_value post_max_size 64M
+    php_value upload_max_filesize 64M
+</IfModule>

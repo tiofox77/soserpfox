@@ -43,15 +43,22 @@ Schedule::command('subscriptions:expire')
 
 // Notificações agendadas dos templates activos.
 //
-// O comando existia e nunca era chamado por ninguém — os templates ficavam
-// marcados como activos no ecrã de definições e não saía notificação nenhuma,
-// sem erro em lado nenhum. Duas vezes por dia chega para avisos de validade,
-// stock e vencimentos, e não incomoda ninguém à noite.
+// JÁ NÃO É PRECISO CRON. O envio corre à boleia do tráfego — ver
+// App\Http\Middleware\DespacharNotificacoes — porque este alojamento não tem
+// processo permanente e o `schedule:run` podia nunca ser chamado. Os modelos
+// ficavam activos no ecrã e não saía notificação nenhuma, sem erro nenhum.
+//
+// A entrada FICA aqui, e não é contradição: quem tiver cron ganha uma rede de
+// segurança para os dias sem ninguém a trabalhar, em que o tráfego não
+// dispara nada. Correr pelos dois caminhos não duplica avisos — a memória do
+// que já saiu (notification_sends) trata disso, com índice único por modelo,
+// registo, canal, destinatário e dia.
+//
+// Sem cron configurado, esta linha simplesmente nunca corre e nada se perde.
 Schedule::command('notifications:send-scheduled')
     ->twiceDaily(9, 15)
     ->withoutOverlapping()
-    ->onOneServer()
-    ->emailOutputOnFailure(config('mail.from.address'));
+    ->onOneServer();
 
 // Arquivar a trilha de auditoria antiga.
 //

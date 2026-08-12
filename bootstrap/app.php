@@ -32,7 +32,21 @@ return Application::configure(basePath: dirname(__DIR__))
         // desfecho. Corre em `terminate`, depois de a resposta seguir para o
         // browser, com tranca de um minuto por empresa.
         $middleware->appendToGroup('web', \App\Http\Middleware\DespacharAgtPendentes::class);
-        
+
+        // Descobre de onde vieram as visitas, pela mesma razão e do mesmo modo.
+        // O painel de países do ecrã de analytics existia desde sempre e nunca
+        // mostrou nada: o país só era lido de um cabeçalho da Cloudflare, que
+        // este alojamento não tem. Tranca de cinco minutos.
+        $middleware->appendToGroup('web', \App\Http\Middleware\ResolverRegiaoDasVisitas::class);
+
+        // Faz sair as notificações agendadas pela mesma via. O comando existia
+        // e dependia de um `schedule:run` que este alojamento pode não ter — os
+        // modelos ficavam activos no ecrã e não saía nada, sem erro nenhum.
+        // Só é seguro porque o envio passou a ter memória do que já mandou
+        // (notification_sends): sem isso, correr mais vezes seria mandar o
+        // mesmo aviso a cada janela do dia. Tranca de dez minutos por empresa.
+        $middleware->appendToGroup('web', \App\Http\Middleware\DespacharNotificacoes::class);
+
         // Com o sistema em manutenção, as rotas de manutenção continuam a
         // responder.
         //

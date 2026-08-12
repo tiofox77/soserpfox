@@ -17,6 +17,8 @@ Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\Maintenan
     // Verificação de integridade do deploy (ver o comando deploy:verify).
     // POST porque o manifesto pode ter milhares de entradas.
     Route::post('/verify-files', 'verifyFiles')->name('maintenance.verify-files');
+    // Rastreio de um artigo: vendido, saido e o que resta. So contagens.
+    Route::get('/diag-produto', 'diagProduto')->name('maintenance.diag-produto');
     Route::get('/diag-roles', 'diagRoles')->name('maintenance.diag-roles');
 });
 
@@ -42,6 +44,15 @@ Route::get('/modulos/{slug}', [\App\Http\Controllers\ModulePagesController::clas
 Route::post('/contact', [App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 
 // Custom Register Wizard
+Route::get('/subscrever/{plan}', function (string $plan) {
+    $plano = \App\Models\Plan::query()
+        ->where('slug', $plan)
+        ->where('is_active', true)
+        ->firstOrFail();
+
+    return redirect()->route('register', ['plan' => $plano->slug]);
+})->where('plan', '[a-z0-9-]+')->name('subscribe.plan');
+
 Route::get('/register', \App\Livewire\Auth\RegisterWizard::class)->name('register');
 
 // User Invitation Routes
