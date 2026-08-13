@@ -127,7 +127,7 @@
          precisam de o encontrar já definido. --}}
     @include('partials.js-traducoes')
 
-    <script src="/js/pwa-invoicing.js?v=15"></script>
+    <script src="/js/pwa-invoicing.js?v=16"></script>
     <script src="/js/pos-offline-ticket.js?v=3"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
@@ -149,7 +149,7 @@
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=15',
+            '/js/pwa-invoicing.js?v=16',
             '/js/pos-offline-ticket.js?v=3',
             '/manifest.webmanifest',
         ];

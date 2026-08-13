@@ -298,6 +298,25 @@
                 await db.tax_rates.bulkPut(json.data.tax_rates);
             }
 
+            // 3b) Apagar o que saiu do catálogo no servidor.
+            //
+            // O bulkPut acima junta e actualiza, mas nunca apaga: um produto
+            // desactivado ou eliminado deixava de vir na resposta e ficava
+            // aqui para sempre — visível e vendável, offline, sem nada que o
+            // denunciasse. O servidor passa a dizer quais saíram.
+            //
+            // Os clientes ainda não sincronizados não se tocam: têm id local e
+            // nunca aparecem nesta lista, que só traz ids do servidor.
+            if (json.data.removed_products?.length) {
+                await db.products.bulkDelete(json.data.removed_products);
+                console.log('[PWA] Produtos removidos do catálogo:', json.data.removed_products.length);
+            }
+
+            if (json.data.removed_clients?.length) {
+                await db.clients.bulkDelete(json.data.removed_clients);
+                console.log('[PWA] Clientes removidos:', json.data.removed_clients.length);
+            }
+
             await db.meta.put({ key: 'last_sync', value: json.server_time });
 
             // Sync online bem-sucedido → sessão Laravel válida → desbloqueia este tab.

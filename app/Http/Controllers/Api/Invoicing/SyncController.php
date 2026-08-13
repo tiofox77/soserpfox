@@ -27,7 +27,27 @@ class SyncController extends Controller
         }
 
         $since = $request->query('since'); // ISO timestamp para sync incremental
-        $sinceDate = $since ? \Carbon\Carbon::parse($since) : null;
+
+        // Um `since` que não se perceba trata-se como sincronização COMPLETA.
+        //
+        // O Carbon::parse rebenta com lixo e isso dava 500 — o dispositivo
+        // ficava sem catálogo por causa de um parâmetro mal formado, que é o
+        // que acontece quando o relógio local está errado ou um valor guardado
+        // se corrompe. Mais vale mandar tudo do que deixar o balcão sem nada.
+        $sinceDate = null;
+
+        if ($since) {
+            try {
+                $sinceDate = \Carbon\Carbon::parse($since);
+            } catch (\Throwable $e) {
+                \Log::warning('Sync: since inválido, a tratar como sync completa', [
+                    'since' => $since,
+                    'error' => $e->getMessage(),
+                ]);
+
+                $since = null;
+            }
+        }
 
         // ---- Armazém DEFAULT do tenant (fonte única de stock no POS) ----
         $defaultWh = \App\Models\Invoicing\Warehouse::where('tenant_id', $tenantId)
@@ -68,7 +88,25 @@ class SyncController extends Controller
         }
 
         if ($sinceDate) {
-            $productsQuery->where('invoicing_products.updated_at', '>=', $sinceDate);
+            // O stock conta como alteração do produto.
+            //
+            // Isto olhava só para invoicing_products.updated_at. Mas o stock
+            // vive noutra tabela, e o StockObserver actualiza o agregado por
+            // query builder — de propósito, para não disparar eventos do
+            // Product — logo NÃO toca no updated_at do produto.
+            //
+            // Com o pos_hide_out_of_stock ligado (é o valor por omissão), o
+            // efeito era este: o produto cai a zero e deixa de ser enviado;
+            // quando é reposto, o updated_at continua velho e nunca mais volta.
+            // E como o PWA junta com bulkPut e nunca apaga, o dispositivo fica
+            // com o stock congelado na última vez que o produto passou por cá.
+            //
+            // No balcão: repõe-se o stock e o POS offline continua a dizer que
+            // não há.
+            $productsQuery->where(function ($q) use ($sinceDate) {
+                $q->where('invoicing_products.updated_at', '>=', $sinceDate)
+                  ->orWhere('invoicing_stocks.updated_at', '>=', $sinceDate);
+            });
         }
         // Pre-carregar taxas de IVA para mapeamento tax_rate_id → rate
         $taxMap = DB::table('invoicing_taxes')
@@ -133,6 +171,38 @@ class SyncController extends Controller
             'is_iva_subject' => (bool) $c->is_iva_subject,
             'updated_at' => optional($c->updated_at)->toIso8601String(),
         ]);
+
+        // ---- O que SAIU do catálogo ----
+        //
+        // O PWA guarda tudo com bulkPut, que junta e actualiza mas nunca apaga.
+        // Um produto desactivado ou eliminado simplesmente deixava de vir na
+        // resposta — e o dispositivo continuava a mostrá-lo e a vendê-lo,
+        // offline, indefinidamente. Não basta deixar de o enviar: é preciso
+        // dizer que saiu.
+        //
+        // Só na sincronização incremental. Na completa o dispositivo limpa tudo
+        // e recarrega, e mandar anos de produtos apagados seria peso morto.
+        $removedProducts = [];
+        $removedClients  = [];
+
+        if ($sinceDate) {
+            $removedProducts = Product::withTrashed()
+                ->where('tenant_id', $tenantId)
+                ->where(function ($q) {
+                    $q->whereNotNull('deleted_at')
+                      ->orWhere('is_active', false);
+                })
+                ->where('updated_at', '>=', $sinceDate)
+                ->pluck('id')
+                ->all();
+
+            $removedClients = Client::withTrashed()
+                ->where('tenant_id', $tenantId)
+                ->whereNotNull('deleted_at')
+                ->where('updated_at', '>=', $sinceDate)
+                ->pluck('id')
+                ->all();
+        }
 
         // ---- Séries documentais ----
         $series = collect();
@@ -245,6 +315,9 @@ class SyncController extends Controller
                 'series' => $series,
                 'tax_rates' => $taxRates,
                 'payment_methods' => $paymentMethods,
+                // Ids que o dispositivo tem de APAGAR. Ver acima.
+                'removed_products' => $removedProducts,
+                'removed_clients'  => $removedClients,
             ],
             'meta' => [
                 'incremental' => (bool) $sinceDate,
