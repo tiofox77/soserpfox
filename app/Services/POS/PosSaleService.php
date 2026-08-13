@@ -222,7 +222,7 @@ class PosSaleService
                 $productId = $item['product_id'] ?? null;
                 $taxCode   = ($taxType === 'isento' || $taxRate == 0) ? 'ISE' : 'NOR';
 
-                SalesInvoiceItem::create([
+                $linha = SalesInvoiceItem::create([
                     'sales_invoice_id'     => $invoice->id,
                     'product_id'           => $productId,
                     'product_name'         => $item['product_name'] ?? 'Item',
@@ -263,6 +263,23 @@ class PosSaleService
                             $product,
                             (float) $qty
                         );
+
+                        // ---- Lotes ----
+                        //
+                        // Isto não existia. O SalesInvoiceObserver aloca os
+                        // lotes dentro do reduceStock, mas esse sai logo à
+                        // entrada quando já há um movimento de saída a
+                        // referenciar a factura — e a sincronização do PWA cria
+                        // esse movimento ela própria. Resultado: uma venda
+                        // offline descia o stock do armazém e deixava os lotes
+                        // intactos.
+                        //
+                        // Numa farmácia ou num supermercado isso é caro: o
+                        // relatório de validade sai dos lotes, portanto mandava
+                        // abater produto que já tinha sido vendido, e a
+                        // rastreabilidade — de que lote saiu esta caixa — não
+                        // existia para nada que passasse pelo POS offline.
+                        $this->consumirLotes($invoice, $linha, $product, (float) $qty, $whId, $tenantId);
 
                         // Ledger: movimento da venda (semAplicarStock para o hook created
                         // não voltar a debitar — o stock já foi atualizado acima).
@@ -326,6 +343,79 @@ class PosSaleService
     /**
      * Resolve o cliente do payload. Se não houver, devolve o Consumidor Final.
      */
+    /**
+     * Dá baixa nos lotes do artigo vendido e regista de onde saiu.
+     *
+     * Regras, e cada uma tem uma razão:
+     *
+     *   · só para artigos com rastreio por lote. A maioria do catálogo não o
+     *     usa e não pode passar a falhar por causa disso;
+     *
+     *   · FIFO pela validade, como no POS online — sai primeiro o que expira
+     *     antes, que é a razão de ser dos lotes;
+     *
+     *   · lotes expirados NÃO são consumidos. O allocateFIFO salta-os. Dar
+     *     baixa num lote fora de prazo apagava a prova de que há produto
+     *     estragado no armazém;
+     *
+     *   · se a alocação falhar, a venda NÃO falha. Ela já aconteceu: o cliente
+     *     levou o produto e o documento é fiscal. Fica o aviso no log e o
+     *     stock do armazém, que já desceu, continua certo.
+     */
+    private function consumirLotes(
+        SalesInvoice $invoice,
+        SalesInvoiceItem $linha,
+        Product $product,
+        float $quantidade,
+        $warehouseId,
+        int $tenantId
+    ): void {
+        if (!$warehouseId || !($product->track_batches ?? false)) {
+            return;
+        }
+
+        try {
+            $servico = app(\App\Services\BatchAllocationService::class);
+
+            $alocacao = $servico->allocateFIFO($product->id, (int) $warehouseId, $quantidade);
+
+            if (!$alocacao['success']) {
+                Log::warning('PosSaleService: sem lotes para a venda offline; stock descontado sem lote', [
+                    'invoice'    => $invoice->invoice_number,
+                    'product_id' => $product->id,
+                    'quantidade' => $quantidade,
+                    'motivo'     => $alocacao['message'] ?? null,
+                ]);
+
+                return;
+            }
+
+            $servico->confirmAllocation($alocacao['allocations']);
+
+            foreach ($alocacao['allocations'] as $parte) {
+                \App\Models\Invoicing\BatchAllocation::create([
+                    'tenant_id'             => $tenantId,
+                    'document_type'         => SalesInvoice::class,
+                    'document_id'           => $invoice->id,
+                    'document_item_id'      => $linha->id,
+                    'product_batch_id'      => $parte['batch_id'],
+                    'product_id'            => $product->id,
+                    'quantity_allocated'    => $parte['quantity'],
+                    'expiry_date_snapshot'  => $parte['expiry_date'],
+                    'batch_number_snapshot' => $parte['batch_number'],
+                    'status'                => 'confirmed',
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // A venda não pode cair por causa dos lotes — ver acima.
+            Log::error('PosSaleService: falha ao consumir lotes', [
+                'invoice'    => $invoice->invoice_number,
+                'product_id' => $product->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
+    }
+
     protected function resolveClient(array $payload, int $tenantId): Client
     {
         $clientId = $payload['client_id'] ?? null;
