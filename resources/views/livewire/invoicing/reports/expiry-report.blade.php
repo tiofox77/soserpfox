@@ -6,8 +6,8 @@
                 <i class="fas fa-calendar-check text-xl sm:text-2xl"></i>
             </div>
             <div>
-                <h1 class="text-lg sm:text-2xl font-bold">Relatório de Validade de Produtos</h1>
-                <p class="text-orange-100 text-xs sm:text-sm">Controle e análise de produtos próximos da validade</p>
+                <h1 class="text-lg sm:text-2xl font-bold">{{ __('Relatório de Validade de Produtos') }}</h1>
+                <p class="text-orange-100 text-xs sm:text-sm">{{ __('Controle e análise de produtos próximos da validade') }}</p>
             </div>
         </div>
     </div>
@@ -18,7 +18,7 @@
             <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/40 mb-3">
                 <i class="fas fa-boxes text-white text-lg"></i>
             </div>
-            <p class="text-xs text-blue-600 font-semibold mb-1">Total c/ Validade</p>
+            <p class="text-xs text-blue-600 font-semibold mb-1">{{ __('Total c/ Validade') }}</p>
             <p class="text-2xl font-bold text-gray-900">{{ $stats['total_with_expiry'] }}</p>
         </div>
 
@@ -26,7 +26,7 @@
             <div class="w-11 h-11 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/40 mb-3">
                 <i class="fas fa-exclamation-circle text-white text-lg"></i>
             </div>
-            <p class="text-xs text-red-600 font-semibold mb-1">Expira em 7 dias</p>
+            <p class="text-xs text-red-600 font-semibold mb-1">{{ __('Expira em 7 dias') }}</p>
             <p class="text-2xl font-bold text-gray-900">{{ $stats['expiring_7_days'] }}</p>
         </div>
 
@@ -34,7 +34,7 @@
             <div class="w-11 h-11 bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/40 mb-3">
                 <i class="fas fa-exclamation-triangle text-white text-lg"></i>
             </div>
-            <p class="text-xs text-orange-600 font-semibold mb-1">Expira em 30 dias</p>
+            <p class="text-xs text-orange-600 font-semibold mb-1">{{ __('Expira em 30 dias') }}</p>
             <p class="text-2xl font-bold text-gray-900">{{ $stats['expiring_30_days'] }}</p>
         </div>
 
@@ -42,7 +42,7 @@
             <div class="w-11 h-11 bg-gradient-to-br from-gray-500 to-gray-700 rounded-xl flex items-center justify-center shadow-lg shadow-gray-500/40 mb-3">
                 <i class="fas fa-times-circle text-white text-lg"></i>
             </div>
-            <p class="text-xs text-gray-600 font-semibold mb-1">Já Expirados</p>
+            <p class="text-xs text-gray-600 font-semibold mb-1">{{ __('Já Expirados') }}</p>
             <p class="text-2xl font-bold text-gray-900">{{ $stats['expired'] }}</p>
         </div>
 
@@ -50,54 +50,54 @@
             <div class="w-11 h-11 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/40 mb-3">
                 <i class="fas fa-fire text-white text-lg"></i>
             </div>
-            <p class="text-xs text-red-600 font-semibold mb-1">Valor em Risco</p>
+            <p class="text-xs text-red-600 font-semibold mb-1">{{ __('Valor em Risco') }}</p>
             <p class="text-base font-bold text-gray-900">{{ number_format($stats['value_at_risk'], 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
-            <p class="text-[10px] text-gray-400 mt-0.5">Próximos 30 dias</p>
+            <p class="text-[10px] text-gray-400 mt-0.5">{{ __('Próximos 30 dias') }}</p>
         </div>
 
         <div class="bg-white rounded-2xl shadow-lg p-4 border border-gray-100">
             <div class="w-11 h-11 bg-gradient-to-br from-gray-600 to-gray-800 rounded-xl flex items-center justify-center shadow-lg shadow-gray-500/40 mb-3">
                 <i class="fas fa-ban text-white text-lg"></i>
             </div>
-            <p class="text-xs text-gray-600 font-semibold mb-1">Valor Perdido</p>
+            <p class="text-xs text-gray-600 font-semibold mb-1">{{ __('Valor Perdido') }}</p>
             <p class="text-base font-bold text-gray-900">{{ number_format($stats['value_lost'], 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
-            <p class="text-[10px] text-gray-400 mt-0.5">Produtos expirados</p>
+            <p class="text-[10px] text-gray-400 mt-0.5">{{ __('Produtos expirados') }}</p>
         </div>
     </div>
 
     {{-- Filters --}}
     <div class="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-900 flex items-center mb-4">
-            <i class="fas fa-filter mr-2 text-orange-600"></i>Filtros
+            <i class="fas fa-filter mr-2 text-orange-600"></i>{{ __('Filtros') }}
         </h3>
 
         <div class="grid grid-cols-1 md:grid-cols-6 gap-3 sm:gap-4">
             <div class="md:col-span-2">
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Tipo de Relatório</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Tipo de Relatório') }}</label>
                 <select wire:model.live="reportType" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
-                    <option value="expiring_soon">Expirando em Breve</option>
-                    <option value="expired">Já Expirados</option>
-                    <option value="all">Todos com Validade</option>
+                    <option value="expiring_soon">{{ __('Expirando em Breve') }}</option>
+                    <option value="expired">{{ __('Já Expirados') }}</option>
+                    <option value="all">{{ __('Todos com Validade') }}</option>
                 </select>
             </div>
 
             @if($reportType === 'expiring_soon')
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Dias</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Dias') }}</label>
                 <select wire:model.live="daysFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
-                    <option value="7">7 dias</option>
-                    <option value="15">15 dias</option>
-                    <option value="30">30 dias</option>
-                    <option value="60">60 dias</option>
-                    <option value="90">90 dias</option>
+                    <option value="7">{{ __('7 dias') }}</option>
+                    <option value="15">{{ __('15 dias') }}</option>
+                    <option value="30">{{ __('30 dias') }}</option>
+                    <option value="60">{{ __('60 dias') }}</option>
+                    <option value="90">{{ __('90 dias') }}</option>
                 </select>
             </div>
             @endif
 
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Armazém</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Armazém') }}</label>
                 <select wire:model.live="warehouseFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
-                    <option value="">Todos</option>
+                    <option value="">{{ __('Todos') }}</option>
                     @foreach($warehouses as $warehouse)
                         <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                     @endforeach
@@ -105,9 +105,9 @@
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Categoria</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Categoria') }}</label>
                 <select wire:model.live="categoryFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm bg-white">
-                    <option value="">Todas</option>
+                    <option value="">{{ __('Todas') }}</option>
                     @foreach($categories as $category)
                         <option value="{{ $category->id }}">{{ $category->name }}</option>
                     @endforeach
@@ -115,15 +115,15 @@
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Buscar</label>
-                <input type="text" wire:model.live="searchFilter" placeholder="Produto ou lote..." 
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Buscar') }}</label>
+                <input type="text" wire:model.live="searchFilter" placeholder="{{ __('Produto ou lote...') }}" 
                        class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition text-sm">
             </div>
 
             <div class="flex items-end">
                 <button wire:click="exportReport" 
                         class="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition font-semibold text-sm shadow-lg">
-                    <i class="fas fa-file-export mr-2"></i>Exportar
+                    <i class="fas fa-file-export mr-2"></i>{{ __('Exportar') }}
                 </button>
             </div>
         </div>
@@ -141,15 +141,15 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gradient-to-r from-orange-50 to-red-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Categoria</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Lote</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
-                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">Validade</th>
-                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">Dias</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase">Qtd Disp.</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase">Valor</th>
-                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Produto') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Categoria') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Lote') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Armazém') }}</th>
+                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Validade') }}</th>
+                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Dias') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase">{{ __('Qtd Disp.') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase">{{ __('Valor') }}</th>
+                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Status') }}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -224,7 +224,7 @@
                     <tr>
                         <td colspan="9" class="px-6 py-12 text-center text-gray-500">
                             <i class="fas fa-inbox text-4xl mb-4 text-gray-300"></i>
-                            <p>Nenhum produto encontrado com os filtros selecionados</p>
+                            <p>{{ __('Nenhum produto encontrado com os filtros selecionados') }}</p>
                         </td>
                     </tr>
                     @endforelse

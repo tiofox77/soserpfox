@@ -63,14 +63,13 @@ class PaymentModal extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => '💰 Modal de pagamento aberto'
+                'message' => __('💰 Modal de pagamento aberto')
             ]);
         } catch (\Exception $e) {
             \Log::error('Erro ao abrir modal', ['error' => $e->getMessage()]);
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao abrir modal: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro ao abrir modal: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 
@@ -160,8 +159,7 @@ class PaymentModal extends Component
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro de validação: ' . implode(', ', $e->validator->errors()->all())
-            ]);
+                'message' => __('Erro de validação: :detalhe', ['detalhe' => implode(', ', $e->validator->errors()->all())])]);
             return;
         }
 
@@ -284,8 +282,7 @@ class PaymentModal extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Erro ao registrar pagamento: ' . $e->getMessage()
-            ]);
+                'message' => __('❌ Erro ao registrar pagamento: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 

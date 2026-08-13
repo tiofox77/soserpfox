@@ -69,19 +69,19 @@ class AGTValidationModal extends Component
     {
         // Verificar se todos os checks estão marcados
         if (!collect($this->checks)->every(fn($checked) => $checked === true)) {
-            $this->dispatch('error', message: 'Marque todos os itens do checklist antes de aprovar');
+            $this->dispatch('error', message: __('Marque todos os itens do checklist antes de aprovar'));
             return;
         }
         
         if (empty($this->agt_category)) {
-            $this->dispatch('error', message: 'Selecione a categoria de teste AGT');
+            $this->dispatch('error', message: __('Selecione a categoria de teste AGT'));
             return;
         }
         
         // Aqui você pode salvar no banco se adicionar os campos
         // Por enquanto apenas fecha o modal
         
-        $this->dispatch('success', message: 'Documento validado para conformidade AGT!');
+        $this->dispatch('success', message: __('Documento validado para conformidade AGT!'));
         $this->close();
     }
     

@@ -164,7 +164,7 @@ class AGTDocumentGenerator extends Component
         } catch (\Exception $e) {
             DB::rollBack();
             $this->addLog('❌ ERRO: ' . $e->getMessage(), 'error');
-            $this->dispatch('error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
         } finally {
             $this->isGenerating = false;
             $this->currentStep = '';
@@ -1044,12 +1044,12 @@ class AGTDocumentGenerator extends Component
             
             $total = $invoiceCount + $proformaCount + $creditNoteCount + $debitNoteCount;
             $this->addLog("🎉 Limpeza concluída! Total: {$total} documentos removidos", 'success');
-            $this->dispatch('success', message: 'Todos os documentos foram limpos com sucesso!');
+            $this->dispatch('success', message: __('Todos os documentos foram limpos com sucesso!'));
             
         } catch (\Exception $e) {
             DB::rollBack();
             $this->addLog('❌ ERRO: ' . $e->getMessage(), 'error');
-            $this->dispatch('error', message: 'Erro ao limpar documentos: ' . $e->getMessage());
+            $this->dispatch('error', message: __('Erro ao limpar documentos: :detalhe', ['detalhe' => $e->getMessage()]));
         }
     }
     

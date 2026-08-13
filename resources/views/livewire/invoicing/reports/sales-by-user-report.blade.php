@@ -7,12 +7,12 @@
                     <i class="fas fa-user-tie text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold">Vendas por Vendedor</h1>
-                    <p class="text-blue-100 text-sm">Desempenho de vendas por utilizador (exclui canceladas/creditadas)</p>
+                    <h1 class="text-2xl font-bold">{{ __('Vendas por Vendedor') }}</h1>
+                    <p class="text-blue-100 text-sm">{{ __('Desempenho de vendas por utilizador (exclui canceladas/creditadas)') }}</p>
                 </div>
             </div>
             <a href="{{ route('invoicing.reports.hub') }}" class="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 text-sm font-semibold">
-                <i class="fas fa-arrow-left mr-1"></i>Relatórios
+                <i class="fas fa-arrow-left mr-1"></i>{{ __('Relatórios') }}
             </a>
         </div>
     </div>
@@ -21,22 +21,22 @@
     <div class="mb-6 bg-white rounded-2xl shadow p-5">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Período</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Período') }}</label>
                 <select wire:model.live="period" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="today">Hoje</option>
-                    <option value="week">Esta semana</option>
-                    <option value="month">Este mês</option>
-                    <option value="quarter">Trimestre</option>
-                    <option value="year">Ano</option>
-                    <option value="custom">Personalizado</option>
+                    <option value="today">{{ __('Hoje') }}</option>
+                    <option value="week">{{ __('Esta semana') }}</option>
+                    <option value="month">{{ __('Este mês') }}</option>
+                    <option value="quarter">{{ __('Trimestre') }}</option>
+                    <option value="year">{{ __('Ano') }}</option>
+                    <option value="custom">{{ __('Personalizado') }}</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">De</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('De') }}</label>
                 <input type="date" wire:model.live="dateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Até</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Até') }}</label>
                 <input type="date" wire:model.live="dateTo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
         </div>
@@ -45,30 +45,30 @@
     {{-- Totais --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div class="bg-white rounded-2xl shadow p-5 border border-blue-100">
-            <p class="text-xs text-gray-500 uppercase font-bold">Total Vendido</p>
+            <p class="text-xs text-gray-500 uppercase font-bold">{{ __('Total Vendido') }}</p>
             <p class="text-3xl font-bold text-blue-600">{{ number_format($grandTotal, 2, ',', '.') }} Kz</p>
         </div>
         <div class="bg-white rounded-2xl shadow p-5 border border-indigo-100">
-            <p class="text-xs text-gray-500 uppercase font-bold">Nº de Documentos</p>
+            <p class="text-xs text-gray-500 uppercase font-bold">{{ __('Nº de Documentos') }}</p>
             <p class="text-3xl font-bold text-indigo-600">{{ $grandCount }}</p>
         </div>
     </div>
 
     {{-- Tabela --}}
     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div class="px-6 py-4 border-b bg-gray-50"><h3 class="font-bold text-gray-900"><i class="fas fa-ranking-star mr-2 text-blue-600"></i>Ranking de Vendedores</h3></div>
+        <div class="px-6 py-4 border-b bg-gray-50"><h3 class="font-bold text-gray-900"><i class="fas fa-ranking-star mr-2 text-blue-600"></i>{{ __('Ranking de Vendedores') }}</h3></div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">#</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Vendedor</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Docs</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total Vendido</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Recebido</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Pendente</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Ticket Médio</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">% do Total</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Vendedor') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Docs') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Total Vendido') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Recebido') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Pendente') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Ticket Médio') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('% do Total') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -84,7 +84,7 @@
                             <td class="px-6 py-3 text-right text-gray-500">{{ $grandTotal > 0 ? number_format($row['total'] / $grandTotal * 100, 1) : '0,0' }}%</td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-6 py-10 text-center text-gray-400"><i class="fas fa-inbox text-3xl mb-2"></i><p class="text-sm">Sem vendas no período</p></td></tr>
+                        <tr><td colspan="8" class="px-6 py-10 text-center text-gray-400"><i class="fas fa-inbox text-3xl mb-2"></i><p class="text-sm">{{ __('Sem vendas no período') }}</p></td></tr>
                     @endforelse
                 </tbody>
                 @if($byUser->count() > 0)

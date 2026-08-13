@@ -2,31 +2,31 @@
     <div class="mb-6 bg-gradient-to-r from-pink-600 to-rose-600 rounded-2xl shadow-lg p-5 text-white flex items-center justify-between">
         <div class="flex items-center">
             <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3"><i class="fas fa-chart-pie text-2xl"></i></div>
-            <div><h2 class="text-2xl font-bold">Desempenho de Produtos</h2><p class="text-pink-100 text-sm">Vendas, compras, stock, lucro e rotação</p></div>
+            <div><h2 class="text-2xl font-bold">{{ __('Desempenho de Produtos') }}</h2><p class="text-pink-100 text-sm">{{ __('Vendas, compras, stock, lucro e rotação') }}</p></div>
         </div>
-        <a href="{{ route('invoicing.reports.hub') }}" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition"><i class="fas fa-arrow-left mr-1"></i>Voltar</a>
+        <a href="{{ route('invoicing.reports.hub') }}" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition"><i class="fas fa-arrow-left mr-1"></i>{{ __('Voltar') }}</a>
     </div>
 
     <x-report-filters color="pink">
         <x-slot:extra>
             <div class="grid grid-cols-2 gap-2">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tipo</label>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ __('Tipo') }}</label>
                     <select wire:model.live="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                        <option value="produto">Produtos</option>
-                        <option value="servico">Serviços</option>
-                        <option value="all">Todos</option>
+                        <option value="produto">{{ __('Produtos') }}</option>
+                        <option value="servico">{{ __('Serviços') }}</option>
+                        <option value="all">{{ __('Todos') }}</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Ordenar</label>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ __('Ordenar') }}</label>
                     <select wire:model.live="sortBy" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                        <option value="profit_desc">Maior lucro</option>
-                        <option value="revenue_desc">Maior receita</option>
-                        <option value="qty_sold_desc">Mais vendidos</option>
-                        <option value="margin_desc">Maior margem</option>
-                        <option value="rotation_desc">Maior rotação</option>
-                        <option value="stock_asc">Menor stock</option>
+                        <option value="profit_desc">{{ __('Maior lucro') }}</option>
+                        <option value="revenue_desc">{{ __('Maior receita') }}</option>
+                        <option value="qty_sold_desc">{{ __('Mais vendidos') }}</option>
+                        <option value="margin_desc">{{ __('Maior margem') }}</option>
+                        <option value="rotation_desc">{{ __('Maior rotação') }}</option>
+                        <option value="stock_asc">{{ __('Menor stock') }}</option>
                     </select>
                 </div>
             </div>
@@ -34,11 +34,11 @@
     </x-report-filters>
 
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-pink-500"><p class="text-xs font-bold text-pink-600 uppercase">Produtos</p><p class="text-2xl font-bold mt-1">{{ $totals['products_count'] }}</p></div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-green-500"><p class="text-xs font-bold text-green-600 uppercase">Vendido</p><p class="text-lg font-bold mt-1">{{ number_format($totals['qty_sold'], 2, ',', '.') }}</p></div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-orange-500"><p class="text-xs font-bold text-orange-600 uppercase">Comprado</p><p class="text-lg font-bold mt-1">{{ number_format($totals['qty_bought'], 2, ',', '.') }}</p></div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500"><p class="text-xs font-bold text-blue-600 uppercase">Receita</p><p class="text-lg font-bold mt-1 text-blue-700">{{ number_format($totals['revenue'], 2, ',', '.') }}</p></div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 {{ $totals['profit'] >= 0 ? 'border-emerald-500' : 'border-red-500' }}"><p class="text-xs font-bold {{ $totals['profit'] >= 0 ? 'text-emerald-600' : 'text-red-600' }} uppercase">Lucro</p><p class="text-lg font-bold mt-1 {{ $totals['profit'] >= 0 ? 'text-emerald-700' : 'text-red-700' }}">{{ number_format($totals['profit'], 2, ',', '.') }}</p></div>
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-pink-500"><p class="text-xs font-bold text-pink-600 uppercase">{{ __('Produtos') }}</p><p class="text-2xl font-bold mt-1">{{ $totals['products_count'] }}</p></div>
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-green-500"><p class="text-xs font-bold text-green-600 uppercase">{{ __('Vendido') }}</p><p class="text-lg font-bold mt-1">{{ number_format($totals['qty_sold'], 2, ',', '.') }}</p></div>
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-orange-500"><p class="text-xs font-bold text-orange-600 uppercase">{{ __('Comprado') }}</p><p class="text-lg font-bold mt-1">{{ number_format($totals['qty_bought'], 2, ',', '.') }}</p></div>
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500"><p class="text-xs font-bold text-blue-600 uppercase">{{ __('Receita') }}</p><p class="text-lg font-bold mt-1 text-blue-700">{{ number_format($totals['revenue'], 2, ',', '.') }}</p></div>
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 {{ $totals['profit'] >= 0 ? 'border-emerald-500' : 'border-red-500' }}"><p class="text-xs font-bold {{ $totals['profit'] >= 0 ? 'text-emerald-600' : 'text-red-600' }} uppercase">{{ __('Lucro') }}</p><p class="text-lg font-bold mt-1 {{ $totals['profit'] >= 0 ? 'text-emerald-700' : 'text-red-700' }}">{{ number_format($totals['profit'], 2, ',', '.') }}</p></div>
     </div>
 
     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -46,17 +46,17 @@
             <table class="w-full text-xs">
                 <thead class="bg-gray-50 uppercase text-gray-600">
                     <tr>
-                        <th class="px-3 py-2 text-left">Produto</th>
-                        <th class="px-3 py-2 text-center">Tipo</th>
-                        <th class="px-3 py-2 text-right">Preço</th>
-                        <th class="px-3 py-2 text-right">Custo</th>
-                        <th class="px-3 py-2 text-right">Stock</th>
-                        <th class="px-3 py-2 text-right">Vendido</th>
-                        <th class="px-3 py-2 text-right">Comprado</th>
-                        <th class="px-3 py-2 text-right">Receita</th>
-                        <th class="px-3 py-2 text-right">Lucro</th>
-                        <th class="px-3 py-2 text-right">Margem</th>
-                        <th class="px-3 py-2 text-center">Rotação</th>
+                        <th class="px-3 py-2 text-left">{{ __('Produto') }}</th>
+                        <th class="px-3 py-2 text-center">{{ __('Tipo') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Preço') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Custo') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Stock') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Vendido') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Comprado') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Receita') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Lucro') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Margem') }}</th>
+                        <th class="px-3 py-2 text-center">{{ __('Rotação') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -88,7 +88,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="11" class="px-3 py-8 text-center text-gray-400 italic">Sem movimento no período</td></tr>
+                        <tr><td colspan="11" class="px-3 py-8 text-center text-gray-400 italic">{{ __('Sem movimento no período') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

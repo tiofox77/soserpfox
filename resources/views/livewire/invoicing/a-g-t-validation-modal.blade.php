@@ -32,7 +32,7 @@
                 <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4">
                     <h4 class="font-bold text-green-900 mb-2 flex items-center">
                         <i class="fas fa-check-circle mr-2"></i>
-                        Documento Conforme AGT
+                        {{ __('Documento Conforme AGT') }}
                     </h4>
                 </div>
                 @endif
@@ -41,16 +41,16 @@
                 <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
                     <h4 class="font-bold text-blue-900 mb-3 flex items-center">
                         <i class="fas fa-tasks mr-2"></i>
-                        Checklist de Conformidade
+                        {{ __('Checklist de Conformidade') }}
                     </h4>
                     <div class="space-y-2">
                         <label class="flex items-center cursor-pointer p-2 rounded hover:bg-blue-100">
                             <input type="checkbox" wire:model="checks.hash" class="w-5 h-5 mr-3">
-                            <span class="text-sm">Hash presente: <code>{{ substr($document->hash ?? '', 0, 4) }}</code></span>
+                            <span class="text-sm">{{ __('Hash presente:') }} <code>{{ substr($document->hash ?? '', 0, 4) }}</code></span>
                         </label>
                         <label class="flex items-center cursor-pointer p-2 rounded hover:bg-blue-100">
                             <input type="checkbox" wire:model="checks.footer_message" class="w-5 h-5 mr-3">
-                            <span class="text-sm">Mensagem AGT visível</span>
+                            <span class="text-sm">{{ __('Mensagem AGT visível') }}</span>
                         </label>
                         <label class="flex items-center cursor-pointer p-2 rounded hover:bg-blue-100">
                             <input type="checkbox" wire:model="checks.period" class="w-5 h-5 mr-3">
@@ -58,20 +58,20 @@
                         </label>
                         <label class="flex items-center cursor-pointer p-2 rounded hover:bg-blue-100">
                             <input type="checkbox" wire:model="checks.totals" class="w-5 h-5 mr-3">
-                            <span class="text-sm">Totais corretos</span>
+                            <span class="text-sm">{{ __('Totais corretos') }}</span>
                         </label>
                         <label class="flex items-center cursor-pointer p-2 rounded hover:bg-blue-100">
                             <input type="checkbox" wire:model="checks.client" class="w-5 h-5 mr-3">
-                            <span class="text-sm">Cliente identificado</span>
+                            <span class="text-sm">{{ __('Cliente identificado') }}</span>
                         </label>
                     </div>
                 </div>
                 
                 {{-- Categoria --}}
                 <div>
-                    <label class="block font-semibold mb-2">Categoria de Teste AGT</label>
+                    <label class="block font-semibold mb-2">{{ __('Categoria de Teste AGT') }}</label>
                     <select wire:model="agt_category" class="w-full px-4 py-3 border-2 rounded-xl">
-                        <option value="">Selecione...</option>
+                        <option value="">{{ __('Selecione...') }}</option>
                         @foreach($testCategories as $code => $name)
                             <option value="{{ $code }}">{{ $code }}. {{ $name }}</option>
                         @endforeach
@@ -80,7 +80,7 @@
                 
                 {{-- Observações --}}
                 <div>
-                    <label class="block font-semibold mb-2">Observações</label>
+                    <label class="block font-semibold mb-2">{{ __('Observações') }}</label>
                     <textarea wire:model="agt_notes" rows="3" class="w-full px-4 py-3 border-2 rounded-xl"></textarea>
                 </div>
             </div>
@@ -88,11 +88,11 @@
             {{-- Actions --}}
             <div class="px-6 pb-6 flex gap-3">
                 <button wire:click="close" class="flex-1 px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-xl">
-                    Cancelar
+                    {{ __('Cancelar') }}
                 </button>
                 <button wire:click="markAsCompliant" class="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl">
                     <i class="fas fa-check-circle mr-2"></i>
-                    Marcar como Conforme
+                    {{ __('Marcar como Conforme') }}
                 </button>
             </div>
         </div>

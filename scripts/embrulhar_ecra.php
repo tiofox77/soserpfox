@@ -237,7 +237,19 @@ foreach ($ficheiros as $relativo) {
 
     printf("%-64s %3d\n", $relativo, count($unicas));
 
+    // Um preg_replace_callback que falha devolve NULL, e escrever NULL
+    // esvazia o ficheiro. Aconteceu — uma classe de caracteres mal fechada
+    // numa expressão apagou um ecrã inteiro, em silêncio, com o script a
+    // dizer "0 cadeias" como se não tivesse feito nada.
+    //
+    // Um ficheiro nunca encolhe ao ser embrulhado: só se lhe acrescenta
+    // "{{ __(' ') }}". Se encolheu, alguma coisa correu mal e não se grava.
     if ($escrever && $fonte !== $antes) {
+        if (!is_string($fonte) || strlen($fonte) < strlen($antes)) {
+            fwrite(STDERR, "ABORTADO em {$relativo}: o resultado é menor do que o original.\n");
+            exit(1);
+        }
+
         file_put_contents($caminho, $fonte);
     }
 }

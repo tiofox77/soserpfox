@@ -10,7 +10,7 @@
                         <i class="fas fa-money-bill-wave text-white text-2xl"></i>
                     </div>
                     <div>
-                        <h3 class="text-white font-bold text-xl">Registrar Pagamento</h3>
+                        <h3 class="text-white font-bold text-xl">{{ __('Registrar Pagamento') }}</h3>
                         <p class="text-blue-100 text-sm">Fatura: {{ $invoice->invoice_number ?? 'N/A' }}</p>
                     </div>
                 </div>
@@ -24,21 +24,21 @@
         <div class="p-6 bg-blue-50 border-b-2 border-blue-200">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Cliente/Fornecedor</p>
+                    <p class="text-xs text-gray-600 font-semibold uppercase">{{ __('Cliente/Fornecedor') }}</p>
                     <p class="font-bold text-gray-900">
                         {{ $invoiceType === 'sale' ? $invoice->client->name : $invoice->supplier->name }}
                     </p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Total da Fatura</p>
+                    <p class="text-xs text-gray-600 font-semibold uppercase">{{ __('Total da Fatura') }}</p>
                     <p class="font-bold text-2xl text-blue-600">{{ number_format($invoice->total, 2) }} AOA</p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Já Pago</p>
+                    <p class="text-xs text-gray-600 font-semibold uppercase">{{ __('Já Pago') }}</p>
                     <p class="font-bold text-green-600">{{ number_format($invoice->paid_amount ?? 0, 2) }} AOA</p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-600 font-semibold uppercase">Valor em Dívida</p>
+                    <p class="text-xs text-gray-600 font-semibold uppercase">{{ __('Valor em Dívida') }}</p>
                     <p class="font-bold text-2xl text-red-600">{{ number_format($total_due, 2) }} AOA</p>
                 </div>
             </div>
@@ -49,17 +49,17 @@
             {{-- Método de Pagamento --}}
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                    <i class="fas fa-credit-card mr-1 text-blue-600"></i>Método de Pagamento *
+                    <i class="fas fa-credit-card mr-1 text-blue-600"></i>{{ __('Método de Pagamento *') }}
                 </label>
                 <select wire:model.live="payment_method" 
                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500">
-                    <option value="cash">💵 Dinheiro</option>
-                    <option value="transfer">🏦 Transferência Bancária</option>
-                    <option value="multicaixa">💳 Multicaixa</option>
+                    <option value="cash">💵 {{ __('Dinheiro') }}</option>
+                    <option value="transfer">🏦 {{ __('Transferência Bancária') }}</option>
+                    <option value="multicaixa">💳 {{ __('Multicaixa') }}</option>
                     <option value="tpa">💳 TPA</option>
-                    <option value="check">📝 Cheque</option>
-                    <option value="mbway">📱 MB Way</option>
-                    <option value="other">❓ Outro</option>
+                    <option value="check">📝 {{ __('Cheque') }}</option>
+                    <option value="mbway">📱 {{ __('MB Way') }}</option>
+                    <option value="other">❓ {{ __('Outro') }}</option>
                 </select>
             </div>
 
@@ -67,7 +67,7 @@
             @if($payment_method !== 'cash')
             <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                    <i class="fas fa-university mr-1 text-blue-600"></i>Conta Bancária de Destino *
+                    <i class="fas fa-university mr-1 text-blue-600"></i>{{ __('Conta Bancária de Destino *') }}
                 </label>
                 <select wire:model="selected_account_id" 
                         class="w-full px-4 py-3 border-2 border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white">
@@ -78,18 +78,18 @@
                             - Saldo: {{ number_format($account->current_balance, 2) }} {{ $account->currency }}
                         </option>
                     @empty
-                        <option value="">Nenhuma conta cadastrada</option>
+                        <option value="">{{ __('Nenhuma conta cadastrada') }}</option>
                     @endforelse
                 </select>
                 <p class="text-xs text-blue-600 mt-2">
-                    <i class="fas fa-info-circle mr-1"></i>O saldo desta conta será atualizado automaticamente
+                    <i class="fas fa-info-circle mr-1"></i>{{ __('O saldo desta conta será atualizado automaticamente') }}
                 </p>
             </div>
             @else
             {{-- Seleção de Caixa (quando for dinheiro) --}}
             <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                    <i class="fas fa-cash-register mr-1 text-orange-600"></i>Caixa de Destino *
+                    <i class="fas fa-cash-register mr-1 text-orange-600"></i>{{ __('Caixa de Destino *') }}
                 </label>
                 <select wire:model="selected_cash_register_id" 
                         class="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:ring-2 focus:ring-orange-500 bg-white">
@@ -100,11 +100,11 @@
                             - Saldo: {{ number_format($cash->current_balance, 2) }} AOA
                         </option>
                     @empty
-                        <option value="">Nenhum caixa cadastrado</option>
+                        <option value="">{{ __('Nenhum caixa cadastrado') }}</option>
                     @endforelse
                 </select>
                 <p class="text-xs text-orange-600 mt-2">
-                    <i class="fas fa-info-circle mr-1"></i>O saldo deste caixa será atualizado automaticamente
+                    <i class="fas fa-info-circle mr-1"></i>{{ __('O saldo deste caixa será atualizado automaticamente') }}
                 </p>
             </div>
             @endif
@@ -112,7 +112,7 @@
             {{-- Valor do Pagamento --}}
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                    <i class="fas fa-money-bill-wave mr-1 text-blue-600"></i>Valor do Pagamento (AOA) *
+                    <i class="fas fa-money-bill-wave mr-1 text-blue-600"></i>{{ __('Valor do Pagamento (AOA) *') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -139,7 +139,7 @@
                            class="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500">
                     <span class="ml-3 font-bold text-gray-900">
                         <i class="fas fa-coins text-yellow-600 mr-1"></i>
-                        Usar Adiantamento do Cliente
+                        {{ __('Usar Adiantamento do Cliente') }}
                     </span>
                 </label>
 
@@ -155,7 +155,7 @@
                     </select>
 
                     <div class="bg-white rounded-lg p-3 border border-yellow-300">
-                        <p class="text-sm font-semibold text-gray-700">Valor do Adiantamento a Usar:</p>
+                        <p class="text-sm font-semibold text-gray-700">{{ __('Valor do Adiantamento a Usar:') }}</p>
                         <p class="text-2xl font-bold text-yellow-600">{{ number_format($advance_amount, 2) }} AOA</p>
                     </div>
                 </div>
@@ -166,51 +166,51 @@
             {{-- Referência --}}
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                    <i class="fas fa-hashtag mr-1 text-blue-600"></i>Referência
+                    <i class="fas fa-hashtag mr-1 text-blue-600"></i>{{ __('Referência') }}
                 </label>
                 <input type="text" wire:model="reference" 
                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500" 
-                       placeholder="Ex: Nº comprovante...">
+                       placeholder="{{ __('Ex: Nº comprovante...') }}">
             </div>
 
             {{-- Observações --}}
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                    <i class="fas fa-comment mr-1 text-blue-600"></i>Observações
+                    <i class="fas fa-comment mr-1 text-blue-600"></i>{{ __('Observações') }}
                 </label>
                 <textarea wire:model="notes" rows="2" 
                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500"
-                          placeholder="Observações sobre o pagamento..."></textarea>
+                          placeholder="{{ __('Observações sobre o pagamento...') }}"></textarea>
             </div>
 
             {{-- Resumo do Pagamento --}}
             <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
                 <h4 class="font-bold text-green-800 mb-3 flex items-center">
-                    <i class="fas fa-calculator mr-2"></i>Resumo do Pagamento
+                    <i class="fas fa-calculator mr-2"></i>{{ __('Resumo do Pagamento') }}
                 </h4>
                 <div class="space-y-2">
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-700">Pagamento em Dinheiro:</span>
+                        <span class="text-gray-700">{{ __('Pagamento em Dinheiro:') }}</span>
                         <span class="font-bold">{{ number_format($amount, 2) }} AOA</span>
                     </div>
                     @if($use_advance && $advance_amount > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-700">Adiantamento Usado:</span>
+                        <span class="text-gray-700">{{ __('Adiantamento Usado:') }}</span>
                         <span class="font-bold text-yellow-600">{{ number_format($advance_amount, 2) }} AOA</span>
                     </div>
                     @endif
                     <div class="border-t-2 border-green-300 pt-2 flex justify-between">
-                        <span class="font-bold text-gray-900">Total do Pagamento:</span>
+                        <span class="font-bold text-gray-900">{{ __('Total do Pagamento:') }}</span>
                         <span class="font-bold text-2xl text-green-600">
                             {{ number_format(($amount ?? 0) + ($advance_amount ?? 0), 2) }} AOA
                         </span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-700">Valor da Fatura:</span>
+                        <span class="text-gray-700">{{ __('Valor da Fatura:') }}</span>
                         <span class="font-bold text-gray-800">{{ number_format($total_due, 2) }} AOA</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-700">Restante Após Pagamento:</span>
+                        <span class="text-gray-700">{{ __('Restante Após Pagamento:') }}</span>
                         <span class="font-bold {{ $remaining_after_payment > 0 ? 'text-red-600' : 'text-green-600' }}">
                             {{ number_format($remaining_after_payment, 2) }} AOA
                         </span>
@@ -222,19 +222,19 @@
                     
                     @if($overpayment > 0)
                     <div class="bg-yellow-100 border-2 border-yellow-400 rounded-lg p-2 mt-2">
-                        <p class="text-xs text-yellow-800 font-semibold mb-1">💰 Adiantamento Automático:</p>
+                        <p class="text-xs text-yellow-800 font-semibold mb-1">💰 {{ __('Adiantamento Automático:') }}</p>
                         <p class="font-bold text-lg text-yellow-700">{{ number_format($overpayment, 2) }} AOA</p>
-                        <p class="text-xs text-yellow-700">Será criado para uso futuro</p>
+                        <p class="text-xs text-yellow-700">{{ __('Será criado para uso futuro') }}</p>
                     </div>
                     @endif
                     
                     <div class="bg-white rounded-lg p-2 mt-2">
-                        <p class="text-xs text-gray-600">Novo Status da Fatura:</p>
+                        <p class="text-xs text-gray-600">{{ __('Novo Status da Fatura:') }}</p>
                         <p class="font-bold text-lg">
                             @if((($amount ?? 0) + ($advance_amount ?? 0)) >= $total_due)
                                 <span class="text-green-600">✅ PAGA</span>
                             @elseif(($amount ?? 0) + ($advance_amount ?? 0) > 0)
-                                <span class="text-yellow-600">⚠️ PARCIALMENTE PAGA</span>
+                                <span class="text-yellow-600">⚠️ {{ __('PARCIALMENTE PAGA') }}</span>
                             @else
                                 <span class="text-red-600">❌ PENDENTE</span>
                             @endif
@@ -248,17 +248,17 @@
         <div class="bg-gray-50 px-4 sm:px-6 py-4 border-t-2 border-gray-200 flex gap-3">
             <button wire:click="close" 
                     class="flex-1 px-4 sm:px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition-all duration-300 hover:scale-105 active:scale-95">
-                <i class="fas fa-times mr-2"></i>Cancelar
+                <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
             </button>
             <button wire:click="registerPayment" 
                     wire:loading.attr="disabled"
                     wire:loading.class="opacity-70 scale-95"
                     class="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                 <span wire:loading.remove>
-                    <i class="fas fa-check-circle mr-2"></i>Registrar Pagamento
+                    <i class="fas fa-check-circle mr-2"></i>{{ __('Registrar Pagamento') }}
                 </span>
                 <span wire:loading>
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
+                    <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Processando...') }}
                 </span>
             </button>
         </div>

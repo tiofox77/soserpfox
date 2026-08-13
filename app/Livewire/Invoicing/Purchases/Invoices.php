@@ -136,7 +136,7 @@ class Invoices extends Component
 
         $this->dispatch('notify', [
             'type' => 'error',
-            'message' => 'As facturas de compra não se eliminam. Use "Anular" — reverte o stock e mantém o registo.',
+            'message' => __('As facturas de compra não se eliminam. Use "Anular" — reverte o stock e mantém o registo.'),
         ]);
     }
 
@@ -150,12 +150,12 @@ class Invoices extends Component
             ->findOrFail($invoiceId);
 
         if ($invoice->status === 'cancelled') {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Esta fatura já está anulada.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Esta fatura já está anulada.')]);
             return;
         }
 
         if ($invoice->status === 'draft') {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Um rascunho não precisa de ser anulado — pode ser eliminado.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Um rascunho não precisa de ser anulado — pode ser eliminado.')]);
             return;
         }
 
@@ -165,11 +165,11 @@ class Invoices extends Component
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Fatura de compra anulada. O stock foi revertido.',
+                'message' => __('Fatura de compra anulada. O stock foi revertido.'),
             ]);
         } catch (\Throwable $e) {
             \Log::error('Purchases\Invoices::cancelInvoice', ['invoice' => $invoiceId, 'error' => $e->getMessage()]);
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Erro ao anular: ' . $e->getMessage()]);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Erro ao anular: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 
@@ -181,7 +181,9 @@ class Invoices extends Component
         if (in_array($invoice->status, ['paid', 'cancelled'])) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Esta fatura já está ' . ($invoice->status === 'paid' ? 'paga' : 'cancelada') . '.'
+                'message' => $invoice->status === 'paid'
+                    ? __('Esta fatura já está paga.')
+                    : __('Esta fatura já está cancelada.')
             ]);
             return;
         }
@@ -193,14 +195,13 @@ class Invoices extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Fatura marcada como paga!'
+                'message' => __('Fatura marcada como paga!')
             ]);
             
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao atualizar fatura: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro ao atualizar fatura: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 

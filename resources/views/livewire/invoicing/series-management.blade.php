@@ -5,14 +5,14 @@
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 flex items-center">
                     <i class="fas fa-hashtag mr-3 text-purple-600"></i>
-                    Gestão de Séries de Documentos
+                    {{ __('Gestão de Séries de Documentos') }}
                 </h1>
-                <p class="text-gray-600 mt-2">Configure as séries e numeração dos documentos fiscais</p>
+                <p class="text-gray-600 mt-2">{{ __('Configure as séries e numeração dos documentos fiscais') }}</p>
             </div>
             <button wire:click="openCreateModal" 
                     class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg">
                 <i class="fas fa-plus mr-2"></i>
-                Nova Série
+                {{ __('Nova Série') }}
             </button>
         </div>
     </div>
@@ -21,25 +21,25 @@
     <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Pesquisar</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search" 
                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                       placeholder="🔍 Buscar por nome ou código...">
+                       placeholder="{{ __('🔍 Buscar por nome ou código...') }}">
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Filtrar por Tipo</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Filtrar por Tipo') }}</label>
                 <select wire:model.live="filterType" 
                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
-                    <option value="">Todos os tipos</option>
-                    <option value="invoice">Faturas (FT)</option>
-                    <option value="proforma">Proformas (PR)</option>
-                    <option value="pos">Fatura-Recibo POS (FR)</option>
-                    <option value="receipt">Recibos (RC)</option>
-                    <option value="credit_note">Notas de Crédito (NC)</option>
-                    <option value="debit_note">Notas de Débito (ND)</option>
-                    <option value="purchase">Faturas de Compra (FC)</option>
-                    <option value="advance">Adiantamentos (AD)</option>
-                    <option value="transport">Guias de Transporte (GT)</option>
+                    <option value="">{{ __('Todos os tipos') }}</option>
+                    <option value="invoice">{{ __('Faturas (FT)') }}</option>
+                    <option value="proforma">{{ __('Proformas (PR)') }}</option>
+                    <option value="pos">{{ __('Fatura-Recibo POS (FR)') }}</option>
+                    <option value="receipt">{{ __('Recibos (RC)') }}</option>
+                    <option value="credit_note">{{ __('Notas de Crédito (NC)') }}</option>
+                    <option value="debit_note">{{ __('Notas de Débito (ND)') }}</option>
+                    <option value="purchase">{{ __('Faturas de Compra (FC)') }}</option>
+                    <option value="advance">{{ __('Adiantamentos (AD)') }}</option>
+                    <option value="transport">{{ __('Guias de Transporte (GT)') }}</option>
                 </select>
             </div>
         </div>
@@ -52,28 +52,28 @@
                 <thead class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-file mr-1"></i>Tipo
+                            <i class="fas fa-file mr-1"></i>{{ __('Tipo') }}
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-tag mr-1"></i>Código
+                            <i class="fas fa-tag mr-1"></i>{{ __('Código') }}
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-signature mr-1"></i>Nome
+                            <i class="fas fa-signature mr-1"></i>{{ __('Nome') }}
                         </th>
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-eye mr-1"></i>Pré-visualização
+                            <i class="fas fa-eye mr-1"></i>{{ __('Pré-visualização') }}
                         </th>
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-sort-numeric-down mr-1"></i>Próximo Nº
+                            <i class="fas fa-sort-numeric-down mr-1"></i>{{ __('Próximo Nº') }}
                         </th>
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-toggle-on mr-1"></i>Status
+                            <i class="fas fa-toggle-on mr-1"></i>{{ __('Status') }}
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider" title="DS.120 §4.6: A=Aberta, U=Em utilização, F=Fechada">
-                            <i class="fas fa-shield-alt mr-1"></i>Estado AGT
+                        <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider" title="{{ __('DS.120 §4.6: A=Aberta, U=Em utilização, F=Fechada') }}">
+                            <i class="fas fa-shield-alt mr-1"></i>{{ __('Estado AGT') }}
                         </th>
                         <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">
-                            <i class="fas fa-cog mr-1"></i>Ações
+                            <i class="fas fa-cog mr-1"></i>{{ __('Ações') }}
                         </th>
                     </tr>
                 </thead>
@@ -102,7 +102,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="text-lg font-bold text-purple-600">{{ $item->series_code }}</span>
                             @if($item->is_default)
-                                <span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded">PADRÃO</span>
+                                <span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded">{{ __('PADRÃO') }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4">
@@ -122,11 +122,11 @@
                         <td class="px-6 py-4 text-center">
                             @if($item->is_active)
                                 <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-check-circle mr-1"></i>Ativa
+                                    <i class="fas fa-check-circle mr-1"></i>{{ __('Ativa') }}
                                 </span>
                             @else
                                 <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-times-circle mr-1"></i>Inativa
+                                    <i class="fas fa-times-circle mr-1"></i>{{ __('Inativa') }}
                                 </span>
                             @endif
                         </td>
@@ -145,12 +145,12 @@
                                     <i class="fas {{ $agtBadge['icon'] }} mr-1"></i>{{ $agtBadge['label'] }}
                                 </span>
                             @elseif($item->isAGTRegistered())
-                                <span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full" title="Registada na AGT mas sem estado A/U/F sincronizado">
+                                <span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full" title="{{ __('Registada na AGT mas sem estado A/U/F sincronizado') }}">
                                     <i class="fas fa-question-circle mr-1"></i>—
                                 </span>
                             @else
                                 <span class="px-2 py-1 bg-slate-50 text-slate-400 text-[10px] rounded-full">
-                                    Não AGT
+                                    {{ __('Não AGT') }}
                                 </span>
                             @endif
                         </td>
@@ -172,8 +172,8 @@
                         <td colspan="8" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center justify-center">
                                 <i class="fas fa-hashtag text-6xl text-gray-300 mb-4"></i>
-                                <p class="text-gray-500 text-lg font-semibold">Nenhuma série encontrada</p>
-                                <p class="text-gray-400 text-sm mt-2">Crie a primeira série de documentos</p>
+                                <p class="text-gray-500 text-lg font-semibold">{{ __('Nenhuma série encontrada') }}</p>
+                                <p class="text-gray-400 text-sm mt-2">{{ __('Crie a primeira série de documentos') }}</p>
                             </div>
                         </td>
                     </tr>
@@ -209,19 +209,19 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fas fa-file mr-1 text-blue-500"></i>
-                        Tipo de Documento *
+                        {{ __('Tipo de Documento *') }}
                     </label>
                     <select wire:model="document_type" 
                             class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
-                        <option value="invoice">Fatura (FT)</option>
-                        <option value="proforma">Proforma (PR)</option>
-                        <option value="pos">Fatura-Recibo POS (FR)</option>
-                        <option value="receipt">Recibo (RC)</option>
-                        <option value="credit_note">Nota de Crédito (NC)</option>
-                        <option value="debit_note">Nota de Débito (ND)</option>
-                        <option value="purchase">Fatura de Compra (FC)</option>
-                        <option value="advance">Adiantamento (AD)</option>
-                        <option value="transport">Guia de Transporte (GT)</option>
+                        <option value="invoice">{{ __('Fatura (FT)') }}</option>
+                        <option value="proforma">{{ __('Proforma (PR)') }}</option>
+                        <option value="pos">{{ __('Fatura-Recibo POS (FR)') }}</option>
+                        <option value="receipt">{{ __('Recibo (RC)') }}</option>
+                        <option value="credit_note">{{ __('Nota de Crédito (NC)') }}</option>
+                        <option value="debit_note">{{ __('Nota de Débito (ND)') }}</option>
+                        <option value="purchase">{{ __('Fatura de Compra (FC)') }}</option>
+                        <option value="advance">{{ __('Adiantamento (AD)') }}</option>
+                        <option value="transport">{{ __('Guia de Transporte (GT)') }}</option>
                     </select>
                     @error('document_type') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
@@ -231,7 +231,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-tag mr-1 text-blue-500"></i>
-                            Prefixo (FT, PRF, RC) *
+                            {{ __('Prefixo (FT, PRF, RC) *') }}
                         </label>
                         <input type="text" wire:model="prefix" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
@@ -243,11 +243,11 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-barcode mr-1 text-blue-500"></i>
-                            Código da Série *
+                            {{ __('Código da Série *') }}
                         </label>
                         <input type="text" wire:model="series_code" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                               placeholder="A, B, 01, etc">
+                               placeholder="{{ __('A, B, 01, etc') }}">
                         @error('series_code') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
                 </div>
@@ -256,11 +256,11 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fas fa-signature mr-1 text-blue-500"></i>
-                        Nome da Série *
+                        {{ __('Nome da Série *') }}
                     </label>
                     <input type="text" wire:model="name" 
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                           placeholder="Ex: Vendas Loja, Vendas Online">
+                           placeholder="{{ __('Ex: Vendas Loja, Vendas Online') }}">
                     @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
 
@@ -269,7 +269,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-sort-numeric-down mr-1 text-blue-500"></i>
-                            Próximo Número *
+                            {{ __('Próximo Número *') }}
                         </label>
                         <input type="number" wire:model="next_number" min="1" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
@@ -279,7 +279,7 @@
                     {{-- Zeros à esquerda --}}
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Zeros à Esquerda *
+                            {{ __('Zeros à Esquerda *') }}
                         </label>
                         <input type="number" wire:model="number_padding" min="1" max="10" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
@@ -295,7 +295,7 @@
                         <input type="checkbox" wire:model="include_year" 
                                class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                         <span class="ml-3 text-sm font-semibold text-gray-700">
-                            Incluir ano no formato (FT A/2025/000001)
+                            {{ __('Incluir ano no formato (FT A/2025/000001)') }}
                         </span>
                     </label>
 
@@ -303,7 +303,7 @@
                         <input type="checkbox" wire:model="reset_yearly" 
                                class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                         <span class="ml-3 text-sm font-semibold text-gray-700">
-                            Resetar numeração anualmente
+                            {{ __('Resetar numeração anualmente') }}
                         </span>
                     </label>
 
@@ -311,7 +311,7 @@
                         <input type="checkbox" wire:model="is_default" 
                                class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                         <span class="ml-3 text-sm font-semibold text-gray-700">
-                            Definir como série padrão
+                            {{ __('Definir como série padrão') }}
                         </span>
                     </label>
 
@@ -319,7 +319,7 @@
                         <input type="checkbox" wire:model="is_active" 
                                class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                         <span class="ml-3 text-sm font-semibold text-gray-700">
-                            Série ativa
+                            {{ __('Série ativa') }}
                         </span>
                     </label>
                 </div>
@@ -328,27 +328,27 @@
                 <div class="p-4 bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-xl space-y-3">
                     <h4 class="text-sm font-bold text-emerald-900 flex items-center gap-2">
                         <i class="fas fa-shield-alt text-emerald-600"></i>
-                        Configuração AGT (Facturação Electrónica)
+                        {{ __('Configuração AGT (Facturação Electrónica)') }}
                     </h4>
                     <p class="text-xs text-emerald-800/80">
-                        Estes campos só são usados ao registar a série na AGT (`SolicitarSerie`).
+                        {{ __('Estes campos só são usados ao registar a série na AGT (`SolicitarSerie`).') }}
                     </p>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 mb-1">
-                                Ano da Série
-                                <span class="text-[10px] text-gray-500">(DS.120 §4.5)</span>
+                                {{ __('Ano da Série') }}
+                                <span class="text-[10px] text-gray-500">{{ __('(DS.120 §4.5)') }}</span>
                             </label>
                             <input type="number" wire:model="series_year" min="2024" max="2099"
                                 class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none text-sm">
                             @error('series_year')
                                 <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
                             @enderror
-                            <p class="text-[10px] text-gray-500 mt-1">Jan–15Dez: ano corrente. Após 15Dez: corrente ou seguinte.</p>
+                            <p class="text-[10px] text-gray-500 mt-1">{{ __('Jan–15Dez: ano corrente. Após 15Dez: corrente ou seguinte.') }}</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 mb-1">
-                                Estabelecimento
+                                {{ __('Estabelecimento') }}
                             </label>
                             <input type="text" wire:model="establishment_number" placeholder="SEDE"
                                 class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none text-sm">
@@ -358,15 +358,15 @@
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 mb-1">
-                                Método de Facturação
-                                <span class="text-[10px] text-gray-500">(DS.120 §4.6)</span>
+                                {{ __('Método de Facturação') }}
+                                <span class="text-[10px] text-gray-500">{{ __('(DS.120 §4.6)') }}</span>
                             </label>
                             <select wire:model="invoicing_method"
                                 class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 outline-none text-sm">
-                                <option value="">— Seleccionar —</option>
-                                <option value="FEPC">FEPC — Pré-Comunicada</option>
-                                <option value="FESF">FESF — Sem Facturação</option>
-                                <option value="SF">SF — Sem Factura</option>
+                                <option value="">{{ __('— Seleccionar —') }}</option>
+                                <option value="FEPC">{{ __('FEPC — Pré-Comunicada') }}</option>
+                                <option value="FESF">{{ __('FESF — Sem Facturação') }}</option>
+                                <option value="SF">{{ __('SF — Sem Factura') }}</option>
                             </select>
                             @error('invoicing_method')
                                 <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
@@ -378,17 +378,17 @@
                 {{-- Descrição --}}
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        Descrição
+                        {{ __('Descrição') }}
                     </label>
                     <textarea wire:model="description" rows="2"
                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                              placeholder="Descrição adicional (opcional)"></textarea>
+                              placeholder="{{ __('Descrição adicional (opcional)') }}"></textarea>
                 </div>
 
                 {{-- Preview --}}
                 <div class="p-4 bg-blue-50 rounded-xl">
                     <p class="text-sm font-semibold text-blue-900 mb-2">
-                        <i class="fas fa-eye mr-2"></i>Pré-visualização:
+                        <i class="fas fa-eye mr-2"></i>{{ __('Pré-visualização:') }}
                     </p>
                     <p class="text-lg font-mono font-bold text-blue-700">
                         {{ $prefix }} {{ $series_code }} {{ $include_year ? date('Y') . '/' : '' }}{{ str_pad($next_number, $number_padding, '0', STR_PAD_LEFT) }}
@@ -399,11 +399,11 @@
                 <div class="flex space-x-3 pt-4">
                     <button type="button" wire:click="$set('showModal', false)"
                             class="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
-                        <i class="fas fa-times mr-2"></i>Cancelar
+                        <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                     </button>
                     <button type="submit"
                             class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition shadow-lg">
-                        <i class="fas fa-save mr-2"></i>Salvar
+                        <i class="fas fa-save mr-2"></i>{{ __('Salvar') }}
                     </button>
                 </div>
             </form>
@@ -418,16 +418,16 @@
             <div class="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
                 <i class="fas fa-trash text-red-600 text-2xl"></i>
             </div>
-            <h3 class="text-xl font-bold text-center text-gray-900 mb-2">Eliminar Série?</h3>
-            <p class="text-center text-gray-600 mb-6">Esta ação não pode ser revertida.</p>
+            <h3 class="text-xl font-bold text-center text-gray-900 mb-2">{{ __('Eliminar Série?') }}</h3>
+            <p class="text-center text-gray-600 mb-6">{{ __('Esta ação não pode ser revertida.') }}</p>
             <div class="flex gap-3">
                 <button wire:click="$set('showDeleteModal', false)" 
                         class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                    Cancelar
+                    {{ __('Cancelar') }}
                 </button>
                 <button wire:click="deleteSeries" 
                         class="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition">
-                    Eliminar
+                    {{ __('Eliminar') }}
                 </button>
             </div>
         </div>

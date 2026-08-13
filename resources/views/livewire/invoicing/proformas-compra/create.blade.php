@@ -23,20 +23,20 @@
                     <div class="bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-info-circle mr-2"></i>
-                            Informações Gerais
+                            {{ __('Informações Gerais') }}
                         </h3>
                     </div>
                     <div class="p-6 space-y-4">
                         {{-- Client --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-user mr-1 text-orange-600"></i>Fornecedor *
+                                <i class="fas fa-user mr-1 text-orange-600"></i>{{ __('Fornecedor *') }}
                             </label>
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
                                     <input type="text" 
                                            wire:model.live.debounce.300ms="searchSupplier"
-                                           placeholder="🔍 Pesquisar fornecedor por nome, email ou telefone..."
+                                           placeholder="{{ __('🔍 Pesquisar fornecedor por nome, email ou telefone...') }}"
                                            x-data
                                            @supplier-selected.window="$el.value = ''"
                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
@@ -46,7 +46,7 @@
                                         wire:loading.attr="disabled"
                                         wire:loading.class="opacity-70 scale-95"
                                         class="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg whitespace-nowrap hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
-                                    <i class="fas fa-plus mr-2"></i>Novo Fornecedor
+                                    <i class="fas fa-plus mr-2"></i>{{ __('Novo Fornecedor') }}
                                 </button>
                             </div>
                             @include("livewire.invoicing.partials.regiao-fiscal", ["cor" => "amber"])
@@ -76,7 +76,7 @@
                                                 <div class="font-bold text-sm text-gray-900">{{ $selectedClient->name }}</div>
                                                 @if($selectedClient->nif === '999999999')
                                                     <span class="px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-bold rounded-full">
-                                                        <i class="fas fa-user-tag mr-1"></i>Fornecedor Padrão
+                                                        <i class="fas fa-user-tag mr-1"></i>{{ __('Fornecedor Padrão') }}
                                                     </span>
                                                 @endif
                                             </div>
@@ -103,11 +103,11 @@
                         {{-- Warehouse --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-warehouse mr-1 text-orange-600"></i>Armazém *
+                                <i class="fas fa-warehouse mr-1 text-orange-600"></i>{{ __('Armazém *') }}
                             </label>
                             <select wire:model="warehouse_id" 
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
-                                <option value="">Selecione o armazém...</option>
+                                <option value="">{{ __('Selecione o armazém...') }}</option>
                                 @foreach($warehouses as $warehouse)
                                     <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                                 @endforeach
@@ -119,7 +119,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-calendar mr-1 text-orange-600"></i>Data *
+                                    <i class="fas fa-calendar mr-1 text-orange-600"></i>{{ __('Data *') }}
                                 </label>
                                 <input type="date" wire:model="proforma_date" 
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
@@ -127,7 +127,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-hourglass-end mr-1 text-orange-600"></i>Válido Até
+                                    <i class="fas fa-hourglass-end mr-1 text-orange-600"></i>{{ __('Válido Até') }}
                                 </label>
                                 <input type="date" wire:model="valid_until" 
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
@@ -148,7 +148,7 @@
                                 wire:loading.attr="disabled"
                                 wire:loading.class="opacity-70 scale-95"
                                 class="px-4 py-2 bg-white hover:bg-gray-100 text-orange-600 rounded-lg font-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
-                            <i class="fas fa-plus mr-2"></i>Adicionar Produto
+                            <i class="fas fa-plus mr-2"></i>{{ __('Adicionar Produto') }}
                         </button>
                     </div>
 
@@ -157,15 +157,15 @@
                         <table class="min-w-full">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Produto/Serviço</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Qtd</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Preço</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Desc %</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Produto/Serviço') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Qtd') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Preço') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Desc %') }}</th>
                                     <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                                        <i class="fas fa-percent mr-1 text-blue-500"></i>Taxa
+                                        <i class="fas fa-percent mr-1 text-blue-500"></i>{{ __('Taxa') }}
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Total</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Ação</th>
+                                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">{{ __('Total') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Ação') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -176,11 +176,11 @@
                                             <div class="text-sm font-bold text-gray-900">{{ $item->name }}</div>
                                             @if(isset($item->attributes['type']) && $item->attributes['type'] === 'servico')
                                                 <span class="px-2 py-0.5 bg-pink-100 text-pink-700 text-xs font-semibold rounded-full">
-                                                    <i class="fas fa-concierge-bell mr-1"></i>Serviço
+                                                    <i class="fas fa-concierge-bell mr-1"></i>{{ __('Serviço') }}
                                                 </span>
                                             @else
                                                 <span class="px-2 py-0.5 bg-orange-100 text-purple-700 text-xs font-semibold rounded-full">
-                                                    <i class="fas fa-box mr-1"></i>Produto
+                                                    <i class="fas fa-box mr-1"></i>{{ __('Produto') }}
                                                 </span>
                                             @endif
                                         </div>
@@ -214,7 +214,7 @@
                                         @if($taxType === 'isento' || $taxRate == 0)
                                             <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded inline-flex items-center">
                                                 <i class="fas fa-check-circle mr-1"></i>
-                                                Isento
+                                                {{ __('Isento') }}
                                             </span>
                                         @else
                                             <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded inline-flex items-center">
@@ -256,8 +256,8 @@
                     @else
                     <div class="p-12 text-center">
                         <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
-                        <p class="text-gray-500 text-lg font-semibold">Nenhum produto adicionado</p>
-                        <p class="text-gray-400 text-sm mt-2">Clique em "Adicionar Produto" para começar</p>
+                        <p class="text-gray-500 text-lg font-semibold">{{ __('Nenhum produto adicionado') }}</p>
+                        <p class="text-gray-400 text-sm mt-2">{{ __('Clique em "Adicionar Produto" para começar') }}</p>
                     </div>
                     @endif
                 </div>
@@ -267,7 +267,7 @@
                     <div class="bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-percentage mr-2"></i>
-                            Descontos
+                            {{ __('Descontos') }}
                         </h3>
                     </div>
                     <div class="p-6">
@@ -276,7 +276,7 @@
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
                                     <i class="fas fa-tags mr-1 text-orange-600"></i>
-                                    Desconto Comercial (antes IVA):
+                                    {{ __('Desconto Comercial (antes IVA):') }}
                                 </label>
                                 <input type="number" step="0.01" min="0" wire:model.live="discount_commercial"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition text-right"
@@ -285,7 +285,7 @@
 
                             {{-- Desconto Legado --}}
                             <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Desconto (legado):</label>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Desconto (legado):') }}</label>
                                 <input type="number" step="0.01" min="0" wire:model.live="discount_amount"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition text-right"
                                        placeholder="0">
@@ -295,7 +295,7 @@
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
                                     <i class="fas fa-hand-holding-usd mr-1 text-green-600"></i>
-                                    Desconto Financeiro (após IVA):
+                                    {{ __('Desconto Financeiro (após IVA):') }}
                                 </label>
                                 <input type="number" step="0.01" min="0" wire:model.live="discount_financial"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition text-right"
@@ -310,21 +310,21 @@
                     <div class="bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-sticky-note mr-2"></i>
-                            Observações
+                            {{ __('Observações') }}
                         </h3>
                     </div>
                     <div class="p-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Notas</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Notas') }}</label>
                             <textarea wire:model="notes" rows="3"
                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition"
-                                      placeholder="Informações adicionais..."></textarea>
+                                      placeholder="{{ __('Informações adicionais...') }}"></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Termos e Condições</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Termos e Condições') }}</label>
                             <textarea wire:model="terms" rows="3"
                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition"
-                                      placeholder="Condições de pagamento, garantias, etc."></textarea>
+                                      placeholder="{{ __('Condições de pagamento, garantias, etc.') }}"></textarea>
                         </div>
                     </div>
                 </div>
@@ -337,7 +337,7 @@
                     <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-calculator mr-2"></i>
-                            Resumo
+                            {{ __('Resumo') }}
                         </h3>
                     </div>
                     <div class="p-6">
@@ -348,7 +348,7 @@
                                        class="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-purple-500">
                                 <span class="ml-3 text-sm font-bold text-gray-700">
                                     <i class="fas fa-concierge-bell mr-1 text-orange-600"></i>
-                                    É Prestação de Serviço (IRT 6.5%)
+                                    {{ __('É Prestação de Serviço (IRT 6.5%)') }}
                                 </span>
                             </label>
                         </div>
@@ -357,49 +357,49 @@
                         <div class="space-y-3">
                             {{-- Total Líquido (Total Bruto) --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Total líquido</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Total líquido') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($subtotal_original, 2) }}</span>
                             </div>
                             
                             {{-- Desconto Comercial (Linhas + Adicional) --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Desconto Comercial</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Desconto Comercial') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($desconto_comercial_total ?? 0, 2) }}</span>
                             </div>
                             
                             {{-- Desconto Financeiro --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Desconto Financeiro</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Desconto Financeiro') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($discount_financial, 2) }}</span>
                             </div>
                             
                             {{-- Total De Imposto (IVA sobre Incidência) --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Total De Imposto</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Total De Imposto') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($tax_amount, 2) }}</span>
                             </div>
                             
                             {{-- Retenção IRT (6,5% sobre Incidência IVA) --}}
                             <div class="flex justify-between items-center py-2 border-b-2 border-gray-300">
-                                <span class="text-sm font-semibold text-gray-700">Retenção (6,5%)</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Retenção (6,5%)') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($irt_amount, 2) }}</span>
                             </div>
                             
                             {{-- Total (AOA) - Incidência + IVA - Retenção --}}
                             <div class="flex justify-between items-center pt-3">
-                                <span class="text-lg font-bold text-gray-700">Total (AOA)</span>
+                                <span class="text-lg font-bold text-gray-700">{{ __('Total (AOA)') }}</span>
                                 <span class="text-3xl font-bold text-green-600">{{ number_format($total, 2) }}</span>
                             </div>
                             
                             {{-- Info Adicional --}}
                             <div class="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-gray-600">
                                 <div class="flex justify-between mb-1">
-                                    <span>Incidência IVA (Base):</span>
+                                    <span>{{ __('Incidência IVA (Base):') }}</span>
                                     <span class="font-semibold">{{ number_format($incidencia_iva ?? 0, 2) }} Kz</span>
                                 </div>
                                 <div class="text-gray-500 text-[10px] mt-2">
                                     <i class="fas fa-info-circle mr-1"></i>
-                                    Cálculo conforme Decreto Presidencial 312/18 - AGT Angola
+                                    {{ __('Cálculo conforme Decreto Presidencial 312/18 - AGT Angola') }}
                                 </div>
                             </div>
                         </div>
@@ -413,10 +413,10 @@
                             wire:loading.class="opacity-70 scale-95"
                             class="w-full px-6 py-3 border-2 border-orange-600 text-orange-600 hover:bg-orange-50 rounded-xl font-bold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="save('draft')">
-                            <i class="fas fa-save mr-2"></i>Salvar Rascunho
+                            <i class="fas fa-save mr-2"></i>{{ __('Salvar Rascunho') }}
                         </span>
                         <span wire:loading wire:target="save('draft')">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Salvando...') }}
                         </span>
                     </button>
                     <button type="button" wire:click="save('sent')"
@@ -424,10 +424,10 @@
                             wire:loading.class="opacity-70 scale-95"
                             class="w-full px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="save('sent')">
-                            <i class="fas fa-paper-plane mr-2"></i>Salvar e Enviar
+                            <i class="fas fa-paper-plane mr-2"></i>{{ __('Salvar e Enviar') }}
                         </span>
                         <span wire:loading wire:target="save('sent')">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Processando...') }}
                         </span>
                     </button>
                 </div>
@@ -442,7 +442,7 @@
             <div class="sticky top-0 bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between z-10">
                 <h3 class="text-xl font-bold text-white flex items-center">
                     <i class="fas fa-user-plus mr-2"></i>
-                    Criar Fornecedor Rápido
+                    {{ __('Criar Fornecedor Rápido') }}
                 </h3>
                 <button wire:click="$set('showQuickSupplierModal', false)" class="text-white hover:text-gray-200 transition">
                     <i class="fas fa-times text-2xl"></i>
@@ -454,18 +454,18 @@
                     {{-- Name --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-user mr-1 text-green-600"></i>Nome *
+                            <i class="fas fa-user mr-1 text-green-600"></i>{{ __('Nome *') }}
                         </label>
                         <input type="text" wire:model="quickSupplierName"
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
-                               placeholder="Nome do fornecedor..." required>
+                               placeholder="{{ __('Nome do fornecedor...') }}" required>
                         @error('quickClientName') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
 
                     {{-- Tax ID (NIF) --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-id-card mr-1 text-green-600"></i>NIF (9 ou 14 dígitos)
+                            <i class="fas fa-id-card mr-1 text-green-600"></i>{{ __('NIF (9 ou 14 dígitos)') }}
                         </label>
                         <input type="text" wire:model="quickSupplierTaxId"
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
@@ -474,7 +474,7 @@
                         @error('quickClientTaxId') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                         <p class="text-xs text-gray-500 mt-1">
                             <i class="fas fa-info-circle mr-1"></i>
-                            NIF genérico Angola: 999999999
+                            {{ __('NIF genérico Angola: 999999999') }}
                         </p>
                     </div>
 
@@ -482,7 +482,7 @@
                         {{-- Email --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-envelope mr-1 text-green-600"></i>Email
+                                <i class="fas fa-envelope mr-1 text-green-600"></i>{{ __('Email') }}
                             </label>
                             <input type="email" wire:model="quickSupplierEmail"
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
@@ -493,7 +493,7 @@
                         {{-- Phone --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-phone mr-1 text-green-600"></i>Telefone
+                                <i class="fas fa-phone mr-1 text-green-600"></i>{{ __('Telefone') }}
                             </label>
                             <input type="text" wire:model="quickSupplierPhone"
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
@@ -505,28 +505,28 @@
                     {{-- Address --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-map-marker-alt mr-1 text-green-600"></i>Morada
+                            <i class="fas fa-map-marker-alt mr-1 text-green-600"></i>{{ __('Morada') }}
                         </label>
                         <textarea wire:model="quickSupplierAddress" rows="2"
                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
-                                  placeholder="Rua, Bairro, Cidade..."></textarea>
+                                  placeholder="{{ __('Rua, Bairro, Cidade...') }}"></textarea>
                     </div>
                 </div>
 
                 <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end gap-3 border-t border-gray-200">
                     <button type="button" wire:click="$set('showQuickSupplierModal', false)"
                             class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95">
-                        Cancelar
+                        {{ __('Cancelar') }}
                     </button>
                     <button type="submit"
                             wire:loading.attr="disabled"
                             wire:loading.class="opacity-70 scale-95"
                             class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove>
-                            <i class="fas fa-save mr-2"></i>Criar Fornecedor
+                            <i class="fas fa-save mr-2"></i>{{ __('Criar Fornecedor') }}
                         </span>
                         <span wire:loading>
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Criando...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Criando...') }}
                         </span>
                     </button>
                 </div>
@@ -592,7 +592,7 @@
             <div class="sticky top-0 bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4 flex items-center justify-between z-10">
                 <h3 class="text-xl font-bold text-white flex items-center">
                     <i class="fas fa-box-open mr-2"></i>
-                    Selecionar Produtos
+                    {{ __('Selecionar Produtos') }}
                 </h3>
                 <button wire:click="$set('showProductModal', false)" class="text-white hover:text-gray-200 transition">
                     <i class="fas fa-times text-2xl"></i>
@@ -603,7 +603,7 @@
                 {{-- Search --}}
                 <div class="mb-6">
                     <input type="text" wire:model.live.debounce.300ms="searchProduct"
-                           placeholder="🔍 Pesquisar produtos..."
+                           placeholder="{{ __('🔍 Pesquisar produtos...') }}"
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition">
                 </div>
 
@@ -630,7 +630,7 @@
                     @empty
                     <div class="col-span-full text-center py-12">
                         <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
-                        <p class="text-gray-500">Nenhum produto encontrado</p>
+                        <p class="text-gray-500">{{ __('Nenhum produto encontrado') }}</p>
                     </div>
                     @endforelse
                 </div>
@@ -658,8 +658,8 @@
                     <div class="flex items-start">
                         <i class="fas fa-info-circle text-amber-600 mr-2 mt-0.5"></i>
                         <div class="text-sm text-amber-800">
-                            <p class="font-semibold">Rastreamento de Lote</p>
-                            <p class="mt-1">Preencha as informações do lote para controle de validade e rastreabilidade.</p>
+                            <p class="font-semibold">{{ __('Rastreamento de Lote') }}</p>
+                            <p class="mt-1">{{ __('Preencha as informações do lote para controle de validade e rastreabilidade.') }}</p>
                         </div>
                     </div>
                 </div>
@@ -667,13 +667,13 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fas fa-barcode text-amber-600 mr-1"></i>
-                        Número do Lote
+                        {{ __('Número do Lote') }}
                     </label>
-                    <input type="text" wire:model="batch_number" placeholder="Ex: LOTE-2025-001 ou deixe vazio para gerar automaticamente"
+                    <input type="text" wire:model="batch_number" placeholder="{{ __('Ex: LOTE-2025-001 ou deixe vazio para gerar automaticamente') }}"
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition">
                     <p class="text-xs text-gray-500 mt-1">
                         <i class="fas fa-lightbulb mr-1"></i>
-                        Se deixar vazio, será gerado automaticamente ao finalizar a proforma
+                        {{ __('Se deixar vazio, será gerado automaticamente ao finalizar a proforma') }}
                     </p>
                 </div>
                 
@@ -681,7 +681,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-industry text-blue-600 mr-1"></i>
-                            Data de Fabricação
+                            {{ __('Data de Fabricação') }}
                         </label>
                         <input type="date" wire:model="manufacturing_date"
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
@@ -690,7 +690,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-calendar-times text-red-600 mr-1"></i>
-                            Data de Validade
+                            {{ __('Data de Validade') }}
                         </label>
                         <input type="date" wire:model="expiry_date"
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition">
@@ -700,13 +700,13 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fas fa-bell text-yellow-600 mr-1"></i>
-                        Dias de Alerta (antes da validade)
+                        {{ __('Dias de Alerta (antes da validade)') }}
                     </label>
                     <input type="number" wire:model="alert_days" min="1" max="365"
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition">
                     <p class="text-xs text-gray-500 mt-1">
                         <i class="fas fa-info-circle mr-1"></i>
-                        Sistema alertará quando faltar esse número de dias para vencer
+                        {{ __('Sistema alertará quando faltar esse número de dias para vencer') }}
                     </p>
                 </div>
             </div>
@@ -714,17 +714,17 @@
             <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
                 <button wire:click="closeBatchModal" 
                         class="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all duration-300 hover:scale-105 active:scale-95">
-                    <i class="fas fa-times mr-2"></i>Cancelar
+                    <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                 </button>
                 <button wire:click="confirmBatchAndAddProduct"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-70 scale-95"
                         class="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                     <span wire:loading.remove>
-                        <i class="fas fa-check mr-2"></i>Confirmar e Adicionar
+                        <i class="fas fa-check mr-2"></i>{{ __('Confirmar e Adicionar') }}
                     </span>
                     <span wire:loading>
-                        <i class="fas fa-spinner fa-spin mr-2"></i>Adicionando...
+                        <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Adicionando...') }}
                     </span>
                 </button>
             </div>

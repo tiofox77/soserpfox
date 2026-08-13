@@ -92,6 +92,15 @@ class TraducoesTest extends TenantTestCase
         'app/Livewire/Invoicing/InterCompanyTransfer.php',
         'app/Livewire/Invoicing/Clients.php',
         'app/Livewire/Invoicing/Suppliers.php',
+
+        // Fase 1, lote 5 — compras, relatórios, séries, AGT e definições.
+        //
+        // O directório raiz das vistas entra inteiro: apanha os ecrãs soltos
+        // (agt-*, saftgenerator, series-management, settings, tax-management)
+        // que não vivem numa pasta própria e por isso escapariam a uma lista
+        // feita à mão.
+        'resources/views/livewire/invoicing',
+        'app/Livewire/Invoicing',
     ];
 
     // ==================== o detector ====================

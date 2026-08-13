@@ -591,7 +591,7 @@ class WarehouseTransfer extends Component
             $this->reset(['transferItems']);
 
         } catch (\Throwable $e) {
-            $this->dispatch('error', message: __('Erro:') . ' ' . $e->getMessage());
+            $this->dispatch('error', message: __('Erro: :detalhe', ['detalhe' => ' ' . $e->getMessage()]));
         }
     }
 
@@ -690,7 +690,7 @@ class WarehouseTransfer extends Component
             $this->reset(['adjustItems']);
 
         } catch (\Throwable $e) {
-            $this->dispatch('error', message: __('Erro:') . ' ' . $e->getMessage());
+            $this->dispatch('error', message: __('Erro: :detalhe', ['detalhe' => ' ' . $e->getMessage()]));
         }
     }
 

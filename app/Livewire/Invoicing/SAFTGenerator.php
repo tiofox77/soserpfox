@@ -142,8 +142,7 @@ class SAFTGenerator extends Component
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao gerar SAFT: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro ao gerar SAFT: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 

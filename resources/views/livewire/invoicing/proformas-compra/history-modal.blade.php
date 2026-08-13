@@ -7,7 +7,7 @@
             <div>
                 <h3 class="text-xl font-bold text-white flex items-center">
                     <i class="fas fa-history mr-2"></i>
-                    Histórico de Conversões
+                    {{ __('Histórico de Conversões') }}
                 </h3>
                 <p class="text-orange-100 text-sm mt-1">Proforma: {{ $proformaHistory->proforma_number }}</p>
             </div>
@@ -22,19 +22,19 @@
             <div class="bg-orange-50 rounded-xl p-4 mb-6">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Fornecedor</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Fornecedor') }}</p>
                         <p class="font-semibold text-gray-900">{{ $proformaHistory->supplier->name }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Data</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Data') }}</p>
                         <p class="font-semibold text-gray-900">{{ $proformaHistory->proforma_date->format('d/m/Y') }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Total</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Total') }}</p>
                         <p class="font-semibold text-orange-600">{{ number_format($proformaHistory->total, 2) }} Kz</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Status</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Status') }}</p>
                         <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full
                             {{ $proformaHistory->status === 'draft' ? 'bg-gray-100 text-gray-800' : '' }}
                             {{ $proformaHistory->status === 'sent' ? 'bg-blue-100 text-blue-800' : '' }}
@@ -77,15 +77,15 @@
                                     
                                     <div class="mt-3 grid grid-cols-3 gap-4">
                                         <div>
-                                            <p class="text-xs text-gray-500">Data Fatura</p>
+                                            <p class="text-xs text-gray-500">{{ __('Data Fatura') }}</p>
                                             <p class="font-semibold">{{ $invoice->invoice_date->format('d/m/Y') }}</p>
                                         </div>
                                         <div>
-                                            <p class="text-xs text-gray-500">Vencimento</p>
+                                            <p class="text-xs text-gray-500">{{ __('Vencimento') }}</p>
                                             <p class="font-semibold">{{ $invoice->due_date->format('d/m/Y') }}</p>
                                         </div>
                                         <div>
-                                            <p class="text-xs text-gray-500">Total</p>
+                                            <p class="text-xs text-gray-500">{{ __('Total') }}</p>
                                             <p class="font-semibold text-green-600">{{ number_format($invoice->total, 2) }} Kz</p>
                                         </div>
                                     </div>
@@ -104,7 +104,7 @@
                                     </span>
                                     <a href="{{ route('invoicing.purchases.invoices.preview', $invoice->id) }}" target="_blank"
                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition text-center">
-                                        <i class="fas fa-eye mr-1"></i>Ver
+                                        <i class="fas fa-eye mr-1"></i>{{ __('Ver') }}
                                     </a>
                                 </div>
                             </div>
@@ -116,8 +116,8 @@
                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                             <i class="fas fa-inbox text-gray-400 text-2xl"></i>
                         </div>
-                        <p class="text-gray-500">Nenhuma fatura gerada ainda</p>
-                        <p class="text-sm text-gray-400 mt-1">Clique em "Converter em Fatura" para criar a primeira</p>
+                        <p class="text-gray-500">{{ __('Nenhuma fatura gerada ainda') }}</p>
+                        <p class="text-sm text-gray-400 mt-1">{{ __('Clique em "Converter em Fatura" para criar a primeira') }}</p>
                     </div>
                 @endif
             </div>
@@ -127,11 +127,11 @@
         <div class="bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-between items-center">
             <button wire:click="convertToInvoice({{ $proformaHistory->id }})" 
                     class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition">
-                <i class="fas fa-plus mr-2"></i>Converter em Fatura
+                <i class="fas fa-plus mr-2"></i>{{ __('Converter em Fatura') }}
             </button>
             <button wire:click="closeHistoryModal" 
                     class="px-4 py-2 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                Fechar
+                {{ __('Fechar') }}
             </button>
         </div>
     </div>

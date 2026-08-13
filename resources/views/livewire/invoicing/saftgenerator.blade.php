@@ -9,12 +9,12 @@
                         <i class="fas fa-file-code text-3xl"></i>
                     </div>
                     <div>
-                        <h2 class="text-2xl font-bold">Gerador SAFT-AO</h2>
-                        <p class="text-purple-200 text-sm mt-1">Standard Audit File for Tax — Angola (AGT)</p>
+                        <h2 class="text-2xl font-bold">{{ __('Gerador SAFT-AO') }}</h2>
+                        <p class="text-purple-200 text-sm mt-1">{{ __('Standard Audit File for Tax — Angola (AGT)') }}</p>
                     </div>
                 </div>
                 <div class="text-right">
-                    <p class="text-xs text-purple-300">Versão SAFT</p>
+                    <p class="text-xs text-purple-300">{{ __('Versão SAFT') }}</p>
                     <p class="text-2xl font-black">1.01_01</p>
                 </div>
             </div>
@@ -29,7 +29,7 @@
                     </div>
                     <span class="text-lg font-black text-purple-600">{{ number_format($totalInvoices) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Faturas</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Faturas') }}</p>
             </div>
 
             <div class="bg-white rounded-2xl shadow-lg p-4 border border-red-100">
@@ -39,7 +39,7 @@
                     </div>
                     <span class="text-lg font-black text-red-500">{{ number_format($totalCreditNotes) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Notas Crédito</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Notas Crédito') }}</p>
             </div>
 
             <div class="bg-white rounded-2xl shadow-lg p-4 border border-orange-100">
@@ -49,7 +49,7 @@
                     </div>
                     <span class="text-lg font-black text-orange-500">{{ number_format($totalDebitNotes) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Notas Débito</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Notas Débito') }}</p>
             </div>
 
             <div class="bg-white rounded-2xl shadow-lg p-4 border border-green-100">
@@ -59,7 +59,7 @@
                     </div>
                     <span class="text-lg font-black text-green-600">{{ number_format($totalReceipts) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Recibos</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Recibos') }}</p>
             </div>
 
             <div class="bg-white rounded-2xl shadow-lg p-4 border border-cyan-100">
@@ -69,7 +69,7 @@
                     </div>
                     <span class="text-lg font-black text-cyan-600">{{ number_format($totalMovements) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Mov. Stock</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Mov. Stock') }}</p>
             </div>
 
             <div class="bg-white rounded-2xl shadow-lg p-4 border border-blue-100">
@@ -79,7 +79,7 @@
                     </div>
                     <span class="text-lg font-black text-blue-600">{{ number_format($totalCustomers) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Clientes</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Clientes') }}</p>
             </div>
 
             <div class="bg-white rounded-2xl shadow-lg p-4 border border-indigo-100">
@@ -89,7 +89,7 @@
                     </div>
                     <span class="text-lg font-black text-indigo-600">{{ number_format($totalProducts) }}</span>
                 </div>
-                <p class="text-[10px] text-gray-500 font-semibold">Produtos</p>
+                <p class="text-[10px] text-gray-500 font-semibold">{{ __('Produtos') }}</p>
             </div>
         </div>
 
@@ -99,7 +99,7 @@
                 <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                     <div class="bg-gradient-to-r from-gray-700 to-gray-900 px-6 py-4">
                         <h3 class="text-white font-bold text-sm flex items-center">
-                            <i class="fas fa-cog mr-2"></i> Configurações da Exportação
+                            <i class="fas fa-cog mr-2"></i> {{ __('Configurações da Exportação') }}
                         </h3>
                     </div>
 
@@ -108,14 +108,14 @@
                         <div class="grid grid-cols-2 gap-4 mb-6">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-calendar-alt mr-1 text-gray-400"></i> Data Início
+                                    <i class="fas fa-calendar-alt mr-1 text-gray-400"></i> {{ __('Data Início') }}
                                 </label>
                                 <input type="date" wire:model.live="startDate"
                                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-gray-50 transition">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 mb-1.5">
-                                    <i class="fas fa-calendar-alt mr-1 text-gray-400"></i> Data Fim
+                                    <i class="fas fa-calendar-alt mr-1 text-gray-400"></i> {{ __('Data Fim') }}
                                 </label>
                                 <input type="date" wire:model.live="endDate"
                                        class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-gray-50 transition">
@@ -125,39 +125,39 @@
                         {{-- Tipo de Documento --}}
                         <div class="mb-6">
                             <label class="block text-xs font-semibold text-gray-600 mb-3">
-                                <i class="fas fa-filter mr-1 text-gray-400"></i> Filtrar por Tipo
+                                <i class="fas fa-filter mr-1 text-gray-400"></i> {{ __('Filtrar por Tipo') }}
                             </label>
                             <div class="grid grid-cols-4 gap-3">
                                 <label class="relative cursor-pointer">
                                     <input type="radio" wire:model.live="documentType" value="all" class="peer sr-only">
                                     <div class="px-3 py-3 border-2 rounded-xl transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 peer-checked:shadow-lg hover:border-purple-300 hover:shadow-md text-center">
                                         <i class="fas fa-file-invoice text-xl mb-1 text-purple-600"></i>
-                                        <p class="font-bold text-xs">Todos</p>
-                                        <p class="text-[10px] text-gray-400">Completo</p>
+                                        <p class="font-bold text-xs">{{ __('Todos') }}</p>
+                                        <p class="text-[10px] text-gray-400">{{ __('Completo') }}</p>
                                     </div>
                                 </label>
                                 <label class="relative cursor-pointer">
                                     <input type="radio" wire:model.live="documentType" value="sales" class="peer sr-only">
                                     <div class="px-3 py-3 border-2 rounded-xl transition-all peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:shadow-lg hover:border-green-300 hover:shadow-md text-center">
                                         <i class="fas fa-shopping-cart text-xl mb-1 text-green-600"></i>
-                                        <p class="font-bold text-xs">Vendas</p>
-                                        <p class="text-[10px] text-gray-400">Faturas</p>
+                                        <p class="font-bold text-xs">{{ __('Vendas') }}</p>
+                                        <p class="text-[10px] text-gray-400">{{ __('Faturas') }}</p>
                                     </div>
                                 </label>
                                 <label class="relative cursor-pointer">
                                     <input type="radio" wire:model.live="documentType" value="purchases" class="peer sr-only">
                                     <div class="px-3 py-3 border-2 rounded-xl transition-all peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:shadow-lg hover:border-orange-300 hover:shadow-md text-center">
                                         <i class="fas fa-truck text-xl mb-1 text-orange-600"></i>
-                                        <p class="font-bold text-xs">Compras</p>
-                                        <p class="text-[10px] text-gray-400">Fornecedores</p>
+                                        <p class="font-bold text-xs">{{ __('Compras') }}</p>
+                                        <p class="text-[10px] text-gray-400">{{ __('Fornecedores') }}</p>
                                     </div>
                                 </label>
                                 <label class="relative cursor-pointer">
                                     <input type="radio" wire:model.live="documentType" value="inventory" class="peer sr-only">
                                     <div class="px-3 py-3 border-2 rounded-xl transition-all peer-checked:border-cyan-500 peer-checked:bg-cyan-50 peer-checked:shadow-lg hover:border-cyan-300 hover:shadow-md text-center">
                                         <i class="fas fa-boxes text-xl mb-1 text-cyan-600"></i>
-                                        <p class="font-bold text-xs">Inventário</p>
-                                        <p class="text-[10px] text-gray-400">Mov. Stock</p>
+                                        <p class="font-bold text-xs">{{ __('Inventário') }}</p>
+                                        <p class="text-[10px] text-gray-400">{{ __('Mov. Stock') }}</p>
                                     </div>
                                 </label>
                             </div>
@@ -166,7 +166,7 @@
                         {{-- Dados a Incluir --}}
                         <div class="mb-6">
                             <label class="block text-xs font-semibold text-gray-600 mb-3">
-                                <i class="fas fa-list-check mr-1 text-gray-400"></i> Dados a Incluir
+                                <i class="fas fa-list-check mr-1 text-gray-400"></i> {{ __('Dados a Incluir') }}
                             </label>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 @php
@@ -204,10 +204,10 @@
                                 wire:target="generateSAFT"
                                 class="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-base shadow-lg shadow-purple-200 transition disabled:opacity-50">
                             <span wire:loading.remove wire:target="generateSAFT">
-                                <i class="fas fa-download mr-2"></i> Gerar e Baixar SAFT-AO
+                                <i class="fas fa-download mr-2"></i> {{ __('Gerar e Baixar SAFT-AO') }}
                             </span>
                             <span wire:loading wire:target="generateSAFT">
-                                <i class="fas fa-spinner fa-spin mr-2"></i> A gerar XML...
+                                <i class="fas fa-spinner fa-spin mr-2"></i> {{ __('A gerar XML...') }}
                             </span>
                         </button>
                     </div>
@@ -216,13 +216,13 @@
                 {{-- Info SAFT --}}
                 <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5">
                     <h4 class="text-xs font-bold text-blue-800 mb-2 flex items-center">
-                        <i class="fas fa-info-circle mr-2"></i> Sobre o SAFT-AO
+                        <i class="fas fa-info-circle mr-2"></i> {{ __('Sobre o SAFT-AO') }}
                     </h4>
                     <div class="text-xs text-blue-700 space-y-1 leading-relaxed">
-                        <p>• SAFT (Standard Audit File for Tax) é obrigatório em Angola conforme Decreto 71/25</p>
-                        <p>• Formato XML conforme AGT (Administração Geral Tributária)</p>
-                        <p>• Inclui documentos fiscais, recibos, movimentos de stock e dados mestre</p>
-                        <p>• Deve ser entregue à AGT conforme prazo legal</p>
+                        <p>{{ __('• SAFT (Standard Audit File for Tax) é obrigatório em Angola conforme Decreto 71/25') }}</p>
+                        <p>{{ __('• Formato XML conforme AGT (Administração Geral Tributária)') }}</p>
+                        <p>{{ __('• Inclui documentos fiscais, recibos, movimentos de stock e dados mestre') }}</p>
+                        <p>{{ __('• Deve ser entregue à AGT conforme prazo legal') }}</p>
                     </div>
                 </div>
             </div>
@@ -232,18 +232,18 @@
                 {{-- Card Valor Total --}}
                 <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="text-green-100 text-xs font-semibold">VALOR TOTAL</p>
+                        <p class="text-green-100 text-xs font-semibold">{{ __('VALOR TOTAL') }}</p>
                         <i class="fas fa-coins text-2xl text-white/30"></i>
                     </div>
                     <p class="text-3xl font-black">{{ number_format($totalValue, 2, ',', '.') }}</p>
-                    <p class="text-xs text-green-200 mt-1">AOA no período</p>
+                    <p class="text-xs text-green-200 mt-1">{{ __('AOA no período') }}</p>
                 </div>
 
                 {{-- Estrutura XML --}}
                 <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100">
                         <h4 class="text-xs font-bold text-gray-700 flex items-center">
-                            <i class="fas fa-code mr-2 text-purple-500"></i> Estrutura do XML
+                            <i class="fas fa-code mr-2 text-purple-500"></i> {{ __('Estrutura do XML') }}
                         </h4>
                     </div>
                     <div class="p-4 space-y-2 text-xs">
@@ -321,7 +321,7 @@
                 <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100">
                         <h4 class="text-xs font-bold text-gray-700 flex items-center">
-                            <i class="fas fa-bug mr-2 text-red-500"></i> Correções SAFT-AO
+                            <i class="fas fa-bug mr-2 text-red-500"></i> {{ __('Correções SAFT-AO') }}
                         </h4>
                     </div>
                     <div class="p-4 space-y-2">
@@ -357,13 +357,13 @@
                 {{-- Avisos --}}
                 <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                     <h4 class="text-xs font-bold text-amber-800 mb-2 flex items-center">
-                        <i class="fas fa-exclamation-triangle mr-2"></i> Importante
+                        <i class="fas fa-exclamation-triangle mr-2"></i> {{ __('Importante') }}
                     </h4>
                     <div class="text-[10px] text-amber-700 space-y-1">
-                        <p>• Verifique os dados antes de enviar à AGT</p>
-                        <p>• Guarde uma cópia do arquivo XML</p>
-                        <p>• Envie dentro do prazo legal</p>
-                        <p>• Certifique-se de que as chaves RSA estão configuradas</p>
+                        <p>{{ __('• Verifique os dados antes de enviar à AGT') }}</p>
+                        <p>{{ __('• Guarde uma cópia do arquivo XML') }}</p>
+                        <p>{{ __('• Envie dentro do prazo legal') }}</p>
+                        <p>{{ __('• Certifique-se de que as chaves RSA estão configuradas') }}</p>
                     </div>
                 </div>
             </div>

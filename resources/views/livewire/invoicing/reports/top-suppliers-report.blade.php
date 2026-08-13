@@ -2,35 +2,35 @@
     <div class="mb-6 bg-gradient-to-r from-orange-600 to-amber-600 rounded-2xl shadow-lg p-5 text-white flex items-center justify-between">
         <div class="flex items-center">
             <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3"><i class="fas fa-truck text-2xl"></i></div>
-            <div><h2 class="text-2xl font-bold">Top Fornecedores</h2><p class="text-orange-100 text-sm">Ranking por valor comprado</p></div>
+            <div><h2 class="text-2xl font-bold">{{ __('Top Fornecedores') }}</h2><p class="text-orange-100 text-sm">{{ __('Ranking por valor comprado') }}</p></div>
         </div>
-        <a href="{{ route('invoicing.reports.hub') }}" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition"><i class="fas fa-arrow-left mr-1"></i>Voltar</a>
+        <a href="{{ route('invoicing.reports.hub') }}" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition"><i class="fas fa-arrow-left mr-1"></i>{{ __('Voltar') }}</a>
     </div>
 
     <x-report-filters color="orange">
         <x-slot:extra>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Limite</label>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ __('Limite') }}</label>
             <select wire:model.live="limit" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                <option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option><option value="100">Top 100</option>
+                <option value="10">{{ __('Top 10') }}</option><option value="20">{{ __('Top 20') }}</option><option value="50">{{ __('Top 50') }}</option><option value="100">{{ __('Top 100') }}</option>
             </select>
         </x-slot:extra>
     </x-report-filters>
 
     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div class="px-5 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-b">
-            <h3 class="font-bold text-gray-800"><i class="fas fa-trophy mr-2 text-orange-600"></i>Ranking — Total comprado: <span class="text-orange-700">{{ number_format($grandTotal, 2, ',', '.') }} Kz</span></h3>
+            <h3 class="font-bold text-gray-800"><i class="fas fa-trophy mr-2 text-orange-600"></i>{{ __('Ranking — Total comprado:') }} <span class="text-orange-700">{{ number_format($grandTotal, 2, ',', '.') }} Kz</span></h3>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-xs uppercase text-gray-600">
                     <tr>
                         <th class="px-3 py-2 text-left">#</th>
-                        <th class="px-3 py-2 text-left">Fornecedor</th>
-                        <th class="px-3 py-2 text-right">Faturas</th>
-                        <th class="px-3 py-2 text-right">Comprado</th>
-                        <th class="px-3 py-2 text-right">Pago</th>
-                        <th class="px-3 py-2 text-right">% do Total</th>
-                        <th class="px-3 py-2">Participação</th>
+                        <th class="px-3 py-2 text-left">{{ __('Fornecedor') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Faturas') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Comprado') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('Pago') }}</th>
+                        <th class="px-3 py-2 text-right">{{ __('% do Total') }}</th>
+                        <th class="px-3 py-2">{{ __('Participação') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -56,7 +56,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-3 py-8 text-center text-gray-400 italic">Sem dados no período</td></tr>
+                        <tr><td colspan="7" class="px-3 py-8 text-center text-gray-400 italic">{{ __('Sem dados no período') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

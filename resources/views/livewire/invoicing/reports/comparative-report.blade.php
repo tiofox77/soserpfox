@@ -2,30 +2,30 @@
     <div class="mb-6 bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl shadow-lg p-5 text-white flex items-center justify-between">
         <div class="flex items-center">
             <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3"><i class="fas fa-balance-scale text-2xl"></i></div>
-            <div><h2 class="text-2xl font-bold">Comparativo entre Períodos</h2><p class="text-violet-100 text-sm">Análise de variações período A vs período B</p></div>
+            <div><h2 class="text-2xl font-bold">{{ __('Comparativo entre Períodos') }}</h2><p class="text-violet-100 text-sm">{{ __('Análise de variações período A vs período B') }}</p></div>
         </div>
-        <a href="{{ route('invoicing.reports.hub') }}" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition"><i class="fas fa-arrow-left mr-1"></i>Voltar</a>
+        <a href="{{ route('invoicing.reports.hub') }}" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-semibold transition"><i class="fas fa-arrow-left mr-1"></i>{{ __('Voltar') }}</a>
     </div>
 
     {{-- Filtros --}}
     <div class="bg-white rounded-2xl shadow-md p-5 mb-6 border-l-4 border-violet-500">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-gray-800"><i class="fas fa-cog mr-2 text-violet-600"></i>Configuração</h3>
-            <button onclick="window.print()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold"><i class="fas fa-print mr-1"></i>Imprimir</button>
+            <h3 class="font-bold text-gray-800"><i class="fas fa-cog mr-2 text-violet-600"></i>{{ __('Configuração') }}</h3>
+            <button onclick="window.print()" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold"><i class="fas fa-print mr-1"></i>{{ __('Imprimir') }}</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Modo</label>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ __('Modo') }}</label>
                 <select wire:model.live="mode" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="month">Mês actual vs anterior</option>
-                    <option value="year">Ano actual vs anterior</option>
-                    <option value="custom">Personalizado</option>
+                    <option value="month">{{ __('Mês actual vs anterior') }}</option>
+                    <option value="year">{{ __('Ano actual vs anterior') }}</option>
+                    <option value="custom">{{ __('Personalizado') }}</option>
                 </select>
             </div>
-            <div><label class="block text-xs font-bold text-violet-600 uppercase mb-1">Período A — De</label><input wire:model.live="periodAFrom" type="date" class="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm"></div>
-            <div><label class="block text-xs font-bold text-violet-600 uppercase mb-1">Período A — Até</label><input wire:model.live="periodATo" type="date" class="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm"></div>
-            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Período B — De</label><input wire:model.live="periodBFrom" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></div>
-            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Período B — Até</label><input wire:model.live="periodBTo" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-bold text-violet-600 uppercase mb-1">{{ __('Período A — De') }}</label><input wire:model.live="periodAFrom" type="date" class="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-bold text-violet-600 uppercase mb-1">{{ __('Período A — Até') }}</label><input wire:model.live="periodATo" type="date" class="w-full px-3 py-2 border border-violet-300 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ __('Período B — De') }}</label><input wire:model.live="periodBFrom" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ __('Período B — Até') }}</label><input wire:model.live="periodBTo" type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></div>
         </div>
     </div>
 
@@ -68,13 +68,13 @@
                     @endif
                 </p>
                 <div class="mt-2 pt-2 border-t border-gray-100">
-                    <p class="text-xs text-gray-500">Período B:
+                    <p class="text-xs text-gray-500">{{ __('Período B:') }}
                         <strong class="text-gray-700">
                             @if($meta['format'] === 'money'){{ number_format($b[$key], 2, ',', '.') }}@else{{ number_format($b[$key], 0, ',', '.') }}@endif
                         </strong>
                     </p>
                     <p class="text-xs {{ $isPositiveDirection ? 'text-emerald-600' : 'text-red-600' }} mt-0.5">
-                        Diferença: <strong>{{ $v['diff'] >= 0 ? '+' : '' }}{{ number_format($v['diff'], $meta['format'] === 'money' ? 2 : 0, ',', '.') }}</strong>
+                        {{ __('Diferença:') }} <strong>{{ $v['diff'] >= 0 ? '+' : '' }}{{ number_format($v['diff'], $meta['format'] === 'money' ? 2 : 0, ',', '.') }}</strong>
                     </p>
                 </div>
             </div>
@@ -84,16 +84,16 @@
     {{-- Tabela comparativa --}}
     <div class="mt-6 bg-white rounded-2xl shadow-lg overflow-hidden">
         <div class="px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 border-b">
-            <h3 class="font-bold text-gray-800"><i class="fas fa-table mr-2 text-violet-600"></i>Comparativo Detalhado</h3>
+            <h3 class="font-bold text-gray-800"><i class="fas fa-table mr-2 text-violet-600"></i>{{ __('Comparativo Detalhado') }}</h3>
         </div>
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
-                    <th class="px-3 py-2 text-left">Indicador</th>
-                    <th class="px-3 py-2 text-right">Período A</th>
-                    <th class="px-3 py-2 text-right">Período B</th>
-                    <th class="px-3 py-2 text-right">Diferença</th>
-                    <th class="px-3 py-2 text-right">Variação %</th>
+                    <th class="px-3 py-2 text-left">{{ __('Indicador') }}</th>
+                    <th class="px-3 py-2 text-right">{{ __('Período A') }}</th>
+                    <th class="px-3 py-2 text-right">{{ __('Período B') }}</th>
+                    <th class="px-3 py-2 text-right">{{ __('Diferença') }}</th>
+                    <th class="px-3 py-2 text-right">{{ __('Variação %') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y">

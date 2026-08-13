@@ -7,9 +7,9 @@
                     <i class="fas fa-sliders text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold">Ajustes de Stock</h1>
+                    <h1 class="text-2xl font-bold">{{ __('Ajustes de Stock') }}</h1>
                     <p class="text-amber-100 text-sm">
-                        Seguimento do que foi mexido à mão — vendas e compras ficam de fora
+                        {{ __('Seguimento do que foi mexido à mão — vendas e compras ficam de fora') }}
                     </p>
                 </div>
             </div>
@@ -17,12 +17,12 @@
                 <button wire:click="exportarCsv" wire:loading.attr="disabled"
                         class="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 text-sm font-semibold disabled:opacity-50">
                     <i class="fas fa-file-csv mr-1"></i>
-                    <span wire:loading.remove wire:target="exportarCsv">Exportar CSV</span>
-                    <span wire:loading wire:target="exportarCsv">A preparar…</span>
+                    <span wire:loading.remove wire:target="exportarCsv">{{ __('Exportar CSV') }}</span>
+                    <span wire:loading wire:target="exportarCsv">{{ __('A preparar…') }}</span>
                 </button>
                 <a href="{{ route('invoicing.reports.hub') }}"
                    class="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 text-sm font-semibold">
-                    <i class="fas fa-arrow-left mr-1"></i>Relatórios
+                    <i class="fas fa-arrow-left mr-1"></i>{{ __('Relatórios') }}
                 </a>
             </div>
         </div>
@@ -32,47 +32,47 @@
     <div class="mb-6 bg-white rounded-2xl shadow p-5">
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Período</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Período') }}</label>
                 <select wire:model.live="period" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="today">Hoje</option>
-                    <option value="week">Esta semana</option>
-                    <option value="month">Este mês</option>
-                    <option value="quarter">Trimestre</option>
-                    <option value="year">Ano</option>
-                    <option value="custom">Personalizado</option>
+                    <option value="today">{{ __('Hoje') }}</option>
+                    <option value="week">{{ __('Esta semana') }}</option>
+                    <option value="month">{{ __('Este mês') }}</option>
+                    <option value="quarter">{{ __('Trimestre') }}</option>
+                    <option value="year">{{ __('Ano') }}</option>
+                    <option value="custom">{{ __('Personalizado') }}</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">De</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('De') }}</label>
                 <input type="date" wire:model.live="dateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Até</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Até') }}</label>
                 <input type="date" wire:model.live="dateTo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Armazém</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Armazém') }}</label>
                 <select wire:model.live="warehouseFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Todos</option>
+                    <option value="">{{ __('Todos') }}</option>
                     @foreach($armazens as $a)
                         <option value="{{ $a->id }}">{{ $a->name }}</option>
                     @endforeach
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Tipo</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Tipo') }}</label>
                 <select wire:model.live="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Todos</option>
-                    <option value="in">Entrada</option>
-                    <option value="out">Saída</option>
-                    <option value="adjustment">Ajuste</option>
-                    <option value="transfer">Transferência</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="in">{{ __('Entrada') }}</option>
+                    <option value="out">{{ __('Saída') }}</option>
+                    <option value="adjustment">{{ __('Ajuste') }}</option>
+                    <option value="transfer">{{ __('Transferência') }}</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Operador</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">{{ __('Operador') }}</label>
                 <select wire:model.live="userFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Todos</option>
+                    <option value="">{{ __('Todos') }}</option>
                     @foreach($operadores as $o)
                         <option value="{{ $o->id }}">{{ $o->name }}</option>
                     @endforeach
@@ -84,12 +84,12 @@
             <div class="relative flex-1">
                 <i class="fas fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                 <input type="text" wire:model.live.debounce.400ms="search"
-                       placeholder="Produto, código, referência do lote ou nota…"
+                       placeholder="{{ __('Produto, código, referência do lote ou nota…') }}"
                        class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm">
             </div>
             <button wire:click="limparFiltros"
                     class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">
-                <i class="fas fa-eraser mr-1"></i>Limpar
+                <i class="fas fa-eraser mr-1"></i>{{ __('Limpar') }}
             </button>
         </div>
     </div>
@@ -97,27 +97,27 @@
     {{-- Totais --}}
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div class="bg-white rounded-2xl shadow p-4 border border-emerald-100">
-            <p class="text-[11px] text-gray-500 uppercase font-bold">Entradas</p>
+            <p class="text-[11px] text-gray-500 uppercase font-bold">{{ __('Entradas') }}</p>
             <p class="text-2xl font-bold text-emerald-600">+{{ number_format($resumo['entradas_qtd'], 2, ',', '.') }}</p>
             <p class="text-[11px] text-gray-400">{{ $resumo['entradas_n'] }} movimento(s)</p>
         </div>
         <div class="bg-white rounded-2xl shadow p-4 border border-red-100">
-            <p class="text-[11px] text-gray-500 uppercase font-bold">Saídas</p>
+            <p class="text-[11px] text-gray-500 uppercase font-bold">{{ __('Saídas') }}</p>
             <p class="text-2xl font-bold text-red-600">−{{ number_format($resumo['saidas_qtd'], 2, ',', '.') }}</p>
             <p class="text-[11px] text-gray-400">{{ $resumo['saidas_n'] }} movimento(s)</p>
         </div>
         <div class="bg-white rounded-2xl shadow p-4 border border-yellow-100">
-            <p class="text-[11px] text-gray-500 uppercase font-bold">Ajustes</p>
+            <p class="text-[11px] text-gray-500 uppercase font-bold">{{ __('Ajustes') }}</p>
             <p class="text-2xl font-bold text-yellow-600">{{ $resumo['ajustes_n'] }}</p>
-            <p class="text-[11px] text-gray-400">inventário corrigido</p>
+            <p class="text-[11px] text-gray-400">{{ __('inventário corrigido') }}</p>
         </div>
         <div class="bg-white rounded-2xl shadow p-4 border border-blue-100">
-            <p class="text-[11px] text-gray-500 uppercase font-bold">Transferências</p>
+            <p class="text-[11px] text-gray-500 uppercase font-bold">{{ __('Transferências') }}</p>
             <p class="text-2xl font-bold text-blue-600">{{ $resumo['transferencias_n'] }}</p>
-            <p class="text-[11px] text-gray-400">entre armazéns</p>
+            <p class="text-[11px] text-gray-400">{{ __('entre armazéns') }}</p>
         </div>
         <div class="bg-white rounded-2xl shadow p-4 border border-purple-100">
-            <p class="text-[11px] text-gray-500 uppercase font-bold">Valor das entradas</p>
+            <p class="text-[11px] text-gray-500 uppercase font-bold">{{ __('Valor das entradas') }}</p>
             <p class="text-2xl font-bold text-purple-600">{{ number_format($resumo['entradas_valor'], 2, ',', '.') }}</p>
             <p class="text-[11px] text-gray-400">Kz · {{ $resumo['lotes_n'] }} documento(s)</p>
         </div>
@@ -125,27 +125,25 @@
 
     <p class="-mt-3 mb-6 text-[11px] text-gray-400">
         <i class="fas fa-circle-info mr-1"></i>
-        Ajustes e transferências contam-se pelo número de ocorrências e não entram nas quantidades:
-        num ajuste a quantidade registada é o saldo final e não uma variação, e uma transferência
-        muda o artigo de armazém sem alterar o que a empresa tem.
+        {{ __('Ajustes e transferências contam-se pelo número de ocorrências e não entram nas quantidades: num ajuste a quantidade registada é o saldo final e não uma variação, e uma transferência muda o artigo de armazém sem alterar o que a empresa tem.') }}
     </p>
 
     {{-- Quem mexeu --}}
     @if($porUtilizador->count() > 0)
         <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-6">
             <div class="px-6 py-4 border-b bg-gray-50">
-                <h3 class="font-bold text-gray-900"><i class="fas fa-user-shield mr-2 text-amber-600"></i>Por operador</h3>
+                <h3 class="font-bold text-gray-900"><i class="fas fa-user-shield mr-2 text-amber-600"></i>{{ __('Por operador') }}</h3>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Operador</th>
-                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Movimentos</th>
-                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Qtd. entrada</th>
-                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Qtd. saída</th>
-                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Ajustes</th>
-                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Valor entrado (Kz)</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Operador') }}</th>
+                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Movimentos') }}</th>
+                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Qtd. entrada') }}</th>
+                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Qtd. saída') }}</th>
+                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Ajustes') }}</th>
+                            <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Valor entrado (Kz)') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -169,29 +167,29 @@
     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div class="px-6 py-4 border-b bg-gray-50 flex items-center justify-between flex-wrap gap-2">
             <h3 class="font-bold text-gray-900">
-                <i class="fas fa-list-check mr-2 text-amber-600"></i>Detalhe
+                <i class="fas fa-list-check mr-2 text-amber-600"></i>{{ __('Detalhe') }}
                 <span class="ml-2 text-xs font-normal text-gray-500">{{ $resumo['total_n'] }} movimento(s) no período</span>
             </h3>
             <select wire:model.live="perPage" class="px-2 py-1 border border-gray-300 rounded-lg text-xs">
-                <option value="25">25 por página</option>
-                <option value="50">50 por página</option>
-                <option value="100">100 por página</option>
+                <option value="25">{{ __('25 por página') }}</option>
+                <option value="50">{{ __('50 por página') }}</option>
+                <option value="100">{{ __('100 por página') }}</option>
             </select>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Data</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Tipo</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Produto</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Armazém</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Qtd.</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Saldo após</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Valor (Kz)</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Documento</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Nota</th>
-                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Operador</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Data') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Tipo') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Produto') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Armazém') }}</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Qtd.') }}</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Saldo após') }}</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">{{ __('Valor (Kz)') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Documento') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Nota') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">{{ __('Operador') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -221,13 +219,13 @@
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 @if($m->type === 'in')
-                                    <span class="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full"><i class="fas fa-arrow-down mr-1"></i>Entrada</span>
+                                    <span class="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full"><i class="fas fa-arrow-down mr-1"></i>{{ __('Entrada') }}</span>
                                 @elseif($m->type === 'out')
-                                    <span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full"><i class="fas fa-arrow-up mr-1"></i>Saída</span>
+                                    <span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full"><i class="fas fa-arrow-up mr-1"></i>{{ __('Saída') }}</span>
                                 @elseif($m->type === 'transfer')
-                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full"><i class="fas fa-exchange-alt mr-1"></i>Transferência</span>
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full"><i class="fas fa-exchange-alt mr-1"></i>{{ __('Transferência') }}</span>
                                 @else
-                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full"><i class="fas fa-sliders mr-1"></i>Ajuste</span>
+                                    <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full"><i class="fas fa-sliders mr-1"></i>{{ __('Ajuste') }}</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3">
@@ -259,7 +257,7 @@
                             </td>
                             <td class="px-4 py-3 text-right text-gray-700 whitespace-nowrap">
                                 @if($valor === null)
-                                    <span class="text-gray-300" title="Num ajuste a quantidade é o saldo final, não uma variação">—</span>
+                                    <span class="text-gray-300" title="{{ __('Num ajuste a quantidade é o saldo final, não uma variação') }}">—</span>
                                 @else
                                     {{ $valor > 0 ? number_format($valor, 2, ',', '.') : '—' }}
                                 @endif
@@ -269,7 +267,7 @@
                                     <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $m->batch_reference]) }}"
                                        target="_blank" rel="noopener"
                                        class="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline font-semibold"
-                                       title="Abrir o documento desta movimentação">
+                                       title="{{ __('Abrir o documento desta movimentação') }}">
                                         <i class="fas fa-file-pdf"></i>
                                         <span class="font-mono text-xs">{{ $m->batch_reference }}</span>
                                     </a>
@@ -286,7 +284,7 @@
                         <tr>
                             <td colspan="10" class="px-6 py-12 text-center text-gray-400">
                                 <i class="fas fa-inbox text-3xl mb-2"></i>
-                                <p class="text-sm">Nenhum ajuste de stock no período e filtros escolhidos</p>
+                                <p class="text-sm">{{ __('Nenhum ajuste de stock no período e filtros escolhidos') }}</p>
                             </td>
                         </tr>
                     @endforelse

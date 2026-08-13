@@ -7,9 +7,9 @@
                 <div>
                     <h1 class="text-2xl font-bold flex items-center">
                         <i class="fas fa-file-signature mr-3"></i>
-                        Configurações AGT Angola
+                        {{ __('Configurações AGT Angola') }}
                     </h1>
-                    <p class="mt-1 text-orange-200 text-sm">Decreto Presidencial n.º 71/25 — Sistema de Faturação Eletrónica</p>
+                    <p class="mt-1 text-orange-200 text-sm">{{ __('Decreto Presidencial n.º 71/25 — Sistema de Faturação Eletrónica') }}</p>
                 </div>
                 <div class="flex items-center gap-3">
                     {{-- Sempre o ambiente ACTIVO: é a resposta a "os meus
@@ -37,7 +37,7 @@
                         <i class="fas fa-building"></i>
                     </div>
                     <div>
-                        <p class="text-xs font-bold text-orange-600 uppercase tracking-wide">Contexto de operação</p>
+                        <p class="text-xs font-bold text-orange-600 uppercase tracking-wide">{{ __('Contexto de operação') }}</p>
                         <h3 class="text-sm font-bold text-gray-900">
                             {{ $currentTenant?->name ?? 'Seleccione uma empresa' }}
                         </h3>
@@ -47,10 +47,10 @@
                     </div>
                 </div>
                 <div class="w-full lg:w-[420px]">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">Operar e testar como empresa</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">{{ __('Operar e testar como empresa') }}</label>
                     <select wire:change="selectTenant($event.target.value)"
                             class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200">
-                        <option value="">Seleccione uma empresa</option>
+                        <option value="">{{ __('Seleccione uma empresa') }}</option>
                         @foreach($availableTenants as $tenant)
                             <option value="{{ $tenant->id }}" @selected((int) $currentTenantId === (int) $tenant->id)>
                                 {{ $tenant->name }} — {{ $tenant->nif ?? 'sem NIF' }}
@@ -63,7 +63,7 @@
         @elseif($currentTenant)
         <div class="mb-6 flex items-center px-4 py-3 rounded-xl bg-white border border-gray-200 text-sm text-gray-700">
             <i class="fas fa-building text-orange-500 mr-2"></i>
-            Empresa activa: <strong class="ml-1">{{ $currentTenant->name }}</strong>
+            {{ __('Empresa activa:') }} <strong class="ml-1">{{ $currentTenant->name }}</strong>
         </div>
         @endif
 
@@ -75,11 +75,9 @@
                     <i class="fas fa-building text-blue-500"></i>
                 </div>
                 <div>
-                    <h3 class="text-sm font-bold text-blue-800">Nenhuma empresa selecionada</h3>
+                    <h3 class="text-sm font-bold text-blue-800">{{ __('Nenhuma empresa selecionada') }}</h3>
                     <p class="mt-1 text-sm text-blue-700 leading-relaxed">
-                        Para configurar e testar as opções AGT, seleccione uma empresa no selector acima.
-                        As credenciais da API são geridas globalmente pelo produtor. Seleccione uma empresa para configurar
-                        apenas as chaves pública e privada obtidas no Portal AGT dessa empresa.
+                        {{ __('Para configurar e testar as opções AGT, seleccione uma empresa no selector acima. As credenciais da API são geridas globalmente pelo produtor. Seleccione uma empresa para configurar apenas as chaves pública e privada obtidas no Portal AGT dessa empresa.') }}
                     </p>
                 </div>
             </div>
@@ -100,7 +98,7 @@
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">!</span>
                     @endif
                 </div>
-                <p class="text-xs text-gray-500">Chaves RSA</p>
+                <p class="text-xs text-gray-500">{{ __('Chaves RSA') }}</p>
                 <p class="text-sm font-bold {{ $hasKeys ? 'text-green-700' : 'text-red-600' }}">
                     {{ $hasKeys ? 'Configuradas' : 'Não configuradas' }}
                 </p>
@@ -118,13 +116,13 @@
                         <i class="fas fa-server {{ $ehProducao ? 'text-purple-600' : 'text-yellow-600' }}"></i>
                     </div>
                 </div>
-                <p class="text-xs text-gray-500">Ambiente activo</p>
+                <p class="text-xs text-gray-500">{{ __('Ambiente activo') }}</p>
                 <p class="text-sm font-bold {{ $ehProducao ? 'text-purple-700' : 'text-yellow-700' }}">
                     {{ $ehProducao ? 'Produção' : 'Homologação (Testes)' }}
                 </p>
                 @unless($this->aVerOAmbienteActivo())
                     <p class="mt-1 text-[10px] font-semibold text-orange-600">
-                        <i class="fas fa-eye mr-0.5"></i> a ver o outro ambiente
+                        <i class="fas fa-eye mr-0.5"></i> {{ __('a ver o outro ambiente') }}
                     </p>
                 @endunless
             </div>
@@ -137,7 +135,7 @@
                     </div>
                     <span class="text-lg font-black text-blue-600">{{ $complianceReport['series']['registered'] ?? 0 }}</span>
                 </div>
-                <p class="text-xs text-gray-500">Séries AGT</p>
+                <p class="text-xs text-gray-500">{{ __('Séries AGT') }}</p>
                 <p class="text-sm font-bold text-blue-700">
                     {{ $complianceReport['series']['registered'] ?? 0 }} / {{ $complianceReport['series']['total'] ?? 0 }} registadas
                 </p>
@@ -151,7 +149,7 @@
                     </div>
                     <span class="text-lg font-black text-indigo-600">{{ $complianceReport['submissions']['validated'] ?? 0 }}</span>
                 </div>
-                <p class="text-xs text-gray-500">Submissões</p>
+                <p class="text-xs text-gray-500">{{ __('Submissões') }}</p>
                 <p class="text-sm font-bold text-indigo-700">
                     {{ $complianceReport['submissions']['validated'] ?? 0 }} validadas
                 </p>
@@ -165,12 +163,12 @@
                     <button wire:click="setTab('config')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
                             {{ $activeTab === 'config' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-                        <i class="fas fa-cog text-xs"></i> Configurações
+                        <i class="fas fa-cog text-xs"></i> {{ __('Configurações') }}
                     </button>
                     <button wire:click="setTab('series')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
                             {{ $activeTab === 'series' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-                        <i class="fas fa-list-ol text-xs"></i> Séries
+                        <i class="fas fa-list-ol text-xs"></i> {{ __('Séries') }}
                     </button>
                     <button wire:click="setTab('submissions')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
@@ -188,12 +186,12 @@
                     <button wire:click="setTab('logs')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
                             {{ $activeTab === 'logs' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-                        <i class="fas fa-history text-xs"></i> Logs
+                        <i class="fas fa-history text-xs"></i> {{ __('Logs') }}
                     </button>
                     <button wire:click="setTab('api-tools')"
                             class="flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap
                             {{ $activeTab === 'api-tools' ? 'text-orange-600 border-orange-500 bg-white' : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300' }}">
-                        <i class="fas fa-tools text-xs"></i> Ferramentas API
+                        <i class="fas fa-tools text-xs"></i> {{ __('Ferramentas API') }}
                     </button>
                 </nav>
             </div>
@@ -215,11 +213,10 @@
                     <div>
                         <h3 class="text-gray-800 font-bold text-sm flex items-center mb-1">
                             <i class="fas fa-server mr-2 text-orange-500"></i>
-                            Ambientes
+                            {{ __('Ambientes') }}
                         </h3>
                         <p class="text-gray-400 text-xs mb-4">
-                            Configure os dois. Escolher aqui só muda o que está a ver — a empresa
-                            continua a emitir pelo ambiente activo até o activar de propósito.
+                            {{ __('Configure os dois. Escolher aqui só muda o que está a ver — a empresa continua a emitir pelo ambiente activo até o activar de propósito.') }}
                         </p>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -238,7 +235,7 @@
                                         </span>
                                         @if($amb['activo'])
                                             <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase">
-                                                <i class="fas fa-broadcast-tower mr-0.5"></i> a emitir
+                                                <i class="fas fa-broadcast-tower mr-0.5"></i> {{ __('a emitir') }}
                                             </span>
                                         @endif
                                     </div>
@@ -254,7 +251,7 @@
                                     </div>
                                     @if($amb['a_ver'])
                                         <p class="mt-2 text-[10px] font-semibold text-{{ $cor }}-700 uppercase tracking-wide">
-                                            <i class="fas fa-eye mr-0.5"></i> a configurar
+                                            <i class="fas fa-eye mr-0.5"></i> {{ __('a configurar') }}
                                         </p>
                                     @endif
                                 </button>
@@ -271,10 +268,10 @@
                                 <div class="flex-1 text-xs {{ $aVerProducao ? 'text-red-800' : 'text-amber-800' }}">
                                     <i class="fas fa-exclamation-triangle mr-1"></i>
                                     @if($aVerProducao)
-                                        Activar <strong>Produção</strong> põe os documentos desta empresa a seguir
+                                        Activar <strong>{{ __('Produção') }}</strong> põe os documentos desta empresa a seguir
                                         para a AGT real, com valor fiscal. Confirme antes as chaves e o teste de ligação.
                                     @else
-                                        Activar <strong>Homologação</strong> passa os documentos a ir para o ambiente
+                                        Activar <strong>{{ __('Homologação') }}</strong> passa os documentos a ir para o ambiente
                                         de testes — deixam de ter valor fiscal.
                                     @endif
                                 </div>
@@ -285,7 +282,7 @@
                                         class="px-4 py-2 rounded-xl text-white text-xs font-bold whitespace-nowrap
                                             {{ $aVerProducao ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700' }}">
                                     <i class="fas fa-broadcast-tower mr-1"></i>
-                                    Passar a emitir aqui
+                                    {{ __('Passar a emitir aqui') }}
                                 </button>
                             </div>
                         @endunless
@@ -297,16 +294,14 @@
                             <div>
                                 <h3 class="text-gray-800 font-bold text-sm flex items-center">
                                     <i class="fas fa-key mr-2 text-orange-500"></i>
-                                    Chaves do Portal AGT desta empresa
+                                    {{ __('Chaves do Portal AGT desta empresa') }}
                                 </h3>
                                 @php
                                     // Forma de bloco: a directiva de uma linha não suporta ternários
                                     $rotuloAmbiente = $ambienteVista === 'production' ? 'Produção' : 'Homologação';
                                 @endphp
                                 <p class="text-gray-400 text-xs mt-1">
-                                    Cole o par RSA fornecido no Portal do Contribuinte. As chaves são
-                                    <strong>por empresa e por ambiente</strong> — o par abaixo é o de
-                                    <strong>{{ $rotuloAmbiente }}</strong> e não afecta o outro ambiente.
+                                    {!! __('Cole o par RSA fornecido no Portal do Contribuinte. As chaves são <strong>por empresa e por ambiente</strong> — o par abaixo é o de <strong>:ambiente</strong> e não afecta o outro ambiente.', ['ambiente' => e($rotuloAmbiente)]) !!}
                                 </p>
                             </div>
                             {{-- O ambiente tem de constar do badge: "configurada" sem dizer qual
@@ -323,28 +318,25 @@
                         @if(!$hasKeys)
                             <div class="rounded-xl bg-amber-50 border border-amber-200 p-4 mb-4 text-xs text-amber-800">
                                 <i class="fas fa-exclamation-triangle mr-1"></i>
-                                Sem par RSA de <strong>{{ $rotuloAmbiente }}</strong> não é possível assinar nem
-                                registar séries neste ambiente. O par do outro ambiente <strong>não serve</strong> —
-                                a AGT recusa a assinatura.
+                                {!! __('Sem par RSA de <strong>:ambiente</strong> não é possível assinar nem registar séries neste ambiente. O par do outro ambiente <strong>não serve</strong> — a AGT recusa a assinatura.', ['ambiente' => e($rotuloAmbiente)]) !!}
                             </div>
                         @endif
 
                         <div class="rounded-xl bg-blue-50 border border-blue-200 p-4 mb-4 text-xs text-blue-800">
                             <i class="fas fa-info-circle mr-1"></i>
-                            O username e a password Basic Auth não são configurados aqui; são credenciais do produtor
-                            SOS ERP, próprias de cada ambiente. Ao substituir as chaves, informe sempre o par completo.
+                            {{ __('O username e a password Basic Auth não são configurados aqui; são credenciais do produtor SOS ERP, próprias de cada ambiente. Ao substituir as chaves, informe sempre o par completo.') }}
                         </div>
 
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">Chave pública RSA (PEM)</label>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">{{ __('Chave pública RSA (PEM)') }}</label>
                                 <textarea wire:model="contributorPublicKey" rows="8" autocomplete="off" spellcheck="false"
                                           class="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50"
                                           placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea>
                                 @error('contributorPublicKey') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">Chave privada RSA (PEM)</label>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">{{ __('Chave privada RSA (PEM)') }}</label>
                                 <textarea wire:model="contributorPrivateKey" rows="8" autocomplete="new-password" spellcheck="false"
                                           class="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-gray-50"
                                           placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
@@ -357,13 +349,13 @@
                                 <button type="button" wire:click="removeContributorKeys"
                                         wire:confirm="Remover as chaves AGT desta empresa? A submissão ficará bloqueada."
                                         class="px-4 py-2.5 rounded-xl text-xs font-bold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100">
-                                    <i class="fas fa-trash-alt mr-1.5"></i>Remover chaves
+                                    <i class="fas fa-trash-alt mr-1.5"></i>{{ __('Remover chaves') }}
                                 </button>
                             @endif
                             <button type="button" wire:click="saveContributorKeys" wire:loading.attr="disabled"
                                     class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 disabled:opacity-50">
-                                <span wire:loading.remove wire:target="saveContributorKeys"><i class="fas fa-lock mr-1.5"></i>Validar e guardar par</span>
-                                <span wire:loading wire:target="saveContributorKeys"><i class="fas fa-circle-notch fa-spin mr-1.5"></i>A validar...</span>
+                                <span wire:loading.remove wire:target="saveContributorKeys"><i class="fas fa-lock mr-1.5"></i>{{ __('Validar e guardar par') }}</span>
+                                <span wire:loading wire:target="saveContributorKeys"><i class="fas fa-circle-notch fa-spin mr-1.5"></i>{{ __('A validar...') }}</span>
                             </button>
                         </div>
                     </div>
@@ -372,15 +364,15 @@
                     <div class="border-t border-gray-100 pt-6 mb-6">
                         <h3 class="text-gray-800 font-bold text-sm flex items-center mb-1">
                             <i class="fas fa-briefcase mr-2 text-teal-600"></i>
-                            Actividade económica (CAE)
+                            {{ __('Actividade económica (CAE)') }}
                         </h3>
                         <p class="text-gray-400 text-xs mb-3">
-                            Vai no campo <span class="font-mono">eacCode</span> de cada documento enviado à AGT.
+                            {!! __('Vai no campo <span class="font-mono">eacCode</span> de cada documento enviado à AGT.') !!}
                         </p>
 
                         <select wire:model="agt_eac_code"
                                 class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
-                            <option value="">— não definida —</option>
+                            <option value="">{{ __('— não definida —') }}</option>
                             @foreach($caeCodes as $cae)
                                 <option value="{{ $cae->code }}" @selected($agt_eac_code === $cae->code)>{{ $cae->code }} · {{ $cae->description }}</option>
                             @endforeach
@@ -391,8 +383,10 @@
                                  identifica actividade nenhuma. --}}
                             <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
                                 <i class="fas fa-exclamation-triangle mr-1"></i>
-                                Sem CAE os documentos vão com <span class="font-mono">eacCode 00000</span>,
-                                que não identifica a actividade — a AGT pode recusá-los.
+                                {{-- O eacCode 00000 fica dentro da frase mas é
+                                     literal: é o valor que vai mesmo no
+                                     payload da AGT, não texto para traduzir. --}}
+                                {!! __('Sem CAE os documentos vão com <span class="font-mono">eacCode 00000</span>, que não identifica a actividade — a AGT pode recusá-los.') !!}
                             </div>
                         @endif
                     </div>
@@ -401,7 +395,7 @@
                     <div class="border-t border-gray-100 pt-6">
                         <h3 class="text-gray-800 font-bold text-sm flex items-center mb-4">
                             <i class="fas fa-sliders-h mr-2 text-orange-500"></i>
-                            Opções de Submissão
+                            {{ __('Opções de Submissão') }}
                         </h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -415,8 +409,8 @@
                                             <i class="fas fa-paper-plane {{ $agt_auto_submit ? 'text-green-500' : 'text-gray-400' }}"></i>
                                         </div>
                                         <div class="ml-3">
-                                            <span class="font-semibold text-sm text-gray-800 block">Submissão Automática</span>
-                                            <span class="text-[10px] text-gray-400">Enviar documentos automaticamente à AGT</span>
+                                            <span class="font-semibold text-sm text-gray-800 block">{{ __('Submissão Automática') }}</span>
+                                            <span class="text-[10px] text-gray-400">{{ __('Enviar documentos automaticamente à AGT') }}</span>
                                         </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -436,8 +430,8 @@
                                             <i class="fas fa-check-double {{ $agt_require_validation ? 'text-blue-500' : 'text-gray-400' }}"></i>
                                         </div>
                                         <div class="ml-3">
-                                            <span class="font-semibold text-sm text-gray-800 block">Validação Obrigatória</span>
-                                            <span class="text-[10px] text-gray-400">Exigir validação AGT antes de imprimir</span>
+                                            <span class="font-semibold text-sm text-gray-800 block">{{ __('Validação Obrigatória') }}</span>
+                                            <span class="text-[10px] text-gray-400">{{ __('Exigir validação AGT antes de imprimir') }}</span>
                                         </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -466,7 +460,7 @@
                                     <i class="fas fa-times-circle text-red-600"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-bold text-red-800">Falha na conexão</p>
+                                    <p class="text-sm font-bold text-red-800">{{ __('Falha na conexão') }}</p>
                                     <p class="text-xs text-red-600">{{ $connectionTest['error'] ?? 'Verifique as credenciais' }}</p>
                                 </div>
                             @endif
@@ -478,13 +472,13 @@
                     <div class="flex items-center justify-between pt-4 border-t border-gray-100">
                         <button wire:click="testConnection" wire:loading.attr="disabled" wire:target="testConnection"
                                 class="px-5 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition flex items-center gap-2 disabled:opacity-50">
-                            <span wire:loading.remove wire:target="testConnection"><i class="fas fa-plug mr-1"></i> Testar Conexão</span>
-                            <span wire:loading wire:target="testConnection"><i class="fas fa-spinner fa-spin mr-1"></i> A testar...</span>
+                            <span wire:loading.remove wire:target="testConnection"><i class="fas fa-plug mr-1"></i> {{ __('Testar Conexão') }}</span>
+                            <span wire:loading wire:target="testConnection"><i class="fas fa-spinner fa-spin mr-1"></i> {{ __('A testar...') }}</span>
                         </button>
                         <button wire:click="save" wire:loading.attr="disabled" wire:target="save"
                                 class="px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded-xl hover:from-orange-600 hover:to-red-600 transition shadow-lg shadow-orange-200 flex items-center gap-2 disabled:opacity-50">
-                            <span wire:loading.remove wire:target="save"><i class="fas fa-save mr-1"></i> Guardar Configurações</span>
-                            <span wire:loading wire:target="save"><i class="fas fa-spinner fa-spin mr-1"></i> A guardar...</span>
+                            <span wire:loading.remove wire:target="save"><i class="fas fa-save mr-1"></i> {{ __('Guardar Configurações') }}</span>
+                            <span wire:loading wire:target="save"><i class="fas fa-spinner fa-spin mr-1"></i> {{ __('A guardar...') }}</span>
                         </button>
                     </div>
                 </div>
@@ -499,19 +493,19 @@
                         <div>
                             <h3 class="text-gray-800 font-bold text-sm flex items-center">
                                 <i class="fas fa-list-ol mr-2 text-blue-500"></i>
-                                Séries de Documentos
+                                {{ __('Séries de Documentos') }}
                             </h3>
                             <p class="text-gray-400 text-xs mt-0.5">
-                                A sua série (ex.: <span class="font-mono">FT A</span>) ligada ao código que a AGT lhe
-                                atribuiu (ex.: <span class="font-mono">FT7626S9153N</span>). É esse código que aparece no
-                                separador <em>Séries de facturas</em> do portal — o nome que deu à série cá dentro não é
-                                enviado à AGT.
+                                {{-- "FT A" e "FT7626S9153N" são exemplos de
+                                     códigos reais da AGT: ficam dentro da
+                                     frase, mas literais. --}}
+                                {!! __('A sua série (ex.: <span class="font-mono">FT A</span>) ligada ao código que a AGT lhe atribuiu (ex.: <span class="font-mono">FT7626S9153N</span>). É esse código que aparece no separador <em>Séries de facturas</em> do portal — o nome que deu à série cá dentro não é enviado à AGT.') !!}
                             </p>
                         </div>
                         <button wire:click="syncSeries" wire:loading.attr="disabled" wire:target="syncSeries"
                                 class="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 transition text-sm font-bold shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-50">
-                            <span wire:loading.remove wire:target="syncSeries"><i class="fas fa-sync-alt mr-1"></i> Sincronizar com AGT</span>
-                            <span wire:loading wire:target="syncSeries"><i class="fas fa-spinner fa-spin mr-1"></i> A sincronizar...</span>
+                            <span wire:loading.remove wire:target="syncSeries"><i class="fas fa-sync-alt mr-1"></i> {{ __('Sincronizar com AGT') }}</span>
+                            <span wire:loading wire:target="syncSeries"><i class="fas fa-spinner fa-spin mr-1"></i> {{ __('A sincronizar...') }}</span>
                         </button>
                     </div>
 
@@ -520,8 +514,8 @@
                             <div class="flex items-start gap-3">
                                 <i class="fas fa-exclamation-triangle text-amber-600 mt-0.5"></i>
                                 <div>
-                                    <p class="text-sm font-bold text-amber-900">Sincronização ainda não disponível</p>
-                                    <p class="text-xs text-amber-800 mt-1">O pedido só será enviado quando todos os requisitos estiverem configurados:</p>
+                                    <p class="text-sm font-bold text-amber-900">{{ __('Sincronização ainda não disponível') }}</p>
+                                    <p class="text-xs text-amber-800 mt-1">{{ __('O pedido só será enviado quando todos os requisitos estiverem configurados:') }}</p>
                                     <ul class="mt-2 space-y-1 text-xs">
                                         <li class="{{ $hasGlobalCredentials ? 'text-green-700' : 'text-red-700 font-semibold' }}"><i class="fas fa-{{ $hasGlobalCredentials ? 'check-circle' : 'times-circle' }} mr-1"></i>Credenciais globais do produtor {{ $hasGlobalCredentials ? 'configuradas' : 'em falta no servidor' }}</li>
                                         <li class="{{ $hasPublicKey ? 'text-green-700' : 'text-red-700 font-semibold' }}"><i class="fas fa-{{ $hasPublicKey ? 'check-circle' : 'times-circle' }} mr-1"></i>Chave pública do tenant {{ $hasPublicKey ? 'configurada' : 'em falta' }}</li>
@@ -565,13 +559,13 @@
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="bg-gradient-to-r from-gray-50 to-gray-100">
-                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Série</th>
-                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Tipo Documento</th>
+                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Série') }}</th>
+                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Tipo Documento') }}</th>
                                     {{-- "ID AGT" parecia um id interno; é o código que aparece no
                                          separador "Séries de facturas" do portal — é ESTE o elo. --}}
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Código no portal AGT</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Código no portal AGT') }}</th>
                                     <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">ATCUD</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Estado</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Estado') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -619,7 +613,7 @@
                                         @if($agtError)
                                             <p class="mt-1 max-w-md text-[10px] leading-4 text-red-600" title="{{ $agtError }}">{{ $agtError }}</p>
                                         @elseif(!$eligible)
-                                            <p class="mt-1 text-[10px] text-gray-400">Documento não fiscal; não é enviado à AGT.</p>
+                                            <p class="mt-1 text-[10px] text-gray-400">{{ __('Documento não fiscal; não é enviado à AGT.') }}</p>
                                         @endif
                                     </td>
                                     <td class="px-5 py-3.5 text-center">
@@ -639,19 +633,19 @@
                                     <td class="px-5 py-3.5 text-center">
                                         @if(!$eligible)
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600">
-                                                <i class="fas fa-minus-circle mr-1"></i> Não aplicável
+                                                <i class="fas fa-minus-circle mr-1"></i> {{ __('Não aplicável') }}
                                             </span>
                                         @elseif($s->agt_series_id)
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
-                                                <i class="fas fa-check mr-1"></i> Registada
+                                                <i class="fas fa-check mr-1"></i> {{ __('Registada') }}
                                             </span>
                                         @elseif($agtError)
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
-                                                <i class="fas fa-times-circle mr-1"></i> Rejeitada
+                                                <i class="fas fa-times-circle mr-1"></i> {{ __('Rejeitada') }}
                                             </span>
                                         @else
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700">
-                                                <i class="fas fa-clock mr-1"></i> Pendente
+                                                <i class="fas fa-clock mr-1"></i> {{ __('Pendente') }}
                                             </span>
                                         @endif
                                     </td>
@@ -661,8 +655,8 @@
                                     <td colspan="5" class="px-5 py-10 text-center">
                                         <div class="flex flex-col items-center text-gray-400">
                                             <i class="fas fa-inbox text-3xl mb-2"></i>
-                                            <p class="text-sm font-medium">Nenhuma série encontrada</p>
-                                            <p class="text-xs">Crie séries em <strong>Faturação → Séries de Documentos</strong></p>
+                                            <p class="text-sm font-medium">{{ __('Nenhuma série encontrada') }}</p>
+                                            <p class="text-xs">{{ __('Crie séries em') }} <strong>{{ __('Faturação → Séries de Documentos') }}</strong></p>
                                         </div>
                                     </td>
                                 </tr>
@@ -682,16 +676,16 @@
                         <div>
                             <h3 class="text-gray-800 font-bold text-sm flex items-center">
                                 <i class="fas fa-cloud-upload-alt mr-2 text-indigo-500"></i>
-                                Histórico de Submissões FE
+                                {{ __('Histórico de Submissões FE') }}
                             </h3>
-                            <p class="text-gray-400 text-xs mt-0.5">Documentos enviados, validados ou rejeitados pela AGT</p>
+                            <p class="text-gray-400 text-xs mt-0.5">{{ __('Documentos enviados, validados ou rejeitados pela AGT') }}</p>
                         </div>
                         <button wire:click="refreshSubmissionStatuses"
                                 wire:loading.attr="disabled" wire:target="refreshSubmissionStatuses"
                                 class="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition">
                             <i wire:loading.class="fa-spin" wire:target="refreshSubmissionStatuses"
                                class="fas fa-sync-alt mr-2"></i>
-                            Atualizar estados AGT
+                            {{ __('Atualizar estados AGT') }}
                         </button>
                     </div>
 
@@ -699,12 +693,12 @@
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="bg-gradient-to-r from-gray-50 to-gray-100">
-                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Documento</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Tipo</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Estado</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Tentativas</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Data</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Ações</th>
+                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Documento') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Tipo') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Estado') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Tentativas') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Data') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Ações') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -779,7 +773,7 @@
                                         <button wire:click="retrySubmission({{ $sub['id'] }})"
                                                 wire:loading.attr="disabled" wire:target="retrySubmission({{ $sub['id'] }})"
                                                 class="px-3 py-1.5 text-xs font-bold text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition">
-                                            <span wire:loading.remove wire:target="retrySubmission({{ $sub['id'] }})"><i class="fas fa-redo mr-1"></i> Reenviar</span>
+                                            <span wire:loading.remove wire:target="retrySubmission({{ $sub['id'] }})"><i class="fas fa-redo mr-1"></i> {{ __('Reenviar') }}</span>
                                             <span wire:loading wire:target="retrySubmission({{ $sub['id'] }})"><i class="fas fa-spinner fa-spin"></i></span>
                                         </button>
                                         @else
@@ -792,8 +786,8 @@
                                     <td colspan="6" class="px-5 py-10 text-center">
                                         <div class="flex flex-col items-center text-gray-400">
                                             <i class="fas fa-check-circle text-3xl mb-2 text-green-300"></i>
-                                            <p class="text-sm font-medium">Nenhuma submissão registada</p>
-                                            <p class="text-xs">Os documentos enviados à AGT aparecerão aqui</p>
+                                            <p class="text-sm font-medium">{{ __('Nenhuma submissão registada') }}</p>
+                                            <p class="text-xs">{{ __('Os documentos enviados à AGT aparecerão aqui') }}</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -810,9 +804,9 @@
                     <div class="mb-5">
                         <h3 class="text-gray-800 font-bold text-sm flex items-center">
                             <i class="fas fa-terminal mr-2 text-orange-500"></i>
-                            Operações REST de Homologação
+                            {{ __('Operações REST de Homologação') }}
                         </h3>
-                        <p class="text-gray-400 text-xs mt-1">Consultas seguras aos endpoints oficiais. RegistarFactura é executado apenas no fluxo de emissão de uma factura real.</p>
+                        <p class="text-gray-400 text-xs mt-1">{{ __('Consultas seguras aos endpoints oficiais. RegistarFactura é executado apenas no fluxo de emissão de uma factura real.') }}</p>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
@@ -848,35 +842,35 @@
                     <div class="rounded-2xl border border-gray-200 bg-gray-50 p-5">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-2">Operação</label>
+                                <label class="block text-xs font-bold text-gray-700 mb-2">{{ __('Operação') }}</label>
                                 <select wire:model.live="apiOperation" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                                     {{-- O nome do endpoint sozinho leva a crer que lista os
                                          documentos EMITIDOS. Lista os RECEBIDOS. --}}
-                                    <option value="listarFacturas" @selected($apiOperation === 'listarFacturas')>ListarFacturas — documentos RECEBIDOS (empresa como adquirente)</option>
-                                    <option value="consultarFactura" @selected($apiOperation === 'consultarFactura')>ConsultarFactura — consultar um documento emitido</option>
-                                    <option value="obterEstado" @selected($apiOperation === 'obterEstado')>ObterEstado — estado de uma submissão</option>
+                                    <option value="listarFacturas" @selected($apiOperation === 'listarFacturas')>{{ __('ListarFacturas — documentos RECEBIDOS (empresa como adquirente)') }}</option>
+                                    <option value="consultarFactura" @selected($apiOperation === 'consultarFactura')>{{ __('ConsultarFactura — consultar um documento emitido') }}</option>
+                                    <option value="obterEstado" @selected($apiOperation === 'obterEstado')>{{ __('ObterEstado — estado de uma submissão') }}</option>
                                 </select>
                             </div>
                             @if($apiOperation === 'consultarFactura')
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 mb-2">Número do documento</label>
-                                    <input type="text" wire:model="apiDocumentNo" placeholder="Ex.: FT A/2026/000001" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ __('Número do documento') }}</label>
+                                    <input type="text" wire:model="apiDocumentNo" placeholder="{{ __('Ex.: FT A/2026/000001') }}" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                                     @error('apiDocumentNo') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                                 </div>
                             @elseif($apiOperation === 'obterEstado')
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 mb-2">Request ID</label>
-                                    <input type="text" wire:model="apiRequestId" placeholder="Request ID devolvido pela AGT" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
+                                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ __('Request ID') }}</label>
+                                    <input type="text" wire:model="apiRequestId" placeholder="{{ __('Request ID devolvido pela AGT') }}" class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                                     @error('apiRequestId') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                                 </div>
                             @else
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-2">Data inicial</label>
+                                        <label class="block text-xs font-bold text-gray-700 mb-2">{{ __('Data inicial') }}</label>
                                         <input type="date" wire:model="apiDateFrom" class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-2">Data final</label>
+                                        <label class="block text-xs font-bold text-gray-700 mb-2">{{ __('Data final') }}</label>
                                         <input type="date" wire:model="apiDateTo" class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-white text-sm">
                                     </div>
                                 </div>
@@ -886,8 +880,8 @@
                         <div class="flex justify-end mt-4">
                             <button type="button" wire:click="runApiOperation" wire:loading.attr="disabled"
                                     class="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50">
-                                <span wire:loading.remove wire:target="runApiOperation"><i class="fas fa-play mr-1.5"></i> Executar consulta</span>
-                                <span wire:loading wire:target="runApiOperation"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> A comunicar...</span>
+                                <span wire:loading.remove wire:target="runApiOperation"><i class="fas fa-play mr-1.5"></i> {{ __('Executar consulta') }}</span>
+                                <span wire:loading wire:target="runApiOperation"><i class="fas fa-circle-notch fa-spin mr-1.5"></i> {{ __('A comunicar...') }}</span>
                             </button>
                         </div>
                     </div>
@@ -914,21 +908,21 @@
                     <div class="mb-5">
                         <h3 class="text-gray-800 font-bold text-sm flex items-center">
                             <i class="fas fa-history mr-2 text-purple-500"></i>
-                            Logs de Comunicação
+                            {{ __('Logs de Comunicação') }}
                         </h3>
-                        <p class="text-gray-400 text-xs mt-0.5">Últimas 20 comunicações com a API AGT</p>
+                        <p class="text-gray-400 text-xs mt-0.5">{{ __('Últimas 20 comunicações com a API AGT') }}</p>
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-gray-200">
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="bg-gradient-to-r from-gray-50 to-gray-100">
-                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Data/Hora</th>
-                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Serviço</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Método</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Status</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Tempo</th>
-                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">Resultado</th>
+                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Data/Hora') }}</th>
+                                    <th class="text-left px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Serviço') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Método') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Status') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Tempo') }}</th>
+                                    <th class="text-center px-5 py-3.5 text-xs font-bold text-gray-500 uppercase">{{ __('Resultado') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -961,7 +955,7 @@
                                             </span>
                                         @else
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700" title="{{ $log['error_message'] ?? '' }}">
-                                                <i class="fas fa-times mr-1"></i> Erro
+                                                <i class="fas fa-times mr-1"></i> {{ __('Erro') }}
                                             </span>
                                         @endif
                                     </td>
@@ -971,8 +965,8 @@
                                     <td colspan="6" class="px-5 py-10 text-center">
                                         <div class="flex flex-col items-center text-gray-400">
                                             <i class="fas fa-list-alt text-3xl mb-2"></i>
-                                            <p class="text-sm font-medium">Nenhum log de comunicação</p>
-                                            <p class="text-xs">Os logs aparecerão após interação com a API AGT</p>
+                                            <p class="text-sm font-medium">{{ __('Nenhum log de comunicação') }}</p>
+                                            <p class="text-xs">{{ __('Os logs aparecerão após interação com a API AGT') }}</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -994,10 +988,9 @@
                     <i class="fas fa-exclamation-triangle text-amber-500"></i>
                 </div>
                 <div>
-                    <h3 class="text-sm font-bold text-amber-800">Chaves RSA não configuradas</h3>
+                    <h3 class="text-sm font-bold text-amber-800">{{ __('Chaves RSA não configuradas') }}</h3>
                     <p class="mt-1 text-sm text-amber-700 leading-relaxed">
-                        As chaves pública e privada do Portal AGT são necessárias para assinar e submeter documentos desta empresa.
-                        Configure o par no separador <strong>Configurações</strong> acima.
+                        {!! __('As chaves pública e privada do Portal AGT são necessárias para assinar e submeter documentos desta empresa. Configure o par no separador <strong>Configurações</strong> acima.') !!}
                     </p>
                 </div>
             </div>

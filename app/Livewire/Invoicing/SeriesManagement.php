@@ -200,8 +200,7 @@ class SeriesManagement extends Component
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 
@@ -219,7 +218,7 @@ class SeriesManagement extends Component
                 $this->showDeleteModal = false;
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'Uma série registada na AGT não pode ser eliminada. Encerre-a pelo fluxo fiscal apropriado.',
+                    'message' => __('Uma série registada na AGT não pode ser eliminada. Encerre-a pelo fluxo fiscal apropriado.'),
                 ]);
                 return;
             }
@@ -228,13 +227,12 @@ class SeriesManagement extends Component
             $this->showDeleteModal = false;
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Série eliminada com sucesso!'
+                'message' => __('Série eliminada com sucesso!')
             ]);
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao eliminar série: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro ao eliminar série: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 

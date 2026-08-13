@@ -6,17 +6,17 @@
                 <div class="bg-gradient-to-br from-cyan-500 to-blue-600 p-3 rounded-xl mr-3 shadow-lg animate-bounce-slow">
                     <i class="fas fa-ship text-white"></i>
                 </div>
-                Importações de Mercadorias
+                {{ __('Importações de Mercadorias') }}
             </h2>
             <p class="text-gray-600 mt-1 flex items-center">
                 <i class="fas fa-globe-africa text-cyan-600 mr-2"></i>
-                Gestão completa do processo de importação - Angola
+                {{ __('Gestão completa do processo de importação - Angola') }}
             </p>
         </div>
         @can('invoicing.imports.create')
         <button wire:click="openCreateModal" 
                 class="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105 transform">
-            <i class="fas fa-plus-circle mr-2"></i>Nova Importação
+            <i class="fas fa-plus-circle mr-2"></i>{{ __('Nova Importação') }}
         </button>
         @endcan
     </div>
@@ -26,7 +26,7 @@
         <div class="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-cyan-200 text-xs font-medium">Total Importações</p>
+                    <p class="text-cyan-200 text-xs font-medium">{{ __('Total Importações') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['total'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -38,7 +38,7 @@
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-blue-200 text-xs font-medium">Em Trânsito</p>
+                    <p class="text-blue-200 text-xs font-medium">{{ __('Em Trânsito') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['in_transit'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -50,7 +50,7 @@
         <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-orange-200 text-xs font-medium">Desembaraço Pendente</p>
+                    <p class="text-orange-200 text-xs font-medium">{{ __('Desembaraço Pendente') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['customs_pending'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -62,7 +62,7 @@
         <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-green-200 text-xs font-medium">Valor Total (CIF)</p>
+                    <p class="text-green-200 text-xs font-medium">{{ __('Valor Total (CIF)') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ number_format($stats['total_value'], 2) }}</p>
                     <p class="text-green-200 text-xs">USD</p>
                 </div>
@@ -77,36 +77,36 @@
     <div class="bg-white rounded-xl shadow-lg p-4 mb-6 border border-gray-100">
         <div class="flex items-center mb-3">
             <i class="fas fa-filter text-cyan-600 mr-2"></i>
-            <h3 class="font-semibold text-gray-700">Filtros</h3>
+            <h3 class="font-semibold text-gray-700">{{ __('Filtros') }}</h3>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Pesquisar importação..." 
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Pesquisar importação...') }}" 
                        class="pl-10 w-full rounded-lg border-gray-300 focus:border-cyan-500 focus:ring-cyan-500 transition-all">
             </div>
             
             <div class="relative">
                 <i class="fas fa-flag absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 <select wire:model.live="filterStatus" class="pl-10 w-full rounded-lg border-gray-300 focus:border-cyan-500 focus:ring-cyan-500">
-                    <option value="">📊 Todos os Status</option>
-                    <option value="quotation">📋 Cotação</option>
-                    <option value="order_placed">✅ Pedido Realizado</option>
-                    <option value="payment_pending">⏳ Pagamento Pendente</option>
-                    <option value="payment_confirmed">💰 Pagamento Confirmado</option>
-                    <option value="in_transit">🚢 Em Trânsito</option>
-                    <option value="customs_pending">🏛️ Desembaraço Pendente</option>
-                    <option value="customs_inspection">🔍 Inspeção Alfandegária</option>
-                    <option value="customs_cleared">✔️ Desembaraçado</option>
-                    <option value="in_warehouse">📦 No Armazém</option>
-                    <option value="completed">🎉 Concluído</option>
+                    <option value="">📊 {{ __('Todos os Status') }}</option>
+                    <option value="quotation">📋 {{ __('Cotação') }}</option>
+                    <option value="order_placed">✅ {{ __('Pedido Realizado') }}</option>
+                    <option value="payment_pending">⏳ {{ __('Pagamento Pendente') }}</option>
+                    <option value="payment_confirmed">💰 {{ __('Pagamento Confirmado') }}</option>
+                    <option value="in_transit">🚢 {{ __('Em Trânsito') }}</option>
+                    <option value="customs_pending">🏛️ {{ __('Desembaraço Pendente') }}</option>
+                    <option value="customs_inspection">🔍 {{ __('Inspeção Alfandegária') }}</option>
+                    <option value="customs_cleared">✔️ {{ __('Desembaraçado') }}</option>
+                    <option value="in_warehouse">📦 {{ __('No Armazém') }}</option>
+                    <option value="completed">🎉 {{ __('Concluído') }}</option>
                 </select>
             </div>
             
             <div class="relative">
                 <i class="fas fa-building absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 <select wire:model.live="filterSupplier" class="pl-10 w-full rounded-lg border-gray-300 focus:border-cyan-500 focus:ring-cyan-500">
-                    <option value="">🌐 Todos os Fornecedores</option>
+                    <option value="">🌐 {{ __('Todos os Fornecedores') }}</option>
                     @foreach($suppliers as $supplier)
                         <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                     @endforeach
@@ -115,7 +115,7 @@
             
             <button wire:click="$refresh" 
                     class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all duration-200 hover:scale-105 transform">
-                <i class="fas fa-sync-alt mr-2"></i>Atualizar
+                <i class="fas fa-sync-alt mr-2"></i>{{ __('Atualizar') }}
             </button>
         </div>
     </div>
@@ -126,14 +126,14 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gradient-to-r from-cyan-50 to-blue-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">Nº Importação</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">Fornecedor</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">Origem</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">Tipo</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-cyan-700 uppercase">Valor CIF</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">{{ __('Nº Importação') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">{{ __('Fornecedor') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">{{ __('Origem') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">{{ __('Tipo') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-cyan-700 uppercase">{{ __('Valor CIF') }}</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">ETA</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">Status</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-cyan-700 uppercase">Ações</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-cyan-700 uppercase">{{ __('Status') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-cyan-700 uppercase">{{ __('Ações') }}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -178,25 +178,25 @@
                                 <div class="flex items-center justify-end gap-2">
                                     <button wire:click="viewImport({{ $import->id }})" 
                                             class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 hover:scale-110 transform" 
-                                            title="Visualizar">
+                                            title="{{ __('Visualizar') }}">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                     @can('invoicing.imports.edit')
                                     <button wire:click="openEditModal({{ $import->id }})" 
                                             class="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-all duration-200 hover:scale-110 transform" 
-                                            title="Editar">
+                                            title="{{ __('Editar') }}">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     @endcan
                                     <button wire:click="printImport({{ $import->id }})" 
                                             class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 hover:scale-110 transform" 
-                                            title="Imprimir">
+                                            title="{{ __('Imprimir') }}">
                                         <i class="fas fa-print"></i>
                                     </button>
                                     @can('invoicing.imports.delete')
                                     <button wire:click="confirmDelete({{ $import->id }})" 
                                             class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 hover:scale-110 transform" 
-                                            title="Eliminar">
+                                            title="{{ __('Eliminar') }}">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                     @endcan
@@ -207,8 +207,8 @@
                         <tr>
                             <td colspan="8" class="px-6 py-12 text-center">
                                 <i class="fas fa-ship text-6xl text-gray-300 mb-4"></i>
-                                <p class="text-gray-500 font-medium">Nenhuma importação encontrada</p>
-                                <p class="text-gray-400 text-sm mt-2">Crie sua primeira importação para começar</p>
+                                <p class="text-gray-500 font-medium">{{ __('Nenhuma importação encontrada') }}</p>
+                                <p class="text-gray-400 text-sm mt-2">{{ __('Crie sua primeira importação para começar') }}</p>
                             </td>
                         </tr>
                     @endforelse
@@ -256,13 +256,13 @@
                 <section class="space-y-4">
                     <div class="flex items-center gap-2 pb-2 border-b border-gray-100">
                         <span class="w-7 h-7 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center text-xs"><i class="fas fa-building"></i></span>
-                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Identificação</h4>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">{{ __('Identificação') }}</h4>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Fornecedor <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Fornecedor') }} <span class="text-red-500">*</span></label>
                             <select wire:model="supplier_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('supplier_id') border-red-400 @enderror">
-                                <option value="">Selecione o fornecedor...</option>
+                                <option value="">{{ __('Selecione o fornecedor...') }}</option>
                                 @foreach($suppliers as $supplier)
                                     <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                                 @endforeach
@@ -270,17 +270,17 @@
                             @error('supplier_id') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Armazém Destino</label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Armazém Destino') }}</label>
                             <select wire:model="warehouse_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
-                                <option value="">Selecione o armazém...</option>
+                                <option value="">{{ __('Selecione o armazém...') }}</option>
                                 @foreach($warehouses as $warehouse)
                                     <option value="{{ $warehouse->id }}">{{ $warehouse->name }}{{ $warehouse->is_default ? ' (Principal)' : '' }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Referência / Ordem de Compra</label>
-                            <input type="text" wire:model="reference" placeholder="Ex.: PO-2025-001" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Referência / Ordem de Compra') }}</label>
+                            <input type="text" wire:model="reference" placeholder="{{ __('Ex.: PO-2025-001') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                         </div>
                     </div>
                 </section>
@@ -289,30 +289,30 @@
                 <section class="space-y-4">
                     <div class="flex items-center gap-2 pb-2 border-b border-gray-100">
                         <span class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs"><i class="fas fa-route"></i></span>
-                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Logística & Transporte</h4>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">{{ __('Logística & Transporte') }}</h4>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Data do Pedido <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Data do Pedido') }} <span class="text-red-500">*</span></label>
                             <input type="date" wire:model="order_date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('order_date') border-red-400 @enderror">
                             @error('order_date') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">ETA (Prev. Chegada)</label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('ETA (Prev. Chegada)') }}</label>
                             <input type="date" wire:model="expected_arrival_date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('expected_arrival_date') border-red-400 @enderror">
                             @error('expected_arrival_date') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de Transporte <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Tipo de Transporte') }} <span class="text-red-500">*</span></label>
                             <select wire:model="transport_type" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
-                                <option value="maritime">🚢 Marítimo</option>
-                                <option value="air">✈️ Aéreo</option>
-                                <option value="land">🚚 Terrestre</option>
+                                <option value="maritime">🚢 {{ __('Marítimo') }}</option>
+                                <option value="air">✈️ {{ __('Aéreo') }}</option>
+                                <option value="land">🚚 {{ __('Terrestre') }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">País de Origem <span class="text-red-500">*</span></label>
-                            <input type="text" list="origin-countries" wire:model="origin_country" placeholder="Ex.: China" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('origin_country') border-red-400 @enderror">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('País de Origem') }} <span class="text-red-500">*</span></label>
+                            <input type="text" list="origin-countries" wire:model="origin_country" placeholder="{{ __('Ex.: China') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('origin_country') border-red-400 @enderror">
                             <datalist id="origin-countries">
                                 <option value="China"></option>
                                 <option value="Portugal"></option>
@@ -327,12 +327,12 @@
                             @error('origin_country') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Porto de Origem</label>
-                            <input type="text" wire:model="origin_port" placeholder="Ex.: Shanghai" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Porto de Origem') }}</label>
+                            <input type="text" wire:model="origin_port" placeholder="{{ __('Ex.: Shanghai') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Porto de Destino</label>
-                            <input type="text" wire:model="destination_port" placeholder="Luanda" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Porto de Destino') }}</label>
+                            <input type="text" wire:model="destination_port" placeholder="{{ __('Luanda') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                         </div>
                     </div>
                 </section>
@@ -341,12 +341,12 @@
                 <section class="space-y-4">
                     <div class="flex items-center gap-2 pb-2 border-b border-gray-100">
                         <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs"><i class="fas fa-dollar-sign"></i></span>
-                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Valores (USD)</h4>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide">{{ __('Valores (USD)') }}</h4>
                     </div>
                     <div class="bg-gradient-to-br from-slate-50 to-blue-50 border border-blue-100 rounded-xl p-4">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Valor FOB <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Valor FOB') }} <span class="text-red-500">*</span></label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                                     <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="fob_value" class="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition @error('fob_value') border-red-400 @enderror">
@@ -354,14 +354,14 @@
                                 @error('fob_value') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                             </div>
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Frete</label>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Frete') }}</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                                     <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="freight_cost" class="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Seguro</label>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Seguro') }}</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                                     <input type="number" step="0.01" min="0" wire:model.live.debounce.400ms="insurance_cost" class="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
@@ -371,8 +371,8 @@
 
                         <div class="mt-4 bg-white border-2 border-dashed border-blue-300 rounded-lg p-3 flex items-center justify-between">
                             <div>
-                                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Valor CIF</span>
-                                <p class="text-[11px] text-gray-400"><i class="fas fa-calculator mr-1"></i>FOB + Frete + Seguro</p>
+                                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ __('Valor CIF') }}</span>
+                                <p class="text-[11px] text-gray-400"><i class="fas fa-calculator mr-1"></i>{{ __('FOB + Frete + Seguro') }}</p>
                             </div>
                             <span class="text-2xl font-extrabold text-blue-700">${{ number_format($cif_value ?: 0, 2) }}</span>
                         </div>
@@ -381,15 +381,15 @@
 
                 {{-- Secção: Observações --}}
                 <section>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-comment-dots text-gray-400 mr-1"></i>Observações</label>
-                    <textarea wire:model="notes" rows="3" placeholder="Notas adicionais sobre a importação..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"></textarea>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-comment-dots text-gray-400 mr-1"></i>{{ __('Observações') }}</label>
+                    <textarea wire:model="notes" rows="3" placeholder="{{ __('Notas adicionais sobre a importação...') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"></textarea>
                 </section>
             </div>
             
             <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 rounded-b-2xl flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
                 <button wire:click="closeModal" 
                         class="px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-semibold text-sm transition">
-                    <i class="fas fa-times mr-2"></i>Cancelar
+                    <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                 </button>
                 <button wire:click="save" wire:loading.attr="disabled" wire:target="save"
                         class="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-semibold text-sm transition shadow-md hover:shadow-lg disabled:opacity-60">
@@ -415,11 +415,11 @@
                     </div>
                     <div>
                         <h3 class="text-xl font-bold text-white">
-                            Confirmar Exclusão
+                            {{ __('Confirmar Exclusão') }}
                         </h3>
                         <p class="text-red-100 text-xs mt-0.5">
                             <i class="fas fa-info-circle mr-1"></i>
-                            Ação irreversível
+                            {{ __('Ação irreversível') }}
                         </p>
                     </div>
                 </div>
@@ -429,7 +429,7 @@
                 <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                     <p class="text-gray-700 mb-2 flex items-center">
                         <i class="fas fa-question-circle text-red-600 mr-2"></i>
-                        Tem certeza que deseja eliminar a importação:
+                        {{ __('Tem certeza que deseja eliminar a importação:') }}
                     </p>
                     <div class="bg-white border-2 border-red-300 rounded-lg p-3 mt-3">
                         <p class="font-mono text-lg font-bold text-gray-900 text-center">
@@ -443,7 +443,7 @@
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p class="text-sm text-yellow-800 flex items-start">
                         <i class="fas fa-exclamation-triangle text-yellow-600 mr-2 mt-0.5"></i>
-                        <span><strong>Aviso:</strong> Esta ação não pode ser desfeita! Todos os dados relacionados serão permanentemente eliminados.</span>
+                        <span><strong>{{ __('Aviso:') }}</strong> {{ __('Esta ação não pode ser desfeita! Todos os dados relacionados serão permanentemente eliminados.') }}</span>
                     </p>
                 </div>
             </div>
@@ -451,11 +451,11 @@
             <div class="px-6 pb-6 flex gap-3">
                 <button wire:click="closeDeleteModal" 
                         class="flex-1 px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition-all duration-200 hover:scale-105 transform">
-                    <i class="fas fa-times mr-2"></i>Cancelar
+                    <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                 </button>
                 <button wire:click="deleteImport" 
                         class="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all duration-200 hover:scale-105 transform">
-                    <i class="fas fa-trash-alt mr-2"></i>Sim, Eliminar
+                    <i class="fas fa-trash-alt mr-2"></i>{{ __('Sim, Eliminar') }}
                 </button>
             </div>
         </div>

@@ -52,7 +52,7 @@ class ExpiryReport extends Component
         // Implementar exportação
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Exportação em desenvolvimento...'
+            'message' => __('Exportação em desenvolvimento...')
         ]);
     }
 

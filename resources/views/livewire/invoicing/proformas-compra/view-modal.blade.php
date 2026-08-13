@@ -19,7 +19,7 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-truck mr-2 text-orange-600"></i>
-                    Informações do Fornecedor
+                    {{ __('Informações do Fornecedor') }}
                 </h4>
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="font-bold text-gray-900">{{ $selectedProforma->supplier->name }}</p>
@@ -38,32 +38,32 @@
             {{-- Datas e Status --}}
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Data da Proforma:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Data da Proforma:') }}</p>
                     <p class="font-bold text-gray-900">{{ $selectedProforma->proforma_date->format('d/m/Y') }}</p>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Válida Até:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Válida Até:') }}</p>
                     <p class="font-bold text-gray-900">
                         {{ $selectedProforma->valid_until ? $selectedProforma->valid_until->format('d/m/Y') : '-' }}
                     </p>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Status:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Status:') }}</p>
                     @if($selectedProforma->status === 'draft')
                         <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-full">
-                            Rascunho
+                            {{ __('Rascunho') }}
                         </span>
                     @elseif($selectedProforma->status === 'sent')
                         <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
-                            Enviada
+                            {{ __('Enviada') }}
                         </span>
                     @elseif($selectedProforma->status === 'accepted')
                         <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                            Aceite
+                            {{ __('Aceite') }}
                         </span>
                     @else
                         <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
-                            Convertida
+                            {{ __('Convertida') }}
                         </span>
                     @endif
                 </div>
@@ -73,18 +73,18 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-box mr-2 text-orange-600"></i>
-                    Produtos
+                    {{ __('Produtos') }}
                 </h4>
                 <div class="overflow-x-auto">
                     <table class="min-w-full">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700">Produto</th>
-                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">Qtd</th>
-                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">Preço</th>
-                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">Desc%</th>
+                                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700">{{ __('Produto') }}</th>
+                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">{{ __('Qtd') }}</th>
+                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">{{ __('Preço') }}</th>
+                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">{{ __('Desc%') }}</th>
                                 <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">IVA</th>
-                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">Total</th>
+                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">{{ __('Total') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -110,33 +110,33 @@
             <div class="bg-gray-50 rounded-lg p-4">
                 <div class="space-y-2">
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Subtotal:</span>
+                        <span class="text-gray-600">{{ __('Subtotal:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedProforma->subtotal, 2) }} Kz</span>
                     </div>
                     @if($selectedProforma->discount_commercial > 0 || $selectedProforma->discount_amount > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Desconto Comercial:</span>
+                        <span class="text-gray-600">{{ __('Desconto Comercial:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedProforma->discount_commercial + $selectedProforma->discount_amount, 2) }} Kz</span>
                     </div>
                     @endif
                     @if($selectedProforma->discount_financial > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Desconto Financeiro:</span>
+                        <span class="text-gray-600">{{ __('Desconto Financeiro:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedProforma->discount_financial, 2) }} Kz</span>
                     </div>
                     @endif
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">IVA:</span>
+                        <span class="text-gray-600">{{ __('IVA:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedProforma->tax_amount, 2) }} Kz</span>
                     </div>
                     @if($selectedProforma->irt_amount > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Retenção (6,5%):</span>
+                        <span class="text-gray-600">{{ __('Retenção (6,5%):') }}</span>
                         <span class="font-semibold">{{ number_format($selectedProforma->irt_amount, 2) }} Kz</span>
                     </div>
                     @endif
                     <div class="flex justify-between pt-2 border-t-2 border-gray-300">
-                        <span class="text-lg font-bold text-gray-900">TOTAL:</span>
+                        <span class="text-lg font-bold text-gray-900">{{ __('TOTAL:') }}</span>
                         <span class="text-2xl font-bold text-green-600">{{ number_format($selectedProforma->total, 2) }} Kz</span>
                     </div>
                 </div>
@@ -145,7 +145,7 @@
             {{-- Notas --}}
             @if($selectedProforma->notes)
             <div class="mt-6">
-                <h4 class="text-sm font-bold text-gray-700 mb-2">Notas:</h4>
+                <h4 class="text-sm font-bold text-gray-700 mb-2">{{ __('Notas:') }}</h4>
                 <p class="text-sm text-gray-600">{{ $selectedProforma->notes }}</p>
             </div>
             @endif
@@ -155,11 +155,11 @@
         <div class="bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end gap-3">
             <button wire:click="closeViewModal" 
                     class="px-4 py-2 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                Fechar
+                {{ __('Fechar') }}
             </button>
             <a href="{{ route('invoicing.purchases.proformas.preview', $selectedProforma->id) }}" target="_blank"
                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition">
-                <i class="fas fa-file-pdf mr-2"></i>Preview
+                <i class="fas fa-file-pdf mr-2"></i>{{ __('Preview') }}
             </a>
         </div>
     </div>

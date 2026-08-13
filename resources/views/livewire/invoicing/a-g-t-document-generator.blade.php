@@ -3,9 +3,9 @@
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 flex items-center">
             <i class="fas fa-certificate mr-3 text-blue-600"></i>
-            Gerador de Documentos AGT Angola
+            {{ __('Gerador de Documentos AGT Angola') }}
         </h1>
-        <p class="text-gray-600 mt-2">Gere documentos de teste conforme Decreto Presidencial 312/18</p>
+        <p class="text-gray-600 mt-2">{{ __('Gere documentos de teste conforme Decreto Presidencial 312/18') }}</p>
     </div>
 
     {{-- Status dos Recursos --}}
@@ -13,7 +13,7 @@
         <div class="bg-white rounded-xl p-4 border-2 {{ $hasClientWithNIF ? 'border-green-200' : 'border-yellow-200' }}">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-sm font-semibold text-gray-700">Cliente com NIF</div>
+                    <div class="text-sm font-semibold text-gray-700">{{ __('Cliente com NIF') }}</div>
                     <div class="text-xs text-gray-500 mt-1">{{ $hasClientWithNIF ? 'Disponível' : 'Será criado' }}</div>
                 </div>
                 <i class="fas {{ $hasClientWithNIF ? 'fa-check-circle text-green-500' : 'fa-plus-circle text-yellow-500' }} text-2xl"></i>
@@ -23,7 +23,7 @@
         <div class="bg-white rounded-xl p-4 border-2 {{ $hasClientWithoutNIF ? 'border-green-200' : 'border-yellow-200' }}">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-sm font-semibold text-gray-700">Cliente sem NIF</div>
+                    <div class="text-sm font-semibold text-gray-700">{{ __('Cliente sem NIF') }}</div>
                     <div class="text-xs text-gray-500 mt-1">{{ $hasClientWithoutNIF ? 'Disponível' : 'Será criado' }}</div>
                 </div>
                 <i class="fas {{ $hasClientWithoutNIF ? 'fa-check-circle text-green-500' : 'fa-plus-circle text-yellow-500' }} text-2xl"></i>
@@ -33,7 +33,7 @@
         <div class="bg-white rounded-xl p-4 border-2 {{ $hasProducts ? 'border-green-200' : 'border-yellow-200' }}">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-sm font-semibold text-gray-700">Produtos</div>
+                    <div class="text-sm font-semibold text-gray-700">{{ __('Produtos') }}</div>
                     <div class="text-xs text-gray-500 mt-1">{{ $hasProducts ? 'Disponíveis' : 'Serão criados' }}</div>
                 </div>
                 <i class="fas {{ $hasProducts ? 'fa-check-circle text-green-500' : 'fa-plus-circle text-yellow-500' }} text-2xl"></i>
@@ -43,7 +43,7 @@
         <div class="bg-white rounded-xl p-4 border-2 {{ $hasWarehouse ? 'border-green-200' : 'border-yellow-200' }}">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-sm font-semibold text-gray-700">Armazém</div>
+                    <div class="text-sm font-semibold text-gray-700">{{ __('Armazém') }}</div>
                     <div class="text-xs text-gray-500 mt-1">{{ $hasWarehouse ? 'Disponível' : 'Será criado' }}</div>
                 </div>
                 <i class="fas {{ $hasWarehouse ? 'fa-check-circle text-green-500' : 'fa-plus-circle text-yellow-500' }} text-2xl"></i>
@@ -56,7 +56,7 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-bold text-gray-900">
                 <i class="fas fa-file-alt mr-2 text-purple-600"></i>
-                Selecione os Documentos
+                {{ __('Selecione os Documentos') }}
             </h2>
             <button wire:click="toggleAll" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
                 {{ count($selectedDocuments) === 17 ? 'Desmarcar' : 'Selecionar' }} Todos
@@ -76,18 +76,18 @@
 
         <div class="mt-6 flex justify-between items-center">
             <div class="text-sm">
-                <span class="font-semibold">{{ count($selectedDocuments) }}</span> de 17 selecionados
+                <span class="font-semibold">{{ count($selectedDocuments) }}</span> {{ __('de 17 selecionados') }}
             </div>
             <div class="flex gap-3">
                 <button wire:click="cleanAllDocuments" 
                         onclick="return confirm('⚠️ ATENÇÃO!\n\nEsta ação irá remover PERMANENTEMENTE:\n\n• Todas as faturas\n• Todas as proformas\n• Todas as notas de crédito\n• Todas as notas de débito\n• Todas as vendas POS\n• Resetar sequências de séries\n\ndo tenant atual.\n\nDeseja realmente continuar?')"
                         class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center">
                     <i class="fas fa-trash-alt mr-2"></i>
-                    Limpar Todos os Documentos
+                    {{ __('Limpar Todos os Documentos') }}
                 </button>
                 <button wire:click="generateDocuments" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl flex items-center">
                     <i class="fas fa-file-invoice mr-2"></i>
-                    Gerar Documentos
+                    {{ __('Gerar Documentos') }}
                 </button>
             </div>
         </div>
@@ -112,7 +112,7 @@
         @if($isGenerating)
         <div class="mb-4">
             <div class="flex justify-between text-sm mb-2">
-                <span class="text-gray-700 font-semibold">Progresso</span>
+                <span class="text-gray-700 font-semibold">{{ __('Progresso') }}</span>
                 <span class="text-blue-600 font-bold">{{ round($progressPercentage) }}%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -132,7 +132,7 @@
             @empty
                 <div class="text-gray-500 text-center py-4">
                     <i class="fas fa-hourglass-start mr-2"></i>
-                    Aguardando início...
+                    {{ __('Aguardando início...') }}
                 </div>
             @endforelse
         </div>
@@ -146,11 +146,11 @@
         <table class="w-full">
             <thead>
                 <tr class="border-b-2">
-                    <th class="px-4 py-3 text-left">Nº</th>
-                    <th class="px-4 py-3 text-left">Tipo</th>
-                    <th class="px-4 py-3 text-left">Número</th>
-                    <th class="px-4 py-3 text-left">Hash</th>
-                    <th class="px-4 py-3 text-center">Ações</th>
+                    <th class="px-4 py-3 text-left">{{ __('Nº') }}</th>
+                    <th class="px-4 py-3 text-left">{{ __('Tipo') }}</th>
+                    <th class="px-4 py-3 text-left">{{ __('Número') }}</th>
+                    <th class="px-4 py-3 text-left">{{ __('Hash') }}</th>
+                    <th class="px-4 py-3 text-center">{{ __('Ações') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -165,25 +165,25 @@
                             {{-- Proforma --}}
                             <a href="{{ route('invoicing.sales.proformas.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition shadow-sm">
                                 <i class="fas fa-eye mr-2"></i>
-                                Ver Proforma
+                                {{ __('Ver Proforma') }}
                             </a>
                         @elseif(($doc['document_category'] ?? '') === 'credit_note')
                             {{-- Nota de Crédito --}}
                             <a href="{{ route('invoicing.credit-notes.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition shadow-sm">
                                 <i class="fas fa-eye mr-2"></i>
-                                Ver NC
+                                {{ __('Ver NC') }}
                             </a>
                         @elseif(($doc['document_category'] ?? '') === 'debit_note')
                             {{-- Nota de Débito --}}
                             <a href="{{ route('invoicing.debit-notes.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition shadow-sm">
                                 <i class="fas fa-eye mr-2"></i>
-                                Ver ND
+                                {{ __('Ver ND') }}
                             </a>
                         @else
                             {{-- Fatura --}}
                             <a href="{{ route('invoicing.sales.invoices.preview', $doc['id']) }}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm">
                                 <i class="fas fa-eye mr-2"></i>
-                                Ver Fatura
+                                {{ __('Ver Fatura') }}
                             </a>
                         @endif
                     </td>

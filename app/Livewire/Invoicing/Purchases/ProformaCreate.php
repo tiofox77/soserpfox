@@ -79,8 +79,7 @@ class ProformaCreate extends Component
         // Toast notification
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Fornecedor selecionado: ' . ($supplier ? $supplier->name : '')
-        ]);
+            'message' => __('Fornecedor selecionado: :detalhe', ['detalhe' => ($supplier ? $supplier->name : '')])]);
     }
     
     public function clearSupplier()
@@ -302,8 +301,7 @@ class ProformaCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Quantidade incrementada: ' . $product->name
-            ]);
+                'message' => __('Quantidade incrementada: :detalhe', ['detalhe' => $product->name])]);
         } else {
             // Determinar taxa de IVA baseado no produto
             $taxRate = 0;
@@ -347,7 +345,7 @@ class ProformaCreate extends Component
         if (!$this->batchProductId) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Produto não selecionado'
+                'message' => __('Produto não selecionado')
             ]);
             return;
         }
@@ -358,7 +356,7 @@ class ProformaCreate extends Component
         if ($product->require_batch_on_purchase && !$this->batch_number) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Número do lote é obrigatório para este produto'
+                'message' => __('Número do lote é obrigatório para este produto')
             ]);
             return;
         }
@@ -366,7 +364,7 @@ class ProformaCreate extends Component
         if ($product->track_expiry && !$this->expiry_date) {
             $this->dispatch('notify', [
                 'type' => 'warning',
-                'message' => 'Data de validade não informada'
+                'message' => __('Data de validade não informada')
             ]);
         }
         
@@ -398,8 +396,7 @@ class ProformaCreate extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Produto adicionado com lote: ' . $product->name . ($this->batch_number ? " (Lote: {$this->batch_number})" : '')
-        ]);
+            'message' => __('Produto adicionado com lote: :detalhe', ['detalhe' => $product->name . ($this->batch_number ? " (Lote: {$this->batch_number})" : '')])]);
         
         // Fechar modal e limpar
         $this->showBatchModal = false;
@@ -428,7 +425,7 @@ class ProformaCreate extends Component
         
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Carrinho limpo com sucesso!'
+            'message' => __('Carrinho limpo com sucesso!')
         ]);
     }
 
@@ -441,8 +438,7 @@ class ProformaCreate extends Component
         
         $this->dispatch('notify', [
             'type' => 'warning',
-            'message' => 'Produto removido: ' . $productName
-        ]);
+            'message' => __('Produto removido: :detalhe', ['detalhe' => $productName])]);
     }
 
     public function updateQuantity($productId, $quantity)
@@ -457,8 +453,7 @@ class ProformaCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Quantidade atualizada para: ' . $quantity
-            ]);
+                'message' => __('Quantidade atualizada para: :detalhe', ['detalhe' => $quantity])]);
         }
     }
 
@@ -540,8 +535,7 @@ class ProformaCreate extends Component
 
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Fornecedor criado com sucesso: ' . $supplier->name
-        ]);
+            'message' => __('Fornecedor criado com sucesso: :detalhe', ['detalhe' => $supplier->name])]);
     }
 
     public function save($status = 'draft')
@@ -553,7 +547,7 @@ class ProformaCreate extends Component
         if ($cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Adicione pelo menos um produto à proforma.'
+                'message' => __('Adicione pelo menos um produto à proforma.')
             ]);
             return;
         }
@@ -674,7 +668,9 @@ class ProformaCreate extends Component
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Proforma ' . ($this->isEdit ? 'atualizada' : 'criada') . ' com sucesso!'
+                'message' => $this->isEdit
+                    ? __('Proforma atualizada com sucesso!')
+                    : __('Proforma criada com sucesso!')
             ]);
             
             // Disparar evento para abrir preview em nova aba
@@ -687,8 +683,7 @@ class ProformaCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao salvar proforma: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro ao salvar proforma: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 }

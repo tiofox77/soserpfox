@@ -8,15 +8,15 @@
                 </div>
                 <div>
                     <h2 class="text-3xl font-bold">{{ $isEdit ? 'Editar Adiantamento' : 'Novo Adiantamento' }}</h2>
-                    <p class="text-yellow-100 text-sm mt-1">Pagamento antecipado do cliente</p>
+                    <p class="text-yellow-100 text-sm mt-1">{{ __('Pagamento antecipado do cliente') }}</p>
                 </div>
             </div>
             <a href="{{ route('invoicing.advances.index') }}" 
                x-data="{ loading: false }" @click="loading = true"
                :class="loading && 'opacity-70 pointer-events-none scale-95'"
                class="bg-white text-yellow-600 hover:bg-yellow-50 px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95">
-                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
-                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
+                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>{{ __('Voltar') }}</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Voltando...') }}</span>
             </a>
         </div>
     </div>
@@ -28,14 +28,14 @@
                     <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-3">
                         <i class="fas fa-info-circle text-white text-xl"></i>
                     </div>
-                    <h3 class="text-white font-bold text-lg">Informações do Adiantamento</h3>
+                    <h3 class="text-white font-bold text-lg">{{ __('Informações do Adiantamento') }}</h3>
                 </div>
             </div>
             <div class="p-6 space-y-6">
                 {{-- Cliente --}}
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                        <i class="fas fa-user mr-1 text-yellow-600"></i>Cliente *
+                        <i class="fas fa-user mr-1 text-yellow-600"></i>{{ __('Cliente *') }}
                     </label>
                     @if($client_id && !$searchClient)
                         @php $selectedClient = $clients->where('id', $client_id)->first(); @endphp
@@ -57,7 +57,7 @@
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <i class="fas fa-search text-gray-400"></i>
                             </div>
-                            <input type="text" wire:model.live="searchClient" placeholder="Pesquisar cliente..."
+                            <input type="text" wire:model.live="searchClient" placeholder="{{ __('Pesquisar cliente...') }}"
                                    class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all">
                         </div>
                         @if($searchClient && $clients->count() > 0)
@@ -79,7 +79,7 @@
                     {{-- Data --}}
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-calendar mr-1 text-yellow-600"></i>Data do Adiantamento *
+                            <i class="fas fa-calendar mr-1 text-yellow-600"></i>{{ __('Data do Adiantamento *') }}
                         </label>
                         <input type="date" wire:model="payment_date" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500">
@@ -89,7 +89,7 @@
                     {{-- Valor --}}
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-money-bill-wave mr-1 text-yellow-600"></i>Valor (AOA) *
+                            <i class="fas fa-money-bill-wave mr-1 text-yellow-600"></i>{{ __('Valor (AOA) *') }}
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -107,46 +107,46 @@
                     {{-- Método de Pagamento --}}
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-credit-card mr-1 text-yellow-600"></i>Método de Pagamento *
+                            <i class="fas fa-credit-card mr-1 text-yellow-600"></i>{{ __('Método de Pagamento *') }}
                         </label>
                         <select wire:model="payment_method" 
                                 class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500 appearance-none bg-white">
-                            <option value="cash">💵 Dinheiro</option>
-                            <option value="transfer">🏦 Transferência</option>
-                            <option value="multicaixa">💳 Multicaixa</option>
+                            <option value="cash">💵 {{ __('Dinheiro') }}</option>
+                            <option value="transfer">🏦 {{ __('Transferência') }}</option>
+                            <option value="multicaixa">💳 {{ __('Multicaixa') }}</option>
                             <option value="tpa">💳 TPA</option>
-                            <option value="check">📝 Cheque</option>
-                            <option value="mbway">📱 MB Way</option>
-                            <option value="other">❓ Outro</option>
+                            <option value="check">📝 {{ __('Cheque') }}</option>
+                            <option value="mbway">📱 {{ __('MB Way') }}</option>
+                            <option value="other">❓ {{ __('Outro') }}</option>
                         </select>
                     </div>
 
                     {{-- Finalidade --}}
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                            <i class="fas fa-hashtag mr-1 text-yellow-600"></i>Finalidade
+                            <i class="fas fa-hashtag mr-1 text-yellow-600"></i>{{ __('Finalidade') }}
                         </label>
                         <input type="text" wire:model="purpose" 
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500" 
-                               placeholder="Ex: Pagamento antecipado...">
+                               placeholder="{{ __('Ex: Pagamento antecipado...') }}">
                     </div>
                 </div>
 
                 {{-- Observações --}}
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                        <i class="fas fa-comment mr-1 text-yellow-600"></i>Observações
+                        <i class="fas fa-comment mr-1 text-yellow-600"></i>{{ __('Observações') }}
                     </label>
                     <textarea wire:model="notes" rows="3" 
                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-500"
-                              placeholder="Observações adicionais..."></textarea>
+                              placeholder="{{ __('Observações adicionais...') }}"></textarea>
                 </div>
 
                 {{-- Botões --}}
                 <div class="flex gap-4 pt-6 border-t-2 border-gray-100">
                     <a href="{{ route('invoicing.advances.index') }}" 
                        class="flex-1 px-8 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all text-center">
-                        <i class="fas fa-times mr-2"></i>Cancelar
+                        <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                     </a>
                     <button type="submit" 
                             class="flex-1 px-8 py-4 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white rounded-xl font-bold transition-all shadow-lg">

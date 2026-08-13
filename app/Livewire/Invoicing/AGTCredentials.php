@@ -95,7 +95,7 @@ class AGTCredentials extends Component
     public function save()
     {
         if (!$this->tenantId) {
-            $this->dispatch('notify', type: 'error', message: 'Tenant activo não identificado.');
+            $this->dispatch('notify', type: 'error', message: __('Tenant activo não identificado.'));
             return;
         }
 
@@ -151,13 +151,13 @@ class AGTCredentials extends Component
             $this->contributor_private_key = '';
         }
 
-        $this->dispatch('notify', type: 'success', message: 'Configuração AGT guardada com sucesso.');
+        $this->dispatch('notify', type: 'success', message: __('Configuração AGT guardada com sucesso.'));
     }
 
     public function testConnection()
     {
         if (!$this->tenantId) {
-            $this->dispatch('notify', type: 'error', message: 'Tenant activo não identificado.');
+            $this->dispatch('notify', type: 'error', message: __('Tenant activo não identificado.'));
             return;
         }
 
@@ -165,13 +165,13 @@ class AGTCredentials extends Component
             $client = new AGTClient($this->tenantId);
             $this->connectionTest = $client->testConnection();
             if ($this->connectionTest['success'] ?? false) {
-                $this->dispatch('notify', type: 'success', message: 'Conexão AGT estabelecida com sucesso.');
+                $this->dispatch('notify', type: 'success', message: __('Conexão AGT estabelecida com sucesso.'));
             } else {
                 $this->dispatch('notify', type: 'error', message: $this->connectionTest['error'] ?? 'Falha na conexão');
             }
         } catch (\Exception $e) {
             $this->connectionTest = ['success' => false, 'error' => $e->getMessage()];
-            $this->dispatch('notify', type: 'error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
         }
     }
 
@@ -183,7 +183,7 @@ class AGTCredentials extends Component
         Storage::disk('local')->delete($keyPath);
         $this->hasPrivateKey = false;
         $this->contributor_private_key = '';
-        $this->dispatch('notify', type: 'success', message: 'Chave privada do contribuinte removida.');
+        $this->dispatch('notify', type: 'success', message: __('Chave privada do contribuinte removida.'));
     }
 
     public function render()

@@ -214,7 +214,7 @@ class Settings extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Configurações salvas com sucesso!'
+            'message' => __('Configurações salvas com sucesso!')
         ]);
     }
     
@@ -268,7 +268,7 @@ class Settings extends Component
                 $this->showSeriesModal = false;
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'Série não encontrada nesta empresa.',
+                    'message' => __('Série não encontrada nesta empresa.'),
                 ]);
                 return;
             }
@@ -323,7 +323,7 @@ class Settings extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Série padrão definida com sucesso!'
+                'message' => __('Série padrão definida com sucesso!')
             ]);
         }
     }

@@ -41,7 +41,7 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-user mr-2 {{ $accent }}"></i>
-                    Informações do Cliente
+                    {{ __('Informações do Cliente') }}
                 </h4>
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="font-bold text-gray-900">{{ $doc->client->name ?? 'Consumidor Final' }}</p>
@@ -62,26 +62,26 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-link mr-2 {{ $accent }}"></i>
-                    Documento Rectificado
+                    {{ __('Documento Rectificado') }}
                 </h4>
                 <div class="bg-gray-50 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Factura de origem</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Factura de origem') }}</p>
                         @if($doc->invoice)
                             <a href="{{ route('invoicing.sales.invoices.preview', $doc->invoice->id) }}" target="_blank"
                                class="font-mono text-sm font-bold text-blue-700 hover:underline">
                                 {{ $doc->invoice->invoice_number }}
                             </a>
                         @else
-                            <p class="text-sm text-gray-400">Sem factura associada</p>
+                            <p class="text-sm text-gray-400">{{ __('Sem factura associada') }}</p>
                         @endif
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Motivo</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Motivo') }}</p>
                         <p class="text-sm font-semibold text-gray-900">{{ $doc->reason_label }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 mb-1">Expressão (Art. 12º)</p>
+                        <p class="text-xs text-gray-500 mb-1">{{ __('Expressão (Art. 12º)') }}</p>
                         <p class="text-sm font-semibold text-gray-900">
                             {{ $doc->reason_text ?? 'Rectificação' }}
                         </p>
@@ -92,17 +92,17 @@
             {{-- Datas e estado --}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Data de emissão:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Data de emissão:') }}</p>
                     <p class="font-bold text-gray-900">{{ $doc->issue_date?->format('d/m/Y') ?? '-' }}</p>
                 </div>
                 @if($doc->due_date ?? null)
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Vencimento:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Vencimento:') }}</p>
                     <p class="font-bold text-gray-900">{{ $doc->due_date->format('d/m/Y') }}</p>
                 </div>
                 @endif
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Estado:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Estado:') }}</p>
                     <span class="px-3 py-1 text-xs font-bold rounded-full
                         {{ $doc->status === 'issued' ? 'bg-green-100 text-green-800' : '' }}
                         {{ $doc->status === 'draft' ? 'bg-gray-100 text-gray-800' : '' }}
@@ -112,7 +112,7 @@
                     </span>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Emitido por:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Emitido por:') }}</p>
                     <p class="font-bold text-gray-900 text-sm">{{ $doc->creator->name ?? '—' }}</p>
                 </div>
             </div>
@@ -122,7 +122,7 @@
             <div class="mb-6 bg-slate-50 border border-slate-200 rounded-lg p-4">
                 <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
                     <i class="fas fa-shield-halved mr-2 {{ $accent }}"></i>
-                    Dados Fiscais AGT
+                    {{ __('Dados Fiscais AGT') }}
                 </h4>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     <div>
@@ -130,13 +130,13 @@
                         <p class="font-mono font-bold text-gray-900">{{ $doc->atcud ?: '—' }}</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 mb-1">Hash SAFT</p>
+                        <p class="text-gray-500 mb-1">{{ __('Hash SAFT') }}</p>
                         <p class="font-mono font-bold text-gray-900">
                             {{ $doc->saft_hash ? substr($doc->saft_hash, 0, 4) . '…' : '—' }}
                         </p>
                     </div>
                     <div>
-                        <p class="text-gray-500 mb-1">Estado SAFT</p>
+                        <p class="text-gray-500 mb-1">{{ __('Estado SAFT') }}</p>
                         <p class="font-bold text-gray-900">
                             @php
                                 $__estados = ['N' => 'N — Normal', 'F' => 'F — Facturado', 'A' => 'A — Anulado'];
@@ -145,21 +145,21 @@
                         </p>
                     </div>
                     <div>
-                        <p class="text-gray-500 mb-1">Submissão AGT</p>
+                        <p class="text-gray-500 mb-1">{{ __('Submissão AGT') }}</p>
                         @if($doc->agt_status === 'validated')
-                            <span class="px-2 py-0.5 bg-green-100 text-green-800 rounded font-bold">Validado</span>
+                            <span class="px-2 py-0.5 bg-green-100 text-green-800 rounded font-bold">{{ __('Validado') }}</span>
                         @elseif($doc->agt_status === 'submitted')
-                            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">Submetido</span>
+                            <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">{{ __('Submetido') }}</span>
                         @elseif($doc->agt_status === 'rejected')
-                            <span class="px-2 py-0.5 bg-red-100 text-red-800 rounded font-bold">Rejeitado</span>
+                            <span class="px-2 py-0.5 bg-red-100 text-red-800 rounded font-bold">{{ __('Rejeitado') }}</span>
                         @else
-                            <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-bold">Não submetido</span>
+                            <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded font-bold">{{ __('Não submetido') }}</span>
                         @endif
                     </div>
                 </div>
                 @if($doc->agt_reference)
                 <p class="text-xs text-gray-500 mt-2">
-                    Referência AGT: <span class="font-mono">{{ $doc->agt_reference }}</span>
+                    {{ __('Referência AGT:') }} <span class="font-mono">{{ $doc->agt_reference }}</span>
                     @if($doc->agt_submitted_at)
                         · {{ $doc->agt_submitted_at->format('d/m/Y H:i') }}
                     @endif
@@ -171,19 +171,19 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-box mr-2 {{ $accent }}"></i>
-                    Produtos / Serviços
+                    {{ __('Produtos / Serviços') }}
                 </h4>
                 <div class="overflow-x-auto">
                     <table class="min-w-full">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Descrição</th>
-                                <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Qtd</th>
-                                <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Preço</th>
-                                <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Desc%</th>
+                                <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">{{ __('Descrição') }}</th>
+                                <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">{{ __('Qtd') }}</th>
+                                <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">{{ __('Preço') }}</th>
+                                <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">{{ __('Desc%') }}</th>
                                 <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">IVA</th>
-                                <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Ref.</th>
-                                <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Total</th>
+                                <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">{{ __('Ref.') }}</th>
+                                <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">{{ __('Total') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -254,11 +254,11 @@
             <div class="bg-gray-50 rounded-lg p-4">
                 <div class="space-y-2">
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Subtotal:</span>
+                        <span class="text-gray-600">{{ __('Subtotal:') }}</span>
                         <span class="font-semibold">{{ number_format($doc->subtotal, 2, ',', '.') }} Kz</span>
                     </div>
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">IVA:</span>
+                        <span class="text-gray-600">{{ __('IVA:') }}</span>
                         <span class="font-semibold">{{ number_format($doc->tax_amount, 2, ',', '.') }} Kz</span>
                     </div>
 
@@ -284,8 +284,8 @@
 
                     @if($__regiao === 'AO-CAB')
                     <div class="flex justify-between text-xs">
-                        <span class="text-amber-700 font-semibold">Região fiscal:</span>
-                        <span class="text-amber-700 font-semibold">Cabinda (AO-CAB) — regime próprio</span>
+                        <span class="text-amber-700 font-semibold">{{ __('Região fiscal:') }}</span>
+                        <span class="text-amber-700 font-semibold">{{ __('Cabinda (AO-CAB) — regime próprio') }}</span>
                     </div>
                     @endif
 
@@ -302,7 +302,7 @@
                     @endforeach
 
                     <div class="flex justify-between pt-2 border-t-2 border-gray-300">
-                        <span class="text-lg font-bold text-gray-900">TOTAL:</span>
+                        <span class="text-lg font-bold text-gray-900">{{ __('TOTAL:') }}</span>
                         <span class="text-2xl font-bold {{ $accent }}">{{ number_format($doc->total, 2, ',', '.') }} Kz</span>
                     </div>
                 </div>
@@ -310,7 +310,7 @@
 
             @if($doc->notes)
             <div class="mt-6">
-                <h4 class="text-sm font-bold text-gray-700 mb-2">Notas:</h4>
+                <h4 class="text-sm font-bold text-gray-700 mb-2">{{ __('Notas:') }}</h4>
                 <p class="text-sm text-gray-600">{{ $doc->notes }}</p>
             </div>
             @endif
@@ -320,11 +320,11 @@
         <div class="bg-gray-50 px-6 py-4 rounded-b-2xl flex flex-wrap justify-end gap-3">
             <button wire:click="{{ $close }}"
                     class="px-4 py-2 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                Fechar
+                {{ __('Fechar') }}
             </button>
             <a href="{{ route($rotaPreview, $doc->id) }}" target="_blank"
                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition">
-                <i class="fas fa-file-alt mr-2"></i>Preview
+                <i class="fas fa-file-alt mr-2"></i>{{ __('Preview') }}
             </a>
             <a href="{{ route($rotaPdf, $doc->id) }}" target="_blank"
                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition">

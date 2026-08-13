@@ -150,8 +150,7 @@ class TaxManagement extends Component
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro: ' . $e->getMessage()
-            ]);
+                'message' => __('Erro: :detalhe', ['detalhe' => $e->getMessage()])]);
         }
     }
 

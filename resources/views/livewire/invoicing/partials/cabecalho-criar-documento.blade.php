@@ -33,8 +33,8 @@
            x-data="{ loading: false }" @click="loading = true"
            :class="loading && 'opacity-70 pointer-events-none scale-95'"
            class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95 text-center whitespace-nowrap">
-            <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
-            <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
+            <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>{{ __('Voltar') }}</span>
+            <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Voltando...') }}</span>
         </a>
     </div>
 </div>

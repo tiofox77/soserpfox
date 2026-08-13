@@ -6,8 +6,8 @@
                 <i class="fas fa-chart-bar text-3xl"></i>
             </div>
             <div>
-                <h2 class="text-2xl font-bold">Relatórios de Faturação</h2>
-                <p class="text-indigo-100 text-sm">Análises e mapas operacionais da gestão de faturação</p>
+                <h2 class="text-2xl font-bold">{{ __('Relatórios de Faturação') }}</h2>
+                <p class="text-indigo-100 text-sm">{{ __('Análises e mapas operacionais da gestão de faturação') }}</p>
             </div>
         </div>
     </div>
@@ -15,74 +15,74 @@
     @php
         $sections = [
             [
-                'title' => 'Rentabilidade & Análise',
+                'title' => __('Rentabilidade & Análise'),
                 'icon' => 'fa-coins',
                 'color' => 'emerald',
                 'reports' => [
-                    ['name' => 'Lucros e Perdas (DRE)', 'desc' => 'Demonstração de resultados completa', 'icon' => 'fa-chart-line', 'route' => 'invoicing.reports.profit-loss'],
-                    ['name' => 'Análise de Margem', 'desc' => 'Lucro e margem por produto', 'icon' => 'fa-percentage', 'route' => 'invoicing.reports.margin'],
-                    ['name' => 'Desempenho de Produtos', 'desc' => 'Vendas, stock, lucro e rotação', 'icon' => 'fa-chart-pie', 'route' => 'invoicing.reports.product-performance'],
-                    ['name' => 'Comparativo', 'desc' => 'Variação entre dois períodos', 'icon' => 'fa-balance-scale', 'route' => 'invoicing.reports.comparative'],
+                    ['name' => __('Lucros e Perdas (DRE)'), 'desc' => __('Demonstração de resultados completa'), 'icon' => 'fa-chart-line', 'route' => 'invoicing.reports.profit-loss'],
+                    ['name' => __('Análise de Margem'), 'desc' => __('Lucro e margem por produto'), 'icon' => 'fa-percentage', 'route' => 'invoicing.reports.margin'],
+                    ['name' => __('Desempenho de Produtos'), 'desc' => __('Vendas, stock, lucro e rotação'), 'icon' => 'fa-chart-pie', 'route' => 'invoicing.reports.product-performance'],
+                    ['name' => __('Comparativo'), 'desc' => __('Variação entre dois períodos'), 'icon' => 'fa-balance-scale', 'route' => 'invoicing.reports.comparative'],
                 ],
             ],
             [
-                'title' => 'Vendas',
+                'title' => __('Vendas'),
                 'icon' => 'fa-arrow-trend-up',
                 'color' => 'green',
                 'reports' => [
-                    ['name' => 'Mapa de Vendas', 'desc' => 'Vendas por período, cliente e status', 'icon' => 'fa-file-invoice', 'route' => 'invoicing.reports.sales'],
-                    ['name' => 'Top Clientes', 'desc' => 'Ranking de clientes por faturação', 'icon' => 'fa-crown', 'route' => 'invoicing.reports.top-clients'],
-                    ['name' => 'Top Produtos Vendidos', 'desc' => 'Produtos com maior volume', 'icon' => 'fa-star', 'route' => 'invoicing.reports.top-products'],
-                    ['name' => 'Vendas por Vendedor', 'desc' => 'Ranking e desempenho por utilizador', 'icon' => 'fa-user-tie', 'route' => 'invoicing.reports.sales-by-user'],
+                    ['name' => __('Mapa de Vendas'), 'desc' => __('Vendas por período, cliente e status'), 'icon' => 'fa-file-invoice', 'route' => 'invoicing.reports.sales'],
+                    ['name' => __('Top Clientes'), 'desc' => __('Ranking de clientes por faturação'), 'icon' => 'fa-crown', 'route' => 'invoicing.reports.top-clients'],
+                    ['name' => __('Top Produtos Vendidos'), 'desc' => __('Produtos com maior volume'), 'icon' => 'fa-star', 'route' => 'invoicing.reports.top-products'],
+                    ['name' => __('Vendas por Vendedor'), 'desc' => __('Ranking e desempenho por utilizador'), 'icon' => 'fa-user-tie', 'route' => 'invoicing.reports.sales-by-user'],
                 ],
             ],
             [
-                'title' => 'Compras',
+                'title' => __('Compras'),
                 'icon' => 'fa-arrow-trend-down',
                 'color' => 'orange',
                 'reports' => [
-                    ['name' => 'Mapa de Compras', 'desc' => 'Compras por período e fornecedor', 'icon' => 'fa-shopping-cart', 'route' => 'invoicing.reports.purchases'],
-                    ['name' => 'Top Fornecedores', 'desc' => 'Ranking de fornecedores', 'icon' => 'fa-truck', 'route' => 'invoicing.reports.top-suppliers'],
-                    ['name' => 'Melhor Fornecedor', 'desc' => 'Score multi-critério (volume, fiabilidade)', 'icon' => 'fa-medal', 'route' => 'invoicing.reports.best-supplier'],
+                    ['name' => __('Mapa de Compras'), 'desc' => __('Compras por período e fornecedor'), 'icon' => 'fa-shopping-cart', 'route' => 'invoicing.reports.purchases'],
+                    ['name' => __('Top Fornecedores'), 'desc' => __('Ranking de fornecedores'), 'icon' => 'fa-truck', 'route' => 'invoicing.reports.top-suppliers'],
+                    ['name' => __('Melhor Fornecedor'), 'desc' => __('Score multi-critério (volume, fiabilidade)'), 'icon' => 'fa-medal', 'route' => 'invoicing.reports.best-supplier'],
                 ],
             ],
             [
-                'title' => 'Contas Correntes',
+                'title' => __('Contas Correntes'),
                 'icon' => 'fa-balance-scale',
                 'color' => 'blue',
                 'reports' => [
-                    ['name' => 'Contas a Receber', 'desc' => 'Faturas pendentes de clientes', 'icon' => 'fa-hand-holding-usd', 'route' => 'invoicing.reports.accounts-receivable'],
-                    ['name' => 'Contas a Pagar', 'desc' => 'Faturas pendentes a fornecedores', 'icon' => 'fa-money-bill-wave', 'route' => 'invoicing.reports.accounts-payable'],
-                    ['name' => 'Recebimentos por Meio', 'desc' => 'Total recebido por forma de pagamento', 'icon' => 'fa-money-check-alt', 'route' => 'invoicing.reports.payment-methods'],
-                    ['name' => 'Aging de Clientes', 'desc' => 'Antiguidade de saldos por faixa', 'icon' => 'fa-clock', 'route' => 'invoicing.reports.aging-clients'],
-                    ['name' => 'Extracto de Conta Corrente', 'desc' => 'Movimentos e saldo de um cliente ou fornecedor', 'icon' => 'fa-file-invoice-dollar', 'route' => 'invoicing.reports.account-statement'],
+                    ['name' => __('Contas a Receber'), 'desc' => __('Faturas pendentes de clientes'), 'icon' => 'fa-hand-holding-usd', 'route' => 'invoicing.reports.accounts-receivable'],
+                    ['name' => __('Contas a Pagar'), 'desc' => __('Faturas pendentes a fornecedores'), 'icon' => 'fa-money-bill-wave', 'route' => 'invoicing.reports.accounts-payable'],
+                    ['name' => __('Recebimentos por Meio'), 'desc' => __('Total recebido por forma de pagamento'), 'icon' => 'fa-money-check-alt', 'route' => 'invoicing.reports.payment-methods'],
+                    ['name' => __('Aging de Clientes'), 'desc' => __('Antiguidade de saldos por faixa'), 'icon' => 'fa-clock', 'route' => 'invoicing.reports.aging-clients'],
+                    ['name' => __('Extracto de Conta Corrente'), 'desc' => __('Movimentos e saldo de um cliente ou fornecedor'), 'icon' => 'fa-file-invoice-dollar', 'route' => 'invoicing.reports.account-statement'],
                 ],
             ],
             [
-                'title' => 'Fiscal & SAFT',
+                'title' => __('Fiscal & SAFT'),
                 'icon' => 'fa-landmark',
                 'color' => 'red',
                 'reports' => [
-                    ['name' => 'Mapa de IVA', 'desc' => 'IVA liquidado, dedutível e a pagar', 'icon' => 'fa-percent', 'route' => 'invoicing.reports.vat'],
-                    ['name' => 'Mapa de Documentos', 'desc' => 'Resumo de faturas, NC, ND e recibos', 'icon' => 'fa-file-alt', 'route' => 'invoicing.reports.documents'],
+                    ['name' => __('Mapa de IVA'), 'desc' => __('IVA liquidado, dedutível e a pagar'), 'icon' => 'fa-percent', 'route' => 'invoicing.reports.vat'],
+                    ['name' => __('Mapa de Documentos'), 'desc' => __('Resumo de faturas, NC, ND e recibos'), 'icon' => 'fa-file-alt', 'route' => 'invoicing.reports.documents'],
                 ],
             ],
             [
-                'title' => 'Produtos & Serviços',
+                'title' => __('Produtos & Serviços'),
                 'icon' => 'fa-box-open',
                 'color' => 'pink',
                 'reports' => [
-                    ['name' => 'Tabela de Preços e Lucro', 'desc' => 'Preço de compra, venda, lucro e margem', 'icon' => 'fa-tags', 'route' => 'invoicing.reports.price-list'],
-                    ['name' => 'Mapa de Serviços', 'desc' => 'Análise específica de serviços prestados', 'icon' => 'fa-concierge-bell', 'route' => 'invoicing.reports.services'],
-                    ['name' => 'Validade de Produtos', 'desc' => 'Produtos próximos da validade', 'icon' => 'fa-calendar-check', 'route' => 'invoicing.expiry-report'],
+                    ['name' => __('Tabela de Preços e Lucro'), 'desc' => __('Preço de compra, venda, lucro e margem'), 'icon' => 'fa-tags', 'route' => 'invoicing.reports.price-list'],
+                    ['name' => __('Mapa de Serviços'), 'desc' => __('Análise específica de serviços prestados'), 'icon' => 'fa-concierge-bell', 'route' => 'invoicing.reports.services'],
+                    ['name' => __('Validade de Produtos'), 'desc' => __('Produtos próximos da validade'), 'icon' => 'fa-calendar-check', 'route' => 'invoicing.expiry-report'],
                 ],
             ],
             [
-                'title' => 'Stock & Controlo',
+                'title' => __('Stock & Controlo'),
                 'icon' => 'fa-boxes-stacked',
                 'color' => 'amber',
                 'reports' => [
-                    ['name' => 'Ajustes de Stock', 'desc' => 'Seguimento do que foi mexido à mão, por operador', 'icon' => 'fa-sliders', 'route' => 'invoicing.reports.stock-adjustments'],
+                    ['name' => __('Ajustes de Stock'), 'desc' => __('Seguimento do que foi mexido à mão, por operador'), 'icon' => 'fa-sliders', 'route' => 'invoicing.reports.stock-adjustments'],
                 ],
             ],
         ];

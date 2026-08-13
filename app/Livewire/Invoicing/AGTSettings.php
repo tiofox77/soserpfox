@@ -325,7 +325,7 @@ class AGTSettings extends Component
         $novo = $this->ambienteActual();
 
         if ($novo === $this->ambienteActivo()) {
-            $this->dispatch('notify', type: 'info', message: 'Já é este o ambiente activo.');
+            $this->dispatch('notify', type: 'info', message: __('Já é este o ambiente activo.'));
             return;
         }
 
@@ -333,7 +333,7 @@ class AGTSettings extends Component
         // documento nenhum: a empresa ficava a falhar toda a facturação.
         if ($novo === 'production' && !\App\Services\AGT\AGTKeyStore::hasKeyPair((int) $this->currentTenantId, 'production')) {
             $this->dispatch('notify', type: 'error',
-                message: 'Instale primeiro o par RSA de Produção do Portal do Contribuinte. Sem ele nenhum documento é assinado.');
+                message: __('Instale primeiro o par RSA de Produção do Portal do Contribuinte. Sem ele nenhum documento é assinado.'));
             return;
         }
 
@@ -408,7 +408,7 @@ class AGTSettings extends Component
     public function save()
     {
         if (!$this->currentTenantId) {
-            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para guardar configurações.');
+            $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para guardar configurações.'));
             return;
         }
         $this->ensureTenantAccess();
@@ -429,7 +429,7 @@ class AGTSettings extends Component
 
         $settings->update($updateData);
 
-        $this->dispatch('notify', type: 'success', message: 'Configurações AGT guardadas com sucesso!');
+        $this->dispatch('notify', type: 'success', message: __('Configurações AGT guardadas com sucesso!'));
     }
 
     public function saveContributorKeys(): void
@@ -517,7 +517,7 @@ class AGTSettings extends Component
     public function testConnection()
     {
         if (!$this->currentTenantId) {
-            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para testar a conexão.');
+            $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para testar a conexão.'));
             return;
         }
         $this->ensureTenantAccess();
@@ -553,20 +553,20 @@ class AGTSettings extends Component
             $this->isConnected = $this->connectionTest['success'] ?? false;
 
             if ($this->isConnected) {
-                $this->dispatch('notify', type: 'success', message: 'Conexão estabelecida com sucesso!');
+                $this->dispatch('notify', type: 'success', message: __('Conexão estabelecida com sucesso!'));
             } else {
                 $this->dispatch('notify', type: 'error', message: $this->connectionTest['error'] ?? 'Falha na conexão');
             }
         } catch (\Exception $e) {
             $this->connectionTest = ['success' => false, 'error' => $e->getMessage()];
-            $this->dispatch('notify', type: 'error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
         }
     }
 
     public function syncSeries()
     {
         if (!$this->currentTenantId) {
-            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para sincronizar séries.');
+            $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para sincronizar séries.'));
             return;
         }
         $this->ensureTenantAccess();
@@ -605,7 +605,7 @@ class AGTSettings extends Component
 
             if (($result['total'] ?? 0) === 0) {
                 $this->dispatch('notify', type: 'info',
-                    message: 'Não existem séries activas pendentes de sincronização.');
+                    message: __('Não existem séries activas pendentes de sincronização.'));
             } elseif ($result['success'] > 0 && $result['failed'] === 0) {
                 $this->dispatch('notify', type: 'success', 
                     message: "{$result['success']} série(s) sincronizada(s) com sucesso!");
@@ -624,14 +624,14 @@ class AGTSettings extends Component
                 'error' => $e->getMessage(),
                 'details' => [],
             ];
-            $this->dispatch('notify', type: 'error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
         }
     }
 
     public function retrySubmission(int $submissionId)
     {
         if (!$this->currentTenantId) {
-            $this->dispatch('notify', type: 'error', message: 'Selecione um tenant para reenviar.');
+            $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para reenviar.'));
             return;
         }
         $this->ensureTenantAccess();
@@ -644,18 +644,18 @@ class AGTSettings extends Component
             $submission = AGTSubmission::find($submissionId);
             
             if (!$submission || (int) $submission->tenant_id !== (int) $this->currentTenantId) {
-                $this->dispatch('notify', type: 'error', message: 'Submissão não encontrada');
+                $this->dispatch('notify', type: 'error', message: __('Submissão não encontrada'));
                 return;
             }
 
             if (!$submission->canRetry()) {
-                $this->dispatch('notify', type: 'error', message: 'Máximo de tentativas atingido');
+                $this->dispatch('notify', type: 'error', message: __('Máximo de tentativas atingido'));
                 return;
             }
 
             $document = $submission->document;
             if (!$document) {
-                $this->dispatch('notify', type: 'error', message: 'Documento não encontrado');
+                $this->dispatch('notify', type: 'error', message: __('Documento não encontrado'));
                 return;
             }
 
@@ -663,7 +663,7 @@ class AGTSettings extends Component
             $result = $agtService->submitToAGT($document);
 
             if ($result['success']) {
-                $this->dispatch('notify', type: 'success', message: 'Documento reenviado com sucesso!');
+                $this->dispatch('notify', type: 'success', message: __('Documento reenviado com sucesso!'));
             } else {
                 $this->dispatch('notify', type: 'error', message: $result['error'] ?? 'Falha no reenvio');
             }
@@ -671,7 +671,7 @@ class AGTSettings extends Component
             $this->loadPendingSubmissions();
 
         } catch (\Exception $e) {
-            $this->dispatch('notify', type: 'error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
         }
     }
 
@@ -724,7 +724,7 @@ class AGTSettings extends Component
             $this->ensureTenantAccess();
         }
         $this->checkStatus();
-        $this->dispatch('notify', type: 'success', message: 'Relatório atualizado!');
+        $this->dispatch('notify', type: 'success', message: __('Relatório atualizado!'));
     }
 
     public function setTab(string $tab)
