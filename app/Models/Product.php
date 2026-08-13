@@ -112,6 +112,11 @@ class Product extends Model
         'pharmaceutical_form', 'armed_registration',
         // Vestuário
         'size', 'color', 'gender', 'material',
+        // Cosmética e mercearia (net_content é dos dois: é o que separa duas
+        // embalagens do mesmo produto). A cor serve de tom na cosmética e já
+        // está acima — não há campo novo para a mesma coisa.
+        'net_content', 'pao_months', 'inci_ingredients',
+        'storage_conditions', 'allergens', 'origin_country',
     ];
 
     protected $casts = [
@@ -128,6 +133,9 @@ class Product extends Model
         'require_batch_on_sale' => 'boolean',
         'requires_prescription' => 'boolean',
         'is_controlled' => 'boolean',
+        // Vem do formulário como string; sem o cast, "12" != 12 e comparações
+        // como $p->pao_months > 6 dependiam do acaso da conversão do PHP.
+        'pao_months' => 'integer',
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'gallery' => 'array',
@@ -234,7 +242,7 @@ class Product extends Model
     
     /*
      |--------------------------------------------------------------------------
-     | Filtros de farmácia e de vestuário
+     | Filtros de farmácia, vestuário, cosmética e mercearia
      |--------------------------------------------------------------------------
      | Filtros puros de coluna: encadeiam-se sobre uma query JÁ limitada à
      | empresa. Este modelo não tem scope global de tenant (ver
@@ -294,6 +302,74 @@ class Product extends Model
         }
 
         return $query->where('color', $cor);
+    }
+
+    /**
+     * Mercearia: o que vai à câmara e o que fica na prateleira.
+     *
+     * Existe para o STOCK e não só para a ficha: quem recebe uma palete precisa
+     * de saber o que vai ao frio antes de abrir artigo a artigo — passado esse
+     * momento, o prejuízo já está feito.
+     *
+     * O valor é comparado tal e qual (ambiente | refrigerado | congelado): é uma
+     * lista fechada e não uma pesquisa livre.
+     */
+    public function scopePorConservacao($query, ?string $modo)
+    {
+        $modo = trim((string) $modo);
+        if ($modo === '') {
+            return $query;
+        }
+
+        return $query->where('storage_conditions', $modo);
+    }
+
+    /**
+     * Mercearia: "isto leva glúten?", a pergunta de balcão que se faz com o
+     * cliente à espera.
+     *
+     * Pesquisa por dentro do texto porque os alergénios vêm numa lista ("glúten,
+     * soja, frutos de casca rija") e ninguém procura pela lista inteira.
+     *
+     * O termo é escapado: um `%` escrito pelo balconista é para procurar um `%`,
+     * não para alargar a pesquisa ao catálogo inteiro.
+     */
+    public function scopeComAlergenio($query, ?string $termo)
+    {
+        $termo = trim((string) $termo);
+        if ($termo === '') {
+            return $query;
+        }
+
+        $escapado = addcslashes($termo, '%_\\');
+
+        return $query->where('allergens', 'like', "%{$escapado}%");
+    }
+
+    /**
+     * Accessor: quanto tempo o produto dura DEPOIS de aberto (PAO).
+     *
+     * É o símbolo do frasco aberto com "12M" no rótulo, e não se confunde com o
+     * prazo de validade: um creme por abrir dura até à data do rótulo, aberto
+     * dura estes meses. São dois números diferentes e a loja precisa dos dois.
+     *
+     * A frase montada mora aqui porque se repete ao cliente ao balcão e aparece
+     * na ficha, na etiqueta e na lista — escrita à mão em cada ecrã, mais tarde
+     * ou mais cedo diziam coisas diferentes.
+     */
+    public function getValidadeAposAberturaAttribute(): ?string
+    {
+        $meses = (int) $this->pao_months;
+
+        // Sem PAO não há frase nenhuma: quem chama distingue "não se aplica" de
+        // "aplica-se e são zero meses", que não existe.
+        if ($meses < 1) {
+            return null;
+        }
+
+        return $meses === 1
+            ? __('1 mês após abertura')
+            : __(':meses meses após abertura', ['meses' => $meses]);
     }
 
     /**

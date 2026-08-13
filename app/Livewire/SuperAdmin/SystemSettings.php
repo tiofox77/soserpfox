@@ -126,8 +126,12 @@ class SystemSettings extends Component
         $this->schema_price = SystemSetting::get('schema_price', '0');
         $this->schema_currency = SystemSetting::get('schema_currency', 'AOA');
         $this->schema_region = SystemSetting::get('schema_region', 'Angola');
-        $this->schema_rating_value = SystemSetting::get('schema_rating_value', '4.8');
-        $this->schema_review_count = SystemSetting::get('schema_review_count', '150');
+        // Sem omissão: com 4,8 e 150 pré-preenchidos, qualquer gravação desta
+        // página voltava a plantar uma avaliação que ninguém recolheu — e a
+        // landing publicava-a em Schema.org, que é o que o Google transforma em
+        // estrelas no resultado de pesquisa. Em branco, a landing não a declara.
+        $this->schema_rating_value = SystemSetting::get('schema_rating_value');
+        $this->schema_review_count = SystemSetting::get('schema_review_count');
         $this->schema_creator_name = SystemSetting::get('schema_creator_name', 'SOSERP');
         $this->schema_creator_url = SystemSetting::get('schema_creator_url', 'https://soserp.vip');
     }

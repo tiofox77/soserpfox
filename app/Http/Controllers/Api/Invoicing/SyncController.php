@@ -148,12 +148,14 @@ class SyncController extends Controller
             'warehouse_id' => $whId,
             'category' => $p->category_id ? ($categoryMap[$p->category_id] ?? null) : null,
 
-            // Farmácia e vestuário — enviados SEMPRE, mesmo a null.
+            // Farmácia, vestuário, cosmética e mercearia — enviados SEMPRE,
+            // mesmo a null.
             //
             // O PWA grava com bulkPut, que junta campo a campo: uma chave
             // omitida deixa o valor antigo intacto no dispositivo. Se um artigo
             // deixasse de exigir receita e nós não mandássemos a chave, o
-            // aparelho continuava a pedir receita para sempre.
+            // aparelho continuava a pedir receita para sempre — e o mesmo vale
+            // para um alergénio corrigido, que é informação que se dá ao balcão.
             'requires_prescription' => (bool) $p->requires_prescription,
             'is_controlled' => (bool) $p->is_controlled,
             'active_ingredient' => $p->active_ingredient,
@@ -164,6 +166,15 @@ class SyncController extends Controller
             'color' => $p->color,
             'gender' => $p->gender,
             'material' => $p->material,
+            'net_content' => $p->net_content,
+            // Inteiro ou null, nunca "": do outro lado é JavaScript, onde uma
+            // string entra em comparações numéricas sem se queixar e depois dá
+            // resultados errados em silêncio.
+            'pao_months' => $p->pao_months !== null ? (int) $p->pao_months : null,
+            'inci_ingredients' => $p->inci_ingredients,
+            'storage_conditions' => $p->storage_conditions,
+            'allergens' => $p->allergens,
+            'origin_country' => $p->origin_country,
 
             'updated_at' => optional($p->updated_at)->toIso8601String(),
         ]);

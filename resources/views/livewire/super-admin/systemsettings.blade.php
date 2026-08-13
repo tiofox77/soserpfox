@@ -751,10 +751,10 @@
                     <label class="block text-sm font-bold text-gray-700 mb-2">
                         <i class="fas fa-star mr-1"></i>Avaliação (Rating)
                     </label>
-                    <input type="number" step="0.1" min="0" max="5" wire:model="schema_rating_value" 
+                    <input type="number" step="0.1" min="0" max="5" wire:model="schema_rating_value"
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
-                           placeholder="4.8">
-                    <p class="text-xs text-gray-500 mt-1">Nota média (0-5)</p>
+                           placeholder="deixar vazio">
+                    <p class="text-xs text-gray-500 mt-1">Nota média (0-5). Em branco enquanto não houver avaliações reais — o Google mostra isto em estrelas na pesquisa.</p>
                 </div>
 
                 {{-- Review Count --}}
@@ -762,10 +762,10 @@
                     <label class="block text-sm font-bold text-gray-700 mb-2">
                         <i class="fas fa-comment mr-1"></i>Número de Avaliações
                     </label>
-                    <input type="number" wire:model="schema_review_count" 
+                    <input type="number" wire:model="schema_review_count"
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500"
-                           placeholder="150">
-                    <p class="text-xs text-gray-500 mt-1">Total de reviews/avaliações</p>
+                           placeholder="deixar vazio">
+                    <p class="text-xs text-gray-500 mt-1">Total de avaliações contadas. Só com as duas preenchidas é que a página pública as publica.</p>
                 </div>
 
                 {{-- Creator Name --}}
@@ -826,11 +826,13 @@
       "name": "{{ $schema_region }}"
     }
   },
+@if(filled($schema_rating_value) && filled($schema_review_count))
   "aggregateRating": {
     "@@type": "AggregateRating",
     "ratingValue": "{{ $schema_rating_value }}",
     "reviewCount": "{{ $schema_review_count }}"
   },
+@endif
   "creator": {
     "@@type": "Organization",
     "name": "{{ $schema_creator_name }}",

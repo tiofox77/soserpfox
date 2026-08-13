@@ -55,8 +55,12 @@ class LandingController extends Controller
                 'schema_price' => SystemSetting::get('schema_price', '0'),
                 'schema_currency' => SystemSetting::get('schema_currency', 'AOA'),
                 'schema_region' => SystemSetting::get('schema_region', 'Angola'),
-                'schema_rating_value' => SystemSetting::get('schema_rating_value', '4.8'),
-                'schema_review_count' => SystemSetting::get('schema_review_count', '150'),
+                // Sem omissão de propósito: enquanto ninguém escrever aqui uma
+                // nota e um número de avaliações reais, a landing não declara
+                // aggregateRating nenhum. Estava 4,8 em 150 avaliações que nunca
+                // foram recolhidas, e o Google mostrava-as em estrelas.
+                'schema_rating_value' => SystemSetting::get('schema_rating_value'),
+                'schema_review_count' => SystemSetting::get('schema_review_count'),
                 'schema_creator_name' => SystemSetting::get('schema_creator_name', 'SOSERP'),
                 'schema_creator_url' => SystemSetting::get('schema_creator_url', 'https://soserp.vip'),
             ];

@@ -237,7 +237,10 @@ class PerfilDeNegocioTest extends TenantTestCase
         Livewire::test(Products::class)
             ->call('edit', $p->id)
             ->assertSeeHtml('revelado: false')
-            ->assertSee('Este artigo é medicamento ou vestuário?');
+            // A pergunta deixou de nomear os ramos um a um quando passaram a ser
+            // quatro. O que o teste guarda é que ela CONTINUA lá: a secção fica
+            // recolhida, mas a um clique.
+            ->assertSee('Este artigo tem campos próprios do ramo (receita, tamanho, alergénios…)?');
     }
 
     /** Com o perfil ligado e o artigo vazio, a secção aparece na mesma. */

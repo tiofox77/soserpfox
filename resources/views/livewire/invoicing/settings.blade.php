@@ -87,7 +87,7 @@
                         {{ __('Perfil do Negócio') }}
                     </h2>
                     <p class="text-sm text-gray-600 mb-5">
-                        {{ __('Diga com o que trabalha e o sistema mostra os campos certos por omissão. Pode ligar os dois: um supermercado com balcão de farmácia é as duas coisas.') }}
+                        {{ __('Diga com o que trabalha e o sistema mostra os campos certos por omissão. Pode ligar mais do que um: um supermercado com balcão de farmácia e prateleira de cosmética é as três coisas.') }}
                     </p>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -216,14 +216,132 @@
                                 </p>
                             </div>
                         </div>
+
+                        {{-- Perfil: Cosmética --}}
+                        <div class="rounded-xl p-4 border-2 transition bg-gradient-to-br {{ $profile_cosmetics ? 'from-pink-50 to-rose-50 border-pink-400 shadow-md' : 'from-gray-50 to-slate-50 border-gray-200' }}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-start min-w-0">
+                                    <i class="fas fa-pump-soap text-2xl mr-3 mt-0.5 {{ $profile_cosmetics ? 'text-pink-600' : 'text-gray-400' }}"></i>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-gray-900">{{ __('Trabalha com cosmética') }}</div>
+                                        <div class="text-xs text-gray-500">{{ __('Cremes, perfumaria, cuidado do cabelo e maquilhagem') }}</div>
+                                    </div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" wire:model.live="profile_cosmetics" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-500"></div>
+                                </label>
+                            </div>
+
+                            <div class="mt-4">
+                                <div class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                                    {{ __('O que fica activo') }}
+                                </div>
+                                {{-- Mesma regra dos cartões acima: só entra nesta
+                                     lista o que o interruptor controla mesmo. --}}
+                                <ul class="space-y-2 text-sm text-gray-700">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-bottle-droplet mt-1 mr-2 text-pink-600"></i>
+                                        <span>
+                                            <strong>{{ __('Conteúdo líquido aberto de raiz na ficha do artigo') }}</strong>
+                                            — {{ __('duas embalagens do mesmo champô só se distinguem por isto: sem o campo, "Champô Suave" aparece duas vezes na lista e ninguém sabe qual é o de 200ml.') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-hourglass-half mt-1 mr-2 text-pink-600"></i>
+                                        <span>
+                                            <strong>{{ __('Meses após abertura (PAO)') }}</strong>
+                                            — {{ __('é o frasco aberto com "12M" no rótulo, e não é o prazo de validade: por abrir o creme dura até à data da caixa, aberto dura estes meses. A loja precisa dos dois números.') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-list-ul mt-1 mr-2 text-pink-600"></i>
+                                        <span>
+                                            <strong>{{ __('Lista INCI de ingredientes') }}</strong>
+                                            — {{ __('é o que responde a "isto tem parabenos?" com o cliente à frente, sem ir buscar a caixa ao armazém.') }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            {{-- Sempre visível: aqui só entra o que NÃO depende do
+                                 perfil, senão prometia-se que desligá-lo tira
+                                 coisas que não tira. --}}
+                            <div class="mt-4 flex items-start bg-white border border-gray-200 rounded-lg p-3">
+                                <i class="fas fa-palette text-gray-400 mr-2 mt-0.5"></i>
+                                <p class="text-xs text-gray-600">
+                                    {{ __('O tom usa o campo de cor que já existe — é a mesma informação com outro nome, e dois campos para a mesma coisa acabam sempre com metade do catálogo preenchido em cada um.') }}
+                                </p>
+                            </div>
+
+                            <div class="mt-2 flex items-start bg-white border border-gray-200 rounded-lg p-3">
+                                <i class="fas fa-layer-group text-gray-400 mr-2 mt-0.5"></i>
+                                <p class="text-xs text-gray-600">
+                                    {{ __('Lotes e validades dependem do rastreio ligado em cada artigo, não deste perfil: continuam a funcionar com ele ligado ou desligado.') }}
+                                </p>
+                            </div>
+                        </div>
+
+                        {{-- Perfil: Mercearia --}}
+                        <div class="rounded-xl p-4 border-2 transition bg-gradient-to-br {{ $profile_grocery ? 'from-amber-50 to-orange-50 border-amber-400 shadow-md' : 'from-gray-50 to-slate-50 border-gray-200' }}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-start min-w-0">
+                                    <i class="fas fa-basket-shopping text-2xl mr-3 mt-0.5 {{ $profile_grocery ? 'text-amber-600' : 'text-gray-400' }}"></i>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-gray-900">{{ __('Trabalha com mercearia') }}</div>
+                                        <div class="text-xs text-gray-500">{{ __('Bens alimentares, bebidas e produtos de casa') }}</div>
+                                    </div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" wire:model.live="profile_grocery" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                </label>
+                            </div>
+
+                            <div class="mt-4">
+                                <div class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                                    {{ __('O que fica activo') }}
+                                </div>
+                                <ul class="space-y-2 text-sm text-gray-700">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-snowflake mt-1 mr-2 text-amber-600"></i>
+                                        <span>
+                                            <strong>{{ __('Conservação no stock, e não só na ficha') }}</strong>
+                                            — {{ __('ambiente, refrigerado ou congelado à vista de quem arruma a mercadoria: o que vai ao frio sabe-se antes de abrir artigo a artigo, que é quando ainda dá para evitar o prejuízo.') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-triangle-exclamation mt-1 mr-2 text-amber-600"></i>
+                                        <span>
+                                            <strong>{{ __('Alergénios e país de origem') }}</strong>
+                                            — {{ __('informação obrigatória no rótulo alimentar, e a pergunta que se faz ao balcão com o cliente à espera: "isto leva glúten?".') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-weight-hanging mt-1 mr-2 text-amber-600"></i>
+                                        <span>
+                                            <strong>{{ __('Conteúdo líquido na ficha do artigo') }}</strong>
+                                            — {{ __('o pacote de 1kg e o de 5kg são artigos diferentes com preço e stock diferentes, e só isto os separa na lista.') }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="mt-4 flex items-start bg-white border border-gray-200 rounded-lg p-3">
+                                <i class="fas fa-layer-group text-gray-400 mr-2 mt-0.5"></i>
+                                <p class="text-xs text-gray-600">
+                                    {{ __('Lotes e validades dependem do rastreio ligado em cada artigo, não deste perfil: continuam a funcionar com ele ligado ou desligado.') }}
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    @if(!$profile_pharmacy && !$profile_clothing)
+                    @if(!$profile_pharmacy && !$profile_clothing && !$profile_cosmetics && !$profile_grocery)
                     {{-- Sem tom de aviso: é o caso da maioria das empresas. --}}
                     <div class="mt-4 flex items-start bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
                         <i class="fas fa-circle-info text-blue-500 mr-3 mt-0.5"></i>
                         <p class="text-sm text-blue-900">
-                            {{ __('Sem nenhum perfil ligado o sistema funciona normalmente — é o caso da maioria das empresas. Na ficha do artigo estes campos ficam recolhidos atrás da pergunta "Este artigo é medicamento ou vestuário?", a um clique de distância para o caso isolado.') }}
+                            {{ __('Sem nenhum perfil ligado o sistema funciona normalmente — é o caso da maioria das empresas. Na ficha do artigo estes campos ficam recolhidos atrás de uma pergunta sobre o tipo de artigo, a um clique de distância para o caso isolado.') }}
                         </p>
                     </div>
                     @endif
@@ -231,7 +349,7 @@
                     <div class="mt-4 flex items-start bg-gray-50 border border-gray-200 rounded-xl p-3">
                         <i class="fas fa-eye text-gray-400 mr-2 mt-0.5"></i>
                         <p class="text-xs text-gray-600">
-                            {{ __('Desligar um perfil não esconde o que já está preenchido: um artigo que já tenha dosagem, tamanho ou cor continua a mostrar esses campos, para poderem ser vistos e corrigidos.') }}
+                            {{ __('Desligar um perfil não esconde o que já está preenchido: um artigo que já tenha dosagem, tamanho, conteúdo líquido ou alergénios continua a mostrar esses campos, para poderem ser vistos e corrigidos.') }}
                         </p>
                     </div>
                 </div>

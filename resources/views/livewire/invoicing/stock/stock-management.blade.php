@@ -1,7 +1,7 @@
 <div class="p-6 relative">
     {{-- Overlay de loading global (feedback imediato em acções Livewire) --}}
     <div wire:loading.delay.long.flex
-         wire:target="saveEntry,saveAdjustment,saveTransfer,search,warehouseFilter,lowStockFilter,gotoPage,previousPage,nextPage"
+         wire:target="saveEntry,saveAdjustment,saveTransfer,search,warehouseFilter,lowStockFilter,filterConservacao,gotoPage,previousPage,nextPage"
          class="hidden absolute inset-0 z-40 bg-white/60 backdrop-blur-sm items-center justify-center rounded-lg">
         <div class="bg-white shadow-lg rounded-xl px-5 py-3 flex items-center gap-3 border border-gray-200">
             <i class="fas fa-spinner fa-spin text-purple-600 text-lg"></i>
@@ -114,6 +114,30 @@
                 </label>
             </div>
         </div>
+
+        @if($mostraConservacao)
+            {{-- Aparece a quem trabalha com mercearia OU a quem já tem artigos
+                 com conservação gravada. A segunda metade não é decorativa:
+                 sem ela, desligar o perfil deixava a mercadoria refrigerada
+                 gravada e sem forma de a separar do resto.
+
+                 A lista é fechada (as três opções), por isso o select nunca
+                 fica vazio a parecer avariado. --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-3 sm:mt-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1.5 uppercase">
+                        <i class="fas fa-temperature-half mr-1 text-sky-600"></i>{{ __('Conservação') }}
+                    </label>
+                    <select wire:model.live="filterConservacao"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                        <option value="">{{ __('Todas') }}</option>
+                        @foreach($rotulosConservacao as $chave => $rotulo)
+                            <option value="{{ $chave }}">{{ $rotulo }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        @endif
     </div>
 
     {{-- Table --}}
@@ -136,6 +160,14 @@
                         <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
                             <i class="fas fa-box mr-1 text-purple-600"></i>{{ __('Produto') }}
                         </th>
+                        @if($mostraConservacao)
+                        {{-- Logo a seguir ao produto e não no fim da tabela: quem
+                             descarrega mercadoria tem de ver o que vai ao frio
+                             sem arrastar a lista para o lado. --}}
+                        <th class="px-3 sm:px-6 py-3 sm:py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                            <i class="fas fa-temperature-half mr-1 text-sky-600"></i>{{ __('Conservação') }}
+                        </th>
+                        @endif
                         <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                             <i class="fas fa-warehouse mr-1 text-blue-600"></i>{{ __('Armazém') }}
                         </th>
@@ -173,7 +205,17 @@
                                     </div>
                                 @endif
                                 <div class="ml-4">
-                                    <div class="text-sm font-bold text-gray-900">{{ $stock->product->name }}</div>
+                                    {{-- Conteúdo líquido na própria linha do nome: quem
+                                         confere stock vê duas linhas de "Leite" e só as
+                                         separa pelo 1L e pelo 200ml. Aparece sempre que
+                                         o artigo o tenha, com perfil ligado ou
+                                         desligado. --}}
+                                    <div class="text-sm font-bold text-gray-900">
+                                        {{ $stock->product->name }}
+                                        @if(filled($stock->product->net_content))
+                                            <span class="text-gray-500 font-semibold">· {{ $stock->product->net_content }}</span>
+                                        @endif
+                                    </div>
                                     <div class="text-xs text-gray-500 flex items-center">
                                         <i class="fas fa-barcode mr-1"></i>
                                         {{ $stock->product->code }}
@@ -181,7 +223,35 @@
                                 </div>
                             </div>
                         </td>
-                        
+
+                        @if($mostraConservacao)
+                        <!-- Conservação -->
+                        <td class="px-3 sm:px-6 py-3 sm:py-4 text-center">
+                            @php
+                                $conservacao = $stock->product->storage_conditions;
+                                // O frio distingue-se pela cor: numa descarga o que
+                                // conta é ver de relance o que não pode ficar à espera.
+                                $corConservacao = match ($conservacao) {
+                                    'refrigerado' => 'bg-sky-100 text-sky-700',
+                                    'congelado'   => 'bg-indigo-100 text-indigo-700',
+                                    default       => 'bg-gray-100 text-gray-600',
+                                };
+                            @endphp
+                            @if(filled($conservacao))
+                                {{-- Um valor fora da lista mostra-se como está gravado:
+                                     mais vale cru do que escondido. --}}
+                                <span class="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-full whitespace-nowrap {{ $corConservacao }}">
+                                    <i class="fas fa-temperature-half mr-1.5"></i>
+                                    {{ $rotulosConservacao[$conservacao] ?? $conservacao }}
+                                </span>
+                            @else
+                                <span class="text-gray-400 text-sm">
+                                    <i class="fas fa-minus-circle"></i>
+                                </span>
+                            @endif
+                        </td>
+                        @endif
+
                         <!-- Warehouse -->
                         <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                             <span class="inline-flex items-center px-3 py-1.5 text-xs font-bold bg-blue-100 text-blue-800 rounded-full">
@@ -308,7 +378,9 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-16 text-center">
+                        {{-- Acompanha a coluna de conservação: um colspan a menos
+                             deixava a célula vazia a desalinhar a tabela toda. --}}
+                        <td colspan="{{ $mostraConservacao ? 8 : 7 }}" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center justify-center">
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-boxes text-gray-300 text-4xl"></i>

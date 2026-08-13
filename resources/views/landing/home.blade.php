@@ -8,8 +8,15 @@
         $canonical = $settings['seo_canonical_url'] ?? $settings['schema_app_url'] ?? 'https://soserp.vip';
         $appName = $settings['app_name'] ?? 'SOS ERP';
         $seoTitle = $settings['seo_title'] ?? 'SOS ERP — Software de Gestão Empresarial em Angola | Faturação Certificada AGT';
-        $seoDesc = $settings['seo_description'] ?? 'Software de gestão 100% angolano: faturação certificada pela AGT, POS, RH com IRT/INSS, hotelaria, salão e oficina. Atende Luanda, Benguela, Huíla, Cabinda e todas as 18 províncias. Comece grátis hoje.';
-        $seoKw = $settings['seo_keywords'] ?? 'ERP Angola, software gestão Angola, faturação AGT, faturação certificada Angola, sistema gestão Luanda, ERP Luanda, software contabilidade Angola, POS Angola, gestão RH Angola, folha pagamento Angola, IRT INSS, software hotel Angola, gestão salão beleza Luanda, oficina auto Angola, sistema multi-empresa, ERP em kwanzas, SAFT-AO, ERP cloud Angola, gestão empresarial Benguela, software Cabinda, Huíla gestão, Huambo software, sistema POS Talatona, software Lobito';
+        // Os sectores entram na descrição e nas palavras-chave porque é assim
+        // que um lojista pesquisa: escreve "software para farmácia", não "ERP".
+        // O ?? mantém-se — o que estiver nas definições manda sempre, isto é só
+        // o que se mostra a quem nunca lá mexeu.
+        // "todas as 18 províncias" saiu daqui: a divisão administrativa do país
+        // mudou e um número fixo numa promessa de cobertura envelhece sozinho.
+        // O que se promete é servir o país inteiro, não contar províncias.
+        $seoDesc = $settings['seo_description'] ?? 'Software de gestão 100% angolano: faturação certificada pela AGT, POS, stock e RH com IRT/INSS. Perfis para farmácia, loja de roupa, cosmética e mercearia, além de hotelaria, salão e oficina. Atende Luanda, Benguela, Huíla, Cabinda e todo o território nacional. Comece grátis hoje.';
+        $seoKw = $settings['seo_keywords'] ?? 'ERP Angola, software gestão Angola, faturação AGT, faturação certificada Angola, sistema gestão Luanda, ERP Luanda, software contabilidade Angola, POS Angola, gestão RH Angola, folha pagamento Angola, IRT INSS, software hotel Angola, gestão salão beleza Luanda, oficina auto Angola, sistema multi-empresa, ERP em kwanzas, SAFT-AO, ERP cloud Angola, gestão empresarial Benguela, software Cabinda, Huíla gestão, Huambo software, sistema POS Talatona, software Lobito, software para farmácia em Angola, programa de facturação para loja de roupa, software para loja de cosmética, programa para mercearia e minimercado, gestão de lotes e validade, controlo de prazos de validade, software para boutique Luanda, POS para minimercado Angola';
         $brandLogo = asset('brand/soserp-logo-square-512.png');
         $ogImage = !empty($settings['seo_og_image']) ? asset('storage/' . $settings['seo_og_image']) : asset('brand/soserp-og-1200x630.png');
         $favicon = asset('favicon.ico');
@@ -176,12 +183,35 @@
         "image": "{{ $ogImage }}",
         "description": "ERP completo certificado pela AGT Angola: faturação eletrónica, SAFT-AO, POS offline, RH com IRT/INSS, hotelaria, salão de beleza e oficina auto.",
         "publisher": {"@id": "{{ $canonical }}#organization"},
+        {{-- Os planos saem da tabela, como já saem na FAQ e na secção #planos.
+             Estavam aqui "Starter 15000, Business 35000, Enterprise 75000" —
+             os mesmos números falsos que já tinham sido retirados da FAQ, mas
+             que continuavam a ser servidos ao Google neste bloco. --}}
+        @if($plans->isNotEmpty())
         "offers": [
-            {"@type": "Offer", "name": "Starter", "price": "15000", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"},
-            {"@type": "Offer", "name": "Business", "price": "35000", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"},
-            {"@type": "Offer", "name": "Enterprise", "price": "75000", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"}
+@foreach($plans as $planoSchema)
+            {"@type": "Offer", "name": "{{ $planoSchema->name }}", "price": "{{ (int) $planoSchema->price_monthly }}", "priceCurrency": "AOA", "priceValidUntil": "{{ date('Y-12-31') }}", "availability": "https://schema.org/InStock", "url": "{{ $canonical }}#planos"}@if(!$loop->last),@endif
+
+@endforeach
         ],
-        "aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "127", "bestRating": "5", "worstRating": "1"},
+        @endif
+        {{-- Não há aqui "aggregateRating": estava declarada uma média de 4,8 em
+             127 avaliações e o sistema não tem sequer onde as recolher. O
+             Google mostra estrelas com base nisto, e são estrelas que ninguém
+             pode provar. Volta quando existirem avaliações reais para contar. --}}
+        {{-- Público-alvo declarado por sector: é o que responde à pesquisa
+             "isto serve para a minha farmácia?" antes de alguém abrir a
+             página. Só entram sectores que têm mesmo perfil ou módulo. --}}
+        "audience": [
+            {"@type": "BusinessAudience", "audienceType": "Farmácias e parafarmácias"},
+            {"@type": "BusinessAudience", "audienceType": "Lojas de roupa, calçado e boutiques"},
+            {"@type": "BusinessAudience", "audienceType": "Lojas de cosmética e perfumaria"},
+            {"@type": "BusinessAudience", "audienceType": "Mercearias, minimercados e supermercados"},
+            {"@type": "BusinessAudience", "audienceType": "Hotéis e alojamentos"},
+            {"@type": "BusinessAudience", "audienceType": "Salões de beleza"},
+            {"@type": "BusinessAudience", "audienceType": "Oficinas auto"},
+            {"@type": "BusinessAudience", "audienceType": "Restaurantes"}
+        ],
         "featureList": [
             "Faturação Certificada AGT ({{ \App\Helpers\AGTHelper::softwareValidationNumber() }})",
             "SAFT-AO mensal automático",
@@ -189,6 +219,11 @@
             "Folha de pagamento angolana (IRT + INSS)",
             "Multi-empresa e multi-utilizador",
             "Gestão de stock e inventário",
+            "Perfis de negócio: farmácia, vestuário, cosmética e mercearia",
+            "Farmácia: aviso de receita médica e de psicotrópico no POS",
+            "Lotes e validades com saída FIFO pela data de expiração",
+            "Cosmética: meses após abertura (PAO) e lista INCI",
+            "Mercearia: conservação, alergénios e país de origem",
             "Hotelaria: booking engine, channel manager",
             "Salão de Beleza: agendamento e comissões",
             "Oficina Auto: ordens de reparação",
@@ -225,7 +260,8 @@
             {"@type": "Question", "name": "O software é certificado pela AGT Angola?",
              "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP tem certificação oficial da Administração Geral Tributária de Angola ({{ \App\Helpers\AGTHelper::softwareValidationNumber() }}) para faturação eletrónica e geração de SAFT-AO."}},
             {"@type": "Question", "name": "Funciona em todo o território de Angola?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. Atendemos as 18 províncias: Luanda, Benguela, Huíla, Huambo, Cabinda, Cuanza Norte, Cuanza Sul, Bié, Cunene, Lunda Norte, Lunda Sul, Malanje, Moxico, Namibe, Uíge, Zaire, Bengo e Cuando Cubango. Servidores em Luanda garantem baixa latência."}},
+             {{-- Sem contagem de províncias, pela razão explicada no $seoDesc. --}}
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. Atendemos todo o território nacional — Luanda, Benguela, Huíla, Huambo, Cabinda, Cuanza Norte, Cuanza Sul, Bié, Cunene, Lunda Norte, Lunda Sul, Malanje, Moxico, Namibe, Uíge, Zaire, Bengo e as restantes províncias. Servidores em Luanda garantem baixa latência."}},
             {"@type": "Question", "name": "Posso emitir faturas mesmo sem internet?",
              "acceptedAnswer": {"@type": "Answer", "text": "Sim. O POS SOSERP funciona 100% offline e sincroniza automaticamente quando recupera ligação à internet — ideal para Angola onde a conectividade pode falhar."}},
             {{-- Os preços saem dos planos, não da cabeça de quem escreveu isto.
@@ -242,7 +278,9 @@
             {"@type": "Question", "name": "Calcula IRT e INSS automaticamente?",
              "acceptedAnswer": {"@type": "Answer", "text": "Sim. O módulo de RH calcula automaticamente o Imposto sobre o Rendimento do Trabalho (IRT) e contribuições para o INSS conforme a legislação angolana atualizada."}},
             {"@type": "Question", "name": "É possível gerir várias empresas com uma só conta?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP é multi-empresa nativo. Pode gerir holdings, grupos empresariais e franquias com utilizadores e permissões granulares."}}
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. SOSERP é multi-empresa nativo. Pode gerir holdings, grupos empresariais e franquias com utilizadores e permissões granulares."}},
+            {"@type": "Question", "name": "Serve para farmácia, loja de roupa, cosmética ou mercearia?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Sim. Nas definições de faturação liga o perfil do seu negócio e a ficha do produto passa a mostrar os campos desse sector: receita médica, substância activa e n.º ARMED na farmácia; tamanho, cor e composição no vestuário; meses após abertura (PAO), lista INCI e conteúdo líquido na cosmética; conservação, alergénios e país de origem na mercearia. Pode ligar mais do que um perfil ao mesmo tempo — uma mercearia com balcão de farmácia é as duas coisas."}}
         ]
     }
     </script>
@@ -307,11 +345,17 @@
           "name": "{{ $settings['schema_region'] ?? 'Angola' }}"
         }
       },
+      {{-- Só sai se alguém tiver mesmo escrito uma nota e um número de
+           avaliações nas definições. Vinha com 4,8 em 150 avaliações por
+           omissão — ninguém as contou, e uma estrela inventada no resultado
+           de pesquisa é pior do que resultado nenhum. --}}
+      @if(filled($settings['schema_rating_value'] ?? null) && filled($settings['schema_review_count'] ?? null))
       "aggregateRating": {
         "@@type": "AggregateRating",
-        "ratingValue": "{{ $settings['schema_rating_value'] ?? '4.8' }}",
-        "reviewCount": "{{ $settings['schema_review_count'] ?? '150' }}"
+        "ratingValue": "{{ $settings['schema_rating_value'] }}",
+        "reviewCount": "{{ $settings['schema_review_count'] }}"
       },
+      @endif
       "creator": {
         "@@type": "Organization",
         "name": "{{ $settings['schema_creator_name'] ?? 'SOSERP' }}",
@@ -362,6 +406,7 @@
                     </div>
                     <div class="hidden lg:ml-8 lg:flex lg:space-x-1 xl:space-x-3">
                         <a href="#recursos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Recursos</a>
+                        <a href="#sectores" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Sectores</a>
                         <a href="#certificacao" class="text-green-700 hover:text-green-600 px-2 py-2 text-sm font-medium transition inline-flex items-center gap-1 whitespace-nowrap">
                             <i class="fas fa-shield-alt text-xs"></i> Certificação AGT
                         </a>
@@ -393,6 +438,7 @@
             <div id="mobile-menu" class="hidden lg:hidden border-t border-gray-200 py-3">
                 <div class="flex flex-col gap-1 text-sm font-medium">
                     <a href="#recursos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Recursos</a>
+                    <a href="#sectores" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Sectores</a>
                     <a href="#certificacao" class="text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg"><i class="fas fa-shield-alt text-xs mr-1"></i>Certificação AGT</a>
                     <a href="#modulos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Módulos</a>
                     <a href="#planos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Planos</a>
@@ -578,22 +624,27 @@
     <!-- Stats Section -->
     <section class="py-12 bg-white border-y border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {{-- Quatro factos que se provam, e não quatro números redondos.
+                 Estava aqui "500+ Empresas Ativas", "99.9% Uptime" e "100%
+                 Satisfação": ninguém contou as empresas, ninguém mede o uptime
+                 e satisfação a 100% não existe em lado nenhum. Uma página que
+                 se quer levada a sério não pode abrir com três invenções. --}}
             <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-blue-600 mb-2">500+</div>
-                    <div class="text-gray-600">Empresas Ativas</div>
+                    <div class="text-3xl md:text-4xl font-bold text-blue-600 mb-2">AGT</div>
+                    <div class="text-gray-600">Faturação certificada<br><span class="text-xs text-gray-500">{{ \App\Helpers\AGTHelper::softwareValidationNumber() }}</span></div>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-purple-600 mb-2">99.9%</div>
-                    <div class="text-gray-600">Uptime</div>
+                    <div class="text-3xl md:text-4xl font-bold text-purple-600 mb-2">SAFT-AO</div>
+                    <div class="text-gray-600">Ficheiro mensal gerado pelo sistema</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-pink-600 mb-2">24/7</div>
-                    <div class="text-gray-600">Suporte</div>
+                    <div class="text-3xl md:text-4xl font-bold text-pink-600 mb-2">Offline</div>
+                    <div class="text-gray-600">O POS continua a vender sem internet</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-green-600 mb-2">100%</div>
-                    <div class="text-gray-600">Satisfação</div>
+                    <div class="text-3xl md:text-4xl font-bold text-green-600 mb-2">IRT + INSS</div>
+                    <div class="text-gray-600">Folha de pagamento angolana</div>
                 </div>
             </div>
         </div>
@@ -823,6 +874,152 @@
         </div>
     </section>
 
+    <!-- Sectores Section -->
+    <section id="sectores" class="py-20 bg-white relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <div class="text-center mb-12">
+                <span class="inline-block px-4 py-2 bg-gradient-to-r from-teal-500 to-indigo-600 text-white text-sm font-bold rounded-full mb-4">
+                    <i class="fas fa-store mr-2"></i>{{ __('PARA O SEU SECTOR') }}
+                </span>
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                    {{ __('Software para farmácia, loja de roupa, cosmética e mercearia em Angola') }}
+                </h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    {{ __('É o mesmo sistema certificado pela AGT — o que muda é o que aparece no ecrã. Diga com o que trabalha e a ficha do produto, os filtros e a lista de stock passam a falar a língua do seu balcão.') }}
+                </p>
+            </div>
+
+            @php
+                // Cada cartão diz o que o sistema faz POR aquele negócio, e não
+                // que campos tem: quem procura software não compra colunas de
+                // base de dados, compra deixar de vender um psicotrópico por
+                // engano ou de deitar fora uma prateleira fora de prazo.
+                //
+                // Os títulos são a frase que o lojista escreve na pesquisa —
+                // "facturação" com c num deles de propósito: a página usa
+                // "faturação" em todo o lado e as duas grafias trazem visitas
+                // diferentes.
+                $sectorCards = [
+                    [
+                        'eyebrow' => __('Farmácia'),
+                        'title'   => __('Software para farmácia em Angola'),
+                        'icon'    => 'fa-pills',
+                        'from'    => '#0d9488',
+                        'to'      => '#0891b2',
+                        'items'   => [
+                            ['icon' => 'fa-shield-halved', 't' => __('Avisa no balcão antes de vender'),
+                             'd' => __('assinala o artigo que exige receita e pede confirmação antes de vender um psicotrópico — vender por engano tem consequência legal.')],
+                            ['icon' => 'fa-magnifying-glass', 't' => __('Procura pela substância activa'),
+                             'd' => __('quem chega com uma receita de paracetamol não sabe se a caixa diz Ben-u-ron ou Panadol.')],
+                            ['icon' => 'fa-layer-group', 't' => __('Lotes com saída FIFO pela validade'),
+                             'd' => __('sai primeiro o que expira antes, sem ninguém ter de andar a ver datas na prateleira.')],
+                            ['icon' => 'fa-calendar-day', 't' => __('Relatório de validade'),
+                             'd' => __('mostra o que está a chegar ao fim a tempo de abater, em vez de o descobrir na contagem.')],
+                            ['icon' => 'fa-flask', 't' => __('Dosagem, forma farmacêutica e n.º ARMED'),
+                             'd' => __('na ficha do artigo, ao lado do preço e do stock.')],
+                        ],
+                    ],
+                    [
+                        'eyebrow' => __('Vestuário e boutique'),
+                        'title'   => __('Programa de facturação para loja de roupa'),
+                        'icon'    => 'fa-shirt',
+                        'from'    => '#4f46e5',
+                        'to'      => '#7c3aed',
+                        'items'   => [
+                            ['icon' => 'fa-tag', 't' => __('Tamanho, cor, género e composição'),
+                             'd' => __('na ficha do artigo, para distinguir duas peças que se chamam exactamente igual.')],
+                            ['icon' => 'fa-filter', 't' => __('Filtros de tamanho e de cor na lista'),
+                             'd' => __('com os valores reais do seu catálogo: ninguém se lembra de como escreveu "azul-marinho" da última vez.')],
+                            ['icon' => 'fa-cash-register', 't' => __('Procurar pelo tamanho no POS'),
+                             'd' => __('"t-shirt" sozinho não chega para escolher a linha certa; "t-shirt M" chega.')],
+                        ],
+                    ],
+                    [
+                        'eyebrow' => __('Cosmética'),
+                        'title'   => __('Gestão de loja de cosmética e perfumaria'),
+                        'icon'    => 'fa-pump-soap',
+                        'from'    => '#db2777',
+                        'to'      => '#c026d3',
+                        'items'   => [
+                            ['icon' => 'fa-clock-rotate-left', 't' => __('Meses após abertura (PAO)'),
+                             'd' => __('é o frasco aberto com "12M" no rótulo: quanto tempo dura depois de aberto, que não é o prazo de validade por abrir. A loja precisa dos dois.')],
+                            ['icon' => 'fa-list-ul', 't' => __('Lista INCI na ficha'),
+                             'd' => __('é o que permite responder ao balcão a "isto tem parabenos?" sem ir buscar a embalagem.')],
+                            ['icon' => 'fa-droplet', 't' => __('Conteúdo líquido e tom'),
+                             'd' => __('50 ml e 200 ml do mesmo creme deixam de ser a mesma linha na lista.')],
+                            ['icon' => 'fa-layer-group', 't' => __('Validades e lotes, como na farmácia'),
+                             'd' => __('sai primeiro o que expira antes, e o relatório de validade avisa a tempo.')],
+                        ],
+                    ],
+                    [
+                        'eyebrow' => __('Mercearia'),
+                        'title'   => __('Programa para mercearia e minimercado'),
+                        'icon'    => 'fa-basket-shopping',
+                        'from'    => '#ca8a04',
+                        'to'      => '#16a34a',
+                        'items'   => [
+                            ['icon' => 'fa-temperature-low', 't' => __('Conservação à vista na lista de stock'),
+                             'd' => __('ambiente, refrigerado ou congelado, onde quem arruma a mercadoria olha — e não escondido dentro da ficha.')],
+                            ['icon' => 'fa-triangle-exclamation', 't' => __('Alergénios e país de origem'),
+                             'd' => __('o que o rótulo alimentar obriga a ter e o cliente pergunta ao balcão.')],
+                            ['icon' => 'fa-droplet', 't' => __('Conteúdo líquido'),
+                             'd' => __('"Leite" em duas linhas só se distingue por 1 L e 200 ml.')],
+                            ['icon' => 'fa-calendar-day', 't' => __('Validades'),
+                             'd' => __('para abater o que está a chegar ao fim antes de estragar.')],
+                        ],
+                    ],
+                ];
+            @endphp
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                @foreach($sectorCards as $sc)
+                    <div class="bg-white rounded-2xl shadow-lg hover:shadow-2xl border border-gray-100 overflow-hidden transition-all hover:-translate-y-1">
+                        <div class="p-6 text-white relative overflow-hidden" style="background: linear-gradient(135deg, {{ $sc['from'] }}, {{ $sc['to'] }});">
+                            <div class="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
+                            <i class="fas {{ $sc['icon'] }} text-4xl mb-3 relative"></i>
+                            <div class="relative text-xs font-bold uppercase tracking-widest opacity-90">{{ $sc['eyebrow'] }}</div>
+                            <h3 class="text-2xl font-bold relative">{{ $sc['title'] }}</h3>
+                        </div>
+                        <div class="p-6">
+                            <ul class="space-y-3 text-sm text-gray-700">
+                                @foreach($sc['items'] as $item)
+                                    <li class="flex items-start">
+                                        <i class="fas {{ $item['icon'] }} mt-1 mr-3" style="color: {{ $sc['from'] }};"></i>
+                                        <span><strong>{{ $item['t'] }}</strong> — {{ $item['d'] }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            {{-- Dito em todos os cartões e sem tom de desculpa: o
+                                 perfil manda apenas no que aparece por omissão,
+                                 e a maioria das empresas não liga nenhum. --}}
+                            <p class="mt-5 pt-4 border-t border-gray-100 text-xs text-gray-500 flex items-start">
+                                <i class="fas fa-sliders mt-0.5 mr-2 text-gray-400"></i>
+                                <span>{{ __('Liga-se num interruptor nas definições de faturação. Quem não trabalha com isto não vê estes campos.') }}</span>
+                            </p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="mt-10 bg-gradient-to-r from-gray-900 to-gray-700 text-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h3 class="text-2xl font-bold mb-2">{{ __('Não é um sistema diferente por sector') }}</h3>
+                    <p class="text-sm md:text-base opacity-90 max-w-3xl">
+                        {{ __('É o mesmo ERP, a mesma faturação certificada pela AGT e o mesmo POS offline. E os perfis somam-se: uma mercearia com balcão de farmácia liga os dois e fica com os campos dos dois.') }}
+                    </p>
+                </div>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                    <a href="{{ route('register') }}" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:shadow-lg transition whitespace-nowrap">
+                        <i class="fas fa-rocket mr-2"></i>{{ __('Começar Grátis') }}
+                    </a>
+                    <a href="#modulos" class="inline-flex items-center justify-center px-6 py-3 border border-white/30 text-white font-semibold rounded-xl hover:bg-white/10 transition whitespace-nowrap">
+                        {{ __('Ver módulos') }}<i class="fas fa-arrow-right ml-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Events Module Highlight Section -->
     <section class="py-20 bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
         <!-- Background Animation -->
@@ -977,7 +1174,9 @@
                         ['slug' => 'rh', 'name' => 'Recursos Humanos', 'icon' => 'fa-users', 'desc' => 'Folha de pagamento angolana, INSS e IRT automáticos, ficha do trabalhador completa.', 'from' => '#7c3aed', 'to' => '#2563eb', 'featured' => true],
                         ['slug' => 'oficina', 'name' => 'Oficina Auto', 'icon' => 'fa-wrench', 'desc' => 'Ordens de reparação, orçamentos, peças, mecânicos e histórico por viatura.', 'from' => '#ea580c', 'to' => '#854d0e', 'featured' => true],
                         // Restantes módulos
-                        ['slug' => 'vendas', 'name' => 'Vendas & Faturação', 'icon' => 'fa-cash-register', 'desc' => 'POS, faturação certificada AGT, gestão de clientes e produtos. Funciona offline.', 'from' => '#ea580c', 'to' => '#dc2626'],
+                        // 'sector_note': só a faturação a leva, porque é o único
+                        // módulo cujo catálogo muda de forma consoante o negócio.
+                        ['slug' => 'vendas', 'name' => 'Vendas & Faturação', 'icon' => 'fa-cash-register', 'desc' => 'POS, faturação certificada AGT, gestão de clientes e produtos. Funciona offline.', 'from' => '#ea580c', 'to' => '#dc2626', 'sector_note' => true],
                         ['slug' => 'restaurant', 'name' => 'Gestão de Restaurante', 'icon' => 'fa-utensils', 'desc' => 'Sala e mesas, comandas digitais, cozinha/KDS, reservas, fichas técnicas, stock e faturação AGT integrada.', 'from' => '#f97316', 'to' => '#b91c1c', 'featured' => true],
                         ['slug' => 'hotel', 'name' => 'Gestão de Hotel', 'icon' => 'fa-hotel', 'desc' => 'Booking engine, channel manager, check-in/out, housekeeping e analytics.', 'from' => '#0891b2', 'to' => '#2563eb'],
                         ['slug' => 'salao', 'name' => 'Salão de Beleza', 'icon' => 'fa-spa', 'desc' => 'Agendamento online, comissões automáticas, fidelização e lembretes por SMS.', 'from' => '#db2777', 'to' => '#9333ea'],
@@ -986,7 +1185,12 @@
 
                 @foreach($moduleCards as $mc)
                     @php $isFeatured = $mc['featured'] ?? false; @endphp
-                    <a href="/modulos/{{ $mc['slug'] }}" class="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden transition-all hover:-translate-y-1 {{ $isFeatured ? 'ring-2 ring-amber-400 ring-offset-2' : 'border border-gray-100' }}">
+                    {{-- O cartão é uma <div> e não uma <a>: a nota do sector tem
+                         link próprio, e um <a> dentro de outro <a> faz o browser
+                         fechar o primeiro a meio e partir o cartão em dois. O
+                         link do módulo passou para o fim, a cobrir o cartão
+                         inteiro, que continua clicável em qualquer ponto. --}}
+                    <div class="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden transition-all hover:-translate-y-1 {{ $isFeatured ? 'ring-2 ring-amber-400 ring-offset-2' : 'border border-gray-100' }}">
                         @if($isFeatured)
                             <span class="absolute top-3 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1 bg-amber-400 text-amber-950 text-[11px] font-extrabold rounded-full shadow">
                                 <i class="fas fa-star"></i> DESTAQUE
@@ -999,12 +1203,22 @@
                         </div>
                         <div class="p-6">
                             <p class="text-sm text-gray-600 mb-4 min-h-[60px]">{{ $mc['desc'] }}</p>
+                            @if(!empty($mc['sector_note']))
+                                {{-- z-20 para ficar acima do link que cobre o
+                                     cartão: sem isto o clique ia parar ao módulo
+                                     e nunca à secção dos sectores. --}}
+                                <a href="#sectores" class="relative z-20 flex items-start gap-2 text-xs font-semibold text-teal-700 hover:text-teal-800 mb-4">
+                                    <i class="fas fa-store mt-0.5"></i>
+                                    <span>{{ __('Adapta-se ao sector — farmácia, roupa, cosmética ou mercearia.') }} <span class="underline">{{ __('Ver como') }}</span></span>
+                                </a>
+                            @endif
                             <div class="flex items-center justify-between text-sm font-bold pt-3 border-t border-gray-100 group-hover:gap-2 transition-all" style="color: {{ $mc['from'] }};">
                                 <span>Saber mais</span>
                                 <i class="fas fa-arrow-right group-hover:translate-x-1 transition"></i>
                             </div>
                         </div>
-                    </a>
+                        <a href="/modulos/{{ $mc['slug'] }}" class="absolute inset-0 z-10" aria-label="{{ $mc['name'] }}"></a>
+                    </div>
                 @endforeach
 
                 {{-- Card "Ver todos" --}}

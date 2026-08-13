@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Invoicing;
 
+use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
@@ -11,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 
 #[Layout('layouts.app')]
@@ -29,6 +31,31 @@ class StockManagement extends Component
     public $warehouseFilter = '';
     public $lowStockFilter = false;
     public $perPage = 15;
+
+    /**
+     * Filtro por conservação (ambiente / refrigerado / congelado).
+     *
+     * Quem recebe um contentor precisa de separar o que vai ao frio do que vai
+     * à prateleira ANTES de o descarregar. Abrir a ficha de cada artigo para o
+     * descobrir é trabalho a dobrar e engano garantido.
+     */
+    public $filterConservacao = '';
+
+    /**
+     * Perfis de negócio da empresa (Definições de Faturação).
+     *
+     * Decide apenas o que APARECE nesta lista por omissão. Não filtra stock,
+     * não esconde artigos e não muda nada do que está gravado — desligar um
+     * perfil nunca faz desaparecer mercadoria do ecrã.
+     *
+     * #[Locked] porque isto vem das Definições e nunca do formulário: uma
+     * definição da empresa não se altera a partir do navegador.
+     */
+    #[Locked]
+    public array $perfis = [
+        InvoicingSettings::PERFIL_COSMETICA => false,
+        InvoicingSettings::PERFIL_MERCEARIA => false,
+    ];
 
     // Entry Form (entrada de stock em LOTE — cria/incrementa linhas em invoicing_stocks)
     public $entryProductSearch = '';
@@ -83,11 +110,72 @@ class StockManagement extends Component
 
     protected $queryString = ['search', 'warehouseFilter'];
 
+    public function mount(): void
+    {
+        $tenantId = activeTenantId();
+
+        // Sem empresa activa não há perfil nenhum para ler — e forTenant() é um
+        // firstOrCreate: chamá-lo aqui criaria uma linha de definições órfã.
+        if (!$tenantId) {
+            return;
+        }
+
+        // Lido UMA única vez à entrada: forTenant() vai à base de dados, e o
+        // render() volta a correr a cada tecla escrita na pesquisa e a cada
+        // mudança de página.
+        //
+        // Pelos slugs que o modelo publica e não pelos nomes das colunas: é o
+        // contrato das Definições, e aguenta a coluna mudar de nome.
+        $activos = InvoicingSettings::forTenant($tenantId)->perfisActivos();
+
+        $this->perfis = [
+            InvoicingSettings::PERFIL_COSMETICA => in_array(InvoicingSettings::PERFIL_COSMETICA, $activos, true),
+            InvoicingSettings::PERFIL_MERCEARIA => in_array(InvoicingSettings::PERFIL_MERCEARIA, $activos, true),
+        ];
+    }
+
+    /**
+     * Há artigos com conservação gravada nesta empresa?
+     *
+     * É a segunda metade da regra do OU: quem desligue o perfil de mercearia
+     * continua a ter mercadoria que só pode ir para a arca, e tem de continuar
+     * a conseguir vê-la e a separá-la na lista.
+     *
+     * `exists()` e não a lista de valores distintos: as opções do filtro são
+     * uma lista fechada e conhecida — daqui só se precisa de sim ou não, que
+     * pára no primeiro registo encontrado.
+     */
+    public function getHaConservacaoNoCatalogoProperty(): bool
+    {
+        return Product::where('tenant_id', activeTenantId())
+            ->whereNotNull('storage_conditions')
+            ->where('storage_conditions', '<>', '')
+            ->exists();
+    }
+
+    /**
+     * Como cada conservação se mostra ao utilizador.
+     *
+     * O valor gravado é a CHAVE e nunca o que aparece no ecrã: assim o rótulo
+     * traduz-se sem tocar nos dados dos artigos. Um valor fora desta lista
+     * mostra-se como está gravado, em vez de desaparecer do ecrã.
+     */
+    public function rotulosDeConservacao(): array
+    {
+        return [
+            'ambiente'    => __('Ambiente'),
+            'refrigerado' => __('Refrigerado'),
+            'congelado'   => __('Congelado'),
+        ];
+    }
+
     public function render()
     {
         $query = Stock::where('tenant_id', activeTenantId())
             ->whereHas('product')
             ->whereHas('warehouse')
+            // O eager load do artigo já traz `net_content` e `storage_conditions`
+            // com o resto da ficha: a lista mostra-os sem uma consulta por linha.
             ->with(['warehouse', 'product']);
 
         // Warehouse Filter
@@ -107,6 +195,23 @@ class StockManagement extends Component
         if ($this->lowStockFilter) {
             $query->whereHas('product', function ($q) {
                 $q->whereColumn('invoicing_stocks.quantity', '<=', 'invoicing_products.stock_min');
+            });
+        }
+
+        // Conservação. `whereHas` e não JOIN de propósito: o global scope de
+        // BelongsToTenant é do STOCK, e escreve `tenant_id` sem qualificar a
+        // tabela — junte-se invoicing_products, que também tem tenant_id, e a
+        // condição fica ambígua. É a mesma armadilha documentada na contagem de
+        // stock baixo aqui em baixo.
+        //
+        // O filtro de empresa vai à mão porque o ARTIGO não é tenant-scoped:
+        // Product não usa BelongsToTenant, e uma subconsulta sem esta linha
+        // olharia para o catálogo de toda a gente. Qualificado com a tabela
+        // para não depender de qual das duas o MySQL resolve primeiro.
+        if ($this->filterConservacao !== '') {
+            $query->whereHas('product', function ($q) {
+                $q->where('invoicing_products.tenant_id', activeTenantId())
+                  ->porConservacao($this->filterConservacao);
             });
         }
 
@@ -144,10 +249,19 @@ class StockManagement extends Component
             'low_stock'      => (int) $lowStockCount,
         ];
 
+        // A regra do OU, a mesma do resto do sistema: mostra-se a conservação a
+        // quem diz trabalhar com mercearia OU a quem já tem artigos marcados.
+        // Num restaurante ou numa oficina — sem perfil e sem dados — a coluna
+        // não aparece e a lista fica exactamente como estava.
+        $mostraConservacao = ($this->perfis[InvoicingSettings::PERFIL_MERCEARIA] ?? false)
+            || $this->haConservacaoNoCatalogo;
+
         return view('livewire.invoicing.stock.stock-management', [
             'stocks' => $stocks,
             'warehouses' => $warehouses,
             'stats' => $stats,
+            'mostraConservacao' => $mostraConservacao,
+            'rotulosConservacao' => $this->rotulosDeConservacao(),
         ]);
     }
 
@@ -324,7 +438,11 @@ class StockManagement extends Component
             })
             ->orderBy('name')
             ->limit(15)
-            ->get(['id', 'name', 'code', 'sku', 'barcode', 'unit', 'cost']);
+            // `net_content` acrescentado ao select que já existia: duas
+            // embalagens do mesmo artigo têm o mesmo nome e o mesmo código de
+            // família, e só o conteúdo líquido as separa. Sem ele, escolher
+            // entre dois "Leite" é adivinhar.
+            ->get(['id', 'name', 'code', 'sku', 'barcode', 'unit', 'cost', 'net_content']);
     }
 
     /**
@@ -362,6 +480,9 @@ class StockManagement extends Component
             'product_id'   => $product->id,
             'product_name' => $product->name,
             'product_code' => $product->code ?: ($product->sku ?: $product->barcode),
+            // Fica na linha para quem confere o lote continuar a distinguir as
+            // duas embalagens depois de as adicionar, e não só ao escolhê-las.
+            'net_content'  => $product->net_content,
             'unit'         => $product->unit,
             'op'           => 'add',  // 'add' = soma | 'sub' = subtrai
             'quantity'     => 1,
@@ -617,6 +738,11 @@ class StockManagement extends Component
     }
 
     public function updatingWarehouseFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilterConservacao()
     {
         $this->resetPage();
     }

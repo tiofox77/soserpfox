@@ -20,6 +20,8 @@ class InvoicingSettings extends Model
      */
     public const PERFIL_FARMACIA = 'farmacia';
     public const PERFIL_VESTUARIO = 'vestuario';
+    public const PERFIL_COSMETICA = 'cosmetica';
+    public const PERFIL_MERCEARIA = 'mercearia';
 
     protected $table = 'invoicing_settings';
 
@@ -71,6 +73,8 @@ class InvoicingSettings extends Model
         // Perfil do negócio
         'profile_pharmacy',
         'profile_clothing',
+        'profile_cosmetics',
+        'profile_grocery',
         'agt_environment',
         'agt_api_base_url',
         'agt_client_id',
@@ -118,6 +122,8 @@ class InvoicingSettings extends Model
         'pos_require_customer' => 'boolean',
         'profile_pharmacy' => 'boolean',
         'profile_clothing' => 'boolean',
+        'profile_cosmetics' => 'boolean',
+        'profile_grocery' => 'boolean',
         'agt_auto_submit' => 'boolean',
         'agt_require_validation' => 'boolean',
         'agt_token_expires_at' => 'datetime',
@@ -151,11 +157,15 @@ class InvoicingSettings extends Model
 
     // Helper methods
     /**
-     * Perfis de negócio ligados, por slug: ['farmacia'], ['vestuario'], os dois
-     * ou vazio (o caso normal, e o da maioria das empresas).
+     * Perfis de negócio ligados, por slug: ['farmacia'], ['mercearia'], vários
+     * ao mesmo tempo, ou vazio (o caso normal, e o da maioria das empresas).
      *
-     * Os dois podem estar ligados ao mesmo tempo — um supermercado com balcão
-     * de farmácia é as duas coisas.
+     * Podem estar todos ligados ao mesmo tempo — um supermercado com balcão de
+     * farmácia e prateleira de cosmética é as três coisas.
+     *
+     * A lista cresce por acrescento e nunca por substituição: quem consome
+     * pergunta pelo slug que lhe interessa com in_array(), portanto um perfil
+     * novo aqui não muda a resposta a quem já pergunta pelos antigos.
      *
      * Atenção a quem consome: isto diz o que se MOSTRA por omissão. Não serve
      * para decidir se um aviso de receita ou de psicotrópico dispara — esses
@@ -168,6 +178,8 @@ class InvoicingSettings extends Model
         return array_values(array_filter([
             $this->profile_pharmacy ? self::PERFIL_FARMACIA : null,
             $this->profile_clothing ? self::PERFIL_VESTUARIO : null,
+            $this->profile_cosmetics ? self::PERFIL_COSMETICA : null,
+            $this->profile_grocery ? self::PERFIL_MERCEARIA : null,
         ]));
     }
 
@@ -262,11 +274,12 @@ class InvoicingSettings extends Model
                 'pos_require_customer' => false,
                 'pos_default_payment_method_id' => null, // Será configurado pelo usuário
 
-                // Perfil do Negócio (profile_pharmacy / profile_clothing) não
-                // entra aqui de propósito: o arranque é nenhum dos dois ligado,
-                // que é o default da coluna. Nomear colunas novas neste array
-                // partiria a criação de definições no intervalo entre subir o
-                // código e correr a migração.
+                // Perfil do Negócio (profile_pharmacy / profile_clothing /
+                // profile_cosmetics / profile_grocery) não entra aqui de
+                // propósito: o arranque é nenhum ligado, que é o default da
+                // coluna. Nomear colunas novas neste array partiria a criação de
+                // definições no intervalo entre subir o código e correr a
+                // migração.
             ]
         );
     }

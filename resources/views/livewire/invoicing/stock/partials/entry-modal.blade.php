@@ -19,7 +19,15 @@
                 {{ $gravado ? 'Movimentação registada' : 'Movimentação de Stock' }}
                 @if(!$gravado && count($entryItems) > 0)
                     <span class="ml-3 text-[11px] bg-white/20 px-2 py-0.5 rounded-full">
-                        @if($opAddCount){{ $opAddCount }} +@endif@if($opAddCount && $opSubCount) · @endif@if($opSubCount){{ $opSubCount }} −@endif
+                        {{-- Uma directiva colada ao fim da anterior, sem espaço
+                             nem quebra de linha entre as duas, não é compilada
+                             pelo Blade: fica texto cru e o fecho seguinte passa
+                             a sobrar, o que é um erro de sintaxe no ficheiro
+                             compilado e leva a página INTEIRA abaixo. Separadas
+                             por linha, e o espaço a mais desaparece no HTML. --}}
+                        @if($opAddCount){{ $opAddCount }} +@endif
+                        @if($opAddCount && $opSubCount) · @endif
+                        @if($opSubCount){{ $opSubCount }} −@endif
                     </span>
                 @endif
             </h3>
@@ -138,7 +146,16 @@
                                         wire:click="addEntryItem({{ $p->id }})"
                                         class="btn-press w-full text-left px-3 py-2 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 flex items-center justify-between gap-3">
                                     <div class="min-w-0">
-                                        <p class="font-semibold text-gray-900 text-sm truncate">{{ $p->name }}</p>
+                                        {{-- O conteúdo líquido vem colado ao nome porque
+                                             é a única coisa que separa duas embalagens do
+                                             mesmo artigo — escolher entre dois "Leite"
+                                             sem ele é adivinhar. --}}
+                                        <p class="font-semibold text-gray-900 text-sm truncate">
+                                            {{ $p->name }}
+                                            @if(filled($p->net_content))
+                                                <span class="text-gray-500">· {{ $p->net_content }}</span>
+                                            @endif
+                                        </p>
                                         <p class="text-xs text-gray-500">
                                             {{ $p->code ?: ($p->sku ?: $p->barcode ?: '—') }}
                                             @if($p->unit) · {{ $p->unit }} @endif
@@ -209,7 +226,15 @@
                                          este `?? $i` a página rebentava aqui. --}}
                                     <tr wire:key="entry-item-{{ $item['product_id'] ?? 'x' . $i }}" class="{{ $isSub ? 'bg-red-50/40' : '' }}">
                                         <td class="px-3 py-2 align-middle">
-                                            <p class="font-semibold text-gray-900 truncate">{{ $item['product_name'] }}</p>
+                                            {{-- `?? null`: uma lista começada antes desta
+                                                 alteração não tem a chave, e a linha não
+                                                 pode rebentar por causa disso. --}}
+                                            <p class="font-semibold text-gray-900 truncate">
+                                                {{ $item['product_name'] }}
+                                                @if(filled($item['net_content'] ?? null))
+                                                    <span class="text-gray-500">· {{ $item['net_content'] }}</span>
+                                                @endif
+                                            </p>
                                             <p class="text-[11px] text-gray-500">
                                                 <i class="fas fa-barcode mr-1"></i>{{ $item['product_code'] ?: '—' }}
                                                 @if(!empty($item['unit'])) · {{ $item['unit'] }} @endif

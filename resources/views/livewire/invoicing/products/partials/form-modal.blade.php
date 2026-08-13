@@ -370,12 +370,14 @@
                             </div>
                         </div>
                         
-                        <!-- Medicamento e Vestuário -->
+                        <!-- Medicamento, Vestuário, Cosmética e Mercearia -->
                         @php
                             // Perfis da empresa (Definições de Faturação): dizem
                             // apenas o que aparece POR OMISSÃO neste formulário.
                             $perfilFarmacia  = $perfis['farmacia'] ?? false;
                             $perfilVestuario = $perfis['vestuario'] ?? false;
+                            $perfilCosmetica = $perfis['cosmetica'] ?? false;
+                            $perfilMercearia = $perfis['mercearia'] ?? false;
 
                             $temDadosMedicamento = $requires_prescription || $is_controlled
                                 || filled($active_ingredient) || filled($dosage)
@@ -384,20 +386,35 @@
                             $temDadosVestuario = filled($size) || filled($color)
                                 || filled($gender) || filled($material);
 
+                            $temDadosCosmetica = filled($pao_months) || filled($inci_ingredients);
+
+                            $temDadosMercearia = filled($storage_conditions) || filled($allergens)
+                                || filled($origin_country);
+
+                            // O conteúdo líquido é dos dois ramos e por isso não
+                            // vive dentro de nenhum deles — tem visibilidade
+                            // própria, senão um artigo que só o tenha preenchido
+                            // obrigava a abrir duas secções vazias para o ver.
+                            $temEmbalagem = filled($net_content);
+
                             // O "ou já tem valor" não é opcional: sem ele,
                             // desligar o perfil escondia campos que continuavam
                             // gravados — e o utilizador ficava sem forma de os
                             // ver nem de os corrigir.
                             $mostrarMedicamento = $perfilFarmacia || $temDadosMedicamento;
                             $mostrarVestuario   = $perfilVestuario || $temDadosVestuario;
+                            $mostrarCosmetica   = $perfilCosmetica || $temDadosCosmetica;
+                            $mostrarMercearia   = $perfilMercearia || $temDadosMercearia;
+                            $mostrarEmbalagem   = $perfilCosmetica || $perfilMercearia || $temEmbalagem;
 
                             // Nem perfil nem dados: a secção não se impõe, mas
                             // fica a um clique. Obrigar a passar pelas Definições
                             // só para marcar um artigo isolado era pior do que a
                             // linha extra que aqui se mostra.
-                            $revelavel = !$mostrarMedicamento && !$mostrarVestuario;
+                            $revelavel = !$mostrarMedicamento && !$mostrarVestuario
+                                && !$mostrarCosmetica && !$mostrarMercearia && !$mostrarEmbalagem;
 
-                            // Estado INICIAL de cada bloco, não um @if: os dois vão
+                            // Estado INICIAL de cada bloco, não um @if: todos vão
                             // sempre para o HTML e quem manda na visibilidade é o
                             // Alpine. O perfil decide o que aparece por omissão, não
                             // o que existe — uma farmácia que venda uma t-shirt tem
@@ -405,20 +422,35 @@
                             // vestuário nas Definições.
                             $blocoMedicamento = $mostrarMedicamento || $revelavel;
                             $blocoVestuario   = $mostrarVestuario || $revelavel;
+                            $blocoCosmetica   = $mostrarCosmetica || $revelavel;
+                            $blocoMercearia   = $mostrarMercearia || $revelavel;
+                            $blocoEmbalagem   = $mostrarEmbalagem || $revelavel;
 
                             // Uma loja de roupa não tem de ler "Medicamento" no
                             // cabeçalho de uma secção que só lhe mostra tamanhos.
-                            $tituloEspecificos = $blocoMedicamento && $blocoVestuario
-                                ? __('Medicamento e Vestuário')
-                                : ($blocoMedicamento ? __('Medicamento') : __('Vestuário'));
+                            // Com mais do que um ramo à vista enumerá-los daria um
+                            // cabeçalho maior do que a própria secção.
+                            $nomesBlocos = array_values(array_filter([
+                                $blocoMedicamento ? __('Medicamento') : null,
+                                $blocoVestuario ? __('Vestuário') : null,
+                                $blocoCosmetica ? __('Cosmética') : null,
+                                $blocoMercearia ? __('Mercearia') : null,
+                            ]));
+
+                            $tituloEspecificos = match (count($nomesBlocos)) {
+                                1 => $nomesBlocos[0],
+                                0 => __('Embalagem'),
+                                default => __('Detalhes específicos do artigo'),
+                            };
 
                             // A secção abre de raiz quando o artigo já é um
-                            // medicamento ou uma peça de roupa: quem edita um
-                            // medicamento não pode ter de adivinhar onde estão
-                            // os campos dele. Nos restantes artigos fica
-                            // recolhida para não encher o formulário de campos
-                            // que 99% do catálogo nunca usa.
-                            $temEspecificos = $temDadosMedicamento || $temDadosVestuario;
+                            // medicamento, uma peça de roupa, um cosmético ou um
+                            // alimento: quem edita um medicamento não pode ter de
+                            // adivinhar onde estão os campos dele. Nos restantes
+                            // artigos fica recolhida para não encher o formulário
+                            // de campos que 99% do catálogo nunca usa.
+                            $temEspecificos = $temDadosMedicamento || $temDadosVestuario
+                                || $temDadosCosmetica || $temDadosMercearia || $temEmbalagem;
 
                             // Valores já usados no catálogo, para sugerir sem
                             // impor: evita ter "Azul", "azul" e "AZUL" como três
@@ -426,25 +458,28 @@
                             $tamanhosSugeridos = $variantes['tamanhos'] ?? [];
                             $coresSugeridas = $variantes['cores'] ?? [];
                         @endphp
-                        <div class="md:col-span-3" x-data="{ revelado: @js(!$revelavel), aberto: @js($temEspecificos), med: @js($blocoMedicamento), vest: @js($blocoVestuario) }">
+                        <div class="md:col-span-3" x-data="{ revelado: @js(!$revelavel), aberto: @js($temEspecificos), med: @js($blocoMedicamento), vest: @js($blocoVestuario), cosm: @js($blocoCosmetica), merc: @js($blocoMercearia), emb: @js($blocoEmbalagem), rotulos: @js(['med' => __('Medicamento'), 'vest' => __('Vestuário'), 'cosm' => __('Cosmética'), 'merc' => __('Mercearia'), 'emb' => __('Embalagem'), 'varios' => __('Detalhes específicos do artigo')]), get titulo() { const abertos = [this.med && this.rotulos.med, this.vest && this.rotulos.vest, this.cosm && this.rotulos.cosm, this.merc && this.rotulos.merc].filter(Boolean); if (abertos.length === 1) return abertos[0]; return abertos.length === 0 ? this.rotulos.emb : this.rotulos.varios; } }">
                             {{-- O atalho para quem não trabalha com nada disto: uma
-                                 linha discreta em vez da secção inteira. --}}
+                                 linha discreta em vez da secção inteira. Nomear os
+                                 quatro ramos daria uma pergunta mais comprida do
+                                 que a resposta — três exemplos chegam para se
+                                 perceber do que se trata. --}}
                             <button type="button" x-show="!revelado" x-cloak @click="revelado = true; aberto = true"
                                     class="text-xs text-teal-700 hover:text-teal-900 underline decoration-dotted">
-                                <i class="fas fa-notes-medical mr-1"></i>{{ __('Este artigo é medicamento ou vestuário?') }}
+                                <i class="fas fa-tags mr-1"></i>{{ __('Este artigo tem campos próprios do ramo (receita, tamanho, alergénios…)?') }}
                             </button>
 
                             <div x-show="revelado" x-cloak class="p-4 bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl border-2 border-teal-200">
                                 <button type="button" @click="aberto = !aberto" class="w-full flex items-center text-left">
                                     <div class="flex items-center justify-center w-10 h-10 bg-teal-500 rounded-lg shadow-md">
-                                        <i class="fas fa-notes-medical text-white text-lg"></i>
+                                        <i class="fas fa-tags text-white text-lg"></i>
                                     </div>
                                     <div class="ml-3 flex-1">
                                         {{-- O texto do servidor é o arranque; o x-text
-                                             mantém-no certo depois de se revelar o
+                                             mantém-no certo depois de se revelar
                                              outro bloco, sem ida ao servidor. --}}
                                         <h3 class="text-sm font-bold text-gray-900"
-                                            x-text="med && vest ? @js(__('Medicamento e Vestuário')) : (med ? @js(__('Medicamento')) : @js(__('Vestuário')))">{{ $tituloEspecificos }}</h3>
+                                            x-text="titulo">{{ $tituloEspecificos }}</h3>
                                         <p class="text-xs text-gray-600">{{ __('Campos opcionais — preencha apenas o que se aplica a este artigo') }}</p>
                                     </div>
                                     <i class="fas text-teal-600 text-lg" :class="aberto ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
@@ -607,12 +642,137 @@
                                         </div>
                                     </div>
 
+                                    {{-- Embalagem: o conteúdo líquido é da cosmética
+                                         E da mercearia, por isso fica fora dos dois
+                                         blocos em vez de repetido em ambos. --}}
+                                    <div x-show="emb || cosm || merc" x-cloak class="p-4 bg-white rounded-xl border border-amber-200">
+                                        <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                            <i class="fas fa-box-open text-amber-600 mr-2"></i>{{ __('Embalagem') }}
+                                        </h4>
+
+                                        <div class="md:w-1/2">
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-bottle-water text-amber-600 mr-1"></i>{{ __('Conteúdo líquido') }}
+                                            </label>
+                                            <input wire:model="net_content" type="text" maxlength="40"
+                                                   placeholder="{{ __('Ex: 50ml, 200g, 1kg') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
+                                            <p class="text-xs text-gray-500 mt-1">{{ __('É o que distingue duas embalagens do mesmo produto.') }}</p>
+                                            @error('net_content') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+
+                                    <!-- Cosmética -->
+                                    <div x-show="cosm" x-cloak class="p-4 bg-white rounded-xl border border-rose-200">
+                                        <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                            <i class="fas fa-pump-soap text-rose-600 mr-2"></i>{{ __('Cosmética') }}
+                                        </h4>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                    <i class="fas fa-hourglass-half text-rose-600 mr-1"></i>{{ __('Meses após abertura (PAO)') }}
+                                                </label>
+                                                {{-- É o frasco aberto com "12M" no rótulo:
+                                                     quanto tempo dura DEPOIS de aberto. Não
+                                                     substitui o prazo de validade por abrir
+                                                     — a loja precisa dos dois. --}}
+                                                <input wire:model="pao_months" type="number" min="1" max="120" step="1"
+                                                       placeholder="{{ __('Ex: 12') }}"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent transition text-sm">
+                                                <p class="text-xs text-gray-500 mt-1">{{ __('Validade depois de aberto, que é diferente do prazo por abrir.') }}</p>
+                                                @error('pao_months') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                    <i class="fas fa-palette text-rose-600 mr-1"></i>{{ __('Tom') }}
+                                                </label>
+                                                {{-- O tom não tem campo próprio: é a mesma
+                                                     coisa que a cor, que já existe. Dois
+                                                     sítios para gravar o mesmo davam duas
+                                                     respostas diferentes à mesma pergunta. --}}
+                                                <div class="px-3 py-2 bg-rose-50 border border-rose-100 rounded-lg text-xs text-gray-600">
+                                                    <span>{{ __('O tom regista-se no campo Cor.') }}</span>
+                                                    <button type="button" x-show="!vest" @click="vest = true"
+                                                            class="ml-1 underline decoration-dotted text-rose-700 hover:text-rose-900">
+                                                        {{ __('Mostrar') }}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                    <i class="fas fa-list text-rose-600 mr-1"></i>{{ __('Lista INCI') }}
+                                                </label>
+                                                {{-- Área de texto e não uma linha: uma lista
+                                                     INCI a sério tem dezenas de nomes, e é
+                                                     com ela que se responde ao balcão a
+                                                     "isto tem parabenos?". --}}
+                                                <textarea wire:model="inci_ingredients" rows="3"
+                                                          placeholder="{{ __('Ex: Aqua, Glycerin, Parfum, Sodium Chloride') }}"
+                                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent transition text-sm"></textarea>
+                                                <p class="text-xs text-gray-500 mt-1">{{ __('Lista normalizada de ingredientes, tal como vem no rótulo.') }}</p>
+                                                @error('inci_ingredients') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Mercearia -->
+                                    <div x-show="merc" x-cloak class="p-4 bg-white rounded-xl border border-amber-200">
+                                        <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                            <i class="fas fa-basket-shopping text-amber-600 mr-2"></i>{{ __('Mercearia') }}
+                                        </h4>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                    <i class="fas fa-temperature-half text-amber-600 mr-1"></i>{{ __('Conservação') }}
+                                                </label>
+                                                {{-- Lista fechada, como o género: isto diz a
+                                                     quem arruma se o artigo vai para a
+                                                     prateleira, para o frigorífico ou para a
+                                                     arca, e aparece no stock. Os valores
+                                                     gravados são chaves e não se traduzem. --}}
+                                                <select wire:model="storage_conditions" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm bg-white">
+                                                    <option value="">{{ __('Não indicado') }}</option>
+                                                    <option value="ambiente">{{ __('Ambiente') }}</option>
+                                                    <option value="refrigerado">{{ __('Refrigerado') }}</option>
+                                                    <option value="congelado">{{ __('Congelado') }}</option>
+                                                </select>
+                                                @error('storage_conditions') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                    <i class="fas fa-earth-africa text-amber-600 mr-1"></i>{{ __('País de origem') }}
+                                                </label>
+                                                <input wire:model="origin_country" type="text" maxlength="60"
+                                                       placeholder="{{ __('Ex: Angola, Portugal, Brasil') }}"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
+                                                <p class="text-xs text-gray-500 mt-1">{{ __('Obrigatório no rótulo alimentar.') }}</p>
+                                                @error('origin_country') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                            </div>
+
+                                            <div class="md:col-span-2">
+                                                <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                    <i class="fas fa-wheat-awn-circle-exclamation text-amber-600 mr-1"></i>{{ __('Alergénios') }}
+                                                </label>
+                                                <input wire:model="allergens" type="text" maxlength="255"
+                                                       placeholder="{{ __('Ex: glúten, leite, frutos de casca rija') }}"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
+                                                <p class="text-xs text-gray-500 mt-1">{{ __('Informação obrigatória no rótulo e pergunta de balcão.') }}</p>
+                                                @error('allergens') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {{-- Saída para o bloco que o perfil não abriu de
                                          raiz. Sem isto, ligar só o perfil de farmácia
                                          deixava o tamanho e a cor sem forma nenhuma de
                                          serem preenchidos — o perfil passava a decidir
                                          o que EXISTE em vez do que aparece. --}}
-                                    <div x-show="!med || !vest" x-cloak class="flex flex-wrap gap-4 pt-1">
+                                    <div x-show="!med || !vest || !cosm || !merc" x-cloak class="flex flex-wrap gap-4 pt-1">
                                         <button type="button" x-show="!med" @click="med = true"
                                                 class="text-xs text-teal-700 hover:text-teal-900 underline decoration-dotted">
                                             <i class="fas fa-pills mr-1"></i>{{ __('Este artigo também é medicamento') }}
@@ -620,6 +780,14 @@
                                         <button type="button" x-show="!vest" @click="vest = true"
                                                 class="text-xs text-emerald-700 hover:text-emerald-900 underline decoration-dotted">
                                             <i class="fas fa-shirt mr-1"></i>{{ __('Este artigo também é vestuário') }}
+                                        </button>
+                                        <button type="button" x-show="!cosm" @click="cosm = true"
+                                                class="text-xs text-rose-700 hover:text-rose-900 underline decoration-dotted">
+                                            <i class="fas fa-pump-soap mr-1"></i>{{ __('Este artigo também é cosmética') }}
+                                        </button>
+                                        <button type="button" x-show="!merc" @click="merc = true"
+                                                class="text-xs text-amber-700 hover:text-amber-900 underline decoration-dotted">
+                                            <i class="fas fa-basket-shopping mr-1"></i>{{ __('Este artigo também é mercearia') }}
                                         </button>
                                     </div>
                                 </div>

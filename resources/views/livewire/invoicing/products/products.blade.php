@@ -169,18 +169,31 @@
         @php
             $perfilFarmacia  = $perfis['farmacia'] ?? false;
             $perfilVestuario = $perfis['vestuario'] ?? false;
+            $perfilMercearia = $perfis['mercearia'] ?? false;
 
             $temTamanhos = !empty($variantes['tamanhos']);
             $temCores = !empty($variantes['cores']);
 
+            // Os valores gravados são chaves internas — o que se mostra (aqui e
+            // no crachá da lista) é o rótulo, traduzível.
+            $rotulosConservacao = [
+                'ambiente'    => __('Ambiente'),
+                'refrigerado' => __('Refrigerado'),
+                'congelado'   => __('Congelado'),
+            ];
+
             $mostrarFiltroReceita = $perfilFarmacia || ($variantes['ha_receituario'] ?? false);
             $mostrarFiltroTamanho = $perfilVestuario || $temTamanhos;
             $mostrarFiltroCor     = $perfilVestuario || $temCores;
+            // Não depende de haver artigos de cada tipo: a lista é fechada, por
+            // isso o select nunca fica vazio a parecer avariado.
+            $mostrarFiltroConservacao = $perfilMercearia || ($variantes['ha_conservacao'] ?? false);
 
-            $mostrarFiltrosCatalogo = $mostrarFiltroReceita || $mostrarFiltroTamanho || $mostrarFiltroCor;
+            $mostrarFiltrosCatalogo = $mostrarFiltroReceita || $mostrarFiltroTamanho
+                || $mostrarFiltroCor || $mostrarFiltroConservacao;
         @endphp
         @if($mostrarFiltrosCatalogo)
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-4">
             @if($mostrarFiltroReceita)
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
@@ -225,6 +238,23 @@
                 </select>
             </div>
             @endif
+
+            @if($mostrarFiltroConservacao)
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-temperature-half mr-1"></i>{{ __('Conservação') }}
+                </label>
+                {{-- A pergunta do armazém, não a da ficha: "o que é que vai para
+                     o frigorífico?" é o que se pergunta antes de arrumar uma
+                     entrada de mercadoria. --}}
+                <select wire:model.live="filterConservacao" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todas') }}</option>
+                    @foreach($rotulosConservacao as $chave => $rotulo)
+                        <option value="{{ $chave }}">{{ $rotulo }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
         </div>
         @endif
 
@@ -245,7 +275,7 @@
         </div>
 
         <!-- Active Filters Display -->
-        @if($search || $typeFilter || $stockFilter || $dateFrom || $dateTo || $filterPrescricao || $filterTamanho || $filterCor)
+        @if($search || $typeFilter || $stockFilter || $dateFrom || $dateTo || $filterPrescricao || $filterTamanho || $filterCor || $filterConservacao)
             <div class="mt-4 pt-4 border-t border-gray-200">
                 <div class="flex flex-wrap gap-2">
                     <span class="text-xs font-semibold text-gray-600">{{ __('Filtros ativos:') }}</span>
@@ -297,6 +327,14 @@
                         <span class="inline-flex items-center px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-semibold">
                             <i class="fas fa-palette mr-1"></i>{{ $filterCor }}
                             <button wire:click="$set('filterCor', '')" class="ml-2 hover:text-teal-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($filterConservacao)
+                        <span class="inline-flex items-center px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-temperature-half mr-1"></i>{{ $rotulosConservacao[$filterConservacao] ?? $filterConservacao }}
+                            <button wire:click="$set('filterConservacao', '')" class="ml-2 hover:text-amber-900">
                                 <i class="fas fa-times"></i>
                             </button>
                         </span>
@@ -376,12 +414,21 @@
                             {{ strtoupper(substr($product->name, 0, 2)) }}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="font-bold text-gray-900 truncate">{{ $product->name }}</p>
+                            {{-- O conteúdo líquido vai na própria linha do nome e não
+                                 num crachá: "Champô X" e "Champô X" são a mesma
+                                 linha até se ler o 200ml e o 750ml. --}}
+                            <p class="font-bold text-gray-900 truncate">
+                                {{ $product->name }}
+                                @if(filled($product->net_content))
+                                    <span class="text-gray-500 font-semibold">· {{ $product->net_content }}</span>
+                                @endif
+                            </p>
 
-                            {{-- Receita/controlado e tamanho/cor junto ao nome: são
-                                 o que distingue duas linhas com a mesma designação
-                                 (a mesma t-shirt em M e em L) e o que o balcão tem
-                                 de ver antes de dispensar.
+                            {{-- Receita/controlado, tamanho/cor e conservação/alergénios
+                                 junto ao nome: são o que distingue duas linhas com a
+                                 mesma designação (a mesma t-shirt em M e em L) e o que
+                                 o balcão e o armazém têm de ver antes de dispensar ou
+                                 de arrumar.
 
                                  O perfil da empresa NÃO entra nesta condição de
                                  propósito: o crachá só existe porque o artigo tem
@@ -389,7 +436,7 @@
                                  desaparecer por se ter desligado uma definição de
                                  visualização. Ligar o perfil também não os
                                  inventa — não há crachá sem valor por trás. --}}
-                            @if($product->requires_prescription || $product->is_controlled || filled($product->size) || filled($product->color))
+                            @if($product->requires_prescription || $product->is_controlled || filled($product->size) || filled($product->color) || filled($product->storage_conditions) || filled($product->allergens))
                                 <div class="flex flex-wrap items-center gap-1 mt-1">
                                     @if($product->requires_prescription)
                                         <span class="inline-flex items-center px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold" title="{{ __('Exige receita médica') }}">
@@ -409,6 +456,27 @@
                                     @if(filled($product->color))
                                         <span class="inline-flex items-center px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-[10px] font-bold" title="{{ __('Cor') }}">
                                             {{ $product->color }}
+                                        </span>
+                                    @endif
+                                    @if(filled($product->storage_conditions))
+                                        {{-- O frio distingue-se do resto pela cor: numa
+                                             entrada de mercadoria o que importa é ver
+                                             de relance o que não pode ficar à espera
+                                             na prateleira. --}}
+                                        @php
+                                            $corConservacao = match ($product->storage_conditions) {
+                                                'refrigerado' => 'bg-sky-100 text-sky-700',
+                                                'congelado'   => 'bg-indigo-100 text-indigo-700',
+                                                default       => 'bg-gray-100 text-gray-600',
+                                            };
+                                        @endphp
+                                        <span class="inline-flex items-center px-1.5 py-0.5 {{ $corConservacao }} rounded text-[10px] font-bold" title="{{ __('Conservação') }}">
+                                            <i class="fas fa-temperature-half mr-1"></i>{{ $rotulosConservacao[$product->storage_conditions] ?? $product->storage_conditions }}
+                                        </span>
+                                    @endif
+                                    @if(filled($product->allergens))
+                                        <span class="inline-flex items-center px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] font-bold" title="{{ __('Alergénios') }}: {{ $product->allergens }}">
+                                            <i class="fas fa-wheat-awn-circle-exclamation mr-1"></i>{{ __('Alergénios') }}
                                         </span>
                                     @endif
                                 </div>
@@ -564,7 +632,7 @@
                     @php
                         $haCatalogo = ($estatisticas['produtos'] + $estatisticas['servicos']) > 0;
                         $haFiltro = $search || $typeFilter || $stockFilter || $dateFrom || $dateTo
-                            || $filterPrescricao || $filterTamanho || $filterCor;
+                            || $filterPrescricao || $filterTamanho || $filterCor || $filterConservacao;
                     @endphp
 
                     @if($haCatalogo && $haFiltro)

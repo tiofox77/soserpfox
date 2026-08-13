@@ -37,12 +37,14 @@ class Products extends Component
     public $typeFilter = '';
     public $stockFilter = '';
 
-    // Filtros de catálogo especializado. Só estes três porque são os que se
-    // usam ao balcão: "isto precisa de receita?" e "há este modelo no tamanho
-    // M / em azul?". Os restantes campos consultam-se na ficha do artigo.
+    // Filtros de catálogo especializado. Só estes quatro porque são os que se
+    // usam ao balcão e no armazém: "isto precisa de receita?", "há este modelo
+    // no tamanho M / em azul?" e "o que é que vai para o frigorífico?". Os
+    // restantes campos consultam-se na ficha do artigo.
     public $filterPrescricao = '';
     public $filterTamanho = '';
     public $filterCor = '';
+    public $filterConservacao = '';
 
     /**
      * Perfis de catálogo da empresa (Definições de Faturação).
@@ -60,6 +62,8 @@ class Products extends Component
     public array $perfis = [
         InvoicingSettings::PERFIL_FARMACIA => false,
         InvoicingSettings::PERFIL_VESTUARIO => false,
+        InvoicingSettings::PERFIL_COSMETICA => false,
+        InvoicingSettings::PERFIL_MERCEARIA => false,
     ];
 
     public function mount(): void
@@ -82,6 +86,8 @@ class Products extends Component
         $this->perfis = [
             InvoicingSettings::PERFIL_FARMACIA => in_array(InvoicingSettings::PERFIL_FARMACIA, $activos, true),
             InvoicingSettings::PERFIL_VESTUARIO => in_array(InvoicingSettings::PERFIL_VESTUARIO, $activos, true),
+            InvoicingSettings::PERFIL_COSMETICA => in_array(InvoicingSettings::PERFIL_COSMETICA, $activos, true),
+            InvoicingSettings::PERFIL_MERCEARIA => in_array(InvoicingSettings::PERFIL_MERCEARIA, $activos, true),
         ];
     }
 
@@ -137,6 +143,19 @@ class Products extends Component
     public $gender = null;
     public $material = null;
 
+    // Cosmética e mercearia. O conteúdo líquido pertence aos dois: é o que
+    // distingue duas embalagens do mesmo produto ("Champô X 200ml" e "Champô X
+    // 750ml" são artigos diferentes, com preço e stock próprios).
+    //
+    // O tom da cosmética é a cor, que já veio do vestuário — não há campo novo
+    // para a mesma coisa.
+    public $net_content = null;
+    public $pao_months = null;
+    public $inci_ingredients = null;
+    public $storage_conditions = null;
+    public $allergens = null;
+    public $origin_country = null;
+
     // Tax fields
     public $tax_type = 'iva';
     public $tax_rate_id = null;
@@ -184,6 +203,19 @@ class Products extends Component
             // livre daria "M", "masc" e "Homem" a significarem o mesmo.
             'gender' => 'nullable|in:masculino,feminino,unissexo,crianca',
             'material' => 'nullable|string|max:120',
+
+            // Cosmética e mercearia: também nenhum obrigatório, pela mesma razão.
+            'net_content' => 'nullable|string|max:40',
+            // Os meses depois de aberto (o frasco aberto com "12M" no rótulo)
+            // são um prazo real: 0 meses não quer dizer nada e 120 (10 anos) já
+            // é sinal de engano — quem não sabe deixa em branco.
+            'pao_months' => 'nullable|integer|min:1|max:120',
+            'inci_ingredients' => 'nullable|string',
+            // Lista fechada porque isto manda no stock: diz a quem arruma se o
+            // artigo vai para a prateleira, para o frigorífico ou para a arca.
+            'storage_conditions' => 'nullable|in:ambiente,refrigerado,congelado',
+            'allergens' => 'nullable|string|max:255',
+            'origin_country' => 'nullable|string|max:60',
         ];
 
         // Validar código: único POR TENANT (suporta o esquema multi-tenant)
@@ -238,11 +270,16 @@ class Products extends Component
         $this->resetPage();
     }
 
+    public function updatingFilterConservacao()
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters()
     {
         $this->reset([
             'typeFilter', 'stockFilter', 'dateFrom', 'dateTo', 'search',
-            'filterPrescricao', 'filterTamanho', 'filterCor',
+            'filterPrescricao', 'filterTamanho', 'filterCor', 'filterConservacao',
         ]);
         $this->resetPage();
     }
@@ -458,6 +495,12 @@ class Products extends Component
         $this->color = $product->color;
         $this->gender = $product->gender;
         $this->material = $product->material;
+        $this->net_content = $product->net_content;
+        $this->pao_months = $product->pao_months;
+        $this->inci_ingredients = $product->inci_ingredients;
+        $this->storage_conditions = $product->storage_conditions;
+        $this->allergens = $product->allergens;
+        $this->origin_country = $product->origin_country;
         $this->showModal = true;
     }
 
@@ -538,6 +581,12 @@ class Products extends Component
             'color' => $this->color,
             'gender' => $this->gender,
             'material' => $this->material,
+            'net_content' => $this->net_content,
+            'pao_months' => $this->pao_months,
+            'inci_ingredients' => $this->inci_ingredients,
+            'storage_conditions' => $this->storage_conditions,
+            'allergens' => $this->allergens,
+            'origin_country' => $this->origin_country,
         ];
 
         if ($this->editingProductId) {
@@ -741,7 +790,7 @@ class Products extends Component
     }
 
     /**
-     * Campos opcionais de medicamento e vestuário: em branco é ausência (NULL).
+     * Campos opcionais de catálogo especializado: em branco é ausência (NULL).
      *
      * Guardar '' faria com que a lista de tamanhos e cores distintos do
      * catálogo tivesse uma opção fantasma vazia nos filtros.
@@ -751,10 +800,17 @@ class Products extends Component
         foreach ([
             'active_ingredient', 'dosage', 'pharmaceutical_form', 'armed_registration',
             'size', 'color', 'gender', 'material',
+            'net_content', 'inci_ingredients', 'storage_conditions', 'allergens', 'origin_country',
         ] as $campo) {
             $valor = trim((string) $this->{$campo});
             $this->{$campo} = $valor === '' ? null : $valor;
         }
+
+        // Os meses depois de aberto vêm do formulário como texto. Campo vazio é
+        // "não indicado" e não zero meses — gravar 0 seria dizer que o produto
+        // se estraga no dia em que se abre.
+        $pao = trim((string) $this->pao_months);
+        $this->pao_months = $pao === '' ? null : (int) $pao;
     }
 
     private function resetForm()
@@ -771,6 +827,8 @@ class Products extends Component
             'requires_prescription', 'is_controlled', 'active_ingredient', 'dosage',
             'pharmaceutical_form', 'armed_registration',
             'size', 'color', 'gender', 'material',
+            'net_content', 'pao_months', 'inci_ingredients',
+            'storage_conditions', 'allergens', 'origin_country',
         ]);
         $this->price = 0;
         $this->cost = 0;
@@ -814,6 +872,12 @@ class Products extends Component
             'ha_receituario' => (clone $catalogo)->where(function ($q) {
                 $q->where('requires_prescription', true)->orWhere('is_controlled', true);
             })->exists(),
+            // Mesma razão do 'ha_receituario': quem desligue o perfil de
+            // mercearia continua a ter artigos que só podem ir para o
+            // frigorífico, e tem de continuar a conseguir encontrá-los.
+            'ha_conservacao' => (clone $catalogo)
+                ->whereNotNull('storage_conditions')->where('storage_conditions', '<>', '')
+                ->exists(),
         ];
     }
 
@@ -824,6 +888,10 @@ class Products extends Component
             // e o administrador precisa de os poder ver para os restaurar.
             ->when($this->mostrarEliminados, fn ($q) => $q->onlyTrashed())
             ->withSum('stocks as stocks_total_quantity', 'quantity')
+            // A taxa é lida em cada linha da lista ($product->taxRate->rate).
+            // Sem isto era uma consulta por artigo: com 100 por página, 100
+            // consultas a cada tecla escrita na pesquisa.
+            ->with('taxRate')
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
@@ -861,6 +929,7 @@ class Products extends Component
             })
             ->when($this->filterTamanho !== '', fn ($query) => $query->porTamanho($this->filterTamanho))
             ->when($this->filterCor !== '', fn ($query) => $query->porCor($this->filterCor))
+            ->when($this->filterConservacao !== '', fn ($query) => $query->porConservacao($this->filterConservacao))
             ->when($this->dateFrom, function ($query) {
                 $query->whereDate('created_at', '>=', $this->dateFrom);
             })

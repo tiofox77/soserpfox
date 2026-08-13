@@ -75,6 +75,17 @@
                                                 <i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Psicotrópico / estupefaciente') }}
                                             </span>
                                         @endif
+                                        {{-- O conteúdo líquido fica ao pé do nome e não
+                                             enterrado numa secção: é ele que distingue
+                                             "Champô X 200ml" de "Champô X 750ml", que
+                                             são dois artigos com stock e preço
+                                             próprios. Aparece só por ter valor — não
+                                             depende de perfil nenhum. --}}
+                                        @if(filled($viewingProduct->net_content))
+                                            <span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-bold border border-amber-300" title="{{ __('Conteúdo líquido') }}">
+                                                <i class="fas fa-bottle-water mr-1"></i>{{ $viewingProduct->net_content }}
+                                            </span>
+                                        @endif
                                         <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
                                             <i class="fas fa-{{ $viewingProduct->type === 'produto' ? 'box' : 'concierge-bell' }} mr-1"></i>
                                             {{ ucfirst($viewingProduct->type) }}
@@ -238,9 +249,10 @@
                                 </div>
                             @endif
 
-                            {{-- Medicamento e vestuário: só as linhas preenchidas.
-                                 Uma ficha de t-shirt com seis linhas vazias de
-                                 medicamento é pior do que não ter secção nenhuma. --}}
+                            {{-- Medicamento, vestuário, cosmética e mercearia: só as
+                                 linhas preenchidas. Uma ficha de t-shirt com seis
+                                 linhas vazias de medicamento é pior do que não ter
+                                 secção nenhuma. --}}
                             @php
                                 $fichaMedicamento = array_filter([
                                     __('Substância activa (DCI)') => $viewingProduct->active_ingredient,
@@ -258,9 +270,37 @@
                                     'crianca'   => __('Criança'),
                                 ];
 
+                                $rotulosConservacao = [
+                                    'ambiente'    => __('Ambiente'),
+                                    'refrigerado' => __('Refrigerado'),
+                                    'congelado'   => __('Congelado'),
+                                ];
+
+                                // Perfis da empresa (Definições de Faturação).
+                                // A ficha mostra-se com o perfil ligado OU com o
+                                // artigo já preenchido: assim, desligar o perfil
+                                // nunca faz desaparecer informação que continua
+                                // gravada — e à farmácia a secção aparece mesmo
+                                // vazia, a dizer que falta preenchê-la.
+                                //
+                                // Lidos antes das fichas porque é o perfil que
+                                // decide sob que nome a cor se lê (ver a seguir).
+                                $perfilFarmacia  = $perfis['farmacia'] ?? false;
+                                $perfilVestuario = $perfis['vestuario'] ?? false;
+                                $perfilCosmetica = $perfis['cosmetica'] ?? false;
+                                $perfilMercearia = $perfis['mercearia'] ?? false;
+
+                                // O tom da cosmética é a cor — o mesmo campo, com
+                                // dois nomes conforme quem o lê. Quem só vende
+                                // cosmética vê "Tom" na ficha de cosmética; quem
+                                // também vende roupa vê "Cor" na de vestuário. A
+                                // decisão é aqui, antes das fichas, para o mesmo
+                                // valor não sair duas vezes na mesma janela.
+                                $corEhTom = $perfilCosmetica && !$perfilVestuario;
+
                                 $fichaVestuario = array_filter([
                                     __('Tamanho') => $viewingProduct->size,
-                                    __('Cor') => $viewingProduct->color,
+                                    __('Cor') => $corEhTom ? null : $viewingProduct->color,
                                     __('Género') => $rotulosGenero[$viewingProduct->gender] ?? $viewingProduct->gender,
                                     __('Composição') => $viewingProduct->material,
                                 ], fn ($v) => filled($v));
@@ -271,17 +311,31 @@
 
                                 $temVestuario = !empty($fichaVestuario);
 
-                                // Perfis da empresa (Definições de Faturação).
-                                // A ficha mostra-se com o perfil ligado OU com o
-                                // artigo já preenchido: assim, desligar o perfil
-                                // nunca faz desaparecer informação que continua
-                                // gravada — e à farmácia a secção aparece mesmo
-                                // vazia, a dizer que falta preenchê-la.
-                                $perfilFarmacia  = $perfis['farmacia'] ?? false;
-                                $perfilVestuario = $perfis['vestuario'] ?? false;
-
                                 $mostrarMedicamento = $perfilFarmacia || $temMedicamento;
                                 $mostrarVestuario   = $perfilVestuario || $temVestuario;
+
+                                // A cor não se perde ao mudar de nome: $corEhTom só
+                                // é verdade com o perfil de cosmética ligado, e com
+                                // ele esta ficha aparece sempre.
+                                $fichaCosmetica = array_filter([
+                                    __('Meses após abertura (PAO)') => $viewingProduct->pao_months,
+                                    __('Tom') => $corEhTom ? $viewingProduct->color : null,
+                                ], fn ($v) => filled($v));
+
+                                $fichaMercearia = array_filter([
+                                    __('Conservação') => $rotulosConservacao[$viewingProduct->storage_conditions] ?? $viewingProduct->storage_conditions,
+                                    __('País de origem') => $viewingProduct->origin_country,
+                                    __('Alergénios') => $viewingProduct->allergens,
+                                ], fn ($v) => filled($v));
+
+                                // A lista INCI conta como dado de cosmética mas não
+                                // entra na tabela de linhas: são dezenas de nomes e
+                                // não cabe numa linha de rótulo/valor.
+                                $temCosmetica = !empty($fichaCosmetica) || filled($viewingProduct->inci_ingredients);
+                                $temMercearia = !empty($fichaMercearia);
+
+                                $mostrarCosmetica = $perfilCosmetica || $temCosmetica;
+                                $mostrarMercearia = $perfilMercearia || $temMercearia;
                             @endphp
 
                             @if($mostrarMedicamento)
@@ -327,6 +381,53 @@
                                         @endforeach
                                         @unless($temVestuario)
                                             <p class="text-sm text-gray-500 italic">{{ __('Sem dados de vestuário neste artigo.') }}</p>
+                                        @endunless
+                                    </div>
+                                </div>
+                            @endif
+
+                            @if($mostrarCosmetica)
+                                <div class="p-4 bg-rose-50 rounded-xl border border-rose-200">
+                                    <h4 class="font-bold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-pump-soap text-rose-600 mr-2"></i>{{ __('Cosmética') }}
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @foreach($fichaCosmetica as $rotulo => $valor)
+                                            <div class="flex items-start">
+                                                <span class="text-sm text-gray-600 w-40 shrink-0">{{ $rotulo }}:</span>
+                                                <span class="text-sm font-semibold text-gray-900">{{ $valor }}</span>
+                                            </div>
+                                        @endforeach
+                                        @if(filled($viewingProduct->inci_ingredients))
+                                            {{-- Em bloco próprio: é a lista com que se
+                                                 responde ao balcão a "isto tem
+                                                 parabenos?", e não cabe numa linha. --}}
+                                            <div class="pt-1">
+                                                <p class="text-sm text-gray-600 mb-1">{{ __('Lista INCI') }}:</p>
+                                                <p class="text-sm text-gray-900 bg-white rounded-lg border border-rose-100 p-3 whitespace-pre-line">{{ $viewingProduct->inci_ingredients }}</p>
+                                            </div>
+                                        @endif
+                                        @unless($temCosmetica)
+                                            <p class="text-sm text-gray-500 italic">{{ __('Sem dados de cosmética neste artigo.') }}</p>
+                                        @endunless
+                                    </div>
+                                </div>
+                            @endif
+
+                            @if($mostrarMercearia)
+                                <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                                    <h4 class="font-bold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-basket-shopping text-amber-600 mr-2"></i>{{ __('Mercearia') }}
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @foreach($fichaMercearia as $rotulo => $valor)
+                                            <div class="flex items-start">
+                                                <span class="text-sm text-gray-600 w-32 shrink-0">{{ $rotulo }}:</span>
+                                                <span class="text-sm font-semibold text-gray-900">{{ $valor }}</span>
+                                            </div>
+                                        @endforeach
+                                        @unless($temMercearia)
+                                            <p class="text-sm text-gray-500 italic">{{ __('Sem dados de mercearia neste artigo.') }}</p>
                                         @endunless
                                     </div>
                                 </div>
