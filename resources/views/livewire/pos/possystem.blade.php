@@ -36,24 +36,24 @@
                             </div>
                         @endif
                         <div>
-                            <h2 class="text-base font-bold">Ponto de Venda</h2>
+                            <h2 class="text-base font-bold">{{ __('Ponto de Venda') }}</h2>
                             <p class="text-xs text-indigo-200">{{ auth()->user()->name }}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
                         {{-- Próxima fatura --}}
-                        <div class="flex items-center gap-1.5 bg-white/15 px-2 py-1 rounded-lg" title="Próximo número de fatura POS">
+                        <div class="flex items-center gap-1.5 bg-white/15 px-2 py-1 rounded-lg" title="{{ __('Próximo número de fatura POS') }}">
                             <i class="fas fa-receipt text-xs text-indigo-200"></i>
                             <div class="leading-tight text-right">
-                                <p class="text-[10px] text-indigo-200 uppercase tracking-wide">Próx. Fatura</p>
+                                <p class="text-[10px] text-indigo-200 uppercase tracking-wide">{{ __('Próx. Fatura') }}</p>
                                 <p class="text-xs font-semibold">{{ $this->nextInvoiceNumber }}</p>
                             </div>
                         </div>
                         {{-- Armazém ativo (default do tenant) --}}
-                        <div class="flex items-center gap-1.5 bg-white/15 px-2 py-1 rounded-lg" title="Armazém de origem dos produtos vendidos neste POS">
+                        <div class="flex items-center gap-1.5 bg-white/15 px-2 py-1 rounded-lg" title="{{ __('Armazém de origem dos produtos vendidos neste POS') }}">
                             <i class="fas fa-warehouse text-xs text-indigo-200"></i>
                             <div class="leading-tight text-right">
-                                <p class="text-[10px] text-indigo-200 uppercase tracking-wide">Armazém</p>
+                                <p class="text-[10px] text-indigo-200 uppercase tracking-wide">{{ __('Armazém') }}</p>
                                 <p class="text-xs font-semibold">{{ $this->warehouseName ?: '—' }}</p>
                             </div>
                         </div>
@@ -73,7 +73,7 @@
                     <input type="text" wire:model.live.debounce.150ms="search"
                            wire:keydown.enter.prevent=""
                            autofocus
-                           placeholder="🔍 Procurar ou ler código de barras…"
+                           placeholder="🔍 {{ __('Procurar ou ler código de barras…') }}"
                            class="w-full px-2 py-1 pl-8 border border-gray-300 rounded-lg focus:ring-1 focus:ring-indigo-500 text-sm">
                     <i class="fas fa-barcode absolute left-2 top-1.5 text-gray-400 text-xs"></i>
                 </div>
@@ -82,7 +82,7 @@
                 <div class="flex gap-1 overflow-x-auto pb-0.5">
                     <button wire:click="$set('selectedCategory', null)" 
                             class="px-3 py-1 rounded-lg text-sm font-semibold whitespace-nowrap transition {{ !$selectedCategory ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
-                        <i class="fas fa-th mr-1"></i> Todos
+                        <i class="fas fa-th mr-1"></i> {{ __('Todos') }}
                     </button>
                     @foreach($categories as $category)
                     <button wire:click="$set('selectedCategory', {{ $category->id }})" 
@@ -140,7 +140,7 @@
                         <p class="text-xs font-bold text-indigo-600">{{ number_format($product->price, 0) }}</p>
                         <div class="flex items-center gap-1 mt-0.5">
                             @php $stockHere = (float) ($product->stock_in_warehouse ?? 0); @endphp
-                            <span class="text-xs {{ $stockHere > 10 ? 'text-green-600' : ($stockHere > 5 ? 'text-orange-600' : 'text-red-600') }} font-bold" title="Stock no armazém {{ $this->warehouseName }}">
+                            <span class="text-xs {{ $stockHere > 10 ? 'text-green-600' : ($stockHere > 5 ? 'text-orange-600' : 'text-red-600') }} font-bold" title="{{ __('Stock no armazém :armazem', ['armazem' => $this->warehouseName]) }}">
                                 <i class="fas fa-box-open text-[10px]"></i> {{ rtrim(rtrim(number_format($stockHere, 2, '.', ''), '0'), '.') }}
                             </span>
                             @php
@@ -151,8 +151,13 @@
                                 $quantityInCart = $__noCarrinho[$product->id] ?? 0;
                             @endphp
                             @if($quantityInCart > 0)
+                            {{-- O 🛒 vai DENTRO da chave, ao contrário do resto do
+                                 sistema (onde o emoji fica de fora): aqui ele não
+                                 decora a frase, substitui a palavra "carrinho". Sem
+                                 ele a etiqueta passava a "2 no carrinho" e não cabe
+                                 num cartão de produto desta grelha. --}}
                             <span class="text-xs bg-indigo-600 text-white px-1.5 rounded font-bold">
-                                {{ $quantityInCart }} no 🛒
+                                {{ __(':n no 🛒', ['n' => $quantityInCart]) }}
                             </span>
                             @endif
                         </div>
@@ -162,7 +167,7 @@
                     @if(($product->stock_in_warehouse ?? 0) <= 0)
                     <div class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
                         <span class="bg-red-600 text-white px-2 py-1 rounded font-bold text-xs">
-                            Esgotado em {{ $this->warehouseName }}
+                            {{ __('Esgotado em :armazem', ['armazem' => $this->warehouseName]) }}
                         </span>
                     </div>
                     @endif
@@ -170,7 +175,7 @@
                 @empty
                 <div class="col-span-full text-center py-12">
                     <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
-                    <p class="text-gray-500">Nenhum produto encontrado</p>
+                    <p class="text-gray-500">{{ __('Nenhum produto encontrado') }}</p>
                 </div>
                 @endforelse
             </div>
@@ -189,7 +194,7 @@
              :class="cartOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'">
             {{-- Cabeçalho do painel (apenas mobile) --}}
             <div class="lg:hidden flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-2.5 flex-shrink-0">
-                <span class="font-bold text-sm"><i class="fas fa-shopping-cart mr-2"></i>Carrinho</span>
+                <span class="font-bold text-sm"><i class="fas fa-shopping-cart mr-2"></i>{{ __('Carrinho') }}</span>
                 <button @click="cartOpen = false" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/20 transition">
                     <i class="fas fa-times"></i>
                 </button>
@@ -212,7 +217,7 @@
                 @else
                 <button wire:click="$set('showClientModal', true)" 
                         class="w-full px-2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition">
-                    <i class="fas fa-user-plus mr-1"></i>Cliente
+                    <i class="fas fa-user-plus mr-1"></i>{{ __('Cliente') }}
                 </button>
                 @endif
             </div>
@@ -222,7 +227,7 @@
                 @if($cartItems->isEmpty())
                 <div class="text-center py-4">
                     <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-2"></i>
-                    <p class="text-sm text-gray-500 font-semibold">Carrinho Vazio</p>
+                    <p class="text-sm text-gray-500 font-semibold">{{ __('Carrinho Vazio') }}</p>
                 </div>
                 @else
                 <div class="space-y-1">
@@ -290,7 +295,7 @@
                 <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 space-y-2 border border-gray-200">
                     {{-- Subtotal --}}
                     <div class="flex justify-between items-center text-sm">
-                        <span class="text-gray-600">Subtotal</span>
+                        <span class="text-gray-600">{{ __('Subtotal') }}</span>
                         <span class="font-semibold text-gray-800">{{ number_format($cartSubtotal, 2, ',', '.') }} Kz</span>
                     </div>
                     
@@ -298,7 +303,7 @@
                     @if($cartDiscount > 0)
                     <div class="flex justify-between items-center text-sm">
                         <span class="text-orange-600 flex items-center gap-1">
-                            <i class="fas fa-minus-circle text-xs"></i> Desconto
+                            <i class="fas fa-minus-circle text-xs"></i> {{ __('Desconto') }}
                         </span>
                         <span class="font-semibold text-orange-600">-{{ number_format($cartDiscount, 2, ',', '.') }} Kz</span>
                     </div>
@@ -316,7 +321,7 @@
                     @if($cartIrt > 0)
                     <div class="flex justify-between items-center text-sm">
                         <span class="text-purple-600 flex items-center gap-1">
-                            <i class="fas fa-hand-holding-usd text-xs"></i> Ret. IRT ({{ number_format($irtRate, 1) }}%)
+                            <i class="fas fa-hand-holding-usd text-xs"></i> {{ __('Ret. IRT') }} ({{ number_format($irtRate, 1) }}%)
                         </span>
                         <span class="font-semibold text-purple-600">-{{ number_format($cartIrt, 2, ',', '.') }} Kz</span>
                     </div>
@@ -327,13 +332,16 @@
                     
                     {{-- Total --}}
                     <div class="flex justify-between items-center">
-                        <span class="font-bold text-gray-800 text-base">TOTAL A PAGAR</span>
+                        <span class="font-bold text-gray-800 text-base">{{ __('TOTAL A PAGAR') }}</span>
                         <span class="font-bold text-2xl text-indigo-600">{{ number_format($cartTotal, 2, ',', '.') }} <small class="text-sm">Kz</small></span>
                     </div>
                     
-                    {{-- Info itens --}}
+                    {{-- Info itens.
+                         Uma frase inteira por forma, e não "item"/"itens" colado
+                         ao número: noutras línguas o plural não se resolve a
+                         trocar uma palavra no meio. --}}
                     <div class="text-center text-xs text-gray-500">
-                        {{ $cartQuantity }} {{ $cartQuantity == 1 ? 'item' : 'itens' }} no carrinho
+                        {{ trans_choice(':n item no carrinho|:n itens no carrinho', $cartQuantity, ['n' => $cartQuantity]) }}
                     </div>
                 </div>
 
@@ -342,7 +350,7 @@
                     <button wire:click="clearCart"
                             wire:target="clearCart"
                             wire:loading.attr="disabled"
-                            wire:confirm="Limpar todo o carrinho?"
+                            wire:confirm="{{ __('Limpar todo o carrinho?') }}"
                             class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all duration-300 text-sm shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95 disabled:opacity-50">
                         <i class="fas fa-trash" wire:loading.remove wire:target="clearCart"></i>
                         <i class="fas fa-spinner fa-spin" wire:loading wire:target="clearCart"></i>
@@ -355,10 +363,10 @@
                             class="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all duration-300 text-sm hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             {{ $cartItems->isEmpty() ? 'disabled' : '' }}>
                         <span wire:loading.remove wire:target="openPaymentModal">
-                            <i class="fas fa-cash-register mr-2"></i>Finalizar Venda
+                            <i class="fas fa-cash-register mr-2"></i>{{ __('Finalizar Venda') }}
                         </span>
                         <span wire:loading wire:target="openPaymentModal">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Abrindo...') }}
                         </span>
                     </button>
                 </div>
@@ -377,7 +385,7 @@
                         <span class="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">{{ $cartQuantity }}</span>
                         @endif
                     </span>
-                    <span class="text-sm">Ver carrinho</span>
+                    <span class="text-sm">{{ __('Ver carrinho') }}</span>
                 </span>
                 <span class="text-base">{{ number_format($cartTotal, 2, ',', '.') }} Kz</span>
             </button>

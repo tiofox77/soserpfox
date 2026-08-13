@@ -69,7 +69,7 @@ class SalesReport extends Component
 
     public function mount()
     {
-        abort_unless(auth()->user()?->can('invoicing.pos.reports'), 403, 'Sem permissão para ver relatórios POS.');
+        abort_unless(auth()->user()?->can('invoicing.pos.reports'), 403, __('Sem permissão para ver relatórios POS.'));
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->format('Y-m-d');
         $this->loadStatistics();
@@ -174,7 +174,7 @@ class SalesReport extends Component
             ->where('tenant_id', activeTenantId());
         $this->applyScope($query);
         $this->selectedInvoice = $query->find($invoiceId);
-        abort_unless($this->selectedInvoice, 404, 'Fatura não encontrada ou sem acesso.');
+        abort_unless($this->selectedInvoice, 404, __('Fatura não encontrada ou sem acesso.'));
         $this->showDetailsModal = true;
     }
 
@@ -184,7 +184,7 @@ class SalesReport extends Component
             ->where('tenant_id', activeTenantId());
         $this->applyScope($query);
         $this->selectedInvoice = $query->find($invoiceId);
-        abort_unless($this->selectedInvoice, 404, 'Fatura não encontrada ou sem acesso.');
+        abort_unless($this->selectedInvoice, 404, __('Fatura não encontrada ou sem acesso.'));
         $this->showPrintModal = true;
     }
 
@@ -222,12 +222,12 @@ class SalesReport extends Component
             ->where('tenant_id', activeTenantId());
         $this->applyScope($query);
         $invoice = $query->find($invoiceId);
-        abort_unless($invoice, 404, 'Fatura não encontrada ou sem acesso.');
+        abort_unless($invoice, 404, __('Fatura não encontrada ou sem acesso.'));
 
         if (in_array($invoice->status, ['cancelled', 'credited'])) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Esta fatura já está cancelada ou totalmente creditada.'
+                'message' => __('Esta fatura já está cancelada ou totalmente creditada.')
             ]);
             return;
         }
@@ -276,7 +276,7 @@ class SalesReport extends Component
         if ($selectedItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Selecione pelo menos um item para a nota de crédito.'
+                'message' => __('Selecione pelo menos um item para a nota de crédito.')
             ]);
             return;
         }
@@ -299,6 +299,9 @@ class SalesReport extends Component
 
             $totals = InvoiceCalculationHelper::calculateTotals($cartItems, 0, 0, 0, false);
 
+            // Conteúdo do documento fiscal (reason_text e reference_reason da NC,
+            // que vão para o SAFT-AO): fica em português, sempre — a língua legal
+            // do documento é a angolana, não a de quem carregou no botão.
             $reasonExpression = ($this->creditNoteType === 'total') ? 'Anulação' : 'Rectificação';
             $netTotal = $totals['subtotal_original'];
             $taxPayable = $totals['tax_amount'];
@@ -421,6 +424,9 @@ class SalesReport extends Component
                                     'reference_type' => \App\Models\Invoicing\SalesInvoice::class,
                                     'reference_id'   => $invoice->id,
                                     'user_id'        => auth()->id(),
+                                    // Gravado na base: é registo, não ecrã. Traduzi-lo punha
+                                    // o histórico de stock em três línguas conforme a língua
+                                    // de quem fez a devolução.
                                     'notes'          => 'Devolução (nota de crédito) - ' . $invoice->invoice_number,
                                 ]);
                             });
@@ -449,11 +455,16 @@ class SalesReport extends Component
             // falha da AGT não a pode desfazer.
             $agt = \App\Services\AGT\AutoSubmissao::submeter($creditNote);
 
-            $mensagem = 'Nota de Crédito ' . $creditNote->credit_note_number . ' emitida com sucesso!';
+            // Frases inteiras, e o número como marcador: 'Nota de Crédito ' . $n
+            // . ' emitida' não se traduz — noutras línguas o número não fica no
+            // meio da frase. O que se junta é sempre outra frase completa.
+            $mensagem = __('Nota de Crédito :numero emitida com sucesso!', [
+                'numero' => $creditNote->credit_note_number,
+            ]);
             if ($agt['enviado']) {
-                $mensagem .= ' Submetida à AGT.';
+                $mensagem .= ' ' . __('Submetida à AGT.');
             } elseif ($agt['erro']) {
-                $mensagem .= ' Por submeter à AGT: ' . $agt['erro'];
+                $mensagem .= ' ' . __('Por submeter à AGT: :erro', ['erro' => $agt['erro']]);
             }
 
             $this->dispatch('notify', [
@@ -466,7 +477,7 @@ class SalesReport extends Component
             \Log::error('POS CreditNote error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao criar nota de crédito: ' . $e->getMessage()
+                'message' => __('Erro ao criar nota de crédito: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

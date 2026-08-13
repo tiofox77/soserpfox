@@ -1,10 +1,25 @@
-{{-- Modal Impressão de Ticket --}}
+{{-- Modal Impressão de Ticket
+
+     O QUE AQUI SE TRADUZ E O QUE NÃO SE TRADUZ
+
+     Traduz-se a JANELA: o título, os botões, os avisos do JavaScript. É
+     interface, e quem está à caixa lê-a na sua língua.
+
+     NÃO se traduz o TALÃO (o bloco #ticket-print). O que ele imprime é uma
+     FACTURA RECIBO — documento fiscal angolano, certificado AGT, com as
+     menções legais obrigatórias ("Processado por programa validado", o número
+     do certificado, o ATCUD, o hash SAFT). A língua oficial desses documentos
+     é o português (docs/PLANO-MULTILINGUA.md, decisão 3): traduzir uma menção
+     legal é entregar ao cliente um documento que a AGT não reconhece.
+
+     Portanto: se um dia alguém achar que o talão "ficou por traduzir", não
+     ficou — ficou de propósito. --}}
 @if($showPrintModal && $lastInvoice)
 <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full" style="max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;">
         <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
             <h3 class="text-xl font-bold text-white">
-                <i class="fas fa-receipt mr-2"></i>Impressão de Ticket
+                <i class="fas fa-receipt mr-2"></i>{{ __('Impressão de Ticket') }}
             </h3>
             <button wire:click="closePrintModal" class="text-white hover:text-gray-200 transition">
                 <i class="fas fa-times text-2xl"></i>
@@ -225,11 +240,11 @@
         <div class="px-6 py-4 flex space-x-3 flex-shrink-0 border-t border-gray-200">
             <button wire:click="closePrintModal" 
                     class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
-                <i class="fas fa-times mr-2"></i>Fechar
+                <i class="fas fa-times mr-2"></i>{{ __('Fechar') }}
             </button>
-            <button onclick="printTicket()" 
+            <button onclick="printTicket()"
                     class="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition shadow-lg">
-                <i class="fas fa-print mr-2"></i>Imprimir
+                <i class="fas fa-print mr-2"></i>{{ __('Imprimir') }}
             </button>
         </div>
     </div>
@@ -303,21 +318,29 @@
     }
 </style>
 <script>
+// Daqui para baixo é JavaScript: as cadeias vão dentro de __(), o window.__ de
+// partials/js-traducoes.blade.php — e NUNCA na forma de echo do Blade. Um par
+// de chavetas duplas escrito aqui, mesmo dentro deste comentário, era compilado
+// à mesma e rebentava a página inteira: o Blade não sabe que isto é JavaScript.
+//
+// O dicionário é definido no fim do layout, portanto só existe depois desta
+// página estar montada; estas chamadas correm todas dentro de funções (ao
+// clicar), quando já lá está.
 if (typeof window.printTicket !== 'function') {
     window.printTicket = function() {
         const ticketEl = document.getElementById('ticket-print');
-        if (!ticketEl) { alert('Ticket não encontrado.'); return; }
+        if (!ticketEl) { alert(__('Ticket não encontrado.')); return; }
 
         const printContents = ticketEl.innerHTML;
         const win = window.open('', '_blank', 'width=400,height=700');
         if (!win) {
-            alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.');
+            alert(__('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'));
             return;
         }
 
         win.document.write(`
             <!DOCTYPE html>
-            <html><head><meta charset="UTF-8"><title>Ticket</title>
+            <html><head><meta charset="UTF-8"><title>${__('Ticket')}</title>
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">

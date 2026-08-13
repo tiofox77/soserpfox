@@ -67,4 +67,53 @@ class LoteVendasLinguaTest extends TenantTestCase
         $this->user->update(['locale' => 'fr']);
         $this->get($rota)->assertOk()->assertSee($fr);
     }
+
+    // ==================== lote 2: o POS ====================
+
+    /**
+     * O POS offline nas três línguas — ecrã E dicionário JavaScript.
+     *
+     * É o único ecrã do sistema onde a tradução tem duas metades que podem
+     * falhar em separado: o HTML, que o Blade traduz no servidor, e o
+     * JavaScript, que traduz no browser com o dicionário que a página traz.
+     * Um pode estar certo e o outro errado.
+     */
+    public function test_o_pos_offline_fala_as_tres_linguas(): void
+    {
+        $this->user->update(['locale' => null]);
+        $this->get('/invoicing/offline/pos')->assertOk()->assertSee('Carrinho');
+
+        $this->user->update(['locale' => 'en']);
+        $this->get('/invoicing/offline/pos')
+            ->assertOk()
+            ->assertSee('Cart')
+            // E o dicionário do JS veio com a página, na mesma língua.
+            ->assertSee('window.SOS_LINGUA = "en"', false);
+
+        $this->user->update(['locale' => 'fr']);
+        $this->get('/invoicing/offline/pos')
+            ->assertOk()
+            ->assertSee('Panier')
+            ->assertSee('window.SOS_LINGUA = "fr"', false);
+    }
+
+    /**
+     * A gestão de turnos de caixa.
+     *
+     * Sem 'if (status === 200)': a rota não tem middleware de permissão,
+     * portanto ou abre nas três línguas ou há aqui um problema a sério. Um
+     * teste que se cala quando o ecrã dá 403 é um teste que passa pela razão
+     * errada — e já me aconteceu duas vezes nesta sessão.
+     */
+    public function test_os_turnos_de_caixa_falam_as_tres_linguas(): void
+    {
+        $this->user->update(['locale' => null]);
+        $this->get('/invoicing/pos/shift-history')->assertOk()->assertSee('Histórico de Turnos');
+
+        $this->user->update(['locale' => 'en']);
+        $this->get('/invoicing/pos/shift-history')->assertOk()->assertSee('Shift History');
+
+        $this->user->update(['locale' => 'fr']);
+        $this->get('/invoicing/pos/shift-history')->assertOk()->assertSee('Historique des sessions');
+    }
 }

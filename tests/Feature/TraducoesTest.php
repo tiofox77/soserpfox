@@ -54,6 +54,15 @@ class TraducoesTest extends TenantTestCase
         'app/Livewire/Invoicing/Receipts',
         'app/Livewire/Invoicing/CreditNotes',
         'app/Livewire/Invoicing/DebitNotes',
+
+        // Fase 1, lote 2 — POS (inclui o JavaScript do PWA offline)
+        'resources/views/invoicing/offline/pos.blade.php',
+        'resources/views/livewire/pos',
+        'resources/views/livewire/invoicing/pos',
+        'app/Livewire/POS',
+        'app/Livewire/Invoicing/POS',
+        'public/js/pwa-invoicing.js',
+        'public/js/pos-offline-ticket.js',
     ];
 
     // ==================== o detector ====================
@@ -191,7 +200,15 @@ class TraducoesTest extends TenantTestCase
 
     // ==================== o varrimento ====================
 
-    /** Todas as cadeias dentro de __('...') e trans_choice('...') nos sítios vigiados. */
+    /**
+     * Todas as cadeias dentro de __(), __n() e trans_choice() nos sítios
+     * vigiados — em PHP, Blade E JavaScript.
+     *
+     * O .js entrou com o lote 2: o POS tem cadeias em JavaScript, e um
+     * detector que só olhasse para .php deixava passar exactamente a parte
+     * do sistema onde uma falta é mais cara — o caixa, offline, sem forma de
+     * ser avisado.
+     */
     private function cadeiasUsadas(): array
     {
         $cadeias = [];
@@ -201,25 +218,59 @@ class TraducoesTest extends TenantTestCase
             $ficheiros = is_dir($absoluto)
                 ? array_filter(
                     iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($absoluto))),
-                    fn ($f) => $f->isFile() && str_ends_with($f->getFilename(), '.php')
+                    fn ($f) => $f->isFile()
+                        && (str_ends_with($f->getFilename(), '.php') || str_ends_with($f->getFilename(), '.js'))
                 )
                 : (is_file($absoluto) ? [new \SplFileInfo($absoluto)] : []);
 
             foreach ($ficheiros as $f) {
                 $conteudo = file_get_contents($f->getPathname());
 
-                // __('...') e trans_choice('...') com aspas simples; as
-                // plicas escapadas dentro da cadeia ficam de fora do lote
+                // __('...'), __n('...') e trans_choice('...'), com aspas
+                // simples. As plicas escapadas dentro da cadeia ficam de fora
                 // por agora — o detector prefere acusar de menos a rebentar
                 // com falsos positivos.
-                if (preg_match_all("/(?:__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)+)'/", $conteudo, $m)) {
+                if (preg_match_all("/(?:__n|__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)+)'/", $conteudo, $m)) {
                     foreach ($m[1] as $cadeia) {
-                        $cadeias[stripslashes($cadeia)] = true;
+                        $cadeias[self::interpretarEscapes($cadeia)] = true;
+                    }
+                }
+
+                // Em JavaScript também se escreve com aspas duplas.
+                if (str_ends_with($f->getFilename(), '.js')
+                    && preg_match_all('/(?:__n|__)\(\s*"((?:[^"\\\\]|\\\\.)+)"/', $conteudo, $m)) {
+                    foreach ($m[1] as $cadeia) {
+                        $cadeias[self::interpretarEscapes($cadeia)] = true;
                     }
                 }
             }
         }
 
         return array_keys($cadeias);
+    }
+
+    /**
+     * O texto que a linguagem vê em execução, e não o que está escrito no
+     * ficheiro.
+     *
+     * Isto era um `stripslashes()`, e estava errado de uma forma calada:
+     * stripslashes tira a barra e deixa a letra, portanto `\n` no código
+     * virava a letra "n". A chave que o detector procurava era uma terceira
+     * coisa — nem o que está no ficheiro, nem o que o JavaScript procura em
+     * execução, que é uma mudança de linha a sério.
+     *
+     * Resultado prático: a mensagem de "Adicionar ao ecrã principal" do iOS
+     * nunca teria sido traduzida, e ninguém saberia porquê.
+     */
+    private static function interpretarEscapes(string $cadeia): string
+    {
+        return strtr($cadeia, [
+            '\\n'  => "\n",
+            '\\r'  => "\r",
+            '\\t'  => "\t",
+            "\\'"  => "'",
+            '\\"'  => '"',
+            '\\\\' => '\\',
+        ]);
     }
 }

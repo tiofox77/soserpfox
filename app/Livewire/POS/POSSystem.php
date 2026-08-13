@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\DB;
 use Darryldecode\Cart\Facades\CartFacade as Cart;
 
 #[Layout('layouts.app')]
+// O título do separador fica em português: um atributo PHP só aceita expressões
+// constantes, e __() é uma chamada de função. É o mesmo que o lote 1 fez nas
+// facturas — muda-se em todo o lado ao mesmo tempo ou em lado nenhum.
 #[Title('POS - Ponto de Venda')]
 class POSSystem extends Component
 {
@@ -108,7 +111,7 @@ class POSSystem extends Component
         
         // Se não houver turno aberto, redirecionar para abrir turno
         if (!$this->currentShift) {
-            session()->flash('warning', '⚠️ Você precisa abrir um turno antes de usar o POS!');
+            session()->flash('warning', '⚠️ ' . __('Você precisa abrir um turno antes de usar o POS!'));
             return redirect()->route('invoicing.pos.shifts');
         }
 
@@ -125,9 +128,11 @@ class POSSystem extends Component
             $any = Warehouse::where('tenant_id', activeTenantId())->where('is_active', true)->first();
             if ($any) {
                 $this->warehouseId = $any->id;
-                $this->warehouseName = $any->name . ' (sem default)';
+                // O nome do armazém é dado da empresa; só a nota entre parêntesis
+                // é nossa — daí o placeholder em vez de uma concatenação.
+                $this->warehouseName = __(':armazem (sem default)', ['armazem' => $any->name]);
             } else {
-                $this->warehouseName = '— sem armazém configurado —';
+                $this->warehouseName = __('— sem armazém configurado —');
             }
         }
         
@@ -314,9 +319,15 @@ class POSSystem extends Component
             }
         }
         if ($restored > 0) {
+            // "item(s) restaurado(s)" não existe em inglês nem em francês: cada
+            // forma é uma frase inteira, escolhida pelo trans_choice.
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => "🛒 Venda recuperada — {$restored} item(s) restaurado(s) no carrinho.",
+                'message' => '🛒 ' . trans_choice(
+                    'Venda recuperada — :n item restaurado no carrinho.|Venda recuperada — :n itens restaurados no carrinho.',
+                    $restored,
+                    ['n' => $restored]
+                ),
             ]);
         }
     }
@@ -422,7 +433,7 @@ class POSSystem extends Component
         if (!$produto->is_active) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ ' . $produto->name . ' está inactivo e não pode ser vendido.',
+                'message' => '❌ ' . __(':artigo está inactivo e não pode ser vendido.', ['artigo' => $produto->name]),
             ]);
 
             return;
@@ -471,7 +482,7 @@ class POSSystem extends Component
         if ($product && !$product->is_active) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ ' . $product->name . ' está inactivo e não pode ser vendido.',
+                'message' => '❌ ' . __(':artigo está inactivo e não pode ser vendido.', ['artigo' => $product->name]),
             ]);
 
             return;
@@ -482,7 +493,7 @@ class POSSystem extends Component
         if (!$product || $available <= 0) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Produto sem stock no armazém ' . $this->warehouseName . '!'
+                'message' => '❌ ' . __('Produto sem stock no armazém :armazem!', ['armazem' => $this->warehouseName])
             ]);
             return;
         }
@@ -506,7 +517,7 @@ class POSSystem extends Component
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '❌ Produto exige lote mas não há lotes disponíveis!'
+                    'message' => '❌ ' . __('Produto exige lote mas não há lotes disponíveis!')
                 ]);
                 return;
             }
@@ -517,7 +528,7 @@ class POSSystem extends Component
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '❌ Lotes expirados encontrados!'
+                    'message' => '❌ ' . __('Lotes expirados encontrados!')
                 ]);
                 return;
             }
@@ -526,7 +537,7 @@ class POSSystem extends Component
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Quantidade excede lotes disponíveis! Disponível: ' . $totalAvailable . ' un'
+                    'message' => '⚠️ ' . __('Quantidade excede lotes disponíveis! Disponível: :quantidade un', ['quantidade' => $totalAvailable])
                 ]);
                 return;
             }
@@ -536,7 +547,10 @@ class POSSystem extends Component
             $this->dispatch('stock-error');
             $this->dispatch('notify', [
                 'type' => 'warning',
-                'message' => '⚠️ Stock insuficiente em ' . $this->warehouseName . '! Disponível: ' . $available . ' un'
+                'message' => '⚠️ ' . __('Stock insuficiente em :armazem! Disponível: :quantidade un', [
+                    'armazem'    => $this->warehouseName,
+                    'quantidade' => $available,
+                ])
             ]);
             return;
         }
@@ -569,7 +583,11 @@ class POSSystem extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => '✅ Produto adicionado! (' . $newQuantity . '/' . $available . ' un em ' . $this->warehouseName . ')'
+            'message' => '✅ ' . __('Produto adicionado! (:quantidade/:disponivel un em :armazem)', [
+                'quantidade' => $newQuantity,
+                'disponivel' => $available,
+                'armazem'    => $this->warehouseName,
+            ])
         ]);
     }
 
@@ -593,7 +611,7 @@ class POSSystem extends Component
         if (!$product) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Produto não encontrado!'
+                'message' => '❌ ' . __('Produto não encontrado!')
             ]);
             return;
         }
@@ -612,7 +630,7 @@ class POSSystem extends Component
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Quantidade excede lotes! Disponível: ' . $totalAvailable . ' un. Ajustando...'
+                    'message' => '⚠️ ' . __('Quantidade excede lotes! Disponível: :quantidade un. Ajustando...', ['quantidade' => $totalAvailable])
                 ]);
                 $quantity = $totalAvailable;
             }
@@ -624,7 +642,10 @@ class POSSystem extends Component
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Excede stock em ' . $this->warehouseName . '! Disponível: ' . $available . ' un. Ajustando...'
+                    'message' => '⚠️ ' . __('Excede stock em :armazem! Disponível: :quantidade un. Ajustando...', [
+                        'armazem'    => $this->warehouseName,
+                        'quantidade' => $available,
+                    ])
                 ]);
                 $quantity = $available;
             }
@@ -647,7 +668,7 @@ class POSSystem extends Component
         if (!$cartItem) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Item não encontrado no carrinho!'
+                'message' => '❌ ' . __('Item não encontrado no carrinho!')
             ]);
             return;
         }
@@ -662,7 +683,7 @@ class POSSystem extends Component
             if (!$product) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '❌ Produto não encontrado!'
+                    'message' => '❌ ' . __('Produto não encontrado!')
                 ]);
                 return;
             }
@@ -672,7 +693,10 @@ class POSSystem extends Component
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Stock máximo atingido em ' . $this->warehouseName . '! Disponível: ' . $available . ' un'
+                    'message' => '⚠️ ' . __('Stock máximo atingido em :armazem! Disponível: :quantidade un', [
+                        'armazem'    => $this->warehouseName,
+                        'quantidade' => $available,
+                    ])
                 ]);
                 return;
             }
@@ -685,9 +709,14 @@ class POSSystem extends Component
         
         $this->dispatch('cart-updated', ['action' => 'add']);
         
-        $message = $isService 
+        // O ramo do serviço não tem texto nenhum para traduzir — é o nome do
+        // artigo (dado do cliente) e a quantidade. Fica como está.
+        $message = $isService
             ? '📈 ' . $cartItem->name . ' (' . $newQuantity . 'x)'
-            : '📈 Quantidade: ' . $newQuantity . ' un (' . $this->warehouseName . ')';
+            : '📈 ' . __('Quantidade: :quantidade un (:armazem)', [
+                'quantidade' => $newQuantity,
+                'armazem'    => $this->warehouseName,
+            ]);
             
         $this->dispatch('notify', [
             'type' => 'info',
@@ -721,7 +750,7 @@ class POSSystem extends Component
         
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Produto removido do carrinho'
+            'message' => __('Produto removido do carrinho')
         ]);
     }
 
@@ -733,7 +762,7 @@ class POSSystem extends Component
         
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Carrinho limpo'
+            'message' => __('Carrinho limpo')
         ]);
     }
 
@@ -744,7 +773,7 @@ class POSSystem extends Component
         // outra empresa (IDOR).
         $client = Client::where('tenant_id', activeTenantId())->find($clientId);
         if (!$client) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Cliente inválido.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Cliente inválido.')]);
             return;
         }
         $this->selectedClient = $client;
@@ -784,15 +813,18 @@ class POSSystem extends Component
             'quickClientPhone' => 'nullable|string|max:30',
             'quickClientEmail' => 'nullable|email|max:255',
         ], [], [
-            'quickClientName'  => 'nome',
+            // Os nomes dos campos entram nas mensagens de validação ("o campo
+            // nome é obrigatório"), por isso seguem a língua do utilizador.
+            // NIF é sigla angolana e fica como está.
+            'quickClientName'  => __('nome'),
             'quickClientNif'   => 'NIF',
-            'quickClientPhone' => 'telefone',
-            'quickClientEmail' => 'email',
+            'quickClientPhone' => __('telefone'),
+            'quickClientEmail' => __('email'),
         ]);
 
         $tenantId = activeTenantId();
         if (!$tenantId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Tenant inválido.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Tenant inválido.')]);
             return;
         }
 
@@ -806,7 +838,7 @@ class POSSystem extends Component
                 $this->showQuickClientModal = false;
                 $this->dispatch('notify', [
                     'type' => 'info',
-                    'message' => '✓ Cliente já existente seleccionado: ' . $existing->name,
+                    'message' => '✓ ' . __('Cliente já existente seleccionado: :cliente', ['cliente' => $existing->name]),
                 ]);
                 return;
             }
@@ -831,7 +863,7 @@ class POSSystem extends Component
 
         $this->dispatch('notify', [
             'type'    => 'success',
-            'message' => '✓ Cliente criado e seleccionado: ' . $client->name,
+            'message' => '✓ ' . __('Cliente criado e seleccionado: :cliente', ['cliente' => $client->name]),
         ]);
     }
 
@@ -857,7 +889,7 @@ class POSSystem extends Component
         if ($this->cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Carrinho vazio!'
+                'message' => __('Carrinho vazio!')
             ]);
             return;
         }
@@ -865,7 +897,7 @@ class POSSystem extends Component
         if (!$this->selectedClient) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Selecione um cliente!'
+                'message' => __('Selecione um cliente!')
             ]);
             return;
         }
@@ -873,7 +905,7 @@ class POSSystem extends Component
         if ($this->amountReceived < $this->cartTotal) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Valor recebido insuficiente!'
+                'message' => __('Valor recebido insuficiente!')
             ]);
             return;
         }
@@ -977,9 +1009,12 @@ class POSSystem extends Component
                         'artigo'     => $item->name,
                     ]);
 
+                    // Esta mensagem chega ao ecrã (o catch mostra-a), por isso é
+                    // texto de interface e não só de registo.
                     throw new \DomainException(
-                        'O artigo "' . $item->name . '" não pertence a esta empresa. '
-                        . 'Limpe o carrinho e volte a adicioná-lo.'
+                        __('O artigo ":artigo" não pertence a esta empresa. Limpe o carrinho e volte a adicioná-lo.', [
+                            'artigo' => $item->name,
+                        ])
                     );
                 }
 
@@ -1142,7 +1177,10 @@ class POSSystem extends Component
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => '✅ Venda concluída! Fatura: ' . $invoice->invoice_number . ' | Troco: ' . number_format($this->change, 2) . ' Kz'
+                'message' => '✅ ' . __('Venda concluída! Fatura: :numero | Troco: :troco Kz', [
+                    'numero' => $invoice->invoice_number,
+                    'troco'  => number_format($this->change, 2),
+                ])
             ]);
 
             // Limpar carrinho e resetar
@@ -1172,7 +1210,7 @@ class POSSystem extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao concluir venda: ' . $e->getMessage()
+                'message' => __('Erro ao concluir venda: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }
@@ -1182,7 +1220,7 @@ class POSSystem extends Component
         if ($this->cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => '❌ Carrinho vazio! Adicione produtos primeiro.'
+                'message' => '❌ ' . __('Carrinho vazio! Adicione produtos primeiro.')
             ]);
             return;
         }
@@ -1190,7 +1228,7 @@ class POSSystem extends Component
         if (!$this->selectedClient) {
             $this->dispatch('notify', [
                 'type' => 'warning',
-                'message' => '⚠️ Selecione um cliente primeiro!'
+                'message' => '⚠️ ' . __('Selecione um cliente primeiro!')
             ]);
             return;
         }

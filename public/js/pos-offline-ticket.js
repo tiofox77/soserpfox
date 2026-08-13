@@ -25,6 +25,13 @@
             .replace(/>/g, '&gt;');
     }
 
+    /**
+     * Forma de pagamento EM PORTUGUÊS — para o talão fiscal.
+     *
+     * O talão é a Factura-Recibo: conteúdo de documento AGT, e a língua legal
+     * desse documento é o português, seja qual for a língua do caixa. Ver
+     * docs/PLANO-MULTILINGUA.md, decisão 3.
+     */
     function paymentLabel(code) {
         const map = {
             cash: 'DINHEIRO', transfer: 'TRANSFERÊNCIA', multicaixa: 'MULTICAIXA',
@@ -34,7 +41,33 @@
     }
 
     /**
+     * A mesma forma de pagamento, na língua do operador — para o relatório de
+     * turno, que é documento interno e não sai para o cliente nem para a AGT.
+     *
+     * MULTICAIXA, MB WAY e MULTICAIXA EXPRESS ficam de fora do __(): são marcas
+     * angolanas, não palavras.
+     */
+    function paymentLabelTraduzido(code) {
+        const map = {
+            cash: __('DINHEIRO'),
+            transfer: __('TRANSFERÊNCIA'),
+            multicaixa: 'MULTICAIXA',
+            tpa: __('TPA / CARTÃO'),
+            card: __('CARTÃO'),
+            mbway: 'MB WAY',
+            mobile: 'MULTICAIXA EXPRESS',
+        };
+        return map[(code || '').toLowerCase()] || (code ? code.toUpperCase() : __('DINHEIRO'));
+    }
+
+    /**
      * Constrói o HTML interno do ticket a partir do registo da venda.
+     *
+     * NÃO TRADUZIR NADA AQUI DENTRO. Este talão é a Factura-Recibo — documento
+     * fiscal AGT — e sai em português nas três línguas, como a lei angolana
+     * manda. Traduzir "Isento de IVA" ou "Processado por programa validado" é
+     * fabricar um documento que a AGT não reconhece. O que se traduz é o ecrã
+     * que produz o talão, não o talão. (PLANO-MULTILINGUA.md, decisão 3.)
      */
     function buildTicketHtml(sale, company) {
         company = company || {};
@@ -176,10 +209,11 @@
     function printHtml(innerHtml) {
         const win = window.open('', '_blank', 'width=380,height=700');
         if (!win) {
-            alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.');
+            alert(__('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'));
             return;
         }
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ticket POS</title>
+        // O <title> é da janela do navegador, não do documento impresso — traduz-se.
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${__('Ticket POS')}</title>
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
             <style>${PRINT_CSS}</style></head><body>${innerHtml}</body></html>`);
@@ -203,6 +237,11 @@
 
     /**
      * Constrói HTML do relatório de fecho de turno (X/Z Report offline).
+     *
+     * Ao contrário do talão, ESTE traduz-se: é um documento interno de caixa,
+     * não sai para o cliente nem para a AGT, e quem o lê é o operador — na
+     * língua dele.
+     *
      * @param {Object} shiftData  - estado do turno (opening_balance, cash_sales, …)
      * @param {Array}  sales      - array de pos_sales do turno (já ou por sincronizar)
      * @param {Object} company    - dados da empresa
@@ -234,7 +273,7 @@
         let methodRows = '';
         for (const [code, data] of Object.entries(byMethod)) {
             methodRows += `
-                <div class="line"><span>${paymentLabel(code)} (${data.count}x)</span><span class="b">${money(data.total)} Kz</span></div>`;
+                <div class="line"><span>${paymentLabelTraduzido(code)} (${data.count}x)</span><span class="b">${money(data.total)} Kz</span></div>`;
         }
 
         const openBal = parseFloat(shiftData.opening_balance) || 0;
@@ -245,54 +284,57 @@
         const openedAt = shiftData.opened_at
             ? new Date(shiftData.opened_at).toLocaleString('pt-AO') : '—';
 
+        // "venda(s)" não se traduz — plural a sério.
         const pendingWarning = pendingCount > 0 ? `
             <div class="prov-banner" style="margin-top:6px">
-                ⚠ ${pendingCount} venda(s) ainda por sincronizar<br>
-                <small>Totais podem diferir do fecho no servidor</small>
+                ⚠ ${__n(':n venda ainda por sincronizar|:n vendas ainda por sincronizar', pendingCount, { n: pendingCount })}<br>
+                <small>${__('Totais podem diferir do fecho no servidor')}</small>
             </div>` : '';
 
+        // Os dois pontos vão DENTRO das cadeias: em francês escreve-se
+        // "Ouverture :", com espaço antes, e isso é decisão do tradutor.
         return `
             <div class="hdr">
                 <div class="hdr-l">
-                    <h3>${esc(company.name || 'Empresa')}</h3>
+                    <h3>${esc(company.name || __('Empresa'))}</h3>
                     <p>NIF: ${esc(company.nif || 'N/A')}</p>
                 </div>
             </div>
 
-            <h4>RELATÓRIO DE FECHO DE TURNO</h4>
-            <h4 style="font-size:10px;font-weight:400">(Documento Local / Offline)</h4>
+            <h4>${__('RELATÓRIO DE FECHO DE TURNO')}</h4>
+            <h4 style="font-size:10px;font-weight:400">${__('(Documento Local / Offline)')}</h4>
             ${pendingWarning}
 
             <div class="meta">
-                <div class="line"><span class="b">Turno:</span><span>${esc(shiftData.number || '—')}</span></div>
-                <div class="line"><span class="b">Abertura:</span><span>${esc(openedAt)}</span></div>
-                <div class="line"><span class="b">Fecho:</span><span>${esc(dateStr)}</span></div>
-                <div class="line"><span class="b">Total vendas:</span><span>${sales.length}</span></div>
-                <div class="line"><span class="b">Sincronizadas:</span><span>${syncedCount}</span></div>
-                <div class="line"><span class="b">Por sincronizar:</span><span>${pendingCount}</span></div>
+                <div class="line"><span class="b">${__('Turno:')}</span><span>${esc(shiftData.number || '—')}</span></div>
+                <div class="line"><span class="b">${__('Abertura:')}</span><span>${esc(openedAt)}</span></div>
+                <div class="line"><span class="b">${__('Fecho:')}</span><span>${esc(dateStr)}</span></div>
+                <div class="line"><span class="b">${__('Total vendas:')}</span><span>${sales.length}</span></div>
+                <div class="line"><span class="b">${__('Sincronizadas:')}</span><span>${syncedCount}</span></div>
+                <div class="line"><span class="b">${__('Por sincronizar:')}</span><span>${pendingCount}</span></div>
             </div>
 
             <p class="sep" style="text-align:center;margin:5px 0">─────────────────────</p>
-            <p class="b" style="margin-bottom:3px">VENDAS POR MÉTODO DE PAGAMENTO</p>
-            <div class="totals">${methodRows || '<div class="line"><span>Sem vendas</span><span>—</span></div>'}</div>
+            <p class="b" style="margin-bottom:3px">${__('VENDAS POR MÉTODO DE PAGAMENTO')}</p>
+            <div class="totals">${methodRows || `<div class="line"><span>${__('Sem vendas')}</span><span>—</span></div>`}</div>
 
             <div class="totals" style="margin-top:6px">
-                <div class="line"><span>Total IVA cobrado:</span><span>${money(totalTax)} Kz</span></div>
-                <div class="line grand"><span>TOTAL VENDIDO:</span><span>${money(totalSales)} Kz</span></div>
+                <div class="line"><span>${__('Total IVA cobrado:')}</span><span>${money(totalTax)} Kz</span></div>
+                <div class="line grand"><span>${__('TOTAL VENDIDO:')}</span><span>${money(totalSales)} Kz</span></div>
             </div>
 
             <p class="sep" style="text-align:center;margin:6px 0">─────────────────────</p>
-            <p class="b" style="margin-bottom:3px">RESUMO DE CAIXA (DINHEIRO)</p>
+            <p class="b" style="margin-bottom:3px">${__('RESUMO DE CAIXA (DINHEIRO)')}</p>
             <div class="pay">
-                <div class="line"><span>Saldo inicial:</span><span>${money(openBal)} Kz</span></div>
-                ${cashLocal > 0 ? `<div class="line"><span>Vendas dinheiro (local):</span><span>${money(cashLocal)} Kz</span></div>` : ''}
-                ${cashFromServer > 0 ? `<div class="line"><span>Vendas sincronizadas:</span><span>${money(cashFromServer)} Kz</span></div>` : ''}
-                <div class="line grand"><span>ESPERADO EM CAIXA:</span><span>${money(expectedCash)} Kz</span></div>
+                <div class="line"><span>${__('Saldo inicial:')}</span><span>${money(openBal)} Kz</span></div>
+                ${cashLocal > 0 ? `<div class="line"><span>${__('Vendas dinheiro (local):')}</span><span>${money(cashLocal)} Kz</span></div>` : ''}
+                ${cashFromServer > 0 ? `<div class="line"><span>${__('Vendas sincronizadas:')}</span><span>${money(cashFromServer)} Kz</span></div>` : ''}
+                <div class="line grand"><span>${__('ESPERADO EM CAIXA:')}</span><span>${money(expectedCash)} Kz</span></div>
             </div>
 
             <div class="foot">
                 <p class="sep">═══════════════════════</p>
-                <p>Impresso offline — ${esc(dateStr)}</p>
+                <p>${__('Impresso offline — :data', { data: esc(dateStr) })}</p>
                 <p class="b">Software: SOS ERP - SOLUÇÕES EMPRESARIAIS</p>
             </div>
         `;

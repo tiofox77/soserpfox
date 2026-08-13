@@ -92,7 +92,8 @@
                 bar.appendChild(sb);
             }
             sb.classList.remove('hidden');
-            sb.innerHTML = '<i class="fas fa-lock mr-1"></i>Sessão expirada — toque para autenticar novamente';
+            sb.innerHTML = '<i class="fas fa-lock mr-1"></i>'
+                + __('Sessão expirada — toque para autenticar novamente');
         }
         window.dispatchEvent(new CustomEvent('pwa:session-expired'));
     }
@@ -125,7 +126,11 @@
             syn.classList.remove('hidden');
         } else if (!state.online) {
             off.classList.remove('hidden');
-            if (pending) pending.textContent = state.pendingCount > 0 ? `${state.pendingCount} por sincronizar` : '';
+            if (pending) {
+                pending.textContent = state.pendingCount > 0
+                    ? __(':n por sincronizar', { n: state.pendingCount })
+                    : '';
+            }
         } else if (state.pendingCount > 0) {
             // online, parado, mas com pendentes → barra estática clicável (sem spinner infinito)
             showWaitingBar(bar);
@@ -149,7 +154,12 @@
             w.onclick = () => sync(true);
             bar.appendChild(w);
         }
-        w.innerHTML = '<i class="fas fa-rotate mr-1"></i>' + state.pendingCount + ' documento(s) por sincronizar — toque para sincronizar';
+        // "documento(s)" não existe em inglês nem em francês: plural a sério.
+        w.innerHTML = '<i class="fas fa-rotate mr-1"></i>' + __n(
+            ':n documento por sincronizar — toque para sincronizar|:n documentos por sincronizar — toque para sincronizar',
+            state.pendingCount,
+            { n: state.pendingCount }
+        );
         w.classList.remove('hidden');
     }
 
@@ -342,7 +352,13 @@
                     bar.appendChild(errBar);
                 }
                 errBar.classList.remove('hidden');
-                errBar.innerHTML = '<i class="fas fa-circle-exclamation mr-1"></i>Erro de sincronização: ' + (err.message || 'desconhecido') + ' (toca para fechar)';
+                // A mensagem técnica (err.message) é dado, não se traduz; a frase
+                // à volta dela sim — e leva os dois pontos dentro da cadeia por
+                // causa do francês, que escreve "Erreur :" com espaço antes.
+                errBar.innerHTML = '<i class="fas fa-circle-exclamation mr-1"></i>'
+                    + __('Erro de sincronização: :erro (toca para fechar)', {
+                        erro: err.message || __('desconhecido'),
+                    });
                 setTimeout(() => errBar.classList.add('hidden'), 8000);
             }
             window.dispatchEvent(new CustomEvent('pwa:sync-error', { detail: err }));
@@ -383,7 +399,7 @@
                             payload.client_id = localClient.id;
                         } else {
                             // cliente ainda não sincronizado — adiar este job
-                            throw new Error('Cliente ainda não sincronizado — a reagendar');
+                            throw new Error(__('Cliente ainda não sincronizado — a reagendar'));
                         }
                     }
                     result = await fetchJson('/api/v1/invoicing/drafts', {
@@ -421,7 +437,7 @@
                     // offline estarem sincronizadas (senão não entram no fecho).
                     const unsyncedSales = await db.pos_sales.where('_synced').equals(0).count();
                     if (unsyncedSales > 0) {
-                        throw new Error('Vendas por sincronizar — fecho de turno adiado');
+                        throw new Error(__('Vendas por sincronizar — fecho de turno adiado'));
                     }
                     result = await fetchJson('/api/v1/invoicing/pos/shift/close', {
                         method: 'POST',
@@ -442,7 +458,7 @@
                         if (localClient && Number.isInteger(localClient.id)) {
                             payload.client_id = localClient.id;
                         } else {
-                            throw new Error('Cliente ainda não sincronizado — a reagendar');
+                            throw new Error(__('Cliente ainda não sincronizado — a reagendar'));
                         }
                     }
                     delete payload.client_local_uuid;
@@ -811,8 +827,8 @@
         async enableOfflineAuth(password) {
             const userMeta = await db.meta.get('user');
             const user = userMeta?.value;
-            if (!user || !user.email) throw new Error('Sem utilizador autenticado para configurar login offline.');
-            if (!password || password.length < 4) throw new Error('Password muito curta (mínimo 4 caracteres).');
+            if (!user || !user.email) throw new Error(__('Sem utilizador autenticado para configurar login offline.'));
+            if (!password || password.length < 4) throw new Error(__('Password muito curta (mínimo 4 caracteres).'));
 
             const salt = this._generateSalt();
             const hash = await this._hashCredentials(user.email, password, salt);
@@ -971,10 +987,10 @@
             return;
         }
         if (isIos()) {
-            alert('Para instalar no iPhone/iPad:\n\n1. Toque no botão Partilhar (□↑)\n2. Escolha "Adicionar ao ecrã principal"');
+            alert(__('Para instalar no iPhone/iPad:\n\n1. Toque no botão Partilhar (□↑)\n2. Escolha "Adicionar ao ecrã principal"'));
             return;
         }
-        alert('Para instalar: abra o menu do navegador (⋮) e escolha "Instalar aplicação" / "Adicionar ao ecrã principal".');
+        alert(__('Para instalar: abra o menu do navegador (⋮) e escolha "Instalar aplicação" / "Adicionar ao ecrã principal".'));
     }
 
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -1083,10 +1099,12 @@
             }
             const diff = Math.round((Date.now() - new Date(state.lastSync).getTime()) / 60000);
             let label;
-            if (diff < 1) label = '· sync agora';
-            else if (diff < 60) label = '· sync há ' + diff + 'min';
-            else if (diff < 1440) label = '· sync há ' + Math.round(diff / 60) + 'h';
-            else label = '· sync há ' + Math.round(diff / 1440) + 'd';
+            // Nada de '· sync há ' + n + 'min': noutras línguas o número não fica
+            // no meio da frase. O número entra por :n.
+            if (diff < 1) label = __('· sync agora');
+            else if (diff < 60) label = __('· sync há :n min', { n: diff });
+            else if (diff < 1440) label = __('· sync há :n h', { n: Math.round(diff / 60) });
+            else label = __('· sync há :n d', { n: Math.round(diff / 1440) });
             badge.textContent = label;
             badge.classList.remove('hidden');
         }

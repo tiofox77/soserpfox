@@ -2182,6 +2182,10 @@
         </div>
     @endauth
 
+    {{-- O dicionário para o JavaScript dos ecrãs (POS, modais de impressão).
+         Em português não emite nada — as chaves são o texto português. --}}
+    @include('partials.js-traducoes')
+
     <!-- Livewire Scripts (já inclui Alpine.js V3) -->
     @livewireScripts
     

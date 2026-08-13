@@ -123,8 +123,12 @@
     {{-- Registo do Service Worker + auto-update (sem isto o PWA nunca atualiza) --}}
     @include('partials.pwa-register')
 
-    <script src="/js/pwa-invoicing.js?v=13"></script>
-    <script src="/js/pos-offline-ticket.js?v=2"></script>
+    {{-- O dicionário ANTES dos ficheiros de /js: eles chamam window.__ e
+         precisam de o encontrar já definido. --}}
+    @include('partials.js-traducoes')
+
+    <script src="/js/pwa-invoicing.js?v=14"></script>
+    <script src="/js/pos-offline-ticket.js?v=3"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
     {{-- Garante que o app abre offline mesmo na primeira tentativa após sair de uma página. --}}
@@ -145,8 +149,8 @@
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=13',
-            '/js/pos-offline-ticket.js?v=2',
+            '/js/pwa-invoicing.js?v=14',
+            '/js/pos-offline-ticket.js?v=3',
             '/manifest.webmanifest',
         ];
 

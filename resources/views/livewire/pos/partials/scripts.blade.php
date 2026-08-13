@@ -1,3 +1,17 @@
+{{-- MULTI-LÍNGUA: não há aqui nada para traduzir, e é de propósito.
+
+     Este ficheiro só faz som e sincronização — não escreve texto nenhum no
+     ecrã. O que parece texto não é interface:
+
+       · 'pos_sound_enabled' e a POS_KEY são chaves de localStorage. Traduzi-las
+         apagava o carrinho guardado de quem já o tem — e um caixa offline nem
+         sequer ficaria a saber porquê;
+       · 'cart-updated', 'item-added', 'pos-cart-sync' são nomes de eventos
+         Livewire, e do outro lado o PHP dispara-os por este nome exacto;
+       · 'add' / 'remove' / 'error' são tipos de som, não palavras.
+
+     O aviso "Sessão expirada — carrinho guardado" que o comentário menciona
+     vive no layout, não aqui. --}}
 <script>
 // Marca esta página como POS (usado pelo handler de sessão-expirada no layout:
 // mostra o overlay "Sessão expirada — carrinho guardado" em vez de reload cego).
