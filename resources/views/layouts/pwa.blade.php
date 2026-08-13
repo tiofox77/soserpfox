@@ -127,6 +127,17 @@
          precisam de o encontrar já definido. --}}
     @include('partials.js-traducoes')
 
+    {{-- Quem está a usar isto, e por conta de que empresa.
+         A cópia de segurança carimba estes valores, e é por eles que a
+         importação recusa um ficheiro de outra empresa: sem o carimbo, as
+         vendas entravam na contabilidade errada e uma factura emitida não
+         se apaga. --}}
+    <script>
+        window.SOS_TENANT_ID = @json(activeTenantId());
+        window.SOS_USER_ID   = @json(auth()->id());
+        window.SOS_USER_NAME = @json(auth()->user()?->name);
+    </script>
+
     <script src="/js/pwa-invoicing.js?v=16"></script>
     <script src="/js/pos-offline-ticket.js?v=3"></script>
 

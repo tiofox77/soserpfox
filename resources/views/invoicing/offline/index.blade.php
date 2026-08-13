@@ -89,6 +89,19 @@
                 <span class="block text-[9px] font-normal opacity-70">apaga TUDO incl. pendentes</span>
             </button>
         </div>
+
+        {{-- A cópia fica LOGO A SEGUIR ao Reset Total, e de propósito: é o
+             botão que faz perder tudo, e quem lá chega deve ver primeiro a
+             forma de salvar o que ainda não foi enviado. --}}
+        <div class="mt-2">
+            <button @click="exportarCopia()" :disabled="busy"
+                    class="w-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
+                <i class="fas fa-download mr-1"></i>Guardar cópia do que falta enviar
+                <span class="block text-[9px] font-normal opacity-70">
+                    ficheiro para importar no sistema se este aparelho se perder
+                </span>
+            </button>
+        </div>
         <div class="mt-2 grid grid-cols-3 gap-2">
             <button @click="forceUpdateApp()" :disabled="busy" class="bg-purple-100 hover:bg-purple-200 text-purple-800 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-50">
                 <i class="fas fa-cloud-arrow-down mr-1"></i>Atualizar App
@@ -235,6 +248,28 @@ function pwaHome() {
         },
 
         // Reset TOTAL — apaga tudo incluindo vendas/rascunhos não sincronizados
+        async exportarCopia() {
+            await this.run('Guardar cópia', async () => {
+                const r = await window.SosPwa.exportarCopia();
+                const c = r.contagens;
+
+                if (!c.fila && !c.vendas && !c.clientes && !c.rascunhos) {
+                    alert('Não há nada por sincronizar — a cópia saiu vazia.\n\nIsso é bom sinal: está tudo no servidor.');
+                    return;
+                }
+
+                alert(
+                    'Cópia guardada: ' + r.nome + '\n\n' +
+                    c.fila + ' operação(ões) por enviar\n' +
+                    c.vendas + ' venda(s)\n' +
+                    c.clientes + ' cliente(s)\n' +
+                    c.rascunhos + ' rascunho(s)\n\n' +
+                    'Guarde este ficheiro. Se este aparelho se perder, importe-o em ' +
+                    'Faturação → Importar Cópia Offline.'
+                );
+            });
+        },
+
         async resetAll() {
             const pending = await window.SosPwa.refreshPendingCount();
             const warn = pending > 0

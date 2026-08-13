@@ -68,7 +68,17 @@ class DraftController extends Controller
         $invoice = new SalesInvoice();
         $invoice->tenant_id = $tenantId;
         $invoice->invoice_type = $docType; // FT, FR, NC
-        $invoice->client_id = $data['client_id'] ?? null;
+        // O cliente vem do MESMO resolvedor do POS.
+        //
+        // Aqui escrevia-se `$data['client_id'] ?? null` numa coluna que é NOT
+        // NULL: um rascunho criado offline sem cliente — e no balcão a maioria
+        // é sem cliente — rebentava contra a base de dados a cada tentativa de
+        // sincronização, cinco vezes, e ficava marcado como erro permanente.
+        // O documento nunca chegava ao sistema.
+        $clienteResolvido = app(\App\Services\POS\PosSaleService::class)
+            ->resolveClient($data, $tenantId);
+
+        $invoice->client_id = $clienteResolvido->id;
         $invoice->invoice_date = $data['invoice_date'] ?? now()->toDateString();
         $invoice->due_date = $data['due_date'] ?? now()->addDays(30)->toDateString();
         $invoice->status = 'draft';
@@ -94,6 +104,35 @@ class DraftController extends Controller
         $invoice->tax_payable = $totals['tax'];
         $invoice->total = $totals['total'];
         $invoice->gross_total = $totals['total'];
+
+        // O identificador local GRAVA-SE.
+        //
+        // Vinha na validação e era devolvido na resposta, mas nunca chegava à
+        // coluna — portanto os rascunhos não tinham desduplicação nenhuma. Com
+        // a rede a oscilar, o PWA reenvia o que não teve resposta e criava um
+        // segundo rascunho da mesma factura; a pessoa finalizava os dois e
+        // saíam dois documentos fiscais para a mesma venda.
+        //
+        // Antes de gravar, se já cá está, devolve-se o que existe.
+        if (!empty($data['local_uuid'])) {
+            $jaExiste = SalesInvoice::where('tenant_id', $tenantId)
+                ->where('local_uuid', $data['local_uuid'])
+                ->first();
+
+            if ($jaExiste) {
+                return response()->json([
+                    'id'         => $jaExiste->id,
+                    'local_uuid' => $data['local_uuid'],
+                    'doc_type'   => $docType,
+                    'status'     => $jaExiste->status,
+                    'duplicated' => true,
+                    'message'    => 'Rascunho já existente.',
+                ]);
+            }
+
+            $invoice->local_uuid = $data['local_uuid'];
+        }
+
         $invoice->save();
 
         foreach ($data['items'] as $idx => $itm) {
@@ -155,7 +194,11 @@ class DraftController extends Controller
     {
         $proforma = new SalesProforma();
         $proforma->tenant_id = $tenantId;
-        $proforma->client_id = $data['client_id'] ?? null;
+        // Ver a nota na factura: a mesma coluna, a mesma regra.
+        $clienteResolvido = app(\App\Services\POS\PosSaleService::class)
+            ->resolveClient($data, $tenantId);
+
+        $proforma->client_id = $clienteResolvido->id;
         $proforma->proforma_date = $data['invoice_date'] ?? now()->toDateString();
         $proforma->valid_until = $data['due_date'] ?? now()->addDays(15)->toDateString();
         $proforma->status = 'draft';

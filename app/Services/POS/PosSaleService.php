@@ -416,7 +416,17 @@ class PosSaleService
         }
     }
 
-    protected function resolveClient(array $payload, int $tenantId): Client
+    /**
+     * O cliente do documento, ou o Consumidor Final.
+     *
+     * Público de propósito: o DraftController precisa exactamente da mesma
+     * regra. Lá dizia `client_id => nullable` e escrevia null na coluna — que
+     * é NOT NULL. Um rascunho criado offline sem cliente rebentava contra a
+     * base de dados a cada tentativa de sincronização e nunca chegava cá.
+     *
+     * Duas cópias da regra divergiriam; esta fica a ser a única.
+     */
+    public function resolveClient(array $payload, int $tenantId): Client
     {
         $clientId = $payload['client_id'] ?? null;
         if ($clientId && is_numeric($clientId)) {

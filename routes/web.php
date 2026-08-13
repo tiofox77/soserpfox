@@ -298,6 +298,13 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::prefix('imports')->name('imports.')->group(function () {
         Route::middleware('permission:invoicing.imports.view')->get('/', \App\Livewire\Invoicing\Imports\Imports::class)->name('index');
     });
+
+    // Recuperar uma cópia de segurança do PWA (aparelho que não sincronizou).
+    // A permissão é a de criar vendas no POS: quem pode emitir é quem pode
+    // recuperar o que já foi emitido offline.
+    Route::middleware('permission:invoicing.pos.create')
+        ->get('/importar-copia-offline', \App\Livewire\Invoicing\ImportarCopiaOffline::class)
+        ->name('importar-copia-offline');
     
     // Adiantamentos
     Route::prefix('advances')->name('advances.')->group(function () {

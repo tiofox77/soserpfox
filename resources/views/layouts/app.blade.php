@@ -630,6 +630,17 @@
                                 </a>
                                 @endcan
 
+                                {{-- Fica logo a seguir ao POS Offline: quem
+                                     precisa disto vem de lá, com um aparelho
+                                     que não sincronizou nas mãos. --}}
+                                @can('invoicing.pos.create')
+                                <a href="{{ route('invoicing.importar-copia-offline') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.importar-copia-offline') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-800' }} transition">
+                                    <i class="fas fa-file-import w-5 text-emerald-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Importar Cópia Offline') }}</span>
+                                </a>
+                                @endcan
+
                                 <a href="{{ route('invoicing.pos.shifts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.shifts') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-clock w-5 text-yellow-400 text-sm"></i>
