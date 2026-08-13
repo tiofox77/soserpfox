@@ -50,7 +50,14 @@ Route::get('/subscrever/{plan}', function (string $plan) {
         ->where('is_active', true)
         ->firstOrFail();
 
-    return redirect()->route('register', ['plan' => $plano->slug]);
+    $tracking = request()->only([
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+        'fbclid', 'gclid',
+    ]);
+
+    return redirect()->route('register', array_merge($tracking, [
+        'plan' => $plano->slug,
+    ]));
 })->where('plan', '[a-z0-9-]+')->name('subscribe.plan');
 
 Route::get('/register', \App\Livewire\Auth\RegisterWizard::class)->name('register');
