@@ -130,9 +130,16 @@ class CreditNoteCreate extends Component
             ]);
         }
 
+        // Plural a sério: "1 produtos carregados" não existe em língua nenhuma.
+        $quantosItens = count($invoice->items);
+
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => count($invoice->items) . ' produtos carregados da fatura!'
+            'message' => trans_choice(
+                ':n produto carregado da fatura!|:n produtos carregados da fatura!',
+                $quantosItens,
+                ['n' => $quantosItens]
+            ),
         ]);
     }
 
@@ -180,7 +187,7 @@ class CreditNoteCreate extends Component
         if ($cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Adicione pelo menos um item à nota de crédito.'
+                'message' => __('Adicione pelo menos um item à nota de crédito.')
             ]);
             return;
         }
@@ -416,18 +423,24 @@ class CreditNoteCreate extends Component
                 if ($agtResult['success'] ?? false) {
                     $this->dispatch('notify', [
                         'type' => 'success',
-                        'message' => 'NC criada e submetida à AGT (requestID: ' . ($agtResult['requestID'] ?? '—') . ')',
+                        // Sem concatenação: em inglês/francês a ordem das palavras
+                        // à volta do requestID não é a mesma.
+                        'message' => __('NC criada e submetida à AGT (requestID: :ref)', [
+                            'ref' => $agtResult['requestID'] ?? '—',
+                        ]),
                     ]);
                 } else {
                     $this->dispatch('notify', [
                         'type' => 'warning',
-                        'message' => 'NC criada. Por comunicar à AGT: ' . ($agtResult['error'] ?? 'erro desconhecido'),
+                        'message' => __('NC criada. Por comunicar à AGT: :erro', [
+                            'erro' => $agtResult['error'] ?? __('erro desconhecido'),
+                        ]),
                     ]);
                 }
             } else {
                 $this->dispatch('notify', [
                     'type' => 'success',
-                    'message' => 'Nota de Crédito criada com sucesso!'
+                    'message' => __('Nota de Crédito criada com sucesso!')
                 ]);
             }
 
@@ -438,7 +451,7 @@ class CreditNoteCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao criar nota de crédito: ' . $e->getMessage()
+                'message' => __('Erro ao criar nota de crédito: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

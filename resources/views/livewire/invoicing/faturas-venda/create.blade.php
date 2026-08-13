@@ -1,7 +1,7 @@
 <div class="p-6">
     @include("livewire.invoicing.partials.cabecalho-criar-documento", [
-        "titulo"    => $isEdit ? "Editar Fatura de Venda" : "Nova Fatura de Venda",
-        "subtitulo" => "Documento fiscal de venda a cliente",
+        "titulo"    => $isEdit ? __('Editar Fatura de Venda') : __('Nova Fatura de Venda'),
+        "subtitulo" => __('Documento fiscal de venda a cliente'),
         "icone"     => "fa-file-invoice",
         "cor"       => "purple",
         "voltar"    => route("invoicing.sales.invoices"),
@@ -23,21 +23,21 @@
                     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-info-circle mr-2"></i>
-                            Informações Gerais
+                            {{ __('Informações Gerais') }}
                         </h3>
                     </div>
                     <div class="p-6 space-y-4">
                         {{-- Client --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-user mr-1 text-purple-600"></i>Cliente *
+                                <i class="fas fa-user mr-1 text-purple-600"></i>{{ __('Cliente') }} *
                             </label>
                             <div class="flex gap-2" x-data="{ clientOpen: false }" x-init="$watch('clientOpen', v => { if(v) $nextTick(() => $refs.clientInput.focus()) })">
                                 <div class="relative flex-1">
                                     <input type="search" 
                                            x-ref="clientInput"
                                            wire:model.live.debounce.300ms="searchClient"
-                                           placeholder="Pesquisar Cliente por nome, email ou telefone..."
+                                           placeholder="{{ __('Pesquisar Cliente por nome, email ou telefone...') }}"
                                            autocomplete="one-time-code"
                                            name="client_search_nofill"
                                            x-on:focus="clientOpen = true"
@@ -66,7 +66,7 @@
                                         wire:loading.attr="disabled"
                                         wire:loading.class="opacity-70 scale-95"
                                         class="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg whitespace-nowrap hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
-                                    <i class="fas fa-plus mr-2"></i>Novo Cliente
+                                    <i class="fas fa-plus mr-2"></i>{{ __('Novo Cliente') }}
                                 </button>
                             </div>
                             @include("livewire.invoicing.partials.regiao-fiscal", ["cor" => "amber"])
@@ -83,7 +83,7 @@
                                                 <div class="font-bold text-sm text-gray-900">{{ $selectedClient->name }}</div>
                                                 @if($selectedClient->nif === '999999999')
                                                     <span class="px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-bold rounded-full">
-                                                        <i class="fas fa-user-tag mr-1"></i>Cliente Padrão
+                                                        <i class="fas fa-user-tag mr-1"></i>{{ __('Cliente Padrão') }}
                                                     </span>
                                                 @endif
                                             </div>
@@ -111,28 +111,28 @@
                         @if($this->hasPhysicalProducts() || empty($cartItems) || $cartItems->isEmpty())
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-warehouse mr-1 text-purple-600"></i>Armazém
+                                <i class="fas fa-warehouse mr-1 text-purple-600"></i>{{ __('Armazém') }}
                                 @if($this->hasPhysicalProducts()) <span class="text-red-500">*</span> @endif
                             </label>
                             <select wire:model="warehouse_id" 
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
-                                <option value="">Selecione o armazém...</option>
+                                <option value="">{{ __('Selecione o armazém...') }}</option>
                                 @foreach($warehouses as $warehouse)
                                     <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                                 @endforeach
                             </select>
                             @error('warehouse_id') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             @if(!$this->hasPhysicalProducts() && $cartItems && !$cartItems->isEmpty())
-                                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>Opcional — documento contém apenas serviços</p>
+                                <p class="text-xs text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>{{ __('Opcional — documento contém apenas serviços') }}</p>
                             @endif
                         </div>
                         @else
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-concierge-bell mr-1 text-green-600"></i>Tipo de documento
+                                <i class="fas fa-concierge-bell mr-1 text-green-600"></i>{{ __('Tipo de documento') }}
                             </label>
                             <div class="w-full px-4 py-3 border-2 border-green-200 rounded-xl bg-green-50 text-green-700 text-sm font-medium">
-                                <i class="fas fa-check-circle mr-1"></i> Prestação de serviços — armazém não necessário
+                                <i class="fas fa-check-circle mr-1"></i> {{ __('Prestação de serviços — armazém não necessário') }}
                             </div>
                         </div>
                         @endif
@@ -141,7 +141,7 @@
                         @if(!$isEdit)
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-file-invoice mr-1 text-purple-600"></i>Tipo de Documento *
+                                <i class="fas fa-file-invoice mr-1 text-purple-600"></i>{{ __('Tipo de Documento') }} *
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                                 <label class="cursor-pointer rounded-xl border-2 p-3 transition
@@ -149,8 +149,8 @@
                                     <div class="flex items-start gap-2">
                                         <input type="radio" wire:model.live="invoice_type" value="FT" class="mt-1 text-purple-600 focus:ring-purple-500">
                                         <div>
-                                            <p class="text-sm font-bold text-gray-900">Fatura <span class="text-xs font-mono text-gray-500">(FT)</span></p>
-                                            <p class="text-[11px] text-gray-600 mt-0.5">A pagar depois. Recibo é emitido no pagamento.</p>
+                                            <p class="text-sm font-bold text-gray-900">{{ __('Fatura') }} <span class="text-xs font-mono text-gray-500">(FT)</span></p>
+                                            <p class="text-[11px] text-gray-600 mt-0.5">{{ __('A pagar depois. Recibo é emitido no pagamento.') }}</p>
                                         </div>
                                     </div>
                                 </label>
@@ -159,8 +159,8 @@
                                     <div class="flex items-start gap-2">
                                         <input type="radio" wire:model.live="invoice_type" value="FR" class="mt-1 text-emerald-600 focus:ring-emerald-500">
                                         <div>
-                                            <p class="text-sm font-bold text-gray-900">Fatura-Recibo <span class="text-xs font-mono text-gray-500">(FR)</span></p>
-                                            <p class="text-[11px] text-gray-600 mt-0.5">Paga no acto. Usa a <strong>mesma sequência do POS</strong>.</p>
+                                            <p class="text-sm font-bold text-gray-900">{{ __('Fatura-Recibo') }} <span class="text-xs font-mono text-gray-500">(FR)</span></p>
+                                            <p class="text-[11px] text-gray-600 mt-0.5">{!! __('Paga no acto. Usa a <strong>mesma sequência do POS</strong>.') !!}</p>
                                         </div>
                                     </div>
                                 </label>
@@ -170,7 +170,7 @@
 
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-hashtag mr-1 text-blue-600"></i>Série fiscal
+                                <i class="fas fa-hashtag mr-1 text-blue-600"></i>{{ __('Série fiscal') }}
                             </label>
                             {{-- .live: trocar a série muda o número que o
                                  documento vai levar; o ecrã tem de acompanhar.
@@ -180,24 +180,24 @@
                             <select wire:model.live="series_id"
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
                                 @if($issuanceSeries->isEmpty())
-                                    <option value="">— sem série disponível —</option>
+                                    <option value="">{{ __('— sem série disponível —') }}</option>
                                 @endif
                                 @foreach($issuanceSeries as $series)
                                     <option value="{{ $series->id }}" @selected((string) $series_id === (string) $series->id)>
                                         {{ $series->prefix }} {{ $series->series_code }}
                                         @if($series->agt_series_id) — {{ $series->agt_series_id }} ✓ AGT @endif
-                                        @if($series->is_default) (por omissão) @endif
+                                        @if($series->is_default) {{ __('(por omissão)') }} @endif
                                     </option>
                                 @endforeach
                             </select>
                             @if($issuanceSeries->isEmpty())
                                 <p class="text-xs text-red-600 mt-2">
                                     <i class="fas fa-exclamation-triangle mr-1"></i>
-                                    Não existe série {{ $invoice_type }} sincronizada com a AGT. A emissão será bloqueada.
+                                    {{ __('Não existe série :tipo sincronizada com a AGT. A emissão será bloqueada.', ['tipo' => $invoice_type]) }}
                                 </p>
                             @else
                                 <p class="text-xs text-green-700 mt-2">
-                                    Apenas séries activas desta empresa e sincronizadas com a AGT são apresentadas.
+                                    {{ __('Apenas séries activas desta empresa e sincronizadas com a AGT são apresentadas.') }}
                                 </p>
                             @endif
                         </div>
@@ -206,11 +206,11 @@
                         @if($invoice_type === 'FR')
                         <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4">
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-money-bill-wave mr-1 text-emerald-600"></i>Forma de Pagamento *
+                                <i class="fas fa-money-bill-wave mr-1 text-emerald-600"></i>{{ __('Forma de Pagamento') }} *
                             </label>
                             <select wire:model="payment_method"
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-                                <option value="">Selecione…</option>
+                                <option value="">{{ __('Selecione…') }}</option>
                                 @foreach($this->paymentMethods as $pm)
                                     <option value="{{ $pm->code }}">{{ $pm->name }}</option>
                                 @endforeach
@@ -218,7 +218,7 @@
                             @error('payment_method') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             <p class="text-[11px] text-emerald-800 mt-2">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                O documento fica <strong>liquidado</strong> e o valor entra automaticamente na tesouraria.
+                                {!! __('O documento fica <strong>liquidado</strong> e o valor entra automaticamente na tesouraria.') !!}
                             </p>
                         </div>
                         @endif
@@ -228,7 +228,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-calendar mr-1 text-purple-600"></i>Data *
+                                    <i class="fas fa-calendar mr-1 text-purple-600"></i>{{ __('Data') }} *
                                 </label>
                                 <input type="date" wire:model="invoice_date" 
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
@@ -236,7 +236,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-hourglass-end mr-1 text-purple-600"></i>Válido Até
+                                    <i class="fas fa-hourglass-end mr-1 text-purple-600"></i>{{ __('Válido Até') }}
                                 </label>
                                 <input type="date" wire:model="due_date" 
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
@@ -248,7 +248,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-truck mr-1 text-purple-600"></i>Data de Entrega
+                                    <i class="fas fa-truck mr-1 text-purple-600"></i>{{ __('Data de Entrega') }}
                                 </label>
                                 <input type="date" wire:model="delivery_date" 
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
@@ -256,9 +256,9 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
-                                    <i class="fas fa-map-marker-alt mr-1 text-purple-600"></i>Local de Entrega
+                                    <i class="fas fa-map-marker-alt mr-1 text-purple-600"></i>{{ __('Local de Entrega') }}
                                 </label>
-                                <input type="text" wire:model="delivery_location" placeholder="Local de entrega dos bens"
+                                <input type="text" wire:model="delivery_location" placeholder="{{ __('Local de entrega dos bens') }}"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
                                 @error('delivery_location') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
@@ -271,13 +271,13 @@
                     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-box mr-2"></i>
-                            Produtos ({{ $cartItems->count() }})
+                            {{ __('Produtos') }} ({{ $cartItems->count() }})
                         </h3>
                         <button type="button" wire:click="$set('showProductModal', true)"
                                 wire:loading.attr="disabled"
                                 wire:loading.class="opacity-70 scale-95"
                                 class="px-4 py-2 bg-white hover:bg-gray-100 text-purple-600 rounded-lg font-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed">
-                            <i class="fas fa-plus mr-2"></i>Adicionar Produto
+                            <i class="fas fa-plus mr-2"></i>{{ __('Adicionar Produto') }}
                         </button>
                     </div>
 
@@ -286,15 +286,15 @@
                         <table class="min-w-full">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Produto/Serviço</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Qtd</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Preço</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Desc %</th>
+                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Produto/Serviço') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Qtd') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Preço') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Desc %') }}</th>
                                     <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                                        <i class="fas fa-percent mr-1 text-blue-500"></i>Taxa
+                                        <i class="fas fa-percent mr-1 text-blue-500"></i>{{ __('Taxa') }}
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Total</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Ação</th>
+                                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">{{ __('Total') }}</th>
+                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Ação') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -305,11 +305,11 @@
                                             <div class="text-sm font-bold text-gray-900">{{ $item->name }}</div>
                                             @if(isset($item->attributes['type']) && $item->attributes['type'] === 'servico')
                                                 <span class="px-2 py-0.5 bg-pink-100 text-pink-700 text-xs font-semibold rounded-full">
-                                                    <i class="fas fa-concierge-bell mr-1"></i>Serviço
+                                                    <i class="fas fa-concierge-bell mr-1"></i>{{ __('Serviço') }}
                                                 </span>
                                             @else
                                                 <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
-                                                    <i class="fas fa-box mr-1"></i>Produto
+                                                    <i class="fas fa-box mr-1"></i>{{ __('Produto') }}
                                                 </span>
                                             @endif
                                         </div>
@@ -343,7 +343,7 @@
                                         @if($taxType === 'isento' || $taxRate == 0)
                                             <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded inline-flex items-center">
                                                 <i class="fas fa-check-circle mr-1"></i>
-                                                Isento
+                                                {{ __('Isento') }}
                                             </span>
                                         @else
                                             <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded inline-flex items-center">
@@ -379,7 +379,7 @@
 
                                         <select wire:change="setLineIs('{{ $item->id }}', $event.target.value)"
                                                 class="mt-1 w-full text-[10px] px-1 py-0.5 border rounded {{ $isSel ? 'border-purple-400 bg-purple-50' : 'border-gray-200' }}">
-                                            <option value="">+ Selo</option>
+                                            <option value="">{{ __('+ Selo') }}</option>
                                             @foreach($isVerbas as $v)
                                                 <option value="{{ $v->verba_no }}" @selected($isSel == $v->verba_no)>
                                                     V{{ $v->verba_no }} · {{ Str::limit($v->description, 20) }} ({{ $v->rate }})
@@ -409,7 +409,7 @@
                                         <span class="text-lg font-bold text-gray-900">{{ number_format($itemGrandTotal, 2) }}</span>
                                         <div class="text-xs text-gray-500">Kz</div>
                                         @if($itemDiscountAmount > 0)
-                                        <div class="text-xs text-purple-600">-{{ number_format($itemDiscountAmount, 2) }} Kz desc</div>
+                                        <div class="text-xs text-purple-600">-{{ number_format($itemDiscountAmount, 2) }} Kz {{ __('desc') }}</div>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center">
@@ -428,8 +428,8 @@
                     @else
                     <div class="p-12 text-center">
                         <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
-                        <p class="text-gray-500 text-lg font-semibold">Nenhum produto adicionado</p>
-                        <p class="text-gray-400 text-sm mt-2">Clique em "Adicionar Produto" para começar</p>
+                        <p class="text-gray-500 text-lg font-semibold">{{ __('Nenhum produto adicionado') }}</p>
+                        <p class="text-gray-400 text-sm mt-2">{{ __('Clique em "Adicionar Produto" para começar') }}</p>
                     </div>
                     @endif
                 </div>
@@ -439,7 +439,7 @@
                     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-percentage mr-2"></i>
-                            Descontos
+                            {{ __('Descontos') }}
                         </h3>
                     </div>
                     <div class="p-6">
@@ -448,7 +448,7 @@
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
                                     <i class="fas fa-tags mr-1 text-purple-600"></i>
-                                    Desconto Comercial (antes IVA):
+                                    {{ __('Desconto Comercial (antes IVA):') }}
                                 </label>
                                 <input type="number" step="0.01" min="0" wire:model.live="discount_commercial"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition text-right"
@@ -457,7 +457,7 @@
 
                             {{-- Desconto Legado --}}
                             <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Desconto (legado):</label>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Desconto (legado):') }}</label>
                                 <input type="number" step="0.01" min="0" wire:model.live="discount_amount"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition text-right"
                                        placeholder="0">
@@ -467,7 +467,7 @@
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
                                     <i class="fas fa-hand-holding-usd mr-1 text-green-600"></i>
-                                    Desconto Financeiro (após IVA):
+                                    {{ __('Desconto Financeiro (após IVA):') }}
                                 </label>
                                 <input type="number" step="0.01" min="0" wire:model.live="discount_financial"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition text-right"
@@ -482,21 +482,21 @@
                     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-sticky-note mr-2"></i>
-                            Observações
+                            {{ __('Observações') }}
                         </h3>
                     </div>
                     <div class="p-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Notas</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Notas') }}</label>
                             <textarea wire:model="notes" rows="3"
                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition"
-                                      placeholder="Informações adicionais..."></textarea>
+                                      placeholder="{{ __('Informações adicionais...') }}"></textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">Termos e Condições</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Termos e Condições') }}</label>
                             <textarea wire:model="terms" rows="3"
                                       class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition"
-                                      placeholder="Condições de pagamento, garantias, etc."></textarea>
+                                      placeholder="{{ __('Condições de pagamento, garantias, etc.') }}"></textarea>
                         </div>
                     </div>
                 </div>
@@ -509,7 +509,7 @@
                     <div class="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4">
                         <h3 class="text-white font-bold text-lg flex items-center">
                             <i class="fas fa-calculator mr-2"></i>
-                            Resumo
+                            {{ __('Resumo') }}
                         </h3>
                     </div>
                     <div class="p-6">
@@ -520,7 +520,7 @@
                                        class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                                 <span class="ml-3 text-sm font-bold text-gray-700">
                                     <i class="fas fa-concierge-bell mr-1 text-purple-600"></i>
-                                    É Prestação de Serviço (IRT 6.5%)
+                                    {{ __('É Prestação de Serviço (IRT 6.5%)') }}
                                 </span>
                             </label>
                         </div>
@@ -529,19 +529,19 @@
                         <div class="space-y-3">
                             {{-- Total Líquido (Total Bruto) --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Total líquido</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Total líquido') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($subtotal_original, 2) }}</span>
                             </div>
                             
                             {{-- Desconto Comercial (Linhas + Adicional) --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Desconto Comercial</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Desconto Comercial') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($desconto_comercial_total ?? 0, 2) }}</span>
                             </div>
                             
                             {{-- Desconto Financeiro --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-sm font-semibold text-gray-700">Desconto Financeiro</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Desconto Financeiro') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($discount_financial, 2) }}</span>
                             </div>
                             
@@ -557,7 +557,7 @@
                             @if(($extraTaxTotal ?? 0) > 0)
                             <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-orange-50 px-2 rounded">
                                 <span class="text-sm font-semibold text-orange-700">
-                                    <i class="fas fa-coins mr-1"></i>IEC + Imposto de Selo
+                                    <i class="fas fa-coins mr-1"></i>{{ __('IEC + Imposto de Selo') }}
                                 </span>
                                 <span class="text-base font-bold text-orange-700">{{ number_format($extraTaxTotal, 2) }}</span>
                             </div>
@@ -568,7 +568,7 @@
                             <div class="py-2 border-b border-gray-100">
                                 <div class="flex items-center justify-between mb-1.5">
                                     <span class="text-sm font-semibold text-gray-700">
-                                        <i class="fas fa-hand-holding-usd mr-1 text-rose-600"></i>Retenção na fonte
+                                        <i class="fas fa-hand-holding-usd mr-1 text-rose-600"></i>{{ __('Retenção na fonte') }}
                                     </span>
                                     <span class="text-base font-bold text-rose-700">{{ number_format($withholding_amount ?: $irt_amount, 2) }}</span>
                                 </div>
@@ -577,7 +577,7 @@
                                          payload ser recusado na validação. --}}
                                     <select wire:model.live="withholding_type"
                                             class="text-[11px] px-1.5 py-1 border border-gray-200 rounded">
-                                        <option value="">Sem retenção</option>
+                                        <option value="">{{ __('Sem retenção') }}</option>
                                         @foreach(\App\Livewire\Invoicing\Sales\InvoiceCreate::DESCRICOES_RETENCAO as $codigo => $descricao)
                                             <option value="{{ $codigo }}">{{ $codigo }} — {{ $descricao }}</option>
                                         @endforeach
@@ -590,26 +590,26 @@
                                 </div>
                                 @if(blank($withholding_type) && $is_service)
                                     <p class="mt-1 text-[10px] text-gray-500">
-                                        A usar o IRT automático de 6,5% (prestação de serviço).
+                                        {{ __('A usar o IRT automático de 6,5% (prestação de serviço).') }}
                                     </p>
                                 @endif
                             </div>
                             
                             {{-- Total (AOA) - Incidência + IVA - Retenção --}}
                             <div class="flex justify-between items-center pt-3">
-                                <span class="text-lg font-bold text-gray-700">Total (AOA)</span>
+                                <span class="text-lg font-bold text-gray-700">{{ __('Total (AOA)') }}</span>
                                 <span class="text-3xl font-bold text-green-600">{{ number_format($total, 2) }}</span>
                             </div>
                             
                             {{-- Info Adicional --}}
                             <div class="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-gray-600">
                                 <div class="flex justify-between mb-1">
-                                    <span>Incidência IVA (Base):</span>
+                                    <span>{{ __('Incidência IVA (Base):') }}</span>
                                     <span class="font-semibold">{{ number_format($incidencia_iva ?? 0, 2) }} Kz</span>
                                 </div>
                                 <div class="text-gray-500 text-[10px] mt-2">
                                     <i class="fas fa-info-circle mr-1"></i>
-                                    Cálculo conforme Decreto Presidencial 312/18 - AGT Angola
+                                    {{ __('Cálculo conforme Decreto Presidencial 312/18 - AGT Angola') }}
                                 </div>
                             </div>
                         </div>
@@ -623,10 +623,10 @@
                             wire:loading.class="opacity-70 scale-95"
                             class="w-full px-6 py-3 border-2 border-purple-600 text-purple-600 hover:bg-purple-50 rounded-xl font-bold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="save('draft')">
-                            <i class="fas fa-save mr-2"></i>Salvar Rascunho
+                            <i class="fas fa-save mr-2"></i>{{ __('Salvar Rascunho') }}
                         </span>
                         <span wire:loading wire:target="save('draft')">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Salvando...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Salvando...') }}
                         </span>
                     </button>
                     <button type="button" wire:click="save('sent')"
@@ -634,10 +634,10 @@
                             wire:loading.class="opacity-70 scale-95"
                             class="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="save('sent')">
-                            <i class="fas fa-paper-plane mr-2"></i>Salvar e Enviar
+                            <i class="fas fa-paper-plane mr-2"></i>{{ __('Salvar e Enviar') }}
                         </span>
                         <span wire:loading wire:target="save('sent')">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Processando...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Processando...') }}
                         </span>
                     </button>
                 </div>
@@ -652,7 +652,7 @@
             <div class="sticky top-0 bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between z-10">
                 <h3 class="text-xl font-bold text-white flex items-center">
                     <i class="fas fa-user-plus mr-2"></i>
-                    Criar Cliente Rápido
+                    {{ __('Criar Cliente Rápido') }}
                 </h3>
                 <button wire:click="$set('showQuickClientModal', false)" class="text-white hover:text-gray-200 transition">
                     <i class="fas fa-times text-2xl"></i>
@@ -664,18 +664,18 @@
                     {{-- Name --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-user mr-1 text-green-600"></i>Nome *
+                            <i class="fas fa-user mr-1 text-green-600"></i>{{ __('Nome') }} *
                         </label>
                         <input type="text" wire:model="quickClientName"
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
-                               placeholder="Nome do Cliente..." required>
+                               placeholder="{{ __('Nome do Cliente...') }}" required>
                         @error('quickClientName') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
 
                     {{-- Tax ID (NIF) --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-id-card mr-1 text-green-600"></i>NIF (9 ou 14 dígitos)
+                            <i class="fas fa-id-card mr-1 text-green-600"></i>{{ __('NIF (9 ou 14 dígitos)') }}
                         </label>
                         <input type="text" wire:model="quickClientTaxId"
                                class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
@@ -684,7 +684,7 @@
                         @error('quickClientTaxId') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                         <p class="text-xs text-gray-500 mt-1">
                             <i class="fas fa-info-circle mr-1"></i>
-                            NIF genérico Angola: 999999999
+                            {{ __('NIF genérico Angola:') }} 999999999
                         </p>
                     </div>
 
@@ -692,7 +692,7 @@
                         {{-- Email --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-envelope mr-1 text-green-600"></i>Email
+                                <i class="fas fa-envelope mr-1 text-green-600"></i>{{ __('Email') }}
                             </label>
                             <input type="email" wire:model="quickClientEmail"
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
@@ -703,7 +703,7 @@
                         {{-- Phone --}}
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-2">
-                                <i class="fas fa-phone mr-1 text-green-600"></i>Telefone
+                                <i class="fas fa-phone mr-1 text-green-600"></i>{{ __('Telefone') }}
                             </label>
                             <input type="text" wire:model="quickClientPhone"
                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
@@ -715,28 +715,28 @@
                     {{-- Address --}}
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-map-marker-alt mr-1 text-green-600"></i>Morada
+                            <i class="fas fa-map-marker-alt mr-1 text-green-600"></i>{{ __('Morada') }}
                         </label>
                         <textarea wire:model="quickClientAddress" rows="2"
                                   class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition"
-                                  placeholder="Rua, Bairro, Cidade..."></textarea>
+                                  placeholder="{{ __('Rua, Bairro, Cidade...') }}"></textarea>
                     </div>
                 </div>
 
                 <div class="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end gap-3 border-t border-gray-200">
                     <button type="button" wire:click="$set('showQuickClientModal', false)"
                             class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition-all duration-300 hover:scale-105 active:scale-95">
-                        Cancelar
+                        {{ __('Cancelar') }}
                     </button>
                     <button type="submit"
                             wire:loading.attr="disabled"
                             wire:loading.class="opacity-70 scale-95"
                             class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove>
-                            <i class="fas fa-save mr-2"></i>Criar Cliente
+                            <i class="fas fa-save mr-2"></i>{{ __('Criar Cliente') }}
                         </span>
                         <span wire:loading>
-                            <i class="fas fa-spinner fa-spin mr-2"></i>Criando...
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Criando...') }}
                         </span>
                     </button>
                 </div>
@@ -751,7 +751,7 @@
             Livewire.on('notify', (event) => {
                 const data = event[0] || event;
                 const type = data.type || 'info';
-                const message = data.message || 'Ação realizada';
+                const message = data.message || @js(__('Ação realizada'));
                 
                 // Configure toastr
                 if (typeof toastr !== 'undefined') {
@@ -766,16 +766,16 @@
                     
                     switch(type) {
                         case 'success':
-                            toastr.success(message, 'Sucesso');
+                            toastr.success(message, @js(__('Sucesso')));
                             break;
                         case 'error':
-                            toastr.error(message, 'Erro');
+                            toastr.error(message, @js(__('Erro')));
                             break;
                         case 'warning':
-                            toastr.warning(message, 'Atenção');
+                            toastr.warning(message, @js(__('Atenção')));
                             break;
                         case 'info':
-                            toastr.info(message, 'Info');
+                            toastr.info(message, @js(__('Info')));
                             break;
                     }
                 }
@@ -802,7 +802,7 @@
             <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between z-10">
                 <h3 class="text-xl font-bold text-white flex items-center">
                     <i class="fas fa-box-open mr-2"></i>
-                    Selecionar Produtos
+                    {{ __('Selecionar Produtos') }}
                 </h3>
                 <button wire:click="$set('showProductModal', false)" class="text-white hover:text-gray-200 transition">
                     <i class="fas fa-times text-2xl"></i>
@@ -813,7 +813,7 @@
                 {{-- Search --}}
                 <div class="mb-6">
                     <input type="text" wire:model.live.debounce.300ms="searchProduct"
-                           placeholder="🔍 Pesquisar produtos..."
+                           placeholder="🔍 {{ __('Pesquisar produtos...') }}"
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
                 </div>
 
@@ -832,7 +832,7 @@
                                 <p class="text-lg font-bold text-purple-600">{{ number_format($product->sale_price, 2) }} Kz</p>
                                 <p class="text-xs text-gray-500 mt-1">
                                     <i class="fas fa-cube mr-1"></i>
-                                    Stock: {{ number_format($product->stock_quantity ?? 0, 0) }}
+                                    {{ __('Stock:') }} {{ number_format($product->stock_quantity ?? 0, 0) }}
                                 </p>
                             </div>
                         </div>
@@ -840,7 +840,7 @@
                     @empty
                     <div class="col-span-full text-center py-12">
                         <i class="fas fa-box-open text-6xl text-gray-300 mb-4"></i>
-                        <p class="text-gray-500">Nenhum produto encontrado</p>
+                        <p class="text-gray-500">{{ __('Nenhum produto encontrado') }}</p>
                     </div>
                     @endforelse
                 </div>

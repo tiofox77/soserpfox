@@ -71,7 +71,7 @@ class ProformaCreate extends Component
         // Toast notification
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Cliente selecionado: ' . ($client ? $client->name : '')
+            'message' => __('Cliente selecionado: :nome', ['nome' => $client ? $client->name : ''])
         ]);
     }
     
@@ -331,7 +331,7 @@ class ProformaCreate extends Component
             if ($availableBatches->isEmpty()) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '❌ Produto exige lote na venda mas não há lotes disponíveis: ' . $product->name
+                    'message' => '❌ ' . __('Produto exige lote na venda mas não há lotes disponíveis: :produto', ['produto' => $product->name])
                 ]);
                 return;
             }
@@ -342,7 +342,7 @@ class ProformaCreate extends Component
                 $expiredNumbers = $expiredBatches->pluck('batch_number')->filter()->join(', ');
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '⚠️ Lotes expirados encontrados: ' . ($expiredNumbers ?: 'Sem número')
+                    'message' => '⚠️ ' . __('Lotes expirados encontrados: :lotes', ['lotes' => $expiredNumbers ?: __('Sem número')])
                 ]);
                 return;
             }
@@ -352,9 +352,16 @@ class ProformaCreate extends Component
             if ($expiringSoon->isNotEmpty()) {
                 $expiringNumbers = $expiringSoon->pluck('batch_number')->filter()->join(', ');
                 $days = $expiringSoon->first()->days_until_expiry ?? 0;
+                // Dois plurais na mesma frase — o dos dias e o dos lotes — por isso
+                // o prazo é montado à parte e entra como marcador.
+                $prazo = trans_choice(':n dia|:n dias', $days, ['n' => $days]);
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Atenção: Lote(s) expirando em ' . $days . ' dias: ' . ($expiringNumbers ?: 'Sem número')
+                    'message' => '⚠️ ' . trans_choice(
+                        'Atenção: lote a expirar em :prazo: :lotes|Atenção: lotes a expirar em :prazo: :lotes',
+                        $expiringSoon->count(),
+                        ['prazo' => $prazo, 'lotes' => $expiringNumbers ?: __('Sem número')]
+                    )
                 ]);
             }
         }
@@ -378,7 +385,7 @@ class ProformaCreate extends Component
                 if ($newQuantity > $totalAvailable) {
                     $this->dispatch('notify', [
                         'type' => 'error',
-                        'message' => '❌ Quantidade insuficiente em lotes. Disponível: ' . $totalAvailable
+                        'message' => '❌ ' . __('Quantidade insuficiente em lotes. Disponível: :quantidade', ['quantidade' => $totalAvailable])
                     ]);
                     return;
                 }
@@ -391,7 +398,7 @@ class ProformaCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Quantidade incrementada: ' . $product->name
+                'message' => __('Quantidade incrementada: :produto', ['produto' => $product->name])
             ]);
         } else {
             // Imposto pela fonte única (regime do tenant + produto)
@@ -413,8 +420,11 @@ class ProformaCreate extends Component
                 ]
             ]);
             
-            $typeLabel = $product->type === 'servico' ? 'Serviço' : 'Produto';
-            $message = $typeLabel . ' adicionado: ' . $product->name . ' (IVA: ' . $tx['rate'] . '%)';
+            // Frase inteira por tipo, e não "rótulo + resto": noutras línguas o
+            // adjectivo concorda com o nome e a ordem das palavras muda.
+            $message = $product->type === 'servico'
+                ? __('Serviço adicionado: :produto (IVA: :taxa%)', ['produto' => $product->name, 'taxa' => $tx['rate']])
+                : __('Produto adicionado: :produto (IVA: :taxa%)', ['produto' => $product->name, 'taxa' => $tx['rate']]);
             
             // Se rastreia lotes, adicionar info
             if ($product->track_batches) {
@@ -425,7 +435,7 @@ class ProformaCreate extends Component
                     ->where('quantity_available', '>', 0)
                     ->get();
                 $totalAvailable = $availableBatches->sum('quantity_available');
-                $message .= ' | Lotes: ' . $availableBatches->count() . ' (Total disponível: ' . $totalAvailable . ')';
+                $message .= ' | ' . __('Lotes: :contagem (Total disponível: :disponivel)', ['contagem' => $availableBatches->count(), 'disponivel' => $totalAvailable]);
             }
             
             $this->dispatch('notify', [
@@ -444,20 +454,20 @@ class ProformaCreate extends Component
         
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Carrinho limpo com sucesso!'
+            'message' => __('Carrinho limpo com sucesso!')
         ]);
     }
 
     public function removeProduct($productId)
     {
         $item = Cart::session($this->cartInstance)->get($productId);
-        $productName = $item ? $item->name : 'Produto';
+        $productName = $item ? $item->name : __('Produto');
         
         Cart::session($this->cartInstance)->remove($productId);
         
         $this->dispatch('notify', [
             'type' => 'warning',
-            'message' => 'Produto removido: ' . $productName
+            'message' => __('Produto removido: :produto', ['produto' => $productName])
         ]);
     }
 
@@ -480,7 +490,7 @@ class ProformaCreate extends Component
                 if ($quantity > $totalAvailable) {
                     $this->dispatch('notify', [
                         'type' => 'error',
-                        'message' => '❌ Quantidade insuficiente em lotes. Disponível: ' . $totalAvailable
+                        'message' => '❌ ' . __('Quantidade insuficiente em lotes. Disponível: :quantidade', ['quantidade' => $totalAvailable])
                     ]);
                     return;
                 }
@@ -495,7 +505,7 @@ class ProformaCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Quantidade atualizada para: ' . $quantity
+                'message' => __('Quantidade atualizada para: :quantidade', ['quantidade' => $quantity])
             ]);
         }
     }
@@ -581,7 +591,7 @@ class ProformaCreate extends Component
 
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Cliente criado com sucesso: ' . $client->name
+            'message' => __('Cliente criado com sucesso: :nome', ['nome' => $client->name])
         ]);
     }
 
@@ -594,7 +604,7 @@ class ProformaCreate extends Component
         if ($cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Adicione pelo menos um produto à proforma.'
+                'message' => __('Adicione pelo menos um produto à proforma.')
             ]);
             return;
         }
@@ -603,7 +613,7 @@ class ProformaCreate extends Component
         if ($this->hasPhysicalProducts() && empty($this->warehouse_id)) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Selecione um armazém — existem produtos físicos no documento.'
+                'message' => __('Selecione um armazém — existem produtos físicos no documento.')
             ]);
             return;
         }
@@ -638,7 +648,7 @@ class ProformaCreate extends Component
                 if (!$validation['valid']) {
                     $this->dispatch('notify', [
                         'type' => 'error',
-                        'message' => 'Item "' . $item->name . '": ' . $validation['message']
+                        'message' => __('Item ":artigo": :erro', ['artigo' => $item->name, 'erro' => $validation['message']])
                     ]);
                     return;
                 }
@@ -652,7 +662,7 @@ class ProformaCreate extends Component
                     ->findOrFail($this->proformaId);
                 
                 if ($proforma->status === 'converted') {
-                    throw new \Exception('Não é possível editar uma proforma já convertida.');
+                    throw new \Exception(__('Não é possível editar uma proforma já convertida.'));
                 }
 
                 // Delete old items
@@ -776,7 +786,11 @@ class ProformaCreate extends Component
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Proforma ' . ($this->isEdit ? 'atualizada' : 'criada') . ' com sucesso!'
+                // Frase inteira e não "Proforma " . verbo: o particípio concorda
+                // com o nome e a ordem das palavras muda noutras línguas.
+                'message' => $this->isEdit
+                    ? __('Proforma atualizada com sucesso!')
+                    : __('Proforma criada com sucesso!')
             ]);
             
             // Verificar se deve imprimir automaticamente
@@ -797,7 +811,7 @@ class ProformaCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao salvar proforma: ' . $e->getMessage()
+                'message' => __('Erro ao salvar proforma: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

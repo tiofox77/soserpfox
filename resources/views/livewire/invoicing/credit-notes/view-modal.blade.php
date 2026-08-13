@@ -4,7 +4,7 @@
     @include('livewire.invoicing.partials.note-view-modal', [
         'doc'          => $selectedCreditNote,
         'numero'       => $selectedCreditNote->credit_note_number,
-        'titulo'       => 'Nota de Crédito',
+        'titulo'       => __('Nota de Crédito'),
         'grad'         => 'from-red-600 to-rose-600',
         'accent'       => 'text-red-600',
         'chipBg'       => 'bg-red-100',

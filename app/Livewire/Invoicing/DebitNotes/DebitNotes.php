@@ -67,7 +67,7 @@ class DebitNotes extends Component
         if (isDeleteBlocked('debit_note')) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'A eliminação de Notas de Débito está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                'message' => __('A eliminação de Notas de Débito está bloqueada pelo administrador. Apenas anulações são permitidas.')
             ]);
             $this->showDeleteModal = false;
             return;
@@ -81,7 +81,7 @@ class DebitNotes extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Nota de Débito eliminada com sucesso!'
+            'message' => __('Nota de Débito eliminada com sucesso!')
         ]);
     }
 

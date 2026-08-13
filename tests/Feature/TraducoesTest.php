@@ -32,11 +32,28 @@ class TraducoesTest extends TenantTestCase
         ]);
     }
 
-    /** Onde o detector procura. Alarga-se lote a lote, com a fase 1. */
+    /**
+     * Onde o detector procura. Alarga-se lote a lote, com a fase 1.
+     *
+     * Acrescentar um caminho aqui é o que fecha um lote: a partir desse
+     * momento, qualquer cadeia usada sem tradução põe a suite vermelha.
+     */
     private const ONDE = [
+        // Fase 0 — piloto
         'resources/views/livewire/invoicing/warehouse-transfer',
         'app/Livewire/Invoicing/WarehouseTransfer.php',
         'resources/views/layouts/app.blade.php',
+
+        // Fase 1, lote 1 — vendas
+        'resources/views/livewire/invoicing/faturas-venda',
+        'resources/views/livewire/invoicing/proformas-venda',
+        'resources/views/livewire/invoicing/receipts',
+        'resources/views/livewire/invoicing/credit-notes',
+        'resources/views/livewire/invoicing/debit-notes',
+        'app/Livewire/Invoicing/Sales',
+        'app/Livewire/Invoicing/Receipts',
+        'app/Livewire/Invoicing/CreditNotes',
+        'app/Livewire/Invoicing/DebitNotes',
     ];
 
     // ==================== o detector ====================

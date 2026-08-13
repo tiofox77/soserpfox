@@ -46,12 +46,21 @@ class ReceiptCreate extends Component
         ];
     }
 
-    protected $messages = [
-        'client_id.required_if' => 'O cliente é obrigatório para recibos de venda.',
-        'supplier_id.required_if' => 'O fornecedor é obrigatório para recibos de compra.',
-        'amount_paid.required' => 'O valor pago é obrigatório.',
-        'amount_paid.min' => 'O valor deve ser maior que zero.',
-    ];
+    /**
+     * Método e não propriedade: as mensagens passam por __() e uma propriedade
+     * só aceita valores constantes. O Livewire prefere messages() à propriedade
+     * quando as duas existem, e assim a mensagem é traduzida no momento em que
+     * a validação corre — não uma vez, quando a classe é carregada.
+     */
+    protected function messages()
+    {
+        return [
+            'client_id.required_if' => __('O cliente é obrigatório para recibos de venda.'),
+            'supplier_id.required_if' => __('O fornecedor é obrigatório para recibos de compra.'),
+            'amount_paid.required' => __('O valor pago é obrigatório.'),
+            'amount_paid.min' => __('O valor deve ser maior que zero.'),
+        ];
+    }
 
     public function mount($id = null)
     {
@@ -147,15 +156,19 @@ class ReceiptCreate extends Component
             // O recibo é documento fiscal (RC/RG) como qualquer outro, e não
             // era enviado à AGT — ficava só na aplicação. Depois do commit: o
             // recibo já está gravado e uma falha da AGT não o pode desfazer.
-            $mensagem = 'Recibo ' . ($this->isEdit ? 'atualizado' : 'criado') . ' com sucesso!';
+            // Frase inteira por cada caso, e não "Recibo" + verbo + "com sucesso":
+            // montada aos pedaços não há língua nenhuma em que se possa traduzir.
+            $mensagem = $this->isEdit
+                ? __('Recibo atualizado com sucesso!')
+                : __('Recibo criado com sucesso!');
 
             if (!$this->isEdit && isset($receipt)) {
                 $agt = \App\Services\AGT\AutoSubmissao::submeter($receipt);
 
                 if ($agt['enviado']) {
-                    $mensagem .= ' Submetido à AGT.';
+                    $mensagem .= ' ' . __('Submetido à AGT.');
                 } elseif ($agt['erro']) {
-                    $mensagem .= ' Por submeter à AGT: ' . $agt['erro'];
+                    $mensagem .= ' ' . __('Por submeter à AGT: :erro', ['erro' => $agt['erro']]);
                 }
             }
 
@@ -171,7 +184,7 @@ class ReceiptCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao salvar recibo: ' . $e->getMessage()
+                'message' => __('Erro ao guardar recibo: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

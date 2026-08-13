@@ -115,7 +115,7 @@ class InvoiceCreate extends Component
         $client = Client::find($clientId);
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Cliente selecionado: ' . ($client ? $client->name : '')
+            'message' => __('Cliente selecionado: :nome', ['nome' => $client ? $client->name : ''])
         ]);
     }
     
@@ -176,8 +176,8 @@ class InvoiceCreate extends Component
     protected function messages(): array
     {
         return [
-            'payment_method.required' => 'A Fatura-Recibo é paga no acto — selecione a forma de pagamento.',
-            'invoice_type.in'         => 'Tipo de documento inválido.',
+            'payment_method.required' => __('A Fatura-Recibo é paga no acto — selecione a forma de pagamento.'),
+            'invoice_type.in'         => __('Tipo de documento inválido.'),
         ];
     }
 
@@ -568,7 +568,7 @@ class InvoiceCreate extends Component
             if ($availableBatches->isEmpty()) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '❌ Produto exige lote na venda mas não há lotes disponíveis: ' . $product->name
+                    'message' => '❌ ' . __('Produto exige lote na venda mas não há lotes disponíveis: :produto', ['produto' => $product->name])
                 ]);
                 return;
             }
@@ -579,7 +579,7 @@ class InvoiceCreate extends Component
                 $expiredNumbers = $expiredBatches->pluck('batch_number')->filter()->join(', ');
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => '⚠️ Lotes expirados encontrados: ' . ($expiredNumbers ?: 'Sem número')
+                    'message' => '⚠️ ' . __('Lotes expirados encontrados: :lotes', ['lotes' => $expiredNumbers ?: __('Sem número')])
                 ]);
                 return;
             }
@@ -591,7 +591,11 @@ class InvoiceCreate extends Component
                 $days = $expiringSoon->first()->days_until_expiry ?? 0;
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => '⚠️ Atenção: Lote(s) expirando em ' . $days . ' dias: ' . ($expiringNumbers ?: 'Sem número')
+                    'message' => '⚠️ ' . trans_choice(
+                        'Atenção: lotes a expirar dentro de :n dia: :lotes|Atenção: lotes a expirar dentro de :n dias: :lotes',
+                        $days,
+                        ['n' => $days, 'lotes' => $expiringNumbers ?: __('Sem número')]
+                    )
                 ]);
             }
             
@@ -624,7 +628,7 @@ class InvoiceCreate extends Component
                 if ($newQuantity > $totalAvailable) {
                     $this->dispatch('notify', [
                         'type' => 'error',
-                        'message' => '❌ Quantidade insuficiente em lotes. Disponível: ' . $totalAvailable
+                        'message' => '❌ ' . __('Quantidade insuficiente em lotes. Disponível: :quantidade', ['quantidade' => $totalAvailable])
                     ]);
                     return;
                 }
@@ -637,7 +641,7 @@ class InvoiceCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Quantidade incrementada: ' . $product->name
+                'message' => __('Quantidade incrementada: :produto', ['produto' => $product->name])
             ]);
         } else {
             // A taxa vem do TaxResolver, a fonte ÚNICA do imposto por linha:
@@ -665,8 +669,11 @@ class InvoiceCreate extends Component
                 ]
             ]);
             
-            $typeLabel = $product->type === 'servico' ? 'Serviço' : 'Produto';
-            $message = $typeLabel . ' adicionado: ' . $product->name . ' (IVA: ' . $taxRate . '%)';
+            // Frase inteira por tipo: em francês e inglês o particípio não se
+            // cola ao substantivo como em português.
+            $message = $product->type === 'servico'
+                ? __('Serviço adicionado: :nome (IVA: :taxa%)', ['nome' => $product->name, 'taxa' => $taxRate])
+                : __('Produto adicionado: :nome (IVA: :taxa%)', ['nome' => $product->name, 'taxa' => $taxRate]);
             
             // Se rastreia lotes, adicionar info
             if ($product->track_batches) {
@@ -677,7 +684,10 @@ class InvoiceCreate extends Component
                     ->where('quantity_available', '>', 0)
                     ->get();
                 $totalAvailable = $availableBatches->sum('quantity_available');
-                $message .= ' | Lotes: ' . $availableBatches->count() . ' (Total disponível: ' . $totalAvailable . ')';
+                $message .= ' | ' . __('Lotes: :n (Total disponível: :total)', [
+                    'n'     => $availableBatches->count(),
+                    'total' => $totalAvailable,
+                ]);
             }
             
             $this->dispatch('notify', [
@@ -696,20 +706,20 @@ class InvoiceCreate extends Component
         
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Carrinho limpo com sucesso!'
+            'message' => __('Carrinho limpo com sucesso!')
         ]);
     }
 
     public function removeProduct($productId)
     {
         $item = Cart::session($this->cartInstance)->get($productId);
-        $productName = $item ? $item->name : 'Produto';
-        
+        $productName = $item ? $item->name : __('Produto');
+
         Cart::session($this->cartInstance)->remove($productId);
-        
+
         $this->dispatch('notify', [
             'type' => 'warning',
-            'message' => 'Produto removido: ' . $productName
+            'message' => __('Produto removido: :nome', ['nome' => $productName])
         ]);
     }
 
@@ -732,7 +742,7 @@ class InvoiceCreate extends Component
                 if ($quantity > $totalAvailable) {
                     $this->dispatch('notify', [
                         'type' => 'error',
-                        'message' => '❌ Quantidade insuficiente em lotes. Disponível: ' . $totalAvailable
+                        'message' => '❌ ' . __('Quantidade insuficiente em lotes. Disponível: :quantidade', ['quantidade' => $totalAvailable])
                     ]);
                     return;
                 }
@@ -747,7 +757,7 @@ class InvoiceCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Quantidade atualizada para: ' . $quantity
+                'message' => __('Quantidade atualizada para: :quantidade', ['quantidade' => $quantity])
             ]);
         }
     }
@@ -830,7 +840,7 @@ class InvoiceCreate extends Component
 
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Fornecedor criado com sucesso: ' . $Client->name
+            'message' => __('Fornecedor criado com sucesso: :nome', ['nome' => $Client->name])
         ]);
     }
 
@@ -843,7 +853,7 @@ class InvoiceCreate extends Component
         if ($cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Adicione pelo menos um produto à fatura.'
+                'message' => __('Adicione pelo menos um produto à fatura.')
             ]);
             return;
         }
@@ -852,7 +862,7 @@ class InvoiceCreate extends Component
         if ($this->hasPhysicalProducts() && empty($this->warehouse_id)) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Selecione um armazém — existem produtos físicos no documento.'
+                'message' => __('Selecione um armazém — existem produtos físicos no documento.')
             ]);
             return;
         }
@@ -866,7 +876,9 @@ class InvoiceCreate extends Component
             if ($daysDiff > 5) {
                 $this->dispatch('notify', [
                     'type' => 'warning',
-                    'message' => "Atenção: A fatura está a ser emitida {$daysDiff} dias após a data de entrega. O Decreto 71/25 exige emissão até 5 dias após o facto tributário."
+                    // Só entra aqui com $daysDiff > 5, logo nunca há forma
+                    // singular a produzir — basta o marcador.
+                    'message' => __('Atenção: a fatura está a ser emitida :n dias após a data de entrega. O Decreto 71/25 exige emissão até 5 dias após o facto tributário.', ['n' => $daysDiff])
                 ]);
             }
         }
@@ -901,7 +913,7 @@ class InvoiceCreate extends Component
                 if (!$validation['valid']) {
                     $this->dispatch('notify', [
                         'type' => 'error',
-                        'message' => 'Item "' . $item->name . '": ' . $validation['message']
+                        'message' => __('Item ":nome": :erro', ['nome' => $item->name, 'erro' => $validation['message']])
                     ]);
                     return;
                 }
@@ -915,17 +927,17 @@ class InvoiceCreate extends Component
                     ->findOrFail($this->invoiceId);
                 
                 if ($invoice->status === 'converted') {
-                    throw new \Exception('Não é possível editar uma fatura já convertida.');
+                    throw new \Exception(__('Não é possível editar uma fatura já convertida.'));
                 }
                 
                 // Decreto 71/25: documento finalizado (com hash) não pode ser editado
                 // Apenas rectificação via Nota de Crédito é permitida
                 if ($invoice->invoice_status === 'F' && !empty($invoice->saft_hash)) {
-                    throw new \Exception('Esta fatura já foi finalizada e não pode ser editada. Utilize uma Nota de Crédito para rectificação (Decreto 71/25).');
+                    throw new \Exception(__('Esta fatura já foi finalizada e não pode ser editada. Utilize uma Nota de Crédito para rectificação (Decreto 71/25).'));
                 }
                 
                 if (in_array($invoice->status, ['paid', 'cancelled', 'credited'])) {
-                    throw new \Exception('Não é possível editar uma fatura com estado: ' . $invoice->status_label);
+                    throw new \Exception(__('Não é possível editar uma fatura com estado: :estado', ['estado' => $invoice->status_label]));
                 }
 
                 // Delete old items
@@ -1220,17 +1232,21 @@ class InvoiceCreate extends Component
                     try {
                         $agtResult = $invoice->fresh()->submitToAGT();
                         $agtMessage = ($agtResult['success'] ?? false)
-                            ? ' · AGT requestID: ' . ($agtResult['requestID'] ?? '—')
-                            : ' · AGT erro: ' . ($agtResult['error'] ?? 'desconhecido');
+                            ? ' · ' . __('AGT requestID: :id', ['id' => $agtResult['requestID'] ?? '—'])
+                            : ' · ' . __('AGT erro: :erro', ['erro' => $agtResult['error'] ?? __('desconhecido')]);
                     } catch (\Throwable $e) {
-                        $agtMessage = ' · AGT excepção: ' . $e->getMessage();
+                        $agtMessage = ' · ' . __('AGT excepção: :erro', ['erro' => $e->getMessage()]);
                     }
                 }
             }
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Fatura ' . ($this->isEdit ? 'atualizada' : 'criada') . ' com sucesso!' . $agtMessage,
+                // Frase inteira em cada caso: noutras línguas o particípio não
+                // se encaixa a meio da frase como em português.
+                'message' => ($this->isEdit
+                    ? __('Fatura atualizada com sucesso!')
+                    : __('Fatura criada com sucesso!')) . $agtMessage,
             ]);
             
             // Verificar se deve imprimir automaticamente
@@ -1251,7 +1267,7 @@ class InvoiceCreate extends Component
 
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao salvar fatura: ' . $e->getMessage()
+                'message' => __('Erro ao salvar fatura: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }
@@ -1267,7 +1283,7 @@ class InvoiceCreate extends Component
     /** Rótulo do documento para a UI. */
     public function getDocumentLabelProperty(): string
     {
-        return $this->isFaturaRecibo() ? 'Fatura-Recibo' : 'Fatura';
+        return $this->isFaturaRecibo() ? __('Fatura-Recibo') : __('Fatura');
     }
 
     /** Métodos de pagamento da tesouraria (para o seletor da FR). */

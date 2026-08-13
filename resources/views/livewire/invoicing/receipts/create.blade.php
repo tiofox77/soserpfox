@@ -7,16 +7,16 @@
                     <i class="fas fa-receipt text-3xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-3xl font-bold">{{ $isEdit ? 'Editar Recibo' : 'Novo Recibo' }}</h2>
-                    <p class="text-blue-100 text-sm mt-1">Comprovante de pagamento</p>
+                    <h2 class="text-3xl font-bold">{{ $isEdit ? __('Editar Recibo') : __('Novo Recibo') }}</h2>
+                    <p class="text-blue-100 text-sm mt-1">{{ __('Comprovante de pagamento') }}</p>
                 </div>
             </div>
             <a href="{{ route('invoicing.receipts.index') }}" 
                x-data="{ loading: false }" @click="loading = true"
                :class="loading && 'opacity-70 pointer-events-none scale-95'"
                class="bg-white text-blue-600 hover:bg-blue-50 px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95">
-                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>Voltar</span>
-                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Voltando...</span>
+                <span x-show="!loading"><i class="fas fa-arrow-left mr-2"></i>{{ __('Voltar') }}</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>{{ __('A voltar...') }}</span>
             </a>
         </div>
     </div>
@@ -29,7 +29,7 @@
                     <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mr-3">
                         <i class="fas fa-info-circle text-white text-xl"></i>
                     </div>
-                    <h3 class="text-white font-bold text-lg">Informações do Recibo</h3>
+                    <h3 class="text-white font-bold text-lg">{{ __('Informações do Recibo') }}</h3>
                 </div>
             </div>
             <div class="p-6 space-y-6">
@@ -37,7 +37,7 @@
             {{-- Tipo de Recibo --}}
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-3 uppercase tracking-wider">
-                    <i class="fas fa-tag mr-1 text-blue-600"></i>Tipo de Recibo *
+                    <i class="fas fa-tag mr-1 text-blue-600"></i>{{ __('Tipo de Recibo') }} *
                 </label>
                 <div class="grid grid-cols-2 gap-4">
                     <label class="relative flex items-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 {{ $type === 'sale' ? 'border-green-500 shadow-lg shadow-green-500/30' : 'border-gray-200' }} rounded-xl cursor-pointer transition-all hover:shadow-lg group">
@@ -47,8 +47,8 @@
                                 <i class="fas fa-shopping-cart text-white text-xl"></i>
                             </div>
                             <div>
-                                <p class="font-bold text-gray-900">Venda</p>
-                                <p class="text-xs text-gray-600">Recibo de Cliente</p>
+                                <p class="font-bold text-gray-900">{{ __('Venda') }}</p>
+                                <p class="text-xs text-gray-600">{{ __('Recibo de Cliente') }}</p>
                             </div>
                         </div>
                     </label>
@@ -59,8 +59,8 @@
                                 <i class="fas fa-box text-white text-xl"></i>
                             </div>
                             <div>
-                                <p class="font-bold text-gray-900">Compra</p>
-                                <p class="text-xs text-gray-600">Recibo de Fornecedor</p>
+                                <p class="font-bold text-gray-900">{{ __('Compra') }}</p>
+                                <p class="text-xs text-gray-600">{{ __('Recibo de Fornecedor') }}</p>
                             </div>
                         </div>
                     </label>
@@ -71,7 +71,7 @@
                 {{-- Cliente (se venda) --}}
                 @if($type === 'sale')
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Cliente *</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Cliente') }} *</label>
                     @if($client_id && !$searchClient)
                         @php
                             $selectedClient = $clients->where('id', $client_id)->first();
@@ -90,7 +90,7 @@
                         </div>
                         @endif
                     @else
-                        <input type="text" wire:model.live="searchClient" placeholder="Pesquisar cliente..."
+                        <input type="text" wire:model.live="searchClient" placeholder="{{ __('Pesquisar cliente...') }}"
                                class="w-full rounded-lg border-gray-300">
                         @if($searchClient && $clients->count() > 0)
                         <div class="mt-2 border rounded-lg max-h-60 overflow-y-auto">
@@ -111,7 +111,7 @@
                 {{-- Fornecedor (se compra) --}}
                 @if($type === 'purchase')
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Fornecedor *</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Fornecedor') }} *</label>
                     @if($supplier_id && !$searchSupplier)
                         @php
                             $selectedSupplier = $suppliers->where('id', $supplier_id)->first();
@@ -130,7 +130,7 @@
                         </div>
                         @endif
                     @else
-                        <input type="text" wire:model.live="searchSupplier" placeholder="Pesquisar fornecedor..."
+                        <input type="text" wire:model.live="searchSupplier" placeholder="{{ __('Pesquisar fornecedor...') }}"
                                class="w-full rounded-lg border-gray-300">
                         @if($searchSupplier && $suppliers->count() > 0)
                         <div class="mt-2 border rounded-lg max-h-60 overflow-y-auto">
@@ -151,7 +151,7 @@
                 {{-- Fatura Relacionada (opcional) --}}
                 <div wire:key="invoice-select-{{ $client_id }}-{{ $supplier_id }}">
                     <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                        <i class="fas fa-file-invoice mr-1 text-blue-600"></i>Fatura Relacionada (opcional)
+                        <i class="fas fa-file-invoice mr-1 text-blue-600"></i>{{ __('Fatura Relacionada (opcional)') }}
                     </label>
                     @if(($type === 'sale' && $client_id) || ($type === 'purchase' && $supplier_id))
                         <div class="relative">
@@ -159,7 +159,7 @@
                                 <i class="fas fa-file-invoice text-blue-500"></i>
                             </div>
                             <select wire:model="invoice_id" class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white">
-                                <option value="">Sem fatura associada</option>
+                                <option value="">{{ __('Sem fatura associada') }}</option>
                                 @foreach($invoices as $invoice)
                                 <option value="{{ $invoice->id }}">
                                     {{ $invoice->invoice_number }} - {{ number_format($invoice->total, 2) }} AOA
@@ -168,10 +168,12 @@
                                 @endforeach
                             </select>
                         </div>
-                        <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>Selecionar fatura atualiza automaticamente o status de pagamento</p>
+                        <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>{{ __('Selecionar fatura atualiza automaticamente o status de pagamento') }}</p>
                     @else
                         <div class="p-4 bg-gray-50 rounded-xl border-2 border-gray-200 text-center text-gray-500">
-                            <i class="fas fa-arrow-up mr-1"></i>Selecione um {{ $type === 'sale' ? 'cliente' : 'fornecedor' }} primeiro para ver as faturas
+                            {{-- Frase inteira por cada caso: a ordem das palavras muda de língua
+                                 para língua e não se pode montar por pedaços. --}}
+                            <i class="fas fa-arrow-up mr-1"></i>{{ $type === 'sale' ? __('Selecione um cliente primeiro para ver as faturas') : __('Selecione um fornecedor primeiro para ver as faturas') }}
                         </div>
                     @endif
                 </div>
@@ -181,7 +183,7 @@
                 {{-- Valor Pago --}}
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                        <i class="fas fa-money-bill-wave mr-1 text-green-600"></i>Valor Pago (AOA) *
+                        <i class="fas fa-money-bill-wave mr-1 text-green-600"></i>{{ __('Valor Pago') }} (AOA) *
                     </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -197,7 +199,7 @@
                 {{-- Data do Pagamento --}}
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                        <i class="fas fa-calendar mr-1 text-blue-600"></i>Data do Pagamento *
+                        <i class="fas fa-calendar mr-1 text-blue-600"></i>{{ __('Data do Pagamento') }} *
                     </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -212,7 +214,7 @@
                 {{-- Método de Pagamento --}}
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">
-                        <i class="fas fa-credit-card mr-1 text-purple-600"></i>Método de Pagamento *
+                        <i class="fas fa-credit-card mr-1 text-purple-600"></i>{{ __('Método de Pagamento') }} *
                     </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -220,13 +222,14 @@
                         </div>
                         <select wire:model="payment_method" 
                                 class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none bg-white">
-                            <option value="cash">💵 Dinheiro</option>
-                            <option value="transfer">🏦 Transferência</option>
+                            {{-- Multicaixa, TPA e MB Way são nomes de meios de pagamento: ficam como estão. --}}
+                            <option value="cash">💵 {{ __('Dinheiro') }}</option>
+                            <option value="transfer">🏦 {{ __('Transferência bancária') }}</option>
                             <option value="multicaixa">💳 Multicaixa</option>
                             <option value="tpa">💳 TPA</option>
-                            <option value="check">📝 Cheque</option>
+                            <option value="check">📝 {{ __('Cheque') }}</option>
                             <option value="mbway">📱 MB Way</option>
-                            <option value="other">❓ Outro</option>
+                            <option value="other">❓ {{ __('Outro') }}</option>
                         </select>
                     </div>
                 </div>
@@ -235,19 +238,19 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {{-- Referência --}}
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Referência (opcional)</label>
-                    <input type="text" wire:model="reference" 
-                           class="w-full rounded-lg border-gray-300" 
-                           placeholder="Ex: Nº transferência, nº cheque...">
-                    <p class="text-xs text-gray-600 mt-1">Número de transferência, cheque, comprovante, etc</p>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Referência (opcional)') }}</label>
+                    <input type="text" wire:model="reference"
+                           class="w-full rounded-lg border-gray-300"
+                           placeholder="{{ __('Ex: Nº transferência, nº cheque...') }}">
+                    <p class="text-xs text-gray-600 mt-1">{{ __('Número de transferência, cheque, comprovativo, etc') }}</p>
                 </div>
 
                 {{-- Observações --}}
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Observações (opcional)</label>
-                    <textarea wire:model="notes" rows="3" 
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Observações (opcional)') }}</label>
+                    <textarea wire:model="notes" rows="3"
                               class="w-full rounded-lg border-gray-300"
-                              placeholder="Observações adicionais..."></textarea>
+                              placeholder="{{ __('Observações adicionais...') }}"></textarea>
                 </div>
             </div>
 
@@ -255,11 +258,12 @@
             <div class="flex gap-4 pt-6 border-t-2 border-gray-100 mt-8">
                 <a href="{{ route('invoicing.receipts.index') }}" 
                    class="flex-1 px-8 py-4 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all text-center hover:shadow-lg transform hover:-translate-y-0.5">
-                    <i class="fas fa-times mr-2"></i>Cancelar
+                    <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                 </a>
-                <button type="submit" 
+                <button type="submit"
                         class="flex-1 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-2xl hover:shadow-blue-500/50 transform hover:-translate-y-0.5">
-                    <i class="fas fa-save mr-2"></i>{{ $isEdit ? 'Atualizar' : 'Criar' }} Recibo
+                    {{-- Frase inteira, não "verbo + Recibo": noutras línguas a ordem é outra. --}}
+                    <i class="fas fa-save mr-2"></i>{{ $isEdit ? __('Atualizar Recibo') : __('Criar Recibo') }}
                 </button>
             </div>
             </div>
@@ -312,7 +316,7 @@
             Livewire.on('notify', (event) => {
                 const data = event[0] || event;
                 const type = data.type || 'info';
-                const message = data.message || 'Notificação';
+                const message = data.message || @json(__('Notificação'));
                 
                 if (typeof toastr !== 'undefined') {
                     toastr.options = {
@@ -324,16 +328,16 @@
                     
                     switch(type) {
                         case 'success':
-                            toastr.success(message, 'Sucesso');
+                            toastr.success(message, @json(__('Sucesso')));
                             break;
                         case 'error':
-                            toastr.error(message, 'Erro');
+                            toastr.error(message, @json(__('Erro')));
                             break;
                         case 'warning':
-                            toastr.warning(message, 'Atenção');
+                            toastr.warning(message, @json(__('Atenção')));
                             break;
                         case 'info':
-                            toastr.info(message, 'Info');
+                            toastr.info(message, @json(__('Info')));
                             break;
                     }
                 }

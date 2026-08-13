@@ -21,20 +21,20 @@
                 @endphp
                 <h2 class="text-xl sm:text-3xl font-bold text-gray-800 flex items-center">
                     <i class="fas {{ $__ehFR ? 'fa-receipt text-emerald-600' : 'fa-file-invoice text-purple-600' }} mr-2 sm:mr-3"></i>
-                    {{ $__ehFR ? 'Faturas-Recibo' : 'Faturas de Venda' }}
+                    {{ $__ehFR ? __('Faturas-Recibo') : __('Faturas de Venda') }}
                 </h2>
                 <p class="text-gray-600 mt-1 text-xs sm:text-base">
                     {{ $__ehFR
-                        ? 'Documentos pagos no acto (FR) — mesma sequência do POS'
-                        : 'Faturas de vendas para clientes' }}
+                        ? __('Documentos pagos no acto (FR) — mesma sequência do POS')
+                        : __('Faturas de vendas para clientes') }}
                 </p>
             </div>
             <a href="{{ route('invoicing.sales.invoices.create', $__ehFR ? ['type' => 'FR'] : []) }}"
                x-data="{ loading: false }" @click="loading = true"
                :class="loading && 'opacity-70 pointer-events-none scale-95'"
                class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r {{ $__ehFR ? 'from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700' : 'from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700' }} text-white rounded-xl font-bold transition-all duration-300 shadow-lg hover:scale-105 active:scale-95 text-sm sm:text-base text-center">
-                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>{{ $__ehFR ? 'Nova Fatura-Recibo' : 'Nova Fatura' }}</span>
-                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>Carregando...</span>
+                <span x-show="!loading"><i class="fas fa-plus mr-2"></i>{{ $__ehFR ? __('Nova Fatura-Recibo') : __('Nova Fatura') }}</span>
+                <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Carregando...') }}</span>
             </a>
         </div>
     </div>
@@ -56,7 +56,7 @@
         <div class="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-orange-200 text-xs font-medium">Total</p>
+                    <p class="text-orange-200 text-xs font-medium">{{ __('Total') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['total'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -68,7 +68,7 @@
         <div class="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-200 text-xs font-medium">Rascunho</p>
+                    <p class="text-gray-200 text-xs font-medium">{{ __('Rascunho') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['draft'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -80,7 +80,7 @@
         <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-yellow-200 text-xs font-medium">Pendentes</p>
+                    <p class="text-yellow-200 text-xs font-medium">{{ __('Pendentes') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['pending'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -92,7 +92,7 @@
         <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-green-200 text-xs font-medium">Pagas</p>
+                    <p class="text-green-200 text-xs font-medium">{{ __('Pagas') }}</p>
                     <p class="text-2xl font-bold mt-1">{{ $stats['paid'] }}</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -104,7 +104,7 @@
         <div class="bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl shadow-lg p-4 text-white">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-yellow-200 text-xs font-medium">Valor Total</p>
+                    <p class="text-yellow-200 text-xs font-medium">{{ __('Valor Total') }}</p>
                     <p class="text-xl font-bold mt-1">{{ number_format($stats['total_amount'], 2) }} Kz</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-full">
@@ -126,36 +126,36 @@
     <div class="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
             <div class="col-span-2 md:col-span-4">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Pesquisar</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search"
-                       placeholder="Número ou cliente…"
+                       placeholder="{{ __('Número ou cliente…') }}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
             </div>
             <div class="col-span-1 md:col-span-2">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Tipo</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Tipo') }}</label>
                 <select wire:model.live="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
-                    <option value="">Todos</option>
-                    <option value="FT">Fatura (FT)</option>
-                    <option value="FR">Fatura-Recibo (FR)</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="FT">{{ __('Fatura (FT)') }}</option>
+                    <option value="FR">{{ __('Fatura-Recibo (FR)') }}</option>
                 </select>
             </div>
             <div class="col-span-1 md:col-span-2">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Estado</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Estado') }}</label>
                 <select wire:model.live="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
-                    <option value="">Todos</option>
-                    <option value="draft">Rascunho</option>
-                    <option value="pending">Pendente</option>
-                    <option value="paid">Pago</option>
-                    <option value="partially_paid">Parcialmente pago</option>
-                    <option value="overdue">Atrasado</option>
-                    <option value="credited">Creditado</option>
-                    <option value="cancelled">Cancelado</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="draft">{{ __('Rascunho') }}</option>
+                    <option value="pending">{{ __('Pendente') }}</option>
+                    <option value="paid">{{ __('Pago') }}</option>
+                    <option value="partially_paid">{{ __('Parcialmente pago') }}</option>
+                    <option value="overdue">{{ __('Atrasado') }}</option>
+                    <option value="credited">{{ __('Creditado') }}</option>
+                    <option value="cancelled">{{ __('Cancelado') }}</option>
                 </select>
             </div>
             <div class="col-span-2 md:col-span-4">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Armazém</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Armazém') }}</label>
                 <select wire:model.live="warehouseFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
-                    <option value="">Todos</option>
+                    <option value="">{{ __('Todos') }}</option>
                     @foreach($warehouses as $w)
                         <option value="{{ $w->id }}">{{ $w->name }}</option>
                     @endforeach
@@ -163,15 +163,15 @@
             </div>
 
             <div class="col-span-1 md:col-span-3">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">De</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('De') }}</label>
                 <input type="date" wire:model.live="dateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
             </div>
             <div class="col-span-1 md:col-span-3">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Até</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Até') }}</label>
                 <input type="date" wire:model.live="dateTo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500">
             </div>
             <div class="col-span-1 md:col-span-3">
-                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">Por página</label>
+                <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Por página') }}</label>
                 <select wire:model.live="perPage" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
                     <option value="15">15</option>
                     <option value="30">30</option>
@@ -182,18 +182,27 @@
             <div class="col-span-1 md:col-span-3 flex items-end">
                 <button wire:click="limparFiltros" type="button"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
-                    <i class="fas fa-eraser mr-1"></i>Limpar
+                    <i class="fas fa-eraser mr-1"></i>{{ __('Limpar') }}
                 </button>
             </div>
         </div>
 
         {{-- O período começa no mês corrente: sem isto dizer nada, uma factura
              de Janeiro "desaparecia" e parecia que a pesquisa estava avariada. --}}
+        {{-- Uma frase inteira, e nao pedacos colados: em ingles e frances a
+             ordem das palavras nao e a portuguesa. O plural vai por
+             trans_choice, que o "documento(s)" nao existe noutras linguas. --}}
         <p class="mt-3 text-[11px] text-gray-400">
             <i class="fas fa-circle-info mr-1"></i>
-            A mostrar {{ $invoices->total() }} documento(s) de
-            {{ \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') }} a
-            {{ \Carbon\Carbon::parse($dateTo)->format('d/m/Y') }}. Alargue as datas para ver mais.
+            {{ trans_choice(
+                'A mostrar :n documento de :inicio a :fim. Alargue as datas para ver mais.|A mostrar :n documentos de :inicio a :fim. Alargue as datas para ver mais.',
+                $invoices->total(),
+                [
+                    'n' => $invoices->total(),
+                    'inicio' => \Carbon\Carbon::parse($dateFrom)->format('d/m/Y'),
+                    'fim' => \Carbon\Carbon::parse($dateTo)->format('d/m/Y'),
+                ]
+            ) }}
         </p>
     </div>
 
@@ -202,7 +211,7 @@
         <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
             <h3 class="text-white font-bold text-lg flex items-center">
                 <i class="fas fa-list mr-2"></i>
-                Lista de Faturas de Venda
+                {{ __('Lista de Faturas de Venda') }}
             </h3>
         </div>
 
@@ -211,29 +220,29 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
-                            <i class="fas fa-hashtag mr-1 text-purple-600"></i>Número
+                            <i class="fas fa-hashtag mr-1 text-purple-600"></i>{{ __('Número') }}
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase w-full">
                             {{-- w-full: e o CLIENTE que fica com a largura que sobra.
                                  Sem isto era a coluna de accoes a absorve-la — 282px
                                  para quatro botoes de 34px, enquanto o nome do cliente
                                  se apertava em 149. --}}
-                            <i class="fas fa-user mr-1 text-blue-600"></i>Cliente
+                            <i class="fas fa-user mr-1 text-blue-600"></i>{{ __('Cliente') }}
                         </th>
                         <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                            <i class="fas fa-calendar mr-1 text-green-600"></i>Data
+                            <i class="fas fa-calendar mr-1 text-green-600"></i>{{ __('Data') }}
                         </th>
                         <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                            <i class="fas fa-calendar-check mr-1 text-purple-600"></i>Vencimento
+                            <i class="fas fa-calendar-check mr-1 text-purple-600"></i>{{ __('Vencimento') }}
                         </th>
                         <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
-                            <i class="fas fa-info-circle mr-1 text-gray-600"></i>Estado
+                            <i class="fas fa-info-circle mr-1 text-gray-600"></i>{{ __('Estado') }}
                         </th>
                         <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
-                            <i class="fas fa-money-bill mr-1 text-green-600"></i>Total
+                            <i class="fas fa-money-bill mr-1 text-green-600"></i>{{ __('Total') }}
                         </th>
                         <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase whitespace-nowrap w-px">
-                            <i class="fas fa-cog mr-1 text-gray-600"></i>Ações
+                            <i class="fas fa-cog mr-1 text-gray-600"></i>{{ __('Ações') }}
                         </th>
                     </tr>
                 </thead>
@@ -243,9 +252,9 @@
                         <td class="px-4 py-3 whitespace-nowrap">
                             <span class="text-sm font-bold text-purple-600">{{ $invoice->invoice_number }}</span>
                             @if(($invoice->invoice_type ?? 'FT') === 'FR')
-                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700" title="Fatura-Recibo — paga no acto">FR</span>
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700" title="{{ __('Fatura-Recibo — paga no acto') }}">FR</span>
                             @else
-                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700" title="Fatura">FT</span>
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700" title="{{ __('Fatura') }}">FT</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">
@@ -289,8 +298,8 @@
                             </span>
                             @if($invoice->status === 'partially_paid')
                                 <div class="text-xs text-gray-600 mt-1">
-                                    Pago: {{ number_format($invoice->paid_amount ?? 0, 2) }} AOA
-                                    <br>Falta: {{ number_format($invoice->balance, 2) }} AOA
+                                    {{ __('Pago:') }} {{ number_format($invoice->paid_amount ?? 0, 2) }} AOA
+                                    <br>{{ __('Falta:') }} {{ number_format($invoice->balance, 2) }} AOA
                                 </div>
                             @endif
                         </td>
@@ -306,7 +315,7 @@
                                         class="group relative p-2 bg-purple-100 hover:bg-purple-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-eye text-purple-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Visualizar
+                                        {{ __('Visualizar') }}
                                     </span>
                                 </button>
                                 
@@ -315,7 +324,7 @@
                                    class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-pdf text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        PDF/Imprimir
+                                        {{ __('PDF/Imprimir') }}
                                     </span>
                                 </a>
                                 
@@ -327,7 +336,7 @@
                                    class="group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Editar rascunho
+                                        {{ __('Editar rascunho') }}
                                     </span>
                                 </a>
                                 @else
@@ -336,7 +345,7 @@
                                    class="group relative p-2 bg-amber-100 hover:bg-amber-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-circle-minus text-amber-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Nota de Crédito (corrigir/anular)
+                                        {{ __('Nota de Crédito (corrigir/anular)') }}
                                     </span>
                                 </a>
 
@@ -344,7 +353,7 @@
                                    class="group relative p-2 bg-indigo-100 hover:bg-indigo-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-circle-plus text-indigo-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Nota de Débito (acrescentar)
+                                        {{ __('Nota de Débito (acrescentar)') }}
                                     </span>
                                 </a>
                                 @endif
@@ -364,7 +373,7 @@
                                         class="group relative p-2 bg-gradient-to-r from-green-100 to-emerald-100 hover:from-green-600 hover:to-emerald-600 rounded-lg transition-all duration-200 transform hover:scale-110 shadow-sm">
                                     <i class="fas fa-money-bill-wave text-green-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        💰 Registrar Pagamento
+                                        💰 {{ __('Registrar Pagamento') }}
                                     </span>
                                 </button>
                                 @endif
@@ -372,11 +381,11 @@
                                 @if($__podePagar)
                                 <button wire:click="markAsPaid({{ $invoice->id }})"
                                         wire:loading.attr="disabled"
-                                        wire:confirm="Marcar esta fatura como paga?"
+                                        wire:confirm="{{ __('Marcar esta fatura como paga?') }}"
                                         class="group relative p-2 bg-green-100 hover:bg-green-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-check-circle text-green-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Marcar como Pago
+                                        {{ __('Marcar como Pago') }}
                                     </span>
                                 </button>
                                 @endif
@@ -389,7 +398,7 @@
                                         class="group relative p-2 bg-red-100 hover:bg-red-600 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50">
                                     <i class="fas fa-trash text-red-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
-                                        Eliminar rascunho
+                                        {{ __('Eliminar rascunho') }}
                                     </span>
                                 </button>
                                 @endif
@@ -403,8 +412,13 @@
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-file-invoice text-gray-300 text-4xl"></i>
                                 </div>
-                                <p class="text-gray-500 text-lg font-semibold">Nenhuma proforma encontrada</p>
-                                <p class="text-gray-400 text-sm mt-2">Crie a sua primeira proforma de compra</p>
+                                {{-- ATENCAO: este texto fala de "proforma de compra"
+                                     numa lista de FACTURAS DE VENDA — copia-e-cola
+                                     de outro ecra. Embrulhado tal e qual para nao
+                                     alterar conteudo neste lote; corrigir o
+                                     portugues ANTES de mandar traduzir. --}}
+                                <p class="text-gray-500 text-lg font-semibold">{{ __('Nenhuma proforma encontrada') }}</p>
+                                <p class="text-gray-400 text-sm mt-2">{{ __('Crie a sua primeira proforma de compra') }}</p>
                             </div>
                         </td>
                     </tr>

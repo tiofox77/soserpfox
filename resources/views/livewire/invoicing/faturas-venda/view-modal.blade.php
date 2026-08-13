@@ -6,7 +6,7 @@
         <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
             <h3 class="text-xl font-bold text-white flex items-center">
                 <i class="fas fa-file-invoice mr-2"></i>
-                Fatura {{ $selectedInvoice->invoice_number }}
+                {{ __('Fatura :numero', ['numero' => $selectedInvoice->invoice_number]) }}
             </h3>
             <button wire:click="closeViewModal" class="text-white hover:text-gray-200 transition">
                 <i class="fas fa-times text-2xl"></i>
@@ -19,7 +19,7 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-user mr-2 text-purple-600"></i>
-                    Informações do Cliente
+                    {{ __('Informações do Cliente') }}
                 </h4>
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="font-bold text-gray-900">{{ $selectedInvoice->client->name }}</p>
@@ -27,10 +27,10 @@
                     <p class="text-sm text-gray-600">NIF: {{ $selectedInvoice->client->nif }}</p>
                     @endif
                     @if($selectedInvoice->client->email)
-                    <p class="text-sm text-gray-600">Email: {{ $selectedInvoice->client->email }}</p>
+                    <p class="text-sm text-gray-600">{{ __('Email:') }} {{ $selectedInvoice->client->email }}</p>
                     @endif
                     @if($selectedInvoice->client->phone)
-                    <p class="text-sm text-gray-600">Tel: {{ $selectedInvoice->client->phone }}</p>
+                    <p class="text-sm text-gray-600">{{ __('Tel:') }} {{ $selectedInvoice->client->phone }}</p>
                     @endif
                 </div>
             </div>
@@ -38,32 +38,32 @@
             {{-- Datas e Status --}}
             <div class="grid grid-cols-3 gap-4 mb-6">
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Data da Fatura:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Data da Fatura:') }}</p>
                     <p class="font-bold text-gray-900">{{ $selectedInvoice->invoice_date->format('d/m/Y') }}</p>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Vencimento:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Vencimento:') }}</p>
                     <p class="font-bold text-gray-900">
                         {{ $selectedInvoice->due_date ? $selectedInvoice->due_date->format('d/m/Y') : '-' }}
                     </p>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-600 mb-1">Status:</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ __('Status:') }}</p>
                     @if($selectedInvoice->status === 'draft')
                         <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-full">
-                            Rascunho
+                            {{ __('Rascunho') }}
                         </span>
                     @elseif($selectedInvoice->status === 'sent')
                         <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
-                            Enviada
+                            {{ __('Enviada') }}
                         </span>
                     @elseif($selectedInvoice->status === 'accepted')
                         <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                            Aceite
+                            {{ __('Aceite') }}
                         </span>
                     @else
                         <span class="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">
-                            Convertida
+                            {{ __('Convertida') }}
                         </span>
                     @endif
                 </div>
@@ -73,18 +73,18 @@
             <div class="mb-6">
                 <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <i class="fas fa-box mr-2 text-purple-600"></i>
-                    Produtos
+                    {{ __('Produtos') }}
                 </h4>
                 <div class="overflow-x-auto">
                     <table class="min-w-full">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700">Produto</th>
-                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">Qtd</th>
-                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">Preço</th>
-                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">Desc%</th>
-                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">IVA</th>
-                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">Total</th>
+                                <th class="px-4 py-2 text-left text-xs font-bold text-gray-700">{{ __('Produto') }}</th>
+                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">{{ __('Qtd') }}</th>
+                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">{{ __('Preço') }}</th>
+                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">{{ __('Desc%') }}</th>
+                                <th class="px-4 py-2 text-center text-xs font-bold text-gray-700">{{ __('IVA') }}</th>
+                                <th class="px-4 py-2 text-right text-xs font-bold text-gray-700">{{ __('Total') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -110,23 +110,23 @@
             <div class="bg-gray-50 rounded-lg p-4">
                 <div class="space-y-2">
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Subtotal:</span>
+                        <span class="text-gray-600">{{ __('Subtotal:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedInvoice->subtotal, 2) }} Kz</span>
                     </div>
                     @if($selectedInvoice->discount_commercial > 0 || $selectedInvoice->discount_amount > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Desconto Comercial:</span>
+                        <span class="text-gray-600">{{ __('Desconto Comercial:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedInvoice->discount_commercial + $selectedInvoice->discount_amount, 2) }} Kz</span>
                     </div>
                     @endif
                     @if($selectedInvoice->discount_financial > 0)
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">Desconto Financeiro:</span>
+                        <span class="text-gray-600">{{ __('Desconto Financeiro:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedInvoice->discount_financial, 2) }} Kz</span>
                     </div>
                     @endif
                     <div class="flex justify-between text-sm">
-                        <span class="text-gray-600">IVA:</span>
+                        <span class="text-gray-600">{{ __('IVA:') }}</span>
                         <span class="font-semibold">{{ number_format($selectedInvoice->tax_amount, 2) }} Kz</span>
                     </div>
 
@@ -145,9 +145,9 @@
                     @foreach($__extras as $__tipo => $__grupo)
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-600">
-                            {{ $__tipo === 'IEC' ? 'IEC' : 'Imposto de Selo' }}
+                            {{ $__tipo === 'IEC' ? 'IEC' : __('Imposto de Selo') }}
                             @if($__tipo === 'IS' && $__grupo->first()->verba_no)
-                                <span class="text-xs text-gray-400">(verba {{ $__grupo->first()->verba_no }})</span>
+                                <span class="text-xs text-gray-400">{{ __('(verba :numero)', ['numero' => $__grupo->first()->verba_no]) }}</span>
                             @endif
                         </span>
                         <span class="font-semibold {{ $__tipo === 'IEC' ? 'text-orange-700' : 'text-purple-700' }}">
@@ -158,7 +158,7 @@
 
                     @if($selectedInvoice->items->first()?->tax_country_region === 'AO-CAB')
                     <div class="flex justify-between text-xs">
-                        <span class="text-amber-700 font-semibold">Região fiscal:</span>
+                        <span class="text-amber-700 font-semibold">{{ __('Região fiscal:') }}</span>
                         <span class="text-amber-700 font-semibold">Cabinda (AO-CAB)</span>
                     </div>
                     @endif
@@ -171,7 +171,7 @@
                     @endphp
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-600">
-                            Retenção {{ $__ret->withholding_tax_type ?? 'IRT' }}
+                            {{ __('Retenção :imposto', ['imposto' => $__ret->withholding_tax_type ?? 'IRT']) }}
                             @if($__ret && (float) $__ret->withholding_tax_percentage > 0)
                                 ({{ rtrim(rtrim(number_format((float) $__ret->withholding_tax_percentage, 2, ',', ''), '0'), ',') }}%)
                             @endif
@@ -180,7 +180,7 @@
                     </div>
                     @endif
                     <div class="flex justify-between pt-2 border-t-2 border-gray-300">
-                        <span class="text-lg font-bold text-gray-900">TOTAL:</span>
+                        <span class="text-lg font-bold text-gray-900">{{ __('TOTAL:') }}</span>
                         <span class="text-2xl font-bold text-green-600">{{ number_format($selectedInvoice->total, 2) }} Kz</span>
                     </div>
                 </div>
@@ -189,7 +189,7 @@
             {{-- Notas --}}
             @if($selectedInvoice->notes)
             <div class="mt-6">
-                <h4 class="text-sm font-bold text-gray-700 mb-2">Notas:</h4>
+                <h4 class="text-sm font-bold text-gray-700 mb-2">{{ __('Notas:') }}</h4>
                 <p class="text-sm text-gray-600">{{ $selectedInvoice->notes }}</p>
             </div>
             @endif
@@ -199,11 +199,11 @@
         <div class="bg-gray-50 px-6 py-4 rounded-b-2xl flex justify-end gap-3">
             <button wire:click="closeViewModal" 
                     class="px-4 py-2 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                Fechar
+                {{ __('Fechar') }}
             </button>
             <a href="{{ route('invoicing.sales.invoices.preview', $selectedInvoice->id) }}" target="_blank"
                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition">
-                <i class="fas fa-file-pdf mr-2"></i>Preview
+                <i class="fas fa-file-pdf mr-2"></i>{{ __('Preview') }}
             </a>
         </div>
     </div>

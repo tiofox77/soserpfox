@@ -129,7 +129,11 @@ class DebitNoteCreate extends Component
 
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => count($invoice->items) . ' produtos carregados da fatura!'
+            'message' => trans_choice(
+                ':n produto carregado da fatura!|:n produtos carregados da fatura!',
+                count($invoice->items),
+                ['n' => count($invoice->items)]
+            ),
         ]);
     }
 
@@ -146,7 +150,7 @@ class DebitNoteCreate extends Component
         if (!$product) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Produto não encontrado nesta empresa.',
+                'message' => __('Produto não encontrado nesta empresa.'),
             ]);
             return;
         }
@@ -205,7 +209,7 @@ class DebitNoteCreate extends Component
         if ($cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Adicione pelo menos um item à nota de débito.'
+                'message' => __('Adicione pelo menos um item à nota de débito.')
             ]);
             return;
         }
@@ -451,7 +455,7 @@ class DebitNoteCreate extends Component
             //
             // Depois do commit: a nota já está gravada e uma AGT em baixo não
             // a pode desfazer nem prender o utilizador.
-            $mensagem = 'Nota de Débito criada com sucesso!';
+            $mensagem = __('Nota de Débito criada com sucesso!');
             $tipo = 'success';
 
             $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
@@ -464,11 +468,12 @@ class DebitNoteCreate extends Component
                 }
 
                 if ($agtResult['success'] ?? false) {
-                    $mensagem .= ' Submetida à AGT (requestID: ' . ($agtResult['requestID'] ?? '—') . ').';
+                    $mensagem .= ' ' . __('Submetida à AGT (requestID: :pedido).', ['pedido' => $agtResult['requestID'] ?? '—']);
                 } else {
                     $tipo = 'warning';
-                    $mensagem .= ' POR COMUNICAR à AGT: ' . ($agtResult['error'] ?? 'erro desconhecido')
-                        . '. Pode reenviar no ecrã de Submissões.';
+                    $mensagem .= ' ' . __('POR COMUNICAR à AGT: :erro. Pode reenviar no ecrã de Submissões.', [
+                        'erro' => $agtResult['error'] ?? __('erro desconhecido'),
+                    ]);
                 }
             }
 
@@ -481,7 +486,7 @@ class DebitNoteCreate extends Component
             
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao criar nota de débito: ' . $e->getMessage()
+                'message' => __('Erro ao criar nota de débito: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

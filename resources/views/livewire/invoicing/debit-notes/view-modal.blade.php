@@ -4,7 +4,7 @@
     @include('livewire.invoicing.partials.note-view-modal', [
         'doc'          => $selectedDebitNote,
         'numero'       => $selectedDebitNote->debit_note_number,
-        'titulo'       => 'Nota de Débito',
+        'titulo'       => __('Nota de Débito'),
         'grad'         => 'from-green-600 to-emerald-600',
         'accent'       => 'text-green-600',
         'chipBg'       => 'bg-green-100',

@@ -65,7 +65,7 @@ class CreditNotes extends Component
         if (isDeleteBlocked('credit_note')) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'A eliminação de Notas de Crédito está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                'message' => __('A eliminação de Notas de Crédito está bloqueada pelo administrador. Apenas anulações são permitidas.')
             ]);
             $this->showDeleteModal = false;
             return;
@@ -79,7 +79,7 @@ class CreditNotes extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Nota de Crédito eliminada com sucesso!'
+            'message' => __('Nota de Crédito eliminada com sucesso!')
         ]);
     }
 

@@ -49,7 +49,7 @@ class Receipts extends Component
         if (isDeleteBlocked('receipt')) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'A eliminação de Recibos está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                'message' => __('A eliminação de Recibos está bloqueada pelo administrador. Apenas anulações são permitidas.')
             ]);
             $this->showDeleteModal = false;
             return;
@@ -63,7 +63,7 @@ class Receipts extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Recibo eliminado com sucesso!'
+            'message' => __('Recibo eliminado com sucesso!')
         ]);
     }
 
@@ -89,7 +89,7 @@ class Receipts extends Component
         
         $this->dispatch('notify', [
             'type' => 'success',
-            'message' => 'Recibo cancelado com sucesso!'
+            'message' => __('Recibo cancelado com sucesso!')
         ]);
     }
 

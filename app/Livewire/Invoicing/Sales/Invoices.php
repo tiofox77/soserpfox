@@ -126,7 +126,7 @@ class Invoices extends Component
             if (isDeleteBlocked('sales_invoice')) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'A eliminação de Faturas de Venda está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                    'message' => __('A eliminação de Faturas de Venda está bloqueada pelo administrador. Apenas anulações são permitidas.')
                 ]);
                 $this->showDeleteModal = false;
                 return;
@@ -140,7 +140,7 @@ class Invoices extends Component
             if ($invoice->invoice_status === 'F' || $invoice->status !== 'draft') {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'Documento fiscal emitido não pode ser eliminado. Emita uma Nota de Crédito para rectificar (Decreto 71/25).',
+                    'message' => __('Documento fiscal emitido não pode ser eliminado. Emita uma Nota de Crédito para rectificar (Decreto 71/25).'),
                 ]);
                 $this->showDeleteModal = false;
                 return;
@@ -155,7 +155,7 @@ class Invoices extends Component
             if ($temPagamentos) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'Não é possível eliminar uma fatura que já tem pagamentos associados.'
+                    'message' => __('Não é possível eliminar uma fatura que já tem pagamentos associados.')
                 ]);
                 $this->showDeleteModal = false;
                 return;
@@ -165,7 +165,7 @@ class Invoices extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Fatura eliminada com sucesso!'
+                'message' => __('Fatura eliminada com sucesso!')
             ]);
         }
 
@@ -184,15 +184,19 @@ class Invoices extends Component
         if (($invoice->invoice_type ?? 'FT') === 'FR') {
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'A Fatura-Recibo já é paga no acto da venda.',
+                'message' => __('A Fatura-Recibo já é paga no acto da venda.'),
             ]);
             return;
         }
 
         if (in_array($invoice->status, ['paid', 'cancelled'], true)) {
+            // Duas frases inteiras, e não uma frase colada a um adjectivo: noutras
+            // línguas a concordância e a ordem das palavras não são as portuguesas.
             $this->dispatch('notify', [
                 'type' => 'info',
-                'message' => 'Esta fatura já está ' . ($invoice->status === 'paid' ? 'paga' : 'cancelada') . '.',
+                'message' => $invoice->status === 'paid'
+                    ? __('Esta fatura já está paga.')
+                    : __('Esta fatura já está cancelada.'),
             ]);
             return;
         }
@@ -203,13 +207,13 @@ class Invoices extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Fatura marcada como paga!'
+                'message' => __('Fatura marcada como paga!')
             ]);
             
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao atualizar fatura: ' . $e->getMessage()
+                'message' => __('Erro ao atualizar fatura: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

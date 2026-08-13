@@ -113,7 +113,7 @@ class Proformas extends Component
             if (isDeleteBlocked('proforma')) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'A eliminação de Proformas está bloqueada pelo administrador. Apenas anulações são permitidas.'
+                    'message' => __('A eliminação de Proformas está bloqueada pelo administrador. Apenas anulações são permitidas.')
                 ]);
                 $this->showDeleteModal = false;
                 return;
@@ -126,7 +126,7 @@ class Proformas extends Component
             if ($proforma->invoices()->count() > 0) {
                 $this->dispatch('notify', [
                     'type' => 'error',
-                    'message' => 'Não é possível eliminar uma proforma que já gerou faturas. Elimine as faturas primeiro.'
+                    'message' => __('Não é possível eliminar uma proforma que já gerou faturas. Elimine as faturas primeiro.')
                 ]);
                 $this->showDeleteModal = false;
                 return;
@@ -136,7 +136,7 @@ class Proformas extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Proforma eliminada com sucesso!'
+                'message' => __('Proforma eliminada com sucesso!')
             ]);
         }
 
@@ -154,7 +154,7 @@ class Proformas extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Proforma convertida em fatura com sucesso! Fatura: ' . $invoice->invoice_number
+                'message' => __('Proforma convertida em fatura com sucesso! Fatura: :numero', ['numero' => $invoice->invoice_number])
             ]);
             
             // Não mudar status para 'converted' - permitir múltiplas conversões
@@ -164,7 +164,7 @@ class Proformas extends Component
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => 'Erro ao converter: ' . $e->getMessage()
+                'message' => __('Erro ao converter: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }
