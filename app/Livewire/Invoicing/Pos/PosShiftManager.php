@@ -46,7 +46,7 @@ class PosShiftManager extends Component
     {
         // Verificar se já tem turno aberto
         if ($this->currentShift) {
-            $this->dispatch('error', message: 'Você já tem um turno aberto!');
+            $this->dispatch('error', message: __('Você já tem um turno aberto!'));
             return;
         }
 
@@ -59,9 +59,9 @@ class PosShiftManager extends Component
         $this->validate([
             'opening_balance' => 'required|numeric|min:0',
         ], [
-            'opening_balance.required' => 'Informe o saldo inicial',
-            'opening_balance.numeric' => 'O saldo deve ser um número',
-            'opening_balance.min' => 'O saldo não pode ser negativo',
+            'opening_balance.required' => __('Informe o saldo inicial'),
+            'opening_balance.numeric' => __('O saldo deve ser um número'),
+            'opening_balance.min' => __('O saldo não pode ser negativo'),
         ]);
 
         try {
@@ -78,16 +78,21 @@ class PosShiftManager extends Component
 
             $this->currentShift = $shift;
             $this->showOpenShiftModal = false;
-            $this->dispatch('success', message: '✅ Turno aberto com sucesso!');
+            // O emoji fica FORA da cadeia traduzida: é decoração, igual nas três
+            // línguas, e metê-lo dentro da chave obrigava cada tradutor a copiá-lo
+            // à mão — um ✅ perdido bastaria para a tradução deixar de casar.
+            $this->dispatch('success', message: '✅ ' . __('Turno aberto com sucesso!'));
         } catch (\Exception $e) {
-            $this->dispatch('error', message: '❌ Erro ao abrir turno: ' . $e->getMessage());
+            // Nunca 'texto ' . $e->getMessage(): a ordem das palavras muda de língua
+            // para língua, e a mensagem do erro tem de poder ir para outro sítio da frase.
+            $this->dispatch('error', message: '❌ ' . __('Erro ao abrir turno: :erro', ['erro' => $e->getMessage()]));
         }
     }
 
     public function closeShiftModal()
     {
         if (!$this->currentShift) {
-            $this->dispatch('error', message: 'Não há turno aberto!');
+            $this->dispatch('error', message: __('Não há turno aberto!'));
             return;
         }
 
@@ -104,8 +109,8 @@ class PosShiftManager extends Component
         $this->validate([
             'actual_cash' => 'required|numeric|min:0',
         ], [
-            'actual_cash.required' => 'Informe o valor em dinheiro contado',
-            'actual_cash.numeric' => 'O valor deve ser um número',
+            'actual_cash.required' => __('Informe o valor em dinheiro contado'),
+            'actual_cash.numeric' => __('O valor deve ser um número'),
         ]);
 
         try {
@@ -116,7 +121,7 @@ class PosShiftManager extends Component
                 $this->difference_reason
             );
 
-            $this->dispatch('success', message: '✅ Turno fechado com sucesso!');
+            $this->dispatch('success', message: '✅ ' . __('Turno fechado com sucesso!'));
             $this->showCloseShiftModal = false;
 
             // Disponibilizar opções de impressão/PDF do resumo
@@ -125,7 +130,7 @@ class PosShiftManager extends Component
 
             $this->loadCurrentShift();
         } catch (\Exception $e) {
-            $this->dispatch('error', message: '❌ Erro ao fechar turno: ' . $e->getMessage());
+            $this->dispatch('error', message: '❌ ' . __('Erro ao fechar turno: :erro', ['erro' => $e->getMessage()]));
         }
     }
 
