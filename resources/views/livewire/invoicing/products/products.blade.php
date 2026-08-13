@@ -161,6 +161,61 @@
             </div>
         </div>
 
+        {{-- Catálogo especializado. Estes filtros só aparecem à empresa que
+             tem mesmo artigos assim marcados — numa oficina ou num restaurante
+             seriam três selects permanentemente vazios. --}}
+        @php
+            $temTamanhos = !empty($variantes['tamanhos']);
+            $temCores = !empty($variantes['cores']);
+            $mostrarFiltrosCatalogo = ($variantes['ha_receituario'] ?? false) || $temTamanhos || $temCores;
+        @endphp
+        @if($mostrarFiltrosCatalogo)
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mt-4">
+            @if($variantes['ha_receituario'] ?? false)
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-file-prescription mr-1"></i>{{ __('Receita') }}
+                </label>
+                <select wire:model.live="filterPrescricao" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="sim">{{ __('Exige receita') }}</option>
+                    <option value="nao">{{ __('Venda livre') }}</option>
+                </select>
+            </div>
+            @endif
+
+            @if($temTamanhos)
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-ruler mr-1"></i>{{ __('Tamanho') }}
+                </label>
+                {{-- Select e não caixa de texto: ninguém se lembra de como
+                     escreveu o tamanho da última vez. --}}
+                <select wire:model.live="filterTamanho" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todos') }}</option>
+                    @foreach($variantes['tamanhos'] as $t)
+                        <option value="{{ $t }}">{{ $t }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+
+            @if($temCores)
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-palette mr-1"></i>{{ __('Cor') }}
+                </label>
+                <select wire:model.live="filterCor" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todas') }}</option>
+                    @foreach($variantes['cores'] as $c)
+                        <option value="{{ $c }}">{{ $c }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+        </div>
+        @endif
+
         <!-- Date Range -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
@@ -178,7 +233,7 @@
         </div>
 
         <!-- Active Filters Display -->
-        @if($search || $typeFilter || $stockFilter || $dateFrom || $dateTo)
+        @if($search || $typeFilter || $stockFilter || $dateFrom || $dateTo || $filterPrescricao || $filterTamanho || $filterCor)
             <div class="mt-4 pt-4 border-t border-gray-200">
                 <div class="flex flex-wrap gap-2">
                     <span class="text-xs font-semibold text-gray-600">{{ __('Filtros ativos:') }}</span>
@@ -206,6 +261,30 @@
                             @else Não Gerenciado
                             @endif
                             <button wire:click="$set('stockFilter', '')" class="ml-2 hover:text-green-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($filterPrescricao)
+                        <span class="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-file-prescription mr-1"></i>{{ $filterPrescricao === 'sim' ? __('Exige receita') : __('Venda livre') }}
+                            <button wire:click="$set('filterPrescricao', '')" class="ml-2 hover:text-red-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($filterTamanho)
+                        <span class="inline-flex items-center px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-ruler mr-1"></i>{{ $filterTamanho }}
+                            <button wire:click="$set('filterTamanho', '')" class="ml-2 hover:text-emerald-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($filterCor)
+                        <span class="inline-flex items-center px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-palette mr-1"></i>{{ $filterCor }}
+                            <button wire:click="$set('filterCor', '')" class="ml-2 hover:text-teal-900">
                                 <i class="fas fa-times"></i>
                             </button>
                         </span>
@@ -286,6 +365,36 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="font-bold text-gray-900 truncate">{{ $product->name }}</p>
+
+                            {{-- Receita/controlado e tamanho/cor junto ao nome: são
+                                 o que distingue duas linhas com a mesma designação
+                                 (a mesma t-shirt em M e em L) e o que o balcão tem
+                                 de ver antes de dispensar. Só aparece quando existe. --}}
+                            @if($product->requires_prescription || $product->is_controlled || filled($product->size) || filled($product->color))
+                                <div class="flex flex-wrap items-center gap-1 mt-1">
+                                    @if($product->requires_prescription)
+                                        <span class="inline-flex items-center px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold" title="{{ __('Exige receita médica') }}">
+                                            <i class="fas fa-file-prescription mr-1"></i>{{ __('Receita') }}
+                                        </span>
+                                    @endif
+                                    @if($product->is_controlled)
+                                        <span class="inline-flex items-center px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-bold" title="{{ __('Psicotrópico / estupefaciente') }}">
+                                            <i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Controlado') }}
+                                        </span>
+                                    @endif
+                                    @if(filled($product->size))
+                                        <span class="inline-flex items-center px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold" title="{{ __('Tamanho') }}">
+                                            {{ $product->size }}
+                                        </span>
+                                    @endif
+                                    @if(filled($product->color))
+                                        <span class="inline-flex items-center px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded text-[10px] font-bold" title="{{ __('Cor') }}">
+                                            {{ $product->color }}
+                                        </span>
+                                    @endif
+                                </div>
+                            @endif
+
                             @if($product->description)
                                 <p class="text-xs text-gray-500 truncate">{{ $product->description }}</p>
                             @else
@@ -435,7 +544,8 @@
                          leva o utilizador a criar duplicados. --}}
                     @php
                         $haCatalogo = ($estatisticas['produtos'] + $estatisticas['servicos']) > 0;
-                        $haFiltro = $search || $typeFilter || $stockFilter || $dateFrom || $dateTo;
+                        $haFiltro = $search || $typeFilter || $stockFilter || $dateFrom || $dateTo
+                            || $filterPrescricao || $filterTamanho || $filterCor;
                     @endphp
 
                     @if($haCatalogo && $haFiltro)

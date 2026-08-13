@@ -147,6 +147,24 @@ class SyncController extends Controller
             'stock_quantity' => (float) ($p->stock_in_warehouse ?? 0),
             'warehouse_id' => $whId,
             'category' => $p->category_id ? ($categoryMap[$p->category_id] ?? null) : null,
+
+            // Farmácia e vestuário — enviados SEMPRE, mesmo a null.
+            //
+            // O PWA grava com bulkPut, que junta campo a campo: uma chave
+            // omitida deixa o valor antigo intacto no dispositivo. Se um artigo
+            // deixasse de exigir receita e nós não mandássemos a chave, o
+            // aparelho continuava a pedir receita para sempre.
+            'requires_prescription' => (bool) $p->requires_prescription,
+            'is_controlled' => (bool) $p->is_controlled,
+            'active_ingredient' => $p->active_ingredient,
+            'dosage' => $p->dosage,
+            'pharmaceutical_form' => $p->pharmaceutical_form,
+            'armed_registration' => $p->armed_registration,
+            'size' => $p->size,
+            'color' => $p->color,
+            'gender' => $p->gender,
+            'material' => $p->material,
+
             'updated_at' => optional($p->updated_at)->toIso8601String(),
         ]);
 

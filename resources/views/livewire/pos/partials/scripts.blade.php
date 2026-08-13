@@ -1,7 +1,11 @@
 {{-- MULTI-LÍNGUA: não há aqui nada para traduzir, e é de propósito.
 
-     Este ficheiro só faz som e sincronização — não escreve texto nenhum no
-     ecrã. O que parece texto não é interface:
+     Este ficheiro faz som, sincronização e a pergunta do medicamento
+     controlado — mas não escreve texto nenhum. A frase da confirmação vem
+     traduzida do servidor dentro do evento, precisamente para não haver aqui
+     uma cadeia solta que ninguém se lembra de traduzir.
+
+     O resto do que parece texto não é interface:
 
        · 'pos_sound_enabled' e a POS_KEY são chaves de localStorage. Traduzi-las
          apagava o carrinho guardado de quem já o tem — e um caixa offline nem
@@ -124,6 +128,30 @@ document.addEventListener('livewire:init', () => {
             $wire.restoreCartFromClient(saved.items);     // revalida stock/preço no servidor
         }
     })();
+
+    // 1b) Medicamento controlado (psicotrópico/estupefaciente): o servidor
+    //     recusa-se a pôr o artigo no carrinho sem uma resposta humana e pede-a
+    //     por aqui. Confirmada, volta a chamar o mesmo addToCart com o sinal
+    //     ligado — as validações de stock e lote correm outra vez, nada fica
+    //     por verificar.
+    //
+    //     Vive neste bloco (e não no listener global lá em cima) porque precisa
+    //     do $wire do componente. O confirm() do navegador é o mesmo que o
+    //     wire:confirm usa em "Limpar carrinho": um caixa não tem de aprender
+    //     duas caixas de diálogo diferentes.
+    $wire.on('pos-confirmar-controlado', (payload) => {
+        const data = Array.isArray(payload) ? payload[0] : payload;
+        if (!data || !data.productId) return;
+        // O som é acessório; a pergunta é que não pode faltar. O playPosSound
+        // vive no <script> normal lá em cima, que numa navegação SPA pode não
+        // ter voltado a correr — e um ReferenceError aqui engolia a confirmação
+        // inteira: o operador clicava no artigo e não acontecia nada, sem aviso
+        // nenhum e sem o artigo entrar no carrinho.
+        try { playPosSound('error'); } catch (_) {}
+        if (window.confirm(data.message)) {
+            $wire.addToCart(data.productId, true);
+        }
+    });
 
     // 2) Manter o espelho sincronizado a cada alteração do carrinho.
     $wire.on('pos-cart-sync', (payload) => {

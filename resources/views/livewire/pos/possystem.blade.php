@@ -136,7 +136,56 @@
 
                     {{-- Info --}}
                     <div class="text-left">
-                        <p class="font-bold text-xs text-gray-800 line-clamp-1 leading-tight">{{ $product->name }}</p>
+                        @php
+                            // O que distingue dois artigos com o mesmo nome e não cabe no
+                            // cartão: dosagem, forma farmacêutica, substância, composição.
+                            // Vai para o title — ao alcance do rato, sem roubar linhas a
+                            // uma grelha que mostra cinquenta cartões ao mesmo tempo.
+                            $detalheArtigo = array_filter([
+                                $product->dosage,
+                                $product->pharmaceutical_form,
+                                $product->active_ingredient,
+                                $product->material,
+                            ], fn ($valor) => trim((string) $valor) !== '');
+                        @endphp
+                        <p class="font-bold text-xs text-gray-800 line-clamp-1 leading-tight"
+                           @if($detalheArtigo) title="{{ implode(' · ', $detalheArtigo) }}" @endif>{{ $product->name }}</p>
+
+                        {{-- Crachás de balcão: só o que muda a decisão no momento de
+                             escolher. A receita e o psicotrópico mudam o que há a pedir
+                             ao cliente antes de entregar; o tamanho e a cor decidem qual
+                             dos seis cartões iguais é o certo — numa loja de roupa,
+                             "T-shirt" sozinho não chega para escolher. Os valores são
+                             dados da empresa e saem como estão gravados. --}}
+                        @if($product->is_controlled || $product->requires_prescription || filled($product->dosage) || filled($product->size) || filled($product->color))
+                        <div class="flex flex-wrap items-center gap-0.5 mt-0.5">
+                            @if($product->is_controlled)
+                            <span class="text-[9px] font-bold bg-red-600 text-white px-1 rounded leading-tight"
+                                  title="{{ __('Psicotrópico ou estupefaciente — venda sujeita a registo obrigatório') }}">
+                                <i class="fas fa-triangle-exclamation"></i> {{ __('CONTROLADO') }}
+                            </span>
+                            @endif
+                            @if($product->requires_prescription)
+                            <span class="text-[9px] font-bold bg-amber-500 text-white px-1 rounded leading-tight"
+                                  title="{{ __('Exige receita médica') }}">
+                                <i class="fas fa-prescription"></i> {{ __('RECEITA') }}
+                            </span>
+                            @endif
+                            @if(filled($product->dosage))
+                            <span class="text-[9px] font-semibold bg-sky-100 text-sky-800 px-1 rounded leading-tight"
+                                  title="{{ __('Dosagem') }}">{{ $product->dosage }}</span>
+                            @endif
+                            @if(filled($product->size))
+                            <span class="text-[9px] font-semibold bg-gray-200 text-gray-700 px-1 rounded leading-tight"
+                                  title="{{ __('Tamanho') }}">{{ $product->size }}</span>
+                            @endif
+                            @if(filled($product->color))
+                            <span class="text-[9px] font-semibold bg-gray-100 text-gray-600 px-1 rounded leading-tight"
+                                  title="{{ __('Cor') }}">{{ $product->color }}</span>
+                            @endif
+                        </div>
+                        @endif
+
                         <p class="text-xs font-bold text-indigo-600">{{ number_format($product->price, 0) }}</p>
                         <div class="flex items-center gap-1 mt-0.5">
                             @php $stockHere = (float) ($product->stock_in_warehouse ?? 0); @endphp

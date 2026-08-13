@@ -106,7 +106,12 @@ class Product extends Model
         'featured_image', 'gallery',
         'price', 'cost', 'tax_type', 'tax_rate_id', 'exemption_reason',
         'manage_stock', 'stock_quantity', 'stock_min', 'stock_max', 'minimum_stock', 'unit', 'is_active',
-        'track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale'
+        'track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale',
+        // Farmácia
+        'requires_prescription', 'is_controlled', 'active_ingredient', 'dosage',
+        'pharmaceutical_form', 'armed_registration',
+        // Vestuário
+        'size', 'color', 'gender', 'material',
     ];
 
     protected $casts = [
@@ -121,6 +126,8 @@ class Product extends Model
         'track_expiry' => 'boolean',
         'require_batch_on_purchase' => 'boolean',
         'require_batch_on_sale' => 'boolean',
+        'requires_prescription' => 'boolean',
+        'is_controlled' => 'boolean',
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'gallery' => 'array',
@@ -225,6 +232,88 @@ class Product extends Model
             ->orderBy('expiry_date', 'asc');
     }
     
+    /*
+     |--------------------------------------------------------------------------
+     | Filtros de farmácia e de vestuário
+     |--------------------------------------------------------------------------
+     | Filtros puros de coluna: encadeiam-se sobre uma query JÁ limitada à
+     | empresa. Este modelo não tem scope global de tenant (ver
+     | generateProductCode, que filtra à mão), portanto quem chama continua
+     | obrigado ao where('tenant_id', activeTenantId()) — pôr o filtro aqui
+     | dentro escondia-o e partia as consultas de plataforma.
+     */
+
+    /** Artigos que só saem do balcão contra receita médica. */
+    public function scopeComReceita($query)
+    {
+        return $query->where('requires_prescription', true);
+    }
+
+    /** Psicotrópicos e estupefacientes, sujeitos a registo próprio. */
+    public function scopeControlados($query)
+    {
+        return $query->where('is_controlled', true);
+    }
+
+    /**
+     * Pesquisa pela substância activa — a pergunta que a farmácia faz todos os
+     * dias ("o que tenho com paracetamol?"), a que o nome comercial não responde.
+     *
+     * O termo é escapado: um `%` escrito pelo balconista é para procurar um
+     * `%`, não para alargar a pesquisa ao catálogo inteiro.
+     */
+    public function scopePorSubstancia($query, ?string $termo)
+    {
+        $termo = trim((string) $termo);
+        if ($termo === '') {
+            return $query;
+        }
+
+        $escapado = addcslashes($termo, '%_\\');
+
+        return $query->where('active_ingredient', 'like', "%{$escapado}%");
+    }
+
+    /** Vestuário: um tamanho concreto (S, M, 38…). */
+    public function scopePorTamanho($query, ?string $tamanho)
+    {
+        $tamanho = trim((string) $tamanho);
+        if ($tamanho === '') {
+            return $query;
+        }
+
+        return $query->where('size', $tamanho);
+    }
+
+    /** Vestuário: uma cor concreta. */
+    public function scopePorCor($query, ?string $cor)
+    {
+        $cor = trim((string) $cor);
+        if ($cor === '') {
+            return $query;
+        }
+
+        return $query->where('color', $cor);
+    }
+
+    /**
+     * Accessor: como o medicamento se identifica ao balcão.
+     *
+     * "Paracetamol" sozinho não chega — há os comprimidos de 500mg e o xarope,
+     * e são artigos diferentes com stock diferente. Junta o que existir e
+     * ignora o resto, para os artigos que não são medicamentos devolverem
+     * simplesmente o nome.
+     */
+    public function getDescricaoFarmaceuticaAttribute(): string
+    {
+        $partes = array_filter(
+            [$this->name, $this->dosage, $this->pharmaceutical_form],
+            fn ($parte) => trim((string) $parte) !== ''
+        );
+
+        return implode(' ', array_map(fn ($parte) => trim((string) $parte), $partes));
+    }
+
     // Accessor: Preço com Taxa
     public function getPriceWithTaxAttribute()
     {

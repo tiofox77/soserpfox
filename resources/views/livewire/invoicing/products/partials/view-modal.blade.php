@@ -57,7 +57,20 @@
                                 <!-- Nome e Tipo -->
                                 <div>
                                     <h2 class="text-3xl font-bold text-gray-900 mb-2">{{ $viewingProduct->name }}</h2>
-                                    <div class="flex items-center space-x-3">
+                                    <div class="flex items-center flex-wrap gap-3">
+                                        {{-- Receita e controlo aparecem ao lado do nome, não enterrados
+                                             lá em baixo: quem abre a ficha ao balcão tem de ver isto sem
+                                             ter de percorrer o resto. --}}
+                                        @if($viewingProduct->requires_prescription)
+                                            <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold border border-red-300">
+                                                <i class="fas fa-file-prescription mr-1"></i>{{ __('Exige receita médica') }}
+                                            </span>
+                                        @endif
+                                        @if($viewingProduct->is_controlled)
+                                            <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold border border-purple-300">
+                                                <i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Psicotrópico / estupefaciente') }}
+                                            </span>
+                                        @endif
                                         <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
                                             <i class="fas fa-{{ $viewingProduct->type === 'produto' ? 'box' : 'concierge-bell' }} mr-1"></i>
                                             {{ ucfirst($viewingProduct->type) }}
@@ -218,6 +231,80 @@
                                     <p class="text-sm text-gray-600">
                                         <i class="fas fa-info-circle mr-2"></i>{{ __('Stock não gerenciado para este produto') }}
                                     </p>
+                                </div>
+                            @endif
+
+                            {{-- Medicamento e vestuário: só as linhas preenchidas.
+                                 Uma ficha de t-shirt com seis linhas vazias de
+                                 medicamento é pior do que não ter secção nenhuma. --}}
+                            @php
+                                $fichaMedicamento = array_filter([
+                                    __('Substância activa (DCI)') => $viewingProduct->active_ingredient,
+                                    __('Dosagem') => $viewingProduct->dosage,
+                                    __('Forma farmacêutica') => $viewingProduct->pharmaceutical_form,
+                                    __('N.º de registo ARMED') => $viewingProduct->armed_registration,
+                                ], fn ($v) => filled($v));
+
+                                // Os valores guardados são chaves internas — o que
+                                // se mostra é o rótulo, traduzível.
+                                $rotulosGenero = [
+                                    'masculino' => __('Masculino'),
+                                    'feminino'  => __('Feminino'),
+                                    'unissexo'  => __('Unissexo'),
+                                    'crianca'   => __('Criança'),
+                                ];
+
+                                $fichaVestuario = array_filter([
+                                    __('Tamanho') => $viewingProduct->size,
+                                    __('Cor') => $viewingProduct->color,
+                                    __('Género') => $rotulosGenero[$viewingProduct->gender] ?? $viewingProduct->gender,
+                                    __('Composição') => $viewingProduct->material,
+                                ], fn ($v) => filled($v));
+
+                                $temMedicamento = !empty($fichaMedicamento)
+                                    || $viewingProduct->requires_prescription
+                                    || $viewingProduct->is_controlled;
+                            @endphp
+
+                            @if($temMedicamento)
+                                <div class="p-4 bg-teal-50 rounded-xl border border-teal-200">
+                                    <h4 class="font-bold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-pills text-teal-600 mr-2"></i>{{ __('Medicamento') }}
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @if($viewingProduct->requires_prescription)
+                                            <div class="flex items-center text-sm font-semibold text-red-700">
+                                                <i class="fas fa-file-prescription mr-2"></i>{{ __('Exige receita médica') }}
+                                            </div>
+                                        @endif
+                                        @if($viewingProduct->is_controlled)
+                                            <div class="flex items-center text-sm font-semibold text-purple-700">
+                                                <i class="fas fa-triangle-exclamation mr-2"></i>{{ __('Psicotrópico / estupefaciente') }}
+                                            </div>
+                                        @endif
+                                        @foreach($fichaMedicamento as $rotulo => $valor)
+                                            <div class="flex items-start">
+                                                <span class="text-sm text-gray-600 w-40 shrink-0">{{ $rotulo }}:</span>
+                                                <span class="text-sm font-semibold text-gray-900">{{ $valor }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            @if(!empty($fichaVestuario))
+                                <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                                    <h4 class="font-bold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-shirt text-emerald-600 mr-2"></i>{{ __('Vestuário') }}
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @foreach($fichaVestuario as $rotulo => $valor)
+                                            <div class="flex items-start">
+                                                <span class="text-sm text-gray-600 w-32 shrink-0">{{ $rotulo }}:</span>
+                                                <span class="text-sm font-semibold text-gray-900">{{ $valor }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
                                 </div>
                             @endif
                         </div>

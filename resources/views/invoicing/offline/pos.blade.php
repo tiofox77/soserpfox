@@ -74,8 +74,32 @@
                                     <span class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{{ __('ESGOTADO') }}</span>
                                 </span>
                             </div>
-                            <p class="font-semibold text-[13px] leading-tight line-clamp-2 mb-0.5" x-text="p.name"></p>
+                            <p class="font-semibold text-[13px] leading-tight line-clamp-2 mb-0.5" x-text="p.name"
+                               :title="[p.dosage, p.pharmaceutical_form, p.active_ingredient].filter(Boolean).join(' · ') || p.name"></p>
                             <p class="text-[10px] text-gray-400 truncate" x-show="p.sku" x-text="p.sku"></p>
+
+                            {{-- Crachás de balcão: só o que muda a decisão no momento de
+                                 escolher. A receita e o psicotrópico mudam o que há a
+                                 pedir ao cliente antes de entregar; a dosagem, o tamanho
+                                 e a cor decidem qual dos cartões iguais é o certo. Os
+                                 valores são dados da empresa e saem como estão gravados. --}}
+                            <div class="flex flex-wrap items-center gap-1 mt-1"
+                                 x-show="p.is_controlled || p.requires_prescription || p.dosage || p.size || p.color" x-cloak>
+                                <span x-show="p.is_controlled" class="text-[9px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                      title="{{ __('Psicotrópico ou estupefaciente — venda sujeita a registo obrigatório') }}">
+                                    <i class="fas fa-triangle-exclamation"></i> {{ __('CONTROLADO') }}
+                                </span>
+                                <span x-show="p.requires_prescription" class="text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                      title="{{ __('Exige receita médica') }}">
+                                    <i class="fas fa-prescription"></i> {{ __('RECEITA') }}
+                                </span>
+                                <span x-show="p.dosage" class="text-[9px] font-semibold bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                      title="{{ __('Dosagem') }}" x-text="p.dosage"></span>
+                                <span x-show="p.size" class="text-[9px] font-semibold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                      title="{{ __('Tamanho') }}" x-text="p.size"></span>
+                                <span x-show="p.color" class="text-[9px] font-semibold bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                      title="{{ __('Cor') }}" x-text="p.color"></span>
+                            </div>
                             <div class="mt-auto pt-1.5 flex items-center justify-between gap-1">
                                 <span class="font-bold text-blue-700 text-sm whitespace-nowrap" x-text="formatMoney(p.price)"></span>
                                 <span x-show="p.type !== 'servico'"
@@ -267,6 +291,17 @@
 
     {{-- Backdrop do bottom-sheet (telemóvel) --}}
     <div x-show="showCart" @click="showCart = false" class="lg:hidden fixed inset-0 bg-black/50 z-40" x-transition.opacity x-cloak></div>
+
+    {{-- Aviso de receita médica — apaga-se sozinho ao fim de alguns segundos.
+         Fica por cima do carrinho (z-55) porque no telemóvel o carrinho sobe em
+         folha quase inteira, e um aviso escondido por trás dele não é aviso. --}}
+    <div x-show="avisoReceita" x-cloak x-transition
+         @click="avisoReceita = null"
+         class="fixed top-16 inset-x-3 z-[55] bg-amber-500 text-white rounded-2xl shadow-2xl px-4 py-3 flex items-start gap-3 cursor-pointer">
+        <i class="fas fa-prescription text-lg mt-0.5"></i>
+        <p class="flex-1 text-sm font-bold leading-snug" x-text="avisoReceita"></p>
+        <span class="text-white/70 text-xl leading-none">&times;</span>
+    </div>
 
     {{-- Barra flutuante "Ver carrinho" (telemóvel) --}}
     <div class="lg:hidden fixed bottom-[72px] inset-x-3 z-40" x-show="cart.length && !showCart" x-cloak x-transition>
@@ -557,6 +592,11 @@ function posOffline() {
         visibleLimit: 80,
         barcodeScanning: false,
         saving: false,
+        // Aviso de receita médica em curso (texto já traduzido) e o temporizador
+        // que o apaga. Guardado no estado, e não num alert(), pela razão que
+        // está em avisarReceita().
+        avisoReceita: null,
+        avisoReceitaTimer: null,
         lastReceipt: null,
         lastSaleRecord: null,
         company: null,
@@ -709,7 +749,13 @@ function posOffline() {
                 if (!s) return true;
                 return (p.name || '').toLowerCase().includes(s) ||
                        (p.sku || '').toLowerCase().includes(s) ||
-                       (p.barcode || '').toLowerCase().includes(s);
+                       (p.barcode || '').toLowerCase().includes(s) ||
+                       // Numa farmácia pergunta-se pela substância, não pela
+                       // marca: quem pede "paracetamol" não sabe se a caixa diz
+                       // Ben-u-ron. Numa loja de roupa pergunta-se pelo tamanho,
+                       // que não está no nome do artigo nem no código.
+                       (p.active_ingredient || '').toLowerCase().includes(s) ||
+                       (p.size || '').toLowerCase().includes(s);
             });
         },
 
@@ -796,9 +842,31 @@ function posOffline() {
             }
         },
 
+        // Aviso de receita: uma faixa que se apaga sozinha, e não um confirm().
+        // Ao balcão, uma caixa de diálogo por cada caixa de antibiótico obriga a
+        // duas acções por artigo — e o que se ganha em atenção volta a perder-se
+        // em cliques dados sem ler. A pergunta bloqueante fica reservada ao
+        // psicotrópico, onde é mesmo precisa.
+        avisarReceita(nome) {
+            this.avisoReceita = __(':artigo exige receita médica — confirme a receita antes de entregar.', { artigo: nome });
+            clearTimeout(this.avisoReceitaTimer);
+            this.avisoReceitaTimer = setTimeout(() => { this.avisoReceita = null; }, 8000);
+            try { navigator.vibrate?.([40, 60, 40]); } catch (_) {}
+        },
+
         addToCart(p) {
             // Bloquear se stock 0 (produto físico)
             if (p.type !== 'servico' && (parseFloat(p.stock_quantity) || 0) <= 0) return;
+
+            // Psicotrópico / estupefaciente: confirmar ANTES de entrar no
+            // carrinho. Estes artigos têm registo obrigatório e vendê-los por
+            // engano tem consequência legal para a farmácia. Offline pesa ainda
+            // mais: não há servidor nenhum a rever o que sai daqui, e o talão
+            // já foi impresso quando a venda chega a sincronizar.
+            if (p.is_controlled && !confirm('⚠️ ' + __(':artigo é um medicamento controlado (psicotrópico ou estupefaciente), de registo obrigatório. Confirma a venda?', { artigo: p.name }))) {
+                return;
+            }
+
             const pid = Number.isInteger(p.id) ? p.id : null;
             const existing = this.cart.find(i => i.product_id === pid && i.product_name === p.name);
             if (existing) {
@@ -814,6 +882,11 @@ function posOffline() {
                     discount_percent: 0,
                 });
             }
+
+            // Avisa, não trava: o operador pode ter a receita na mão, e travar
+            // a venda deixava a farmácia sem forma nenhuma de a fazer.
+            if (p.requires_prescription) this.avisarReceita(p.name);
+
             // Feedback tátil
             try { navigator.vibrate?.(30); } catch(_) {}
         },

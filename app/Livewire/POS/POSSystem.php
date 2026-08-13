@@ -310,8 +310,14 @@ class POSSystem extends Component
                 continue;
             }
             // Adicionar 1 unidade (valida stock/lote); depois fixar a quantidade guardada.
+            //
+            // O controlado entra já confirmado: quem o pôs no carrinho antes da
+            // sessão expirar já respondeu à pergunta. Voltar a perguntá-la num
+            // restauro automático seria perguntar sem o artigo à frente — e uma
+            // resposta negativa por distração deixava-o de fora da venda
+            // recuperada, silenciosamente.
             if (!Cart::session($this->cartKey())->get($pid)) {
-                $this->addToCart($pid);
+                $this->addToCart($pid, true);
             }
             if (Cart::session($this->cartKey())->get($pid)) {
                 $this->updateQuantity($pid, $qty);   // fixa qty absoluta, auto-limitada ao stock
@@ -467,9 +473,21 @@ class POSSystem extends Component
         \App\Services\Analytics\RegistoDeVisita::pesquisa($termo, 'pos');
     }
 
-    public function addToCart($productId)
+    /**
+     * @param bool $controladoConfirmado Resposta do operador à confirmação de
+     *                                   psicotrópico/estupefaciente. Só o ecrã
+     *                                   (ou um restauro de carrinho já
+     *                                   confirmado) a liga.
+     */
+    public function addToCart($productId, $controladoConfirmado = false)
     {
-        $this->registarPesquisaQueLevouAEscolha();
+        // Na segunda passagem — o operador confirmou o psicotrópico e o ecrã
+        // repetiu a chamada — não se volta a registar: é a mesma escolha, não
+        // uma pesquisa nova, e sairia a contar em dobro no painel dos artigos
+        // mais procurados.
+        if (!$controladoConfirmado) {
+            $this->registarPesquisaQueLevouAEscolha();
+        }
 
         // Scope ao tenant: $productId vem do browser. Sem o filtro, um produto
         // de OUTRA empresa passava — o stockInWarehouse() não encontrava linhas
@@ -555,6 +573,29 @@ class POSSystem extends Component
             return;
         }
 
+        // Psicotrópico / estupefaciente: confirmar ANTES de entrar no carrinho.
+        //
+        // Não é rigor contabilístico. Estes artigos têm registo obrigatório e
+        // vendê-los por engano tem consequência legal para a farmácia — e
+        // quando a venda fecha o artigo já saiu do balcão, não há como desfazer.
+        //
+        // A pergunta é feita aqui, depois de validado o stock, para não se
+        // confirmar uma venda que a seguir falharia por falta de existências.
+        // A resposta volta pelo mesmo método com o sinal ligado.
+        if ($product->is_controlled && !$controladoConfirmado) {
+            $this->dispatch(
+                'pos-confirmar-controlado',
+                productId: $product->id,
+                // O texto viaja já traduzido: a caixa de confirmação é do
+                // navegador e não tem por onde traduzir o que lhe entregam.
+                message: __(':artigo é um medicamento controlado (psicotrópico ou estupefaciente), de registo obrigatório. Confirma a venda?', [
+                    'artigo' => $product->name,
+                ]),
+            );
+
+            return;
+        }
+
         // Imposto resolvido pela fonte ÚNICA (regime do tenant + produto).
         // O antigo `?? 14` hardcoded fazia empresas em regime de isenção
         // emitirem faturas com IVA 14%.
@@ -580,7 +621,24 @@ class POSSystem extends Component
         
         // Disparar evento para tocar som
         $this->dispatch('item-added');
-        
+
+        // Receita médica: o aviso SUBSTITUI a confirmação normal, não se soma
+        // a ela. O toast do sistema faz toastr.remove() a cada aviso novo, por
+        // isso de dois seguidos só se vê o último — e o último tem de ser este.
+        //
+        // Avisa, não trava: o operador pode ter a receita na mão, e travar a
+        // venda deixaria a farmácia sem forma de a fazer.
+        if ($product->requires_prescription) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => '⚠️ ' . __('Adicionado — :artigo exige RECEITA MÉDICA. Confirme a receita antes de entregar.', [
+                    'artigo' => $product->name,
+                ])
+            ]);
+
+            return;
+        }
+
         $this->dispatch('notify', [
             'type' => 'success',
             'message' => '✅ ' . __('Produto adicionado! (:quantidade/:disponivel un em :armazem)', [
@@ -1382,7 +1440,13 @@ class POSSystem extends Component
             $productsQuery->where(function ($q) {
                 $q->where('invoicing_products.name', 'like', '%' . $this->search . '%')
                   ->orWhere('invoicing_products.sku', 'like', '%' . $this->search . '%')
-                  ->orWhere('invoicing_products.barcode', 'like', '%' . $this->search . '%');
+                  ->orWhere('invoicing_products.barcode', 'like', '%' . $this->search . '%')
+                  // Numa farmácia pergunta-se pela substância, não pela marca:
+                  // quem pede "paracetamol" não sabe se a caixa diz Ben-u-ron.
+                  // Numa loja de roupa pergunta-se pelo tamanho — e "38" não
+                  // está no nome do artigo nem no código.
+                  ->orWhere('invoicing_products.active_ingredient', 'like', '%' . $this->search . '%')
+                  ->orWhere('invoicing_products.size', 'like', '%' . $this->search . '%');
             });
         }
 

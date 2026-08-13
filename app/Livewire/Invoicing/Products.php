@@ -35,6 +35,13 @@ class Products extends Component
     public $typeFilter = '';
     public $stockFilter = '';
 
+    // Filtros de catálogo especializado. Só estes três porque são os que se
+    // usam ao balcão: "isto precisa de receita?" e "há este modelo no tamanho
+    // M / em azul?". Os restantes campos consultam-se na ficha do artigo.
+    public $filterPrescricao = '';
+    public $filterTamanho = '';
+    public $filterCor = '';
+
     /** Mostrar a lixeira (produtos eliminados, recuperáveis). */
     public bool $mostrarEliminados = false;
 
@@ -70,7 +77,23 @@ class Products extends Component
     public $track_expiry = false;
     public $require_batch_on_purchase = false;
     public $require_batch_on_sale = false;
-    
+
+    // Medicamento (farmácia). Todos opcionais: a esmagadora maioria dos artigos
+    // do sistema não é medicamento, e torná-los obrigatórios partia o catálogo
+    // de toda a gente.
+    public $requires_prescription = false;
+    public $is_controlled = false;
+    public $active_ingredient = null;
+    public $dosage = null;
+    public $pharmaceutical_form = null;
+    public $armed_registration = null;
+
+    // Vestuário. Mesma lógica: opcionais para não afectar quem vende outra coisa.
+    public $size = null;
+    public $color = null;
+    public $gender = null;
+    public $material = null;
+
     // Tax fields
     public $tax_type = 'iva';
     public $tax_rate_id = null;
@@ -103,6 +126,21 @@ class Products extends Component
             'exemption_reason' => 'required_if:tax_type,isento|nullable|string',
             'stock_min' => 'nullable|integer|min:0',
             'stock_max' => 'nullable|integer|min:0|gte:stock_min',
+
+            // Medicamento e vestuário: NENHUM obrigatório. Um artigo comum não
+            // preenche nada disto e tem de continuar a poder ser gravado.
+            'requires_prescription' => 'nullable|boolean',
+            'is_controlled' => 'nullable|boolean',
+            'active_ingredient' => 'nullable|string|max:255',
+            'dosage' => 'nullable|string|max:60',
+            'pharmaceutical_form' => 'nullable|string|max:40',
+            'armed_registration' => 'nullable|string|max:60',
+            'size' => 'nullable|string|max:20',
+            'color' => 'nullable|string|max:40',
+            // Lista fechada porque o género alimenta filtros e relatórios: texto
+            // livre daria "M", "masc" e "Homem" a significarem o mesmo.
+            'gender' => 'nullable|in:masculino,feminino,unissexo,crianca',
+            'material' => 'nullable|string|max:120',
         ];
 
         // Validar código: único POR TENANT (suporta o esquema multi-tenant)
@@ -142,9 +180,27 @@ class Products extends Component
         $this->resetPage();
     }
 
+    public function updatingFilterPrescricao()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilterTamanho()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilterCor()
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters()
     {
-        $this->reset(['typeFilter', 'stockFilter', 'dateFrom', 'dateTo', 'search']);
+        $this->reset([
+            'typeFilter', 'stockFilter', 'dateFrom', 'dateTo', 'search',
+            'filterPrescricao', 'filterTamanho', 'filterCor',
+        ]);
         $this->resetPage();
     }
 
@@ -349,6 +405,16 @@ class Products extends Component
         $this->track_expiry = $product->track_expiry ?? false;
         $this->require_batch_on_purchase = $product->require_batch_on_purchase ?? false;
         $this->require_batch_on_sale = $product->require_batch_on_sale ?? false;
+        $this->requires_prescription = $product->requires_prescription ?? false;
+        $this->is_controlled = $product->is_controlled ?? false;
+        $this->active_ingredient = $product->active_ingredient;
+        $this->dosage = $product->dosage;
+        $this->pharmaceutical_form = $product->pharmaceutical_form;
+        $this->armed_registration = $product->armed_registration;
+        $this->size = $product->size;
+        $this->color = $product->color;
+        $this->gender = $product->gender;
+        $this->material = $product->material;
         $this->showModal = true;
     }
 
@@ -371,6 +437,11 @@ class Products extends Component
             }
         }
         
+        // Campo em branco é ausência: gravar '' em vez de NULL enchia a lista
+        // de tamanhos e cores distintos com uma opção fantasma vazia, e " M "
+        // com espaços a mais passava a ser um tamanho diferente de "M".
+        $this->normalizarCamposOpcionais();
+
         try {
             $this->validate();
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -414,6 +485,16 @@ class Products extends Component
             'track_expiry' => $this->track_expiry,
             'require_batch_on_purchase' => $this->require_batch_on_purchase,
             'require_batch_on_sale' => $this->require_batch_on_sale,
+            'requires_prescription' => (bool) $this->requires_prescription,
+            'is_controlled' => (bool) $this->is_controlled,
+            'active_ingredient' => $this->active_ingredient,
+            'dosage' => $this->dosage,
+            'pharmaceutical_form' => $this->pharmaceutical_form,
+            'armed_registration' => $this->armed_registration,
+            'size' => $this->size,
+            'color' => $this->color,
+            'gender' => $this->gender,
+            'material' => $this->material,
         ];
 
         if ($this->editingProductId) {
@@ -616,9 +697,38 @@ class Products extends Component
         $this->resetForm();
     }
 
+    /**
+     * Campos opcionais de medicamento e vestuário: em branco é ausência (NULL).
+     *
+     * Guardar '' faria com que a lista de tamanhos e cores distintos do
+     * catálogo tivesse uma opção fantasma vazia nos filtros.
+     */
+    private function normalizarCamposOpcionais(): void
+    {
+        foreach ([
+            'active_ingredient', 'dosage', 'pharmaceutical_form', 'armed_registration',
+            'size', 'color', 'gender', 'material',
+        ] as $campo) {
+            $valor = trim((string) $this->{$campo});
+            $this->{$campo} = $valor === '' ? null : $valor;
+        }
+    }
+
     private function resetForm()
     {
-        $this->reset(['code', 'name', 'description', 'featured_image', 'currentFeaturedImage', 'gallery', 'currentGallery', 'editingProductId']);
+        $this->reset([
+            'code', 'name', 'description', 'featured_image', 'currentFeaturedImage',
+            'gallery', 'currentGallery', 'editingProductId',
+            // Os lotes têm de cair aqui como tudo o resto. Sem isto, quem edita
+            // um medicamento com lote, fecha a janela e carrega em "Novo
+            // Produto" recebe o formulário com "Exigir lote na venda" já ligado
+            // — e o artigo nasce a exigir um lote que nunca vai ter, ficando
+            // impossível de vender ao balcão.
+            'track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale',
+            'requires_prescription', 'is_controlled', 'active_ingredient', 'dosage',
+            'pharmaceutical_form', 'armed_registration',
+            'size', 'color', 'gender', 'material',
+        ]);
         $this->price = 0;
         $this->cost = 0;
         $this->unit = 'UN';
@@ -633,6 +743,32 @@ class Products extends Component
         $this->stock_quantity = 0;
         $this->stock_min = 0;
         $this->stock_max = null;
+    }
+
+    /**
+     * Tamanhos e cores que o catálogo desta empresa usa de facto.
+     *
+     * Os filtros são selects e não caixas de texto porque ninguém se lembra de
+     * como escreveu "azul-marinho" da última vez — e um filtro por texto livre
+     * que devolve zero resultados por causa de um hífen parece uma avaria.
+     */
+    public function getVariantesCatalogoProperty(): array
+    {
+        $catalogo = Product::where('tenant_id', activeTenantId());
+
+        return [
+            'tamanhos' => (clone $catalogo)
+                ->whereNotNull('size')->where('size', '<>', '')
+                ->distinct()->orderBy('size')->pluck('size')->all(),
+            'cores' => (clone $catalogo)
+                ->whereNotNull('color')->where('color', '<>', '')
+                ->distinct()->orderBy('color')->pluck('color')->all(),
+            // Serve para esconder os filtros a quem não vende nada disto: numa
+            // oficina seriam três caixas permanentemente vazias.
+            'ha_receituario' => (clone $catalogo)->where(function ($q) {
+                $q->where('requires_prescription', true)->orWhere('is_controlled', true);
+            })->exists(),
+        ];
     }
 
     public function render()
@@ -661,6 +797,24 @@ class Products extends Component
                     $query->where('manage_stock', false);
                 }
             })
+            // Comparação explícita com '': "não filtrar" é a string vazia, e
+            // filterPrescricao='nao' tem de continuar a filtrar (when() sozinho
+            // trata qualquer valor falsy como "sem filtro").
+            ->when($this->filterPrescricao !== '', function ($query) {
+                if ($this->filterPrescricao === 'sim') {
+                    $query->comReceita();
+                } else {
+                    // NULL conta como "não exige": a coluna tem default false,
+                    // mas artigos importados de sistemas antigos chegam sem
+                    // valor e desapareceriam da lista com um where simples.
+                    $query->where(function ($q) {
+                        $q->where('requires_prescription', false)
+                          ->orWhereNull('requires_prescription');
+                    });
+                }
+            })
+            ->when($this->filterTamanho !== '', fn ($query) => $query->porTamanho($this->filterTamanho))
+            ->when($this->filterCor !== '', fn ($query) => $query->porCor($this->filterCor))
             ->when($this->dateFrom, function ($query) {
                 $query->whereDate('created_at', '>=', $this->dateFrom);
             })
@@ -705,6 +859,10 @@ class Products extends Component
         // e devolvia null depois de o @if ter passado.
         $rastreio = $this->rastreio;
 
-        return view('livewire.invoicing.products.products', compact('products', 'taxRates', 'exemptionCodes', 'estatisticas', 'rastreio'));
+        // Passado explicitamente pela mesma razão que $rastreio: dentro de um
+        // bloco @php da vista o $this nem sempre é o componente.
+        $variantes = $this->variantesCatalogo;
+
+        return view('livewire.invoicing.products.products', compact('products', 'taxRates', 'exemptionCodes', 'estatisticas', 'rastreio', 'variantes'));
     }
 }

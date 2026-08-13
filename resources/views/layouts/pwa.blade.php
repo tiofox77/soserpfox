@@ -138,7 +138,7 @@
         window.SOS_USER_NAME = @json(auth()->user()?->name);
     </script>
 
-    <script src="/js/pwa-invoicing.js?v=16"></script>
+    <script src="/js/pwa-invoicing.js?v=17"></script>
     <script src="/js/pos-offline-ticket.js?v=3"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
@@ -160,7 +160,7 @@
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=16',
+            '/js/pwa-invoicing.js?v=17',
             '/js/pos-offline-ticket.js?v=3',
             '/manifest.webmanifest',
         ];

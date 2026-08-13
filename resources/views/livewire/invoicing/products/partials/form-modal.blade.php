@@ -144,13 +144,18 @@
                                     <select wire:model="category_id" class="w-full px-4 py-3 border-2 border-cyan-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition bg-white shadow-sm">
                                         <option value="">📂 {{ __('Selecione uma categoria...') }}</option>
                                         @php
-                                            $categories = \App\Models\Category::where('tenant_id', auth()->user()->tenant_id)
+                                            // Empresa ACTIVA, não `users.tenant_id`: quem gere mais do que
+                                            // uma empresa e trocou de empresa via a sessão continuava a ver
+                                            // aqui as categorias da empresa de origem — e podia gravar um
+                                            // artigo com a categoria de outra empresa. É o mesmo erro que já
+                                            // foi corrigido nos cartões do topo (ver Products::render).
+                                            $categories = \App\Models\Category::where('tenant_id', activeTenantId())
                                                 ->where('is_active', true)
                                                 ->whereNull('parent_id')
                                                 ->orderBy('name')
                                                 ->get();
-                                            
-                                            $subcategories = \App\Models\Category::where('tenant_id', auth()->user()->tenant_id)
+
+                                            $subcategories = \App\Models\Category::where('tenant_id', activeTenantId())
                                                 ->where('is_active', true)
                                                 ->whereNotNull('parent_id')
                                                 ->orderBy('parent_id')
@@ -190,7 +195,11 @@
                                     <div class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl bg-white shadow-sm min-h-[56px] flex items-center">
                                         @if($category_id)
                                             @php
-                                                $selectedCategory = \App\Models\Category::find($category_id);
+                                                // Limitado à empresa activa: um id herdado (ou forjado) de
+                                                // outra empresa mostrava aqui o nome da categoria dessa
+                                                // empresa. Não encontrando nada, fica simplesmente vazio.
+                                                $selectedCategory = \App\Models\Category::where('tenant_id', activeTenantId())
+                                                    ->find($category_id);
                                             @endphp
                                             @if($selectedCategory)
                                                 <div class="flex flex-col">
@@ -231,7 +240,8 @@
                             </label>
                             <select wire:model="brand_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition">
                                 <option value="">{{ __('Nenhuma') }}</option>
-                                @foreach(\App\Models\Brand::where('tenant_id', auth()->user()->tenant_id)->where('is_active', true)->orderBy('name')->get() as $brand)
+                                {{-- Empresa activa, pela mesma razão da categoria. --}}
+                                @foreach(\App\Models\Brand::where('tenant_id', activeTenantId())->where('is_active', true)->orderBy('name')->get() as $brand)
                                     <option value="{{ $brand->id }}">{{ $brand->name }}</option>
                                 @endforeach
                             </select>
@@ -244,7 +254,8 @@
                             </label>
                             <select wire:model="supplier_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
                                 <option value="">{{ __('Nenhum') }}</option>
-                                @foreach(\App\Models\Supplier::where('tenant_id', auth()->user()->tenant_id)->orderBy('name')->get() as $supplier)
+                                {{-- Empresa activa, pela mesma razão da categoria. --}}
+                                @foreach(\App\Models\Supplier::where('tenant_id', activeTenantId())->orderBy('name')->get() as $supplier)
                                     <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                                 @endforeach
                             </select>
@@ -359,6 +370,198 @@
                             </div>
                         </div>
                         
+                        <!-- Medicamento e Vestuário -->
+                        @php
+                            // A secção abre de raiz quando o artigo já é um
+                            // medicamento ou uma peça de roupa: quem edita um
+                            // medicamento não pode ter de adivinhar onde estão
+                            // os campos dele. Nos restantes artigos fica
+                            // recolhida para não encher o formulário de campos
+                            // que 99% do catálogo nunca usa.
+                            $temEspecificos = $requires_prescription || $is_controlled
+                                || filled($active_ingredient) || filled($dosage)
+                                || filled($pharmaceutical_form) || filled($armed_registration)
+                                || filled($size) || filled($color)
+                                || filled($gender) || filled($material);
+
+                            // Valores já usados no catálogo, para sugerir sem
+                            // impor: evita ter "Azul", "azul" e "AZUL" como três
+                            // cores diferentes. Vem da listagem por @include.
+                            $tamanhosSugeridos = $variantes['tamanhos'] ?? [];
+                            $coresSugeridas = $variantes['cores'] ?? [];
+                        @endphp
+                        <div class="md:col-span-3 p-4 bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl border-2 border-teal-200"
+                             x-data="{ aberto: @js($temEspecificos) }">
+                            <button type="button" @click="aberto = !aberto" class="w-full flex items-center text-left">
+                                <div class="flex items-center justify-center w-10 h-10 bg-teal-500 rounded-lg shadow-md">
+                                    <i class="fas fa-notes-medical text-white text-lg"></i>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <h3 class="text-sm font-bold text-gray-900">{{ __('Medicamento e Vestuário') }}</h3>
+                                    <p class="text-xs text-gray-600">{{ __('Campos opcionais — preencha apenas o que se aplica a este artigo') }}</p>
+                                </div>
+                                <i class="fas text-teal-600 text-lg" :class="aberto ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </button>
+
+                            <div x-show="aberto" x-cloak class="mt-4 space-y-4">
+                                <!-- Medicamento -->
+                                <div class="p-4 bg-white rounded-xl border border-teal-200">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-pills text-teal-600 mr-2"></i>{{ __('Medicamento') }}
+                                    </h4>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                        <label class="flex items-start p-3 bg-red-50 rounded-lg cursor-pointer border-2 border-transparent hover:border-red-300 transition">
+                                            <input type="checkbox" wire:model="requires_prescription" class="mt-0.5 w-4 h-4 text-red-600 rounded focus:ring-2 focus:ring-red-500">
+                                            <div class="ml-3 flex-1">
+                                                <div class="flex items-center">
+                                                    <i class="fas fa-file-prescription text-red-600 mr-2"></i>
+                                                    <span class="text-sm font-semibold text-gray-900">{{ __('Exige receita médica') }}</span>
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">{{ __('Só pode ser dispensado com apresentação de receita') }}</p>
+                                            </div>
+                                        </label>
+
+                                        <label class="flex items-start p-3 bg-purple-50 rounded-lg cursor-pointer border-2 border-transparent hover:border-purple-300 transition">
+                                            <input type="checkbox" wire:model="is_controlled" class="mt-0.5 w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500">
+                                            <div class="ml-3 flex-1">
+                                                <div class="flex items-center">
+                                                    <i class="fas fa-triangle-exclamation text-purple-600 mr-2"></i>
+                                                    <span class="text-sm font-semibold text-gray-900">{{ __('Psicotrópico / estupefaciente') }}</span>
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">{{ __('Substância sujeita a controlo especial') }}</p>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="md:col-span-2">
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-flask text-teal-600 mr-1"></i>{{ __('Substância activa (DCI)') }}
+                                            </label>
+                                            <input wire:model="active_ingredient" type="text" maxlength="255"
+                                                   placeholder="{{ __('Ex: Paracetamol') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition text-sm">
+                                            @error('active_ingredient') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-weight-scale text-teal-600 mr-1"></i>{{ __('Dosagem') }}
+                                            </label>
+                                            <input wire:model="dosage" type="text" maxlength="60"
+                                                   placeholder="{{ __('Ex: 500mg, 5mg/ml') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition text-sm">
+                                            @error('dosage') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-prescription-bottle text-teal-600 mr-1"></i>{{ __('Forma farmacêutica') }}
+                                            </label>
+                                            {{-- Texto livre com sugestões (datalist) em vez de select: a
+                                                 lista de formas farmacêuticas é longa e a farmácia tem de
+                                                 poder registar uma que não esteja prevista. --}}
+                                            <input wire:model="pharmaceutical_form" type="text" maxlength="40"
+                                                   list="formas-farmaceuticas"
+                                                   placeholder="{{ __('Ex: comprimido, xarope, injectável') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition text-sm">
+                                            <datalist id="formas-farmaceuticas">
+                                                <option value="{{ __('comprimido') }}"></option>
+                                                <option value="{{ __('cápsula') }}"></option>
+                                                <option value="{{ __('xarope') }}"></option>
+                                                <option value="{{ __('suspensão') }}"></option>
+                                                <option value="{{ __('injectável') }}"></option>
+                                                <option value="{{ __('pomada') }}"></option>
+                                                <option value="{{ __('creme') }}"></option>
+                                                <option value="{{ __('gotas') }}"></option>
+                                                <option value="{{ __('supositório') }}"></option>
+                                            </datalist>
+                                            @error('pharmaceutical_form') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div class="md:col-span-2">
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-stamp text-teal-600 mr-1"></i>{{ __('N.º de registo ARMED') }}
+                                            </label>
+                                            <input wire:model="armed_registration" type="text" maxlength="60"
+                                                   placeholder="{{ __('Registo na ARMED (Angola)') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition text-sm font-mono">
+                                            @error('armed_registration') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Vestuário -->
+                                <div class="p-4 bg-white rounded-xl border border-emerald-200">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-shirt text-emerald-600 mr-2"></i>{{ __('Vestuário') }}
+                                    </h4>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-ruler text-emerald-600 mr-1"></i>{{ __('Tamanho') }}
+                                            </label>
+                                            <input wire:model="size" type="text" maxlength="20"
+                                                   list="tamanhos-catalogo"
+                                                   placeholder="{{ __('Ex: S, M, L, 38, 40') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm">
+                                            <datalist id="tamanhos-catalogo">
+                                                @foreach($tamanhosSugeridos as $t)
+                                                    <option value="{{ $t }}"></option>
+                                                @endforeach
+                                            </datalist>
+                                            @error('size') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-palette text-emerald-600 mr-1"></i>{{ __('Cor') }}
+                                            </label>
+                                            <input wire:model="color" type="text" maxlength="40"
+                                                   list="cores-catalogo"
+                                                   placeholder="{{ __('Ex: azul-marinho') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm">
+                                            <datalist id="cores-catalogo">
+                                                @foreach($coresSugeridas as $c)
+                                                    <option value="{{ $c }}"></option>
+                                                @endforeach
+                                            </datalist>
+                                            @error('color') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-venus-mars text-emerald-600 mr-1"></i>{{ __('Género') }}
+                                            </label>
+                                            {{-- Lista fechada: o género alimenta filtros e relatórios e
+                                                 texto livre daria "M", "masc" e "Homem" a significar o
+                                                 mesmo. Os valores gravados não se traduzem. --}}
+                                            <select wire:model="gender" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm bg-white">
+                                                <option value="">{{ __('Não aplicável') }}</option>
+                                                <option value="masculino">{{ __('Masculino') }}</option>
+                                                <option value="feminino">{{ __('Feminino') }}</option>
+                                                <option value="unissexo">{{ __('Unissexo') }}</option>
+                                                <option value="crianca">{{ __('Criança') }}</option>
+                                            </select>
+                                            @error('gender') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-gray-600 mb-2">
+                                                <i class="fas fa-scroll text-emerald-600 mr-1"></i>{{ __('Composição') }}
+                                            </label>
+                                            <input wire:model="material" type="text" maxlength="120"
+                                                   placeholder="{{ __('Ex: 100% algodão') }}"
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm">
+                                            @error('material') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Imagens -->
                         <div x-data="{ preview: null }">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
