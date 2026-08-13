@@ -4,12 +4,14 @@ namespace App\Livewire\Invoicing;
 
 use App\Models\{Product};
 use App\Models\Invoicing\Tax;
+use App\Models\Invoicing\InvoicingSettings;
 use App\Models\AGT\AGTTaxExemptionCode;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 
 #[Layout('layouts.app')]
@@ -41,6 +43,47 @@ class Products extends Component
     public $filterPrescricao = '';
     public $filterTamanho = '';
     public $filterCor = '';
+
+    /**
+     * Perfis de catálogo da empresa (Definições de Faturação).
+     *
+     * Isto decide apenas o que APARECE POR OMISSÃO. Nunca esconde valores já
+     * gravados nem desliga avisos: uma protecção que se apaga com uma
+     * definição de visualização não é protecção nenhuma.
+     *
+     * #[Locked] porque isto vem das Definições e nunca do formulário: sem ele,
+     * o navegador podia devolver o perfil ligado numa empresa que o tem
+     * desligado. Não desbloqueia nada (os campos são opcionais e já revelaveis
+     * no formulário), mas uma definição da empresa não se altera pelo cliente.
+     */
+    #[Locked]
+    public array $perfis = [
+        InvoicingSettings::PERFIL_FARMACIA => false,
+        InvoicingSettings::PERFIL_VESTUARIO => false,
+    ];
+
+    public function mount(): void
+    {
+        $tenantId = activeTenantId();
+
+        // Sem empresa activa não há perfil nenhum para ler — e forTenant() é um
+        // firstOrCreate: chamá-lo aqui criaria uma linha de definições órfã.
+        if (!$tenantId) {
+            return;
+        }
+
+        // Lido uma única vez à entrada: forTenant() vai à base de dados e o
+        // render() volta a correr a cada tecla escrita na pesquisa.
+        //
+        // Pelos slugs do modelo e não pelos nomes das colunas: é o contrato que
+        // as definições publicam, e aguenta a coluna mudar de nome.
+        $activos = InvoicingSettings::forTenant($tenantId)->perfisActivos();
+
+        $this->perfis = [
+            InvoicingSettings::PERFIL_FARMACIA => in_array(InvoicingSettings::PERFIL_FARMACIA, $activos, true),
+            InvoicingSettings::PERFIL_VESTUARIO => in_array(InvoicingSettings::PERFIL_VESTUARIO, $activos, true),
+        ];
+    }
 
     /** Mostrar a lixeira (produtos eliminados, recuperáveis). */
     public bool $mostrarEliminados = false;
@@ -763,8 +806,11 @@ class Products extends Component
             'cores' => (clone $catalogo)
                 ->whereNotNull('color')->where('color', '<>', '')
                 ->distinct()->orderBy('color')->pluck('color')->all(),
-            // Serve para esconder os filtros a quem não vende nada disto: numa
-            // oficina seriam três caixas permanentemente vazias.
+            // Serve para MOSTRAR os filtros a quem já tem artigos assim
+            // marcados mesmo com o perfil de farmácia desligado — senão quem
+            // desligasse o perfil ficava sem forma de filtrar os dados que
+            // continuam gravados. Numa oficina (sem perfil e sem dados) os
+            // filtros continuam escondidos, que é o que se pretende.
             'ha_receituario' => (clone $catalogo)->where(function ($q) {
                 $q->where('requires_prescription', true)->orWhere('is_controlled', true);
             })->exists(),

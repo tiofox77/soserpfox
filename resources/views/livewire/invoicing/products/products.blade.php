@@ -161,17 +161,27 @@
             </div>
         </div>
 
-        {{-- Catálogo especializado. Estes filtros só aparecem à empresa que
-             tem mesmo artigos assim marcados — numa oficina ou num restaurante
-             seriam três selects permanentemente vazios. --}}
+        {{-- Catálogo especializado. Aparecem a quem diz trabalhar com isto nas
+             Definições de Faturação OU a quem já tem artigos assim marcados —
+             numa oficina ou num restaurante seriam selects permanentemente
+             vazios. A segunda metade da condição não é decorativa: sem ela,
+             desligar o perfil deixava dados gravados sem forma de os filtrar. --}}
         @php
+            $perfilFarmacia  = $perfis['farmacia'] ?? false;
+            $perfilVestuario = $perfis['vestuario'] ?? false;
+
             $temTamanhos = !empty($variantes['tamanhos']);
             $temCores = !empty($variantes['cores']);
-            $mostrarFiltrosCatalogo = ($variantes['ha_receituario'] ?? false) || $temTamanhos || $temCores;
+
+            $mostrarFiltroReceita = $perfilFarmacia || ($variantes['ha_receituario'] ?? false);
+            $mostrarFiltroTamanho = $perfilVestuario || $temTamanhos;
+            $mostrarFiltroCor     = $perfilVestuario || $temCores;
+
+            $mostrarFiltrosCatalogo = $mostrarFiltroReceita || $mostrarFiltroTamanho || $mostrarFiltroCor;
         @endphp
         @if($mostrarFiltrosCatalogo)
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mt-4">
-            @if($variantes['ha_receituario'] ?? false)
+            @if($mostrarFiltroReceita)
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
                     <i class="fas fa-file-prescription mr-1"></i>{{ __('Receita') }}
@@ -184,15 +194,17 @@
             </div>
             @endif
 
-            @if($temTamanhos)
+            @if($mostrarFiltroTamanho)
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
                     <i class="fas fa-ruler mr-1"></i>{{ __('Tamanho') }}
                 </label>
                 {{-- Select e não caixa de texto: ninguém se lembra de como
-                     escreveu o tamanho da última vez. --}}
-                <select wire:model.live="filterTamanho" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
-                    <option value="">{{ __('Todos') }}</option>
+                     escreveu o tamanho da última vez. Com o perfil acabado de
+                     ligar ainda não há nada para escolher — em vez de um select
+                     vazio que parece avariado, diz-se porquê. --}}
+                <select wire:model.live="filterTamanho" @disabled(!$temTamanhos) class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400">
+                    <option value="">{{ $temTamanhos ? __('Todos') : __('Ainda sem tamanhos registados') }}</option>
                     @foreach($variantes['tamanhos'] as $t)
                         <option value="{{ $t }}">{{ $t }}</option>
                     @endforeach
@@ -200,13 +212,13 @@
             </div>
             @endif
 
-            @if($temCores)
+            @if($mostrarFiltroCor)
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
                     <i class="fas fa-palette mr-1"></i>{{ __('Cor') }}
                 </label>
-                <select wire:model.live="filterCor" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
-                    <option value="">{{ __('Todas') }}</option>
+                <select wire:model.live="filterCor" @disabled(!$temCores) class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm disabled:bg-gray-100 disabled:text-gray-400">
+                    <option value="">{{ $temCores ? __('Todas') : __('Ainda sem cores registadas') }}</option>
                     @foreach($variantes['cores'] as $c)
                         <option value="{{ $c }}">{{ $c }}</option>
                     @endforeach
@@ -369,7 +381,14 @@
                             {{-- Receita/controlado e tamanho/cor junto ao nome: são
                                  o que distingue duas linhas com a mesma designação
                                  (a mesma t-shirt em M e em L) e o que o balcão tem
-                                 de ver antes de dispensar. Só aparece quando existe. --}}
+                                 de ver antes de dispensar.
+
+                                 O perfil da empresa NÃO entra nesta condição de
+                                 propósito: o crachá só existe porque o artigo tem
+                                 o dado, e um crachá "Receita" nunca deve
+                                 desaparecer por se ter desligado uma definição de
+                                 visualização. Ligar o perfil também não os
+                                 inventa — não há crachá sem valor por trás. --}}
                             @if($product->requires_prescription || $product->is_controlled || filled($product->size) || filled($product->color))
                                 <div class="flex flex-wrap items-center gap-1 mt-1">
                                     @if($product->requires_prescription)

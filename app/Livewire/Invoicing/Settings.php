@@ -78,7 +78,15 @@ class Settings extends Component
     public $pos_auto_complete_sale = false;
     public $pos_require_customer = false;
     public $pos_default_payment_method_id = null;
-    
+
+    // Perfil do Negócio
+    // Os dois podem estar ligados ao mesmo tempo (supermercado com balcão de
+    // farmácia); nenhum ligado é o caso normal. O carregamento é o mesmo do
+    // resto: o mount() percorre as colunas e enche as propriedades com o mesmo
+    // nome.
+    public $profile_pharmacy = false;
+    public $profile_clothing = false;
+
     // Gestão de Séries
     public $showSeriesModal = false;
     public $editingSeriesId = null;
@@ -210,6 +218,10 @@ class Settings extends Component
             'pos_auto_complete_sale' => $this->pos_auto_complete_sale,
             'pos_require_customer' => $this->pos_require_customer,
             'pos_default_payment_method_id' => $this->pos_default_payment_method_id,
+            // (bool) explícito: as colunas são NOT NULL e estas duas propriedades
+            // chegam do browser, onde um valor em falta viria como null.
+            'profile_pharmacy' => (bool) $this->profile_pharmacy,
+            'profile_clothing' => (bool) $this->profile_clothing,
         ]);
         
         $this->dispatch('notify', [

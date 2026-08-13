@@ -38,7 +38,11 @@
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-2xl shadow-xl p-4 sticky top-6">
                     <nav class="space-y-2">
-                        <a href="#padroes" class="flex items-center px-4 py-3 text-sm font-semibold text-purple-600 bg-purple-50 rounded-xl">
+                        <a href="#perfil" class="flex items-center px-4 py-3 text-sm font-semibold text-purple-600 bg-purple-50 rounded-xl">
+                            <i class="fas fa-store mr-3"></i>
+                            {{ __('Perfil do Negócio') }}
+                        </a>
+                        <a href="#padroes" class="flex items-center px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-xl">
                             <i class="fas fa-star mr-3"></i>
                             {{ __('Padrões') }}
                         </a>
@@ -72,6 +76,166 @@
 
             {{-- Content --}}
             <div class="lg:col-span-2 space-y-6">
+                {{-- Perfil do Negócio.
+                     Primeiro de propósito: é a primeira decisão que uma empresa
+                     toma ao configurar e condiciona o que vê no resto do
+                     sistema — não faz sentido escolher armazém ou série antes
+                     de dizer com o que é que se trabalha. --}}
+                <div id="perfil" class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2 flex items-center">
+                        <i class="fas fa-store mr-2 text-purple-600"></i>
+                        {{ __('Perfil do Negócio') }}
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-5">
+                        {{ __('Diga com o que trabalha e o sistema mostra os campos certos por omissão. Pode ligar os dois: um supermercado com balcão de farmácia é as duas coisas.') }}
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {{-- Perfil: Farmácia --}}
+                        <div class="rounded-xl p-4 border-2 transition bg-gradient-to-br {{ $profile_pharmacy ? 'from-teal-50 to-cyan-50 border-teal-400 shadow-md' : 'from-gray-50 to-slate-50 border-gray-200' }}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-start min-w-0">
+                                    <i class="fas fa-pills text-2xl mr-3 mt-0.5 {{ $profile_pharmacy ? 'text-teal-600' : 'text-gray-400' }}"></i>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-gray-900">{{ __('Trabalha com medicamentos') }}</div>
+                                        <div class="text-xs text-gray-500">{{ __('Farmácia, parafarmácia ou balcão de medicamentos') }}</div>
+                                    </div>
+                                </div>
+                                {{-- .live e não o modelo diferido do resto do formulário:
+                                     o que o cartão explica tem de acompanhar o clique,
+                                     senão o ecrã descreve um estado que já não é o actual. --}}
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" wire:model.live="profile_pharmacy" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                                </label>
+                            </div>
+
+                            <div class="mt-4">
+                                <div class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                                    {{ __('O que fica activo') }}
+                                </div>
+                                {{-- Só entra nesta lista o que o interruptor
+                                     controla mesmo. Prometer aqui o que já
+                                     funciona sem o perfil ensinava o contrário
+                                     do que interessa: que desligá-lo tira
+                                     coisas que não tira. --}}
+                                <ul class="space-y-2 text-sm text-gray-700">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-flask mt-1 mr-2 text-teal-600"></i>
+                                        <span>
+                                            <strong>{{ __('Campos de medicamento abertos de raiz na ficha do artigo') }}</strong>
+                                            — {{ __('substância activa, dosagem, forma farmacêutica e n.º ARMED, em vez de recolhidos atrás de uma pergunta.') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-filter mt-1 mr-2 text-teal-600"></i>
+                                        <span>
+                                            <strong>{{ __('Filtro de "exige receita" na lista de artigos') }}</strong>
+                                            — {{ __('separa num clique o que não pode sair do balcão sem receita.') }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            {{-- Sempre visível, ligado ou desligado: é precisamente
+                                 quando está desligado que esta garantia importa.
+
+                                 Aqui só entra o que NÃO depende do perfil. Se algum
+                                 destes itens passar um dia a depender, sai desta
+                                 caixa — senão prometia-se protecção onde deixou de
+                                 haver. --}}
+                            <div class="mt-4 bg-white border border-amber-300 rounded-lg p-3">
+                                <div class="flex items-start">
+                                    <i class="fas fa-shield-halved text-amber-600 mr-2 mt-0.5"></i>
+                                    <p class="text-xs text-gray-700">
+                                        <strong>{{ __('Os avisos do POS funcionam sempre.') }}</strong>
+                                        {{ __('Receita médica e psicotrópico avisam com este perfil ligado ou desligado, porque seguem os dados do artigo e não esta definição. Uma protecção que se desliga numa definição de visualização não é protecção.') }}
+                                    </p>
+                                </div>
+                                <ul class="mt-2 ml-6 space-y-1.5 text-xs text-gray-600">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-magnifying-glass mt-0.5 mr-2 text-amber-600"></i>
+                                        <span>
+                                            {{ __('Procurar no POS pela substância activa também funciona sempre: quem chega com uma receita de paracetamol não sabe se a caixa diz Ben-u-ron ou Panadol.') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-layer-group mt-0.5 mr-2 text-amber-600"></i>
+                                        <span>
+                                            {{ __('Lotes e validades com saída FIFO pela data de expiração, e o relatório de validade, dependem do rastreio de lotes de cada artigo — não deste perfil.') }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {{-- Perfil: Vestuário --}}
+                        <div class="rounded-xl p-4 border-2 transition bg-gradient-to-br {{ $profile_clothing ? 'from-indigo-50 to-violet-50 border-indigo-400 shadow-md' : 'from-gray-50 to-slate-50 border-gray-200' }}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-start min-w-0">
+                                    <i class="fas fa-shirt text-2xl mr-3 mt-0.5 {{ $profile_clothing ? 'text-indigo-600' : 'text-gray-400' }}"></i>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-gray-900">{{ __('Trabalha com vestuário') }}</div>
+                                        <div class="text-xs text-gray-500">{{ __('Roupa, calçado e acessórios') }}</div>
+                                    </div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" wire:model.live="profile_clothing" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                                </label>
+                            </div>
+
+                            <div class="mt-4">
+                                <div class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                                    {{ __('O que fica activo') }}
+                                </div>
+                                {{-- Mesma regra do cartão da farmácia: aqui só o
+                                     que o interruptor controla mesmo. --}}
+                                <ul class="space-y-2 text-sm text-gray-700">
+                                    <li class="flex items-start">
+                                        <i class="fas fa-tag mt-1 mr-2 text-indigo-600"></i>
+                                        <span>
+                                            <strong>{{ __('Campos de tamanho, cor, género e composição') }}</strong>
+                                            — {{ __('na ficha do artigo, para distinguir duas peças que se chamam igual.') }}
+                                        </span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="fas fa-filter mt-1 mr-2 text-indigo-600"></i>
+                                        <span>
+                                            <strong>{{ __('Filtros de tamanho e de cor na lista') }}</strong>
+                                            — {{ __('com os valores reais do catálogo: ninguém se lembra de como escreveu "azul-marinho" da última vez.') }}
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="mt-4 flex items-start bg-white border border-gray-200 rounded-lg p-3">
+                                <i class="fas fa-magnifying-glass text-gray-400 mr-2 mt-0.5"></i>
+                                <p class="text-xs text-gray-600">
+                                    {{ __('Procurar pelo tamanho no POS funciona sempre, com este perfil ligado ou desligado: "t-shirt" sozinho não chega para escolher; "t-shirt M" chega.') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if(!$profile_pharmacy && !$profile_clothing)
+                    {{-- Sem tom de aviso: é o caso da maioria das empresas. --}}
+                    <div class="mt-4 flex items-start bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                        <i class="fas fa-circle-info text-blue-500 mr-3 mt-0.5"></i>
+                        <p class="text-sm text-blue-900">
+                            {{ __('Sem nenhum perfil ligado o sistema funciona normalmente — é o caso da maioria das empresas. Na ficha do artigo estes campos ficam recolhidos atrás da pergunta "Este artigo é medicamento ou vestuário?", a um clique de distância para o caso isolado.') }}
+                        </p>
+                    </div>
+                    @endif
+
+                    <div class="mt-4 flex items-start bg-gray-50 border border-gray-200 rounded-xl p-3">
+                        <i class="fas fa-eye text-gray-400 mr-2 mt-0.5"></i>
+                        <p class="text-xs text-gray-600">
+                            {{ __('Desligar um perfil não esconde o que já está preenchido: um artigo que já tenha dosagem, tamanho ou cor continua a mostrar esses campos, para poderem ser vistos e corrigidos.') }}
+                        </p>
+                    </div>
+                </div>
+
                 {{-- Padrões --}}
                 <div id="padroes" class="bg-white rounded-2xl shadow-xl p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">

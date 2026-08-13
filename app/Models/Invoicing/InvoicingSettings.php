@@ -13,6 +13,14 @@ class InvoicingSettings extends Model
 {
     use HasFactory;
 
+    /**
+     * Slugs dos perfis de negócio. Quem consome o perfil (catálogo, listas,
+     * POS) usa estas constantes e nunca o nome da coluna — assim a forma como
+     * isto está guardado pode mudar sem obrigar a mexer em quem lê.
+     */
+    public const PERFIL_FARMACIA = 'farmacia';
+    public const PERFIL_VESTUARIO = 'vestuario';
+
     protected $table = 'invoicing_settings';
 
     protected $fillable = [
@@ -60,6 +68,9 @@ class InvoicingSettings extends Model
         'pos_auto_complete_sale',
         'pos_require_customer',
         'pos_default_payment_method_id',
+        // Perfil do negócio
+        'profile_pharmacy',
+        'profile_clothing',
         'agt_environment',
         'agt_api_base_url',
         'agt_client_id',
@@ -105,6 +116,8 @@ class InvoicingSettings extends Model
         'pos_products_per_page' => 'integer',
         'pos_auto_complete_sale' => 'boolean',
         'pos_require_customer' => 'boolean',
+        'profile_pharmacy' => 'boolean',
+        'profile_clothing' => 'boolean',
         'agt_auto_submit' => 'boolean',
         'agt_require_validation' => 'boolean',
         'agt_token_expires_at' => 'datetime',
@@ -137,6 +150,27 @@ class InvoicingSettings extends Model
     }
 
     // Helper methods
+    /**
+     * Perfis de negócio ligados, por slug: ['farmacia'], ['vestuario'], os dois
+     * ou vazio (o caso normal, e o da maioria das empresas).
+     *
+     * Os dois podem estar ligados ao mesmo tempo — um supermercado com balcão
+     * de farmácia é as duas coisas.
+     *
+     * Atenção a quem consome: isto diz o que se MOSTRA por omissão. Não serve
+     * para decidir se um aviso de receita ou de psicotrópico dispara — esses
+     * seguem os dados do artigo, sempre.
+     *
+     * @return string[]
+     */
+    public function perfisActivos(): array
+    {
+        return array_values(array_filter([
+            $this->profile_pharmacy ? self::PERFIL_FARMACIA : null,
+            $this->profile_clothing ? self::PERFIL_VESTUARIO : null,
+        ]));
+    }
+
     /** Memória do pedido: forTenant() é chamado 2 a 4 vezes por pedido. */
     protected static array $memoria = [];
 
@@ -227,6 +261,12 @@ class InvoicingSettings extends Model
                 'pos_auto_complete_sale' => false,
                 'pos_require_customer' => false,
                 'pos_default_payment_method_id' => null, // Será configurado pelo usuário
+
+                // Perfil do Negócio (profile_pharmacy / profile_clothing) não
+                // entra aqui de propósito: o arranque é nenhum dos dois ligado,
+                // que é o default da coluna. Nomear colunas novas neste array
+                // partiria a criação de definições no intervalo entre subir o
+                // código e correr a migração.
             ]
         );
     }

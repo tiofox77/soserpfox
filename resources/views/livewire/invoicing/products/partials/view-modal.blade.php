@@ -60,7 +60,11 @@
                                     <div class="flex items-center flex-wrap gap-3">
                                         {{-- Receita e controlo aparecem ao lado do nome, não enterrados
                                              lá em baixo: quem abre a ficha ao balcão tem de ver isto sem
-                                             ter de percorrer o resto. --}}
+                                             ter de percorrer o resto.
+
+                                             Seguem o artigo e não o perfil da empresa: desligar o perfil
+                                             de farmácia não pode calar o aviso de um artigo que continua
+                                             marcado como controlado. --}}
                                         @if($viewingProduct->requires_prescription)
                                             <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold border border-red-300">
                                                 <i class="fas fa-file-prescription mr-1"></i>{{ __('Exige receita médica') }}
@@ -264,9 +268,23 @@
                                 $temMedicamento = !empty($fichaMedicamento)
                                     || $viewingProduct->requires_prescription
                                     || $viewingProduct->is_controlled;
+
+                                $temVestuario = !empty($fichaVestuario);
+
+                                // Perfis da empresa (Definições de Faturação).
+                                // A ficha mostra-se com o perfil ligado OU com o
+                                // artigo já preenchido: assim, desligar o perfil
+                                // nunca faz desaparecer informação que continua
+                                // gravada — e à farmácia a secção aparece mesmo
+                                // vazia, a dizer que falta preenchê-la.
+                                $perfilFarmacia  = $perfis['farmacia'] ?? false;
+                                $perfilVestuario = $perfis['vestuario'] ?? false;
+
+                                $mostrarMedicamento = $perfilFarmacia || $temMedicamento;
+                                $mostrarVestuario   = $perfilVestuario || $temVestuario;
                             @endphp
 
-                            @if($temMedicamento)
+                            @if($mostrarMedicamento)
                                 <div class="p-4 bg-teal-50 rounded-xl border border-teal-200">
                                     <h4 class="font-bold text-gray-900 mb-3 flex items-center">
                                         <i class="fas fa-pills text-teal-600 mr-2"></i>{{ __('Medicamento') }}
@@ -288,11 +306,14 @@
                                                 <span class="text-sm font-semibold text-gray-900">{{ $valor }}</span>
                                             </div>
                                         @endforeach
+                                        @unless($temMedicamento)
+                                            <p class="text-sm text-gray-500 italic">{{ __('Sem dados de medicamento neste artigo.') }}</p>
+                                        @endunless
                                     </div>
                                 </div>
                             @endif
 
-                            @if(!empty($fichaVestuario))
+                            @if($mostrarVestuario)
                                 <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                                     <h4 class="font-bold text-gray-900 mb-3 flex items-center">
                                         <i class="fas fa-shirt text-emerald-600 mr-2"></i>{{ __('Vestuário') }}
@@ -304,6 +325,9 @@
                                                 <span class="text-sm font-semibold text-gray-900">{{ $valor }}</span>
                                             </div>
                                         @endforeach
+                                        @unless($temVestuario)
+                                            <p class="text-sm text-gray-500 italic">{{ __('Sem dados de vestuário neste artigo.') }}</p>
+                                        @endunless
                                     </div>
                                 </div>
                             @endif
