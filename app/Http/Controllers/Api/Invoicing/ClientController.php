@@ -24,7 +24,18 @@ class ClientController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'type' => 'nullable|string|max:20',
-            'nif' => 'nullable|string|max:50',
+            // O NIF é OBRIGATÓRIO, e isto dizia 'nullable'.
+            //
+            // A coluna é NOT NULL sem valor por omissão, e o ecrã online exige
+            // o NIF há muito. A API offline prometia o contrário: aceitava a
+            // criação, o PWA punha-a na fila, e ao sincronizar dava 500 —
+            // sempre, contra a base de dados. Cinco tentativas depois o cliente
+            // ficava marcado como erro permanente, e com ele qualquer venda que
+            // o referenciasse.
+            //
+            // O pior é o momento: o erro só aparecia horas depois, longe do
+            // balcão onde a pessoa ainda estava e podia dar o número.
+            'nif' => 'required|string|max:50',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
             'mobile' => 'nullable|string|max:50',
@@ -48,6 +59,34 @@ class ClientController extends Controller
         $localUuid = $data['local_uuid'] ?? null;
         unset($data['local_uuid']);
 
+        // Idempotência pelo IDENTIFICADOR LOCAL, antes do NIF.
+        //
+        // O local_uuid já vinha do PWA e já era devolvido na resposta — mas
+        // nunca era usado para nada. A desduplicação só olhava para o NIF, e
+        // um cliente de balcão não tem NIF: bastava a resposta perder-se
+        // (pedido chega, cliente é criado, ligação cai antes da resposta) para
+        // o PWA reenviar e criar um segundo registo da mesma pessoa. As vendas
+        // seguintes ficavam divididas entre os dois.
+        //
+        // O guarda ao esquema existe para o código poder ir para produção
+        // antes da migração: sem a coluna, mantém-se o comportamento antigo em
+        // vez de rebentar.
+        if ($localUuid && $this->temColunaLocalUuid()) {
+            $jaCriado = Client::where('tenant_id', $tenantId)
+                ->where('local_uuid', $localUuid)
+                ->first();
+
+            if ($jaCriado) {
+                return response()->json([
+                    'id' => $jaCriado->id,
+                    'local_uuid' => $localUuid,
+                    'name' => $jaCriado->name,
+                    'nif' => $jaCriado->nif,
+                    'duplicated' => true,
+                ]);
+            }
+        }
+
         // Idempotência: se já existe cliente com mesmo NIF, devolver
         if (!empty($data['nif'])) {
             $existing = Client::where('tenant_id', $tenantId)
@@ -66,6 +105,11 @@ class ClientController extends Controller
 
         $client = new Client();
         $client->tenant_id = $tenantId;
+
+        if ($localUuid && $this->temColunaLocalUuid()) {
+            $client->local_uuid = $localUuid;
+        }
+
         // ENUM da BD: ['pessoa_fisica','pessoa_juridica']. Mapeia valores legados
         // do PWA (singular/empresa) para evitar "Data truncated for column 'type'".
         $client->type = $this->normalizeType($data['type'] ?? null);
@@ -90,6 +134,24 @@ class ClientController extends Controller
             'nif' => $client->nif,
             'created' => true,
         ], 201);
+    }
+
+    /**
+     * A coluna do identificador local já existe?
+     *
+     * Guardado em estático: um Schema::hasColumn é uma ida à base de dados, e
+     * este método é chamado duas vezes por cliente sincronizado — numa fila de
+     * cem clientes seriam duzentas idas para responder sempre o mesmo.
+     */
+    private function temColunaLocalUuid(): bool
+    {
+        static $tem = null;
+
+        if ($tem === null) {
+            $tem = \Illuminate\Support\Facades\Schema::hasColumn('invoicing_clients', 'local_uuid');
+        }
+
+        return $tem;
     }
 
     /**

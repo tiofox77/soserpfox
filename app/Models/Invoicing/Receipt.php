@@ -238,13 +238,13 @@ class Receipt extends Model
     public function getPaymentMethodLabelAttribute()
     {
         $methods = [
-            'cash' => 'Dinheiro',
-            'transfer' => 'Transferência',
-            'multicaixa' => 'Multicaixa',
-            'tpa' => 'TPA',
-            'check' => 'Cheque',
-            'mbway' => 'MB Way',
-            'other' => 'Outro',
+            'cash' => __('Dinheiro'),
+            'transfer' => __('Transferência'),
+            'multicaixa' => __('Multicaixa'),
+            'tpa' => __('TPA'),
+            'check' => __('Cheque'),
+            'mbway' => __('MB Way'),
+            'other' => __('Outro'),
         ];
 
         return $methods[$this->payment_method] ?? ucfirst($this->payment_method);
@@ -253,8 +253,8 @@ class Receipt extends Model
     public function getStatusLabelAttribute()
     {
         $statuses = [
-            'issued' => 'Emitido',
-            'cancelled' => 'Cancelado',
+            'issued' => __('Emitido'),
+            'cancelled' => __('Cancelado'),
         ];
 
         return $statuses[$this->status] ?? ucfirst($this->status);

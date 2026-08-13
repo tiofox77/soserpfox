@@ -40,11 +40,11 @@ class PosShiftTransaction extends Model
     public function getTypeLabelAttribute(): string
     {
         return match($this->type) {
-            'invoice' => 'Fatura',
-            'receipt' => 'Recibo',
-            'adjustment' => 'Ajuste',
-            'withdrawal' => 'Retirada',
-            'deposit' => 'Depósito',
+            'invoice' => __('Fatura'),
+            'receipt' => __('Recibo'),
+            'adjustment' => __('Ajuste'),
+            'withdrawal' => __('Retirada'),
+            'deposit' => __('Depósito'),
             default => $this->type,
         };
     }
@@ -52,11 +52,11 @@ class PosShiftTransaction extends Model
     public function getPaymentMethodLabelAttribute(): string
     {
         return match($this->payment_method) {
-            'cash' => 'Dinheiro',
-            'card' => 'Cartão',
-            'bank_transfer' => 'Transferência',
-            'mbway' => 'MB WAY',
-            'multibanco' => 'Multibanco',
+            'cash' => __('Dinheiro'),
+            'card' => __('Cartão'),
+            'bank_transfer' => __('Transferência'),
+            'mbway' => __('MB WAY'),
+            'multibanco' => __('Multibanco'),
             default => $this->payment_method,
         };
     }

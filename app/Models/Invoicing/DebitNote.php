@@ -227,11 +227,11 @@ class DebitNote extends Model
     public function getReasonLabelAttribute()
     {
         $reasons = [
-            'interest' => 'Juros',
-            'penalty' => 'Multa',
-            'additional_charge' => 'Cobrança Adicional',
-            'correction' => 'Correção',
-            'other' => 'Outro',
+            'interest' => __('Juros'),
+            'penalty' => __('Multa'),
+            'additional_charge' => __('Cobrança Adicional'),
+            'correction' => __('Correção'),
+            'other' => __('Outro'),
         ];
 
         return $reasons[$this->reason] ?? ucfirst($this->reason);
@@ -240,10 +240,10 @@ class DebitNote extends Model
     public function getStatusLabelAttribute()
     {
         $statuses = [
-            'draft' => 'Rascunho',
-            'issued' => 'Emitida',
-            'paid' => 'Paga',
-            'cancelled' => 'Cancelada',
+            'draft' => __('Rascunho'),
+            'issued' => __('Emitida'),
+            'paid' => __('Paga'),
+            'cancelled' => __('Cancelada'),
         ];
 
         return $statuses[$this->status] ?? ucfirst($this->status);

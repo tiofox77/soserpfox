@@ -36,11 +36,21 @@
 
         {{-- NIF --}}
         <div>
-            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">NIF / BI</label>
-            <input x-model="form.nif" type="text" maxlength="50" inputmode="numeric"
+            {{-- O NIF passa a ser obrigatório AQUI, e não só no servidor.
+                 Sem ele o cliente era aceite, ficava na fila, e a
+                 sincronização dava erro contra a base de dados — horas depois,
+                 longe do balcão onde a pessoa ainda estava e podia dar o
+                 número. Um erro que só se pode corrigir no momento tem de ser
+                 apanhado no momento. --}}
+            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">
+                NIF / BI <span class="text-red-500">*</span>
+            </label>
+            <input x-model="form.nif" type="text" required maxlength="50" inputmode="numeric"
                    class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
                    placeholder="Ex: 5417654321">
-            <p class="text-xs text-gray-400 mt-1">Recomendado para faturas legais</p>
+            <p class="text-xs text-gray-400 mt-1">
+                Obrigatório. Para vendas sem cliente identificado, use o Consumidor Final no POS.
+            </p>
         </div>
 
         {{-- Contactos --}}

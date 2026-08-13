@@ -5,6 +5,7 @@ namespace App\Models\Invoicing;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class InvoicingSeries extends Model
@@ -145,26 +146,66 @@ class InvoicingSeries extends Model
     }
 
     // Get next document number
+    /**
+     * O próximo número da série, reservado de forma atómica.
+     *
+     * Isto lia o next_number do objecto que já tinha em mãos, procurava na
+     * base de dados se aquele número estava usado e só depois incrementava.
+     * Sem bloqueio, dois pedidos em voo lêem ambos 100, nenhum vê a factura do
+     * outro (ainda não foi gravada) e ambos devolvem 100. O índice único
+     * apanhava o segundo — mas com um erro 500, e no PWA isso gasta uma das
+     * cinco tentativas antes de a venda ficar marcada como falhada.
+     *
+     * É o cenário de uma loja a fechar: várias caixas sem rede, cada uma com
+     * dezenas de vendas na fila, todas a despejar assim que a ligação volta.
+     *
+     * O lockForUpdate serializa a atribuição. Quando isto corre dentro de uma
+     * transacção maior — como na sincronização de uma venda POS — o bloqueio
+     * só larga no commit dessa transacção, e é isso que se quer: a numeração
+     * fiscal não pode ter dois documentos com o mesmo número, e prefere-se
+     * esperar a arriscar.
+     *
+     * A alternativa — reservar o número numa transacção própria, já commitada —
+     * era mais rápida mas deixava buracos na numeração sempre que a venda
+     * falhasse a seguir, e buracos numa série fiscal são pior do que lentidão.
+     */
     public function getNextNumber()
     {
+        return DB::transaction(function () {
+            $numero = $this->reservarNumero();
+
+            // Manter este objecto coerente com o que ficou na base de dados:
+            // quem o tiver em mãos não pode continuar a ver o valor antigo.
+            $this->refresh();
+
+            return $numero;
+        });
+    }
+
+    private function reservarNumero()
+    {
+        // Reler a linha SOB BLOQUEIO. O que este objecto tem em memória pode
+        // já estar velho — foi lido antes de o outro pedido incrementar.
+        $serie = static::whereKey($this->getKey())->lockForUpdate()->first() ?? $this;
+
         $currentYear = now()->year;
-        
+
         // Verificar se precisa resetar numeração
-        if ($this->reset_yearly && $this->current_year != $currentYear) {
-            $this->update([
+        if ($serie->reset_yearly && $serie->current_year != $currentYear) {
+            $serie->update([
                 'next_number' => 1,
                 'current_year' => $currentYear,
             ]);
-            $this->refresh();
+            $serie->refresh();
         }
-        
-        $number = $this->next_number;
-        $formatted = $this->formatNumber($number);
+
+        $number = $serie->next_number;
+        $formatted = $serie->formatNumber($number);
 
         // Verificar se o número já existe no BD para ESTE tenant (proteção contra dessync).
         // A unicidade é por tenant (cada empresa tem numeração independente conforme SAFT-AO).
-        $table = $this->getDocumentTable();
-        $column = $this->getDocumentColumn();
+        $table = $serie->getDocumentTable();
+        $column = $serie->getDocumentColumn();
         // Validar o schema: um mapeamento errado NUNCA pode impedir a emissão de
         // documentos (um nome de tabela inválido rebentava a criação inteira).
         if ($table && $column
@@ -173,19 +214,19 @@ class InvoicingSeries extends Model
             $maxAttempts = 5000;
             while (
                 \DB::table($table)
-                    ->where('tenant_id', $this->tenant_id)
+                    ->where('tenant_id', $serie->tenant_id)
                     ->where($column, $formatted)
                     ->exists()
                 && $maxAttempts-- > 0
             ) {
                 $number++;
-                $formatted = $this->formatNumber($number);
+                $formatted = $serie->formatNumber($number);
             }
         }
 
         // Atualizar next_number para o próximo livre
-        $this->update(['next_number' => $number + 1]);
-        
+        $serie->update(['next_number' => $number + 1]);
+
         return $formatted;
     }
 

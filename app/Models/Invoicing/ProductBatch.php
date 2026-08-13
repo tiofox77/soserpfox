@@ -151,21 +151,28 @@ class ProductBatch extends Model
         return 'green';
     }
 
+    /**
+     * O rótulo do crachá é texto para o utilizador — logo, traduz-se.
+     *
+     * Vinha em português puro do modelo, e por isso escapou a todos os lotes
+     * de tradução: não está no Blade, e quem revê um ecrã não o encontra lá.
+     * O resultado era uma tabela inglesa com "Expirado" na coluna do estado.
+     */
     public function getStatusLabelAttribute()
     {
         if ($this->is_expired) {
-            return 'Expirado';
+            return __('Expirado');
         }
-        
+
         if ($this->is_expiring_soon) {
-            return 'Expira em breve';
+            return __('Expira em breve');
         }
-        
+
         if ($this->quantity_available <= 0) {
-            return 'Esgotado';
+            return __('Esgotado');
         }
-        
-        return 'Ativo';
+
+        return __('Ativo');
     }
 
     // Métodos

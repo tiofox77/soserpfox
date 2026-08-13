@@ -222,10 +222,10 @@ class CreditNote extends Model
     public function getReasonLabelAttribute()
     {
         $reasons = [
-            'return' => 'Devolução',
-            'discount' => 'Desconto',
-            'correction' => 'Correção',
-            'other' => 'Outro',
+            'return' => __('Devolução'),
+            'discount' => __('Desconto'),
+            'correction' => __('Correção'),
+            'other' => __('Outro'),
         ];
 
         return $reasons[$this->reason] ?? ucfirst($this->reason);
@@ -243,8 +243,8 @@ class CreditNote extends Model
     public function getTypeLabelAttribute()
     {
         $types = [
-            'total' => 'Total',
-            'partial' => 'Parcial',
+            'total' => __('Total'),
+            'partial' => __('Parcial'),
         ];
 
         return $types[$this->type] ?? ucfirst($this->type);
@@ -253,9 +253,9 @@ class CreditNote extends Model
     public function getStatusLabelAttribute()
     {
         $statuses = [
-            'draft' => 'Rascunho',
-            'issued' => 'Emitida',
-            'cancelled' => 'Cancelada',
+            'draft' => __('Rascunho'),
+            'issued' => __('Emitida'),
+            'cancelled' => __('Cancelada'),
         ];
 
         return $statuses[$this->status] ?? ucfirst($this->status);

@@ -81,17 +81,17 @@ class Import extends Model
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
-            'quotation' => 'Cotação',
-            'order_placed' => 'Pedido Realizado',
-            'payment_pending' => 'Pagamento Pendente',
-            'payment_confirmed' => 'Pagamento Confirmado',
-            'in_transit' => 'Em Trânsito',
-            'customs_pending' => 'Desembaraço Pendente',
-            'customs_inspection' => 'Inspeção Alfandegária',
-            'customs_cleared' => 'Desembaraçado',
-            'in_warehouse' => 'No Armazém',
-            'completed' => 'Concluído',
-            'cancelled' => 'Cancelado',
+            'quotation' => __('Cotação'),
+            'order_placed' => __('Pedido Realizado'),
+            'payment_pending' => __('Pagamento Pendente'),
+            'payment_confirmed' => __('Pagamento Confirmado'),
+            'in_transit' => __('Em Trânsito'),
+            'customs_pending' => __('Desembaraço Pendente'),
+            'customs_inspection' => __('Inspeção Alfandegária'),
+            'customs_cleared' => __('Desembaraçado'),
+            'in_warehouse' => __('No Armazém'),
+            'completed' => __('Concluído'),
+            'cancelled' => __('Cancelado'),
             default => $this->status
         };
     }

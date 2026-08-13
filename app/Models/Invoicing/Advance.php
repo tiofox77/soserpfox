@@ -184,11 +184,11 @@ class Advance extends Model
     public function getStatusLabelAttribute()
     {
         $statuses = [
-            'available' => 'Disponível',
-            'partially_used' => 'Parcialmente Usado',
-            'fully_used' => 'Totalmente Usado',
-            'refunded' => 'Reembolsado',
-            'cancelled' => 'Cancelado',
+            'available' => __('Disponível'),
+            'partially_used' => __('Parcialmente Usado'),
+            'fully_used' => __('Totalmente Usado'),
+            'refunded' => __('Reembolsado'),
+            'cancelled' => __('Cancelado'),
         ];
 
         return $statuses[$this->status] ?? ucfirst($this->status);
@@ -209,13 +209,13 @@ class Advance extends Model
     public function getPaymentMethodLabelAttribute()
     {
         $methods = [
-            'cash' => 'Dinheiro',
-            'transfer' => 'Transferência',
-            'multicaixa' => 'Multicaixa',
-            'tpa' => 'TPA',
-            'check' => 'Cheque',
-            'mbway' => 'MB Way',
-            'other' => 'Outro',
+            'cash' => __('Dinheiro'),
+            'transfer' => __('Transferência'),
+            'multicaixa' => __('Multicaixa'),
+            'tpa' => __('TPA'),
+            'check' => __('Cheque'),
+            'mbway' => __('MB Way'),
+            'other' => __('Outro'),
         ];
 
         return $methods[$this->payment_method] ?? ucfirst($this->payment_method);

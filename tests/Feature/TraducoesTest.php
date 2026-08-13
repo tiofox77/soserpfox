@@ -101,6 +101,14 @@ class TraducoesTest extends TenantTestCase
         // feita à mão.
         'resources/views/livewire/invoicing',
         'app/Livewire/Invoicing',
+
+        // Os MODELOS também falam com o utilizador.
+        //
+        // Os acessores get*LabelAttribute devolvem o texto do crachá de
+        // estado. Não estão no Blade, portanto escaparam a todos os lotes —
+        // e quem revê um ecrã traduzido não os encontra lá para reparar que
+        // a coluna "Estado" continua a dizer "Expirado" em inglês.
+        'app/Models/Invoicing',
     ];
 
     // ==================== o detector ====================

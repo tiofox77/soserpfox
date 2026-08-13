@@ -279,18 +279,18 @@ class SalesInvoice extends Model
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
-            'draft' => 'Rascunho',
-            'pending' => 'Pendente',
+            'draft' => __('Rascunho'),
+            'pending' => __('Pendente'),
             // Faltavam os dois estados mais usados a seguir a "paga": `sent`
             // (111 facturas) e `credited` (14). Caíam no `default`, que devolve
             // o nome cru da coluna — o ecrã mostrava "Sent" e "Credited", em
             // inglês, com o ícone de estado desconhecido ao lado.
-            'sent' => 'Emitida',
-            'partially_paid' => 'Parcialmente Pago',
-            'paid' => 'Pago',
-            'overdue' => 'Atrasado',
-            'credited' => 'Creditada',
-            'cancelled' => 'Cancelado',
+            'sent' => __('Emitida'),
+            'partially_paid' => __('Parcialmente Pago'),
+            'paid' => __('Pago'),
+            'overdue' => __('Atrasado'),
+            'credited' => __('Creditada'),
+            'cancelled' => __('Cancelado'),
             default => ucfirst($this->status),
         };
     }

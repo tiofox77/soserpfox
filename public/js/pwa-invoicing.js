@@ -212,7 +212,24 @@
         }
         if (!response.ok) {
             const text = await response.text();
-            throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+
+            // Um 4xx (tirando 408 e 429) é um pedido que o servidor recusou por
+            // aquilo que ele É: falta um campo, o valor não serve, não há
+            // permissão. Repetir cinco vezes não o compõe — só gasta as
+            // tentativas e atrasa a fila que ainda tem coisas boas atrás.
+            //
+            // O 408 e o 429 ficam de fora porque dizem "agora não", e não
+            // "nunca": um é tempo esgotado, o outro é excesso de pedidos.
+            const definitivo = response.status >= 400
+                && response.status < 500
+                && response.status !== 408
+                && response.status !== 429;
+
+            const erro = new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+            erro.definitivo = definitivo;
+            erro.status = response.status;
+
+            throw erro;
         }
         return response.json();
     }
@@ -509,6 +526,19 @@
                     console.warn('[PWA] Sessão expirada — a parar queue');
                     break;
                 }
+
+                // Recusa definitiva do servidor (4xx): não se repete.
+                //
+                // Isto contava como falha normal e voltava a tentar mais quatro
+                // vezes. Um cliente sem NIF, por exemplo, ia ser recusado as
+                // cinco — e cada tentativa punha-se à frente das vendas boas
+                // que estavam atrás na fila.
+                if (err.definitivo) {
+                    console.warn('[PWA] Recusado pelo servidor, não se repete:', err.status, job.op);
+                    await db.sync_queue.update(job.id, { status: 'failed' });
+                    continue;
+                }
+
                 // se já tentou 5x, marcar como erro permanente
                 if ((job.retries || 0) >= 5) {
                     await db.sync_queue.update(job.id, { status: 'failed' });

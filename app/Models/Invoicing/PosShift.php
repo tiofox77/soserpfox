@@ -291,8 +291,8 @@ class PosShift extends Model
     public function getStatusLabelAttribute(): string
     {
         return match($this->status) {
-            'open' => 'Aberto',
-            'closed' => 'Fechado',
+            'open' => __('Aberto'),
+            'closed' => __('Fechado'),
             default => $this->status,
         };
     }

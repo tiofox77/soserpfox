@@ -132,12 +132,12 @@ class PurchaseInvoice extends Model
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
-            'draft' => 'Rascunho',
-            'pending' => 'Pendente',
-            'partially_paid' => 'Parcialmente Pago',
-            'paid' => 'Pago',
-            'overdue' => 'Atrasado',
-            'cancelled' => 'Cancelado',
+            'draft' => __('Rascunho'),
+            'pending' => __('Pendente'),
+            'partially_paid' => __('Parcialmente Pago'),
+            'paid' => __('Pago'),
+            'overdue' => __('Atrasado'),
+            'cancelled' => __('Cancelado'),
             default => ucfirst($this->status),
         };
     }
