@@ -39,24 +39,31 @@ class BatchAllocationService
                 'message' => 'Nenhum lote disponível para este produto',
             ];
         }
-        
-        // Verificar se há lotes expirados
-        $expiredBatches = $batches->filter(function ($batch) {
-            return $batch->is_expired;
-        });
-        
-        if ($expiredBatches->isNotEmpty()) {
-            $expiredBatchNumbers = $expiredBatches->pluck('batch_number')->filter()->join(', ');
+
+        // Os lotes expirados SALTAM-SE; não abortam a alocação.
+        //
+        // Isto abortava a venda inteira assim que encontrasse um lote expirado
+        // do mesmo artigo. Um lote esquecido no armazém — e há sempre um —
+        // impedia de vender o produto todo, por tempo indeterminado, com uma
+        // mensagem que não dizia o que fazer. Quem estivesse ao balcão não
+        // tinha por onde sair.
+        //
+        // O expirado continua a contar como aviso: quem o vir na resposta sabe
+        // que tem lá stock a apodrecer.
+        [$expirados, $utilizaveis] = $batches->partition(fn ($batch) => $batch->is_expired);
+
+        if ($utilizaveis->isEmpty()) {
             return [
                 'success' => false,
                 'allocations' => [],
-                'message' => 'Lotes expirados encontrados: ' . ($expiredBatchNumbers ?: 'Sem número'),
-                'expired_batches' => $expiredBatches,
+                'message' => 'Só há lotes expirados deste produto: '
+                    . ($expirados->pluck('batch_number')->filter()->join(', ') ?: 'sem número'),
+                'expired_batches' => $expirados,
             ];
         }
-        
+
         // Alocar quantidade de cada lote (FIFO)
-        foreach ($batches as $batch) {
+        foreach ($utilizaveis as $batch) {
             if ($remainingQuantity <= 0) {
                 break;
             }
@@ -76,7 +83,11 @@ class BatchAllocationService
         
         // Verificar se conseguiu alocar toda a quantidade
         if ($remainingQuantity > 0) {
-            $totalAvailable = $batches->sum('quantity_available');
+            // O disponível anunciado é o dos lotes UTILIZÁVEIS. Contar os
+            // expirados aqui dizia ao operador que havia stock que ele não
+            // podia vender, e a mensagem passava a mentir.
+            $totalAvailable = $utilizaveis->sum('quantity_available');
+
             return [
                 'success' => false,
                 'allocations' => $allocations,
@@ -85,13 +96,15 @@ class BatchAllocationService
                     $quantityNeeded,
                     $totalAvailable
                 ),
+                'expired_batches' => $expirados,
             ];
         }
-        
+
         return [
             'success' => true,
             'allocations' => $allocations,
             'message' => 'Alocação FIFO bem-sucedida',
+            'expired_batches' => $expirados,
         ];
     }
     
@@ -162,26 +175,32 @@ class BatchAllocationService
             ->where('quantity_available', '>', 0)
             ->get();
         
-        $totalAvailable = $batches->sum('quantity_available');
-        $expiringSoon = $batches->filter(fn($b) => $b->is_expiring_soon);
-        $expired = $batches->filter(fn($b) => $b->is_expired);
-        
+        [$expired, $utilizaveis] = $batches->partition(fn ($b) => $b->is_expired);
+
+        // O disponível é o dos lotes que se PODEM vender. Somar os expirados
+        // aqui dava uma resposta que a allocateFIFO logo a seguir desmentia:
+        // "há 50 disponíveis" seguido de "quantidade insuficiente".
+        $totalAvailable = $utilizaveis->sum('quantity_available');
+
+        $expiringSoon = $utilizaveis->filter(fn ($b) => $b->is_expiring_soon);
+
         $warnings = [];
-        
+
         if ($expired->isNotEmpty()) {
             $warnings[] = sprintf('%d lote(s) expirado(s)', $expired->count());
         }
-        
+
         if ($expiringSoon->isNotEmpty()) {
             $warnings[] = sprintf('%d lote(s) expirando em breve', $expiringSoon->count());
         }
-        
+
         return [
             'available' => $totalAvailable >= $quantity,
             'total_available' => $totalAvailable,
             'quantity_needed' => $quantity,
             'difference' => $totalAvailable - $quantity,
-            'batches_count' => $batches->count(),
+            'batches_count' => $utilizaveis->count(),
+            'expired_count' => $expired->count(),
             'warnings' => $warnings,
         ];
     }

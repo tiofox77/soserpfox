@@ -59,11 +59,25 @@ class ProductBatches extends Component
         $this->showModal = true;
     }
 
+    /**
+     * O lote é procurado pelo id E pela empresa activa.
+     *
+     * O id chega do cliente, e sem o filtro qualquer id servia — inclusive o
+     * de outra empresa. Hoje o modelo já tem o BelongsToTenant e o global
+     * scope faz isto sozinho, mas a condição fica escrita: uma chamada a
+     * withoutGlobalScopes() em qualquer ponto da cadeia não pode reabrir a
+     * porta.
+     */
+    private function loteDaEmpresa($id): ProductBatch
+    {
+        return ProductBatch::where('tenant_id', activeTenantId())->findOrFail($id);
+    }
+
     public function edit($id)
     {
         abort_unless(auth()->user()?->can('invoicing.product-batches.edit'), 403, 'Sem permissão para editar lotes.');
-        $batch = ProductBatch::findOrFail($id);
-        
+        $batch = $this->loteDaEmpresa($id);
+
         $this->editingId = $id;
         $this->product_id = $batch->product_id;
         $this->warehouse_id = $batch->warehouse_id;
@@ -103,11 +117,24 @@ class ProductBatches extends Component
             ];
             
             if ($this->editingId) {
-                $batch = ProductBatch::find($this->editingId);
-                // Ajustar quantidade disponível proporcionalmente
-                $ratio = $this->quantity / $batch->quantity;
-                $data['quantity_available'] = $batch->quantity_available * $ratio;
-                
+                $batch = $this->loteDaEmpresa($this->editingId);
+
+                // O que já saiu do lote é um facto: está em movimentos de
+                // stock e em faturas. Corrigir o total não o pode alterar.
+                //
+                // A regra anterior era proporcional — 100 no total, 40
+                // disponíveis (60 saíram), corrigir para 90 dava 90 × 0,4 = 36.
+                // Mas saíram 60: o certo é 30. A proporção inventava seis
+                // unidades que não existem, e ninguém dava por isso.
+                //
+                // Também dividia por $batch->quantity sem olhar: com um lote
+                // de quantidade zero — que a validação permite — era uma
+                // divisão por zero, e em PHP 8 isso é um Error e não uma
+                // Exception, portanto o catch aqui em baixo nem o apanhava.
+                $jaSaiu = max(0, (float) $batch->quantity - (float) $batch->quantity_available);
+
+                $data['quantity_available'] = max(0, (float) $this->quantity - $jaSaiu);
+
                 $batch->update($data);
                 $message = 'Lote atualizado com sucesso!';
             } else {
@@ -127,8 +154,8 @@ class ProductBatches extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.product-batches.delete'), 403, 'Sem permissão para excluir lotes.');
         try {
-            $batch = ProductBatch::findOrFail($id);
-            
+            $batch = $this->loteDaEmpresa($id);
+
             if ($batch->quantity_available < $batch->quantity) {
                 $this->dispatch('error', message: 'Não é possível excluir lote já utilizado!');
                 return;
