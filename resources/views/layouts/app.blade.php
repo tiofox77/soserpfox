@@ -544,12 +544,12 @@
                 <!-- Menu -->
                 <nav id="sidebar-menu" class="flex-1 overflow-y-auto py-4">
                     <div class="px-3 mb-2">
-                        <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Menu Principal</p>
+                        <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">{{ __('Menu Principal') }}</p>
                     </div>
                     
                     <a href="{{ route('home') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('home') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                         <i class="fas fa-home w-6 text-blue-300"></i>
-                        <span x-show="sidebarOpen" class="ml-3">Início</span>
+                        <span x-show="sidebarOpen" class="ml-3">{{ __('Início') }}</span>
                     </a>
                     
                     {{-- Utilizadores - Collapsible Menu (Apenas Super Admin) --}}
@@ -559,7 +559,7 @@
                                 class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                             <div class="flex items-center">
                                 <i class="fas fa-users w-6 text-purple-300"></i>
-                                <span x-show="sidebarOpen" class="ml-3">Utilizadores</span>
+                                <span x-show="sidebarOpen" class="ml-3">{{ __('Utilizadores') }}</span>
                             </div>
                             <i x-show="sidebarOpen" 
                                :class="usersOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -572,13 +572,13 @@
                             <a href="{{ route('users.index') }}" 
                                class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('users.index') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                 <i class="fas fa-user-friends w-5 text-purple-400 text-sm"></i>
-                                <span x-show="sidebarOpen" class="ml-3 text-sm">Gestão de Utilizadores</span>
+                                <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Gestão de Utilizadores') }}</span>
                             </a>
                             
                             <a href="{{ route('users.roles-permissions') }}" 
                                class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('users.roles-permissions') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                 <i class="fas fa-shield-alt w-5 text-purple-400 text-sm"></i>
-                                <span x-show="sidebarOpen" class="ml-3 text-sm">Roles & Permissões</span>
+                                <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Roles & Permissões') }}</span>
                             </a>
                         </div>
                     </div>
@@ -592,7 +592,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-file-invoice-dollar w-6 text-yellow-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Facturação</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Facturação') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="invoicingOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -608,7 +608,7 @@
                                 <a href="{{ route('invoicing.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.dashboard') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📊 Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📊 {{ __('Dashboard') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -618,7 +618,7 @@
                                 <a href="{{ route('invoicing.pos') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cash-register w-5 text-emerald-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">🛒 POS - Ponto de Venda</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">🛒 {{ __('POS - Ponto de Venda') }}</span>
                                 </a>
                                 @endcan
 
@@ -626,27 +626,27 @@
                                 <a href="{{ route('invoicing.offline.pos') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.offline.*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-mobile-screen-button w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📱 POS Offline (PWA)</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📱 {{ __('POS Offline (PWA)') }}</span>
                                 </a>
                                 @endcan
 
                                 <a href="{{ route('invoicing.pos.shifts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.shifts') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-clock w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">⏰ Turnos de Caixa</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">⏰ {{ __('Turnos de Caixa') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('invoicing.pos.shift-history') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.shift-history') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-history w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📋 Histórico de Turnos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📋 {{ __('Histórico de Turnos') }}</span>
                                 </a>
                                 
                                 @can('invoicing.pos.reports')
                                 <a href="{{ route('invoicing.pos.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.pos.reports') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📊 Relatórios POS</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📊 {{ __('Relatórios POS') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -656,7 +656,7 @@
                                 <a href="{{ route('invoicing.clients') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.clients*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-users w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Clientes</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Clientes') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -664,7 +664,7 @@
                                 <a href="{{ route('invoicing.suppliers') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.suppliers*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-truck w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Fornecedores</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Fornecedores') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -672,7 +672,7 @@
                                 <a href="{{ route('invoicing.products') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.products*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-box w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Produtos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Produtos') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -680,7 +680,7 @@
                                 <a href="{{ route('invoicing.categories') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.categories*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-folder w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Categorias</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Categorias') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -688,7 +688,7 @@
                                 <a href="{{ route('invoicing.brands') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.brands*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tag w-5 text-pink-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Marcas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Marcas') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -698,7 +698,7 @@
                                             class="w-full flex items-center justify-between pr-4 py-2.5 hover:bg-blue-700/30 transition group">
                                         <div class="flex items-center">
                                             <i class="fas fa-file-alt w-5 text-purple-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">Documentos</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">{{ __('Documentos') }}</span>
                                         </div>
                                         <i x-show="sidebarOpen" 
                                            :class="documentsOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -713,7 +713,7 @@
                                         <a href="{{ route('invoicing.sales.proformas') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.proformas*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice-dollar w-5 text-purple-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Proformas Venda</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Proformas Venda') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -722,14 +722,14 @@
                                         <a href="{{ route('invoicing.sales.invoices') }}"
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.invoices*') && $__tipoFatura !== 'FR' ? 'bg-blue-700 border-l-4 border-indigo-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice w-5 text-indigo-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas Venda</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Faturas Venda') }}</span>
                                         </a>
 
                                         {{-- Fatura-Recibo (FR): mesma sequência do POS, paga no acto --}}
                                         <a href="{{ route('invoicing.sales.invoices', ['type' => 'FR']) }}"
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.invoices*') && $__tipoFatura === 'FR' ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-receipt w-5 text-emerald-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas-Recibo</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Faturas-Recibo') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -737,7 +737,7 @@
                                         <a href="{{ route('invoicing.purchases.proformas') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.purchases.proformas*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice w-5 text-orange-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Proformas Compra</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Proformas Compra') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -745,7 +745,7 @@
                                         <a href="{{ route('invoicing.purchases.invoices') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.purchases.invoices*') ? 'bg-blue-700 border-l-4 border-red-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice-dollar w-5 text-red-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Faturas Compra</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Faturas Compra') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -753,7 +753,7 @@
                                         <a href="{{ route('invoicing.imports.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.imports*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-ship w-5 text-cyan-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Importações</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Importações') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -761,7 +761,7 @@
                                         <a href="{{ route('invoicing.receipts.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.receipts*') ? 'bg-blue-700 border-l-4 border-blue-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-receipt w-5 text-blue-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Recibos</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Recibos') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -769,7 +769,7 @@
                                         <a href="{{ route('invoicing.credit-notes.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.credit-notes*') ? 'bg-blue-700 border-l-4 border-red-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-circle-minus w-5 text-red-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Notas Crédito</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Notas Crédito') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -777,7 +777,7 @@
                                         <a href="{{ route('invoicing.debit-notes.index') }}"
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.debit-notes*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-circle-plus w-5 text-green-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Notas Débito</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Notas Débito') }}</span>
                                         </a>
                                         @endcan
 
@@ -785,7 +785,7 @@
                                         <a href="{{ route('invoicing.transport-guides') }}"
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.transport-guides*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-truck w-5 text-orange-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Guias Transporte</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Guias Transporte') }}</span>
                                         </a>
                                         @endcanany
                                         
@@ -793,7 +793,7 @@
                                         <a href="{{ route('invoicing.advances.index') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.advances*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-coins w-5 text-yellow-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs">Adiantamentos</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Adiantamentos') }}</span>
                                         </a>
                                         @endcan
                                         
@@ -804,7 +804,7 @@
                                 <a href="{{ route('invoicing.warehouses') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.warehouses*') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-warehouse w-5 text-indigo-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Armazéns</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Armazéns') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -812,27 +812,27 @@
                                 <a href="{{ route('invoicing.stock') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.stock') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-boxes w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Gestão Stock</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Gestão Stock') }}</span>
                                 </a>
                                 @endcan
                                 
                                 <a href="{{ route('invoicing.product-batches') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.product-batches') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-check w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Lotes e Validades</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Lotes e Validades') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('invoicing.expiry-report') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.expiry-report') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-red-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📊 Relatório Validade</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">📊 {{ __('Relatório Validade') }}</span>
                                 </a>
                                 
                                 @can('invoicing.warehouse-transfer.view')
                                 <a href="{{ route('invoicing.warehouse-transfer') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.warehouse-transfer') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-exchange-alt w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Transfer. Armazéns</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Transfer. Armazéns') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -840,7 +840,7 @@
                                 <a href="{{ route('invoicing.inter-company-transfer') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.inter-company-transfer') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-building-circle-arrow-right w-5 text-teal-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Transfer. Inter-Empresa</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Transfer. Inter-Empresa') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -853,7 +853,7 @@
                                             class="w-full flex items-center justify-between pr-4 py-2.5 hover:bg-blue-700/30 transition group">
                                         <div class="flex items-center">
                                             <i class="fas fa-chart-column w-5 text-emerald-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📈 Relatórios</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-sm font-semibold">📈 {{ __('Relatórios') }}</span>
                                         </div>
                                         <i x-show="sidebarOpen" 
                                            :class="reportsOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -864,50 +864,50 @@
                                         <a href="{{ route('invoicing.reports.hub') }}" 
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.reports.hub') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-table-cells w-5 text-yellow-400 text-sm"></i>
-                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-semibold">Painel de Relatórios</span>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs font-semibold">{{ __('Painel de Relatórios') }}</span>
                                         </a>
 
                                         @php
                                             $reportGroups = [
                                                 'Rentabilidade' => [
-                                                    ['invoicing.reports.profit-loss', 'Lucros e Perdas (DRE)', 'fa-chart-line'],
-                                                    ['invoicing.reports.margin', 'Análise de Margem', 'fa-percentage'],
-                                                    ['invoicing.reports.product-performance', 'Desempenho de Produtos', 'fa-chart-pie'],
-                                                    ['invoicing.reports.comparative', 'Comparativo', 'fa-balance-scale'],
+                                                    ['invoicing.reports.profit-loss', __('Lucros e Perdas (DRE)'), 'fa-chart-line'],
+                                                    ['invoicing.reports.margin', __('Análise de Margem'), 'fa-percentage'],
+                                                    ['invoicing.reports.product-performance', __('Desempenho de Produtos'), 'fa-chart-pie'],
+                                                    ['invoicing.reports.comparative', __('Comparativo'), 'fa-balance-scale'],
                                                 ],
                                                 'Vendas' => [
-                                                    ['invoicing.reports.sales', 'Mapa de Vendas', 'fa-file-invoice'],
-                                                    ['invoicing.reports.top-clients', 'Top Clientes', 'fa-crown'],
-                                                    ['invoicing.reports.top-products', 'Top Produtos', 'fa-star'],
-                                                    ['invoicing.reports.sales-by-user', 'Vendas por Vendedor', 'fa-user-tie'],
+                                                    ['invoicing.reports.sales', __('Mapa de Vendas'), 'fa-file-invoice'],
+                                                    ['invoicing.reports.top-clients', __('Top Clientes'), 'fa-crown'],
+                                                    ['invoicing.reports.top-products', __('Top Produtos'), 'fa-star'],
+                                                    ['invoicing.reports.sales-by-user', __('Vendas por Vendedor'), 'fa-user-tie'],
                                                 ],
                                                 'Compras' => [
-                                                    ['invoicing.reports.purchases', 'Mapa de Compras', 'fa-shopping-cart'],
-                                                    ['invoicing.reports.top-suppliers', 'Top Fornecedores', 'fa-truck'],
-                                                    ['invoicing.reports.best-supplier', 'Melhor Fornecedor', 'fa-medal'],
+                                                    ['invoicing.reports.purchases', __('Mapa de Compras'), 'fa-shopping-cart'],
+                                                    ['invoicing.reports.top-suppliers', __('Top Fornecedores'), 'fa-truck'],
+                                                    ['invoicing.reports.best-supplier', __('Melhor Fornecedor'), 'fa-medal'],
                                                 ],
                                                 'Contas Correntes' => [
-                                                    ['invoicing.reports.accounts-receivable', 'Contas a Receber', 'fa-hand-holding-usd'],
-                                                    ['invoicing.reports.accounts-payable', 'Contas a Pagar', 'fa-money-bill-wave'],
-                                                    ['invoicing.reports.payment-methods', 'Recebimentos por Meio', 'fa-money-check-alt'],
-                                                    ['invoicing.reports.aging-clients', 'Aging de Clientes', 'fa-clock'],
-                                                    ['invoicing.reports.account-statement', 'Extracto de Conta Corrente', 'fa-file-invoice-dollar'],
+                                                    ['invoicing.reports.accounts-receivable', __('Contas a Receber'), 'fa-hand-holding-usd'],
+                                                    ['invoicing.reports.accounts-payable', __('Contas a Pagar'), 'fa-money-bill-wave'],
+                                                    ['invoicing.reports.payment-methods', __('Recebimentos por Meio'), 'fa-money-check-alt'],
+                                                    ['invoicing.reports.aging-clients', __('Aging de Clientes'), 'fa-clock'],
+                                                    ['invoicing.reports.account-statement', __('Extracto de Conta Corrente'), 'fa-file-invoice-dollar'],
                                                 ],
                                                 'Fiscal & SAFT' => [
-                                                    ['invoicing.reports.vat', 'Mapa de IVA', 'fa-percent'],
-                                                    ['invoicing.reports.documents', 'Mapa de Documentos', 'fa-file-alt'],
+                                                    ['invoicing.reports.vat', __('Mapa de IVA'), 'fa-percent'],
+                                                    ['invoicing.reports.documents', __('Mapa de Documentos'), 'fa-file-alt'],
                                                 ],
                                                 'Produtos & Serviços' => [
-                                                    ['invoicing.reports.price-list', 'Tabela de Preços e Lucro', 'fa-tags'],
-                                                    ['invoicing.reports.services', 'Mapa de Serviços', 'fa-concierge-bell'],
-                                                    ['invoicing.expiry-report', 'Validade de Produtos', 'fa-calendar-check'],
+                                                    ['invoicing.reports.price-list', __('Tabela de Preços e Lucro'), 'fa-tags'],
+                                                    ['invoicing.reports.services', __('Mapa de Serviços'), 'fa-concierge-bell'],
+                                                    ['invoicing.expiry-report', __('Validade de Produtos'), 'fa-calendar-check'],
                                                 ],
                                                 // Esta lista é MANTIDA À MÃO e vive separada do hub. Um
                                                 // relatório novo tem de entrar nos dois sítios, senão só
                                                 // aparece no painel e ninguém o encontra pelo menu — foi o
                                                 // que aconteceu ao extracto e aos ajustes de stock.
                                                 'Stock & Controlo' => [
-                                                    ['invoicing.reports.stock-adjustments', 'Ajustes de Stock', 'fa-sliders'],
+                                                    ['invoicing.reports.stock-adjustments', __('Ajustes de Stock'), 'fa-sliders'],
                                                 ],
                                             ];
                                         @endphp
@@ -932,7 +932,7 @@
                                 <a href="{{ route('invoicing.taxes') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.taxes') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-percent w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Impostos (IVA)</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Impostos (IVA)') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -940,7 +940,7 @@
                                 <a href="{{ route('invoicing.series') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.series') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-hashtag w-5 text-pink-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Séries de Documentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Séries de Documentos') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -948,7 +948,7 @@
                                 <a href="{{ route('invoicing.saft-generator') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.saft-generator') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-code w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Gerador SAFT-AO</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Gerador SAFT-AO') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -956,7 +956,7 @@
                                 <a href="{{ route('invoicing.settings') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cogs w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Configurações') }}</span>
                                 </a>
 
                                 {{-- Auditoria: quem fez o quê. Mesma permissão
@@ -965,7 +965,7 @@
                                 <a href="{{ route('invoicing.audit') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.audit') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clipboard-list w-5 text-slate-300 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Auditoria</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Auditoria') }}</span>
                                 </a>
                                 @endcan
 
@@ -973,7 +973,7 @@
                                 <a href="{{ route('invoicing.agt-settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.agt-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-signature w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">AGT Angola</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('AGT Angola') }}</span>
                                 </a>
                                 @endcan
                             </div>
@@ -988,7 +988,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-coins w-6 text-green-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Tesouraria</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Tesouraria') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="treasuryOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1004,7 +1004,7 @@
                                 <a href="{{ route('treasury.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.reports*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-invoice-dollar w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1012,7 +1012,7 @@
                                 <a href="{{ route('treasury.accounts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.accounts*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-wallet w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Contas Bancárias</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Contas Bancárias') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1020,7 +1020,7 @@
                                 <a href="{{ route('treasury.transactions') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.transactions*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-exchange-alt w-5 text-teal-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Transações</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Transações') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1028,7 +1028,7 @@
                                 <a href="{{ route('treasury.transfers') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.transfers*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-right-left w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Transferências</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Transferências') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1036,7 +1036,7 @@
                                 <a href="{{ route('treasury.payment-methods') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.payment-methods*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-money-bill-wave w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Métodos de Pagamento</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Métodos de Pagamento') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1044,7 +1044,7 @@
                                 <a href="{{ route('treasury.banks') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.banks*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-university w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Bancos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Bancos') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1052,7 +1052,7 @@
                                 <a href="{{ route('treasury.cash-registers') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.cash-registers*') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cash-register w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Caixas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Caixas') }}</span>
                                 </a>
                                 @endcan
                             </div>
@@ -1067,7 +1067,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-calendar-alt w-6 text-pink-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Eventos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Eventos') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="eventsOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1082,43 +1082,43 @@
                                 <a href="{{ route('events.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.dashboard') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-pie w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('events.calendar') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.calendar') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-alt w-5 text-indigo-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Calendário</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Calendário') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('events.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.reports') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('events.equipment.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.equipment.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tools w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Equipamentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Equipamentos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('events.venues.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.venues.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-map-marker-alt w-5 text-red-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Locais</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Locais') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('events.types.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.types.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tags w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Eventos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tipos de Eventos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('events.technicians.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('events.technicians.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-tie w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Técnicos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Técnicos') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1132,7 +1132,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-user-tie w-6 text-cyan-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Recursos Humanos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Recursos Humanos') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="hrOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1147,7 +1147,7 @@
                                 <a href="{{ route('hr.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.dashboard') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1155,13 +1155,13 @@
                                 <a href="{{ route('hr.employees.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.employees*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-users w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Funcionários</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Funcionários') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hr.departments.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.departments*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-building w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Departamentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Departamentos') }}</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1169,37 +1169,37 @@
                                 <a href="{{ route('hr.attendance.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.attendance*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clock w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Presenças</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Presenças') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hr.vacations.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.vacations*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-umbrella-beach w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Férias</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Férias') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hr.leaves') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.leaves*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-times w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Licenças e Faltas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Licenças e Faltas') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hr.overtime') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.overtime') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-business-time w-5 text-pink-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Horas Extras</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Horas Extras') }}</span>
                                 </a>
 
                                 <a href="{{ route('hr.overtime-night-shift') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.overtime-night-shift') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-moon w-5 text-indigo-300 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Turno Noturno</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Turno Noturno') }}</span>
                                 </a>
 
                                 <a href="{{ route('hr.salary-discounts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.salary-discounts') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-percentage w-5 text-red-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Descontos Salariais</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Descontos Salariais') }}</span>
                                 </a>
 
                                 @php
@@ -1214,7 +1214,7 @@
                                 <a href="{{ route('hr.shifts.index') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.shifts*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clock w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Turnos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Turnos') }}</span>
                                 </a>
                                 @endif
                                 
@@ -1223,13 +1223,13 @@
                                 <a href="{{ route('hr.payroll') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.payroll*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-money-check-alt w-5 text-emerald-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Folha de Pagamento</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Folha de Pagamento') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hr.advances') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.advances*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-hand-holding-usd w-5 text-teal-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Adiantamentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Adiantamentos') }}</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1237,13 +1237,13 @@
                                 <a href="{{ route('hr.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.reports*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-pie w-5 text-violet-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hr.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.settings*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cogs w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações RH</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Configurações RH') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1257,7 +1257,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-chart-line w-6 text-emerald-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Contabilidade</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Contabilidade') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="accountingOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1272,7 +1272,7 @@
                                 <a href="{{ route('accounting.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.dashboard') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-pie w-5 text-emerald-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1280,31 +1280,31 @@
                                 <a href="{{ route('accounting.accounts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.accounts*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-sitemap w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Plano de Contas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Plano de Contas') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.journals') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.journals*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-book w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Diários</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Diários') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.document-types') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.document-types*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-alt w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Documentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tipos de Documentos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.moves') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.moves*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-invoice w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Lançamentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Lançamentos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.periods') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.periods*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-alt w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Períodos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Períodos') }}</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1312,7 +1312,7 @@
                                 <a href="{{ route('accounting.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.reports*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1320,37 +1320,37 @@
                                 <a href="{{ route('accounting.reconciliation') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.reconciliation*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-exchange-alt w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Reconciliação</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Reconciliação') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.fixed-assets') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.fixed-assets*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-building w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Imobilizado</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Imobilizado') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.currencies') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.currencies*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-coins w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Moedas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Moedas') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.cost-centers') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.cost-centers*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-sitemap w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Centros Custo</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Centros Custo') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.analytics') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.analytics*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-pie w-5 text-pink-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Analítica</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Analítica') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('accounting.budgets') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.budgets*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calculator w-5 text-indigo-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Orçamentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Orçamentos') }}</span>
                                 </a>
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
@@ -1358,7 +1358,7 @@
                                 <a href="{{ route('accounting.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('accounting.settings*') ? 'bg-blue-700 border-l-4 border-emerald-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Configurações') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1372,7 +1372,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-wrench w-6 text-orange-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Gestão de Oficina</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Gestão de Oficina') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="oficinaOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1387,43 +1387,43 @@
                                 <a href="{{ route('workshop.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.dashboard') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.vehicles') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.vehicles*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-car w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Veículos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Veículos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.mechanics') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.mechanics*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-cog w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Mecânicos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Mecânicos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.services') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.services*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tools w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Serviços</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Serviços') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.parts') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.parts*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-boxes w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Peças</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Peças') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.work-orders') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.work-orders*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clipboard-list w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Ordens de Serviço</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Ordens de Serviço') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('workshop.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('workshop.reports*') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1437,7 +1437,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-hotel w-6 text-purple-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Gestão de Hotel</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Gestão de Hotel') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="hotelOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1452,91 +1452,91 @@
                                 <a href="{{ route('hotel.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.dashboard') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.reservations') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.reservations*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-check w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Reservas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Reservas') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.walk-in') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.walk-in*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-walking w-5 text-emerald-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Walk-in</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Walk-in') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.checkout') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.checkout*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-sign-out-alt w-5 text-red-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Check-out</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Check-out') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.calendar') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.calendar*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-alt w-5 text-indigo-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Calendário</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Calendário') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.housekeeping') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.housekeeping*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-broom w-5 text-teal-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Housekeeping</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Housekeeping') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.maintenance') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.maintenance*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tools w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Manutenção</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Manutenção') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.staff') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.staff*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-users w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Funcionarios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Funcionários') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.rooms') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.rooms*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-door-open w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Quartos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Quartos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.room-types') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.room-types*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-bed w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tipos de Quarto</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tipos de Quarto') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.guests') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.guests*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-users w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Hóspedes</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Hóspedes') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.reports') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.reports*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-amber-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.rates') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.rates*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tags w-5 text-amber-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tarifas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tarifas') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.packages') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.packages*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-gift w-5 text-pink-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Pacotes</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Pacotes') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('hotel.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.settings*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Configurações') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1550,7 +1550,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-spa w-6 text-pink-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Salão de Beleza</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Salão de Beleza') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="salonOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1565,55 +1565,55 @@
                                 <a href="{{ route('salon.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.dashboard') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.appointments') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.appointments*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-calendar-check w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Agendamentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Agendamentos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.clients') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.clients*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-users w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Clientes</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Clientes') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.services') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.services') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cut w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Serviços</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Serviços') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.services.categories') }}" 
                                    class="flex items-center pl-10 pr-4 py-2 {{ request()->routeIs('salon.services.categories') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-folder w-4 text-pink-300 text-xs"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-xs text-blue-200">Categorias</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-xs text-blue-200">{{ __('Categorias') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.professionals') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.professionals*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-tie w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Profissionais</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Profissionais') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.products') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.products*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-boxes w-5 text-emerald-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Produtos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Produtos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.pos') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.pos*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cash-register w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">POS / Faturar</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('POS / Faturar') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('salon.reports.time') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.reports.*') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-bar w-5 text-cyan-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
                                 </a>
                                 
                                 <div class="border-t border-blue-700/50 my-2"></div>
@@ -1621,7 +1621,7 @@
                                 <a href="{{ route('salon.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('salon.settings') ? 'bg-blue-700 border-l-4 border-pink-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Configurações') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1633,7 +1633,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-utensils w-6 text-orange-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Restaurante</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Restaurante') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" :class="restaurantOpen ? 'fa-chevron-down' : 'fa-chevron-right'"
                                    class="fas text-blue-300 text-xs transition-transform duration-200"></i>
@@ -1643,46 +1643,46 @@
                                     <a href="{{ route('restaurant.dashboard') }}"
                                        class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.dashboard') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                         <i class="fas fa-chart-line w-5 text-orange-300 text-sm"></i>
-                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                     </a>
                                 @endcan
                                 @can('restaurant.floor.view')
                                     <a href="{{ route('restaurant.floor') }}"
                                        class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.floor') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                         <i class="fas fa-chair w-5 text-emerald-300 text-sm"></i>
-                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Sala e Mesas</span>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Sala e Mesas') }}</span>
                                     </a>
                                 @endcan
                                 @can('restaurant.orders.view')
                                     <a href="{{ route('restaurant.orders') }}"
                                        class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.orders') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                         <i class="fas fa-receipt w-5 text-violet-300 text-sm"></i>
-                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Comandas</span>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Comandas') }}</span>
                                     </a>
                                 @endcan
                                 @can('restaurant.kitchen.view')
                                     <a href="{{ route('restaurant.kitchen') }}"
                                        class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.kitchen') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                         <i class="fas fa-fire-burner w-5 text-red-300 text-sm"></i>
-                                        <span x-show="sidebarOpen" class="ml-3 text-sm">Cozinha / KDS</span>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Cozinha / KDS') }}</span>
                                     </a>
                                 @endcan
                                 @can('restaurant.reservations.view')
                                     <a href="{{ route('restaurant.reservations') }}" class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.reservations') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
-                                        <i class="fas fa-calendar-check w-5 text-cyan-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Reservas</span>
+                                        <i class="fas fa-calendar-check w-5 text-cyan-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Reservas') }}</span>
                                     </a>
                                 @endcan
                                 @can('restaurant.recipes.view')
-                                    <a href="{{route('restaurant.recipes')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.recipes')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-book-open w-5 text-lime-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Fichas Técnicas</span></a>
+                                    <a href="{{route('restaurant.recipes')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.recipes')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-book-open w-5 text-lime-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Fichas Técnicas') }}</span></a>
                                 @endcan
                                 @can('restaurant.stock.view')
-                                    <a href="{{route('restaurant.stock')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.stock')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-boxes-stacked w-5 text-emerald-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Stock e Desperdícios</span></a>
+                                    <a href="{{route('restaurant.stock')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.stock')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-boxes-stacked w-5 text-emerald-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Stock e Desperdícios') }}</span></a>
                                 @endcan
                                 @can('restaurant.reports.view')
-                                    <a href="{{route('restaurant.reports')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.reports')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-chart-column w-5 text-indigo-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Relatórios</span></a>
+                                    <a href="{{route('restaurant.reports')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.reports')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-chart-column w-5 text-indigo-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span></a>
                                 @endcan
                                 @can('restaurant.settings.view')
-                                    <a href="{{route('restaurant.settings')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.settings')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-gear w-5 text-slate-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">Configurações</span></a>
+                                    <a href="{{route('restaurant.settings')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.settings')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-gear w-5 text-slate-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Configurações') }}</span></a>
                                 @endcan
                             </div>
                         </div>
@@ -1699,7 +1699,7 @@
                             <a href="{{ route('notifications.settings') }}"
                                class="flex items-center px-4 py-3 {{ request()->routeIs('notifications.settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                 <i class="fas fa-bell w-5 text-xl text-yellow-400"></i>
-                                <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Notificações</span>
+                                <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Notificações') }}</span>
                             </a>
 
                             {{-- O ecrã de modelos existe em /notifications/templates
@@ -1708,7 +1708,7 @@
                             <a href="{{ route('notifications.templates') }}"
                                class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('notifications.templates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                 <i class="fas fa-file-lines w-5 text-slate-300 text-sm"></i>
-                                <span x-show="sidebarOpen" class="ml-3 text-sm">Modelos</span>
+                                <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Modelos') }}</span>
                             </a>
                         </div>
                     @endif
@@ -1721,7 +1721,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-user-check w-6 text-teal-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">CRM</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('CRM') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="crmOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1736,25 +1736,25 @@
                                 <a href="{{ route('crm.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.dashboard') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('crm.leads') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.leads*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-user-plus w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Leads</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Leads') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('crm.oportunidades') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.oportunidades*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-bullseye w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Oportunidades</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Oportunidades') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('crm.funil-vendas') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.funil-vendas*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-filter w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Funil de Vendas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Funil de Vendas') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1768,7 +1768,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-boxes w-6 text-amber-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Inventário</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Inventário') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="inventarioOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1783,25 +1783,25 @@
                                 <a href="{{ route('inventario.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.dashboard') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('inventario.armazens') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.armazens*') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-warehouse w-5 text-indigo-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Armazéns</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Armazéns') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('inventario.movimentos') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.movimentos*') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-exchange-alt w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Movimentos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Movimentos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('inventario.contagem') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('inventario.contagem*') ? 'bg-blue-700 border-l-4 border-amber-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clipboard-check w-5 text-purple-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Contagem de Stock</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Contagem de Stock') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1815,7 +1815,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-shopping-cart w-6 text-lime-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Compras</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Compras') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="comprasOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1830,25 +1830,25 @@
                                 <a href="{{ route('compras.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.dashboard') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('compras.fornecedores') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.fornecedores*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-truck w-5 text-orange-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Fornecedores</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Fornecedores') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('compras.requisicoes') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.requisicoes*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-file-alt w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Requisições</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Requisições') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('compras.encomendas') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.encomendas*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clipboard-list w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Encomendas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Encomendas') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1862,7 +1862,7 @@
                                     class="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-700/50 transition group">
                                 <div class="flex items-center">
                                     <i class="fas fa-project-diagram w-6 text-violet-400"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Projetos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Projetos') }}</span>
                                 </div>
                                 <i x-show="sidebarOpen" 
                                    :class="projetosOpen ? 'fa-chevron-down' : 'fa-chevron-right'" 
@@ -1877,25 +1877,25 @@
                                 <a href="{{ route('projetos.dashboard') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.dashboard') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-line w-5 text-blue-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Dashboard</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Dashboard') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('projetos.lista') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.lista*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-briefcase w-5 text-indigo-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Projetos</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Projetos') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('projetos.tarefas') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.tarefas*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-tasks w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Tarefas</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tarefas') }}</span>
                                 </a>
                                 
                                 <a href="{{ route('projetos.timesheet') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.timesheet*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-clock w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">Timesheet</span>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Timesheet') }}</span>
                                 </a>
                             </div>
                         </div>
@@ -1903,65 +1903,65 @@
 
                     @if(auth()->user()->isSuperAdmin())
                         <div class="px-3 mt-6 mb-2">
-                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Super Admin</p>
+                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">{{ __('Super Admin') }}</p>
                         </div>
                         
                         <a href="{{ route('superadmin.dashboard') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.dashboard') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-chart-line w-6 text-yellow-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Dashboard</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Dashboard') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.tenants') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.tenants') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-building w-6 text-green-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Tenants</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Tenants') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.modules') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.modules') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-puzzle-piece w-6 text-purple-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Módulos</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Módulos') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.plans') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.plans') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-tags w-6 text-pink-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Planos</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Planos') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.billing') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.billing') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-file-invoice-dollar w-6 text-emerald-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Billing</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Billing') }}</span>
                         </a>
                         
                         <div class="px-3 mt-6 mb-2">
-                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Sistema</p>
+                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">{{ __('Sistema') }}</p>
                         </div>
                         
                         <a href="{{ route('superadmin.system-updates') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-updates') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-cloud-download-alt w-6 text-cyan-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Atualizações do Sistema</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Atualizações do Sistema') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.script-runner') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.script-runner') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-code w-6 text-green-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Executar Scripts</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Executar Scripts') }}</span>
                         </a>
                         
                         <div class="px-3 mt-6 mb-2">
-                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">Configurações</p>
+                            <p x-show="sidebarOpen" class="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">{{ __('Configurações') }}</p>
                         </div>
                         
                         <a href="{{ route('superadmin.system-settings') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-settings') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-cog w-6 text-purple-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Configurações do Sistema</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Configurações do Sistema') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.saft') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.saft') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-key w-6 text-orange-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">SAFT Configurações</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('SAFT Configurações') }}</span>
                         </a>
                         
                         <a href="{{ route('superadmin.system-optimization') }}" class="flex items-center px-4 py-3 {{ request()->routeIs('superadmin.system-optimization') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                             <i class="fas fa-tachometer-alt w-6 text-cyan-400"></i>
-                            <span x-show="sidebarOpen" class="ml-3">Optimização & OPcache</span>
+                            <span x-show="sidebarOpen" class="ml-3">{{ __('Optimização & OPcache') }}</span>
                         </a>
                     @endif
                 </nav>
@@ -2005,8 +2005,8 @@
                     <a href="{{ route('support.tickets') }}" 
                        class="flex items-center px-4 py-3 {{ request()->routeIs('support.*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition group">
                         <i class="fas fa-life-ring text-2xl text-purple-400"></i>
-                        <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">Suporte</span>
-                        <span x-show="sidebarOpen" class="ml-auto text-xs bg-purple-500 px-2 py-1 rounded-full">Novo</span>
+                        <span x-show="sidebarOpen" class="ml-3 font-semibold text-white">{{ __('Suporte') }}</span>
+                        <span x-show="sidebarOpen" class="ml-auto text-xs bg-purple-500 px-2 py-1 rounded-full">{{ __('Novo') }}</span>
                     </a>
                 </div>
 
@@ -2089,8 +2089,8 @@
                                 <i class="fas" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right'"></i>
                             </button>
                             <div>
-                                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">@yield('page-title', 'Dashboard')</h1>
-                                <p class="text-xs sm:text-sm text-gray-600 hidden sm:block">@yield('page-subtitle', 'Bem-vindo ao sistema')</p>
+                                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">@yield('page-title', __('Dashboard'))</h1>
+                                <p class="text-xs sm:text-sm text-gray-600 hidden sm:block">@yield('page-subtitle', __('Bem-vindo ao sistema'))</p>
                             </div>
                         </div>
                         
@@ -2115,7 +2115,7 @@
                                      x-data="{ showFoxMessage: false }"
                                      @mouseenter="showFoxMessage = true"
                                      @mouseleave="showFoxMessage = false"
-                                     title="FOX Friendly Active!">
+                                     title="{{ __('FOX Friendly activo!') }}">
                                     <div class="relative cursor-pointer">
                                         <span class="fox-paw text-xl">🐾</span>
                                         <div x-show="showFoxMessage"
@@ -2233,9 +2233,13 @@
                 o.innerHTML =
                     '<div style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);font-family:inherit;">'
                     + '<div style="font-size:44px;line-height:1;margin-bottom:12px;">&#128274;</div>'
-                    + '<h2 style="font-size:20px;font-weight:800;margin:0 0 8px;color:#111827;">Sess&atilde;o expirada</h2>'
-                    + '<p style="color:#4b5563;margin:0 0 20px;font-size:14px;line-height:1.5;">Por inatividade, a sua sess&atilde;o terminou. <strong>O carrinho foi guardado</strong> e ser&aacute; restaurado assim que iniciar sess&atilde;o novamente.</p>'
-                    + '<a href="{{ route('login') }}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;padding:12px 26px;border-radius:10px;font-weight:700;text-decoration:none;">Iniciar sess&atilde;o</a>'
+                    {{-- As entidades HTML (&atilde;) sairam de cena: o @json
+                         entrega uma cadeia JavaScript ja escapada, portanto os
+                         acentos podem vir inteiros — e em frances havia
+                         demasiados para os escrever assim um a um. --}}
+                    + '<h2 style="font-size:20px;font-weight:800;margin:0 0 8px;color:#111827;">' + @json(__('Sessão expirada')) + '</h2>'
+                    + '<p style="color:#4b5563;margin:0 0 20px;font-size:14px;line-height:1.5;">' + @json(__('Por inatividade, a sua sessão terminou. <strong>O carrinho foi guardado</strong> e será restaurado assim que iniciar sessão novamente.')) + '</p>'
+                    + '<a href="{{ route('login') }}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;padding:12px 26px;border-radius:10px;font-weight:700;text-decoration:none;">' + @json(__('Iniciar sessão')) + '</a>'
                     + '</div>';
                 document.body.appendChild(o);
             })();

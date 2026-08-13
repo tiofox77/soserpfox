@@ -5,15 +5,17 @@
             <div>
                 <h2 class="text-xl sm:text-3xl font-bold text-gray-800 flex items-center">
                     <i class="fas fa-chart-line mr-2 sm:mr-3 text-blue-600"></i>
-                    Dashboard de Faturação
+                    {{ __('Dashboard de Faturação') }}
                 </h2>
-                <p class="text-gray-600 mt-1 text-xs sm:text-base">Visão geral do módulo de faturação - {{ \Carbon\Carbon::now()->format('F Y') }}</p>
+                {{-- Frase inteira com marcador, e nao " - " colado ao mes: a
+                     ordem das palavras noutras linguas nao e a portuguesa. --}}
+                <p class="text-gray-600 mt-1 text-xs sm:text-base">{{ __('Visão geral do módulo de faturação - :periodo', ['periodo' => \Carbon\Carbon::now()->format('F Y')]) }}</p>
             </div>
             <div>
                 <select wire:model.live="selectedPeriod" class="rounded-lg border-gray-300 shadow-sm text-sm sm:text-base">
-                    <option value="week">Esta Semana</option>
-                    <option value="month">Este Mês</option>
-                    <option value="year">Este Ano</option>
+                    <option value="week">{{ __('Esta Semana') }}</option>
+                    <option value="month">{{ __('Este Mês') }}</option>
+                    <option value="year">{{ __('Este Ano') }}</option>
                 </select>
             </div>
         </div>
@@ -25,7 +27,7 @@
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
             <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-blue-200 text-xs sm:text-sm font-medium uppercase">Faturação do Mês</p>
+                    <p class="text-blue-200 text-xs sm:text-sm font-medium uppercase">{{ __('Faturação do Mês') }}</p>
                 </div>
                 <div class="bg-white/20 p-2 sm:p-3 rounded-full">
                     <i class="fas fa-file-invoice-dollar text-base sm:text-2xl"></i>
@@ -36,15 +38,15 @@
                 <p class="text-blue-200 text-xs sm:text-sm mt-1">AOA</p>
                 @if($stats['growth'] > 0)
                     <p class="text-green-200 text-xs mt-2">
-                        <i class="fas fa-arrow-up mr-1"></i>{{ number_format($stats['growth'], 1) }}% vs mês anterior
+                        <i class="fas fa-arrow-up mr-1"></i>{{ __(':pct% vs mês anterior', ['pct' => number_format($stats['growth'], 1)]) }}
                     </p>
                 @elseif($stats['growth'] < 0)
                     <p class="text-red-200 text-xs mt-2">
-                        <i class="fas fa-arrow-down mr-1"></i>{{ number_format(abs($stats['growth']), 1) }}% vs mês anterior
+                        <i class="fas fa-arrow-down mr-1"></i>{{ __(':pct% vs mês anterior', ['pct' => number_format(abs($stats['growth']), 1)]) }}
                     </p>
                 @else
                     <p class="text-blue-200 text-xs mt-2">
-                        <i class="fas fa-minus mr-1"></i>Sem alteração
+                        <i class="fas fa-minus mr-1"></i>{{ __('Sem alteração') }}
                     </p>
                 @endif
             </div>
@@ -54,7 +56,7 @@
         <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
             <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-green-200 text-xs sm:text-sm font-medium uppercase">Recebimentos</p>
+                    <p class="text-green-200 text-xs sm:text-sm font-medium uppercase">{{ __('Recebimentos') }}</p>
                 </div>
                 <div class="bg-white/20 p-2 sm:p-3 rounded-full">
                     <i class="fas fa-money-bill-wave text-base sm:text-2xl"></i>
@@ -64,7 +66,7 @@
                 <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_received'], 2) }}</p>
                 <p class="text-green-200 text-xs sm:text-sm mt-1">AOA</p>
                 <p class="text-green-200 text-xs mt-2">
-                    <i class="fas fa-check-circle mr-1"></i>Pagamentos recebidos
+                    <i class="fas fa-check-circle mr-1"></i>{{ __('Pagamentos recebidos') }}
                 </p>
             </div>
         </div>
@@ -73,7 +75,7 @@
         <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
             <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-yellow-200 text-xs sm:text-sm font-medium uppercase">Valores Pendentes</p>
+                    <p class="text-yellow-200 text-xs sm:text-sm font-medium uppercase">{{ __('Valores Pendentes') }}</p>
                 </div>
                 <div class="bg-white/20 p-2 sm:p-3 rounded-full">
                     <i class="fas fa-hourglass-half text-base sm:text-2xl"></i>
@@ -83,7 +85,7 @@
                 <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_pending'], 2) }}</p>
                 <p class="text-yellow-200 text-xs sm:text-sm mt-1">AOA</p>
                 <p class="text-yellow-200 text-xs mt-2">
-                    <i class="fas fa-clock mr-1"></i>Aguardando pagamento
+                    <i class="fas fa-clock mr-1"></i>{{ __('Aguardando pagamento') }}
                 </p>
             </div>
         </div>
@@ -92,7 +94,7 @@
         <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-3 sm:p-6 text-white transform hover:scale-105 transition">
             <div class="flex items-center justify-between mb-2 sm:mb-4">
                 <div>
-                    <p class="text-red-200 text-xs sm:text-sm font-medium uppercase">Valores Vencidos</p>
+                    <p class="text-red-200 text-xs sm:text-sm font-medium uppercase">{{ __('Valores Vencidos') }}</p>
                 </div>
                 <div class="bg-white/20 p-2 sm:p-3 rounded-full">
                     <i class="fas fa-exclamation-triangle text-base sm:text-2xl"></i>
@@ -102,7 +104,7 @@
                 <p class="text-lg sm:text-3xl font-bold">{{ number_format($stats['total_overdue'], 2) }}</p>
                 <p class="text-red-200 text-xs sm:text-sm mt-1">AOA</p>
                 <p class="text-red-200 text-xs mt-2">
-                    <i class="fas fa-bell mr-1"></i>Requer atenção
+                    <i class="fas fa-bell mr-1"></i>{{ __('Requer atenção') }}
                 </p>
             </div>
         </div>
@@ -110,15 +112,31 @@
 
     {{-- Gráfico de Vendas --}}
     <div class="bg-white rounded-xl shadow-lg p-3 sm:p-6 mb-4 sm:mb-6">
+        {{-- Bloco de PHP, e nao a forma de uma linha: a expressao tem escolha
+             de tres ramos e a forma curta parte a compilacao.
+
+             O ucfirst() saiu de cena. Os tres rotulos ja comecam por
+             maiuscula nas tres linguas, portanto nao fazia nada — mas
+             ucfirst() nao e multibyte, e no dia em que um rotulo comecasse por
+             letra acentuada devolvia um caractere partido. --}}
+        @php
+            $__rotuloPeriodo = match ($selectedPeriod) {
+                'week' => __('Esta Semana'),
+                'year' => __('Este Ano'),
+                default => __('Este Mês'),
+            };
+        @endphp
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-4">
             <h3 class="text-sm sm:text-lg font-bold text-gray-800 flex items-center">
                 <i class="fas fa-chart-area mr-2 text-blue-600"></i>
-                Evolução de Vendas - {{ ucfirst($selectedPeriod == 'week' ? 'Esta Semana' : ($selectedPeriod == 'year' ? 'Este Ano' : 'Este Mês')) }}
+                {{ __('Evolução de Vendas - :periodo', ['periodo' => $__rotuloPeriodo]) }}
             </h3>
             <div class="flex gap-2">
                 <button onclick="exportToPDF()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-300 hover:scale-105 text-xs sm:text-sm">
-                    <i class="fas fa-file-pdf sm:mr-2"></i><span class="hidden sm:inline">Exportar PDF</span>
+                    <i class="fas fa-file-pdf sm:mr-2"></i><span class="hidden sm:inline">{{ __('Exportar PDF') }}</span>
                 </button>
+                {{-- "Excel" fica fora do __(): e nome de produto, como Starter
+                     ou FOX Friendly. Escreve-se igual nas tres linguas. --}}
                 <button onclick="exportToExcel()" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 hover:scale-105 text-xs sm:text-sm">
                     <i class="fas fa-file-excel sm:mr-2"></i><span class="hidden sm:inline">Excel</span>
                 </button>
@@ -133,7 +151,7 @@
         <div class="bg-white rounded-xl shadow-lg p-6">
             <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <i class="fas fa-file-alt mr-2 text-blue-600"></i>
-                Documentos Este Mês
+                {{ __('Documentos Este Mês') }}
             </h3>
             
             <div class="space-y-4">
@@ -143,8 +161,8 @@
                             <i class="fas fa-file-invoice"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-700">Faturas</p>
-                            <p class="text-xs text-gray-500">Vendas emitidas</p>
+                            <p class="text-sm font-medium text-gray-700">{{ __('Faturas') }}</p>
+                            <p class="text-xs text-gray-500">{{ __('Vendas emitidas') }}</p>
                         </div>
                     </div>
                     <span class="text-2xl font-bold text-blue-600">{{ $documents['invoices'] }}</span>
@@ -156,8 +174,8 @@
                             <i class="fas fa-receipt"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-700">Recibos</p>
-                            <p class="text-xs text-gray-500">Pagamentos</p>
+                            <p class="text-sm font-medium text-gray-700">{{ __('Recibos') }}</p>
+                            <p class="text-xs text-gray-500">{{ __('Pagamentos') }}</p>
                         </div>
                     </div>
                     <span class="text-2xl font-bold text-green-600">{{ $documents['receipts'] }}</span>
@@ -169,8 +187,8 @@
                             <i class="fas fa-minus-circle"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-700">Notas Crédito</p>
-                            <p class="text-xs text-gray-500">Devoluções</p>
+                            <p class="text-sm font-medium text-gray-700">{{ __('Notas Crédito') }}</p>
+                            <p class="text-xs text-gray-500">{{ __('Devoluções') }}</p>
                         </div>
                     </div>
                     <span class="text-2xl font-bold text-emerald-600">{{ $documents['credit_notes'] }}</span>
@@ -182,8 +200,8 @@
                             <i class="fas fa-plus-circle"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-700">Notas Débito</p>
-                            <p class="text-xs text-gray-500">Cobranças extras</p>
+                            <p class="text-sm font-medium text-gray-700">{{ __('Notas Débito') }}</p>
+                            <p class="text-xs text-gray-500">{{ __('Cobranças extras') }}</p>
                         </div>
                     </div>
                     <span class="text-2xl font-bold text-red-600">{{ $documents['debit_notes'] }}</span>
@@ -195,8 +213,8 @@
                             <i class="fas fa-coins"></i>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-700">Adiantamentos</p>
-                            <p class="text-xs text-gray-500">Valores antecipados</p>
+                            <p class="text-sm font-medium text-gray-700">{{ __('Adiantamentos') }}</p>
+                            <p class="text-xs text-gray-500">{{ __('Valores antecipados') }}</p>
                         </div>
                     </div>
                     <span class="text-2xl font-bold text-yellow-600">{{ $documents['advances'] }}</span>
@@ -208,31 +226,31 @@
         <div class="bg-white rounded-xl shadow-lg p-6 lg:col-span-2">
             <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <i class="fas fa-chart-pie mr-2 text-blue-600"></i>
-                Status das Faturas
+                {{ __('Estado das Faturas') }}
             </h3>
             
             <div class="grid grid-cols-2 gap-4">
                 <div class="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border-2 border-green-200">
                     <div class="text-5xl font-bold text-green-600 mb-2">{{ $invoiceStatus['paid'] }}</div>
-                    <p class="text-sm font-medium text-green-700">Pagas</p>
+                    <p class="text-sm font-medium text-green-700">{{ __('Pagas') }}</p>
                     <i class="fas fa-check-circle text-green-600 text-2xl mt-2"></i>
                 </div>
 
                 <div class="text-center p-6 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl border-2 border-yellow-200">
                     <div class="text-5xl font-bold text-yellow-600 mb-2">{{ $invoiceStatus['pending'] }}</div>
-                    <p class="text-sm font-medium text-yellow-700">Pendentes</p>
+                    <p class="text-sm font-medium text-yellow-700">{{ __('Pendentes') }}</p>
                     <i class="fas fa-clock text-yellow-600 text-2xl mt-2"></i>
                 </div>
 
                 <div class="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border-2 border-blue-200">
                     <div class="text-5xl font-bold text-blue-600 mb-2">{{ $invoiceStatus['partially_paid'] }}</div>
-                    <p class="text-sm font-medium text-blue-700">Parc. Pagas</p>
+                    <p class="text-sm font-medium text-blue-700">{{ __('Parc. Pagas') }}</p>
                     <i class="fas fa-coins text-blue-600 text-2xl mt-2"></i>
                 </div>
 
                 <div class="text-center p-6 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border-2 border-red-200">
                     <div class="text-5xl font-bold text-red-600 mb-2">{{ $invoiceStatus['overdue'] }}</div>
-                    <p class="text-sm font-medium text-red-700">Vencidas</p>
+                    <p class="text-sm font-medium text-red-700">{{ __('Vencidas') }}</p>
                     <i class="fas fa-exclamation-triangle text-red-600 text-2xl mt-2"></i>
                 </div>
             </div>
@@ -243,13 +261,13 @@
     <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <i class="fas fa-chart-bar mr-2 text-purple-600"></i>
-            Comparação Ano a Ano
+            {{ __('Comparação Ano a Ano') }}
         </h3>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200">
                 <div class="flex items-center justify-between mb-2">
-                    <p class="text-sm font-medium text-blue-700">Faturação {{ now()->year }}</p>
+                    <p class="text-sm font-medium text-blue-700">{{ __('Faturação :ano', ['ano' => now()->year]) }}</p>
                     <i class="fas fa-calendar-check text-blue-600"></i>
                 </div>
                 <p class="text-2xl font-bold text-blue-900">{{ number_format($stats['total_invoiced'], 2) }}</p>
@@ -258,20 +276,20 @@
 
             <div class="p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-gray-200">
                 <div class="flex items-center justify-between mb-2">
-                    <p class="text-sm font-medium text-gray-700">Faturação {{ now()->year - 1 }}</p>
+                    <p class="text-sm font-medium text-gray-700">{{ __('Faturação :ano', ['ano' => now()->year - 1]) }}</p>
                     <i class="fas fa-calendar text-gray-600"></i>
                 </div>
                 <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['total_invoiced_last_month'] * 12, 2) }}</p>
-                <p class="text-xs text-gray-600 mt-1">AOA (estimado)</p>
+                <p class="text-xs text-gray-600 mt-1">AOA ({{ __('estimado') }})</p>
             </div>
 
             <div class="p-4 bg-gradient-to-br from-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-50 to-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-100 rounded-lg border-2 border-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-200">
                 <div class="flex items-center justify-between mb-2">
-                    <p class="text-sm font-medium text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-700">Crescimento</p>
+                    <p class="text-sm font-medium text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-700">{{ __('Crescimento') }}</p>
                     <i class="fas fa-{{ $stats['growth'] > 0 ? 'arrow-up' : 'arrow-down' }} text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-600"></i>
                 </div>
                 <p class="text-2xl font-bold text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-900">{{ number_format(abs($stats['growth']), 1) }}%</p>
-                <p class="text-xs text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-600 mt-1">vs mês anterior</p>
+                <p class="text-xs text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-600 mt-1">{{ __('vs mês anterior') }}</p>
             </div>
         </div>
     </div>
@@ -283,10 +301,10 @@
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-gray-800 flex items-center">
                     <i class="fas fa-clock mr-2 text-yellow-600"></i>
-                    Faturas Pendentes
+                    {{ __('Faturas Pendentes') }}
                 </h3>
                 <a href="{{ route('invoicing.sales.invoices') }}" class="text-sm text-blue-600 hover:text-blue-800">
-                    Ver todas <i class="fas fa-arrow-right ml-1"></i>
+                    {{ __('Ver todas') }} <i class="fas fa-arrow-right ml-1"></i>
                 </a>
             </div>
 
@@ -298,22 +316,22 @@
                         <p class="text-xs text-gray-600">{{ $invoice->client->name }}</p>
                         <p class="text-xs text-gray-500">
                             <i class="fas fa-calendar mr-1"></i>
-                            Venc: {{ $invoice->due_date->format('d/m/Y') }}
+                            {{ __('Venc.: :data', ['data' => $invoice->due_date->format('d/m/Y')]) }}
                         </p>
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-bold text-gray-800">{{ number_format($invoice->total, 2) }} AOA</p>
                         @if($invoice->due_date->isPast())
-                            <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">Vencida</span>
+                            <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">{{ __('Vencida') }}</span>
                         @else
-                            <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">Pendente</span>
+                            <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">{{ __('Pendente') }}</span>
                         @endif
                     </div>
                 </div>
                 @empty
                 <div class="text-center py-8 text-gray-400">
                     <i class="fas fa-check-circle text-5xl mb-3"></i>
-                    <p>Nenhuma fatura pendente</p>
+                    <p>{{ __('Nenhuma fatura pendente') }}</p>
                 </div>
                 @endforelse
             </div>
@@ -324,9 +342,9 @@
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-gray-800 flex items-center">
                     <i class="fas fa-trophy mr-2 text-yellow-600"></i>
-                    Top 5 Clientes
+                    {{ __('Top 5 Clientes') }}
                 </h3>
-                <span class="text-xs text-gray-500">Por faturação</span>
+                <span class="text-xs text-gray-500">{{ __('Por faturação') }}</span>
             </div>
 
             <div class="space-y-3">
@@ -337,7 +355,7 @@
                     </div>
                     <div class="flex-1">
                         <p class="text-sm font-bold text-gray-800">{{ $topClient->client->name }}</p>
-                        <p class="text-xs text-gray-600">{{ $topClient->invoice_count }} faturas</p>
+                        <p class="text-xs text-gray-600">{{ trans_choice(':n fatura|:n faturas', $topClient->invoice_count, ['n' => $topClient->invoice_count]) }}</p>
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-bold text-blue-600">{{ number_format($topClient->total_amount, 2) }}</p>
@@ -347,7 +365,7 @@
                 @empty
                 <div class="text-center py-8 text-gray-400">
                     <i class="fas fa-users text-5xl mb-3"></i>
-                    <p>Sem dados de clientes</p>
+                    <p>{{ __('Sem dados de clientes') }}</p>
                 </div>
                 @endforelse
             </div>
@@ -358,7 +376,7 @@
     <div class="bg-white rounded-xl shadow-lg p-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <i class="fas fa-history mr-2 text-blue-600"></i>
-            Atividades Recentes
+            {{ __('Atividades Recentes') }}
         </h3>
 
         <div class="space-y-2 max-h-96 overflow-y-auto">
@@ -368,12 +386,19 @@
                     <i class="fas fa-file-invoice"></i>
                 </div>
                 <div class="flex-1">
+                    {{-- O <strong> vai dentro da cadeia traduzida, e nao a
+                         partir dela em tres pedacos: a ordem "Fatura X criada"
+                         nao se mantem noutras linguas, e partida em pedacos o
+                         tradutor nao consegue reordena-la. O numero e escapado
+                         a mao porque o {!! !!} nao o faz por nos. --}}
                     <p class="text-sm font-medium text-gray-800">
-                        Fatura <strong>{{ $activity->invoice_number }}</strong> criada
+                        {!! __('Fatura <strong>:numero</strong> criada', ['numero' => e($activity->invoice_number)]) !!}
                     </p>
                     <p class="text-xs text-gray-600">
-                        Cliente: {{ $activity->client->name }} • 
-                        {{ $activity->created_at->diffForHumans() }}
+                        {{ __('Cliente: :nome • :quando', [
+                            'nome' => $activity->client?->name ?? __('Sem cliente'),
+                            'quando' => $activity->created_at->diffForHumans(),
+                        ]) }}
                     </p>
                 </div>
                 <div class="text-right">
@@ -385,7 +410,7 @@
             @empty
             <div class="text-center py-8 text-gray-400">
                 <i class="fas fa-inbox text-5xl mb-3"></i>
-                <p>Sem atividades recentes</p>
+                <p>{{ __('Sem atividades recentes') }}</p>
             </div>
             @endforelse
         </div>
@@ -398,15 +423,24 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+@php
+    // O Intl do navegador nao percebe 'pt'/'en'/'fr' a seco tao bem como a
+    // etiqueta completa — e sobretudo, sem isto o grafico ficava com meses e
+    // separadores decimais portugueses numa pagina inglesa. O nome do mes vem
+    // do navegador, nao do nosso dicionario, por isso tem de ser aqui.
+    $__intl = ['pt' => 'pt-PT', 'en' => 'en-GB', 'fr' => 'fr-FR'][app()->getLocale()] ?? 'pt-PT';
+@endphp
 <script>
+const SOS_INTL = @json($__intl);
+
 document.addEventListener('DOMContentLoaded', function() {
     // Dados do gráfico
     const chartData = @json($chartData);
-    
+
     // Preparar dados para o Chart.js
     const labels = chartData.map(item => {
         const date = new Date(item.date);
-        return date.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+        return date.toLocaleDateString(SOS_INTL, { day: '2-digit', month: 'short' });
     });
     
     const data = chartData.map(item => parseFloat(item.total));
@@ -418,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
             labels: labels,
             datasets: [{
-                label: 'Vendas (AOA)',
+                label: @json(__('Vendas (AOA)')),
                 data: data,
                 borderColor: 'rgb(59, 130, 246)',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -448,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 label += ': ';
                             }
                             if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat('pt-PT', {
+                                label += new Intl.NumberFormat(SOS_INTL, {
                                     style: 'decimal',
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2
@@ -468,7 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return new Intl.NumberFormat('pt-PT', {
+                            return new Intl.NumberFormat(SOS_INTL, {
                                 notation: 'compact',
                                 compactDisplay: 'short'
                             }).format(value) + ' AOA';
@@ -496,13 +530,13 @@ async function exportToPDF() {
     // Título
     doc.setFontSize(18);
     doc.setTextColor(59, 130, 246);
-    doc.text('Dashboard de Faturação', 15, 20);
-    
+    doc.text(@json(__('Dashboard de Faturação')), 15, 20);
+
     // Data
     doc.setFontSize(10);
     doc.setTextColor(100);
-    const today = new Date().toLocaleDateString('pt-PT');
-    doc.text(`Gerado em: ${today}`, 15, 28);
+    const today = new Date().toLocaleDateString(SOS_INTL);
+    doc.text(@json(__('Gerado em: :data')).replace(':data', today), 15, 28);
     
     // Capturar estatísticas
     const stats = {
@@ -516,13 +550,13 @@ async function exportToPDF() {
     doc.setTextColor(0);
     let y = 40;
     
-    doc.text(`Faturação do Mês: ${stats.faturado}`, 15, y);
+    doc.text(@json(__('Faturação do Mês')) + ': ' + stats.faturado, 15, y);
     y += 8;
-    doc.text(`Recebimentos: ${stats.recebido}`, 15, y);
+    doc.text(@json(__('Recebimentos')) + ': ' + stats.recebido, 15, y);
     y += 8;
-    doc.text(`Valores Pendentes: ${stats.pendente}`, 15, y);
+    doc.text(@json(__('Valores Pendentes')) + ': ' + stats.pendente, 15, y);
     y += 8;
-    doc.text(`Valores Vencidos: ${stats.vencido}`, 15, y);
+    doc.text(@json(__('Valores Vencidos')) + ': ' + stats.vencido, 15, y);
     y += 15;
     
     // Capturar o gráfico
@@ -534,7 +568,7 @@ async function exportToPDF() {
     doc.save('dashboard-faturacao.pdf');
     
     // Notificação
-    alert('✅ Relatório PDF gerado com sucesso!');
+    alert('✅ ' + @json(__('Relatório PDF gerado com sucesso!')));
 }
 
 // Função para exportar para Excel (CSV)
@@ -542,18 +576,22 @@ function exportToExcel() {
     const chartData = @json($chartData);
     
     // Criar CSV
-    let csv = 'Data,Valor (AOA)\n';
+    let csv = @json(__('Data')) + ',' + @json(__('Valor (AOA)')) + '\n';
     chartData.forEach(item => {
-        const date = new Date(item.date).toLocaleDateString('pt-PT');
+        const date = new Date(item.date).toLocaleDateString(SOS_INTL);
         csv += `${date},${item.total}\n`;
     });
-    
+
     // Adicionar estatísticas
-    csv += '\nEstatísticas\n';
-    csv += 'Faturação do Mês,{{ number_format($stats["total_invoiced"], 2) }}\n';
-    csv += 'Recebimentos,{{ number_format($stats["total_received"], 2) }}\n';
-    csv += 'Valores Pendentes,{{ number_format($stats["total_pending"], 2) }}\n';
-    csv += 'Valores Vencidos,{{ number_format($stats["total_overdue"], 2) }}\n';
+    // Sem separador de milhares: o number_format() por omissao mete uma
+    // virgula ("1,234.56") dentro de um ficheiro separado por virgulas, e a
+    // folha de calculo abria a linha com uma coluna a mais. Numero cru e
+    // tambem o que a folha de calculo quer para poder somar.
+    csv += '\n' + @json(__('Estatísticas')) + '\n';
+    csv += @json(__('Faturação do Mês')) + ',{{ number_format($stats["total_invoiced"], 2, '.', '') }}\n';
+    csv += @json(__('Recebimentos')) + ',{{ number_format($stats["total_received"], 2, '.', '') }}\n';
+    csv += @json(__('Valores Pendentes')) + ',{{ number_format($stats["total_pending"], 2, '.', '') }}\n';
+    csv += @json(__('Valores Vencidos')) + ',{{ number_format($stats["total_overdue"], 2, '.', '') }}\n';
     
     // Download
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

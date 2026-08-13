@@ -63,6 +63,17 @@ class TraducoesTest extends TenantTestCase
         'app/Livewire/Invoicing/POS',
         'public/js/pwa-invoicing.js',
         'public/js/pos-offline-ticket.js',
+
+        // Fase 1, lote 3 — o menu lateral e o painel.
+        //
+        // Foram trazidos para a frente do plano (estavam no lote 5) por uma
+        // razão que só se vê com o sistema à frente: são a primeira coisa que
+        // aparece. Quem escolhe inglês e cai num menu inteiro em português
+        // conclui que a tradução não funciona, mesmo com 700 cadeias já
+        // traduzidas por trás. O app.blade.php já cá estava desde a fase 0,
+        // mas na altura ainda não tinha um único __().
+        'resources/views/livewire/invoicing/invoicing-dashboard.blade.php',
+        'app/Livewire/Invoicing/InvoicingDashboard.php',
     ];
 
     // ==================== o detector ====================
