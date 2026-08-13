@@ -30,6 +30,7 @@ class User extends Authenticatable
         'bio',
         'avatar',
         'is_active',
+        'locale',
         'last_login_at',
         'last_password_changed',
     ];

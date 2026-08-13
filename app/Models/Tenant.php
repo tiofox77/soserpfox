@@ -121,6 +121,7 @@ class Tenant extends Model
         'postal_code',
         'city',
         'country',
+        'locale',
         'max_users',
         'max_storage_mb',
         'settings',

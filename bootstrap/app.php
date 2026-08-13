@@ -12,6 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Que língua fala este pedido (utilizador → empresa → cookie → pt).
+        // Em append e não prepend: precisa da sessão iniciada (auth) e dos
+        // cookies decifrados, e isso só existe depois do miolo do grupo web.
+        // Continua a correr antes de qualquer controlador.
+        $middleware->appendToGroup('web', \App\Http\Middleware\DefinirLingua::class);
+
         // Middleware global para identificar tenant
         $middleware->append(\App\Http\Middleware\IdentifyTenant::class);
         

@@ -160,6 +160,20 @@ class AppServiceProvider extends ServiceProvider
         // Histórico de produtos: quem criou, alterou, eliminou ou restaurou.
         \App\Models\Product::observe(\App\Observers\ProductActivityObserver::class);
 
+        // Traduções em falta ficam no log — mas só fora do português.
+        //
+        // O PT é a origem: as chaves SÃO o texto português, portanto "faltar"
+        // em pt é o estado normal de tudo. Em en/fr, uma chave em falta é
+        // trabalho por fazer que o varrimento estático não apanhou (cadeias
+        // montadas em runtime) — é este registo que fecha essa malha.
+        \Illuminate\Support\Facades\Lang::handleMissingKeysUsing(function (string $key, array $replacements, string $locale) {
+            if ($locale !== 'pt' && !str_contains($key, 'validation.')) {
+                \Log::info('Tradução em falta', ['lingua' => $locale, 'chave' => mb_substr($key, 0, 160)]);
+            }
+
+            return $key;
+        });
+
         // Todo o correio que sai fica registado em /superadmin/email-logs.
         //
         // Registar em cada sítio que envia é uma lista que nunca fica

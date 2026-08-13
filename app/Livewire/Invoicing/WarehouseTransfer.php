@@ -94,7 +94,7 @@ class WarehouseTransfer extends Component
     public function selectProductForTransfer($productId)
     {
         if (!$this->transferFromWarehouse) {
-            $this->dispatch('error', message: 'Selecione o armazém de origem primeiro.');
+            $this->dispatch('error', message: __('Selecione o armazém de origem primeiro.'));
             return;
         }
 
@@ -117,12 +117,12 @@ class WarehouseTransfer extends Component
     public function addProductToTransfer()
     {
         if (!$this->transferFromWarehouse) {
-            $this->dispatch('error', message: 'Selecione o armazém de origem primeiro.');
+            $this->dispatch('error', message: __('Selecione o armazém de origem primeiro.'));
             return;
         }
 
         if (!$this->selectedProduct || !$this->productQuantity) {
-            $this->dispatch('error', message: 'Selecione um produto e quantidade.');
+            $this->dispatch('error', message: __('Selecione um produto e quantidade.'));
             return;
         }
 
@@ -130,12 +130,12 @@ class WarehouseTransfer extends Component
         // validações seguintes e INVERTIA a operação: aumentava a origem e
         // diminuía o destino).
         if (!is_numeric($this->productQuantity) || (float) $this->productQuantity <= 0) {
-            $this->dispatch('error', message: 'A quantidade deve ser maior que zero.');
+            $this->dispatch('error', message: __('A quantidade deve ser maior que zero.'));
             return;
         }
 
         if ($this->productQuantity > $this->availableStock) {
-            $this->dispatch('error', message: 'Quantidade maior que o stock disponível.');
+            $this->dispatch('error', message: __('Quantidade maior que o stock disponível.'));
             return;
         }
 
@@ -171,7 +171,7 @@ class WarehouseTransfer extends Component
 
         $this->reset(['selectedProduct', 'selectedProductName', 'selectedProductCode', 'productQuantity', 'availableStock']);
         $this->showQuantityModal = false;
-        $this->dispatch('success', message: 'Produto adicionado à transferência!');
+        $this->dispatch('success', message: __('Produto adicionado à transferência!'));
     }
 
     /**
@@ -247,7 +247,7 @@ class WarehouseTransfer extends Component
     private function quantidadeValidada($valor, float $anterior, ?float $maximo, string $artigo): float
     {
         if (!is_numeric($valor) || (float) $valor <= 0) {
-            $this->dispatch('error', message: 'A quantidade deve ser um número maior que zero.');
+            $this->dispatch('error', message: __('A quantidade deve ser um número maior que zero.'));
 
             return $anterior;
         }
@@ -255,7 +255,7 @@ class WarehouseTransfer extends Component
         $nova = (float) $valor;
 
         if ($maximo !== null && $nova > $maximo) {
-            $this->dispatch('error', message: "Só há {$maximo} de {$artigo} neste armazém. Ajustado para o disponível.");
+            $this->dispatch('error', message: __('Só há :maximo de :artigo neste armazém. Ajustado para o disponível.', ['maximo' => $maximo, 'artigo' => $artigo]));
 
             return $maximo;
         }
@@ -286,7 +286,7 @@ class WarehouseTransfer extends Component
     public function selectProductForAdjust($productId)
     {
         if (!$this->adjustWarehouse) {
-            $this->dispatch('error', message: 'Selecione o armazém primeiro.');
+            $this->dispatch('error', message: __('Selecione o armazém primeiro.'));
             return;
         }
 
@@ -309,13 +309,13 @@ class WarehouseTransfer extends Component
     public function addProductToAdjust()
     {
         if (!$this->adjustSelectedProduct || !$this->adjustProductQuantity) {
-            $this->dispatch('error', message: 'Selecione um produto e quantidade.');
+            $this->dispatch('error', message: __('Selecione um produto e quantidade.'));
             return;
         }
 
         // Quantidade numérica e positiva (negativos invertiam o sentido do ajuste)
         if (!is_numeric($this->adjustProductQuantity) || (float) $this->adjustProductQuantity <= 0) {
-            $this->dispatch('error', message: 'A quantidade deve ser maior que zero.');
+            $this->dispatch('error', message: __('A quantidade deve ser maior que zero.'));
             return;
         }
 
@@ -347,7 +347,7 @@ class WarehouseTransfer extends Component
 
         $this->reset(['adjustSelectedProduct', 'adjustSelectedProductName', 'adjustSelectedProductCode', 'adjustProductQuantity', 'adjustAvailableStock']);
         $this->showAdjustQuantityModal = false;
-        $this->dispatch('success', message: 'Produto adicionado ao ajuste!');
+        $this->dispatch('success', message: __('Produto adicionado ao ajuste!'));
     }
 
     public function removeProductFromAdjust($index)
@@ -447,12 +447,12 @@ class WarehouseTransfer extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.warehouse-transfer.create'), 403, 'Sem permissão para criar transferências.');
         if (empty($this->transferItems)) {
-            $this->dispatch('error', message: 'Adicione pelo menos um produto à transferência.');
+            $this->dispatch('error', message: __('Adicione pelo menos um produto à transferência.'));
             return;
         }
 
         if (!$this->transferFromWarehouse || !$this->transferToWarehouse) {
-            $this->dispatch('error', message: 'Selecione os armazéns de origem e destino.');
+            $this->dispatch('error', message: __('Selecione os armazéns de origem e destino.'));
             return;
         }
 
@@ -587,11 +587,11 @@ class WarehouseTransfer extends Component
             // com a referência à vista e com o documento a um clique.
             $this->showTransferModal = false;
 
-            $this->dispatch('success', message: "Transferência {$referencia}: " . count($resumo) . ' produto(s) transferido(s).');
+            $this->dispatch('success', message: __('Transferência :ref:', ['ref' => $referencia]) . ' ' . trans_choice(':n produto transferido.|:n produtos transferidos.', count($resumo), ['n' => count($resumo)]));
             $this->reset(['transferItems']);
 
         } catch (\Throwable $e) {
-            $this->dispatch('error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('error', message: __('Erro:') . ' ' . $e->getMessage());
         }
     }
 
@@ -599,12 +599,12 @@ class WarehouseTransfer extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para ajustar stock.');
         if (empty($this->adjustItems)) {
-            $this->dispatch('error', message: 'Adicione pelo menos um produto ao ajuste.');
+            $this->dispatch('error', message: __('Adicione pelo menos um produto ao ajuste.'));
             return;
         }
 
         if (!$this->adjustWarehouse || !$this->adjustReason) {
-            $this->dispatch('error', message: 'Selecione o armazém e informe o motivo.');
+            $this->dispatch('error', message: __('Selecione o armazém e informe o motivo.'));
             return;
         }
 
@@ -686,11 +686,11 @@ class WarehouseTransfer extends Component
             $this->batchResumo    = $resumo;
             $this->showAdjustModal = false;
 
-            $this->dispatch('success', message: "Ajuste {$referencia}: " . count($resumo) . ' produto(s) ajustado(s).');
+            $this->dispatch('success', message: __('Ajuste :ref:', ['ref' => $referencia]) . ' ' . trans_choice(':n produto ajustado.|:n produtos ajustados.', count($resumo), ['n' => count($resumo)]));
             $this->reset(['adjustItems']);
 
         } catch (\Throwable $e) {
-            $this->dispatch('error', message: 'Erro: ' . $e->getMessage());
+            $this->dispatch('error', message: __('Erro:') . ' ' . $e->getMessage());
         }
     }
 

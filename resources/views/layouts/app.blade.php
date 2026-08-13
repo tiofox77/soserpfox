@@ -32,6 +32,7 @@
     
     <!-- Favicon -->
     @include('partials.favicon')
+    @include('partials.meta-pixel')
     
     <!-- PWA -->
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
@@ -2129,6 +2130,29 @@
                                 </div>
                             @endif
                             
+                            {{-- Língua do ecrã. Um GET com ?lang= chega ao
+                                 DefinirLingua, que guarda no perfil e no
+                                 cookie — sem componente, sem estado. --}}
+                            <div class="relative" x-data="{ aberto: false }" @click.outside="aberto = false">
+                                <button @click="aberto = !aberto"
+                                        class="flex items-center gap-1.5 px-2.5 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition uppercase"
+                                        title="Língua / Language / Langue">
+                                    <i class="fas fa-globe text-gray-400"></i>{{ app()->getLocale() }}
+                                </button>
+                                <div x-show="aberto" x-transition x-cloak
+                                     class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-50 min-w-[10rem]">
+                                    @foreach(['pt' => 'Português', 'en' => 'English', 'fr' => 'Français'] as $sigla => $nome)
+                                        <a href="{{ request()->fullUrlWithQuery(['lang' => $sigla]) }}"
+                                           class="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-50 transition {{ app()->getLocale() === $sigla ? 'font-bold text-blue-700' : 'text-gray-700' }}">
+                                            {{ $nome }}
+                                            @if(app()->getLocale() === $sigla)
+                                                <i class="fas fa-check text-blue-600 text-xs"></i>
+                                            @endif
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+
                             <!-- Notificações -->
                             @if(auth()->check())
                                 <livewire:notifications />

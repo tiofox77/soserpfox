@@ -7,19 +7,19 @@
                     <i class="fas fa-exchange-alt text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Transferências e Ajustes de Stock</h2>
-                    <p class="text-purple-100 text-sm">Gerir movimentações de stock entre armazéns</p>
+                    <h2 class="text-2xl font-bold">{{ __('Transferências e Ajustes de Stock') }}</h2>
+                    <p class="text-purple-100 text-sm">{{ __('Gerir movimentações de stock entre armazéns') }}</p>
                 </div>
             </div>
             <div class="flex items-center space-x-3">
                 @can('invoicing.warehouse-transfer.create')
                 <button wire:click="openTransferModal" class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                    <i class="fas fa-exchange-alt mr-2"></i>Nova Transferência
+                    <i class="fas fa-exchange-alt mr-2"></i>{{ __('Nova Transferência') }}
                 </button>
                 @endcan
                 @can('invoicing.stock.edit')
                 <button wire:click="openAdjustModal" class="bg-yellow-500 text-white hover:bg-yellow-600 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                    <i class="fas fa-sliders-h mr-2"></i>Ajustar Stock
+                    <i class="fas fa-sliders-h mr-2"></i>{{ __('Ajustar Stock') }}
                 </button>
                 @endcan
             </div>
@@ -31,25 +31,25 @@
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
                 <i class="fas fa-filter mr-2 text-purple-600"></i>
-                Filtros
+                {{ __('Filtros') }}
             </h3>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Search -->
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Pesquisar</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search" 
                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition"
-                       placeholder="Produto...">
+                       placeholder="{{ __('Produto...') }}">
             </div>
 
             <!-- Warehouse -->
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Armazém</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Armazém') }}</label>
                 <select wire:model.live="warehouseFilter" 
                         class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
-                    <option value="">Todos</option>
+                    <option value="">{{ __('Todos') }}</option>
                     @foreach($warehouses as $wh)
                         <option value="{{ $wh->id }}">{{ $wh->name }}</option>
                     @endforeach
@@ -58,14 +58,14 @@
 
             <!-- Date From -->
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Data Início</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Data Início') }}</label>
                 <input type="date" wire:model.live="dateFrom" 
                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
             </div>
 
             <!-- Date To -->
             <div>
-                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">Data Fim</label>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">{{ __('Data Fim') }}</label>
                 <input type="date" wire:model.live="dateTo" 
                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
             </div>
@@ -77,7 +77,7 @@
         <div class="px-6 py-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b-2 border-purple-100">
             <h3 class="text-lg font-bold text-purple-900 flex items-center">
                 <i class="fas fa-history mr-2"></i>
-                Histórico de Movimentações
+                {{ __('Histórico de Movimentações') }}
             </h3>
         </div>
 
@@ -85,15 +85,15 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Data</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Referência</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Quantidade</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Observações</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Usuário</th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Documento</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Data') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Referência') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Tipo') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Produto') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Armazém') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Quantidade') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Observações') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Utilizador') }}</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Documento') }}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
@@ -108,17 +108,17 @@
                             @else
                                 {{-- Movimentações anteriores à referência MOV/ não têm número:
                                      o que lá está é um crc32 que não serve para ninguém. --}}
-                                <span class="text-xs text-gray-400 italic">sem referência</span>
+                                <span class="text-xs text-gray-400 italic">{{ __('sem referência') }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @if($movement->type == 'transfer')
                                 <span class="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-exchange-alt mr-1"></i>Transferência
+                                    <i class="fas fa-exchange-alt mr-1"></i>{{ __('Transferência') }}
                                 </span>
                             @else
                                 <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
-                                    <i class="fas fa-sliders-h mr-1"></i>Ajuste
+                                    <i class="fas fa-sliders-h mr-1"></i>{{ __('Ajuste') }}
                                 </span>
                             @endif
                         </td>
@@ -128,7 +128,7 @@
                                     $realCount = $movement->type == 'transfer' ? intval($movement->products_count / 2) : $movement->products_count;
                                 @endphp
                                 @if($realCount > 1)
-                                    {{ $realCount }} produto(s)
+                                    {{ trans_choice(':n produto|:n produtos', $realCount, ['n' => $realCount]) }}
                                 @else
                                     {{ $movement->product->name ?? 'N/A' }}
                                 @endif
@@ -138,10 +138,10 @@
                                     x-data
                                     @click="$wire.selectedBatchRef = @js($movement->batch_reference); $wire.selectedBatchId = {{ (int) $movement->reference_id }}; $wire.openDetailsModal()"
                                     class="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer">
-                                    <i class="fas fa-eye mr-1"></i>Ver detalhes
+                                    <i class="fas fa-eye mr-1"></i>{{ __('Ver detalhes') }}
                                 </button>
                             @else
-                                <span class="text-xs text-gray-400 italic">Transferência antiga</span>
+                                <span class="text-xs text-gray-400 italic">{{ __('Transferência antiga') }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-700">
@@ -154,7 +154,7 @@
                             <span class="text-lg font-bold text-purple-600">
                                 {{ number_format($realQty, 2) }}
                             </span>
-                            <div class="text-xs text-gray-500">total</div>
+                            <div class="text-xs text-gray-500">{{ __('total') }}</div>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">
                             {{ $movement->notes }}
@@ -166,13 +166,13 @@
                             @if($movement->batch_reference)
                                 <a href="{{ route('invoicing.stock.batch-preview', ['reference' => $movement->batch_reference]) }}"
                                    target="_blank"
-                                   title="Ver documento"
+                                   title="{{ __('Ver documento') }}"
                                    class="inline-flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $movement->batch_reference]) }}"
                                    target="_blank"
-                                   title="Descarregar PDF"
+                                   title="{{ __('Descarregar PDF') }}"
                                    class="inline-flex items-center px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-semibold transition ml-1">
                                     <i class="fas fa-file-pdf"></i>
                                 </a>
@@ -188,8 +188,8 @@
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-history text-gray-400 text-3xl"></i>
                                 </div>
-                                <p class="text-gray-500 text-lg font-semibold mb-2">Nenhuma movimentação encontrada</p>
-                                <p class="text-gray-400 text-sm">Use os botões acima para criar transferências ou ajustes</p>
+                                <p class="text-gray-500 text-lg font-semibold mb-2">{{ __('Nenhuma movimentação encontrada') }}</p>
+                                <p class="text-gray-400 text-sm">{{ __('Use os botões acima para criar transferências ou ajustes') }}</p>
                             </div>
                         </td>
                     </tr>
