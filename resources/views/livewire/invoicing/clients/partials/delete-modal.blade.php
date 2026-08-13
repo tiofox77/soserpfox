@@ -41,11 +41,11 @@
                     <!-- Content -->
                     <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
                         <h3 class="text-xl font-bold text-gray-900 mb-2" id="modal-title">
-                            Confirmar Exclusão
+                            {{ __('Confirmar Exclusão') }}
                         </h3>
                         <div class="mt-3">
                             <p class="text-sm text-gray-600 mb-3">
-                                Tem certeza que deseja excluir o cliente:
+                                {{ __('Tem certeza que deseja excluir o cliente:') }}
                             </p>
                             <div class="p-4 bg-red-50 rounded-xl border-2 border-red-200">
                                 <p class="font-bold text-gray-900 text-center flex items-center justify-center">
@@ -55,7 +55,7 @@
                             </div>
                             <p class="text-sm text-red-600 font-semibold mt-3 flex items-center">
                                 <i class="fas fa-exclamation-circle mr-2"></i>
-                                Esta ação não pode ser desfeita!
+                                {{ __('Esta ação não pode ser desfeita!') }}
                             </p>
                         </div>
                     </div>
@@ -68,13 +68,13 @@
                         type="button"
                         class="w-full inline-flex justify-center items-center rounded-xl border border-transparent shadow-lg px-6 py-3 bg-red-600 text-base font-bold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto transition-all transform hover:scale-105">
                     <i class="fas fa-trash mr-2"></i>
-                    Sim, Excluir
+                    {{ __('Sim, Excluir') }}
                 </button>
                 <button wire:click="cancelDelete" 
                         type="button"
                         class="mt-3 w-full inline-flex justify-center items-center rounded-xl border-2 border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:w-auto transition-all">
                     <i class="fas fa-times mr-2"></i>
-                    Cancelar
+                    {{ __('Cancelar') }}
                 </button>
             </div>
         </div>

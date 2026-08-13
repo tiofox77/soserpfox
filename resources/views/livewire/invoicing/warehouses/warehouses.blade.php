@@ -7,13 +7,13 @@
                     <i class="fas fa-warehouse text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Armazéns</h2>
-                    <p class="text-indigo-100 text-sm">Gerir armazéns da empresa</p>
+                    <h2 class="text-2xl font-bold">{{ __('Armazéns') }}</h2>
+                    <p class="text-indigo-100 text-sm">{{ __('Gerir armazéns da empresa') }}</p>
                 </div>
             </div>
             @can('invoicing.warehouses.create')
             <button wire:click="create" class="bg-white text-indigo-600 hover:bg-indigo-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Novo Armazém
+                <i class="fas fa-plus mr-2"></i>{{ __('Novo Armazém') }}
             </button>
             @endcan
         </div>
@@ -37,9 +37,9 @@
                     <i class="fas fa-warehouse text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-indigo-600 font-semibold mb-2">Total Armazéns</p>
+            <p class="text-sm text-indigo-600 font-semibold mb-2">{{ __('Total Armazéns') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $stats['total'] }}</p>
-            <p class="text-xs text-gray-500">Armazéns registados</p>
+            <p class="text-xs text-gray-500">{{ __('Armazéns registados') }}</p>
         </div>
 
         <div class="bg-white rounded-2xl shadow-lg p-6 border border-green-100 overflow-hidden card-hover card-zoom">
@@ -48,9 +48,9 @@
                     <i class="fas fa-check-circle text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-green-600 font-semibold mb-2">Ativos</p>
+            <p class="text-sm text-green-600 font-semibold mb-2">{{ __('Ativos') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $stats['active'] }}</p>
-            <p class="text-xs text-gray-500">Em operação</p>
+            <p class="text-xs text-gray-500">{{ __('Em operação') }}</p>
         </div>
 
         <div class="bg-white rounded-2xl shadow-lg p-6 border border-red-100 overflow-hidden card-hover card-glow">
@@ -59,9 +59,9 @@
                     <i class="fas fa-times-circle text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-red-600 font-semibold mb-2">Inativos</p>
+            <p class="text-sm text-red-600 font-semibold mb-2">{{ __('Inativos') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $stats['inactive'] }}</p>
-            <p class="text-xs text-gray-500">Desativados</p>
+            <p class="text-xs text-gray-500">{{ __('Desativados') }}</p>
         </div>
     </div>
 
@@ -70,10 +70,10 @@
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
                 <i class="fas fa-filter mr-2 text-indigo-600"></i>
-                Filtros Avançados
+                {{ __('Filtros Avançados') }}
             </h3>
             <button wire:click="$set('search', '')" class="text-sm text-indigo-600 hover:text-indigo-700 font-semibold flex items-center">
-                <i class="fas fa-redo mr-1"></i>Limpar Filtros
+                <i class="fas fa-redo mr-1"></i>{{ __('Limpar Filtros') }}
             </button>
         </div>
 
@@ -81,7 +81,7 @@
             <!-- Search -->
             <div class="md:col-span-2">
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-search mr-1"></i>Pesquisar
+                    <i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -89,27 +89,27 @@
                     </div>
                     <input type="text" wire:model.live.debounce.300ms="search" 
                            class="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Nome, código ou cidade...">
+                           placeholder="{{ __('Nome, código ou cidade...') }}">
                 </div>
             </div>
 
             <!-- Status Filter -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-toggle-on mr-1"></i>Status
+                    <i class="fas fa-toggle-on mr-1"></i>{{ __('Status') }}
                 </label>
                 <select wire:model.live="statusFilter" 
                         class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition">
-                    <option value="">Todos</option>
-                    <option value="1">Ativos</option>
-                    <option value="0">Inativos</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="1">{{ __('Ativos') }}</option>
+                    <option value="0">{{ __('Inativos') }}</option>
                 </select>
             </div>
 
             <!-- Per Page -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-list mr-1"></i>Por Página
+                    <i class="fas fa-list mr-1"></i>{{ __('Por Página') }}
                 </label>
                 <select wire:model.live="perPage" 
                         class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition">
@@ -129,22 +129,22 @@
                 <thead class="bg-gradient-to-r from-indigo-50 to-purple-50">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                            <i class="fas fa-warehouse mr-2"></i>Armazém
+                            <i class="fas fa-warehouse mr-2"></i>{{ __('Armazém') }}
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                            <i class="fas fa-barcode mr-2"></i>Código
+                            <i class="fas fa-barcode mr-2"></i>{{ __('Código') }}
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                            <i class="fas fa-map-marker-alt mr-2"></i>Localização
+                            <i class="fas fa-map-marker-alt mr-2"></i>{{ __('Localização') }}
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                            <i class="fas fa-user-tie mr-2"></i>Gestor
+                            <i class="fas fa-user-tie mr-2"></i>{{ __('Gestor') }}
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                            <i class="fas fa-info-circle mr-2"></i>Status
+                            <i class="fas fa-info-circle mr-2"></i>{{ __('Status') }}
                         </th>
                         <th class="px-6 py-4 text-right text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                            <i class="fas fa-cog mr-2"></i>Ações
+                            <i class="fas fa-cog mr-2"></i>{{ __('Ações') }}
                         </th>
                     </tr>
                 </thead>
@@ -161,7 +161,7 @@
                                         {{ $warehouse->name }}
                                         @if($warehouse->is_default)
                                             <span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
-                                                <i class="fas fa-star mr-1"></i>Padrão
+                                                <i class="fas fa-star mr-1"></i>{{ __('Padrão') }}
                                             </span>
                                         @endif
                                     </div>
@@ -186,17 +186,17 @@
                                     {{ $warehouse->manager->name }}
                                 </div>
                             @else
-                                <span class="text-gray-400 text-xs">Sem gestor</span>
+                                <span class="text-gray-400 text-xs">{{ __('Sem gestor') }}</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @if($warehouse->is_active)
                                 <span class="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full flex items-center w-fit">
-                                    <i class="fas fa-check-circle mr-1"></i>Ativo
+                                    <i class="fas fa-check-circle mr-1"></i>{{ __('Ativo') }}
                                 </span>
                             @else
                                 <span class="px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full flex items-center w-fit">
-                                    <i class="fas fa-times-circle mr-1"></i>Inativo
+                                    <i class="fas fa-times-circle mr-1"></i>{{ __('Inativo') }}
                                 </span>
                             @endif
                         </td>
@@ -206,25 +206,25 @@
                                 @if(!$warehouse->is_default)
                                     <button wire:click="setDefault({{ $warehouse->id }})" 
                                             class="text-yellow-600 hover:text-yellow-900 transition p-2 hover:bg-yellow-50 rounded-lg"
-                                            title="Definir como padrão">
+                                            title="{{ __('Definir como padrão') }}">
                                         <i class="fas fa-star"></i>
                                     </button>
                                 @endif
                                 <button wire:click="toggleStatus({{ $warehouse->id }})" 
                                         class="text-blue-600 hover:text-blue-900 transition p-2 hover:bg-blue-50 rounded-lg"
-                                        title="Alternar Status">
+                                        title="{{ __('Alternar Status') }}">
                                     <i class="fas fa-toggle-on"></i>
                                 </button>
                                 <button wire:click="edit({{ $warehouse->id }})" 
                                         class="text-indigo-600 hover:text-indigo-900 transition p-2 hover:bg-indigo-50 rounded-lg"
-                                        title="Editar">
+                                        title="{{ __('Editar') }}">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 @endcan
                                 @can('invoicing.warehouses.delete')
                                 <button wire:click="confirmDelete({{ $warehouse->id }})" 
                                         class="text-red-600 hover:text-red-900 transition p-2 hover:bg-red-50 rounded-lg"
-                                        title="Excluir">
+                                        title="{{ __('Excluir') }}">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                                 @endcan
@@ -238,8 +238,8 @@
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-warehouse text-gray-400 text-3xl"></i>
                                 </div>
-                                <p class="text-gray-500 text-lg font-semibold mb-2">Nenhum armazém encontrado</p>
-                                <p class="text-gray-400 text-sm">Comece criando um novo armazém</p>
+                                <p class="text-gray-500 text-lg font-semibold mb-2">{{ __('Nenhum armazém encontrado') }}</p>
+                                <p class="text-gray-400 text-sm">{{ __('Comece criando um novo armazém') }}</p>
                             </div>
                         </td>
                     </tr>

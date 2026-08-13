@@ -95,10 +95,10 @@ class Categories extends Component
             }
             
             $category->update($data);
-            $this->dispatch('success', message: 'Categoria atualizada com sucesso!');
+            $this->dispatch('success', message: __('Categoria atualizada com sucesso!'));
         } else {
             Category::create($data);
-            $this->dispatch('success', message: 'Categoria criada com sucesso!');
+            $this->dispatch('success', message: __('Categoria criada com sucesso!'));
         }
 
         $this->closeModal();
@@ -129,9 +129,9 @@ class Categories extends Component
             $category->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingCategoryId', 'deletingCategoryName']);
-            $this->dispatch('success', message: 'Categoria excluÃ­da com sucesso!');
+            $this->dispatch('success', message: __('Categoria excluída com sucesso!'));
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir categoria!');
+            $this->dispatch('error', message: __('Erro ao excluir categoria!'));
         }
     }
 

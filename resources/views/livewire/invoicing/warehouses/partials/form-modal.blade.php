@@ -26,84 +26,84 @@
                 <!-- Nome -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-warehouse mr-1 text-indigo-600"></i>Nome do Armazém *
+                        <i class="fas fa-warehouse mr-1 text-indigo-600"></i>{{ __('Nome do Armazém *') }}
                     </label>
                     <input type="text" wire:model="name" 
                            class="w-full px-4 py-3 rounded-xl border-2 @error('name') border-red-500 @else border-gray-200 @enderror focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: Armazém Principal">
+                           placeholder="{{ __('Ex: Armazém Principal') }}">
                     @error('name') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Código -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-barcode mr-1 text-indigo-600"></i>Código *
+                        <i class="fas fa-barcode mr-1 text-indigo-600"></i>{{ __('Código *') }}
                     </label>
                     <input type="text" wire:model="code" 
                            class="w-full px-4 py-3 rounded-xl border-2 @error('code') border-red-500 @else border-gray-200 @enderror focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: ARM-001">
+                           placeholder="{{ __('Ex: ARM-001') }}">
                     @error('code') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Localização -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-map-marker-alt mr-1 text-indigo-600"></i>Localização
+                        <i class="fas fa-map-marker-alt mr-1 text-indigo-600"></i>{{ __('Localização') }}
                     </label>
                     <input type="text" wire:model="location" 
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: Sede">
+                           placeholder="{{ __('Ex: Sede') }}">
                     @error('location') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Endereço -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-location-dot mr-1 text-indigo-600"></i>Endereço
+                        <i class="fas fa-location-dot mr-1 text-indigo-600"></i>{{ __('Endereço') }}
                     </label>
                     <input type="text" wire:model="address" 
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: Rua ABC, 123">
+                           placeholder="{{ __('Ex: Rua ABC, 123') }}">
                     @error('address') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Cidade -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-city mr-1 text-indigo-600"></i>Cidade
+                        <i class="fas fa-city mr-1 text-indigo-600"></i>{{ __('Cidade') }}
                     </label>
                     <input type="text" wire:model="city" 
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: Luanda">
+                           placeholder="{{ __('Ex: Luanda') }}">
                     @error('city') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Código Postal -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-mailbox mr-1 text-indigo-600"></i>Código Postal
+                        <i class="fas fa-mailbox mr-1 text-indigo-600"></i>{{ __('Código Postal') }}
                     </label>
                     <input type="text" wire:model="postal_code" 
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: 1000-001">
+                           placeholder="{{ __('Ex: 1000-001') }}">
                     @error('postal_code') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Telefone -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-phone mr-1 text-indigo-600"></i>Telefone
+                        <i class="fas fa-phone mr-1 text-indigo-600"></i>{{ __('Telefone') }}
                     </label>
                     <input type="text" wire:model="phone" 
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                           placeholder="Ex: +244 912 345 678">
+                           placeholder="{{ __('Ex: +244 912 345 678') }}">
                     @error('phone') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
                 <!-- Email -->
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-envelope mr-1 text-indigo-600"></i>Email
+                        <i class="fas fa-envelope mr-1 text-indigo-600"></i>{{ __('Email') }}
                     </label>
                     <input type="email" wire:model="email" 
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
@@ -114,11 +114,11 @@
                 <!-- Gestor -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-user-tie mr-1 text-indigo-600"></i>Gestor Responsável
+                        <i class="fas fa-user-tie mr-1 text-indigo-600"></i>{{ __('Gestor Responsável') }}
                     </label>
                     <select wire:model="manager_id" 
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition">
-                        <option value="">Selecionar Gestor...</option>
+                        <option value="">{{ __('Selecionar Gestor...') }}</option>
                         @foreach($managers as $manager)
                             <option value="{{ $manager->id }}">{{ $manager->name }}</option>
                         @endforeach
@@ -129,11 +129,11 @@
                 <!-- Descrição -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">
-                        <i class="fas fa-align-left mr-1 text-indigo-600"></i>Descrição
+                        <i class="fas fa-align-left mr-1 text-indigo-600"></i>{{ __('Descrição') }}
                     </label>
                     <textarea wire:model="description" rows="3"
                               class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition"
-                              placeholder="Informações adicionais..."></textarea>
+                              placeholder="{{ __('Informações adicionais...') }}"></textarea>
                     @error('description') <p class="mt-1 text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</p> @enderror
                 </div>
 
@@ -143,7 +143,7 @@
                     <label class="flex items-center cursor-pointer group">
                         <input type="checkbox" wire:model="is_active" class="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500 transition">
                         <span class="ml-2 text-sm font-semibold text-gray-700 group-hover:text-indigo-600 transition">
-                            <i class="fas fa-check-circle mr-1"></i>Armazém Ativo
+                            <i class="fas fa-check-circle mr-1"></i>{{ __('Armazém Ativo') }}
                         </span>
                     </label>
 
@@ -151,7 +151,7 @@
                     <label class="flex items-center cursor-pointer group">
                         <input type="checkbox" wire:model="is_default" class="w-5 h-5 text-yellow-600 rounded focus:ring-2 focus:ring-yellow-500 transition">
                         <span class="ml-2 text-sm font-semibold text-gray-700 group-hover:text-yellow-600 transition">
-                            <i class="fas fa-star mr-1"></i>Armazém Padrão
+                            <i class="fas fa-star mr-1"></i>{{ __('Armazém Padrão') }}
                         </span>
                     </label>
                 </div>
@@ -162,7 +162,7 @@
         <div class="sticky bottom-0 bg-gray-50 px-8 py-6 rounded-b-2xl flex justify-end space-x-4">
             <button type="button" wire:click="$set('showModal', false)" 
                     class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                <i class="fas fa-times mr-2"></i>Cancelar
+                <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
             </button>
             <button type="button" wire:click="save" 
                     class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition">

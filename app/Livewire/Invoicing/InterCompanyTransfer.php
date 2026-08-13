@@ -194,7 +194,7 @@ class InterCompanyTransfer extends Component
     public function selectProduct($productId)
     {
         if (!$this->warehouseFromId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione o armazém de origem primeiro.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione o armazém de origem primeiro.')]);
             return;
         }
 
@@ -219,12 +219,12 @@ class InterCompanyTransfer extends Component
     public function addProductToTransfer()
     {
         if (!$this->selectedProduct || !$this->productQuantity || $this->productQuantity <= 0) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione um produto e quantidade válida.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione um produto e quantidade válida.')]);
             return;
         }
 
         if ($this->productQuantity > $this->availableStock) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Quantidade maior que o stock disponível.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Quantidade maior que o stock disponível.')]);
             return;
         }
 
@@ -238,7 +238,7 @@ class InterCompanyTransfer extends Component
             if ($item['product_id'] == $this->selectedProduct) {
                 $newQty = (float) $this->transferItems[$index]['quantity'] + (float) $this->productQuantity;
                 if ($newQty > $this->availableStock) {
-                    $this->dispatch('notify', ['type' => 'error', 'message' => 'Quantidade total excede o stock disponível.']);
+                    $this->dispatch('notify', ['type' => 'error', 'message' => __('Quantidade total excede o stock disponível.')]);
                     return;
                 }
                 $this->transferItems[$index]['quantity']      = $newQty;
@@ -263,7 +263,7 @@ class InterCompanyTransfer extends Component
 
         $this->reset(['selectedProduct', 'selectedProductName', 'selectedProductCode', 'productQuantity', 'availableStock', 'selectedUnitCost']);
         $this->showQuantityModal = false;
-        $this->dispatch('notify', ['type' => 'success', 'message' => 'Produto adicionado!']);
+        $this->dispatch('notify', ['type' => 'success', 'message' => __('Produto adicionado!')]);
     }
 
     /**
@@ -310,7 +310,7 @@ class InterCompanyTransfer extends Component
         $anterior = (float) ($item['ultima_valida'] ?? 1);
 
         if (!is_numeric($valor) || (float) $valor <= 0) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'A quantidade deve ser um número maior que zero.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('A quantidade deve ser um número maior que zero.')]);
             $nova = $anterior;
         } else {
             $nova       = (float) $valor;
@@ -345,23 +345,23 @@ class InterCompanyTransfer extends Component
     public function saveTransfer()
     {
         if (!$this->warehouseFromId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione o armazém de origem.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione o armazém de origem.')]);
             return;
         }
         if (!$this->tenantToId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione a empresa destino.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione a empresa destino.')]);
             return;
         }
         if (!$this->warehouseToId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Selecione o armazém destino.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione o armazém destino.')]);
             return;
         }
         if (empty($this->transferItems)) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Adicione pelo menos um produto.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Adicione pelo menos um produto.')]);
             return;
         }
         if (!$this->notes) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Informe o motivo da transferência.']);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Informe o motivo da transferência.')]);
             return;
         }
 
@@ -559,7 +559,7 @@ class InterCompanyTransfer extends Component
         } catch (\Throwable $e) {
             // Sem rollBack à mão: o DB::transaction() acima já desfez o que
             // abriu, e chamá-lo aqui reverteria a transacção de quem chamou.
-            $this->dispatch('notify', ['type' => 'error', 'message' => 'Erro: ' . $e->getMessage()]);
+            $this->dispatch('notify', ['type' => 'error', 'message' => __('Erro: :erro', ['erro' => $e->getMessage()])]);
         }
     }
 

@@ -6,7 +6,7 @@
         <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
             <h3 class="text-xl font-bold text-white flex items-center">
                 <i class="fas fa-exchange-alt mr-2"></i>
-                Transferir Stock
+                {{ __('Transferir Stock') }}
             </h3>
             <button wire:click="$set('showTransferModal', false)" type="button"
                     class="btn-press text-white hover:text-gray-200 transition w-9 h-9 inline-flex items-center justify-center rounded-lg hover:bg-white/10">
@@ -20,11 +20,11 @@
             <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-4 mb-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <p class="text-xs text-gray-600 mb-1">Produto</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Produto') }}</p>
                         <p class="text-lg font-bold text-gray-900">{{ $transferProductName }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600 mb-1">Disponível para Transferir</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Disponível para Transferir') }}</p>
                         <p class="text-2xl font-bold text-purple-600">{{ number_format($transferMaxQty, 0) }}</p>
                     </div>
                 </div>
@@ -39,7 +39,7 @@
                         <div class="bg-white rounded-xl p-4 border-2 border-red-200">
                             <label class="block text-sm font-bold text-gray-700 mb-3">
                                 <i class="fas fa-warehouse mr-1 text-red-600"></i>
-                                <span class="text-red-600">DE</span> (Origem)
+                                <span class="text-red-600">DE</span> {{ __('(Origem)') }}
                             </label>
                             <select 
                                 wire:model="transferFromWarehouse" 
@@ -58,12 +58,12 @@
                         <div class="bg-white rounded-xl p-4 border-2 border-green-200">
                             <label class="block text-sm font-bold text-gray-700 mb-3">
                                 <i class="fas fa-warehouse mr-1 text-green-600"></i>
-                                <span class="text-green-600">PARA</span> (Destino)
+                                <span class="text-green-600">PARA</span> {{ __('(Destino)') }}
                             </label>
                             <select 
                                 wire:model="transferToWarehouse" 
                                 class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 transition text-base font-semibold">
-                                <option value="">📦 Selecionar destino...</option>
+                                <option value="">📦 {{ __('Selecionar destino...') }}</option>
                                 @foreach($warehouses as $warehouse)
                                     @if($warehouse->id != $transferFromWarehouse)
                                         <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
@@ -85,7 +85,7 @@
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
                             <i class="fas fa-hashtag mr-1 text-purple-600"></i>
-                            Quantidade a Transferir * 
+                            {{ __('Quantidade a Transferir *') }} 
                             <span class="text-sm font-normal text-gray-500">(Máximo: {{ number_format($transferMaxQty, 0) }})</span>
                         </label>
                         <input 
@@ -117,7 +117,7 @@
                                 </button>
                                 <button type="button" onclick="@this.set('transferQuantity', {{ $transferMaxQty }})"
                                         class="btn-press px-3 py-2 bg-purple-100 hover:bg-purple-200 border-2 border-purple-400 rounded-lg font-semibold text-sm transition">
-                                    Tudo
+                                    {{ __('Tudo') }}
                                 </button>
                             </div>
                         @endif
@@ -126,13 +126,13 @@
                     <!-- Notes -->
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-sticky-note mr-1 text-purple-600"></i>Observações
+                            <i class="fas fa-sticky-note mr-1 text-purple-600"></i>{{ __('Observações') }}
                         </label>
                         <textarea 
                             wire:model="transferNotes" 
                             rows="3" 
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition"
-                            placeholder="Motivo da transferência, instruções especiais, etc."></textarea>
+                            placeholder="{{ __('Motivo da transferência, instruções especiais, etc.') }}"></textarea>
                         @error('transferNotes') 
                             <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> 
                         @enderror
@@ -146,17 +146,17 @@
                         wire:click="$set('showTransferModal', false)" 
                         wire:loading.attr="disabled" wire:target="saveTransfer"
                         class="btn-press px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">
-                        <i class="fas fa-times mr-2"></i>Cancelar
+                        <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                     </button>
                     <button 
                         type="submit"
                         wire:loading.attr="disabled" wire:target="saveTransfer"
                         class="btn-press px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="saveTransfer">
-                            <i class="fas fa-exchange-alt mr-2"></i>Executar Transferência
+                            <i class="fas fa-exchange-alt mr-2"></i>{{ __('Executar Transferência') }}
                         </span>
                         <span wire:loading wire:target="saveTransfer" class="inline-flex items-center">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>A transferir…
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('A transferir…') }}
                         </span>
                     </button>
                 </div>

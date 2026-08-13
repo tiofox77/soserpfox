@@ -6,7 +6,7 @@
         <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
             <h3 class="text-xl font-bold text-white flex items-center">
                 <i class="fas fa-edit mr-2"></i>
-                Ajustar Stock
+                {{ __('Ajustar Stock') }}
             </h3>
             <button wire:click="$set('showAdjustModal', false)" type="button"
                     class="btn-press text-white hover:text-gray-200 transition w-9 h-9 inline-flex items-center justify-center rounded-lg hover:bg-white/10">
@@ -20,20 +20,20 @@
             <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <p class="text-xs text-gray-600 mb-1">Produto</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Produto') }}</p>
                         <p class="text-lg font-bold text-gray-900">{{ $adjustProductName }}</p>
                     </div>
                     <div>
                         {{-- Qual armazém: com seis deles, ajustar sem saber onde
                              é como se corrige a prateleira errada. --}}
-                        <p class="text-xs text-gray-600 mb-1">Armazém</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Armazém') }}</p>
                         <p class="text-lg font-bold text-gray-900">{{ $adjustWarehouseName }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600 mb-1">Neste armazém</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Neste armazém') }}</p>
                         <p class="text-2xl font-bold text-blue-600">{{ number_format($adjustCurrentQty, 0) }}</p>
                         <p class="text-[11px] text-gray-500">
-                            total do artigo: <strong>{{ number_format($adjustCurrentQty + $adjustTotalOutros, 0) }}</strong>
+                            {{ __('total do artigo:') }} <strong>{{ number_format($adjustCurrentQty + $adjustTotalOutros, 0) }}</strong>
                             @if($adjustTotalOutros > 0)
                                 ({{ number_format($adjustTotalOutros, 0) }} noutros armazéns)
                             @endif
@@ -48,7 +48,7 @@
                     <!-- New Quantity -->
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-hashtag mr-1 text-blue-600"></i>Nova Quantidade *
+                            <i class="fas fa-hashtag mr-1 text-blue-600"></i>{{ __('Nova Quantidade *') }}
                         </label>
                         <input 
                             type="number" 
@@ -73,7 +73,7 @@
                         @endphp
                         <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 space-y-2">
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-semibold text-gray-700">Diferença neste armazém:</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Diferença neste armazém:') }}</span>
                                 <span class="text-2xl font-bold {{ $__delta > 0 ? 'text-green-600' : 'text-red-600' }}">
                                     {{ $__delta > 0 ? '+' : '' }}{{ number_format($__delta, 0) }}
                                 </span>
@@ -85,7 +85,7 @@
                                 <span class="text-xl font-bold text-gray-900">{{ number_format((float) $adjustNewQty, 0) }}</span>
                             </div>
                             <div class="flex items-center justify-between">
-                                <span class="text-sm font-semibold text-gray-700">Total do artigo fica com:</span>
+                                <span class="text-sm font-semibold text-gray-700">{{ __('Total do artigo fica com:') }}</span>
                                 <span class="text-xl font-bold text-blue-700">{{ number_format($__totalDepois, 0) }}</span>
                             </div>
                         </div>
@@ -94,13 +94,13 @@
                     <!-- Notes -->
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">
-                            <i class="fas fa-sticky-note mr-1 text-blue-600"></i>Motivo/Observações
+                            <i class="fas fa-sticky-note mr-1 text-blue-600"></i>{{ __('Motivo/Observações') }}
                         </label>
                         <textarea 
                             wire:model="adjustNotes" 
                             rows="3" 
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                            placeholder="Descreva o motivo do ajuste (ex: Inventário, correção, etc.)"></textarea>
+                            placeholder="{{ __('Descreva o motivo do ajuste (ex: Inventário, correção, etc.)') }}"></textarea>
                         @error('adjustNotes') 
                             <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> 
                         @enderror
@@ -114,17 +114,17 @@
                         wire:click="$set('showAdjustModal', false)" 
                         wire:loading.attr="disabled" wire:target="saveAdjustment"
                         class="btn-press px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition disabled:opacity-50">
-                        <i class="fas fa-times mr-2"></i>Cancelar
+                        <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                     </button>
                     <button 
                         type="submit"
                         wire:loading.attr="disabled" wire:target="saveAdjustment"
                         class="btn-press px-8 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-bold transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="saveAdjustment">
-                            <i class="fas fa-save mr-2"></i>Confirmar Ajuste
+                            <i class="fas fa-save mr-2"></i>{{ __('Confirmar Ajuste') }}
                         </span>
                         <span wire:loading wire:target="saveAdjustment" class="inline-flex items-center">
-                            <i class="fas fa-spinner fa-spin mr-2"></i>A guardar…
+                            <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('A guardar…') }}
                         </span>
                     </button>
                 </div>

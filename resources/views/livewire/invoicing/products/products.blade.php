@@ -7,8 +7,8 @@
                     <i class="fas fa-box text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-lg sm:text-2xl font-bold">Produtos/Serviços</h2>
-                    <p class="text-purple-100 text-xs sm:text-sm">Gerir catálogo de produtos</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">{{ __('Produtos/Serviços') }}</h2>
+                    <p class="text-purple-100 text-xs sm:text-sm">{{ __('Gerir catálogo de produtos') }}</p>
                 </div>
             </div>
             @can('invoicing.products.create')
@@ -17,10 +17,10 @@
                     wire:loading.class="opacity-70 scale-95"
                     class="group bg-white text-purple-600 hover:bg-purple-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
                 <span wire:loading.remove wire:target="create">
-                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Novo Produto
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>{{ __('Novo Produto') }}
                 </span>
                 <span wire:loading wire:target="create">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                    <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Abrindo...') }}
                 </span>
             </button>
             @endcan
@@ -36,9 +36,9 @@
                     <i class="fas fa-box text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-purple-600 font-semibold mb-2">Total Produtos</p>
+            <p class="text-sm text-purple-600 font-semibold mb-2">{{ __('Total Produtos') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $estatisticas['produtos'] }}</p>
-            <p class="text-xs text-gray-500">No catálogo</p>
+            <p class="text-xs text-gray-500">{{ __('No catálogo') }}</p>
         </div>
 
         <!-- Valor Médio -->
@@ -48,9 +48,9 @@
                     <i class="fas fa-money-bill-wave text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-green-600 font-semibold mb-2">Valor Médio</p>
+            <p class="text-sm text-green-600 font-semibold mb-2">{{ __('Valor Médio') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ number_format($estatisticas['preco_medio'], 2) }} Kz</p>
-            <p class="text-xs text-gray-500">Preço médio</p>
+            <p class="text-xs text-gray-500">{{ __('Preço médio') }}</p>
         </div>
 
         <!-- Serviços -->
@@ -60,9 +60,9 @@
                     <i class="fas fa-cogs text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-blue-600 font-semibold mb-2">Serviços</p>
+            <p class="text-sm text-blue-600 font-semibold mb-2">{{ __('Serviços') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $estatisticas['servicos'] }}</p>
-            <p class="text-xs text-gray-500">Tipo serviço</p>
+            <p class="text-xs text-gray-500">{{ __('Tipo serviço') }}</p>
         </div>
     </div>
 
@@ -71,7 +71,7 @@
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
                 <i class="fas fa-filter mr-2 text-purple-600"></i>
-                Filtros Avançados
+                {{ __('Filtros Avançados') }}
             </h3>
             <div class="flex items-center gap-3">
                 {{-- Lixeira: a eliminação é recuperável, mas até aqui não havia
@@ -88,7 +88,7 @@
                 @endcan
 
                 <button wire:click="clearFilters" class="text-sm text-purple-600 hover:text-purple-700 font-semibold flex items-center">
-                    <i class="fas fa-redo mr-1"></i>Limpar Filtros
+                    <i class="fas fa-redo mr-1"></i>{{ __('Limpar Filtros') }}
                 </button>
             </div>
         </div>
@@ -97,8 +97,11 @@
         <div class="mb-4 bg-amber-50 border-2 border-amber-200 rounded-xl p-3">
             <p class="text-sm text-amber-800">
                 <i class="fas fa-circle-info mr-1"></i>
-                A mostrar produtos <strong>eliminados</strong>. Continuam guardados na base de dados
-                e podem ser restaurados com o histórico e as imagens intactos.
+                {{-- A frase inteira numa chave só. Partida em tres pedacos
+                     ("A mostrar produtos" + "eliminados" + ". Continuam...")
+                     nao havia forma de a traduzir: a ordem das palavras muda
+                     de lingua para lingua e o tradutor so via os bocados. --}}
+                {!! __('A mostrar produtos <strong>eliminados</strong>. Continuam guardados na base de dados e podem ser restaurados com o histórico e as imagens intactos.') !!}
             </p>
         </div>
         @endif
@@ -107,13 +110,13 @@
             <!-- Search -->
             <div class="col-span-2">
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-search mr-1"></i>Pesquisar
+                    <i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome, código, descrição..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="{{ __('Nome, código, descrição...') }}" 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -121,32 +124,32 @@
             <!-- Type Filter -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-tag mr-1"></i>Tipo
+                    <i class="fas fa-tag mr-1"></i>{{ __('Tipo') }}
                 </label>
                 <select wire:model.live="typeFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
-                    <option value="">Todos</option>
-                    <option value="produto">Produto</option>
-                    <option value="servico">Serviço</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="produto">{{ __('Produto') }}</option>
+                    <option value="servico">{{ __('Serviço') }}</option>
                 </select>
             </div>
 
             <!-- Stock Filter -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-boxes mr-1"></i>Stock
+                    <i class="fas fa-boxes mr-1"></i>{{ __('Stock') }}
                 </label>
                 <select wire:model.live="stockFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
-                    <option value="">Todos</option>
-                    <option value="com_stock">Com Stock</option>
-                    <option value="sem_stock">Sem Stock</option>
-                    <option value="nao_gerenciado">Não Gerenciado</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="com_stock">{{ __('Com Stock') }}</option>
+                    <option value="sem_stock">{{ __('Sem Stock') }}</option>
+                    <option value="nao_gerenciado">{{ __('Não Gerenciado') }}</option>
                 </select>
             </div>
 
             <!-- Per Page -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-list mr-1"></i>Por Página
+                    <i class="fas fa-list mr-1"></i>{{ __('Por Página') }}
                 </label>
                 <select wire:model.live="perPage" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
                     <option value="10">10</option>
@@ -162,13 +165,13 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-calendar-alt mr-1"></i>Data de Cadastro (De)
+                    <i class="fas fa-calendar-alt mr-1"></i>{{ __('Data de Cadastro (De)') }}
                 </label>
                 <input wire:model.live="dateFrom" type="date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm">
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-calendar-alt mr-1"></i>Data de Cadastro (Até)
+                    <i class="fas fa-calendar-alt mr-1"></i>{{ __('Data de Cadastro (Até)') }}
                 </label>
                 <input wire:model.live="dateTo" type="date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm">
             </div>
@@ -178,7 +181,7 @@
         @if($search || $typeFilter || $stockFilter || $dateFrom || $dateTo)
             <div class="mt-4 pt-4 border-t border-gray-200">
                 <div class="flex flex-wrap gap-2">
-                    <span class="text-xs font-semibold text-gray-600">Filtros ativos:</span>
+                    <span class="text-xs font-semibold text-gray-600">{{ __('Filtros ativos:') }}</span>
                     @if($search)
                         <span class="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
                             <i class="fas fa-search mr-1"></i>{{ $search }}
@@ -235,7 +238,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-bold text-gray-900 flex items-center">
                     <i class="fas fa-list mr-2 text-purple-600"></i>
-                    Lista de Produtos
+                    {{ __('Lista de Produtos') }}
                 </h3>
                 <span class="text-sm text-gray-600 font-semibold">
                     <i class="fas fa-box mr-1"></i>{{ $products->total() }} Total Produtos
@@ -247,28 +250,28 @@
         <div class="overflow-x-auto">
         <div class="grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase min-w-[600px]">
             <div class="col-span-4 sm:col-span-3 flex items-center">
-                <i class="fas fa-box mr-2 text-purple-500"></i>Produto
+                <i class="fas fa-box mr-2 text-purple-500"></i>{{ __('Produto') }}
             </div>
             <div class="col-span-2 sm:col-span-1 hidden sm:flex items-center">
-                <i class="fas fa-tag mr-2 text-pink-500"></i>Tipo
+                <i class="fas fa-tag mr-2 text-pink-500"></i>{{ __('Tipo') }}
             </div>
             <div class="col-span-2 hidden md:flex items-center">
-                <i class="fas fa-barcode mr-2 text-blue-500"></i>Código
+                <i class="fas fa-barcode mr-2 text-blue-500"></i>{{ __('Código') }}
             </div>
             <div class="col-span-3 sm:col-span-2 flex items-center">
-                <i class="fas fa-money-bill-wave mr-2 text-green-500"></i>Preço
+                <i class="fas fa-money-bill-wave mr-2 text-green-500"></i>{{ __('Preço') }}
             </div>
             <div class="col-span-1 hidden lg:flex items-center">
                 <i class="fas fa-percent mr-2 text-orange-500"></i>IVA
             </div>
             <div class="col-span-1 hidden lg:flex items-center">
-                <i class="fas fa-warehouse mr-2 text-emerald-500"></i>Stock
+                <i class="fas fa-warehouse mr-2 text-emerald-500"></i>{{ __('Stock') }}
             </div>
             <div class="col-span-1 hidden lg:flex items-center">
-                <i class="fas fa-cube mr-2 text-cyan-500"></i>Unidade
+                <i class="fas fa-cube mr-2 text-cyan-500"></i>{{ __('Unidade') }}
             </div>
             <div class="col-span-3 sm:col-span-2 lg:col-span-1 flex items-center justify-end">
-                <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
+                <i class="fas fa-cog mr-2 text-gray-500"></i>{{ __('Ações') }}
             </div>
         </div>
         
@@ -286,7 +289,7 @@
                             @if($product->description)
                                 <p class="text-xs text-gray-500 truncate">{{ $product->description }}</p>
                             @else
-                                <p class="text-xs text-gray-400 italic">Sem descrição</p>
+                                <p class="text-xs text-gray-400 italic">{{ __('Sem descrição') }}</p>
                             @endif
                         </div>
                     </div>
@@ -295,11 +298,11 @@
                     <div class="col-span-2 sm:col-span-1 hidden sm:block">
                         @if($product->type === 'produto')
                             <span class="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold">
-                                <i class="fas fa-box mr-1"></i>Produto
+                                <i class="fas fa-box mr-1"></i>{{ __('Produto') }}
                             </span>
                         @else
                             <span class="inline-flex items-center px-2 py-1 bg-pink-100 text-pink-700 rounded-lg text-xs font-semibold">
-                                <i class="fas fa-concierge-bell mr-1"></i>Serviço
+                                <i class="fas fa-concierge-bell mr-1"></i>{{ __('Serviço') }}
                             </span>
                         @endif
                     </div>
@@ -327,7 +330,7 @@
                              mostra-se como isento, não como 0%. --}}
                         @if(($product->tax_type ?? 'iva') === 'isento')
                             <span class="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold">
-                                Isento
+                                {{ __('Isento') }}
                             </span>
                         @else
                             <span class="inline-flex items-center px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">
@@ -341,7 +344,7 @@
                         @if($product->manage_stock)
                             @php $qty = (float) ($product->stocks_total_quantity ?? 0); @endphp
                             @if($qty <= 0)
-                                <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold" title="Sem stock">
+                                <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold" title="{{ __('Sem stock') }}">
                                     <i class="fas fa-times-circle mr-1"></i>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}
                                 </span>
                             @elseif($product->stock_min > 0 && $qty <= $product->stock_min)
@@ -349,12 +352,12 @@
                                     <i class="fas fa-exclamation-triangle mr-1"></i>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}
                                 </span>
                             @else
-                                <span class="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold" title="Em stock">
+                                <span class="inline-flex items-center px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold" title="{{ __('Em stock') }}">
                                     <i class="fas fa-check-circle mr-1"></i>{{ rtrim(rtrim(number_format($qty, 2), '0'), '.') }}
                                 </span>
                             @endif
                         @else
-                            <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-semibold" title="Stock não gerenciado">
+                            <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-semibold" title="{{ __('Stock não gerenciado') }}">
                                 <i class="fas fa-minus"></i>
                             </span>
                         @endif
@@ -372,7 +375,7 @@
                         @can('invoicing.products.view')
                         <button wire:click="view({{ $product->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Visualizar">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Visualizar') }}">
                             <i class="fas fa-eye text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
@@ -384,7 +387,7 @@
                                 wire:loading.attr="disabled"
                                 wire:target="verRastreio({{ $product->id }})"
                                 class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50"
-                                title="Histórico de vendas e movimentos">
+                                title="{{ __('Histórico de vendas e movimentos') }}">
                             <i class="fas fa-timeline text-xs" wire:loading.remove wire:target="verRastreio({{ $product->id }})"></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="verRastreio({{ $product->id }})"></i>
                         </button>
@@ -393,7 +396,7 @@
                         @can('invoicing.products.edit')
                         <button wire:click="edit({{ $product->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Editar') }}">
                             <i class="fas fa-edit text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
@@ -406,7 +409,7 @@
                                 wire:target="restore({{ $product->id }})"
                                 wire:loading.attr="disabled"
                                 wire:confirm="Restaurar &quot;{{ $product->name }}&quot;?"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Restaurar">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Restaurar') }}">
                             <i class="fas fa-trash-can-arrow-up text-xs" wire:loading.remove wire:target="restore({{ $product->id }})"></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="restore({{ $product->id }})"></i>
                         </button>
@@ -414,7 +417,7 @@
                         <button wire:click="confirmDelete({{ $product->id }})"
                                 wire:target="confirmDelete({{ $product->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Excluir') }}">
                             <i class="fas fa-trash text-xs" wire:loading.remove wire:target="confirmDelete({{ $product->id }})"></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="confirmDelete({{ $product->id }})"></i>
                         </button>
@@ -436,20 +439,25 @@
                     @endphp
 
                     @if($haCatalogo && $haFiltro)
-                        <h3 class="text-lg font-bold text-gray-900 mb-2">Nada corresponde aos filtros</h3>
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">{{ __('Nada corresponde aos filtros') }}</h3>
                         <p class="text-gray-500 mb-4">
-                            O catálogo tem
-                            <strong>{{ $estatisticas['produtos'] }}</strong> produto(s)
-                            e <strong>{{ $estatisticas['servicos'] }}</strong> serviço(s),
-                            mas nenhum passa nos filtros activos.
+                            {{-- Dois números na mesma frase: o trans_choice
+                                 só sabe concordar com um, portanto os plurais
+                                 ficam na forma que esta mensagem quase sempre
+                                 usa — quem tem zero de ambos vê o outro ramo
+                                 do @if, o de catálogo vazio. --}}
+                            {!! __('O catálogo tem <strong>:produtos</strong> produtos e <strong>:servicos</strong> serviços, mas nenhum passa nos filtros activos.', [
+                                'produtos' => (int) $estatisticas['produtos'],
+                                'servicos' => (int) $estatisticas['servicos'],
+                            ]) !!}
                         </p>
                         <button wire:click="clearFilters"
                                 class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition">
-                            <i class="fas fa-redo mr-2"></i>Limpar filtros
+                            <i class="fas fa-redo mr-2"></i>{{ __('Limpar filtros') }}
                         </button>
                     @else
-                        <h3 class="text-lg font-bold text-gray-900 mb-2">Nenhum produto encontrado</h3>
-                        <p class="text-gray-500 mb-4">Crie um novo produto para começar</p>
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">{{ __('Nenhum produto encontrado') }}</h3>
+                        <p class="text-gray-500 mb-4">{{ __('Crie um novo produto para começar') }}</p>
                     @endif
                 </div>
             @endforelse
@@ -494,10 +502,10 @@
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         <select wire:model.live="rastreioDias" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5">
-                            <option value="30">30 dias</option>
-                            <option value="90">90 dias</option>
-                            <option value="365">1 ano</option>
-                            <option value="0">Tudo</option>
+                            <option value="30">{{ __('30 dias') }}</option>
+                            <option value="90">{{ __('90 dias') }}</option>
+                            <option value="365">{{ __('1 ano') }}</option>
+                            <option value="0">{{ __('Tudo') }}</option>
                         </select>
                         <button wire:click="fecharRastreio" class="text-gray-400 hover:text-gray-700">
                             <i class="fas fa-times text-xl"></i>
@@ -509,22 +517,22 @@
                     {{-- Resumo --}}
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div class="bg-teal-50 rounded-xl p-3">
-                            <p class="text-xs text-teal-700 font-semibold uppercase">Vendido</p>
+                            <p class="text-xs text-teal-700 font-semibold uppercase">{{ __('Vendido') }}</p>
                             <p class="text-xl font-bold text-teal-900">{{ rtrim(rtrim(number_format($r['resumo']['qtd_vendida'], 3, ',', '.'), '0'), ',') }}</p>
                             <p class="text-xs text-teal-600">{{ $r['resumo']['documentos'] }} documento(s)</p>
                         </div>
                         <div class="bg-green-50 rounded-xl p-3">
-                            <p class="text-xs text-green-700 font-semibold uppercase">Faturado</p>
+                            <p class="text-xs text-green-700 font-semibold uppercase">{{ __('Faturado') }}</p>
                             <p class="text-xl font-bold text-green-900">{{ number_format($r['resumo']['valor_vendido'], 2, ',', '.') }}</p>
                             <p class="text-xs text-green-600">Kz</p>
                         </div>
                         <div class="bg-blue-50 rounded-xl p-3">
-                            <p class="text-xs text-blue-700 font-semibold uppercase">Stock actual</p>
+                            <p class="text-xs text-blue-700 font-semibold uppercase">{{ __('Stock actual') }}</p>
                             <p class="text-xl font-bold text-blue-900">{{ rtrim(rtrim(number_format($r['resumo']['stock_total'], 3, ',', '.'), '0'), ',') }}</p>
                             <p class="text-xs text-blue-600">{{ $r['porArmazem']->count() }} armazém(ns)</p>
                         </div>
                         <div class="{{ abs($r['resumo']['divergencia']) > 0.001 ? 'bg-red-50' : 'bg-gray-50' }} rounded-xl p-3">
-                            <p class="text-xs {{ abs($r['resumo']['divergencia']) > 0.001 ? 'text-red-700' : 'text-gray-600' }} font-semibold uppercase">Vendido − saídas</p>
+                            <p class="text-xs {{ abs($r['resumo']['divergencia']) > 0.001 ? 'text-red-700' : 'text-gray-600' }} font-semibold uppercase">{{ __('Vendido − saídas') }}</p>
                             <p class="text-xl font-bold {{ abs($r['resumo']['divergencia']) > 0.001 ? 'text-red-900' : 'text-gray-800' }}">
                                 {{ rtrim(rtrim(number_format($r['resumo']['divergencia'], 3, ',', '.'), '0'), ',') }}
                             </p>
@@ -536,7 +544,7 @@
 
                     @if(abs($r['resumo']['divergencia']) > 0.001)
                         <div class="rounded-xl border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
-                            <strong><i class="fas fa-triangle-exclamation mr-1"></i>Vendas e stock não batem certo.</strong>
+                            <strong><i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Vendas e stock não batem certo.') }}</strong>
                             Foram vendidas {{ rtrim(rtrim(number_format($r['resumo']['qtd_vendida'], 3, ',', '.'), '0'), ',') }}
                             unidades mas só saíram {{ rtrim(rtrim(number_format($r['resumo']['saidas'], 3, ',', '.'), '0'), ',') }}
                             do stock. É o sintoma do artigo que aparece disponível mas cuja baixa falha.
@@ -564,12 +572,12 @@
                             <table class="w-full text-sm min-w-[640px]">
                                 <thead class="bg-gray-50 text-xs text-gray-600">
                                     <tr>
-                                        <th class="text-left px-3 py-2">Data</th>
-                                        <th class="text-left px-3 py-2">Documento</th>
-                                        <th class="text-left px-3 py-2">Cliente</th>
-                                        <th class="text-right px-3 py-2">Qtd</th>
-                                        <th class="text-right px-3 py-2">Preço</th>
-                                        <th class="text-right px-3 py-2">Total</th>
+                                        <th class="text-left px-3 py-2">{{ __('Data') }}</th>
+                                        <th class="text-left px-3 py-2">{{ __('Documento') }}</th>
+                                        <th class="text-left px-3 py-2">{{ __('Cliente') }}</th>
+                                        <th class="text-right px-3 py-2">{{ __('Qtd') }}</th>
+                                        <th class="text-right px-3 py-2">{{ __('Preço') }}</th>
+                                        <th class="text-right px-3 py-2">{{ __('Total') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y">
@@ -592,7 +600,7 @@
                                             <td class="px-3 py-2 text-right font-semibold">{{ number_format((float) $v->total, 2, ',', '.') }}</td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">Sem vendas no período.</td></tr>
+                                        <tr><td colspan="6" class="px-3 py-6 text-center text-gray-500">{{ __('Sem vendas no período.') }}</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -608,11 +616,11 @@
                             <table class="w-full text-sm min-w-[640px]">
                                 <thead class="bg-gray-50 text-xs text-gray-600">
                                     <tr>
-                                        <th class="text-left px-3 py-2">Data</th>
-                                        <th class="text-left px-3 py-2">Tipo</th>
-                                        <th class="text-left px-3 py-2">Armazém</th>
-                                        <th class="text-right px-3 py-2">Qtd</th>
-                                        <th class="text-left px-3 py-2">Origem</th>
+                                        <th class="text-left px-3 py-2">{{ __('Data') }}</th>
+                                        <th class="text-left px-3 py-2">{{ __('Tipo') }}</th>
+                                        <th class="text-left px-3 py-2">{{ __('Armazém') }}</th>
+                                        <th class="text-right px-3 py-2">{{ __('Qtd') }}</th>
+                                        <th class="text-left px-3 py-2">{{ __('Origem') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y">
@@ -635,7 +643,7 @@
                                             </td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">Sem movimentos no período.</td></tr>
+                                        <tr><td colspan="5" class="px-3 py-6 text-center text-gray-500">{{ __('Sem movimentos no período.') }}</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>

@@ -25,7 +25,7 @@
                             </div>
                         </div>
                     </div>
-                    <button wire:click="closeViewModal" class="text-white/80 hover:text-white transition" title="Fechar">
+                    <button wire:click="closeViewModal" class="text-white/80 hover:text-white transition" title="{{ __('Fechar') }}">
                         <i class="fas fa-times text-2xl"></i>
                     </button>
                 </div>
@@ -36,25 +36,25 @@
                 <nav class="flex flex-wrap gap-1 -mb-px overflow-x-auto" aria-label="Tabs">
                     <button @click="tab = 'info'" :class="tab === 'info' ? 'border-purple-600 text-purple-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="whitespace-nowrap py-3 px-4 border-b-2 font-semibold text-sm transition">
-                        <i class="fas fa-user-circle mr-1.5"></i>Info Cliente
+                        <i class="fas fa-user-circle mr-1.5"></i>{{ __('Info Cliente') }}
                     </button>
                     <button @click="tab = 'detalhes'" :class="tab === 'detalhes' ? 'border-purple-600 text-purple-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="whitespace-nowrap py-3 px-4 border-b-2 font-semibold text-sm transition">
-                        <i class="fas fa-chart-pie mr-1.5"></i>Detalhes
+                        <i class="fas fa-chart-pie mr-1.5"></i>{{ __('Detalhes') }}
                     </button>
                     <button @click="tab = 'extrato'" :class="tab === 'extrato' ? 'border-purple-600 text-purple-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="whitespace-nowrap py-3 px-4 border-b-2 font-semibold text-sm transition">
-                        <i class="fas fa-list-alt mr-1.5"></i>Extrato
+                        <i class="fas fa-list-alt mr-1.5"></i>{{ __('Extrato') }}
                         <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">{{ count($clientInvoices) }}</span>
                     </button>
                     <button @click="tab = 'produtos'" :class="tab === 'produtos' ? 'border-purple-600 text-purple-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="whitespace-nowrap py-3 px-4 border-b-2 font-semibold text-sm transition">
-                        <i class="fas fa-star mr-1.5"></i>Produtos
+                        <i class="fas fa-star mr-1.5"></i>{{ __('Produtos') }}
                         <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700">{{ count($clientTopProducts) }}</span>
                     </button>
                     <button @click="tab = 'frequencia'" :class="tab === 'frequencia' ? 'border-purple-600 text-purple-700 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                             class="whitespace-nowrap py-3 px-4 border-b-2 font-semibold text-sm transition">
-                        <i class="fas fa-chart-bar mr-1.5"></i>Frequência
+                        <i class="fas fa-chart-bar mr-1.5"></i>{{ __('Frequência') }}
                     </button>
                 </nav>
             </div>
@@ -67,55 +67,55 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-white rounded-xl shadow p-5">
                             <h4 class="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center">
-                                <i class="fas fa-user mr-2 text-purple-500"></i>Identificação
+                                <i class="fas fa-user mr-2 text-purple-500"></i>{{ __('Identificação') }}
                             </h4>
                             <dl class="space-y-2 text-sm">
-                                <div class="flex justify-between"><dt class="text-gray-500">Nome:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['name'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">NIF:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['nif'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">Tipo:</dt><dd class="font-semibold text-gray-900 text-right">{{ ($viewingClient['type'] ?? '') === 'pessoa_juridica' ? 'Pessoa Jurídica' : 'Pessoa Física' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">ID:</dt><dd class="font-mono text-gray-700 text-right">{{ $viewingClient['id'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Nome:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['name'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('NIF:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['nif'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Tipo:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ ($viewingClient['type'] ?? '') === 'pessoa_juridica' ? 'Pessoa Jurídica' : 'Pessoa Física' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('ID:') }}</dt><dd class="font-mono text-gray-700 text-right">{{ $viewingClient['id'] ?? '—' }}</dd></div>
                             </dl>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-5">
                             <h4 class="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center">
-                                <i class="fas fa-address-book mr-2 text-blue-500"></i>Contactos
+                                <i class="fas fa-address-book mr-2 text-blue-500"></i>{{ __('Contactos') }}
                             </h4>
                             <dl class="space-y-2 text-sm">
-                                <div class="flex justify-between"><dt class="text-gray-500">Email:</dt><dd class="font-semibold text-gray-900 text-right break-all">{{ $viewingClient['email'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">Telefone:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['phone'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">Celular:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['mobile'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Email:') }}</dt><dd class="font-semibold text-gray-900 text-right break-all">{{ $viewingClient['email'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Telefone:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['phone'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Celular:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['mobile'] ?? '—' }}</dd></div>
                             </dl>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-5 md:col-span-2">
                             <h4 class="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center">
-                                <i class="fas fa-map-marker-alt mr-2 text-red-500"></i>Localização
+                                <i class="fas fa-map-marker-alt mr-2 text-red-500"></i>{{ __('Localização') }}
                             </h4>
                             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                                <div class="flex justify-between"><dt class="text-gray-500">País:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['country'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">Província:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['province'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">Cidade:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['city'] ?? '—' }}</dd></div>
-                                <div class="flex justify-between"><dt class="text-gray-500">Cód. Postal:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['postal_code'] ?? '—' }}</dd></div>
-                                <div class="sm:col-span-2 flex justify-between"><dt class="text-gray-500">Endereço:</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['address'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('País:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['country'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Província:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['province'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Cidade:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['city'] ?? '—' }}</dd></div>
+                                <div class="flex justify-between"><dt class="text-gray-500">{{ __('Cód. Postal:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['postal_code'] ?? '—' }}</dd></div>
+                                <div class="sm:col-span-2 flex justify-between"><dt class="text-gray-500">{{ __('Endereço:') }}</dt><dd class="font-semibold text-gray-900 text-right">{{ $viewingClient['address'] ?? '—' }}</dd></div>
                             </dl>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-5 md:col-span-2">
                             <h4 class="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center">
-                                <i class="fas fa-calendar mr-2 text-green-500"></i>Datas Chave
+                                <i class="fas fa-calendar mr-2 text-green-500"></i>{{ __('Datas Chave') }}
                             </h4>
                             <dl class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                                 <div>
-                                    <dt class="text-xs text-gray-500">Cadastrado em</dt>
+                                    <dt class="text-xs text-gray-500">{{ __('Cadastrado em') }}</dt>
                                     <dd class="font-semibold text-gray-900">{{ !empty($viewingClient['created_at']) ? \Carbon\Carbon::parse($viewingClient['created_at'])->format('d/m/Y') : '—' }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-xs text-gray-500">Primeira Compra</dt>
+                                    <dt class="text-xs text-gray-500">{{ __('Primeira Compra') }}</dt>
                                     <dd class="font-semibold text-gray-900">{{ $clientStats['first_purchase'] ?? '—' }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-xs text-gray-500">Última Compra</dt>
+                                    <dt class="text-xs text-gray-500">{{ __('Última Compra') }}</dt>
                                     <dd class="font-semibold text-gray-900">{{ $clientStats['last_purchase'] ?? '—' }}</dd>
                                 </div>
                             </dl>
@@ -128,61 +128,61 @@
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-blue-600 uppercase">Faturas</span>
+                                <span class="text-xs font-bold text-blue-600 uppercase">{{ __('Faturas') }}</span>
                                 <i class="fas fa-file-invoice text-blue-500"></i>
                             </div>
                             <p class="text-2xl font-bold text-gray-900">{{ $clientStats['total_invoices'] ?? 0 }}</p>
-                            <p class="text-xs text-gray-500 mt-1">Documentos emitidos</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Documentos emitidos') }}</p>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-green-600 uppercase">Faturado</span>
+                                <span class="text-xs font-bold text-green-600 uppercase">{{ __('Faturado') }}</span>
                                 <i class="fas fa-coins text-green-500"></i>
                             </div>
                             <p class="text-xl font-bold text-gray-900">{{ number_format($clientStats['total_revenue'] ?? 0, 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
-                            <p class="text-xs text-gray-500 mt-1">Valor total bruto</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Valor total bruto') }}</p>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-emerald-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-emerald-600 uppercase">Pago</span>
+                                <span class="text-xs font-bold text-emerald-600 uppercase">{{ __('Pago') }}</span>
                                 <i class="fas fa-check-circle text-emerald-500"></i>
                             </div>
                             <p class="text-xl font-bold text-gray-900">{{ number_format($clientStats['total_paid'] ?? 0, 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
-                            <p class="text-xs text-gray-500 mt-1">Total recebido</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Total recebido') }}</p>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-red-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-red-600 uppercase">Em Dívida</span>
+                                <span class="text-xs font-bold text-red-600 uppercase">{{ __('Em Dívida') }}</span>
                                 <i class="fas fa-exclamation-triangle text-red-500"></i>
                             </div>
                             <p class="text-xl font-bold text-red-700">{{ number_format($clientStats['total_pending'] ?? 0, 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
-                            <p class="text-xs text-gray-500 mt-1">Valor pendente</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Valor pendente') }}</p>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-purple-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-purple-600 uppercase">Ticket Médio</span>
+                                <span class="text-xs font-bold text-purple-600 uppercase">{{ __('Ticket Médio') }}</span>
                                 <i class="fas fa-chart-line text-purple-500"></i>
                             </div>
                             <p class="text-xl font-bold text-gray-900">{{ number_format($clientStats['avg_ticket'] ?? 0, 2, ',', '.') }} <span class="text-xs text-gray-500">Kz</span></p>
-                            <p class="text-xs text-gray-500 mt-1">Por fatura</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Por fatura') }}</p>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-orange-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-orange-600 uppercase">Frequência</span>
+                                <span class="text-xs font-bold text-orange-600 uppercase">{{ __('Frequência') }}</span>
                                 <i class="fas fa-calendar-alt text-orange-500"></i>
                             </div>
-                            <p class="text-2xl font-bold text-gray-900">{{ $clientStats['avg_days_between'] ?? 0 }}<span class="text-sm text-gray-500"> dias</span></p>
-                            <p class="text-xs text-gray-500 mt-1">Média entre compras</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ $clientStats['avg_days_between'] ?? 0 }}<span class="text-sm text-gray-500"> {{ __('dias') }}</span></p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Média entre compras') }}</p>
                         </div>
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-pink-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-pink-600 uppercase">Notas Crédito</span>
+                                <span class="text-xs font-bold text-pink-600 uppercase">{{ __('Notas Crédito') }}</span>
                                 <i class="fas fa-file-invoice-dollar text-pink-500"></i>
                             </div>
                             <p class="text-2xl font-bold text-gray-900">{{ $clientStats['credit_notes_count'] ?? 0 }}</p>
@@ -191,7 +191,7 @@
 
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-cyan-500">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-cyan-600 uppercase">Recibos</span>
+                                <span class="text-xs font-bold text-cyan-600 uppercase">{{ __('Recibos') }}</span>
                                 <i class="fas fa-receipt text-cyan-500"></i>
                             </div>
                             <p class="text-2xl font-bold text-gray-900">{{ $clientStats['receipts_count'] ?? 0 }}</p>
@@ -205,7 +205,7 @@
                     <div class="bg-white rounded-xl shadow overflow-hidden">
                         <div class="px-5 py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-gray-200 flex items-center justify-between">
                             <h4 class="font-bold text-gray-800 flex items-center text-sm">
-                                <i class="fas fa-list-alt mr-2 text-blue-600"></i>Últimas 20 Faturas
+                                <i class="fas fa-list-alt mr-2 text-blue-600"></i>{{ __('Últimas 20 Faturas') }}
                             </h4>
                             <span class="text-xs text-gray-500">{{ count($clientInvoices) }} de {{ $clientStats['total_invoices'] ?? 0 }}</span>
                         </div>
@@ -213,14 +213,14 @@
                             <table class="w-full text-xs sm:text-sm">
                                 <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
                                     <tr>
-                                        <th class="px-3 py-2 text-left">Nº Fatura</th>
-                                        <th class="px-3 py-2 text-left">Data</th>
-                                        <th class="px-3 py-2 text-left hidden sm:table-cell">Vencimento</th>
-                                        <th class="px-3 py-2 text-right">Total</th>
-                                        <th class="px-3 py-2 text-right hidden md:table-cell">Pago</th>
-                                        <th class="px-3 py-2 text-right">Saldo</th>
-                                        <th class="px-3 py-2 text-center">Status</th>
-                                        <th class="px-3 py-2 text-center">Ação</th>
+                                        <th class="px-3 py-2 text-left">{{ __('Nº Fatura') }}</th>
+                                        <th class="px-3 py-2 text-left">{{ __('Data') }}</th>
+                                        <th class="px-3 py-2 text-left hidden sm:table-cell">{{ __('Vencimento') }}</th>
+                                        <th class="px-3 py-2 text-right">{{ __('Total') }}</th>
+                                        <th class="px-3 py-2 text-right hidden md:table-cell">{{ __('Pago') }}</th>
+                                        <th class="px-3 py-2 text-right">{{ __('Saldo') }}</th>
+                                        <th class="px-3 py-2 text-center">{{ __('Status') }}</th>
+                                        <th class="px-3 py-2 text-center">{{ __('Ação') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
@@ -247,13 +247,13 @@
                                                 <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-{{ $statusColor }}-100 text-{{ $statusColor }}-700">{{ $statusLabel }}</span>
                                             </td>
                                             <td class="px-3 py-2 text-center">
-                                                <a href="{{ route('invoicing.sales.invoices.preview', $inv['id']) }}" target="_blank" class="text-blue-600 hover:text-blue-800" title="Ver Fatura">
+                                                <a href="{{ route('invoicing.sales.invoices.preview', $inv['id']) }}" target="_blank" class="text-blue-600 hover:text-blue-800" title="{{ __('Ver Fatura') }}">
                                                     <i class="fas fa-external-link-alt"></i>
                                                 </a>
                                             </td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="8" class="px-3 py-8 text-center text-gray-400 italic">Sem faturas registadas</td></tr>
+                                        <tr><td colspan="8" class="px-3 py-8 text-center text-gray-400 italic">{{ __('Sem faturas registadas') }}</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -266,7 +266,7 @@
                     <div class="bg-white rounded-xl shadow overflow-hidden">
                         <div class="px-5 py-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-200">
                             <h4 class="font-bold text-gray-800 flex items-center text-sm">
-                                <i class="fas fa-star mr-2 text-purple-600"></i>Top 10 Produtos Mais Comprados
+                                <i class="fas fa-star mr-2 text-purple-600"></i>{{ __('Top 10 Produtos Mais Comprados') }}
                             </h4>
                         </div>
                         <div class="overflow-x-auto">
@@ -274,10 +274,10 @@
                                 <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
                                     <tr>
                                         <th class="px-3 py-2 text-left">#</th>
-                                        <th class="px-3 py-2 text-left">Produto</th>
-                                        <th class="px-3 py-2 text-right">Qtd</th>
-                                        <th class="px-3 py-2 text-right hidden sm:table-cell">Faturas</th>
-                                        <th class="px-3 py-2 text-right">Total</th>
+                                        <th class="px-3 py-2 text-left">{{ __('Produto') }}</th>
+                                        <th class="px-3 py-2 text-right">{{ __('Qtd') }}</th>
+                                        <th class="px-3 py-2 text-right hidden sm:table-cell">{{ __('Faturas') }}</th>
+                                        <th class="px-3 py-2 text-right">{{ __('Total') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
@@ -295,7 +295,7 @@
                                             <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ number_format($p['total_value'] ?? 0, 2, ',', '.') }} Kz</td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="5" class="px-3 py-8 text-center text-gray-400 italic">Sem produtos comprados</td></tr>
+                                        <tr><td colspan="5" class="px-3 py-8 text-center text-gray-400 italic">{{ __('Sem produtos comprados') }}</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -308,7 +308,7 @@
                     <div class="bg-white rounded-xl shadow overflow-hidden">
                         <div class="px-5 py-3 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-gray-200">
                             <h4 class="font-bold text-gray-800 flex items-center text-sm">
-                                <i class="fas fa-chart-bar mr-2 text-orange-600"></i>Frequência de Compra (Últimos 12 meses)
+                                <i class="fas fa-chart-bar mr-2 text-orange-600"></i>{{ __('Frequência de Compra (Últimos 12 meses)') }}
                             </h4>
                         </div>
                         <div class="p-5">
@@ -326,7 +326,7 @@
                                     </div>
                                 </div>
                             @empty
-                                <p class="text-center text-gray-400 italic py-8">Sem dados de frequência</p>
+                                <p class="text-center text-gray-400 italic py-8">{{ __('Sem dados de frequência') }}</p>
                             @endforelse
                         </div>
                     </div>
@@ -338,11 +338,11 @@
             <div class="bg-gray-100 px-6 py-3 flex items-center justify-end gap-2 border-t border-gray-200">
                 @can('invoicing.clients.edit')
                 <button wire:click="edit({{ $viewingClient['id'] ?? 0 }})" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition">
-                    <i class="fas fa-edit mr-1"></i>Editar Cliente
+                    <i class="fas fa-edit mr-1"></i>{{ __('Editar Cliente') }}
                 </button>
                 @endcan
                 <button wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-semibold transition">
-                    <i class="fas fa-times mr-1"></i>Fechar
+                    <i class="fas fa-times mr-1"></i>{{ __('Fechar') }}
                 </button>
             </div>
 

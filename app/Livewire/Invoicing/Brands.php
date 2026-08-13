@@ -92,10 +92,10 @@ class Brands extends Component
             }
             
             $brand->update($data);
-            $this->dispatch('success', message: 'Marca atualizada com sucesso!');
+            $this->dispatch('success', message: __('Marca atualizada com sucesso!'));
         } else {
             Brand::create($data);
-            $this->dispatch('success', message: 'Marca criada com sucesso!');
+            $this->dispatch('success', message: __('Marca criada com sucesso!'));
         }
 
         $this->closeModal();
@@ -126,9 +126,9 @@ class Brands extends Component
             $brand->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingBrandId', 'deletingBrandName']);
-            $this->dispatch('success', message: 'Marca excluÃ­da com sucesso!');
+            $this->dispatch('success', message: __('Marca excluída com sucesso!'));
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir marca!');
+            $this->dispatch('error', message: __('Erro ao excluir marca!'));
         }
     }
 

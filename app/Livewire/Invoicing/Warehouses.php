@@ -154,10 +154,10 @@ class Warehouses extends Component
         if ($this->editMode) {
             $warehouse = Warehouse::where('tenant_id', activeTenantId())->findOrFail($this->warehouseId);
             $warehouse->update($data);
-            session()->flash('message', 'Armazém atualizado com sucesso!');
+            session()->flash('message', __('Armazém atualizado com sucesso!'));
         } else {
             $warehouse = Warehouse::create($data);
-            session()->flash('message', 'Armazém criado com sucesso!');
+            session()->flash('message', __('Armazém criado com sucesso!'));
         }
 
         // Se marcado como default, desmarcar outros
@@ -181,7 +181,7 @@ class Warehouses extends Component
         $warehouse = Warehouse::where('tenant_id', activeTenantId())->findOrFail($this->deleteId);
         $warehouse->delete();
 
-        session()->flash('message', 'Armazém excluído com sucesso!');
+        session()->flash('message', __('Armazém excluído com sucesso!'));
         $this->showDeleteModal = false;
         $this->deleteId = null;
     }
@@ -191,7 +191,7 @@ class Warehouses extends Component
         $warehouse = Warehouse::where('tenant_id', activeTenantId())->findOrFail($id);
         $warehouse->update(['is_active' => !$warehouse->is_active]);
 
-        session()->flash('message', 'Status atualizado!');
+        session()->flash('message', __('Status atualizado!'));
     }
 
     public function setDefault($id)
@@ -199,7 +199,7 @@ class Warehouses extends Component
         $warehouse = Warehouse::where('tenant_id', activeTenantId())->findOrFail($id);
         $warehouse->setAsDefault();
 
-        session()->flash('message', 'Armazém definido como padrão!');
+        session()->flash('message', __('Armazém definido como padrão!'));
     }
 
     private function resetForm()

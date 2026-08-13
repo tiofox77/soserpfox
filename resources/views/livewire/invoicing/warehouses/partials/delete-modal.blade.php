@@ -11,15 +11,15 @@
 
         <!-- Content -->
         <div class="text-center px-8 pb-4">
-            <h3 class="text-2xl font-bold text-gray-900 mb-2">Excluir Armazém?</h3>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">{{ __('Excluir Armazém?') }}</h3>
             <p class="text-gray-600 mb-4">
-                Tem certeza que deseja excluir o armazém
+                {{ __('Tem certeza que deseja excluir o armazém') }}
                 <span class="font-bold text-red-600 block mt-2 text-lg">{{ $deleteName }}</span>
             </p>
             <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
                 <p class="text-sm text-red-700">
                     <i class="fas fa-exclamation-triangle mr-2"></i>
-                    <strong>Atenção:</strong> Esta ação é irreversível. Todos os dados relacionados a este armazém serão perdidos.
+                    <strong>{{ __('Atenção:') }}</strong> {{ __('Esta ação é irreversível. Todos os dados relacionados a este armazém serão perdidos.') }}
                 </p>
             </div>
         </div>
@@ -28,11 +28,11 @@
         <div class="bg-gray-50 px-8 py-6 rounded-b-2xl flex justify-end space-x-4">
             <button type="button" wire:click="$set('showDeleteModal', false)" 
                     class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                <i class="fas fa-times mr-2"></i>Cancelar
+                <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
             </button>
             <button type="button" wire:click="delete" 
                     class="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition">
-                <i class="fas fa-trash-alt mr-2"></i>Sim, Excluir
+                <i class="fas fa-trash-alt mr-2"></i>{{ __('Sim, Excluir') }}
             </button>
         </div>
     </div>

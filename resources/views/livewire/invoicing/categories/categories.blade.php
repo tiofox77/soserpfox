@@ -7,8 +7,8 @@
                     <i class="fas fa-folder text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-lg sm:text-2xl font-bold">Categorias</h2>
-                    <p class="text-cyan-100 text-xs sm:text-sm">Gerir categorias e subcategorias</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">{{ __('Categorias') }}</h2>
+                    <p class="text-cyan-100 text-xs sm:text-sm">{{ __('Gerir categorias e subcategorias') }}</p>
                 </div>
             </div>
             @can('invoicing.categories.create')
@@ -17,10 +17,10 @@
                     wire:loading.class="opacity-70 scale-95"
                     class="group bg-white text-cyan-600 hover:bg-cyan-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
                 <span wire:loading.remove wire:target="create">
-                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Nova Categoria
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>{{ __('Nova Categoria') }}
                 </span>
                 <span wire:loading wire:target="create">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                    <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Abrindo...') }}
                 </span>
             </button>
             @endcan
@@ -36,9 +36,9 @@
                     <i class="fas fa-folder text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-cyan-600 font-semibold mb-2">Total Categorias</p>
+            <p class="text-sm text-cyan-600 font-semibold mb-2">{{ __('Total Categorias') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $categories->total() }}</p>
-            <p class="text-xs text-gray-500">Categorias registadas</p>
+            <p class="text-xs text-gray-500">{{ __('Categorias registadas') }}</p>
         </div>
 
         <!-- Categorias Principais -->
@@ -48,9 +48,9 @@
                     <i class="fas fa-folder-open text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-blue-600 font-semibold mb-2">Principais</p>
+            <p class="text-sm text-blue-600 font-semibold mb-2">{{ __('Principais') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Category::where('tenant_id', auth()->user()->tenant_id)->whereNull('parent_id')->count() }}</p>
-            <p class="text-xs text-gray-500">Categorias pai</p>
+            <p class="text-xs text-gray-500">{{ __('Categorias pai') }}</p>
         </div>
 
         <!-- Subcategorias -->
@@ -60,9 +60,9 @@
                     <i class="fas fa-sitemap text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-purple-600 font-semibold mb-2">Subcategorias</p>
+            <p class="text-sm text-purple-600 font-semibold mb-2">{{ __('Subcategorias') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Category::where('tenant_id', auth()->user()->tenant_id)->whereNotNull('parent_id')->count() }}</p>
-            <p class="text-xs text-gray-500">Categorias filhas</p>
+            <p class="text-xs text-gray-500">{{ __('Categorias filhas') }}</p>
         </div>
     </div>
 
@@ -71,10 +71,10 @@
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
                 <i class="fas fa-filter mr-2 text-cyan-600"></i>
-                Filtros
+                {{ __('Filtros') }}
             </h3>
             <button wire:click="clearFilters" class="text-sm text-cyan-600 hover:text-cyan-700 font-semibold flex items-center">
-                <i class="fas fa-redo mr-1"></i>Limpar Filtros
+                <i class="fas fa-redo mr-1"></i>{{ __('Limpar Filtros') }}
             </button>
         </div>
 
@@ -82,13 +82,13 @@
             <!-- Search -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-search mr-1"></i>Pesquisar
+                    <i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome da categoria..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="{{ __('Nome da categoria...') }}" 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -96,19 +96,19 @@
             <!-- Type Filter -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-layer-group mr-1"></i>Tipo
+                    <i class="fas fa-layer-group mr-1"></i>{{ __('Tipo') }}
                 </label>
                 <select wire:model.live="typeFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 appearance-none bg-white text-sm">
-                    <option value="">Todas</option>
-                    <option value="main">Principais</option>
-                    <option value="sub">Subcategorias</option>
+                    <option value="">{{ __('Todas') }}</option>
+                    <option value="main">{{ __('Principais') }}</option>
+                    <option value="sub">{{ __('Subcategorias') }}</option>
                 </select>
             </div>
 
             <!-- Per Page -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-list mr-1"></i>Por Página
+                    <i class="fas fa-list mr-1"></i>{{ __('Por Página') }}
                 </label>
                 <select wire:model.live="perPage" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 appearance-none bg-white text-sm">
                     <option value="10">10</option>
@@ -128,7 +128,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-bold text-gray-900 flex items-center">
                     <i class="fas fa-list mr-2 text-cyan-600"></i>
-                    Lista de Categorias
+                    {{ __('Lista de Categorias') }}
                 </h3>
                 <span class="text-sm text-gray-600 font-semibold">
                     <i class="fas fa-folder mr-1"></i>{{ $categories->total() }} Total Categorias
@@ -140,22 +140,22 @@
         <div class="overflow-x-auto">
         <div class="grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase min-w-[500px]">
             <div class="col-span-5 sm:col-span-4 flex items-center">
-                <i class="fas fa-folder mr-2 text-cyan-500"></i>Categoria
+                <i class="fas fa-folder mr-2 text-cyan-500"></i>{{ __('Categoria') }}
             </div>
             <div class="col-span-2 hidden md:flex items-center">
-                <i class="fas fa-palette mr-2 text-purple-500"></i>Cor
+                <i class="fas fa-palette mr-2 text-purple-500"></i>{{ __('Cor') }}
             </div>
             <div class="col-span-2 hidden lg:flex items-center">
-                <i class="fas fa-icons mr-2 text-orange-500"></i>Ícone
+                <i class="fas fa-icons mr-2 text-orange-500"></i>{{ __('Ícone') }}
             </div>
             <div class="col-span-2 hidden sm:flex items-center">
-                <i class="fas fa-sort-numeric-up mr-2 text-blue-500"></i>Ordem
+                <i class="fas fa-sort-numeric-up mr-2 text-blue-500"></i>{{ __('Ordem') }}
             </div>
             <div class="col-span-3 sm:col-span-1 flex items-center">
-                <i class="fas fa-check-circle mr-2 text-green-500"></i>Status
+                <i class="fas fa-check-circle mr-2 text-green-500"></i>{{ __('Status') }}
             </div>
             <div class="col-span-2 sm:col-span-1 flex items-center justify-end">
-                <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
+                <i class="fas fa-cog mr-2 text-gray-500"></i>{{ __('Ações') }}
             </div>
         </div>
         
@@ -204,11 +204,11 @@
                     <div class="col-span-3 sm:col-span-1">
                         @if($category->is_active)
                             <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
-                                <i class="fas fa-check mr-1"></i>Ativa
+                                <i class="fas fa-check mr-1"></i>{{ __('Ativa') }}
                             </span>
                         @else
                             <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold">
-                                <i class="fas fa-times mr-1"></i>Inativa
+                                <i class="fas fa-times mr-1"></i>{{ __('Inativa') }}
                             </span>
                         @endif
                     </div>
@@ -218,7 +218,7 @@
                         @can('invoicing.categories.edit')
                         <button wire:click="edit({{ $category->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Editar') }}">
                             <i class="fas fa-edit text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
@@ -226,7 +226,7 @@
                         @can('invoicing.categories.delete')
                         <button wire:click="confirmDelete({{ $category->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Excluir') }}">
                             <i class="fas fa-trash text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
@@ -238,8 +238,8 @@
                     <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-folder text-gray-400 text-3xl"></i>
                     </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Nenhuma categoria encontrada</h3>
-                    <p class="text-gray-500 mb-4">Crie uma nova categoria para começar</p>
+                    <h3 class="text-lg font-bold text-gray-900 mb-2">{{ __('Nenhuma categoria encontrada') }}</h3>
+                    <p class="text-gray-500 mb-4">{{ __('Crie uma nova categoria para começar') }}</p>
                 </div>
             @endforelse
         </div>

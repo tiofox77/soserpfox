@@ -98,7 +98,7 @@ class Clients extends Component
             $this->province = $data['province'] ?? $this->province;
             $this->country = $data['country'] ?? $this->country;
             
-            $this->dispatch('success', message: 'Dados encontrados e preenchidos automaticamente!');
+            $this->dispatch('success', message: __('Dados encontrados e preenchidos automaticamente!'));
         }
     }
 
@@ -131,7 +131,7 @@ class Clients extends Component
     public function create()
     {
         if (!auth()->user()->can('invoicing.clients.create')) {
-            $this->dispatch('error', message: 'Sem permissÃ£o para criar clientes');
+            $this->dispatch('error', message: __('Sem permissão para criar clientes'));
             return;
         }
         
@@ -142,7 +142,7 @@ class Clients extends Component
     public function edit($id)
     {
         if (!auth()->user()->can('invoicing.clients.edit')) {
-            $this->dispatch('error', message: 'Sem permissÃ£o para editar clientes');
+            $this->dispatch('error', message: __('Sem permissão para editar clientes'));
             return;
         }
         
@@ -170,15 +170,15 @@ class Clients extends Component
 
     public function save()
     {
-        // Verificar permissÃ£o apropriada
+        // Verificar permissão apropriada
         if ($this->editingClientId) {
             if (!auth()->user()->can('invoicing.clients.edit')) {
-                $this->dispatch('error', message: 'Sem permissÃ£o para editar clientes');
+                $this->dispatch('error', message: __('Sem permissão para editar clientes'));
                 return;
             }
         } else {
             if (!auth()->user()->can('invoicing.clients.create')) {
-                $this->dispatch('error', message: 'Sem permissÃ£o para criar clientes');
+                $this->dispatch('error', message: __('Sem permissão para criar clientes'));
                 return;
             }
         }
@@ -221,7 +221,7 @@ class Clients extends Component
             }
             
             $client->update($data);
-            $this->dispatch('success', message: 'Cliente atualizado com sucesso!');
+            $this->dispatch('success', message: __('Cliente atualizado com sucesso!'));
         } else {
             // Create client first to get ID
             $newClient = Client::create($data);
@@ -234,7 +234,7 @@ class Clients extends Component
                 $newClient->update(['logo' => $logoPath]);
             }
             
-            $this->dispatch('success', message: 'Cliente criado com sucesso!');
+            $this->dispatch('success', message: __('Cliente criado com sucesso!'));
         }
 
         $this->closeModal();
@@ -358,7 +358,7 @@ class Clients extends Component
     public function delete()
     {
         if (!auth()->user()->can('invoicing.clients.delete')) {
-            $this->dispatch('error', message: 'Sem permissÃ£o para eliminar clientes');
+            $this->dispatch('error', message: __('Sem permissão para eliminar clientes'));
             return;
         }
         
@@ -378,9 +378,9 @@ class Clients extends Component
             $client->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingClientId', 'deletingClientName']);
-            $this->dispatch('success', message: 'Cliente excluÃ­do com sucesso!');
+            $this->dispatch('success', message: __('Cliente excluído com sucesso!'));
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir cliente!');
+            $this->dispatch('error', message: __('Erro ao excluir cliente!'));
         }
     }
 
@@ -429,7 +429,7 @@ class Clients extends Component
             ->latest()
             ->paginate($this->perPage);
 
-        // Obter cidades Ãºnicas para o filtro
+        // Obter cidades únicas para o filtro
         $cities = Client::where('tenant_id', activeTenantId())
             ->whereNotNull('city')
             ->distinct()

@@ -151,7 +151,7 @@ class Products extends Component
     public function create()
     {
         if (!auth()->user()->can('invoicing.products.create')) {
-            $this->dispatch('error', message: 'Sem permissão para criar produtos');
+            $this->dispatch('error', message: __('Sem permissão para criar produtos'));
             return;
         }
         
@@ -191,7 +191,7 @@ class Products extends Component
         $this->showModal = true;
     }
     
-    // Atualizar cÃ³digo quando o tipo mudar
+    // Atualizar código quando o tipo mudar
     public function updatedType($value)
     {
         if (!$this->editingProductId) {
@@ -312,11 +312,11 @@ class Products extends Component
     public function edit($id)
     {
         if (!auth()->user()->can('invoicing.products.edit')) {
-            $this->dispatch('error', message: 'Sem permissÃ£o para editar produtos');
+            $this->dispatch('error', message: __('Sem permissão para editar produtos'));
             return;
         }
         
-        $this->closeViewModal(); // Fechar modal de visualizaÃ§Ã£o se estiver aberta
+        $this->closeViewModal(); // Fechar modal de visualização se estiver aberta
         $product = Product::findOrFail($id);
         
         if ((int) $product->tenant_id !== (int) activeTenantId()) {
@@ -357,12 +357,12 @@ class Products extends Component
         // Verificar permissão apropriada
         if ($this->editingProductId) {
             if (!auth()->user()->can('invoicing.products.edit')) {
-                $this->dispatch('error', message: 'Sem permissão para editar produtos');
+                $this->dispatch('error', message: __('Sem permissão para editar produtos'));
                 return;
             }
         } else {
             if (!auth()->user()->can('invoicing.products.create')) {
-                $this->dispatch('error', message: 'Sem permissão para criar produtos');
+                $this->dispatch('error', message: __('Sem permissão para criar produtos'));
                 return;
             }
             // Garantir auto-code: se ficou vazio, regenerar
@@ -460,7 +460,7 @@ class Products extends Component
             }
             
             $product->update($data);
-            $this->dispatch('success', message: 'Produto atualizado com sucesso!');
+            $this->dispatch('success', message: __('Produto atualizado com sucesso!'));
         } else {
             // Create product first to get ID
             $newProduct = Product::create($data);
@@ -527,7 +527,7 @@ class Products extends Component
                 $newProduct->update(['gallery' => $galleryPaths]);
             }
             
-            $this->dispatch('success', message: 'Produto criado com sucesso!');
+            $this->dispatch('success', message: __('Produto criado com sucesso!'));
         }
 
         $this->closeModal();
@@ -549,7 +549,7 @@ class Products extends Component
     public function delete()
     {
         if (!auth()->user()->can('invoicing.products.delete')) {
-            $this->dispatch('error', message: 'Sem permissÃ£o para eliminar produtos');
+            $this->dispatch('error', message: __('Sem permissão para eliminar produtos'));
             return;
         }
         
@@ -568,13 +568,13 @@ class Products extends Component
 
             $this->showDeleteModal = false;
             $this->reset(['deletingProductId', 'deletingProductName']);
-            $this->dispatch('success', message: 'Produto eliminado. Pode restaurá-lo no filtro "Eliminados".');
+            $this->dispatch('success', message: __('Produto eliminado. Pode restaurá-lo no filtro "Eliminados".'));
         } catch (\Exception $e) {
             \Log::error('Products: falha ao eliminar', [
                 'product_id' => $this->deletingProductId,
                 'erro'       => $e->getMessage(),
             ]);
-            $this->dispatch('error', message: 'Erro ao excluir produto!');
+            $this->dispatch('error', message: __('Erro ao excluir produto!'));
         }
     }
 
@@ -587,7 +587,7 @@ class Products extends Component
     public function restore($id)
     {
         if (!auth()->user()->can('invoicing.products.delete')) {
-            $this->dispatch('error', message: 'Sem permissão para restaurar produtos');
+            $this->dispatch('error', message: __('Sem permissão para restaurar produtos'));
             return;
         }
 
@@ -596,12 +596,12 @@ class Products extends Component
             ->find($id);
 
         if (!$product) {
-            $this->dispatch('error', message: 'Produto não encontrado nesta empresa.');
+            $this->dispatch('error', message: __('Produto não encontrado nesta empresa.'));
             return;
         }
 
         $product->restore();
-        $this->dispatch('success', message: 'Produto restaurado: ' . $product->name);
+        $this->dispatch('success', message: __('Produto restaurado: :nome', ['nome' => $product->name]));
     }
 
     public function cancelDelete()
@@ -677,7 +677,7 @@ class Products extends Component
             ->orderBy('rate')
             ->get();
 
-        // CÃ³digos oficiais de isenÃ§Ã£o AGT (DS.120 Â§9.5 â€” M01â€“M93, S01â€“S03, I01â€“I16)
+        // Códigos oficiais de isenção AGT (DS.120 §9.5 — M01–M93, S01–S03, I01–I16)
         $exemptionCodes = AGTTaxExemptionCode::query()
             ->where('is_active', true)
             ->orderBy('tax_type')

@@ -6,7 +6,7 @@
         <div class="sticky top-0 bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-t-2xl flex items-center justify-between z-10">
             <h3 class="text-xl font-bold text-white flex items-center">
                 <i class="fas fa-history mr-2"></i>
-                Histórico de Movimentos
+                {{ __('Histórico de Movimentos') }}
             </h3>
             <button wire:click="$set('showMovementsModal', false)" type="button"
                     class="btn-press text-white hover:text-gray-200 transition w-9 h-9 inline-flex items-center justify-center rounded-lg hover:bg-white/10">
@@ -23,7 +23,7 @@
                         <i class="fas fa-box text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600">Produto</p>
+                        <p class="text-xs text-gray-600">{{ __('Produto') }}</p>
                         <p class="text-lg font-bold text-gray-900">{{ $movementsProductName }}</p>
                     </div>
                 </div>
@@ -64,15 +64,15 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Data</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Tipo</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
-                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Quantidade</th>
-                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Saldo anterior</th>
-                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Saldo actual</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Documento</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Observações</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Utilizador</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Data') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Tipo') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Armazém') }}</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Quantidade') }}</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Saldo anterior') }}</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Saldo actual') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Documento') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Observações') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Utilizador') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-100">
@@ -85,19 +85,19 @@
                                     <td class="px-4 py-3 whitespace-nowrap">
                                         @if($movement->type == 'in')
                                             <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                                                <i class="fas fa-arrow-down mr-1"></i>Entrada
+                                                <i class="fas fa-arrow-down mr-1"></i>{{ __('Entrada') }}
                                             </span>
                                         @elseif($movement->type == 'out')
                                             <span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">
-                                                <i class="fas fa-arrow-up mr-1"></i>Saída
+                                                <i class="fas fa-arrow-up mr-1"></i>{{ __('Saída') }}
                                             </span>
                                         @elseif($movement->type == 'transfer')
                                             <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
-                                                <i class="fas fa-exchange-alt mr-1"></i>Transferência
+                                                <i class="fas fa-exchange-alt mr-1"></i>{{ __('Transferência') }}
                                             </span>
                                         @else
                                             <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
-                                                <i class="fas fa-adjust mr-1"></i>Ajuste
+                                                <i class="fas fa-adjust mr-1"></i>{{ __('Ajuste') }}
                                             </span>
                                         @endif
                                     </td>
@@ -119,12 +119,12 @@
                                                 <span class="text-lg font-bold {{ $variacao < 0 ? 'text-red-600' : ($variacao > 0 ? 'text-green-600' : 'text-gray-500') }}">
                                                     {{ $variacao > 0 ? '+' : ($variacao < 0 ? '−' : '') }}{{ number_format(abs($variacao), 2) }}
                                                 </span>
-                                                <span class="block text-[10px] text-yellow-700 font-semibold uppercase tracking-wide">ajustada</span>
+                                                <span class="block text-[10px] text-yellow-700 font-semibold uppercase tracking-wide">{{ __('ajustada') }}</span>
                                             @else
                                                 <span class="text-lg font-bold text-yellow-700">
                                                     = {{ number_format($movement->quantity, 2) }}
                                                 </span>
-                                                <span class="block text-[10px] text-gray-400">valor final</span>
+                                                <span class="block text-[10px] text-gray-400">{{ __('valor final') }}</span>
                                             @endif
                                         @elseif($movement->type === 'transfer')
                                             <span class="text-lg font-bold text-blue-600">
@@ -144,7 +144,7 @@
                                         @else
                                             {{-- Movimentos anteriores a esta coluna existir. Melhor
                                                  vazio do que um número reconstruído a fingir de registo. --}}
-                                            <span class="text-gray-300" title="Movimento anterior ao registo de saldos">—</span>
+                                            <span class="text-gray-300" title="{{ __('Movimento anterior ao registo de saldos') }}">—</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center text-sm whitespace-nowrap">
@@ -153,7 +153,7 @@
                                                 {{ number_format($movement->balance_after, 2) }}
                                             </span>
                                         @else
-                                            <span class="text-gray-300" title="Movimento anterior ao registo de saldos">—</span>
+                                            <span class="text-gray-300" title="{{ __('Movimento anterior ao registo de saldos') }}">—</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm whitespace-nowrap">
@@ -162,7 +162,7 @@
                                             <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $movement->batch_reference]) }}"
                                                target="_blank" rel="noopener"
                                                class="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline font-semibold"
-                                               title="Abrir o documento desta movimentação">
+                                               title="{{ __('Abrir o documento desta movimentação') }}">
                                                 <i class="fas fa-file-pdf"></i>
                                                 <span class="font-mono text-xs">{{ $movement->batch_reference }}</span>
                                             </a>
@@ -185,17 +185,17 @@
                 <!-- Summary -->
                 <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-600 mb-1">Total Entradas</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Total Entradas') }}</p>
                         <p class="text-2xl font-bold text-green-600">+{{ number_format($totalIn, 2) }}</p>
                     </div>
 
                     <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-600 mb-1">Total Saídas</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Total Saídas') }}</p>
                         <p class="text-2xl font-bold text-red-600">−{{ number_format($totalOut, 2) }}</p>
                     </div>
 
                     <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-600 mb-1">Variação Líquida</p>
+                        <p class="text-xs text-gray-600 mb-1">{{ __('Variação Líquida') }}</p>
                         <p class="text-2xl font-bold {{ $netChange >= 0 ? 'text-green-600' : 'text-red-600' }}">
                             {{ $netChange >= 0 ? '+' : '−' }}{{ number_format(abs($netChange), 2) }}
                         </p>
@@ -217,7 +217,7 @@
             @else
                 <div class="text-center py-12">
                     <i class="fas fa-history text-6xl text-gray-300 mb-4"></i>
-                    <p class="text-gray-500 text-lg">Nenhum movimento registado para este produto</p>
+                    <p class="text-gray-500 text-lg">{{ __('Nenhum movimento registado para este produto') }}</p>
                 </div>
             @endif
         </div>
@@ -228,7 +228,7 @@
                 type="button"
                 wire:click="$set('showMovementsModal', false)"
                 class="btn-press px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition">
-                <i class="fas fa-times mr-2"></i>Fechar
+                <i class="fas fa-times mr-2"></i>{{ __('Fechar') }}
             </button>
         </div>
     </div>

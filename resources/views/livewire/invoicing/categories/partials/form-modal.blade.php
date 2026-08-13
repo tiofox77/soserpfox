@@ -19,7 +19,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="md:col-span-2">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-signature text-cyan-500 mr-2"></i>Nome *
+                                <i class="fas fa-signature text-cyan-500 mr-2"></i>{{ __('Nome *') }}
                             </label>
                             <input wire:model="name" type="text" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                             @error('name') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
@@ -27,21 +27,21 @@
                         
                         <div class="md:col-span-2">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-folder-open text-blue-500 mr-2"></i>Categoria Pai
+                                <i class="fas fa-folder-open text-blue-500 mr-2"></i>{{ __('Categoria Pai') }}
                             </label>
                             <select wire:model="parent_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                                <option value="">Nenhuma (Categoria Principal)</option>
+                                <option value="">{{ __('Nenhuma (Categoria Principal)') }}</option>
                                 @foreach($mainCategories as $mainCat)
                                     <option value="{{ $mainCat->id }}">{{ $mainCat->name }}</option>
                                 @endforeach
                             </select>
-                            <p class="text-xs text-gray-500 mt-1">Deixe vazio para criar uma categoria principal</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Deixe vazio para criar uma categoria principal') }}</p>
                             @error('parent_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
                         <div class="md:col-span-2">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-align-left text-gray-500 mr-2"></i>Descrição
+                                <i class="fas fa-align-left text-gray-500 mr-2"></i>{{ __('Descrição') }}
                             </label>
                             <textarea wire:model="description" rows="3" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-500 focus:border-transparent transition"></textarea>
                             @error('description') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
@@ -49,16 +49,16 @@
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-icons text-orange-500 mr-2"></i>Ícone *
+                                <i class="fas fa-icons text-orange-500 mr-2"></i>{{ __('Ícone *') }}
                             </label>
                             <x-icon-picker model="icon" :selected="$icon" />
-                            <p class="text-xs text-gray-500 mt-1">Clique para selecionar um ícone</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Clique para selecionar um ícone') }}</p>
                             @error('icon') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-palette text-purple-500 mr-2"></i>Cor (Hex) *
+                                <i class="fas fa-palette text-purple-500 mr-2"></i>{{ __('Cor (Hex) *') }}
                             </label>
                             <div class="flex items-center space-x-2">
                                 <input wire:model="color" type="color" class="w-12 h-12 rounded-xl border-2 border-gray-300 cursor-pointer">
@@ -69,17 +69,17 @@
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-sort-numeric-up text-blue-500 mr-2"></i>Ordem
+                                <i class="fas fa-sort-numeric-up text-blue-500 mr-2"></i>{{ __('Ordem') }}
                             </label>
                             <input wire:model="order" type="number" min="0" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                            <p class="text-xs text-gray-500 mt-1">Ordem de exibição (menor = primeiro)</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Ordem de exibição (menor = primeiro)') }}</p>
                             @error('order') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                     </div>
                     
                     <div class="mt-8 flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
                         <button type="button" wire:click="closeModal" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold transition">
-                            <i class="fas fa-times mr-2"></i>Cancelar
+                            <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                         </button>
                         <x-loading-button 
                             action="save" 

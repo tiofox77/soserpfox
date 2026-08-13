@@ -39,9 +39,12 @@
                     <div class="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center mb-3">
                         <i class="fas fa-check text-2xl text-emerald-600"></i>
                     </div>
-                    <p class="text-gray-600 text-sm">Foram registados</p>
+                    <p class="text-gray-600 text-sm">{{ __('Foram registados') }}</p>
                     <p class="text-3xl font-extrabold text-gray-900">
-                        {{ $batchOk }} <span class="text-lg font-bold text-gray-500">movimento(s)</span>
+                        {{-- O "(s)" saiu: o trans_choice concorda a sério com o
+                             número, e em francês o singular ainda apanha o
+                             zero, que a forma "(s)" nunca soube fazer. --}}
+                        {{ $batchOk }} <span class="text-lg font-bold text-gray-500">{{ trans_choice('movimento|movimentos', $batchOk) }}</span>
                     </p>
                     <p class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-gray-100 font-mono font-bold text-gray-800">
                         <i class="fas fa-hashtag text-gray-400 text-xs"></i>{{ $batchReference }}
@@ -60,7 +63,7 @@
                             @endforeach
                         </ul>
                         <p class="text-[11px] text-amber-700 mt-1.5">
-                            O documento inclui apenas o que foi efectivamente registado.
+                            {{ __('O documento inclui apenas o que foi efectivamente registado.') }}
                         </p>
                     </div>
                 @endif
@@ -68,7 +71,7 @@
                 <a href="{{ route('invoicing.stock.batch-pdf', ['reference' => $batchReference]) }}"
                    target="_blank" rel="noopener"
                    class="btn-press flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-xl font-bold shadow">
-                    <i class="fas fa-file-pdf text-lg"></i> Abrir documento em PDF
+                    <i class="fas fa-file-pdf text-lg"></i> {{ __('Abrir documento em PDF') }}
                 </a>
 
                 <p class="text-[11px] text-gray-400 text-center">
@@ -80,11 +83,11 @@
             <div class="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex justify-end gap-2 border-t">
                 <button type="button" wire:click="novaMovimentacao"
                         class="btn-press px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-semibold">
-                    <i class="fas fa-plus mr-1"></i> Nova movimentação
+                    <i class="fas fa-plus mr-1"></i> {{ __('Nova movimentação') }}
                 </button>
                 <button type="button" wire:click="closeEntryModal"
                         class="btn-press px-5 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-lg font-bold shadow">
-                    Concluir
+                    {{ __('Concluir') }}
                 </button>
             </div>
 
@@ -96,11 +99,11 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div class="md:col-span-1">
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">
-                        <i class="fas fa-warehouse mr-1 text-blue-600"></i> Armazém
+                        <i class="fas fa-warehouse mr-1 text-blue-600"></i> {{ __('Armazém') }}
                     </label>
                     <select wire:model="entryWarehouseId"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-                        <option value="">— Selecione —</option>
+                        <option value="">{{ __('— Selecione —') }}</option>
                         @foreach($warehouses as $w)
                             <option value="{{ $w->id }}">{{ $w->name }}{{ $w->is_default ? ' (Default)' : '' }}</option>
                         @endforeach
@@ -109,10 +112,10 @@
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">
-                        <i class="fas fa-sticky-note mr-1 text-yellow-600"></i> Nota (aplicada a todos)
+                        <i class="fas fa-sticky-note mr-1 text-yellow-600"></i> {{ __('Nota (aplicada a todos)') }}
                     </label>
                     <input type="text" wire:model.defer="entryNotes" maxlength="500"
-                           placeholder="Ex: Compra inicial, ajuste de inventário…"
+                           placeholder="{{ __('Ex: Compra inicial, ajuste de inventário…') }}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
                 </div>
             </div>
@@ -120,12 +123,12 @@
             {{-- Procura de produtos --}}
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-1.5">
-                    <i class="fas fa-magnifying-glass mr-1 text-emerald-600"></i> Adicionar produto
+                    <i class="fas fa-magnifying-glass mr-1 text-emerald-600"></i> {{ __('Adicionar produto') }}
                 </label>
                 <div class="relative">
                     <input type="text"
                            wire:model.live.debounce.300ms="entryProductSearch"
-                           placeholder="Pesquisar por nome, código ou barcode…"
+                           placeholder="{{ __('Pesquisar por nome, código ou barcode…') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
 
                     @if(strlen(trim($entryProductSearch)) > 0)
@@ -142,12 +145,12 @@
                                         </p>
                                     </div>
                                     <span class="text-xs text-emerald-600 font-bold shrink-0">
-                                        <i class="fas fa-plus-circle"></i> Adicionar
+                                        <i class="fas fa-plus-circle"></i> {{ __('Adicionar') }}
                                     </span>
                                 </button>
                             @empty
                                 <div class="px-3 py-3 text-sm text-gray-500 text-center">
-                                    <i class="fas fa-search-minus mr-1"></i> Nenhum produto encontrado
+                                    <i class="fas fa-search-minus mr-1"></i> {{ __('Nenhum produto encontrado') }}
                                 </div>
                             @endforelse
                         </div>
@@ -159,11 +162,11 @@
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <h4 class="text-sm font-bold text-gray-700">
-                        <i class="fas fa-list-check mr-1 text-emerald-600"></i> Produtos a registar
+                        <i class="fas fa-list-check mr-1 text-emerald-600"></i> {{ __('Produtos a registar') }}
                     </h4>
                     @if(count($entryItems) > 0)
                         <button wire:click="clearEntryItems" type="button" class="btn-press text-xs text-red-600 hover:underline px-2 py-1 rounded">
-                            <i class="fas fa-trash mr-1"></i> Limpar tudo
+                            <i class="fas fa-trash mr-1"></i> {{ __('Limpar tudo') }}
                         </button>
                     @endif
                 </div>
@@ -171,22 +174,22 @@
                 @if(count($entryItems) === 0)
                     <div class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-400">
                         <i class="fas fa-inbox text-3xl mb-2"></i>
-                        <p class="text-sm">Pesquise e adicione produtos acima.</p>
+                        <p class="text-sm">{{ __('Pesquise e adicione produtos acima.') }}</p>
                     </div>
                 @else
                     {{-- Hint mobile: indica scroll horizontal --}}
                     <p class="md:hidden text-[11px] text-gray-400 mb-1 flex items-center gap-1">
-                        <i class="fas fa-arrows-left-right"></i> Arraste lateralmente para ver mais
+                        <i class="fas fa-arrows-left-right"></i> {{ __('Arraste lateralmente para ver mais') }}
                     </p>
                     <div class="border border-gray-200 rounded-xl overflow-x-auto">
                         <table class="min-w-[720px] md:min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider">Produto</th>
-                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-28">Operação</th>
-                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-28">Quantidade</th>
-                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-32">Custo unit. (Kz)</th>
-                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-32">Stock (atual → novo)</th>
+                                    <th class="px-3 py-2 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider">{{ __('Produto') }}</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-28">{{ __('Operação') }}</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-28">{{ __('Quantidade') }}</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-32">{{ __('Custo unit. (Kz)') }}</th>
+                                    <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-32">{{ __('Stock (atual → novo)') }}</th>
                                     <th class="px-3 py-2 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider w-12"></th>
                                 </tr>
                             </thead>
@@ -219,13 +222,13 @@
                                                 <button type="button"
                                                         wire:click="$set('entryItems.{{ $i }}.op', 'add')"
                                                         class="btn-press px-2.5 py-1.5 text-sm font-bold transition {{ !$isSub ? 'bg-emerald-600 text-white' : 'bg-white text-gray-500 hover:bg-emerald-50' }}"
-                                                        title="Adicionar">
+                                                        title="{{ __('Adicionar') }}">
                                                     <i class="fas fa-plus"></i>
                                                 </button>
                                                 <button type="button"
                                                         wire:click="$set('entryItems.{{ $i }}.op', 'sub')"
                                                         class="btn-press px-2.5 py-1.5 text-sm font-bold transition border-l border-gray-300 {{ $isSub ? 'bg-red-600 text-white' : 'bg-white text-gray-500 hover:bg-red-50' }}"
-                                                        title="Subtrair">
+                                                        title="{{ __('Subtrair') }}">
                                                     <i class="fas fa-minus"></i>
                                                 </button>
                                             </div>
@@ -249,12 +252,12 @@
                                                 {{ rtrim(rtrim(number_format($new, 2, '.', ''), '0'), '.') }}
                                             </div>
                                             @if($insufficient)
-                                                <div class="text-[10px] text-red-600 font-semibold">Stock insuf.</div>
+                                                <div class="text-[10px] text-red-600 font-semibold">{{ __('Stock insuf.') }}</div>
                                             @endif
                                         </td>
                                         <td class="px-3 py-2 align-middle text-center">
                                             <button wire:click="removeEntryItem({{ $i }})" type="button"
-                                                    class="btn-press p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition" title="Remover">
+                                                    class="btn-press p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition" title="{{ __('Remover') }}">
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         </td>
@@ -263,7 +266,7 @@
                             </tbody>
                             <tfoot class="bg-gray-50">
                                 <tr>
-                                    <td class="px-3 py-2 text-xs text-gray-500 text-right font-semibold" colspan="3">Custo total das entradas:</td>
+                                    <td class="px-3 py-2 text-xs text-gray-500 text-right font-semibold" colspan="3">{{ __('Custo total das entradas:') }}</td>
                                     <td class="px-3 py-2 text-center text-sm font-bold text-purple-600">
                                         @php
                                             $total = 0;
@@ -302,7 +305,7 @@
                         wire:click="closeEntryModal"
                         wire:loading.attr="disabled" wire:target="saveEntry"
                         class="btn-press px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-semibold disabled:opacity-50">
-                    Cancelar
+                    {{ __('Cancelar') }}
                 </button>
                 <button type="button"
                         wire:click="saveEntry"
@@ -310,8 +313,8 @@
                         @disabled(count($entryItems) === 0)
                         class="btn-press px-5 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-lg font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fas fa-check mr-1"></i>
-                    <span wire:loading.remove wire:target="saveEntry">Registar movimentações</span>
-                    <span wire:loading wire:target="saveEntry">A processar…</span>
+                    <span wire:loading.remove wire:target="saveEntry">{{ __('Registar movimentações') }}</span>
+                    <span wire:loading wire:target="saveEntry">{{ __('A processar…') }}</span>
                 </button>
             </div>
         </div>

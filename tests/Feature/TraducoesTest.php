@@ -74,6 +74,24 @@ class TraducoesTest extends TenantTestCase
         // mas na altura ainda não tinha um único __().
         'resources/views/livewire/invoicing/invoicing-dashboard.blade.php',
         'app/Livewire/Invoicing/InvoicingDashboard.php',
+
+        // Fase 1, lote 4 — stock, catálogo e dados-mestre.
+        'resources/views/livewire/invoicing/products',
+        'resources/views/livewire/invoicing/stock',
+        'resources/views/livewire/invoicing/warehouses',
+        'resources/views/livewire/invoicing/categories',
+        'resources/views/livewire/invoicing/brands',
+        'resources/views/livewire/invoicing/product-batches',
+        'resources/views/livewire/invoicing/clients',
+        'resources/views/livewire/invoicing/suppliers',
+        'app/Livewire/Invoicing/Products.php',
+        'app/Livewire/Invoicing/StockManagement.php',
+        'app/Livewire/Invoicing/Warehouses.php',
+        'app/Livewire/Invoicing/Categories.php',
+        'app/Livewire/Invoicing/Brands.php',
+        'app/Livewire/Invoicing/InterCompanyTransfer.php',
+        'app/Livewire/Invoicing/Clients.php',
+        'app/Livewire/Invoicing/Suppliers.php',
     ];
 
     // ==================== o detector ====================

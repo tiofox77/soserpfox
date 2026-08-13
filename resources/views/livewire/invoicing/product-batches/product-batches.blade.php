@@ -19,13 +19,13 @@
                     <i class="fas fa-boxes text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold">Gestão de Lotes e Validades</h1>
-                    <p class="text-teal-100 text-sm">Controle de validade e lotes de produtos</p>
+                    <h1 class="text-2xl font-bold">{{ __('Gestão de Lotes e Validades') }}</h1>
+                    <p class="text-teal-100 text-sm">{{ __('Controle de validade e lotes de produtos') }}</p>
                 </div>
             </div>
             @can('invoicing.product-batches.create')
             <button wire:click="create" class="bg-white text-teal-600 hover:bg-teal-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Novo Lote
+                <i class="fas fa-plus mr-2"></i>{{ __('Novo Lote') }}
             </button>
             @endcan
         </div>
@@ -39,7 +39,7 @@
                     <i class="fas fa-check-circle text-white text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-500 font-semibold uppercase">Ativos</p>
+                    <p class="text-xs text-gray-500 font-semibold uppercase">{{ __('Ativos') }}</p>
                     <p class="text-2xl font-bold text-green-600">{{ $activeCount }}</p>
                 </div>
             </div>
@@ -51,7 +51,7 @@
                     <i class="fas fa-exclamation-triangle text-white text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-500 font-semibold uppercase">A Expirar</p>
+                    <p class="text-xs text-gray-500 font-semibold uppercase">{{ __('A Expirar') }}</p>
                     <p class="text-2xl font-bold text-orange-600">{{ $expiringCount }}</p>
                 </div>
             </div>
@@ -63,7 +63,7 @@
                     <i class="fas fa-times-circle text-white text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-500 font-semibold uppercase">Expirados</p>
+                    <p class="text-xs text-gray-500 font-semibold uppercase">{{ __('Expirados') }}</p>
                     <p class="text-2xl font-bold text-red-600">{{ $expiredCount }}</p>
                 </div>
             </div>
@@ -75,7 +75,7 @@
                     <i class="fas fa-layer-group text-white text-xl"></i>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-500 font-semibold uppercase">Total</p>
+                    <p class="text-xs text-gray-500 font-semibold uppercase">{{ __('Total') }}</p>
                     <p class="text-2xl font-bold text-blue-600">{{ $batches->total() }}</p>
                 </div>
             </div>
@@ -87,12 +87,12 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
                 <input type="text" wire:model.live.debounce.300ms="search"
-                       placeholder="🔍 Buscar lote ou produto..."
+                       placeholder="{{ __('🔍 Buscar lote ou produto...') }}"
                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
             </div>
             <div>
                 <select wire:model.live="filterProduct" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
-                    <option value="">Todos os Produtos</option>
+                    <option value="">{{ __('Todos os Produtos') }}</option>
                     @foreach($products as $product)
                         <option value="{{ $product->id }}">{{ $product->name }}</option>
                     @endforeach
@@ -100,7 +100,7 @@
             </div>
             <div>
                 <select wire:model.live="filterWarehouse" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
-                    <option value="">Todos os Armazéns</option>
+                    <option value="">{{ __('Todos os Armazéns') }}</option>
                     @foreach($warehouses as $warehouse)
                         <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                     @endforeach
@@ -108,11 +108,11 @@
             </div>
             <div>
                 <select wire:model.live="filterStatus" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
-                    <option value="">Todos os Status</option>
-                    <option value="active">Ativo</option>
-                    <option value="expiring_soon">A Expirar</option>
-                    <option value="expired">Expirados</option>
-                    <option value="sold_out">Esgotados</option>
+                    <option value="">{{ __('Todos os Status') }}</option>
+                    <option value="active">{{ __('Ativo') }}</option>
+                    <option value="expiring_soon">{{ __('A Expirar') }}</option>
+                    <option value="expired">{{ __('Expirados') }}</option>
+                    <option value="sold_out">{{ __('Esgotados') }}</option>
                 </select>
             </div>
         </div>
@@ -122,7 +122,7 @@
     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div class="px-6 py-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-b-2 border-teal-100">
             <h3 class="text-lg font-bold text-teal-900 flex items-center">
-                <i class="fas fa-list mr-2"></i>Lista de Lotes
+                <i class="fas fa-list mr-2"></i>{{ __('Lista de Lotes') }}
             </h3>
         </div>
 
@@ -130,15 +130,15 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Produto</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Lote</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Armazém</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Fabricação</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">Validade</th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Qtd. Total</th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Disponível</th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Status</th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">Acções</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Produto') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Lote') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Armazém') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Fabricação') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">{{ __('Validade') }}</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Qtd. Total') }}</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Disponível') }}</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Status') }}</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">{{ __('Acções') }}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
@@ -211,7 +211,7 @@
                                 @can('invoicing.product-batches.edit')
                                 <button wire:click="edit({{ $batch->id }})"
                                         class="w-9 h-9 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition flex items-center justify-center"
-                                        title="Editar lote">
+                                        title="{{ __('Editar lote') }}">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 @endcan
@@ -219,13 +219,13 @@
                                 <button wire:click="delete({{ $batch->id }})"
                                         wire:confirm="Tem certeza que deseja excluir este lote?"
                                         class="w-9 h-9 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition flex items-center justify-center"
-                                        title="Excluir lote">
+                                        title="{{ __('Excluir lote') }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                                 @endcan
                                 @cannot('invoicing.product-batches.edit')
                                     @cannot('invoicing.product-batches.delete')
-                                        <span class="text-xs text-gray-400 italic">Sem acções</span>
+                                        <span class="text-xs text-gray-400 italic">{{ __('Sem acções') }}</span>
                                     @endcannot
                                 @endcannot
                             </div>
@@ -238,8 +238,8 @@
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-box-open text-gray-400 text-3xl"></i>
                                 </div>
-                                <p class="text-gray-500 text-lg font-semibold mb-2">Nenhum lote encontrado</p>
-                                <p class="text-gray-400 text-sm">Crie um novo lote usando o botão acima</p>
+                                <p class="text-gray-500 text-lg font-semibold mb-2">{{ __('Nenhum lote encontrado') }}</p>
+                                <p class="text-gray-400 text-sm">{{ __('Crie um novo lote usando o botão acima') }}</p>
                             </div>
                         </td>
                     </tr>
@@ -275,9 +275,9 @@
             <div class="p-4 sm:p-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Produto *</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Produto *') }}</label>
                         <select wire:model="product_id" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
-                            <option value="">Selecione um produto</option>
+                            <option value="">{{ __('Selecione um produto') }}</option>
                             @foreach($products as $product)
                                 <option value="{{ $product->id }}">{{ $product->name }} ({{ $product->code }})</option>
                             @endforeach
@@ -286,16 +286,16 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Número do Lote</label>
-                        <input type="text" wire:model="batch_number" placeholder="Ex: L2025001"
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Número do Lote') }}</label>
+                        <input type="text" wire:model="batch_number" placeholder="{{ __('Ex: L2025001') }}"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
                         @error('batch_number') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Armazém</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Armazém') }}</label>
                         <select wire:model="warehouse_id" class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
-                            <option value="">Selecione um armazém</option>
+                            <option value="">{{ __('Selecione um armazém') }}</option>
                             @foreach($warehouses as $warehouse)
                                 <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                             @endforeach
@@ -304,43 +304,43 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Data de Fabricação</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Data de Fabricação') }}</label>
                         <input type="date" wire:model="manufacturing_date"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
                         @error('manufacturing_date') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Data de Validade</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Data de Validade') }}</label>
                         <input type="date" wire:model="expiry_date"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
                         @error('expiry_date') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Quantidade *</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Quantidade *') }}</label>
                         <input type="number" wire:model="quantity" step="0.01" placeholder="0.00"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition text-lg font-semibold">
                         @error('quantity') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Preço de Custo</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Preço de Custo') }}</label>
                         <input type="number" wire:model="cost_price" step="0.01" placeholder="0.00"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
                         @error('cost_price') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Dias de Alerta *</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Dias de Alerta *') }}</label>
                         <input type="number" wire:model="alert_days" min="1" max="365"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
                         @error('alert_days') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
-                        <p class="text-xs text-gray-500 mt-1">Alertar X dias antes da validade</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ __('Alertar X dias antes da validade') }}</p>
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Observações</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Observações') }}</label>
                         <textarea wire:model="notes" rows="3"
                                   class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition"></textarea>
                         @error('notes') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
@@ -351,14 +351,14 @@
             <div class="sticky bottom-0 bg-gray-50 px-8 py-6 rounded-b-2xl flex justify-end space-x-4">
                 <button wire:click="closeModal"
                         class="px-6 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-100 transition">
-                    <i class="fas fa-times mr-2"></i>Cancelar
+                    <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                 </button>
                 <button wire:click="save" wire:loading.attr="disabled" wire:target="save"
                         class="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition disabled:opacity-50">
                     <span wire:loading.remove wire:target="save">
                         <i class="fas fa-check mr-2"></i>{{ $editingId ? 'Actualizar' : 'Criar' }} Lote
                     </span>
-                    <span wire:loading wire:target="save"><i class="fas fa-spinner fa-spin mr-2"></i>A processar...</span>
+                    <span wire:loading wire:target="save"><i class="fas fa-spinner fa-spin mr-2"></i>{{ __('A processar...') }}</span>
                 </button>
             </div>
         </div>

@@ -7,8 +7,8 @@
                     <i class="fas fa-tag text-xl sm:text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-lg sm:text-2xl font-bold">Marcas</h2>
-                    <p class="text-pink-100 text-xs sm:text-sm">Gerir marcas de produtos</p>
+                    <h2 class="text-lg sm:text-2xl font-bold">{{ __('Marcas') }}</h2>
+                    <p class="text-pink-100 text-xs sm:text-sm">{{ __('Gerir marcas de produtos') }}</p>
                 </div>
             </div>
             <button wire:click="create"
@@ -16,10 +16,10 @@
                     wire:loading.class="opacity-70 scale-95"
                     class="group bg-white text-pink-600 hover:bg-pink-50 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm sm:text-base disabled:cursor-not-allowed">
                 <span wire:loading.remove wire:target="create">
-                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>Nova Marca
+                    <i class="fas fa-plus mr-2 group-hover:rotate-90 transition-transform duration-300"></i>{{ __('Nova Marca') }}
                 </span>
                 <span wire:loading wire:target="create">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Abrindo...
+                    <i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Abrindo...') }}
                 </span>
             </button>
         </div>
@@ -34,9 +34,9 @@
                     <i class="fas fa-tag text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-pink-600 font-semibold mb-2">Total Marcas</p>
+            <p class="text-sm text-pink-600 font-semibold mb-2">{{ __('Total Marcas') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $brands->total() }}</p>
-            <p class="text-xs text-gray-500">Marcas registadas</p>
+            <p class="text-xs text-gray-500">{{ __('Marcas registadas') }}</p>
         </div>
 
         <!-- Marcas Ativas -->
@@ -46,9 +46,9 @@
                     <i class="fas fa-check-circle text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-green-600 font-semibold mb-2">Ativas</p>
+            <p class="text-sm text-green-600 font-semibold mb-2">{{ __('Ativas') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Brand::where('tenant_id', auth()->user()->tenant_id)->where('is_active', true)->count() }}</p>
-            <p class="text-xs text-gray-500">Em uso</p>
+            <p class="text-xs text-gray-500">{{ __('Em uso') }}</p>
         </div>
 
         <!-- Marcas Inativas -->
@@ -58,9 +58,9 @@
                     <i class="fas fa-times-circle text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-gray-600 font-semibold mb-2">Inativas</p>
+            <p class="text-sm text-gray-600 font-semibold mb-2">{{ __('Inativas') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Brand::where('tenant_id', auth()->user()->tenant_id)->where('is_active', false)->count() }}</p>
-            <p class="text-xs text-gray-500">Desativadas</p>
+            <p class="text-xs text-gray-500">{{ __('Desativadas') }}</p>
         </div>
     </div>
 
@@ -69,10 +69,10 @@
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
                 <i class="fas fa-filter mr-2 text-pink-600"></i>
-                Filtros
+                {{ __('Filtros') }}
             </h3>
             <button wire:click="clearFilters" class="text-sm text-pink-600 hover:text-pink-700 font-semibold flex items-center">
-                <i class="fas fa-redo mr-1"></i>Limpar Filtros
+                <i class="fas fa-redo mr-1"></i>{{ __('Limpar Filtros') }}
             </button>
         </div>
 
@@ -80,13 +80,13 @@
             <!-- Search -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-search mr-1"></i>Pesquisar
+                    <i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome da marca..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="{{ __('Nome da marca...') }}" 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -94,7 +94,7 @@
             <!-- Per Page -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-list mr-1"></i>Por Página
+                    <i class="fas fa-list mr-1"></i>{{ __('Por Página') }}
                 </label>
                 <select wire:model.live="perPage" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 appearance-none bg-white text-sm">
                     <option value="10">10</option>
@@ -114,7 +114,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-bold text-gray-900 flex items-center">
                     <i class="fas fa-list mr-2 text-pink-600"></i>
-                    Lista de Marcas
+                    {{ __('Lista de Marcas') }}
                 </h3>
                 <span class="text-sm text-gray-600 font-semibold">
                     <i class="fas fa-tag mr-1"></i>{{ $brands->total() }} Total Marcas
@@ -126,19 +126,19 @@
         <div class="overflow-x-auto">
         <div class="grid grid-cols-12 gap-4 px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase min-w-[500px]">
             <div class="col-span-5 sm:col-span-5 flex items-center">
-                <i class="fas fa-tag mr-2 text-pink-500"></i>Marca
+                <i class="fas fa-tag mr-2 text-pink-500"></i>{{ __('Marca') }}
             </div>
             <div class="col-span-3 hidden md:flex items-center">
-                <i class="fas fa-globe mr-2 text-blue-500"></i>Website
+                <i class="fas fa-globe mr-2 text-blue-500"></i>{{ __('Website') }}
             </div>
             <div class="col-span-2 hidden sm:flex items-center">
-                <i class="fas fa-sort-numeric-up mr-2 text-purple-500"></i>Ordem
+                <i class="fas fa-sort-numeric-up mr-2 text-purple-500"></i>{{ __('Ordem') }}
             </div>
             <div class="col-span-2 sm:col-span-1 flex items-center">
-                <i class="fas fa-check-circle mr-2 text-green-500"></i>Status
+                <i class="fas fa-check-circle mr-2 text-green-500"></i>{{ __('Status') }}
             </div>
             <div class="col-span-3 sm:col-span-1 flex items-center justify-end">
-                <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
+                <i class="fas fa-cog mr-2 text-gray-500"></i>{{ __('Ações') }}
             </div>
         </div>
         
@@ -171,7 +171,7 @@
                                 <span class="truncate">{{ str_replace(['http://', 'https://'], '', $brand->website) }}</span>
                             </a>
                         @else
-                            <span class="text-xs text-gray-400 italic">Sem website</span>
+                            <span class="text-xs text-gray-400 italic">{{ __('Sem website') }}</span>
                         @endif
                     </div>
                     
@@ -186,11 +186,11 @@
                     <div class="col-span-2 sm:col-span-1">
                         @if($brand->is_active)
                             <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
-                                <i class="fas fa-check mr-1"></i>Ativa
+                                <i class="fas fa-check mr-1"></i>{{ __('Ativa') }}
                             </span>
                         @else
                             <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-bold">
-                                <i class="fas fa-times mr-1"></i>Inativa
+                                <i class="fas fa-times mr-1"></i>{{ __('Inativa') }}
                             </span>
                         @endif
                     </div>
@@ -199,13 +199,13 @@
                     <div class="col-span-3 sm:col-span-1 flex items-center justify-end space-x-1">
                         <button wire:click="edit({{ $brand->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Editar">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Editar') }}">
                             <i class="fas fa-edit text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
                         <button wire:click="confirmDelete({{ $brand->id }})"
                                 wire:loading.attr="disabled"
-                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="Excluir">
+                                class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 shadow-md hover:shadow-lg hover:scale-110 disabled:opacity-50" title="{{ __('Excluir') }}">
                             <i class="fas fa-trash text-xs" wire:loading.remove></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading></i>
                         </button>
@@ -216,8 +216,8 @@
                     <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-tag text-gray-400 text-3xl"></i>
                     </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Nenhuma marca encontrada</h3>
-                    <p class="text-gray-500 mb-4">Crie uma nova marca para começar</p>
+                    <h3 class="text-lg font-bold text-gray-900 mb-2">{{ __('Nenhuma marca encontrada') }}</h3>
+                    <p class="text-gray-500 mb-4">{{ __('Crie uma nova marca para começar') }}</p>
                 </div>
             @endforelse
         </div>

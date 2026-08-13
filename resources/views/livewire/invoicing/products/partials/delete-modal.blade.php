@@ -10,7 +10,7 @@
                         <i class="fas fa-exclamation-triangle text-3xl text-white animate-pulse"></i>
                     </div>
                     <h2 class="text-2xl font-bold text-white">
-                        Confirmar Eliminação
+                        {{ __('Confirmar Eliminação') }}
                     </h2>
                 </div>
                 <button wire:click="closeDeleteModal" class="text-white hover:text-gray-200 transition">
@@ -26,9 +26,9 @@
                     <div class="flex items-start">
                         <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3 mt-1"></i>
                         <div class="flex-1">
-                            <h3 class="text-lg font-bold text-red-900 mb-2">⚠️ ATENÇÃO - Ação Irreversível!</h3>
+                            <h3 class="text-lg font-bold text-red-900 mb-2">⚠️ {{ __('ATENÇÃO - Ação Irreversível!') }}</h3>
                             <p class="text-red-800 text-sm mb-3">
-                                Você está prestes a eliminar permanentemente o produto:
+                                {{ __('Você está prestes a eliminar permanentemente o produto:') }}
                             </p>
                             <div class="bg-white rounded-lg p-3 mb-3">
                                 <div class="flex items-center space-x-3">
@@ -37,7 +37,7 @@
                                     </div>
                                     <div>
                                         <p class="font-bold text-gray-900">{{ $productToDeleteName }}</p>
-                                        <p class="text-xs text-gray-500">Esta ação não pode ser desfeita</p>
+                                        <p class="text-xs text-gray-500">{{ __('Esta ação não pode ser desfeita') }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -48,20 +48,20 @@
                 <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                     <h4 class="font-bold text-yellow-900 mb-3 flex items-center">
                         <i class="fas fa-list-check mr-2"></i>
-                        O que será eliminado:
+                        {{ __('O que será eliminado:') }}
                     </h4>
                     <ul class="space-y-2 text-sm text-yellow-800">
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Informações do produto</strong></span>
+                            <span><strong>{{ __('Informações do produto') }}</strong></span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Preços e stock</strong></span>
+                            <span><strong>{{ __('Preços e stock') }}</strong></span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Histórico de movimentações</strong></span>
+                            <span><strong>{{ __('Histórico de movimentações') }}</strong></span>
                         </li>
                     </ul>
                 </div>
@@ -71,7 +71,7 @@
                 <div class="flex items-start">
                     <i class="fas fa-info-circle text-blue-500 text-xl mr-3 mt-1"></i>
                     <div class="text-sm text-blue-800">
-                        <strong>Nota:</strong> Se este produto estiver vinculado a faturas, não poderá ser eliminado por motivos de auditoria.
+                        <strong>{{ __('Nota:') }}</strong> {{ __('Se este produto estiver vinculado a faturas, não poderá ser eliminado por motivos de auditoria.') }}
                     </div>
                 </div>
             </div>
@@ -80,11 +80,11 @@
             <div class="flex space-x-3">
                 <button type="button" wire:click="closeDeleteModal"
                         class="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
-                    <i class="fas fa-times mr-2"></i>Cancelar
+                    <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                 </button>
                 <button type="button" wire:click="deleteProduct"
                         class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition shadow-lg">
-                    <i class="fas fa-trash-alt mr-2"></i>Sim, Eliminar Produto
+                    <i class="fas fa-trash-alt mr-2"></i>{{ __('Sim, Eliminar Produto') }}
                 </button>
             </div>
         </div>

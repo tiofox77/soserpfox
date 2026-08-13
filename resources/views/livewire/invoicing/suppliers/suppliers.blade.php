@@ -7,12 +7,12 @@
                     <i class="fas fa-truck text-2xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-2xl font-bold">Fornecedores</h2>
-                    <p class="text-orange-100 text-sm">Gerir fornecedores</p>
+                    <h2 class="text-2xl font-bold">{{ __('Fornecedores') }}</h2>
+                    <p class="text-orange-100 text-sm">{{ __('Gerir fornecedores') }}</p>
                 </div>
             </div>
             <button wire:click="create" class="bg-white text-orange-600 hover:bg-orange-50 px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl">
-                <i class="fas fa-plus mr-2"></i>Novo Fornecedor
+                <i class="fas fa-plus mr-2"></i>{{ __('Novo Fornecedor') }}
             </button>
         </div>
     </div>
@@ -26,9 +26,9 @@
                     <i class="fas fa-truck text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-orange-600 font-semibold mb-2">Total Fornecedores</p>
+            <p class="text-sm text-orange-600 font-semibold mb-2">{{ __('Total Fornecedores') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ $suppliers->total() }}</p>
-            <p class="text-xs text-gray-500">Fornecedores registados</p>
+            <p class="text-xs text-gray-500">{{ __('Fornecedores registados') }}</p>
         </div>
 
         <!-- Pessoa Jurídica -->
@@ -38,9 +38,9 @@
                     <i class="fas fa-building text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-blue-600 font-semibold mb-2">Pessoa Jurídica</p>
+            <p class="text-sm text-blue-600 font-semibold mb-2">{{ __('Pessoa Jurídica') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Supplier::where('tenant_id', activeTenantId())->where('type', 'pessoa_juridica')->count() }}</p>
-            <p class="text-xs text-gray-500">Empresas</p>
+            <p class="text-xs text-gray-500">{{ __('Empresas') }}</p>
         </div>
 
         <!-- Pessoa Física -->
@@ -50,9 +50,9 @@
                     <i class="fas fa-user text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-purple-600 font-semibold mb-2">Pessoa Física</p>
+            <p class="text-sm text-purple-600 font-semibold mb-2">{{ __('Pessoa Física') }}</p>
             <p class="text-4xl font-bold text-gray-900 mb-1">{{ \App\Models\Supplier::where('tenant_id', activeTenantId())->where('type', 'pessoa_fisica')->count() }}</p>
-            <p class="text-xs text-gray-500">Indivíduos</p>
+            <p class="text-xs text-gray-500">{{ __('Indivíduos') }}</p>
         </div>
     </div>
 
@@ -61,10 +61,10 @@
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center">
                 <i class="fas fa-filter mr-2 text-orange-600"></i>
-                Filtros Avançados
+                {{ __('Filtros Avançados') }}
             </h3>
             <button wire:click="clearFilters" class="text-sm text-orange-600 hover:text-orange-700 font-semibold flex items-center">
-                <i class="fas fa-redo mr-1"></i>Limpar Filtros
+                <i class="fas fa-redo mr-1"></i>{{ __('Limpar Filtros') }}
             </button>
         </div>
 
@@ -72,13 +72,13 @@
             <!-- Search -->
             <div class="md:col-span-2">
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-search mr-1"></i>Pesquisar
+                    <i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Nome, NIF, email, telefone..." 
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="{{ __('Nome, NIF, email, telefone...') }}" 
                            class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm">
                 </div>
             </div>
@@ -86,22 +86,22 @@
             <!-- Type Filter -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-user-tag mr-1"></i>Tipo
+                    <i class="fas fa-user-tag mr-1"></i>{{ __('Tipo') }}
                 </label>
                 <select wire:model.live="typeFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 appearance-none bg-white text-sm">
-                    <option value="">Todos</option>
-                    <option value="pessoa_juridica">Pessoa Jurídica</option>
-                    <option value="pessoa_fisica">Pessoa Física</option>
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="pessoa_juridica">{{ __('Pessoa Jurídica') }}</option>
+                    <option value="pessoa_fisica">{{ __('Pessoa Física') }}</option>
                 </select>
             </div>
 
             <!-- City Filter -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-city mr-1"></i>Cidade
+                    <i class="fas fa-city mr-1"></i>{{ __('Cidade') }}
                 </label>
                 <select wire:model.live="cityFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 appearance-none bg-white text-sm">
-                    <option value="">Todas</option>
+                    <option value="">{{ __('Todas') }}</option>
                     @foreach($cities as $city)
                         <option value="{{ $city }}">{{ $city }}</option>
                     @endforeach
@@ -111,7 +111,7 @@
             <!-- Per Page -->
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-list mr-1"></i>Por Página
+                    <i class="fas fa-list mr-1"></i>{{ __('Por Página') }}
                 </label>
                 <select wire:model.live="perPage" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 appearance-none bg-white text-sm">
                     <option value="10">10</option>
@@ -127,13 +127,13 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-calendar-alt mr-1"></i>Data de Cadastro (De)
+                    <i class="fas fa-calendar-alt mr-1"></i>{{ __('Data de Cadastro (De)') }}
                 </label>
                 <input wire:model.live="dateFrom" type="date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm">
             </div>
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
-                    <i class="fas fa-calendar-alt mr-1"></i>Data de Cadastro (Até)
+                    <i class="fas fa-calendar-alt mr-1"></i>{{ __('Data de Cadastro (Até)') }}
                 </label>
                 <input wire:model.live="dateTo" type="date" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all text-sm">
             </div>
@@ -143,7 +143,7 @@
         @if($search || $typeFilter || $cityFilter || $dateFrom || $dateTo)
             <div class="mt-4 pt-4 border-t border-gray-200">
                 <div class="flex flex-wrap gap-2">
-                    <span class="text-xs font-semibold text-gray-600">Filtros ativos:</span>
+                    <span class="text-xs font-semibold text-gray-600">{{ __('Filtros ativos:') }}</span>
                     @if($search)
                         <span class="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
                             <i class="fas fa-search mr-1"></i>{{ $search }}
@@ -196,7 +196,7 @@
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-bold text-gray-900 flex items-center">
                     <i class="fas fa-list mr-2 text-orange-600"></i>
-                    Lista de Fornecedores
+                    {{ __('Lista de Fornecedores') }}
                 </h3>
                 <span class="text-sm text-gray-600 font-semibold">
                     <i class="fas fa-truck mr-1"></i>{{ $suppliers->total() }} Total Fornecedores
@@ -207,22 +207,22 @@
         <!-- Table Header -->
         <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase">
             <div class="col-span-3 flex items-center">
-                <i class="fas fa-truck mr-2 text-orange-500"></i>Fornecedor
+                <i class="fas fa-truck mr-2 text-orange-500"></i>{{ __('Fornecedor') }}
             </div>
             <div class="col-span-2 flex items-center">
                 <i class="fas fa-id-card mr-2 text-blue-500"></i>NIF
             </div>
             <div class="col-span-2 flex items-center">
-                <i class="fas fa-envelope mr-2 text-purple-500"></i>Contato
+                <i class="fas fa-envelope mr-2 text-purple-500"></i>{{ __('Contato') }}
             </div>
             <div class="col-span-2 flex items-center">
-                <i class="fas fa-map-marker-alt mr-2 text-red-500"></i>Localização
+                <i class="fas fa-map-marker-alt mr-2 text-red-500"></i>{{ __('Localização') }}
             </div>
             <div class="col-span-2 flex items-center">
-                <i class="fas fa-tag mr-2 text-cyan-500"></i>Tipo
+                <i class="fas fa-tag mr-2 text-cyan-500"></i>{{ __('Tipo') }}
             </div>
             <div class="col-span-1 flex items-center justify-end">
-                <i class="fas fa-cog mr-2 text-gray-500"></i>Ações
+                <i class="fas fa-cog mr-2 text-gray-500"></i>{{ __('Ações') }}
             </div>
         </div>
         
@@ -248,7 +248,7 @@
                                 <i class="fas fa-id-card mr-1"></i>{{ $supplier->nif }}
                             </span>
                         @else
-                            <span class="text-xs text-gray-400 italic">Sem NIF</span>
+                            <span class="text-xs text-gray-400 italic">{{ __('Sem NIF') }}</span>
                         @endif
                     </div>
                     
@@ -293,14 +293,14 @@
                         <button wire:click="viewSupplier({{ $supplier->id }})"
                                 wire:loading.attr="disabled"
                                 wire:target="viewSupplier({{ $supplier->id }})"
-                                class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" title="Ver Detalhes">
+                                class="w-8 h-8 flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50" title="{{ __('Ver Detalhes') }}">
                             <i class="fas fa-eye text-xs" wire:loading.remove wire:target="viewSupplier({{ $supplier->id }})"></i>
                             <i class="fas fa-spinner fa-spin text-xs" wire:loading wire:target="viewSupplier({{ $supplier->id }})"></i>
                         </button>
-                        <button wire:click="edit({{ $supplier->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Editar">
+                        <button wire:click="edit({{ $supplier->id }})" class="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="{{ __('Editar') }}">
                             <i class="fas fa-edit text-xs"></i>
                         </button>
-                        <button wire:click="confirmDelete({{ $supplier->id }})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="Excluir">
+                        <button wire:click="confirmDelete({{ $supplier->id }})" class="w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-lg transition shadow-md hover:shadow-lg" title="{{ __('Excluir') }}">
                             <i class="fas fa-trash text-xs"></i>
                         </button>
                     </div>
@@ -310,8 +310,8 @@
                     <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-truck text-gray-400 text-3xl"></i>
                     </div>
-                    <h3 class="text-lg font-bold text-gray-900 mb-2">Nenhum fornecedor encontrado</h3>
-                    <p class="text-gray-500 mb-4">Crie um novo fornecedor para começar</p>
+                    <h3 class="text-lg font-bold text-gray-900 mb-2">{{ __('Nenhum fornecedor encontrado') }}</h3>
+                    <p class="text-gray-500 mb-4">{{ __('Crie um novo fornecedor para começar') }}</p>
                 </div>
             @endforelse
         </div>

@@ -19,7 +19,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="md:col-span-3">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-tag text-purple-500 mr-2"></i>Nome *
+                                <i class="fas fa-tag text-purple-500 mr-2"></i>{{ __('Nome *') }}
                             </label>
                             <input wire:model="name" type="text" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                             @error('name') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
@@ -30,14 +30,14 @@
                                 <i class="fas fa-hashtag text-blue-500 mr-2"></i>Código 
                                 @if(!$editingProductId)
                                     <span class="text-xs text-green-600 font-normal">
-                                        <i class="fas fa-check-circle"></i> (Gerado automaticamente - editável)
+                                        <i class="fas fa-check-circle"></i> {{ __('(Gerado automaticamente - editável)') }}
                                     </span>
                                 @endif
                             </label>
                             <div class="relative">
                                 <input wire:model="code" 
                                        type="text" 
-                                       placeholder="Ex: PROD000001"
+                                       placeholder="{{ __('Ex: PROD000001') }}"
                                        class="w-full px-4 py-2.5 border-2 {{ $editingProductId ? 'border-blue-300 bg-blue-50' : 'border-green-300 bg-green-50' }} rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition font-mono font-semibold">
                                 @if(!$editingProductId)
                                     <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -58,57 +58,60 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-qrcode text-purple-500 mr-2"></i>SKU
                             </label>
-                            <input wire:model="sku" type="text" placeholder="Ex: PROD-ABC-123" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                            <input wire:model="sku" type="text" placeholder="{{ __('Ex: PROD-ABC-123') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
                             @error('sku') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-barcode text-green-500 mr-2"></i>Código de Barras
+                                <i class="fas fa-barcode text-green-500 mr-2"></i>{{ __('Código de Barras') }}
                             </label>
-                            <input wire:model="barcode" type="text" placeholder="Ex: 7891234567890" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                            <input wire:model="barcode" type="text" placeholder="{{ __('Ex: 7891234567890') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
                             @error('barcode') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-cube text-indigo-500 mr-2"></i>Unidade *
+                                <i class="fas fa-cube text-indigo-500 mr-2"></i>{{ __('Unidade *') }}
                             </label>
                             <select wire:model="unit" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
-                                <option value="UN">Unidade</option>
-                                <option value="HR">Hora</option>
-                                <option value="DIA">Dia</option>
-                                <option value="MÊS">Mês</option>
-                                <option value="SRV">Serviço</option>
+                                <option value="UN">{{ __('Unidade') }}</option>
+                                <option value="HR">{{ __('Hora') }}</option>
+                                <option value="DIA">{{ __('Dia') }}</option>
+                                <option value="MÊS">{{ __('Mês') }}</option>
+                                <option value="SRV">{{ __('Serviço') }}</option>
                             </select>
                             @error('unit') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-boxes text-orange-500 mr-2"></i>Tipo *
+                                <i class="fas fa-boxes text-orange-500 mr-2"></i>{{ __('Tipo *') }}
                             </label>
                             <select wire:model.live="type" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
-                                <option value="produto">📦 Produto</option>
-                                <option value="servico">🔔 Serviço</option>
+                                <option value="produto">📦 {{ __('Produto') }}</option>
+                                <option value="servico">🔔 {{ __('Serviço') }}</option>
                             </select>
                             <p class="text-xs text-gray-500 mt-1">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                O código muda automaticamente: <strong>PROD</strong> para produtos, <strong>SVC</strong> para serviços
+                                {{-- PROD e SVC ficam dentro da frase mas não se
+                                     traduzem: são os prefixos que o sistema
+                                     gera de facto no código do artigo. --}}
+                                {!! __('O código muda automaticamente: <strong>PROD</strong> para produtos, <strong>SVC</strong> para serviços') !!}
                             </p>
                             @error('type') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
                         
                         <div class="md:col-span-3">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-align-left text-gray-500 mr-2"></i>Descrição
+                                <i class="fas fa-align-left text-gray-500 mr-2"></i>{{ __('Descrição') }}
                             </label>
                             <textarea wire:model="description" rows="2" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"></textarea>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-money-bill-wave text-green-500 mr-2"></i>Preço (Kz) *
+                                <i class="fas fa-money-bill-wave text-green-500 mr-2"></i>{{ __('Preço (Kz) *') }}
                             </label>
                             <input wire:model="price" type="number" step="0.01" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
                             @error('price') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
@@ -116,7 +119,7 @@
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-coins text-orange-500 mr-2"></i>Custo (Kz)
+                                <i class="fas fa-coins text-orange-500 mr-2"></i>{{ __('Custo (Kz)') }}
                             </label>
                             <input wire:model="cost" type="number" step="0.01" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
                         </div>
@@ -128,18 +131,18 @@
                                     <i class="fas fa-sitemap text-white text-lg"></i>
                                 </div>
                                 <div class="ml-3">
-                                    <h3 class="text-sm font-bold text-gray-900">Categorização do Produto</h3>
-                                    <p class="text-xs text-gray-600">Organize por categoria e subcategoria</p>
+                                    <h3 class="text-sm font-bold text-gray-900">{{ __('Categorização do Produto') }}</h3>
+                                    <p class="text-xs text-gray-600">{{ __('Organize por categoria e subcategoria') }}</p>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        <i class="fas fa-folder text-cyan-600 mr-2"></i>Categoria *
+                                        <i class="fas fa-folder text-cyan-600 mr-2"></i>{{ __('Categoria *') }}
                                     </label>
                                     <select wire:model="category_id" class="w-full px-4 py-3 border-2 border-cyan-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition bg-white shadow-sm">
-                                        <option value="">📂 Selecione uma categoria...</option>
+                                        <option value="">📂 {{ __('Selecione uma categoria...') }}</option>
                                         @php
                                             $categories = \App\Models\Category::where('tenant_id', auth()->user()->tenant_id)
                                                 ->where('is_active', true)
@@ -173,8 +176,8 @@
                                     <div class="flex items-start mt-2 text-xs text-gray-600 bg-white p-2 rounded-lg">
                                         <i class="fas fa-info-circle text-cyan-500 mr-2 mt-0.5"></i>
                                         <div>
-                                            <p class="font-semibold">Categorias principais em MAIÚSCULAS</p>
-                                            <p>Subcategorias identadas com └─</p>
+                                            <p class="font-semibold">{{ __('Categorias principais em MAIÚSCULAS') }}</p>
+                                            <p>{{ __('Subcategorias identadas com └─') }}</p>
                                         </div>
                                     </div>
                                     @error('category_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
@@ -182,7 +185,7 @@
                                 
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        <i class="fas fa-layer-group text-blue-600 mr-2"></i>Hierarquia Selecionada
+                                        <i class="fas fa-layer-group text-blue-600 mr-2"></i>{{ __('Hierarquia Selecionada') }}
                                     </label>
                                     <div class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl bg-white shadow-sm min-h-[56px] flex items-center">
                                         @if($category_id)
@@ -210,13 +213,13 @@
                                             @endif
                                         @else
                                             <span class="text-gray-400 italic text-sm">
-                                                <i class="fas fa-hand-pointer mr-2"></i>Selecione uma categoria...
+                                                <i class="fas fa-hand-pointer mr-2"></i>{{ __('Selecione uma categoria...') }}
                                             </span>
                                         @endif
                                     </div>
                                     <div class="flex items-start mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
                                         <i class="fas fa-lightbulb mr-2 mt-0.5"></i>
-                                        <span>Visualize a hierarquia da categoria escolhida</span>
+                                        <span>{{ __('Visualize a hierarquia da categoria escolhida') }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -224,28 +227,28 @@
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-tag text-pink-500 mr-2"></i>Marca
+                                <i class="fas fa-tag text-pink-500 mr-2"></i>{{ __('Marca') }}
                             </label>
                             <select wire:model="brand_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition">
-                                <option value="">Nenhuma</option>
+                                <option value="">{{ __('Nenhuma') }}</option>
                                 @foreach(\App\Models\Brand::where('tenant_id', auth()->user()->tenant_id)->where('is_active', true)->orderBy('name')->get() as $brand)
                                     <option value="{{ $brand->id }}">{{ $brand->name }}</option>
                                 @endforeach
                             </select>
-                            <p class="text-xs text-gray-500 mt-1">Opcional - Marca ou fabricante do produto</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Opcional - Marca ou fabricante do produto') }}</p>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-truck text-orange-500 mr-2"></i>Fornecedor Padrão
+                                <i class="fas fa-truck text-orange-500 mr-2"></i>{{ __('Fornecedor Padrão') }}
                             </label>
                             <select wire:model="supplier_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
-                                <option value="">Nenhum</option>
+                                <option value="">{{ __('Nenhum') }}</option>
                                 @foreach(\App\Models\Supplier::where('tenant_id', auth()->user()->tenant_id)->orderBy('name')->get() as $supplier)
                                     <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
                                 @endforeach
                             </select>
-                            <p class="text-xs text-gray-500 mt-1">Opcional - Fornecedor principal deste produto</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Opcional - Fornecedor principal deste produto') }}</p>
                         </div>
                         
                         <!-- Gestão de Stock -->
@@ -253,7 +256,7 @@
                             <div class="flex items-center mb-4">
                                 <input type="checkbox" wire:model.live="manage_stock" id="manage_stock" class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
                                 <label for="manage_stock" class="ml-3 text-sm font-bold text-gray-900">
-                                    <i class="fas fa-warehouse text-blue-500 mr-2"></i>Gerenciar Stock
+                                    <i class="fas fa-warehouse text-blue-500 mr-2"></i>{{ __('Gerenciar Stock') }}
                                 </label>
                             </div>
                             
@@ -266,17 +269,17 @@
                                         @if($editingProductId)
                                             {{-- Agregado derivado dos armazéns — ajustar via Gestão de Stock --}}
                                             <input value="{{ $stock_quantity }}" type="number" disabled class="w-full px-3 py-2 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg text-sm cursor-not-allowed">
-                                            <p class="text-[11px] text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>Ajuste o stock em <strong>Gestão de Stock</strong> (fica registado no histórico).</p>
+                                            <p class="text-[11px] text-gray-400 mt-1"><i class="fas fa-info-circle mr-1"></i>{!! __('Ajuste o stock em <strong>Gestão de Stock</strong> (fica registado no histórico).') !!}</p>
                                         @else
                                             <input wire:model="stock_quantity" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
                                         @endif
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-gray-600 mb-2">Mínimo</label>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-2">{{ __('Mínimo') }}</label>
                                         <input wire:model="stock_min" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 text-sm">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-gray-600 mb-2">Máximo</label>
+                                        <label class="block text-xs font-semibold text-gray-600 mb-2">{{ __('Máximo') }}</label>
                                         <input wire:model="stock_max" type="number" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm">
                                     </div>
                                 </div>
@@ -290,8 +293,8 @@
                                     <i class="fas fa-box-open text-white text-lg"></i>
                                 </div>
                                 <div class="ml-3">
-                                    <h3 class="text-sm font-bold text-gray-900">Controle de Lotes e Validade</h3>
-                                    <p class="text-xs text-gray-600">Rastreabilidade e gestão de validade do produto</p>
+                                    <h3 class="text-sm font-bold text-gray-900">{{ __('Controle de Lotes e Validade') }}</h3>
+                                    <p class="text-xs text-gray-600">{{ __('Rastreabilidade e gestão de validade do produto') }}</p>
                                 </div>
                             </div>
                             
@@ -301,9 +304,9 @@
                                     <div class="ml-3 flex-1">
                                         <div class="flex items-center">
                                             <i class="fas fa-layer-group text-amber-600 mr-2"></i>
-                                            <span class="text-sm font-semibold text-gray-900">Rastrear por Lotes</span>
+                                            <span class="text-sm font-semibold text-gray-900">{{ __('Rastrear por Lotes') }}</span>
                                         </div>
-                                        <p class="text-xs text-gray-500 mt-1">Controlar produto por números de lote</p>
+                                        <p class="text-xs text-gray-500 mt-1">{{ __('Controlar produto por números de lote') }}</p>
                                     </div>
                                 </label>
                                 
@@ -312,9 +315,9 @@
                                     <div class="ml-3 flex-1">
                                         <div class="flex items-center">
                                             <i class="fas fa-calendar-times text-red-600 mr-2"></i>
-                                            <span class="text-sm font-semibold text-gray-900">Controlar Validade</span>
+                                            <span class="text-sm font-semibold text-gray-900">{{ __('Controlar Validade') }}</span>
                                         </div>
-                                        <p class="text-xs text-gray-500 mt-1">Gerenciar data de validade do produto</p>
+                                        <p class="text-xs text-gray-500 mt-1">{{ __('Gerenciar data de validade do produto') }}</p>
                                     </div>
                                 </label>
                                 
@@ -323,9 +326,9 @@
                                     <div class="ml-3 flex-1">
                                         <div class="flex items-center">
                                             <i class="fas fa-shopping-cart text-blue-600 mr-2"></i>
-                                            <span class="text-sm font-semibold text-gray-900">Exigir Lote na Compra</span>
+                                            <span class="text-sm font-semibold text-gray-900">{{ __('Exigir Lote na Compra') }}</span>
                                         </div>
-                                        <p class="text-xs text-gray-500 mt-1">Obrigatório informar lote ao comprar</p>
+                                        <p class="text-xs text-gray-500 mt-1">{{ __('Obrigatório informar lote ao comprar') }}</p>
                                     </div>
                                 </label>
                                 
@@ -334,9 +337,9 @@
                                     <div class="ml-3 flex-1">
                                         <div class="flex items-center">
                                             <i class="fas fa-cash-register text-green-600 mr-2"></i>
-                                            <span class="text-sm font-semibold text-gray-900">Exigir Lote na Venda</span>
+                                            <span class="text-sm font-semibold text-gray-900">{{ __('Exigir Lote na Venda') }}</span>
                                         </div>
-                                        <p class="text-xs text-gray-500 mt-1">Obrigatório selecionar lote ao vender</p>
+                                        <p class="text-xs text-gray-500 mt-1">{{ __('Obrigatório selecionar lote ao vender') }}</p>
                                     </div>
                                 </label>
                             </div>
@@ -345,11 +348,11 @@
                                 <div class="flex items-start">
                                     <i class="fas fa-info-circle text-amber-700 mr-2 mt-0.5"></i>
                                     <div class="text-xs text-amber-800">
-                                        <p class="font-semibold mb-1">ℹ️ Informação Importante:</p>
+                                        <p class="font-semibold mb-1">{{ __('ℹ️ Informação Importante:') }}</p>
                                         <ul class="list-disc list-inside space-y-1">
-                                            <li><strong>Rastrear por Lotes:</strong> Ativa o controle de lotes para este produto</li>
-                                            <li><strong>Controlar Validade:</strong> Permite definir datas de validade nos lotes</li>
-                                            <li><strong>Exigir na Compra/Venda:</strong> Torna obrigatório informar o lote nas operações</li>
+                                            <li><strong>{{ __('Rastrear por Lotes:') }}</strong> {{ __('Ativa o controle de lotes para este produto') }}</li>
+                                            <li><strong>{{ __('Controlar Validade:') }}</strong> {{ __('Permite definir datas de validade nos lotes') }}</li>
+                                            <li><strong>{{ __('Exigir na Compra/Venda:') }}</strong> {{ __('Torna obrigatório informar o lote nas operações') }}</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -359,16 +362,16 @@
                         <!-- Imagens -->
                         <div x-data="{ preview: null }">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-image text-purple-500 mr-2"></i>Imagem Destaque
+                                <i class="fas fa-image text-purple-500 mr-2"></i>{{ __('Imagem Destaque') }}
                             </label>
                             
                             @if($currentFeaturedImage)
                                 <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                                     <div class="flex items-center space-x-3">
-                                        <img src="{{ Storage::url($currentFeaturedImage) }}" alt="Imagem atual" class="h-24 w-24 object-cover rounded-lg shadow-md border-2 border-gray-300">
+                                        <img src="{{ Storage::url($currentFeaturedImage) }}" alt="{{ __('Imagem atual') }}" class="h-24 w-24 object-cover rounded-lg shadow-md border-2 border-gray-300">
                                         <div>
-                                            <p class="text-sm font-semibold text-gray-700">Imagem Atual</p>
-                                            <p class="text-xs text-gray-500">Selecione nova para substituir</p>
+                                            <p class="text-sm font-semibold text-gray-700">{{ __('Imagem Atual') }}</p>
+                                            <p class="text-xs text-gray-500">{{ __('Selecione nova para substituir') }}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -377,15 +380,15 @@
                             <!-- Preview da nova imagem -->
                             <div x-show="preview" class="mb-3 p-4 bg-green-50 border-2 border-green-200 rounded-xl">
                                 <div class="flex items-start space-x-3">
-                                    <img :src="preview" alt="Preview" class="h-32 w-32 object-cover rounded-lg shadow-lg border-2 border-green-400">
+                                    <img :src="preview" alt="{{ __('Preview') }}" class="h-32 w-32 object-cover rounded-lg shadow-lg border-2 border-green-400">
                                     <div class="flex-1">
                                         <div class="flex items-center space-x-2 mb-2">
                                             <i class="fas fa-check-circle text-green-600"></i>
-                                            <span class="text-sm font-semibold text-green-700">Nova Imagem Selecionada</span>
+                                            <span class="text-sm font-semibold text-green-700">{{ __('Nova Imagem Selecionada') }}</span>
                                         </div>
                                         <button type="button" @click="preview = null; $wire.set('featured_image', null)" 
                                                 class="px-3 py-1 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-lg text-xs font-semibold transition">
-                                            <i class="fas fa-times mr-1"></i>Remover
+                                            <i class="fas fa-times mr-1"></i>{{ __('Remover') }}
                                         </button>
                                     </div>
                                 </div>
@@ -394,21 +397,21 @@
                             <input wire:model="featured_image" type="file" accept="image/*" 
                                    @change="preview = URL.createObjectURL($event.target.files[0])"
                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
-                            <p class="text-xs text-gray-500 mt-1">Máximo 2MB - PNG, JPG, GIF</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Máximo 2MB - PNG, JPG, GIF') }}</p>
                         </div>
                         
                         <div class="md:col-span-2" x-data="{ galleryPreviews: [] }">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-images text-pink-500 mr-2"></i>Galeria de Imagens
+                                <i class="fas fa-images text-pink-500 mr-2"></i>{{ __('Galeria de Imagens') }}
                             </label>
                             
                             @if(!empty($currentGallery))
                                 <div class="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                    <p class="text-xs font-semibold text-gray-600 mb-2">Imagens Atuais:</p>
+                                    <p class="text-xs font-semibold text-gray-600 mb-2">{{ __('Imagens Atuais:') }}</p>
                                     <div class="flex flex-wrap gap-2">
                                         @foreach($currentGallery as $image)
                                             <div class="relative group">
-                                                <img src="{{ Storage::url($image) }}" alt="Galeria" class="h-20 w-20 object-cover rounded-lg shadow-md border-2 border-gray-300">
+                                                <img src="{{ Storage::url($image) }}" alt="{{ __('Galeria') }}" class="h-20 w-20 object-cover rounded-lg shadow-md border-2 border-gray-300">
                                                 <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-lg transition flex items-center justify-center">
                                                     <i class="fas fa-search-plus text-white opacity-0 group-hover:opacity-100 transition"></i>
                                                 </div>
@@ -423,17 +426,17 @@
                                 <div class="flex items-center space-x-2 mb-3">
                                     <i class="fas fa-check-circle text-green-600"></i>
                                     <span class="text-sm font-semibold text-green-700">
-                                        <span x-text="galleryPreviews.length"></span> Nova(s) Imagem(ns) Selecionada(s)
+                                        <span x-text="galleryPreviews.length"></span> {{ __('Nova(s) Imagem(ns) Selecionada(s)') }}
                                     </span>
                                     <button type="button" @click="galleryPreviews = []; $wire.set('gallery', [])" 
                                             class="ml-auto px-2 py-1 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded text-xs font-semibold transition">
-                                        <i class="fas fa-times mr-1"></i>Remover Todas
+                                        <i class="fas fa-times mr-1"></i>{{ __('Remover Todas') }}
                                     </button>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
                                     <template x-for="(preview, index) in galleryPreviews" :key="index">
                                         <div class="relative">
-                                            <img :src="preview" alt="Preview" class="h-24 w-24 object-cover rounded-lg shadow-lg border-2 border-green-400">
+                                            <img :src="preview" alt="{{ __('Preview') }}" class="h-24 w-24 object-cover rounded-lg shadow-lg border-2 border-green-400">
                                             <button type="button" 
                                                     @click="galleryPreviews.splice(index, 1)"
                                                     class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition">
@@ -447,12 +450,12 @@
                             <input wire:model="gallery" type="file" accept="image/*" multiple 
                                    @change="galleryPreviews = Array.from($event.target.files).map(file => URL.createObjectURL(file))"
                                    class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
-                            <p class="text-xs text-gray-500 mt-1">Múltiplas imagens - Máximo 2MB cada</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('Múltiplas imagens - Máximo 2MB cada') }}</p>
                         </div>
                         
                         <div class="md:col-span-3">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-receipt text-blue-500 mr-2"></i>Regime de IVA *
+                                <i class="fas fa-receipt text-blue-500 mr-2"></i>{{ __('Regime de IVA *') }}
                             </label>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
@@ -461,9 +464,9 @@
                                         <div class="flex-1">
                                             <div class="flex items-center mb-1">
                                                 <i class="fas fa-percentage text-blue-500 mr-2"></i>
-                                                <span class="font-bold text-gray-900">Sujeito a IVA</span>
+                                                <span class="font-bold text-gray-900">{{ __('Sujeito a IVA') }}</span>
                                             </div>
-                                            <p class="text-xs text-gray-500">Produto com taxa de IVA</p>
+                                            <p class="text-xs text-gray-500">{{ __('Produto com taxa de IVA') }}</p>
                                         </div>
                                         @if($tax_type === 'iva')
                                             <i class="fas fa-check-circle text-blue-500 text-xl"></i>
@@ -476,9 +479,9 @@
                                         <div class="flex-1">
                                             <div class="flex items-center mb-1">
                                                 <i class="fas fa-ban text-green-500 mr-2"></i>
-                                                <span class="font-bold text-gray-900">Isento de IVA</span>
+                                                <span class="font-bold text-gray-900">{{ __('Isento de IVA') }}</span>
                                             </div>
-                                            <p class="text-xs text-gray-500">Produto isento</p>
+                                            <p class="text-xs text-gray-500">{{ __('Produto isento') }}</p>
                                         </div>
                                         @if($tax_type === 'isento')
                                             <i class="fas fa-check-circle text-green-500 text-xl"></i>
@@ -492,7 +495,7 @@
                         @if($tax_type === 'iva')
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <i class="fas fa-percent text-blue-500 mr-2"></i>Taxa de IVA *
+                                    <i class="fas fa-percent text-blue-500 mr-2"></i>{{ __('Taxa de IVA *') }}
                                 </label>
                                 
                                 @php
@@ -508,7 +511,7 @@
                                 
                                 @if($taxRates->count() > 0)
                                     <select wire:model="tax_rate_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                                        <option value="">Selecione a taxa...</option>
+                                        <option value="">{{ __('Selecione a taxa...') }}</option>
                                         @foreach($taxRates as $rate)
                                             <option value="{{ $rate->id }}">{{ $rate->name }} ({{ $rate->rate }}%) - {{ $rate->description }}</option>
                                         @endforeach
@@ -518,11 +521,11 @@
                                         <div class="flex items-start">
                                             <i class="fas fa-exclamation-triangle text-yellow-600 mr-3 mt-1"></i>
                                             <div>
-                                                <p class="text-sm font-semibold text-yellow-800">Nenhuma taxa de IVA cadastrada</p>
-                                                <p class="text-xs text-yellow-700 mt-1">Por favor, cadastre as taxas primeiro em:</p>
+                                                <p class="text-sm font-semibold text-yellow-800">{{ __('Nenhuma taxa de IVA cadastrada') }}</p>
+                                                <p class="text-xs text-yellow-700 mt-1">{{ __('Por favor, cadastre as taxas primeiro em:') }}</p>
                                                 <a href="{{ route('invoicing.taxes.index') }}" target="_blank" 
                                                    class="inline-flex items-center mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-semibold transition">
-                                                    <i class="fas fa-external-link-alt mr-2"></i>Ir para Taxas de IVA
+                                                    <i class="fas fa-external-link-alt mr-2"></i>{{ __('Ir para Taxas de IVA') }}
                                                 </a>
                                             </div>
                                         </div>
@@ -536,10 +539,10 @@
                         @if($tax_type === 'isento')
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <i class="fas fa-file-alt text-green-500 mr-2"></i>Motivo de Isenção *
+                                    <i class="fas fa-file-alt text-green-500 mr-2"></i>{{ __('Motivo de Isenção *') }}
                                 </label>
                                 <select wire:model="exemption_reason" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
-                                    <option value="">Selecione o motivo...</option>
+                                    <option value="">{{ __('Selecione o motivo...') }}</option>
                                     @php
                                         $grouped = ($exemptionCodes ?? collect())->groupBy('tax_type');
                                         $groupLabels = ['IVA' => 'IVA (M01–M93)', 'IS' => 'Imposto de Selo (S01–S03)', 'IRT' => 'IRT (I01–I16)'];
@@ -558,7 +561,7 @@
                                     @endforelse
                                 </select>
                                 <p class="text-xs text-gray-500 mt-1">
-                                    Código oficial AGT (DS.120 §9.5) — agrupado por tipo de imposto.
+                                    {{ __('Código oficial AGT (DS.120 §9.5) — agrupado por tipo de imposto.') }}
                                 </p>
                                 @error('exemption_reason') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                             </div>
@@ -567,7 +570,7 @@
                     
                     <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
                         <button type="button" wire:click="closeModal" class="px-4 sm:px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 hover:scale-105 transition-all duration-300">
-                            <i class="fas fa-times mr-2"></i>Cancelar
+                            <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
                         </button>
                         <button type="submit" 
                                 wire:loading.attr="disabled"
@@ -579,7 +582,7 @@
                             </span>
                             <span wire:loading class="flex items-center">
                                 <i class="fas fa-spinner fa-spin mr-2"></i>
-                                Processando...
+                                {{ __('Processando...') }}
                             </span>
                         </button>
                     </div>

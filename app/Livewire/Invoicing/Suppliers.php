@@ -150,7 +150,7 @@ class Suppliers extends Component
             }
             
             $supplier->update($data);
-            $this->dispatch('success', message: 'Fornecedor atualizado com sucesso!');
+            $this->dispatch('success', message: __('Fornecedor atualizado com sucesso!'));
         } else {
             // Create supplier first to get ID
             $newSupplier = Supplier::create($data);
@@ -163,7 +163,7 @@ class Suppliers extends Component
                 $newSupplier->update(['logo' => $logoPath]);
             }
             
-            $this->dispatch('success', message: 'Fornecedor criado com sucesso!');
+            $this->dispatch('success', message: __('Fornecedor criado com sucesso!'));
         }
 
         $this->closeModal();
@@ -296,9 +296,9 @@ class Suppliers extends Component
             $supplier->delete();
             $this->showDeleteModal = false;
             $this->reset(['deletingSupplierId', 'deletingSupplierName']);
-            $this->dispatch('success', message: 'Fornecedor excluÃ­do com sucesso!');
+            $this->dispatch('success', message: __('Fornecedor excluído com sucesso!'));
         } catch (\Exception $e) {
-            $this->dispatch('error', message: 'Erro ao excluir fornecedor!');
+            $this->dispatch('error', message: __('Erro ao excluir fornecedor!'));
         }
     }
 

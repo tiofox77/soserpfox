@@ -194,7 +194,7 @@ class StockManagement extends Component
             $this->adjustNotes
         );
 
-        session()->flash('message', 'Stock ajustado com sucesso!');
+        session()->flash('message', __('Stock ajustado com sucesso!'));
         $this->showAdjustModal = false;
         $this->resetAdjustForm();
     }
@@ -248,7 +248,7 @@ class StockManagement extends Component
                 $this->transferNotes
             );
 
-            session()->flash('message', 'Transferência realizada com sucesso!');
+            session()->flash('message', __('Transferência realizada com sucesso!'));
             $this->showTransferModal = false;
             $this->resetTransferForm();
         } catch (\Exception $e) {
@@ -536,7 +536,9 @@ class StockManagement extends Component
         });
 
         if ($ok === 0) {
-            session()->flash('error', 'Não foi possível registar nenhum produto. ' . implode(' | ', $errors));
+            session()->flash('error', __('Não foi possível registar nenhum produto. :erros', [
+                'erros' => implode(' | ', $errors),
+            ]));
 
             return;
         }
