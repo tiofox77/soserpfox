@@ -30,6 +30,12 @@ class NumeroDocumentoAgtTest extends TenantTestCase
     {
         // updateOrCreate: a empresa de teste já traz séries criadas, e o par
         // (empresa, tipo, código) é único.
+        //
+        // Sem `is_default`: o que aqui se mede é o FORMATO do número, e a
+        // empresa de teste já traz uma série de facturas marcada como padrão.
+        // Marcar esta também deixava duas padrão do mesmo tipo — o defeito que
+        // o índice único de `padrao_unico` passou a recusar, e que fazia estes
+        // testes rebentar com 1062 mal o índice existisse.
         return InvoicingSeries::updateOrCreate(
             [
                 'tenant_id'     => $this->tenant->id,
@@ -43,7 +49,6 @@ class NumeroDocumentoAgtTest extends TenantTestCase
                 'next_number'    => 1,
                 'number_padding' => 6,
                 'is_active'      => true,
-                'is_default'     => true,
             ]
         );
     }

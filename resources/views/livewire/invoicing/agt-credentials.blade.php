@@ -74,6 +74,13 @@
         </div>
     </div>
 
+    {{-- O que está a acontecer NA PRÁTICA.
+         Os cartões acima dizem "Auto-submissão: Activa" e "Chave RSA: Não
+         instalada" lado a lado, e cabe a quem lê juntar as duas coisas. Este
+         aviso junta-as: com o interruptor ligado e a configuração incompleta,
+         os documentos não estão a ser comunicados — e diz quantos. --}}
+    <x-agt.aviso-comunicacao />
+
     {{-- Aviso se credenciais globais não estiverem configuradas --}}
     @if(!$hasGlobalCredentials)
     <div class="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">

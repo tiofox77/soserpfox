@@ -212,32 +212,53 @@ class NormalizeSeriesAndAtcud extends Command
                 continue;
             }
 
+            // O prefixo da série NOVA vem do catálogo, não da que se está a
+            // substituir. Copiá-lo levava o erro para a frente: uma série com
+            // 'PRF' produzia uma sucessora com 'PRF', e essa começa em 000001 —
+            // ainda não emitiu nada, portanto não há razão nenhuma para herdar
+            // um primeiro token que a AGT recusa com E32.
+            $prefixoNovo = InvoicingSeries::prefixoDe($serie->document_type) ?? $serie->prefix;
+
+            // A sucessora só herda o estatuto de padrão se a que substitui o
+            // tinha, ou se aquele tipo estiver sem padrão nenhuma. Este ramo
+            // percorre TODAS as séries usadas, não só as padrão: criar a nova
+            // sempre com `is_default => true` acrescentava uma segunda padrão
+            // sempre que a substituída fosse uma série secundária — e a antiga
+            // ficava desmarcada sem nunca o ter estado.
+            $assumePadrao = $serie->is_default
+                || InvoicingSeries::deveNascerPadrao((int) $serie->tenant_id, $serie->document_type);
+
             $this->line("   #{$serie->id} t{$serie->tenant_id} <fg=cyan>{$serie->prefix} "
                 . "{$serie->series_code}</> ({$emitidos} documento(s) fiscais) → "
-                . "nova série <fg=green>{$base}</> a começar em 000001, passa a ser a padrão");
+                . "nova série <fg=green>{$prefixoNovo} {$base}</> a começar em 000001"
+                . ($assumePadrao ? ', passa a ser a padrão' : ''));
 
             if (!$dry) {
-                DB::transaction(function () use ($serie, $base) {
-                    InvoicingSeries::create([
+                DB::transaction(function () use ($serie, $base, $prefixoNovo, $assumePadrao) {
+                    $nova = InvoicingSeries::create([
                         'tenant_id'      => $serie->tenant_id,
                         'document_type'  => $serie->document_type,
                         'series_code'    => $base,
                         'name'           => "Série {$base}",
-                        'prefix'         => $serie->prefix,
+                        'prefix'         => $prefixoNovo,
                         'include_year'   => $serie->include_year,
                         'next_number'    => 1,
                         'number_padding' => $serie->number_padding ?: 6,
-                        'is_default'     => true,
+                        // Nasce sem estatuto e só depois o recebe: é o
+                        // tornarPadrao() que desmarca a antiga no mesmo
+                        // movimento, sem as duas coexistirem.
+                        'is_default'     => false,
                         'is_active'      => true,
                         'current_year'   => now()->year,
                         'reset_yearly'   => $serie->reset_yearly,
-                        'description'    => "Série padrão AGT para {$serie->prefix}"
-                            . " (substitui {$serie->series_code})",
+                        'description'    => "Série padrão AGT para {$prefixoNovo}"
+                            . " (substitui {$serie->prefix} {$serie->series_code})",
                     ]);
 
                     // A antiga continua activa para consulta, mas deixa de numerar.
-                    $serie->is_default = false;
-                    $serie->save();
+                    if ($assumePadrao) {
+                        $nova->tornarPadrao();
+                    }
                 });
             }
             $tratadas++;

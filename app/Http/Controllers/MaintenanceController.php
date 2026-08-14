@@ -72,6 +72,18 @@ class MaintenanceController extends Controller
         // Séries canónicas. Só cria em falta e renomeia o que nunca numerou —
         // nunca toca numa série com documentos emitidos ou registada na AGT.
         'series:canonical',
+        // Diagnóstico das séries: só lê. É preciso em produção porque o prefixo
+        // errado não dá erro nenhum cá dentro — o documento sai, e só a AGT o
+        // recusa depois, com a factura já entregue ao cliente.
+        'series:diagnostico',
+        // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
+        // emitiram documentos só mudam com --forcar (mudar o prefixo a meio
+        // deixa a série com números de duas formas diferentes).
+        'series:corrigir-prefixos',
+        // Séries padrão duplicadas. Só desmarca as que nunca numeraram nada, e
+        // apenas quando há UMA com documentos emitidos — o resto fica listado
+        // para decisão humana. Sem --aplicar é simulação.
+        'series:corrigir-padrao',
         'agt:normalize',
         'agt:migrate-keys',
         'agt:producer-key',
@@ -556,10 +568,13 @@ class MaintenanceController extends Controller
             }
         }
 
-        // Stats globais Products por tenant
+        // Stats globais Products por tenant.
+        // A tabela é `invoicing_products` e não `products` — esta rota dava 500
+        // em produção desde sempre, e o diagnóstico que devia explicar os 403
+        // era ele próprio o erro.
         $r[] = '';
         $r[] = '--- Products por tenant ---';
-        $rows = \DB::table('products')->select('tenant_id', \DB::raw('count(*) as total'))->groupBy('tenant_id')->orderByDesc('total')->limit(10)->get();
+        $rows = \DB::table('invoicing_products')->select('tenant_id', \DB::raw('count(*) as total'))->groupBy('tenant_id')->orderByDesc('total')->limit(10)->get();
         foreach ($rows as $row) {
             $tName = \App\Models\Tenant::where('id', $row->tenant_id)->value('name') ?? '?';
             $r[] = "  tenant_id={$row->tenant_id} ({$tName}): {$row->total} produtos";
@@ -571,7 +586,7 @@ class MaintenanceController extends Controller
         $tenant = \App\Models\Tenant::where('nif', '5417289442')->first();
         if ($tenant) {
             $r[] = "  Tenant: #{$tenant->id} {$tenant->name}";
-            $sample = \DB::table('products')->where('tenant_id', $tenant->id)->limit(3)->get(['id','name','tenant_id','tax_type']);
+            $sample = \DB::table('invoicing_products')->where('tenant_id', $tenant->id)->limit(3)->get(['id','name','tenant_id','tax_type']);
             foreach ($sample as $p) { $r[] = "    - product #{$p->id} tenant_id={$p->tenant_id} tax_type={$p->tax_type}: {$p->name}"; }
         }
 
@@ -593,11 +608,19 @@ class MaintenanceController extends Controller
      * baixa de stock. A diferença entre SAÍDAS e o que RESTA diz se alguém
      * mexeu no stock sem passar pelo livro de movimentos.
      *
-     * Só CONTAGENS e quantidades. Não devolve números de documento, clientes
-     * nem valores — pode correr em produção sem expor nada de ninguém.
+     * Não devolve clientes nem valores, mas DEVOLVE números de documento, datas
+     * e estados (ver 'facturas' mais abaixo) — daí depender do token como todas
+     * as outras rotas daqui. A afirmação anterior de que "não expõe nada de
+     * ninguém" deixou de ser verdade quando essa lista foi acrescentada, e foi
+     * ela que fez passar despercebida a falta do ensureToken.
      */
     public function diagProduto(Request $request, string $token)
     {
+        // Faltava, e era a única rota de manutenção sem ele: sem esta linha
+        // qualquer valor servia de token e a rota devolvia números de documento,
+        // datas de emissão e estados de facturas de qualquer empresa (?tenant=).
+        $this->ensureToken($token);
+
         $tenantId = (int) $request->query('tenant');
         $termo    = trim((string) $request->query('q'));
 

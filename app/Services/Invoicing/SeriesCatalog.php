@@ -2,6 +2,8 @@
 
 namespace App\Services\Invoicing;
 
+use App\Models\Invoicing\InvoicingSeries;
+
 /**
  * Catálogo canónico das séries de documentos.
  *
@@ -20,40 +22,47 @@ class SeriesCatalog
     /**
      * O esquema acordado. A ordem é a de apresentação.
      *
+     * O `prefix` NÃO se escreve aqui — é derivado de InvoicingSeries::AGT_PREFIXES.
+     *
+     * Estava escrito à mão e tinha divergido: a proforma dizia 'PP' onde o
+     * catálogo AGT diz 'PR'. Não era só uma discrepância de tabela, porque este
+     * valor é gravado directamente na coluna `prefix` por dois caminhos — o
+     * provisionar() de cada empresa nova e o series:canonical, que reescreve o
+     * prefixo de séries já existentes. Daí vieram as 6 séries 'PP' do
+     * diagnóstico, e daí voltariam: o series:canonical repunha o 'PP' a seguir
+     * ao series:corrigir-prefixos ter posto 'PR'. Como a AGT lê o primeiro
+     * token do número para classificar o documento, isso é a diferença entre
+     * ser aceite e ser recusado com E32.
+     *
      * @return array<int, array{code: string, document_type: string, name: string, prefix: string}>
      */
     public static function canonico(): array
     {
-        return [
+        $esquema = [
             [
                 'code'          => 'SOSFR',
                 'document_type' => 'pos',
                 'name'          => 'Faturas-Recibo',
-                'prefix'        => 'FR',
             ],
             [
                 'code'          => 'SOSFT',
                 'document_type' => 'invoice',
                 'name'          => 'Faturas de Venda',
-                'prefix'        => 'FT',
             ],
             [
                 'code'          => 'SOSNC',
                 'document_type' => 'credit_note',
                 'name'          => 'Notas de Crédito',
-                'prefix'        => 'NC',
             ],
             [
                 'code'          => 'SOSND',
                 'document_type' => 'debit_note',
                 'name'          => 'Notas de Débito',
-                'prefix'        => 'ND',
             ],
             [
                 'code'          => 'SOSPROV',
                 'document_type' => 'proforma',
                 'name'          => 'Proformas de Venda',
-                'prefix'        => 'PP',
             ],
             [
                 // SOSFC e não SOSFTC: esse já é uma série de VENDA em produção,
@@ -61,21 +70,30 @@ class SeriesCatalog
                 'code'          => 'SOSFC',
                 'document_type' => 'purchase',
                 'name'          => 'Faturas de Compra',
-                'prefix'        => 'FC',
             ],
             [
                 'code'          => 'SOSPROC',
                 'document_type' => 'purchase_proforma',
                 'name'          => 'Proformas de Compra',
-                'prefix'        => 'PC',
+                // Tipo interno: nunca vai à AGT, logo não tem prefixo de
+                // catálogo fiscal e o da casa é o único que existe.
+                'prefixo_interno' => 'PC',
             ],
             [
                 'code'          => 'SOSRC',
                 'document_type' => 'receipt',
                 'name'          => 'Recibos',
-                'prefix'        => 'RC',
             ],
         ];
+
+        foreach ($esquema as $i => $serie) {
+            $esquema[$i]['prefix'] = InvoicingSeries::prefixoDe($serie['document_type'])
+                ?? ($serie['prefixo_interno'] ?? 'DOC');
+
+            unset($esquema[$i]['prefixo_interno']);
+        }
+
+        return $esquema;
     }
 
     /**
@@ -108,7 +126,12 @@ class SeriesCatalog
                 'prefix'        => $serie['prefix'],
                 'document_type' => $serie['document_type'],
                 'next_number'   => 1,
-                'is_default'    => true,
+                // O guarda acima é pelo CÓDIGO, não pelo tipo: numa empresa que
+                // já tenha uma série daquele tipo com outro código (as antigas
+                // 'A', '01'), a canónica era criada ao lado e nascia padrão
+                // também. Duas padrão do mesmo tipo e a numeração fiscal a
+                // depender da ordem do SELECT.
+                'is_default'    => InvoicingSeries::deveNascerPadrao($tenantId, $serie['document_type']),
                 'is_active'     => true,
             ]);
 
@@ -116,6 +139,20 @@ class SeriesCatalog
         }
 
         return $criadas;
+    }
+
+    /**
+     * Documento interno: existe, é legítimo, e nunca se comunica à AGT.
+     *
+     * O series:diagnostico e o series:corrigir-prefixos já procuravam este
+     * método (method_exists) e, por ele não existir, caíam cada um na sua cópia
+     * local da lista. Delega no catálogo dos tipos para haver uma definição só:
+     * quando um tipo interno novo aparecer, acrescenta-se em TIPOS_INTERNOS e os
+     * dois comandos passam a conhecê-lo sem serem editados.
+     */
+    public static function ehTipoInterno(string $documentType): bool
+    {
+        return InvoicingSeries::tipoInterno($documentType);
     }
 
     /** O documento canónico deste tipo, ou null se o tipo não estiver no catálogo. */

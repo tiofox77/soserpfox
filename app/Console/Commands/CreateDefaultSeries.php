@@ -53,47 +53,62 @@ class CreateDefaultSeries extends Command
     {
         $this->info("Criando séries para Tenant ID: {$tenantId}");
         
-        // Mapeamento de tipos para prefixos AGT
+        // Só os NOMES ficam aqui. O prefixo é um código fiscal e vem sempre de
+        // InvoicingSeries::AGT_PREFIXES: esta lista já teve a sua própria cópia
+        // do mapa, e uma cópia é uma divergência à espera de acontecer — quem
+        // corrigisse o catálogo não corrigia as séries criadas por este comando.
         $documentTypes = [
-            'proforma' => ['prefix' => 'PR', 'name' => 'Proforma de Venda'],
-            'invoice' => ['prefix' => 'FT', 'name' => 'Fatura de Venda'],
-            'pos' => ['prefix' => 'FR', 'name' => 'Fatura-Recibo (POS)'],
-            'receipt' => ['prefix' => 'RC', 'name' => 'Recibo'],
-            'credit_note' => ['prefix' => 'NC', 'name' => 'Nota de Crédito'],
-            'debit_note' => ['prefix' => 'ND', 'name' => 'Nota de Débito'],
-            'purchase' => ['prefix' => 'FC', 'name' => 'Fatura de Compra'],
+            'proforma' => 'Proforma de Venda',
+            'invoice' => 'Fatura de Venda',
+            'pos' => 'Fatura-Recibo (POS)',
+            'receipt' => 'Recibo',
+            'credit_note' => 'Nota de Crédito',
+            'debit_note' => 'Nota de Débito',
+            'purchase' => 'Fatura de Compra',
         ];
-        
-        foreach ($documentTypes as $type => $config) {
+
+        foreach ($documentTypes as $type => $name) {
+            $prefix = InvoicingSeries::prefixoDe($type);
+
+            // Sem entrada no catálogo não se inventa prefixo: uma série assim
+            // emitiria documentos que a AGT não consegue classificar.
+            if ($prefix === null) {
+                $this->warn("  ⚠️  {$name}: sem prefixo no catálogo AGT — ignorado.");
+                continue;
+            }
+
             // Verificar se já existe
             $exists = InvoicingSeries::where('tenant_id', $tenantId)
                 ->where('document_type', $type)
                 ->where('series_code', 'A')
                 ->exists();
-            
+
             if ($exists) {
-                $this->warn("  ⚠️  {$config['name']} ({$config['prefix']} A) já existe");
+                $this->warn("  ⚠️  {$name} ({$prefix} A) já existe");
                 continue;
             }
-            
+
             // Criar série padrão A
             InvoicingSeries::create([
                 'tenant_id' => $tenantId,
                 'document_type' => $type,
                 'series_code' => 'A',
-                'name' => "Série {$config['prefix']} A",
-                'prefix' => $config['prefix'],
+                'name' => "Série {$prefix} A",
+                'prefix' => $prefix,
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
-                'is_default' => true,
+                // Este comando corre sobre empresas que já podem ter séries: a
+                // padrão daquele tipo pode existir e estar em uso. Gravar `true`
+                // às cegas punha duas a disputar a numeração do mesmo tipo.
+                'is_default' => InvoicingSeries::deveNascerPadrao((int) $tenantId, $type),
                 'is_active' => true,
                 'current_year' => now()->year,
                 'reset_yearly' => true,
-                'description' => "Série padrão AGT para {$config['name']}",
+                'description' => "Série padrão AGT para {$name}",
             ]);
-            
-            $this->info("  ✅ {$config['name']} ({$config['prefix']} A) criada");
+
+            $this->info("  ✅ {$name} ({$prefix} A) criada");
         }
     }
 }

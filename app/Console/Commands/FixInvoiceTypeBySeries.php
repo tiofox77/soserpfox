@@ -29,11 +29,24 @@ class FixInvoiceTypeBySeries extends Command
 
     protected $description = 'Corrige invoice_type das faturas para coincidir com o tipo da série (ex.: série FR gravada como FT)';
 
-    /** document_type da série → invoice_type esperado */
-    protected array $map = [
-        'pos'     => 'FR',
-        'invoice' => 'FT',
-    ];
+    /**
+     * document_type da série → invoice_type esperado.
+     *
+     * Os valores saem do catálogo AGT e não de uma cópia à mão. É o mesmo
+     * catálogo: o invoice_type da factura é o código de documento da AGT, o
+     * mesmo que forma o primeiro bloco do número.
+     *
+     * Esta era a última cópia do mapa espalhada pelo projecto. Havia quatro, e
+     * foi de uma delas — a que estava no rótulo do formulário, a dizer
+     * "Prefixo (FT, PRF, RC)" — que saíram as 11 séries gravadas com 'PRF'.
+     */
+    protected function mapa(): array
+    {
+        return [
+            'pos'     => \App\Models\Invoicing\InvoicingSeries::prefixoDe('pos'),
+            'invoice' => \App\Models\Invoicing\InvoicingSeries::prefixoDe('invoice'),
+        ];
+    }
 
     public function handle(): int
     {
@@ -46,7 +59,7 @@ class FixInvoiceTypeBySeries extends Command
         $total = 0;
         $skippedAgt = 0;
 
-        foreach ($this->map as $seriesType => $expected) {
+        foreach ($this->mapa() as $seriesType => $expected) {
             $q = DB::table('invoicing_sales_invoices as f')
                 ->join('invoicing_series as s', 's.id', '=', 'f.series_id')
                 ->where('s.document_type', $seriesType)

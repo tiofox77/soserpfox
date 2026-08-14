@@ -9,6 +9,7 @@ use App\Models\Invoicing\Tax;
 use App\Models\Client;
 use App\Models\Supplier;
 use App\Models\Treasury\PaymentMethod;
+use App\Services\Invoicing\SeriesCatalog;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -97,7 +98,12 @@ class Settings extends Component
     public $seriesName = '';
     public $seriesPrefix = '';
     public $seriesDescription = '';
-    
+
+    // Confirmação consciente antes de abrir uma numeração em paralelo
+    // (ver setDefaultSeries).
+    public ?int $seriePadraoPendente = null;
+    public array $avisoNumeracaoParalela = [];
+
     public function mount()
     {
         $this->settings = InvoicingSettings::forTenant(activeTenantId());
@@ -234,12 +240,49 @@ class Settings extends Component
         ]);
     }
     
+    /**
+     * O prefixo que este tipo de documento TEM de ter — ou null se o tipo não
+     * pertencer a catálogo nenhum.
+     *
+     * Documento fiscal → catálogo AGT, que é a fonte única. Documento interno,
+     * como a proforma de compra → catálogo canónico da casa, o mesmo sítio de
+     * onde já sai o código da série: nunca vai à AGT, logo não tem nem pode ter
+     * prefixo fiscal. Devolver null é o que impede que se componha um prefixo a
+     * partir de um tipo que ninguém reconhece — inventá-lo é como nasceram as
+     * séries 'PRF' e 'PP'.
+     */
+    protected function prefixoDoCatalogo(string $documentType): ?string
+    {
+        $agt = InvoicingSeries::prefixoDe($documentType);
+
+        if ($agt !== null) {
+            return $agt;
+        }
+
+        if (InvoicingSeries::tipoInterno($documentType)) {
+            return SeriesCatalog::paraTipo($documentType)['prefix'] ?? null;
+        }
+
+        return null;
+    }
+
     // Gestão de Séries
-    public function openNewSeriesModal($documentType, $prefix)
+    public function openNewSeriesModal($documentType)
     {
         $this->reset(['editingSeriesId', 'seriesCode', 'seriesName', 'seriesDescription']);
-        $this->seriesDocumentType = $documentType;
-        $this->seriesPrefix = $prefix;
+        $this->seriesDocumentType = (string) $documentType;
+
+        // O prefixo vem do catálogo, não do que o browser mandar. Era o ecrã
+        // que o escolhia e o mandava de volta: bastava alterar o pedido para
+        // criar uma série com o primeiro bloco do número à escolha — e é esse
+        // bloco que a AGT lê para classificar o documento.
+        //
+        // O segundo argumento — o prefixo — deixou de existir de propósito.
+        // Enquanto ficou como valor de recurso continuava a ser aceite: era
+        // exactamente esse valor que o saveSeries() gravava sempre que o tipo
+        // não constasse do catálogo.
+        $this->seriesPrefix = $this->prefixoDoCatalogo((string) $documentType) ?? '';
+
         $this->showSeriesModal = true;
     }
     
@@ -291,19 +334,52 @@ class Settings extends Component
 
             $series->update([
                 'series_code' => $this->seriesCode,
-                'name' => $this->seriesName ?: "Série {$this->seriesPrefix} {$this->seriesCode}",
+                // O prefixo do nome sai da própria série e não de $seriesPrefix:
+                // esse chega do browser e ficava escrito no nome de uma série
+                // cujo prefixo real é outro.
+                'name' => $this->seriesName ?: "Série {$series->prefix} {$this->seriesCode}",
                 'description' => $this->seriesDescription,
             ]);
-            
+
             $message = 'Série atualizada com sucesso!';
         } else {
-            // Criar nova série
+            // Criar nova série.
+            //
+            // O prefixo é sempre o do catálogo. $seriesPrefix é propriedade
+            // pública — chega do browser — e é ela que ia parar à coluna que
+            // forma o primeiro bloco do número. Assim nascem as séries com 'PRF'
+            // ou 'PP' onde a AGT espera 'PR': documentos recusados com E32.
+            //
+            // O TIPO também chega do browser e também não era validado, o que
+            // reabria a mesma porta pelo outro lado: com um tipo fora do
+            // catálogo, o prefixo caía no valor do formulário e voltava a ser
+            // texto livre. Um tipo que o catálogo não conhece não dá série
+            // nenhuma — o prefixo de um documento fiscal não se adivinha.
+            $tipo = (string) $this->seriesDocumentType;
+            $prefixoCanonico = $this->prefixoDoCatalogo($tipo);
+
+            if ($prefixoCanonico === null) {
+                $this->showSeriesModal = false;
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => __('Tipo de documento desconhecido (:tipo). A série não foi criada.', [
+                        'tipo' => $tipo !== '' ? $tipo : __('vazio'),
+                    ]),
+                ]);
+
+                return;
+            }
+
+            // O ecrã passa a mostrar o que ficou gravado, e não o que veio do
+            // pedido.
+            $this->seriesPrefix = $prefixoCanonico;
+
             InvoicingSeries::create([
                 'tenant_id' => activeTenantId(),
-                'document_type' => $this->seriesDocumentType,
+                'document_type' => $tipo,
                 'series_code' => $this->seriesCode,
-                'name' => $this->seriesName ?: "Série {$this->seriesPrefix} {$this->seriesCode}",
-                'prefix' => $this->seriesPrefix,
+                'name' => $this->seriesName ?: "Série {$prefixoCanonico} {$this->seriesCode}",
+                'prefix' => $prefixoCanonico,
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
@@ -324,24 +400,69 @@ class Settings extends Component
         ]);
     }
     
-    public function setDefaultSeries($seriesId)
+    public function setDefaultSeries($seriesId, bool $confirmado = false)
     {
         $series = InvoicingSeries::where('tenant_id', activeTenantId())->find($seriesId);
 
-        if ($series) {
-            // Remover padrão de todas as séries do mesmo tipo
-            InvoicingSeries::where('tenant_id', activeTenantId())
-                ->where('document_type', $series->document_type)
-                ->update(['is_default' => false]);
-            
-            // Definir nova série como padrão
-            $series->update(['is_default' => true]);
-            
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => __('Série padrão definida com sucesso!')
-            ]);
+        if (!$series) {
+            return;
         }
+
+        // Passar o padrão para uma série POR ESTREAR enquanto outra do mesmo
+        // tipo já vai adiantada abre uma segunda numeração a andar em paralelo
+        // com a primeira — duas sequências do mesmo tipo de documento no mesmo
+        // exercício, que é o que não passa num SAFT.
+        //
+        // Pode ser deliberado (mudar de série no início do ano é exactamente
+        // isto), por isso não se bloqueia. Mas tem de ser uma decisão tomada, e
+        // não o efeito lateral de um clique — daí a confirmação com os números
+        // concretos das duas séries à frente dos olhos.
+        if (!$confirmado) {
+            $adiantada = InvoicingSeries::where('tenant_id', activeTenantId())
+                ->where('document_type', $series->document_type)
+                ->where('id', '!=', $series->id)
+                ->where('next_number', '>', 1)
+                ->orderByDesc('next_number')
+                ->first();
+
+            if ((int) $series->next_number <= 1 && $adiantada) {
+                $this->seriePadraoPendente = $series->id;
+                $this->avisoNumeracaoParalela = [
+                    'nova'           => $series->series_code,
+                    'nova_proximo'   => (int) $series->next_number,
+                    'em_uso'         => $adiantada->series_code,
+                    'em_uso_proximo' => (int) $adiantada->next_number,
+                ];
+
+                return;
+            }
+        }
+
+        // Aqui é o utilizador a ESCOLHER a padrão: desmarcar as outras e marcar
+        // esta é o pedido, não um efeito lateral. O tornarPadrao() faz as duas
+        // coisas numa transacção — em passos soltos, como estava, uma falha entre
+        // os dois UPDATEs deixava o tipo sem padrão nenhuma.
+        $series->tornarPadrao();
+
+        $this->reset(['seriePadraoPendente', 'avisoNumeracaoParalela']);
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => __('Série padrão definida com sucesso!')
+        ]);
+    }
+
+    /** Confirmação explícita do aviso de numeração em paralelo. */
+    public function confirmarSeriePadrao()
+    {
+        if ($this->seriePadraoPendente) {
+            $this->setDefaultSeries($this->seriePadraoPendente, true);
+        }
+    }
+
+    public function cancelarSeriePadrao()
+    {
+        $this->reset(['seriePadraoPendente', 'avisoNumeracaoParalela']);
     }
     
     public function render()

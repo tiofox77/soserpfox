@@ -11,6 +11,12 @@ class InvoicingSeriesSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     *
+     * Os prefixos vêm todos de InvoicingSeries::prefixoDe(). Estavam escritos à
+     * mão e a proforma dizia 'PRF' — é daqui que vêm as séries 'PRF' que a AGT
+     * recusa com E32, porque é o primeiro token do número que ela lê para
+     * classificar o documento. Um seeder que grava um código fiscal tem de o
+     * pedir ao catálogo, senão volta a divergir dele em silêncio.
      */
     public function run(): void
     {
@@ -36,11 +42,15 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'invoice',
                 'series_code' => 'A',
                 'name' => 'Vendas Loja - Série A',
-                'prefix' => 'FT',
+                'prefix' => InvoicingSeries::prefixoDe('invoice'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
-                'is_default' => true, // ✅ PADRÃO
+                // Padrão só se aquele tipo ainda não tiver nenhuma. O guarda do
+                // topo salta empresas COM séries, mas é por contagem total: uma
+                // empresa a quem faltasse só um tipo passava por aqui e ganhava
+                // uma segunda padrão nos tipos que já tinha.
+                'is_default' => InvoicingSeries::deveNascerPadrao($tenant->id, 'invoice'),
                 'is_active' => true,
                 'current_year' => now()->year,
                 'reset_yearly' => true,
@@ -52,7 +62,7 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'invoice',
                 'series_code' => 'B',
                 'name' => 'Vendas Online - Série B',
-                'prefix' => 'FT',
+                'prefix' => InvoicingSeries::prefixoDe('invoice'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
@@ -68,7 +78,7 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'invoice',
                 'series_code' => 'C',
                 'name' => 'Exportação - Série C',
-                'prefix' => 'FT',
+                'prefix' => InvoicingSeries::prefixoDe('invoice'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
@@ -87,11 +97,11 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'proforma',
                 'series_code' => '01',
                 'name' => 'Orçamentos Gerais',
-                'prefix' => 'PRF',
+                'prefix' => InvoicingSeries::prefixoDe('proforma'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
-                'is_default' => true, // ✅ PADRÃO
+                'is_default' => InvoicingSeries::deveNascerPadrao($tenant->id, 'proforma'),
                 'is_active' => true,
                 'current_year' => now()->year,
                 'reset_yearly' => true,
@@ -103,7 +113,7 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'proforma',
                 'series_code' => '02',
                 'name' => 'Projetos Especiais',
-                'prefix' => 'PRF',
+                'prefix' => InvoicingSeries::prefixoDe('proforma'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
@@ -122,11 +132,11 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'receipt',
                 'series_code' => '01',
                 'name' => 'Recibos Gerais',
-                'prefix' => 'RC',
+                'prefix' => InvoicingSeries::prefixoDe('receipt'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
-                'is_default' => true, // ✅ PADRÃO
+                'is_default' => InvoicingSeries::deveNascerPadrao($tenant->id, 'receipt'),
                 'is_active' => true,
                 'current_year' => now()->year,
                 'reset_yearly' => true,
@@ -138,7 +148,7 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'receipt',
                 'series_code' => '02',
                 'name' => 'Recibos Adiantamento',
-                'prefix' => 'RC',
+                'prefix' => InvoicingSeries::prefixoDe('receipt'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
@@ -157,11 +167,11 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'credit_note',
                 'series_code' => '01',
                 'name' => 'Notas de Crédito',
-                'prefix' => 'NC',
+                'prefix' => InvoicingSeries::prefixoDe('credit_note'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
-                'is_default' => true, // ✅ PADRÃO
+                'is_default' => InvoicingSeries::deveNascerPadrao($tenant->id, 'credit_note'),
                 'is_active' => true,
                 'current_year' => now()->year,
                 'reset_yearly' => true,
@@ -176,11 +186,11 @@ class InvoicingSeriesSeeder extends Seeder
                 'document_type' => 'debit_note',
                 'series_code' => '01',
                 'name' => 'Notas de Débito',
-                'prefix' => 'ND',
+                'prefix' => InvoicingSeries::prefixoDe('debit_note'),
                 'include_year' => true,
                 'next_number' => 1,
                 'number_padding' => 6,
-                'is_default' => true, // ✅ PADRÃO
+                'is_default' => InvoicingSeries::deveNascerPadrao($tenant->id, 'debit_note'),
                 'is_active' => true,
                 'current_year' => now()->year,
                 'reset_yearly' => true,

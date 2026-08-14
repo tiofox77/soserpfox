@@ -109,8 +109,16 @@ class SeriesApplyCanonicalCommand extends Command
                     'series_code' => $canonica['code'],
                     'name'        => $canonica['name'],
                     'prefix'      => $canonica['prefix'],
-                    'is_default'  => true,
                 ]);
+
+                // Renomear não é escolher a padrão. O `is_default => true` que
+                // aqui estava marcava esta série mesmo quando outra do mesmo tipo
+                // já o era — e ficavam duas, com a emissão a escolher pela ordem
+                // do SELECT. Se ela própria já é a padrão, deveNascerPadrao()
+                // devolve false e nada muda, que é o que se quer.
+                if (InvoicingSeries::deveNascerPadrao($tenantId, $canonica['document_type'])) {
+                    $renomeavel->tornarPadrao();
+                }
             }
 
             return [
@@ -142,7 +150,10 @@ class SeriesApplyCanonicalCommand extends Command
                 'prefix'        => $canonica['prefix'],
                 'document_type' => $canonica['document_type'],
                 'next_number'   => 1,
-                'is_default'    => true,
+                // Chega-se aqui sem nenhuma série do tipo, portanto isto dá
+                // true — mas pergunta-se na mesma: quem vier alterar as
+                // condições acima não fica com um `true` fixo à espera.
+                'is_default'    => InvoicingSeries::deveNascerPadrao($tenantId, $canonica['document_type']),
                 'is_active'     => true,
             ]);
         }

@@ -317,6 +317,54 @@ class InvoicingSeries extends Model
         return $this->formatNumber($this->next_number);
     }
 
+    /**
+     * Passa ESTA série a padrão do seu tipo, tirando o estatuto às outras.
+     *
+     * Ponto ÚNICO de escrita de is_default=true. Sete sítios gravavam o literal
+     * `true` sem olhar para o que já lá estava, e o resultado medido em produção
+     * foram 8 casos com mais do que uma série marcada como padrão para o mesmo
+     * tipo de documento na mesma empresa. Qual delas a emissão apanha depende da
+     * ordem que a base de dados devolver — e é ela que decide o número do próximo
+     * documento fiscal.
+     *
+     * Dentro de uma transacção porque desmarcar as outras e marcar esta são um só
+     * facto: entre os dois UPDATEs há um instante em que aquele tipo não tem
+     * padrão nenhuma, e quem emitisse um documento nesse instante não a
+     * encontrava.
+     *
+     * A ORDEM também importa, e não é arbitrária: desmarcar primeiro, marcar
+     * depois. Ao contrário, as duas coexistiriam durante um statement e o índice
+     * único de `padrao_unico` recusava a operação.
+     */
+    public function tornarPadrao(): void
+    {
+        DB::transaction(function () {
+            static::where('tenant_id', $this->tenant_id)
+                ->where('document_type', $this->document_type)
+                ->whereKeyNot($this->getKey())
+                ->where('is_default', true)
+                ->update(['is_default' => false]);
+
+            $this->update(['is_default' => true]);
+        });
+    }
+
+    /**
+     * Uma série NOVA deste tipo deve nascer como padrão?
+     *
+     * Só quando aquela empresa ainda não tem nenhuma padrão para o tipo. É o que
+     * os sítios de CRIAÇÃO passam a perguntar em vez de escreverem `true`: criar
+     * uma série nunca é escolher a padrão do negócio — isso é um acto deliberado
+     * do utilizador no ecrã de definições, e esse usa tornarPadrao().
+     */
+    public static function deveNascerPadrao(int $tenantId, string $documentType): bool
+    {
+        return !static::where('tenant_id', $tenantId)
+            ->where('document_type', $documentType)
+            ->where('is_default', true)
+            ->exists();
+    }
+
     // Get default series for document type
     public static function getDefaultSeries($tenantId, $documentType)
     {
@@ -325,13 +373,48 @@ class InvoicingSeries extends Model
             ->where('is_default', true)
             ->where('is_active', true)
             ->first();
-        
-        // Se não existe, criar série padrão AGT
-        if (!$series) {
-            $series = static::createDefaultSeries($tenantId, $documentType);
+
+        if ($series) {
+            return $series;
         }
-        
-        return $series;
+
+        // Sem padrão ACTIVA — o que não quer dizer que não haja série nenhuma.
+        // A padrão pode estar desactivada, e o estatuto continua a ser dela:
+        // quem a desactivou tomou uma decisão e não é aqui que se lhe mexe. O
+        // que falta é uma série ACTIVA por onde numerar, e havendo uma
+        // reaproveita-se em vez de criar outra.
+        //
+        // Sem este passo o método deixava de convergir: a série que o
+        // createDefaultSeries cria já não nasce padrão (deveNascerPadrao), pelo
+        // que a chamada SEGUINTE não a encontrava e voltava a tentar criá-la —
+        // com o mesmo código, contra o unique (tenant_id, document_type,
+        // series_code). A primeira venda passava e todas as outras estoiravam
+        // com 1062, no POS, que chama isto no próprio render.
+        $activa = static::where('tenant_id', $tenantId)
+            ->where('document_type', $documentType)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->first();
+
+        if ($activa) {
+            return $activa;
+        }
+
+        // Nem uma activa. Ainda assim pode haver série — todas desactivadas — e
+        // então criar outra é a pior das saídas: abre uma segunda numeração do
+        // mesmo tipo no mesmo exercício, que é o que reprova num SAFT, e ainda
+        // por cima nem chega a criar-se, porque o código é o mesmo e bate no
+        // unique (tenant_id, document_type, series_code). Reaproveita-se a que
+        // existe, começando pela padrão. Emitir com ela é outra conversa e tem
+        // porteiro próprio: o getIssuanceSeries exige is_active e recusa.
+        $qualquer = static::where('tenant_id', $tenantId)
+            ->where('document_type', $documentType)
+            ->orderByDesc('is_default')
+            ->orderBy('id')
+            ->first();
+
+        // Se não existe nenhuma, criar série padrão AGT
+        return $qualquer ?? static::createDefaultSeries($tenantId, $documentType);
     }
 
     /**
@@ -401,6 +484,27 @@ class InvoicingSeries extends Model
     /**
      * Prefixo AGT obrigatório por tipo de documento. Fixo pela AGT — não é
      * escolha nossa (FT para factura, NC para nota de crédito, etc.).
+     *
+     * FONTE ÚNICA do prefixo. O mesmo mapa estava copiado noutros sítios — no
+     * createDefaultSeries aqui em baixo, no comando series:create-defaults e no
+     * ecrã de definições — e as cópias divergiam sem ninguém dar por isso: o
+     * ecrã mostrava o prefixo de uma cópia, o número do documento saía com o da
+     * coluna `prefix`, e quem olhasse para o ecrã via tudo certo.
+     *
+     * Não é cosmético. A AGT lê o PRIMEIRO TOKEN do número para classificar o
+     * documento (ver formatNumber): dos que foram entregues com o token errado,
+     * 25 em 25 foram recusados com E32; os 5 com o token certo passaram todos.
+     *
+     * Só tem tipos FISCAIS. Um tipo que não esteja aqui é uma de duas coisas
+     * muito diferentes, e quem lê o mapa tem de as separar:
+     *
+     *   · está em TIPOS_INTERNOS → documento interno, legítimo, que nunca é
+     *     comunicado à AGT e por isso não tem — nem pode ter — prefixo do
+     *     catálogo fiscal;
+     *   · não está em lado nenhum → tipo desconhecido, quase de certeza um erro.
+     *
+     * Usar prefixoDe() / tipoInterno() / tipoDesconhecido() em vez de ler o
+     * array à mão, que é como as cópias começam.
      */
     public const AGT_PREFIXES = [
         'invoice'     => 'FT',
@@ -413,6 +517,40 @@ class InvoicingSeries extends Model
         'purchase'    => 'FC',
         'transport'   => 'GT',
     ];
+
+    /**
+     * Tipos que existem no produto mas não são documentos fiscais: a proforma de
+     * compra é interna, nunca vai à AGT e portanto não tem prefixo do catálogo.
+     * Sem esta lista era indistinguível de um document_type escrito com erro, e
+     * qualquer validação contra o catálogo recusava-a.
+     *
+     * Ficam numa constante à parte, e não dentro de AGT_PREFIXES com valor null,
+     * porque há código que percorre os VALORES daquele mapa (o agt:normalize
+     * passa cada um a preg_quote); um null no meio dos valores rebentava lá, sem
+     * relação visível com o tipo que se acrescentou aqui.
+     */
+    public const TIPOS_INTERNOS = [
+        'purchase_proforma',
+    ];
+
+    /** O prefixo AGT deste tipo, ou null se não for documento fiscal. */
+    public static function prefixoDe(string $documentType): ?string
+    {
+        return self::AGT_PREFIXES[$documentType] ?? null;
+    }
+
+    /** Documento interno: existe, é legítimo, e não se comunica à AGT. */
+    public static function tipoInterno(string $documentType): bool
+    {
+        return in_array($documentType, self::TIPOS_INTERNOS, true);
+    }
+
+    /** Tipo que não conhecemos de todo — nem fiscal, nem interno. */
+    public static function tipoDesconhecido(string $documentType): bool
+    {
+        return !isset(self::AGT_PREFIXES[$documentType])
+            && !self::tipoInterno($documentType);
+    }
 
     /**
      * Código de série padrão da casa: SOS + prefixo AGT (SOSFT, SOSRC, SOSNC…).
@@ -436,40 +574,52 @@ class InvoicingSeries extends Model
             return $canonica['code'];
         }
 
-        return 'SOS' . (self::AGT_PREFIXES[$documentType] ?? 'DOC');
+        return 'SOS' . (self::prefixoDe($documentType) ?? 'DOC');
     }
 
     // Criar série padrão AGT Angola
     public static function createDefaultSeries($tenantId, $documentType)
     {
-        // Mapeamento de tipos para prefixos AGT
-        $agtPrefixes = [
-            'invoice' => 'FT',      // Fatura
-            'proforma' => 'PR',     // Proforma
-            'receipt' => 'RC',      // Recibo
-            'pos' => 'FR',          // Fatura-Recibo
-            'credit_note' => 'NC',  // Nota de Crédito
-            'debit_note' => 'ND',   // Nota de Débito
-            'advance' => 'AD',      // Adiantamento
-            'purchase' => 'FC',     // Fatura de Compra
-        ];
-        
-        $prefix = $agtPrefixes[$documentType] ?? 'DOC';
+        // Vinha daqui uma segunda cópia do mapa de prefixos — e desactualizada:
+        // não tinha 'transport', pelo que uma guia criada por esta via saía com
+        // 'DOC' no primeiro token em vez de 'GT'.
+        $prefix = static::prefixoDe($documentType);
+
+        if ($prefix === null) {
+            // Um tipo interno não tem prefixo AGT: o dele é escolha da casa e
+            // vem do catálogo canónico, o mesmo sítio de onde já vem o código.
+            // Para um tipo desconhecido fica 'DOC', para não inventar um código
+            // fiscal a partir de um nome que ninguém reconhece.
+            $prefix = static::tipoInterno($documentType)
+                ? (\App\Services\Invoicing\SeriesCatalog::paraTipo($documentType)['prefix'] ?? 'DOC')
+                : 'DOC';
+        }
+
         $seriesCode = static::defaultSeriesCode($documentType);
 
         // Buscar configurações para série inicial
         $settings = InvoicingSettings::forTenant($tenantId);
 
-        return static::create([
+        // firstOrCreate e não create: o código é sempre o mesmo para o par
+        // (tenant, tipo), pelo que duas chamadas ao mesmo tempo — dois postos a
+        // abrir o POS, um pedido e o job que o segue — batiam no unique e a
+        // segunda estoirava com 1062. Existindo já a linha, é essa que serve;
+        // criar uma variante do código só abria uma numeração paralela.
+        return static::firstOrCreate([
             'tenant_id' => $tenantId,
             'document_type' => $documentType,
             'series_code' => $seriesCode,   // Padrão da casa: SOSFT, SOSRC, ...
+        ], [
             'name' => "Série {$seriesCode}",
             'prefix' => $prefix,   // FT, FR, NC, etc. (fixo AGT)
             'include_year' => true,
             'next_number' => 1,
             'number_padding' => 6,
-            'is_default' => true,
+            // Só assume o estatuto se aquele tipo ainda não tiver padrão. Este
+            // método é chamado pelo getDefaultSeries() quando não encontra série
+            // nenhuma ACTIVA — e uma padrão desactivada continua a ser a padrão,
+            // pelo que gravar `true` aqui criava a segunda.
+            'is_default' => static::deveNascerPadrao((int) $tenantId, $documentType),
             'is_active' => true,
             'current_year' => now()->year,
             'reset_yearly' => true,

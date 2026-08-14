@@ -608,7 +608,13 @@
                 return (await coll.toArray()).filter(p =>
                     (p.name || '').toLowerCase().includes(s) ||
                     (p.sku || '').toLowerCase().includes(s) ||
-                    (p.barcode || '').toLowerCase().includes(s)
+                    (p.barcode || '').toLowerCase().includes(s) ||
+                    // Numa farmácia pergunta-se pela substância, não pela marca:
+                    // quem pede "paracetamol" não sabe se a caixa diz Ben-u-ron.
+                    // Numa loja de roupa pergunta-se pelo tamanho, que não está
+                    // no nome do artigo nem no código.
+                    (p.active_ingredient || '').toLowerCase().includes(s) ||
+                    (p.size || '').toLowerCase().includes(s)
                 );
             }
             return coll.toArray();
@@ -995,6 +1001,77 @@
             const m = await db.meta.get(key);
             return m ? m.value : null;
         },
+
+        /**
+         * Cópia de segurança do que está por sincronizar.
+         *
+         * A fila vive em IndexedDB, no dispositivo. Se o telemóvel se perde,
+         * se o navegador limpa os dados do site, ou se alguém carrega em
+         * "Reiniciar tudo" antes de sincronizar, as vendas desaparecem — e
+         * essas vendas já aconteceram, com dinheiro trocado e talão entregue.
+         * Depois não há de onde as tirar.
+         *
+         * Vai só o que está POR ENVIAR. O catálogo, as séries e as taxas vêm
+         * do servidor e não se perdem — inclui-los fazia um ficheiro dez vezes
+         * maior sem salvar nada.
+         *
+         * Funciona sem rede: o Blob e o createObjectURL são do navegador.
+         */
+        async exportarCopia() {
+            const fila = await db.sync_queue.where('status').notEqual('done').toArray();
+            const vendas = await db.pos_sales.where('_synced').equals(0).toArray();
+            const clientes = await db.clients.where('_synced').equals(0).toArray();
+            const rascunhos = await db.draft_documents.where('_synced').equals(0).toArray();
+
+            const meta = {};
+            for (const chave of ['shift', 'last_sync', 'tenant_id', 'user']) {
+                const m = await db.meta.get(chave);
+                if (m) meta[chave] = m.value;
+            }
+
+            const copia = {
+                formato: 'soserp.pwa.copia',
+                versao: 1,
+                gerado_em: new Date().toISOString(),
+                tenant_id: window.SOS_TENANT_ID || meta.tenant_id || null,
+                utilizador: {
+                    id: window.SOS_USER_ID || null,
+                    nome: window.SOS_USER_NAME || (meta.user && meta.user.name) || null,
+                },
+                dispositivo: navigator.userAgent,
+                contagens: {
+                    fila: fila.length,
+                    vendas: vendas.length,
+                    clientes: clientes.length,
+                    rascunhos: rascunhos.length,
+                },
+                dados: {
+                    sync_queue: fila,
+                    pos_sales: vendas,
+                    clients: clientes,
+                    draft_documents: rascunhos,
+                    meta,
+                },
+            };
+
+            const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+            const nome = `sos-copia-offline_${carimbo}.json`;
+
+            const blob = new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nome;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Sem isto o Blob fica em memória até a página fechar. Num turno
+            // longo, com exportações repetidas, isso conta.
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            return { nome, contagens: copia.contagens };
+        },
     };
 
     // ========================
@@ -1086,7 +1163,15 @@
     // ========================
     // Versão do payload do catálogo. Incrementar quando o formato muda (ex.: passou
     // a enviar o NOME da categoria) para forçar um re-sync completo nos dispositivos.
-    const CATALOG_VERSION = 3;   // v3: purga por mudança de regime fiscal (taxas presas a 14%)
+    //
+    // Tem MESMO de subir a cada campo novo, e a razão é discreta: a sincronização
+    // normal é incremental (só traz artigos com updated_at mais recente) e
+    // acrescentar colunas à base de dados não mexe no updated_at de linha
+    // nenhuma. Sem subir aqui, um artigo que ninguém edite nunca mais é enviado
+    // e fica no dispositivo na versão antiga do registo — ao balcão isso era um
+    // psicotrópico já em prateleira a entrar no carrinho offline sem a pergunta
+    // de confirmação, porque o is_controlled nunca lá chegou.
+    const CATALOG_VERSION = 4;   // v4: campos de farmácia e vestuário (receita, controlado, dosagem, tamanho, cor…)
 
     document.addEventListener('DOMContentLoaded', async () => {
         await refreshPendingCount();

@@ -31,6 +31,13 @@
     </div>
     @endif
 
+    {{-- Comunicação à AGT: no topo de propósito.
+         Quem abre as definições de facturação é quem responde pelos documentos
+         fiscais da empresa. Se o envio automático está ligado mas nada sai, é a
+         primeira coisa que tem de saber — não algo escondido três secções
+         abaixo. O componente só se mostra quando há mesmo problema. --}}
+    <x-agt.aviso-comunicacao />
+
     {{-- Form --}}
     <form wire:submit.prevent="save">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -605,17 +612,34 @@
                         {{ __('Séries por Tipo de Documento') }}
                     </h2>
 
-                    {{-- Info AGT --}}
+                    {{-- Info AGT.
+                         A lista de prefixos e o exemplo eram literais escritos à
+                         mão. Passam a sair do catálogo e do próprio
+                         formatNumber(): se um dia divergirem, é porque o
+                         documento mudou de facto — e o ecrã acompanha. --}}
+                    @php
+                        // O exemplo é o número REAL que uma fatura de venda com a
+                        // série padrão da casa produziria. O que estava aqui antes
+                        // (FT A 2025/000001) tinha um ano no meio que o
+                        // formatNumber() nunca põe: o ecrã ensinava um formato que
+                        // o sistema não emite.
+                        $exemploFatura = new \App\Models\Invoicing\InvoicingSeries();
+                        $exemploFatura->prefix = \App\Models\Invoicing\InvoicingSeries::prefixoDe('invoice');
+                        $exemploFatura->series_code = \App\Models\Invoicing\InvoicingSeries::defaultSeriesCode('invoice');
+                        $exemploFatura->number_padding = 6;
+                        $exemploFatura->next_number = 1;
+                    @endphp
                     <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl">
                         <div class="flex items-start">
                             <i class="fas fa-info-circle text-2xl text-blue-600 mr-3 flex-shrink-0"></i>
                             <div class="text-sm">
                                 <div class="font-bold text-blue-900 mb-2">{{ __('Formato AGT Angola') }}</div>
                                 <div class="text-blue-800 space-y-1">
-                                    <p><strong>{{ __('Prefixos AGT (fixos):') }}</strong> {{ __('FT, FR, PR, RC, NC, ND, FC, AD') }}</p>
+                                    <p><strong>{{ __('Prefixos AGT (fixos):') }}</strong> {{ implode(', ', \App\Models\Invoicing\InvoicingSeries::AGT_PREFIXES) }}</p>
                                     <p><strong>{{ __('Série personalizável:') }}</strong> A, B, C, D...</p>
-                                    <p><strong>{{ __('Formato:') }}</strong> <span class="font-mono">{{ __('[TIPO] [SÉRIE] [ANO]/[NÚMERO]') }}</span></p>
-                                    <p class="text-xs mt-1">{{ __('Exemplo:') }} <strong>{{ __('FT A 2025/000001') }}</strong></p>
+                                    <p><strong>{{ __('Formato:') }}</strong> <span class="font-mono">{{ __('[TIPO] [SÉRIE]/[NÚMERO]') }}</span></p>
+                                    <p class="text-xs mt-1">{{ __('Exemplo:') }} <strong class="font-mono">{{ $exemploFatura->previewNextNumber() }}</strong></p>
+                                    <p class="text-xs mt-1">{{ __('O primeiro bloco é o tipo de documento: é por ele que a AGT classifica o documento, e um valor fora do catálogo faz a submissão ser recusada.') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -624,17 +648,26 @@
                     {{-- Lista de Documentos --}}
                     <div class="space-y-4">
                         @php
+                            // Nome, ícone e cor são apresentação e vivem aqui. O
+                            // PREFIXO não: era uma quinta cópia do catálogo AGT e
+                            // era por isso que este ecrã dizia 'PR' enquanto o
+                            // documento saía com o que estava gravado na coluna.
+                            // Agora vem do modelo, que é a fonte única.
                             $documentTypes = [
-                                'proforma' => ['name' => 'Proforma de Venda', 'prefix' => 'PR', 'icon' => 'file-invoice', 'color' => 'blue'],
-                                'invoice' => ['name' => 'Fatura de Venda', 'prefix' => 'FT', 'icon' => 'file-invoice-dollar', 'color' => 'green'],
-                                'pos' => ['name' => 'Fatura-Recibo (POS)', 'prefix' => 'FR', 'icon' => 'cash-register', 'color' => 'emerald'],
-                                'receipt' => ['name' => 'Recibo', 'prefix' => 'RC', 'icon' => 'receipt', 'color' => 'purple'],
-                                'credit_note' => ['name' => 'Nota de Crédito', 'prefix' => 'NC', 'icon' => 'file-excel', 'color' => 'orange'],
-                                'debit_note' => ['name' => 'Nota de Débito', 'prefix' => 'ND', 'icon' => 'file-alt', 'color' => 'red'],
-                                'purchase' => ['name' => 'Fatura de Compra', 'prefix' => 'FC', 'icon' => 'shopping-cart', 'color' => 'indigo'],
-                                'advance' => ['name' => 'Adiantamento', 'prefix' => 'AD', 'icon' => 'hand-holding-usd', 'color' => 'cyan'],
+                                'proforma' => ['name' => __('Proforma de Venda'), 'icon' => 'file-invoice', 'color' => 'blue'],
+                                'invoice' => ['name' => __('Fatura de Venda'), 'icon' => 'file-invoice-dollar', 'color' => 'green'],
+                                'pos' => ['name' => __('Fatura-Recibo (POS)'), 'icon' => 'cash-register', 'color' => 'emerald'],
+                                'receipt' => ['name' => __('Recibo'), 'icon' => 'receipt', 'color' => 'purple'],
+                                'credit_note' => ['name' => __('Nota de Crédito'), 'icon' => 'file-excel', 'color' => 'orange'],
+                                'debit_note' => ['name' => __('Nota de Débito'), 'icon' => 'file-alt', 'color' => 'red'],
+                                'purchase' => ['name' => __('Fatura de Compra'), 'icon' => 'shopping-cart', 'color' => 'indigo'],
+                                'advance' => ['name' => __('Adiantamento'), 'icon' => 'hand-holding-usd', 'color' => 'cyan'],
                             ];
-                            
+
+                            foreach ($documentTypes as $tipoDoc => $dadosDoc) {
+                                $documentTypes[$tipoDoc]['prefix'] = \App\Models\Invoicing\InvoicingSeries::prefixoDe($tipoDoc);
+                            }
+
                             $allSeries = \App\Models\Invoicing\InvoicingSeries::where('tenant_id', activeTenantId())
                                 ->where('is_active', true)
                                 ->orderBy('document_type')
@@ -655,19 +688,62 @@
                                         <p class="text-xs text-{{ $info['color'] }}-700">{{ __('Prefixo AGT:') }} <span class="font-mono font-bold">{{ $info['prefix'] }}</span></p>
                                     </div>
                                 </div>
-                                <button wire:click="openNewSeriesModal('{{ $type }}', '{{ $info['prefix'] }}')" class="px-3 py-1.5 bg-{{ $info['color'] }}-600 hover:bg-{{ $info['color'] }}-700 text-white rounded-lg text-xs font-semibold transition">
+                                {{-- Só o tipo: o prefixo resolve-se no servidor,
+                                     a partir do catálogo. --}}
+                                <button wire:click="openNewSeriesModal('{{ $type }}')" class="px-3 py-1.5 bg-{{ $info['color'] }}-600 hover:bg-{{ $info['color'] }}-700 text-white rounded-lg text-xs font-semibold transition">
                                     <i class="fas fa-plus mr-1"></i>{{ __('Nova Série') }}
                                 </button>
                             </div>
 
                             @php
                                 $series = $allSeries[$type] ?? collect();
+
+                                // Numeração em paralelo, tal como já existe hoje
+                                // nos dados: a série padrão por estrear enquanto
+                                // outra do mesmo tipo já vai adiantada. Tudo o
+                                // que se emitir sai pela padrão e começa uma
+                                // segunda sequência — o que não passa num SAFT.
+                                $seriePadrao = $series->firstWhere('is_default', true);
+                                $adiantadas = $series->filter(function ($outra) use ($seriePadrao) {
+                                    return (!$seriePadrao || $outra->id !== $seriePadrao->id)
+                                        && (int) $outra->next_number > 1;
+                                });
+                                $numeracaoParalela = $seriePadrao
+                                    && (int) $seriePadrao->next_number <= 1
+                                    && $adiantadas->isNotEmpty();
                             @endphp
+
+                            @if($numeracaoParalela)
+                            <div class="mb-3 bg-amber-50 border-2 border-amber-300 rounded-lg p-3 flex items-start gap-3">
+                                <i class="fas fa-code-branch text-amber-600 mt-0.5"></i>
+                                <div class="text-xs text-amber-900">
+                                    <p class="font-bold">{{ __('Duas numerações a andar ao mesmo tempo') }}</p>
+                                    <p class="mt-1">
+                                        {{ __('A série padrão :padrao está por estrear (próximo :proximo), mas :outra já vai no :numero. O que emitir a seguir sai pela padrão e começa uma segunda numeração em paralelo.', [
+                                            'padrao' => $seriePadrao->series_code,
+                                            'proximo' => (int) $seriePadrao->next_number,
+                                            'outra' => $adiantadas->first()->series_code,
+                                            'numero' => (int) $adiantadas->first()->next_number,
+                                        ]) }}
+                                    </p>
+                                </div>
+                            </div>
+                            @endif
 
                             @if($series->count() > 0)
                             <div class="space-y-2">
                                 @foreach($series as $s)
-                                <div class="bg-white border border-{{ $info['color'] }}-300 rounded-lg p-3 flex items-center justify-between">
+                                @php
+                                    // O que está GRAVADO na coluna é o que entra
+                                    // no número; o catálogo é o que a AGT espera.
+                                    // Quando divergem, é preciso vê-lo — corrigir
+                                    // só o futuro deixava as séries erradas de
+                                    // hoje invisíveis. Tipos fora do catálogo
+                                    // (documentos internos) não são erro nenhum.
+                                    $prefixoEsperado = $info['prefix'];
+                                    $prefixoDivergente = $prefixoEsperado && (string) $s->prefix !== $prefixoEsperado;
+                                @endphp
+                                <div class="bg-white border {{ $prefixoDivergente ? 'border-red-400' : 'border-'.$info['color'].'-300' }} rounded-lg p-3 flex items-center justify-between">
                                     <div class="flex items-center flex-1">
                                         @if($s->is_default)
                                         <div class="px-2 py-1 bg-green-500 text-white text-xs rounded font-bold mr-3">
@@ -675,18 +751,32 @@
                                         </div>
                                         @endif
                                         <div class="flex-1">
-                                            <div class="font-bold text-gray-900">
-                                                {{ __('Série:') }} <span class="font-mono text-{{ $info['color'] }}-600">{{ $s->series_code }}</span>
+                                            <div class="font-bold text-gray-900 flex items-center flex-wrap gap-2">
+                                                <span>{{ __('Série:') }} <span class="font-mono text-{{ $info['color'] }}-600">{{ $s->series_code }}</span></span>
+                                                @if($prefixoDivergente)
+                                                <span class="px-2 py-0.5 bg-red-600 text-white text-xs rounded font-bold">
+                                                    <i class="fas fa-triangle-exclamation mr-1"></i>
+                                                    {{ __('Prefixo errado: :gravado — a AGT espera :esperado', [
+                                                        'gravado' => $s->prefix ?: __('(vazio)'),
+                                                        'esperado' => $prefixoEsperado,
+                                                    ]) }}
+                                                </span>
+                                                @endif
                                             </div>
                                             <div class="text-xs text-gray-600 mt-1">
                                                 {{ __('Próximo:') }} <span class="font-mono">{{ $s->previewNextNumber() }}</span>
                                             </div>
+                                            @if($prefixoDivergente)
+                                            <div class="text-xs text-red-700 mt-1">
+                                                {{ __('É o primeiro bloco do número que a AGT lê para classificar o documento. Com este valor, a submissão é recusada (erro E32).') }}
+                                            </div>
+                                            @endif
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         @if(!$s->is_default)
-                                        <button wire:click="setDefaultSeries({{ $s->id }})" 
-                                                onclick="return confirm('Definir {{ $s->series_code }} como série padrão para {{ $info['name'] }}?')" 
+                                        <button wire:click="setDefaultSeries({{ $s->id }})"
+                                                wire:confirm="{{ __('Definir :serie como série padrão para :tipo?', ['serie' => $s->series_code, 'tipo' => $info['name']]) }}"
                                                 class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs font-semibold transition">
                                             {{ __('Usar como Padrão') }}
                                         </button>
@@ -699,15 +789,96 @@
                                 @endforeach
                             </div>
                             @else
+                            @php
+                                // O número de exemplo sai do próprio formatNumber(),
+                                // com o prefixo e o código que esta empresa vai
+                                // mesmo receber quando a série for criada. Antes
+                                // era montado aqui à mão, com o ano no meio e o
+                                // código 'A' — nada disso aparece no documento.
+                                $exemploSerie = new \App\Models\Invoicing\InvoicingSeries();
+                                $exemploSerie->prefix = $info['prefix'];
+                                $exemploSerie->series_code = \App\Models\Invoicing\InvoicingSeries::defaultSeriesCode($type);
+                                $exemploSerie->number_padding = 6;
+                                $exemploSerie->next_number = 1;
+                            @endphp
                             <div class="bg-white border-2 border-dashed border-{{ $info['color'] }}-300 rounded-lg p-4 text-center">
                                 <i class="fas fa-info-circle text-{{ $info['color'] }}-400 text-2xl mb-2"></i>
                                 <p class="text-sm text-{{ $info['color'] }}-700">{{ __('Nenhuma série criada ainda') }}</p>
                                 <p class="text-xs text-{{ $info['color'] }}-600 mt-1">{{ __('Será criada automaticamente no primeiro uso') }}</p>
-                                <p class="text-xs text-{{ $info['color'] }}-800 font-mono mt-2">{{ $info['prefix'] }} A 2025/000001</p>
+                                <p class="text-xs text-{{ $info['color'] }}-800 font-mono mt-2">{{ $exemploSerie->previewNextNumber() }}</p>
                             </div>
                             @endif
                         </div>
                         @endforeach
+
+                        {{-- Séries de tipos que este ecrã não lista.
+                             Existiam e não apareciam em lado nenhum: a proforma
+                             de compra (documento interno, legítimo) ficava tão
+                             invisível como um document_type escrito com erro.
+                             O catálogo distingue os dois casos — aqui mostram-se
+                             os dois, cada um com o seu nome. --}}
+                        @php
+                            $tiposListados = array_keys($documentTypes);
+                            $outrasSeries = $allSeries
+                                ->reject(function ($doTipo, $tipo) use ($tiposListados) {
+                                    return in_array($tipo, $tiposListados, true);
+                                })
+                                ->flatten();
+                        @endphp
+
+                        @if($outrasSeries->isNotEmpty())
+                        <div class="border-2 border-gray-200 rounded-xl p-4 bg-gray-50">
+                            <div class="flex items-center mb-3">
+                                <div class="w-10 h-10 bg-gray-500 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-folder-open text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-gray-900">{{ __('Outras séries') }}</h3>
+                                    <p class="text-xs text-gray-600">{{ __('Tipos de documento que não têm cartão próprio acima') }}</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                @foreach($outrasSeries as $s)
+                                @php
+                                    $tipoOutra = (string) $s->document_type;
+                                    $prefixoOutra = \App\Models\Invoicing\InvoicingSeries::prefixoDe($tipoOutra);
+                                    $interna = \App\Models\Invoicing\InvoicingSeries::tipoInterno($tipoOutra);
+                                    $desconhecida = \App\Models\Invoicing\InvoicingSeries::tipoDesconhecido($tipoOutra);
+                                    $divergenteOutra = $prefixoOutra && (string) $s->prefix !== $prefixoOutra;
+                                @endphp
+                                <div class="bg-white border {{ $divergenteOutra || $desconhecida ? 'border-red-400' : 'border-gray-300' }} rounded-lg p-3">
+                                    <div class="font-bold text-gray-900 flex items-center flex-wrap gap-2">
+                                        <span>{{ __('Série:') }} <span class="font-mono text-gray-700">{{ $s->series_code }}</span></span>
+                                        <span class="font-mono text-xs text-gray-500">{{ $tipoOutra }}</span>
+
+                                        @if($interna)
+                                        <span class="px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded font-bold">
+                                            {{ __('Documento interno — não se comunica à AGT') }}
+                                        </span>
+                                        @elseif($desconhecida)
+                                        <span class="px-2 py-0.5 bg-red-600 text-white text-xs rounded font-bold">
+                                            <i class="fas fa-triangle-exclamation mr-1"></i>
+                                            {{ __('Tipo de documento desconhecido') }}
+                                        </span>
+                                        @elseif($divergenteOutra)
+                                        <span class="px-2 py-0.5 bg-red-600 text-white text-xs rounded font-bold">
+                                            <i class="fas fa-triangle-exclamation mr-1"></i>
+                                            {{ __('Prefixo errado: :gravado — a AGT espera :esperado', [
+                                                'gravado' => $s->prefix ?: __('(vazio)'),
+                                                'esperado' => $prefixoOutra,
+                                            ]) }}
+                                        </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        {{ __('Próximo:') }} <span class="font-mono">{{ $s->previewNextNumber() }}</span>
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
 
@@ -983,25 +1154,56 @@
                                     <div class="font-bold text-emerald-900 mb-1">{{ __('Configurações do POS') }}</div>
                                     <p class="text-emerald-800">{{ __('Configure o comportamento e aparência do Ponto de Venda.') }}</p>
                                     
-                                    {{-- Série Atual AGT --}}
+                                    {{-- Série Atual AGT.
+                                         Mostra a série que o POS vai mesmo usar e
+                                         o número que ela vai mesmo emitir. O que
+                                         estava aqui era um "FR A 2025/000001"
+                                         escrito à mão: prefixo fixo, código 'A' e
+                                         um ano que o número nunca teve. --}}
+                                    @php
+                                        $seriePos = \App\Models\Invoicing\InvoicingSeries::where('tenant_id', activeTenantId())
+                                            ->where('document_type', 'pos')
+                                            ->where('is_active', true)
+                                            ->orderByDesc('is_default')
+                                            ->first();
+
+                                        $prefixoPos = \App\Models\Invoicing\InvoicingSeries::prefixoDe('pos');
+
+                                        if (!$seriePos) {
+                                            $seriePos = new \App\Models\Invoicing\InvoicingSeries();
+                                            $seriePos->prefix = $prefixoPos;
+                                            $seriePos->series_code = \App\Models\Invoicing\InvoicingSeries::defaultSeriesCode('pos');
+                                            $seriePos->number_padding = 6;
+                                            $seriePos->next_number = 1;
+                                        }
+
+                                        $prefixoPosDivergente = $prefixoPos && (string) $seriePos->prefix !== $prefixoPos;
+                                    @endphp
                                     <div class="bg-white rounded-lg p-3 mb-4 border border-emerald-300">
                                         <div class="text-sm font-bold text-emerald-900 mb-1">
                                             <i class="fas fa-hashtag mr-1"></i> {{ __('Série Padrão AGT:') }}
                                         </div>
-                                        <div class="text-lg font-bold text-emerald-600">
-                                            {{ __('FR A') }}
+                                        <div class="text-lg font-bold text-emerald-600 font-mono">
+                                            {{ $seriePos->exists ? $seriePos->series_code : __('ainda por criar') }}
                                         </div>
+                                        @if($prefixoPosDivergente)
+                                        <div class="mt-2 px-2 py-1 bg-red-600 text-white text-xs rounded font-bold inline-block">
+                                            <i class="fas fa-triangle-exclamation mr-1"></i>
+                                            {{ __('Prefixo errado: :gravado — a AGT espera :esperado', [
+                                                'gravado' => $seriePos->prefix ?: __('(vazio)'),
+                                                'esperado' => $prefixoPos,
+                                            ]) }}
+                                        </div>
+                                        @endif
                                         <div class="text-xs text-gray-600 mt-1">
-                                            {{ __('Formato AGT Angola') }}
+                                            {{ __('Próximo número desta série:') }}
                                         </div>
                                         <div class="text-xs text-gray-700 mt-2 font-mono bg-gray-50 p-2 rounded">
-                                            FR A {{ date('Y') }}/000001
+                                            {{ $seriePos->previewNextNumber() }}
                                         </div>
                                         <div class="text-xs text-gray-500 mt-1">
-                                            {{ __('FR = Fatura-Recibo (fixo)') }}<br>
-                                            {{ __('A = Série (personalizável)') }}<br>
-                                            {{ date('Y') }} = Ano atual<br>
-                                            {{ __('000001 = Numeração sequencial') }}
+                                            {{ __(':prefixo = Fatura-Recibo (fixo, do catálogo AGT)', ['prefixo' => $prefixoPos]) }}<br>
+                                            {{ __('Depois vem a série e, a seguir à barra, a numeração sequencial.') }}
                                         </div>
                                     </div>
                                     
@@ -1237,6 +1439,15 @@
             </div>
             
             <div class="p-6 space-y-4">
+                @php
+                    // O prefixo do catálogo para o tipo em edição. Serve para
+                    // denunciar, aqui mesmo, uma série gravada com outro valor.
+                    $prefixoCatalogo = $seriesDocumentType
+                        ? \App\Models\Invoicing\InvoicingSeries::prefixoDe($seriesDocumentType)
+                        : null;
+                    $prefixoModalDivergente = $prefixoCatalogo && (string) $seriesPrefix !== $prefixoCatalogo;
+                @endphp
+
                 {{-- Prefixo AGT (fixo) --}}
                 <div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-4">
                     <div class="flex items-center">
@@ -1245,6 +1456,15 @@
                             <p class="text-sm font-bold text-blue-900">{{ __('Prefixo AGT (fixo)') }}</p>
                             <p class="text-2xl font-bold text-blue-600 font-mono">{{ $seriesPrefix }}</p>
                             <p class="text-xs text-blue-700 mt-1">{{ __('Definido pela legislação angolana') }}</p>
+                            @if($prefixoModalDivergente)
+                            <p class="text-xs text-red-700 font-bold mt-2">
+                                <i class="fas fa-triangle-exclamation mr-1"></i>
+                                {{ __('Esta série está gravada com :gravado, mas o catálogo AGT deste tipo de documento é :esperado. É o valor gravado que entra no número do documento.', [
+                                    'gravado' => $seriesPrefix ?: __('(vazio)'),
+                                    'esperado' => $prefixoCatalogo,
+                                ]) }}
+                            </p>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -1286,11 +1506,30 @@
                     @error('seriesDescription') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                 </div>
 
-                {{-- Preview --}}
+                {{-- Pré-visualização.
+                     Pelo formatNumber(), não montada aqui: era assim que o ecrã
+                     prometia "PR A 2025/000001" e o documento saía "PP PROV/000001". --}}
+                @php
+                    // A editar, mostra-se o próximo número REAL da série — não o
+                    // primeiro, que já lá vai há muito.
+                    $exemploModal = $editingSeriesId
+                        ? \App\Models\Invoicing\InvoicingSeries::where('tenant_id', activeTenantId())->find($editingSeriesId)
+                        : null;
+
+                    if (!$exemploModal) {
+                        $exemploModal = new \App\Models\Invoicing\InvoicingSeries();
+                        $exemploModal->prefix = $seriesPrefix;
+                        $exemploModal->series_code = $seriesCode;
+                        $exemploModal->number_padding = 6;
+                        $exemploModal->next_number = 1;
+                    }
+                @endphp
                 <div class="bg-green-50 border-2 border-green-300 rounded-xl p-4">
-                    <p class="text-sm font-bold text-green-900 mb-2">{{ __('Preview do Formato:') }}</p>
+                    <p class="text-sm font-bold text-green-900 mb-2">
+                        {{ $editingSeriesId ? __('Próximo número desta série:') : __('Assim sai o primeiro número:') }}
+                    </p>
                     <p class="text-2xl font-bold text-green-600 font-mono">
-                        {{ $seriesPrefix }} {{ $seriesCode }} {{ date('Y') }}/000001
+                        {{ $exemploModal->previewNextNumber() }}
                     </p>
                 </div>
 
@@ -1303,6 +1542,48 @@
                     <button wire:click="saveSeries" 
                             class="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition">
                         <i class="fas fa-save mr-2"></i>{{ $editingSeriesId ? 'Atualizar' : 'Criar Série' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Numeração em paralelo: confirmação consciente.
+         Não bloqueia — mudar de série no início do ano é exactamente isto —
+         mas põe os dois números à frente dos olhos antes de gravar. --}}
+    @if($seriePadraoPendente && $avisoNumeracaoParalela)
+    <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full">
+            <div class="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 flex items-center rounded-t-2xl">
+                <i class="fas fa-code-branch text-white text-xl mr-3"></i>
+                <h3 class="text-lg font-bold text-white">{{ __('Isto abre uma segunda numeração') }}</h3>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-800">
+                    {{ __('A série :nova está por estrear (próximo número :nova_proximo), mas :em_uso já vai no :em_uso_proximo.', [
+                        'nova' => $avisoNumeracaoParalela['nova'],
+                        'nova_proximo' => $avisoNumeracaoParalela['nova_proximo'],
+                        'em_uso' => $avisoNumeracaoParalela['em_uso'],
+                        'em_uso_proximo' => $avisoNumeracaoParalela['em_uso_proximo'],
+                    ]) }}
+                </p>
+                <p class="text-sm text-gray-800">
+                    {{ __('Se continuar, tudo o que emitir a seguir sai pela nova série e começa a contar do início, ao lado da numeração que já existe. Duas sequências do mesmo tipo de documento no mesmo exercício não passam num SAFT.') }}
+                </p>
+                <p class="text-sm text-gray-600">
+                    {{ __('Se é mesmo uma mudança de série — no início do ano, por exemplo — pode continuar.') }}
+                </p>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" wire:click="cancelarSeriePadrao"
+                            class="flex-1 px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-xl font-bold transition">
+                        <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
+                    </button>
+                    <button type="button" wire:click="confirmarSeriePadrao"
+                            class="flex-1 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition">
+                        <i class="fas fa-check mr-2"></i>{{ __('Continuar mesmo assim') }}
                     </button>
                 </div>
             </div>

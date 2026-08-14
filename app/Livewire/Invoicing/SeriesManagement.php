@@ -3,6 +3,7 @@
 namespace App\Livewire\Invoicing;
 
 use App\Models\Invoicing\InvoicingSeries;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -27,7 +28,8 @@ class SeriesManagement extends Component
     public $document_type = 'invoice';
     public $series_code = '';
     public $name = '';
-    public $prefix = 'FT';
+    // Do catálogo, não literal: 'FT' à mão aqui era mais uma cópia do prefixo.
+    public $prefix = InvoicingSeries::AGT_PREFIXES['invoice'];
     public $include_year = true;
     public $next_number = 1;
     public $number_padding = 6;
@@ -45,17 +47,73 @@ class SeriesManagement extends Component
     public $showDeleteModal = false;
     public $seriesToDelete = null;
 
-    protected $rules = [
-        'document_type' => 'required|in:invoice,proforma,receipt,credit_note,debit_note,pos,purchase,advance,transport',
-        'series_code' => 'required|max:10',
-        'name' => 'required|max:100',
-        'prefix' => 'required|max:10',
-        'next_number' => 'required|integer|min:1',
-        'number_padding' => 'required|integer|min:1|max:10',
-        'series_year' => 'nullable|integer|min:2024|max:2099',
-        'establishment_number' => 'nullable|string|max:200',
-        'invoicing_method' => 'nullable|in:FEPC,FESF,SF',
-    ];
+    protected function rules(): array
+    {
+        return [
+            'document_type' => 'required|in:invoice,proforma,receipt,credit_note,debit_note,pos,purchase,advance,transport',
+            'series_code' => 'required|max:10',
+            'name' => 'required|max:100',
+            'prefix' => $this->regraDoPrefixo(),
+            'next_number' => 'required|integer|min:1',
+            'number_padding' => 'required|integer|min:1|max:10',
+            'series_year' => 'nullable|integer|min:2024|max:2099',
+            'establishment_number' => 'nullable|string|max:200',
+            'invoicing_method' => 'nullable|in:FEPC,FESF,SF',
+        ];
+    }
+
+    /**
+     * O prefixo é um código fiscal, não uma preferência de quem preenche.
+     *
+     * Era 'required|max:10' — texto livre. Escrevia-se 'PRF' ou 'PP' onde a AGT
+     * exige 'PR' e nada avisava; o ecrã continuava a mostrar o prefixo do
+     * catálogo, portanto nem a olhar se percebia que o documento ia sair com
+     * outro. A AGT lê o primeiro token do número para classificar o documento e
+     * recusa (E32) o que não reconhece.
+     *
+     * Os tipos internos não têm catálogo a impor — não vão à AGT — e por isso
+     * mantêm a regra antiga.
+     *
+     * @return array<int, mixed>|string
+     */
+    private function regraDoPrefixo(): array|string
+    {
+        $canonico = InvoicingSeries::prefixoDe((string) $this->document_type);
+
+        if ($canonico === null) {
+            return 'required|max:10';
+        }
+
+        return ['required', Rule::in([$canonico])];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'prefix.in' => __('O prefixo deste tipo de documento é fixado pela AGT (:prefixo) e não pode ser outro.', [
+                'prefixo' => InvoicingSeries::prefixoDe((string) $this->document_type),
+            ]),
+        ];
+    }
+
+    /**
+     * O prefixo que vai para a base de dados.
+     *
+     * Nunca o que veio do formulário: o formulário é do cliente e o cliente não
+     * decide um código fiscal. Para os tipos internos não há catálogo AGT que
+     * mande, e aí fica o que estiver preenchido.
+     */
+    private function prefixoParaGravar(): string
+    {
+        return InvoicingSeries::prefixoDe((string) $this->document_type)
+            ?? (string) $this->prefix;
+    }
+
+    /** O prefixo segue o tipo: trocar o tipo no formulário troca logo o prefixo. */
+    public function updatedDocumentType(): void
+    {
+        $this->prefix = $this->prefixoParaGravar();
+    }
 
     public function openCreateModal()
     {
@@ -67,7 +125,7 @@ class SeriesManagement extends Component
         ]);
         $this->isEdit = false;
         $this->document_type = 'invoice';
-        $this->prefix = 'FT';
+        $this->prefix = $this->prefixoParaGravar();
         $this->include_year = true;
         $this->next_number = 1;
         $this->number_padding = 6;
@@ -105,6 +163,12 @@ class SeriesManagement extends Component
 
     public function save()
     {
+        // Derivar ANTES de validar. A regra Rule::in fica como rede — apanha
+        // quem lá chegue por outra via — mas quem usa o formulário não pode ser
+        // parado por um campo que não é dele para preencher: o prefixo é uma
+        // consequência do tipo de documento, não uma escolha.
+        $this->prefix = $this->prefixoParaGravar();
+
         $this->validate();
 
         // DS.120 §4.5: validar janela 15-Dez para series_year

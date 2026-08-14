@@ -211,17 +211,33 @@
                         <i class="fas fa-file mr-1 text-blue-500"></i>
                         {{ __('Tipo de Documento *') }}
                     </label>
-                    <select wire:model="document_type" 
+                    @php
+                        // Só os NOMES é que são daqui. O prefixo entre parênteses
+                        // estava escrito à mão em cada opção — mais uma cópia do
+                        // mapa, e logo a que o utilizador lê para saber o que
+                        // esperar do número. Uma opção a dizer "(PR)" enquanto a
+                        // série sai com outro prefixo é exactamente o engano que
+                        // deixou passar 17 séries erradas.
+                        $tiposDeDocumento = [
+                            'invoice'     => __('Fatura'),
+                            'proforma'    => __('Proforma'),
+                            'pos'         => __('Fatura-Recibo POS'),
+                            'receipt'     => __('Recibo'),
+                            'credit_note' => __('Nota de Crédito'),
+                            'debit_note'  => __('Nota de Débito'),
+                            'purchase'    => __('Fatura de Compra'),
+                            'advance'     => __('Adiantamento'),
+                            'transport'   => __('Guia de Transporte'),
+                        ];
+                    @endphp
+                    {{-- .live: o prefixo é derivado do tipo e tem de acompanhar a escolha --}}
+                    <select wire:model.live="document_type"
                             class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
-                        <option value="invoice">{{ __('Fatura (FT)') }}</option>
-                        <option value="proforma">{{ __('Proforma (PR)') }}</option>
-                        <option value="pos">{{ __('Fatura-Recibo POS (FR)') }}</option>
-                        <option value="receipt">{{ __('Recibo (RC)') }}</option>
-                        <option value="credit_note">{{ __('Nota de Crédito (NC)') }}</option>
-                        <option value="debit_note">{{ __('Nota de Débito (ND)') }}</option>
-                        <option value="purchase">{{ __('Fatura de Compra (FC)') }}</option>
-                        <option value="advance">{{ __('Adiantamento (AD)') }}</option>
-                        <option value="transport">{{ __('Guia de Transporte (GT)') }}</option>
+                        @foreach ($tiposDeDocumento as $tipoDeDocumento => $rotuloDoTipo)
+                            <option value="{{ $tipoDeDocumento }}">
+                                {{ $rotuloDoTipo }} ({{ \App\Models\Invoicing\InvoicingSeries::prefixoDe($tipoDeDocumento) }})
+                            </option>
+                        @endforeach
                     </select>
                     @error('document_type') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
@@ -231,10 +247,13 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-tag mr-1 text-blue-500"></i>
-                            {{ __('Prefixo (FT, PRF, RC) *') }}
+                            {{-- Este rótulo dizia "(FT, PRF, RC)" e ensinava a escrever
+                                 'PRF' onde a AGT exige 'PR'. O prefixo é fixado pela
+                                 AGT e derivado do tipo — não se escreve à mão. --}}
+                            {{ __('Prefixo AGT (fixado pelo tipo de documento)') }}
                         </label>
-                        <input type="text" wire:model="prefix" 
-                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                        <input type="text" wire:model="prefix" readonly
+                               class="w-full px-4 py-3 border-2 border-gray-200 bg-gray-100 text-gray-600 rounded-xl cursor-not-allowed"
                                placeholder="FT">
                         @error('prefix') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
