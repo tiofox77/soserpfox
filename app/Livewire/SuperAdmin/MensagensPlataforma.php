@@ -107,8 +107,10 @@ class MensagensPlataforma extends Component
         $this->audience    = $m->audience;
         $this->tenant_ids  = array_map('intval', $m->tenant_ids ?? []);
         $this->plan_ids    = array_map('intval', $m->plan_ids ?? []);
-        $this->starts_at   = $m->starts_at?->format('Y-m-d\TH:i');
-        $this->ends_at     = $m->ends_at?->format('Y-m-d\TH:i');
+        // De volta ao relógio de parede: o campo datetime-local não tem fuso,
+        // e o que lá aparece tem de ser a mesma hora que foi escrita.
+        $this->starts_at   = $m->noRelogioDeParede('starts_at')?->format('Y-m-d\TH:i');
+        $this->ends_at     = $m->noRelogioDeParede('ends_at')?->format('Y-m-d\TH:i');
         $this->dismissible = (bool) $m->dismissible;
         $this->link_url    = (string) $m->link_url;
         $this->link_label  = (string) $m->link_label;
@@ -151,8 +153,8 @@ class MensagensPlataforma extends Component
             'audience'    => $this->audience,
             'tenant_ids'  => $this->audience === 'empresas' ? array_values(array_map('intval', $this->tenant_ids)) : null,
             'plan_ids'    => $this->audience === 'planos'   ? array_values(array_map('intval', $this->plan_ids))   : null,
-            'starts_at'   => $this->starts_at ?: null,
-            'ends_at'     => $this->ends_at ?: null,
+            'starts_at'   => PlatformMessage::doRelogioDeParede($this->starts_at),
+            'ends_at'     => PlatformMessage::doRelogioDeParede($this->ends_at),
             'dismissible' => $this->dismissible,
             'link_url'    => $this->link_url ?: null,
             'link_label'  => $this->link_label ?: null,

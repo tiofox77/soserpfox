@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -54,6 +55,38 @@ class PlatformMessage extends Model
     public function leituras()
     {
         return $this->hasMany(PlatformMessageRead::class);
+    }
+
+    /**
+     * A hora escrita num formulário, convertida para o que a base guarda.
+     *
+     * O campo `datetime-local` não tem fuso nenhum: devolve exactamente os
+     * dígitos que a pessoa escreveu. Quem os escreve está em Angola e está a
+     * pensar no relógio da parede; a aplicação corre e compara em UTC, uma
+     * hora atrás. Guardar os dígitos em bruto — como se fazia — punha a
+     * mensagem no ar uma hora depois do que quem a agendou tinha pedido, sem
+     * nada no ecrã que o explicasse. Foi assim que uma mensagem marcada para
+     * as 10:20 não apareceu às 10:20.
+     */
+    public static function doRelogioDeParede(?string $escrito): ?Carbon
+    {
+        if (!$escrito) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($escrito, config('app.timezone_negocio'))->utc();
+        } catch (\Throwable) {
+            // Data impossível de ler: melhor sem limite do que com um limite
+            // inventado, que calaria a mensagem sem ninguém perceber porquê.
+            return null;
+        }
+    }
+
+    /** O caminho de volta, para o formulário mostrar a hora que foi escrita. */
+    public function noRelogioDeParede(string $campo): ?Carbon
+    {
+        return $this->{$campo}?->copy()->setTimezone(config('app.timezone_negocio'));
     }
 
     /** Mensagens no ar neste momento. */

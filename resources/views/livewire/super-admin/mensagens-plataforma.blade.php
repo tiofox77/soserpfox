@@ -66,8 +66,11 @@
                             @if($m->starts_at || $m->ends_at)
                                 <span>
                                     <i class="fas fa-calendar mr-1"></i>
-                                    {{ $m->starts_at?->format('d/m/Y H:i') ?? 'desde já' }}
-                                    até {{ $m->ends_at?->format('d/m/Y H:i') ?? 'sem fim' }}
+                                    {{-- No relógio de parede de quem a escreveu: a base guarda em
+                                         UTC e mostrar isso aqui punha uma hora diferente da que
+                                         foi escrita no formulário, mesmo estando as duas certas. --}}
+                                    {{ $m->noRelogioDeParede('starts_at')?->format('d/m/Y H:i') ?? 'desde já' }}
+                                    até {{ $m->noRelogioDeParede('ends_at')?->format('d/m/Y H:i') ?? 'sem fim' }}
                                 </span>
                             @endif
                             @if($m->autor)
@@ -239,7 +242,10 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Começa</label>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">
+                                    Começa
+                                    <span class="font-normal text-gray-400">(hora de Angola)</span>
+                                </label>
                                 <input type="datetime-local" wire:model="starts_at"
                                        class="w-full px-4 py-2.5 border-2 border-gray-300 rounded-xl focus:border-indigo-500">
                                 <p class="text-xs text-gray-500 mt-1">Em branco: já.</p>

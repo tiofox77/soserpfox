@@ -82,6 +82,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fuso horário do negócio
+    |--------------------------------------------------------------------------
+    |
+    | A aplicação guarda e compara tudo em UTC, acima. Mas quem a usa está em
+    | Angola, e quando escreve uma hora num formulário está a escrever a hora
+    | do relógio de parede dele — não UTC. Angola está uma hora à frente, e
+    | sem esta distinção uma mensagem agendada para as 10:20 só entrava no ar
+    | às 11:20 para quem a agendou, sem nada no ecrã que o explicasse.
+    |
+    | Só vale para o que é escrito e lido por pessoas. Datas de documentos,
+    | assinaturas SAFT e comunicações à AGT continuam onde estavam.
+    |
+    */
+
+    'timezone_negocio' => env('APP_BUSINESS_TIMEZONE', 'Africa/Luanda'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

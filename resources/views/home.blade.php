@@ -14,6 +14,12 @@
         </div>
     @endif
     
+    {{-- Os avisos do dono da plataforma. Fica em cima de tudo o resto: quem
+         entra no sistema deve ver primeiro o que lhe estão a dizer. A barra do
+         topo continua a existir e a interromper; isto é o sítio onde o aviso
+         fica depois de dispensado. --}}
+    @livewire('avisos-da-plataforma')
+
     <!-- Easter Egg: FOX Friendly Welcome Banner -->
     @php
         $tenant = auth()->user()->activeTenant();
