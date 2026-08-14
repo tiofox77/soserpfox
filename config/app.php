@@ -78,25 +78,43 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
-
     /*
-    |--------------------------------------------------------------------------
-    | Fuso horário do negócio
-    |--------------------------------------------------------------------------
+    | Angola, e não UTC. Quem usa isto está em Angola e tudo o que via — a hora
+    | de uma venda, de um turno, de um movimento — aparecia uma hora atrasada.
     |
-    | A aplicação guarda e compara tudo em UTC, acima. Mas quem a usa está em
-    | Angola, e quando escreve uma hora num formulário está a escrever a hora
-    | do relógio de parede dele — não UTC. Angola está uma hora à frente, e
-    | sem esta distinção uma mensagem agendada para as 10:20 só entrava no ar
-    | às 11:20 para quem a agendou, sem nada no ecrã que o explicasse.
+    | Angola é UTC+1 o ano inteiro e não tem horário de verão, pelo que a
+    | diferença é sempre a mesma hora.
     |
-    | Só vale para o que é escrito e lido por pessoas. Datas de documentos,
-    | assinaturas SAFT e comunicações à AGT continuam onde estavam.
+    | O QUE ISTO NÃO FAZ: não altera um único byte já gravado. O MySQL guarda
+    | DATETIME sem fuso nenhum, portanto o que muda é o SIGNIFICADO do que já lá
+    | está — os registos anteriores a esta mudança continuam a mostrar a hora
+    | UTC a que foram feitos, agora lida como hora de Angola, ou seja uma hora
+    | mais cedo do que aconteceram. Foi uma decisão: só os documentos novos
+    | passam a ser gravados em hora de Angola.
     |
+    | E é a decisão certa pelo lado fiscal. Somar uma hora ao que está gravado
+    | partia as assinaturas: o system_entry_date entra na cadeia assinada com
+    | RSA-SHA256, e como cada documento assina o hash do anterior, mexer num
+    | único partia a cadeia inteira a partir dele. Está medido: 1288 facturas
+    | com hash gravado, 176 já comunicadas à AGT.
+    |
+    | O QUE FOI PRECISO ARRANJAR PARA ISTO NÃO PARTIR NADA:
+    |   · DocumentMapper convertia o system_entry_date GRAVADO para UTC. Era
+    |     inofensivo só porque o fuso também era UTC; aqui passaria a declarar
+    |     à AGT um instante diferente do assinado;
+    |   · o POS offline carimba em ISO com Z e o servidor gravava esses dígitos
+    |     em bruto — ver DateHelper::doDispositivo();
+    |   · a data por omissão dos documentos offline vinha do relógio UTC, o que
+    |     datava do dia anterior tudo o que fosse vendido entre a meia-noite e
+    |     a uma da manhã.
+    |
+    | NÃO acrescentar 'timezone' à ligação MySQL em config/database.php: as
+    | colunas de negócio são TIMESTAMP, que o MySQL converte à ida e à volta
+    | pelo fuso da SESSÃO. Fixá-lo desloca tudo o que já está gravado — que é
+    | exactamente o que esta decisão evita.
     */
 
-    'timezone_negocio' => env('APP_BUSINESS_TIMEZONE', 'Africa/Luanda'),
+    'timezone' => env('APP_TIMEZONE', 'Africa/Luanda'),
 
     /*
     |--------------------------------------------------------------------------

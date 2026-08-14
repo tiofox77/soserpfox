@@ -211,11 +211,29 @@ class DocumentMapper
             : (string) $date;
     }
 
+    /**
+     * O system_entry_date tal como foi assinado, sem conversão de fuso.
+     *
+     * Havia aqui um ->utc(), e ele era inofensivo apenas porque o fuso da
+     * aplicação também era UTC — a conversão não fazia nada. Com a aplicação em
+     * hora de Angola passaria a tirar uma hora ao valor gravado, e a submissão
+     * declararia à AGT um instante diferente daquele que foi assinado.
+     *
+     * Todo o resto da cadeia trata esta coluna como relógio de parede, sem
+     * fuso: o SignatureService assina o format('Y-m-d H:i:s') em bruto, o
+     * SAFTGenerator escreve-o em bruto, e o AGTClient:417 já fazia isto mesmo.
+     * Este método era o único fora do passo. Passa a estar de acordo, e o que
+     * sai daqui é byte a byte o que saía antes para todos os documentos que já
+     * existem.
+     *
+     * O sufixo Z fica, e passa a ser um rótulo e não uma afirmação: o valor
+     * assinado é o que a AGT confere, e é o mesmo dos dois lados.
+     */
     private function resolveSystemEntryDate(Model $document): string
     {
         $dt = $document->system_entry_date ?? $document->created_at ?? now();
         return $dt instanceof \DateTimeInterface
-            ? $dt->utc()->format('Y-m-d\TH:i:s\Z')
+            ? $dt->format('Y-m-d\TH:i:s\Z')
             : (string) $dt;
     }
 

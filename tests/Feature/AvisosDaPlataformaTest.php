@@ -15,8 +15,14 @@ use Tests\TenantTestCase;
  *
  * O fuso e o que fez a mensagem nao aparecer: o campo datetime-local nao tem
  * fuso nenhum e devolve os digitos escritos. Quem escreve esta em Angola
- * (UTC+1) e a aplicacao compara em UTC, pelo que uma mensagem marcada para as
- * 10:20 so entrava no ar as 11:20 para quem a marcou.
+ * (UTC+1) e a aplicacao comparava em UTC, pelo que uma mensagem marcada para
+ * as 10:20 so entrava no ar as 11:20 para quem a marcou.
+ *
+ * A aplicacao passou entretanto a correr em hora de Angola, o que resolve isto
+ * pela raiz: os digitos escritos ja sao os que a base guarda. Estes testes
+ * ficam porque continuam a guardar a mesma promessa — a hora escrita e a hora
+ * a que a mensagem entra no ar — e e essa promessa que interessa, nao a
+ * mecanica com que se cumpre.
  */
 class AvisosDaPlataformaTest extends TenantTestCase
 {
@@ -36,8 +42,8 @@ class AvisosDaPlataformaTest extends TenantTestCase
 
     // ---- o fuso do agendamento ------------------------------------------
 
-    /** A hora escrita e de Angola; o que fica gravado e o mesmo instante em UTC. */
-    public function test_a_hora_escrita_e_guardada_como_o_mesmo_instante_em_utc(): void
+    /** A hora escrita e de Angola, e o instante que ela representa e esse. */
+    public function test_a_hora_escrita_representa_o_instante_de_angola(): void
     {
         $guardada = PlatformMessage::doRelogioDeParede('2026-08-14T10:20');
 
@@ -72,9 +78,9 @@ class AvisosDaPlataformaTest extends TenantTestCase
      */
     public function test_uma_mensagem_marcada_para_agora_esta_no_ar_agora(): void
     {
-        // 10:20 em Angola = 09:20 UTC. Se o relogio da aplicacao estiver em
-        // 09:30 UTC — 10:30 em Angola — a mensagem ja passou a hora marcada.
-        $this->travelTo('2026-08-14 09:30:00');
+        // O relogio da aplicacao ja e o de Angola, por isso o travelTo marca
+        // hora de Angola: as 10:30, a mensagem das 10:20 ja passou a hora.
+        $this->travelTo('2026-08-14 10:30:00');
 
         $m = $this->mensagem(['starts_at' => PlatformMessage::doRelogioDeParede('2026-08-14T10:20')]);
 
@@ -89,7 +95,7 @@ class AvisosDaPlataformaTest extends TenantTestCase
     /** E antes da hora continua a nao aparecer. */
     public function test_antes_da_hora_marcada_continua_fora(): void
     {
-        $this->travelTo('2026-08-14 09:10:00');   // 10:10 em Angola
+        $this->travelTo('2026-08-14 10:10:00');   // hora de Angola, dez minutos antes
 
         $m = $this->mensagem(['starts_at' => PlatformMessage::doRelogioDeParede('2026-08-14T10:20')]);
 
@@ -98,8 +104,8 @@ class AvisosDaPlataformaTest extends TenantTestCase
         $this->travelBack();
     }
 
-    /** O ecra do super admin grava a hora convertida, nao os digitos em bruto. */
-    public function test_publicar_pelo_ecra_converte_a_hora(): void
+    /** O que se escreve no ecra do super admin chega a base como o mesmo instante. */
+    public function test_publicar_pelo_ecra_guarda_o_instante_certo(): void
     {
         $this->comoDonoDaPlataforma();
 

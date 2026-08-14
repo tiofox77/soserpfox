@@ -163,9 +163,7 @@ class PosSaleService
             $amountReceived = (float) ($payload['amount_received'] ?? $calc['total']);
 
             // ---- Data do documento (usa a data local da venda offline) ----
-            $saleDate = !empty($payload['created_at_local'])
-                ? \Carbon\Carbon::parse($payload['created_at_local'])
-                : now();
+            $saleDate = \App\Helpers\DateHelper::doDispositivo($payload['created_at_local'] ?? null) ?? now();
 
             // Armazém: usa o default do tenant (mesmo que o POS online)
             $whId = defaultWarehouseId();

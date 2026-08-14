@@ -98,6 +98,28 @@
         window.dispatchEvent(new CustomEvent('pwa:session-expired'));
     }
 
+    /**
+     * A data de HOJE no relógio de quem está a vender.
+     *
+     * Aqui usava-se `new Date().toISOString().slice(0, 10)`, que devolve a data
+     * em UTC. Angola está uma hora à frente, por isso entre a meia-noite e a
+     * uma da manhã o UTC ainda está no dia anterior — e este valor vai para o
+     * invoice_date, que é a data fiscal do documento. Uma venda feita à
+     * 00:30 de dia 15 saía datada de dia 14.
+     *
+     * Os carimbos de instante (created_at_local e afins) continuam em ISO com
+     * fuso, que é o correcto para um instante; o que não pode vir de lá é uma
+     * DATA de calendário.
+     */
+    function dataDeHoje() {
+        const agora = new Date();
+        const doisDigitos = (n) => String(n).padStart(2, '0');
+
+        return agora.getFullYear()
+            + '-' + doisDigitos(agora.getMonth() + 1)
+            + '-' + doisDigitos(agora.getDate());
+    }
+
     function csrf() {
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
     }
@@ -677,7 +699,7 @@
                 items: draft.items || [],
                 notes: draft.notes || '',
                 reference: draft.reference || '',
-                invoice_date: draft.invoice_date || new Date().toISOString().slice(0, 10),
+                invoice_date: draft.invoice_date || dataDeHoje(),
                 due_date: draft.due_date || null,
                 subtotal: Math.round(subtotal * 100) / 100,
                 tax: Math.round(tax * 100) / 100,
@@ -750,7 +772,7 @@
             const total = baseAfterDisc + taxAfterDisc;
 
             // Número provisório legível (substituído pelo nº AGT ao sincronizar)
-            const provisional_number = 'PEND-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + local_uuid.slice(-6).toUpperCase();
+            const provisional_number = 'PEND-' + dataDeHoje().replace(/-/g, '') + '-' + local_uuid.slice(-6).toUpperCase();
 
             const record = {
                 local_uuid,

@@ -57,9 +57,7 @@ class PosShiftController extends Controller
         }
 
         try {
-            $openedAt = $request->filled('opened_at_local')
-                ? \Carbon\Carbon::parse($request->input('opened_at_local'))
-                : now();
+            $openedAt = \App\Helpers\DateHelper::doDispositivo($request->input('opened_at_local')) ?? now();
 
             $shift = PosShift::createSafely([
                 'tenant_id'       => $tenantId,
@@ -137,8 +135,8 @@ class PosShiftController extends Controller
             );
 
             // Preservar hora local do fecho offline, se enviada
-            if ($request->filled('closed_at_local')) {
-                $shift->closed_at = \Carbon\Carbon::parse($request->input('closed_at_local'));
+            if ($fechoNoDispositivo = \App\Helpers\DateHelper::doDispositivo($request->input('closed_at_local'))) {
+                $shift->closed_at = $fechoNoDispositivo;
                 $shift->save();
             }
 

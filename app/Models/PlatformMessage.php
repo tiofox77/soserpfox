@@ -58,15 +58,20 @@ class PlatformMessage extends Model
     }
 
     /**
-     * A hora escrita num formulário, convertida para o que a base guarda.
+     * A hora escrita num formulário, tal como foi escrita.
      *
      * O campo `datetime-local` não tem fuso nenhum: devolve exactamente os
-     * dígitos que a pessoa escreveu. Quem os escreve está em Angola e está a
-     * pensar no relógio da parede; a aplicação corre e compara em UTC, uma
-     * hora atrás. Guardar os dígitos em bruto — como se fazia — punha a
-     * mensagem no ar uma hora depois do que quem a agendou tinha pedido, sem
-     * nada no ecrã que o explicasse. Foi assim que uma mensagem marcada para
-     * as 10:20 não apareceu às 10:20.
+     * dígitos que a pessoa escreveu, e quem os escreve está a pensar no
+     * relógio da parede. Como a aplicação passou a correr em hora de Angola,
+     * esses dígitos já são o que a base tem de guardar — não há conversão
+     * nenhuma a fazer.
+     *
+     * Estes dois métodos chegaram a converter de Angola para UTC, quando a
+     * aplicação ainda corria em UTC. Convertê-los agora seria tirar a hora
+     * duas vezes: a mensagem entrava no ar uma hora ANTES do pedido, que é o
+     * erro simétrico do que eles vieram corrigir. Ficam como ponto de
+     * passagem, porque é aqui que se veria se algum dia a aplicação e quem a
+     * usa deixarem de estar no mesmo fuso.
      */
     public static function doRelogioDeParede(?string $escrito): ?Carbon
     {
@@ -75,7 +80,7 @@ class PlatformMessage extends Model
         }
 
         try {
-            return Carbon::parse($escrito, config('app.timezone_negocio'))->utc();
+            return Carbon::parse($escrito, config('app.timezone'));
         } catch (\Throwable) {
             // Data impossível de ler: melhor sem limite do que com um limite
             // inventado, que calaria a mensagem sem ninguém perceber porquê.
@@ -86,7 +91,7 @@ class PlatformMessage extends Model
     /** O caminho de volta, para o formulário mostrar a hora que foi escrita. */
     public function noRelogioDeParede(string $campo): ?Carbon
     {
-        return $this->{$campo}?->copy()->setTimezone(config('app.timezone_negocio'));
+        return $this->{$campo}?->copy()->setTimezone(config('app.timezone'));
     }
 
     /** Mensagens no ar neste momento. */
