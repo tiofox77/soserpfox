@@ -139,9 +139,14 @@ return new class extends Migration
 
         Log::warning($aviso);
 
-        if (app()->runningInConsole()) {
-            echo PHP_EOL . '  ' . $aviso . PHP_EOL;
-        }
+        // Sem o guard do runningInConsole que aqui estava. Os deploys desta casa
+        // correm as migrações por HTTP (maintenance/{token}/migrate), e o guard
+        // calava o aviso exactamente nesse caminho: a migração respondia "DONE"
+        // e quem a corria ficava a pensar que o índice tinha entrado. O aviso
+        // vale pouco se só aparece no canal que ninguém usa. Por HTTP o echo sai
+        // fora do bloco formatado da resposta — feio, mas visível, que é o que
+        // interessa. O Log fica de qualquer forma, para quem vier depois.
+        echo PHP_EOL . '  ' . $aviso . PHP_EOL;
     }
 
     private function indiceExiste(): bool
