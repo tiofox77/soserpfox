@@ -327,4 +327,79 @@ class SeriePadraoPorDocumentosTest extends TenantTestCase
             ->expectsOutputToContain('FR SOSFR #/#')
             ->assertSuccessful();
     }
+
+    // ---- o empate resolvido a mao ---------------------------------------
+
+    /** Nomeada a serie que fica, as outras sao desmarcadas mesmo tendo emitido. */
+    public function test_fica_desmarca_as_outras_mesmo_com_documentos(): void
+    {
+        $this->limpar();
+        $a  = $this->serie('A', 3);
+        $fr = $this->serie('SOSFR', 3);
+
+        $this->factura($a->id, 'FR A/000001');
+        $this->factura(null, 'SOS FR/000001');   // a SOSFR emitiu mesmo
+
+        $this->assertSame(1, $this->contar($fr)['gravados'], 'o teste tem de partir de duas series com documentos');
+
+        $this->artisan('series:corrigir-padrao', [
+            '--tenant' => $this->tenant->id,
+            '--tipo' => 'pos',
+            '--fica' => 'A',
+            '--aplicar' => true,
+        ])->assertSuccessful();
+
+        $this->assertTrue((bool) $a->fresh()->is_default);
+        $this->assertFalse((bool) $fr->fresh()->is_default);
+    }
+
+    /** Sem --aplicar nao grava nada. */
+    public function test_fica_sem_aplicar_nao_grava(): void
+    {
+        $this->limpar();
+        $this->serie('A', 2);
+        $fr = $this->serie('SOSFR', 2);
+
+        $this->artisan('series:corrigir-padrao', [
+            '--tenant' => $this->tenant->id, '--tipo' => 'pos', '--fica' => 'A',
+        ])->assertSuccessful();
+
+        $this->assertTrue((bool) $fr->fresh()->is_default, 'a simulacao gravou');
+    }
+
+    /** Um codigo que nao existe naquele tipo e recusado, e nada e tocado. */
+    public function test_fica_com_codigo_inexistente_e_recusado(): void
+    {
+        $this->limpar();
+        $a  = $this->serie('A', 2);
+        $fr = $this->serie('SOSFR', 2);
+
+        $this->artisan('series:corrigir-padrao', [
+            '--tenant' => $this->tenant->id, '--tipo' => 'pos', '--fica' => 'NAOEXISTE', '--aplicar' => true,
+        ])->assertFailed();
+
+        $this->assertTrue((bool) $a->fresh()->is_default);
+        $this->assertTrue((bool) $fr->fresh()->is_default);
+    }
+
+    /** Sem --tipo nao se sabe onde mexer. */
+    public function test_fica_sem_tipo_e_recusado(): void
+    {
+        $this->artisan('series:corrigir-padrao', [
+            '--tenant' => $this->tenant->id, '--fica' => 'A', '--aplicar' => true,
+        ])->assertFailed();
+    }
+
+    /** Sem empate nao ha nada a resolver, e mexer seria surpresa. */
+    public function test_fica_sem_empate_e_recusado(): void
+    {
+        $this->limpar();
+        $a = $this->serie('A', 2);
+
+        $this->artisan('series:corrigir-padrao', [
+            '--tenant' => $this->tenant->id, '--tipo' => 'pos', '--fica' => 'A', '--aplicar' => true,
+        ])->assertFailed();
+
+        $this->assertTrue((bool) $a->fresh()->is_default);
+    }
 }

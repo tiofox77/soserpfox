@@ -44,7 +44,9 @@ class CorrigirSeriesPadrao extends Command
 {
     protected $signature = 'series:corrigir-padrao
                             {--tenant= : id, slug, nome ou parte do nome da empresa}
-                            {--aplicar : grava as correcções (sem isto é só simulação)}';
+                            {--aplicar : grava as correcções (sem isto é só simulação)}
+                            {--tipo= : com --fica, o tipo de documento a resolver (ex.: pos)}
+                            {--fica= : código da série que fica padrão nesse tipo; as outras são desmarcadas}';
 
     protected $description = 'Deixa uma só série padrão por tipo quando a escolha é óbvia (simulação por omissão)';
 
@@ -83,9 +85,107 @@ class CorrigirSeriesPadrao extends Command
             ? 'MODO: --aplicar — as correcções vão ser GRAVADAS.'
             : 'MODO: simulação — nada é gravado. Repita com --aplicar para gravar.');
 
+        if ($this->option('fica')) {
+            return $this->resolverAMao($empresas, $aplicar);
+        }
+
         foreach ($empresas as $empresa) {
             $this->tratar($empresa, $aplicar);
         }
+
+        $this->resumo($aplicar);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * O empate resolvido por quem manda, nomeando a série que fica.
+     *
+     * Não há aqui inferência nenhuma, e é essa a intenção: os casos que chegam
+     * a esta via são precisamente aqueles em que DUAS séries emitiram documentos
+     * fiscais, e escolher entre elas é decisão de quem gere o negócio. O comando
+     * limita-se a executá-la — e a recusar-se se o que lhe disserem não bater
+     * certo com o que está na base.
+     *
+     *   php artisan series:corrigir-padrao --tenant=19 --tipo=pos --fica=A --aplicar
+     */
+    private function resolverAMao($empresas, bool $aplicar): int
+    {
+        $tipo   = (string) $this->option('tipo');
+        $codigo = (string) $this->option('fica');
+
+        if ($tipo === '') {
+            $this->error('--fica precisa de --tipo (ex.: --tipo=pos).');
+
+            return self::FAILURE;
+        }
+
+        if ($empresas->count() !== 1) {
+            $this->error(sprintf(
+                '--fica precisa de uma empresa exacta: --tenant apanhou %d.',
+                $empresas->count()
+            ));
+
+            return self::FAILURE;
+        }
+
+        $empresa = $empresas->first();
+
+        $doTipo = InvoicingSeries::where('tenant_id', $empresa->id)
+            ->where('document_type', $tipo)
+            ->where('is_default', true)
+            ->orderBy('id')
+            ->get();
+
+        if ($doTipo->count() < 2) {
+            $this->error(sprintf(
+                'A empresa #%d não tem empate em "%s": %d série(s) padrão. Nada a resolver.',
+                $empresa->id,
+                $tipo,
+                $doTipo->count()
+            ));
+
+            return self::FAILURE;
+        }
+
+        $fica = $doTipo->firstWhere('series_code', $codigo);
+
+        if (!$fica) {
+            $this->error(sprintf(
+                'Nenhuma série padrão de "%s" na empresa #%d tem o código "%s". Há: %s',
+                $tipo,
+                $empresa->id,
+                $codigo,
+                $doTipo->pluck('series_code')->implode(', ')
+            ));
+
+            return self::FAILURE;
+        }
+
+        $this->newLine();
+        $this->line(str_repeat('=', 62));
+        $this->info("EMPRESA #{$empresa->id} — {$empresa->name}");
+        $this->line("  {$tipo}: fica padrão a série {$codigo}, por indicação expressa.");
+
+        $emitidos = $doTipo->mapWithKeys(fn ($s) => [$s->id => $this->documentosEmitidos($s)]);
+
+        $this->mostrar($fica, $emitidos[$fica->id], '✓', 'fica padrão');
+
+        foreach ($doTipo->where('id', '!=', $fica->id) as $s) {
+            // O aviso é para ficar registado: estas séries emitiram documentos
+            // fiscais e continuam a existir. Desmarcá-las não mexe em nenhum
+            // deles — o is_default só decide por qual sai o PRÓXIMO.
+            $this->mostrar($s, $emitidos[$s->id], $aplicar ? '✓' : '·', 'desmarcada');
+
+            if ($aplicar) {
+                $s->is_default = false;
+                $s->saveQuietly();
+            }
+
+            $this->desmarcadas++;
+        }
+
+        $this->corrigidos++;
 
         $this->resumo($aplicar);
 
