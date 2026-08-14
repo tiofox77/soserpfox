@@ -146,6 +146,21 @@ class CorrigirSeriesPadrao extends Command
         // a decisão e o que se mostra a seguir têm de olhar para o mesmo número.
         $emitidos = $doTipo->mapWithKeys(fn ($s) => [$s->id => $this->documentosEmitidos($s)]);
 
+        // Basta o contador ter andado para a série contar como em uso, mesmo
+        // que não se encontre documento nenhum. É de propósito, e a razão é
+        // desagradável: um zero em `gravados` tanto quer dizer "não emitiu"
+        // como "emitiu e não sabemos ver".
+        //
+        // Houve uma versão deste comando com uma opção --por-documentos, que
+        // decidia só por `gravados`. Parecia acertada — o contador anda sem
+        // produzir documento, e havia séries com o contador em 384 e nada
+        // gravado. Mas a leitura do número estava ancorada no primeiro bloco,
+        // que era 'SOS' fixo até 6 de Agosto de 2026, e o series_id só existe
+        // nas linhas posteriores a Outubro de 2025. Uma série veterana dava
+        // zero por cegueira, e a opção mandava desmarcá-la — a que tem os
+        // documentos todos comunicados à AGT. A leitura do número já foi
+        // corrigida; a opção não volta, porque o zero continua a não ser
+        // prova: antes de Outubro de 2025 o número não trazia sequer a série.
         $comDocumentos = $doTipo->filter(fn ($s) => $emitidos[$s->id]['total'] > 0);
 
         $decidivel = $comDocumentos->count() === 1;
@@ -228,6 +243,49 @@ class CorrigirSeriesPadrao extends Command
         foreach ($doTipo->sortByDesc(fn ($s) => $emitidos[$s->id]['total']) as $s) {
             $this->mostrar($s, $emitidos[$s->id], '!', '');
         }
+
+        $this->formasDoNumero($doTipo->first());
+    }
+
+    /**
+     * Que números saíram mesmo, agrupados pela forma, com a série a que estão
+     * ligados. É a prova em bruto, e é o que permite decidir sem acreditar na
+     * contagem: o `gravados` é uma leitura, isto é o que lá está.
+     *
+     * Os dígitos são substituídos por '#' para as milhares de linhas colapsarem
+     * nas poucas formas que existem.
+     */
+    private function formasDoNumero(?InvoicingSeries $s): void
+    {
+        [$tabela, $coluna] = self::TABELAS[$s->document_type ?? ''] ?? [null, null];
+
+        if (!$s || !$tabela || !Schema::hasTable($tabela) || !Schema::hasColumn($tabela, $coluna)) {
+            return;
+        }
+
+        $ligacao = Schema::hasColumn($tabela, 'series_id')
+            ? 'GROUP_CONCAT(DISTINCT COALESCE(series_id, 0) ORDER BY series_id)'
+            : "'—'";
+
+        $formas = DB::table($tabela)
+            ->where('tenant_id', $s->tenant_id)
+            ->selectRaw("REGEXP_REPLACE({$coluna}, '[0-9]+', '#') AS forma")
+            ->selectRaw('COUNT(*) AS quantos')
+            ->selectRaw("{$ligacao} AS series")
+            ->groupBy('forma')
+            ->orderByDesc('quantos')
+            ->limit(8)
+            ->get();
+
+        if ($formas->isEmpty()) {
+            return;
+        }
+
+        $this->line('       números realmente gravados (série 0 = sem series_id):');
+
+        foreach ($formas as $f) {
+            $this->line(sprintf('         %-28s %6d   série: %s', $f->forma, $f->quantos, $f->series));
+        }
     }
 
     private function mostrar(InvoicingSeries $s, array $emitidos, string $marca, string $nota): void
@@ -270,30 +328,32 @@ class CorrigirSeriesPadrao extends Command
         [$tabela, $coluna] = self::TABELAS[$s->document_type] ?? [null, null];
 
         if ($tabela && Schema::hasTable($tabela) && Schema::hasColumn($tabela, $coluna)) {
-            // Os dois primeiros tokens têm de ser montados pela MESMA regra do
-            // formatNumber, senão o padrão não bate certo com o que está gravado
-            // e a série aparece a zero — que é o lado perigoso do engano, o que
-            // a desmarcaria. Daí o `?: PREFIXO_NUMERO` no prefixo: sem prefixo,
-            // quem numerou os documentos foi o "SOS", não a cadeia vazia.
-            $prefixo = $s->prefix ?: InvoicingSeries::PREFIXO_NUMERO;
-            $serie   = $s->agt_series_id ?: preg_replace('/^SOS/', '', (string) $s->series_code);
-            $base    = trim($prefixo . ' ' . $serie);
-
-            // O prefixo e o código de série entram num LIKE: um '_' vindo deles
-            // é um curinga, e faria esta série contar documentos de outra.
-            $escapado = addcslashes($base, '%_\\');
-
             // Sem filtrar `deleted_at`: um documento apagado depois na aplicação
             // já saiu com aquele número, e o que se está a perguntar é se esta
             // série chegou a numerar alguma coisa.
+            $temColunaSerie = Schema::hasColumn($tabela, 'series_id');
+            $identidades    = $this->identidadesDaSerie($s);
+
             $gravados = (int) DB::table($tabela)
                 ->where('tenant_id', $s->tenant_id)
-                ->where(function ($q) use ($coluna, $escapado) {
-                    // Duas formas porque `include_year` mete o ano no meio:
-                    // "FT FT/000123" sem ele, "FT FT 2025/000123" com ele. Só o
-                    // primeiro padrão deixava de fora todas as séries com ano.
-                    $q->where($coluna, 'like', $escapado . '/%')
-                      ->orWhere($coluna, 'like', $escapado . ' %/%');
+                ->where(function ($q) use ($coluna, $identidades, $temColunaSerie, $s) {
+                    // A ligação pelo series_id é a resposta certa: diz de que
+                    // série o documento saiu, sem depender da forma do número.
+                    // A leitura do número ficou como segunda via, e só para as
+                    // linhas antigas que ainda não têm series_id gravado —
+                    // contá-las às duas maneiras somava o mesmo duas vezes.
+                    if ($temColunaSerie) {
+                        $q->where('series_id', $s->getKey());
+
+                        $q->orWhere(function ($antigas) use ($coluna, $identidades) {
+                            $antigas->whereNull('series_id')
+                                ->whereIn($this->segundoBloco($coluna), $identidades);
+                        });
+
+                        return;
+                    }
+
+                    $q->whereIn($this->segundoBloco($coluna), $identidades);
                 })
                 ->count();
         }
@@ -303,6 +363,48 @@ class CorrigirSeriesPadrao extends Command
             'gravados' => $gravados,
             'total'    => max($contador, $gravados),
         ];
+    }
+
+    /**
+     * O SEGUNDO bloco do número, que é onde vive a identidade da série.
+     *
+     * Recorta até ao primeiro espaço a seguir ao primeiro, e depois corta na
+     * barra. Aguenta as três formas que o formatNumber já teve:
+     *
+     *     "FR SOSFR 2025/000123"  → SOSFR      (até 2025-12-16)
+     *     "SOS FR/000123"         → FR         (3 a 6 de Agosto de 2026)
+     *     "FR FR/000123"          → FR         (desde 0e4cdab, 2026-08-06)
+     *     "FR FR7626S6286N/000100"→ FR7626S6286N
+     *
+     * O primeiro bloco NÃO entra: era 'SOS' fixo até 6 de Agosto e passou a ser
+     * o prefixo do tipo. Ancorar o padrão nele — como estava — fazia com que
+     * nenhum documento anterior a essa data batesse certo, e a série aparecia a
+     * zero. Numa série que já emitiu, esse zero é o engano perigoso: é ele que
+     * autoriza a desmarcá-la.
+     */
+    private function segundoBloco(string $coluna): \Illuminate\Database\Query\Expression
+    {
+        return DB::raw(
+            "SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX({$coluna}, ' ', 2), ' ', -1), '/', 1)"
+        );
+    }
+
+    /**
+     * Por que nomes esta série já se apresentou no segundo bloco do número.
+     *
+     * São três porque a regra mudou com o tempo — e porque o agt_series_id pode
+     * ter sido atribuído DEPOIS de a série já ter emitido, o que parte o número
+     * ao meio: os antigos ficam com o código, os novos com o código AGT.
+     */
+    private function identidadesDaSerie(InvoicingSeries $s): array
+    {
+        $codigo = (string) $s->series_code;
+
+        return array_values(array_unique(array_filter([
+            $s->agt_series_id,
+            $codigo,
+            preg_replace('/^SOS/', '', $codigo),
+        ], fn ($v) => $v !== null && $v !== '')));
     }
 
     private function resumo(bool $aplicar): void
