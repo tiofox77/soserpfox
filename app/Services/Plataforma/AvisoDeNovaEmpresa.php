@@ -2,6 +2,7 @@
 
 namespace App\Services\Plataforma;
 
+use App\Models\EmailTemplate;
 use App\Models\SmtpSetting;
 use App\Models\Tenant;
 use App\Models\User;
@@ -31,6 +32,9 @@ use Illuminate\Support\Facades\Mail;
  */
 class AvisoDeNovaEmpresa
 {
+    /** O template que o dono da plataforma pode reescrever no painel de emails. */
+    private const TEMPLATE = 'nova-empresa-admin';
+
     /** SmtpSetting resolvido, ou false quando não há nenhum configurado. */
     private SmtpSetting|false|null $smtp = null;
 
@@ -88,13 +92,51 @@ class AvisoDeNovaEmpresa
             return;
         }
 
-        $this->enviarEmail(
-            $admin->email,
-            $admin->name,
-            'Nova empresa: ' . $empresa->name,
-            $this->corpoDoEmail($empresa),
-            $empresa->id
-        );
+        [$assunto, $corpo] = $this->mensagemParaOAdmin($empresa);
+
+        $this->enviarEmail($admin->email, $admin->name, $assunto, $corpo, $empresa->id);
+    }
+
+    /**
+     * O texto do aviso, do template se houver, do código se não.
+     *
+     * Pelo template porque é onde o dono da plataforma o pode reescrever, ao
+     * lado dos outros — é o mecanismo que esta casa já usa. Com recurso ao
+     * código porque um aviso interno não pode depender de uma linha na base de
+     * dados: o email de boas-vindas do registo ESTOIRA quando o template dele
+     * falta, e aqui isso significaria o dono da plataforma deixar de saber que
+     * tem clientes novos sem nada que o explicasse.
+     *
+     * @return array{0: string, 1: string} assunto e corpo
+     */
+    private function mensagemParaOAdmin(Tenant $empresa): array
+    {
+        $dados = [
+            'empresa_nome'     => (string) $empresa->name,
+            'empresa_nif'      => (string) ($empresa->nif ?: '—'),
+            'empresa_email'    => (string) ($empresa->email ?: '—'),
+            'empresa_telefone' => (string) ($empresa->phone ?: '—'),
+            'empresa_regime'   => (string) ($empresa->regime ?: '—'),
+            'registada_em'     => optional($empresa->created_at)->format('d/m/Y H:i') ?: '',
+            'app_name'         => (string) config('app.name', 'SOS ERP'),
+            'url_empresas'     => rtrim((string) config('app.url'), '/') . '/superadmin/tenants',
+        ];
+
+        try {
+            $template = EmailTemplate::where('slug', self::TEMPLATE)->where('is_active', true)->first();
+
+            if ($template) {
+                $render = $template->render($dados);
+
+                return [$render['subject'], $render['body_html']];
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Template do aviso de empresa nova indisponível; a usar o texto do código.', [
+                'erro' => $e->getMessage(),
+            ]);
+        }
+
+        return ['Nova empresa: ' . $empresa->name, $this->corpoDoEmail($empresa)];
     }
 
     /**

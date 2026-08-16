@@ -291,6 +291,7 @@
                         ['route' => 'superadmin.smtp-settings', 'icon' => 'fas fa-server', 'color' => 'text-emerald-400', 'label' => 'SMTP'],
                         ['route' => 'superadmin.email-logs', 'icon' => 'fas fa-history', 'color' => 'text-yellow-400', 'label' => 'Email Logs'],
                         ['route' => 'superadmin.sms-settings', 'icon' => 'fas fa-sms', 'color' => 'text-green-400', 'label' => 'SMS'],
+                        ['route' => 'superadmin.sms-empresas', 'icon' => 'fas fa-comment-sms', 'color' => 'text-teal-400', 'label' => 'SMS às Empresas'],
                         ['route' => 'superadmin.whatsapp-notifications', 'icon' => 'fab fa-whatsapp', 'color' => 'text-green-400', 'label' => 'WhatsApp'],
                     ],
                     'Sistema' => [

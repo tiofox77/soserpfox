@@ -135,6 +135,8 @@ class MaintenanceController extends Controller
         // Contabilidade — mapeamentos Faturação→Contabilidade (invoice, NC, ND,
         // recibos, pagamentos). Idempotente: updateOrCreate por evento.
         'IntegrationMappingSeeder',
+        // O template do aviso ao administrador quando nasce uma empresa.
+        'AvisoNovaEmpresaTemplateSeeder',
         // Demo hotel + salão no tenant softecangola (sites públicos de reserva/agendamento)
         'DemoHotelSalonSeeder',
     ];
