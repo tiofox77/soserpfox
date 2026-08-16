@@ -303,6 +303,14 @@ class MyAccount extends Component
             }
             
             \DB::commit();
+
+            // Depois do commit, e nao dentro dele: um email nao se desfaz com
+            // um rollback, e manda-lo antes de a empresa estar mesmo gravada
+            // era arriscar avisar de uma criacao que afinal nao aconteceu.
+            // Este era o unico dos tres caminhos que nao avisava ninguem — o
+            // aviso ao dono da plataforma vai pelo TenantObserver.
+            app(\App\Services\Plataforma\AvisoDeNovaEmpresa::class)
+                ->confirmarAoResponsavel($tenant, $user);
             
             $this->showCreateCompanyModal = false;
             $this->loadAccountData();

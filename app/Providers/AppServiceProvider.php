@@ -100,6 +100,11 @@ class AppServiceProvider extends ServiceProvider
         
         // Registrar Observer para aprovação automática de pedidos
         Order::observe(OrderObserver::class);
+
+        // Avisar quem administra a plataforma de que nasceu uma empresa nova.
+        // Aqui e não nos ecrãs de registo: são três as vias que criam uma
+        // empresa, e nenhuma delas avisava ninguém.
+        \App\Models\Tenant::observe(\App\Observers\TenantObserver::class);
         
         // Registrar Observer para integração Licenças → Presenças + Notificações
         Leave::observe(LeaveObserver::class);
