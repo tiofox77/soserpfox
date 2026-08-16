@@ -76,6 +76,8 @@ class MaintenanceController extends Controller
         // errado não dá erro nenhum cá dentro — o documento sai, e só a AGT o
         // recusa depois, com a factura já entregue ao cliente.
         'series:diagnostico',
+        // De quem são as tarefas paradas na fila do AGT. Só lê.
+        'agt:diagnostico-fila',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
         // emitiram documentos só mudam com --forcar (mudar o prefixo a meio
         // deixa a série com números de duas formas diferentes).
