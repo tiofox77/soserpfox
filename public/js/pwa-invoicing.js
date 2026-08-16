@@ -1226,22 +1226,58 @@
             await sync(!lastSync);
         }
 
-        // AUTO-SYNC: retry periódico enquanto houver pendentes (a cada 45s).
-        // Cobre casos em que o evento 'online' não dispara (WiFi sem internet
-        // que volta, falha temporária do servidor, etc.).
-        setInterval(async () => {
-            if (!state.syncing && state.pendingCount > 0) {
-                const ok = await checkRealOnline();
-                if (ok) sync(false);
-            }
-        }, 45000);
+        // AUTO-SYNC.
+        //
+        // Isto só corria quando havia pendentes POR ENVIAR. Quem não vendia
+        // nada nunca puxava nada: um posto que ficasse aberto o dia inteiro sem
+        // uma única venda ficava com o catálogo do dia anterior, e artigos
+        // novos, preços alterados e clientes novos só chegavam ao reabrir a
+        // aplicação. Quando o servidor caísse, faltava precisamente o que
+        // tinha mudado entretanto.
+        //
+        // Passa a haver duas cadências: a dos pendentes, rápida, porque uma
+        // venda por enviar é dinheiro parado; e a do catálogo, mais lenta,
+        // porque puxar produtos de dezenas de postos a cada 45 segundos é
+        // carga no servidor sem retorno. A descarga é incremental — leva um
+        // `since` — pelo que quando não mudou nada quase não custa.
+        const PENDENTES_A_CADA = 45 * 1000;
+        const CATALOGO_A_CADA = 5 * 60 * 1000;
+        const CATALOGO_AO_VOLTAR = 2 * 60 * 1000;
 
-        // AUTO-SYNC: ao voltar à app (trocar de separador/janela ou reabrir o
-        // PWA), sincroniza pendentes imediatamente.
+        function desdeAUltimaSync() {
+            if (!state.lastSync) return Infinity;
+
+            const quando = new Date(state.lastSync).getTime();
+
+            return Number.isNaN(quando) ? Infinity : Date.now() - quando;
+        }
+
+        setInterval(async () => {
+            if (state.syncing) return;
+
+            const temPendentes = state.pendingCount > 0;
+            const catalogoVelho = desdeAUltimaSync() >= CATALOGO_A_CADA;
+
+            if (!temPendentes && !catalogoVelho) return;
+
+            const ok = await checkRealOnline();
+            if (ok) sync(false);
+        }, PENDENTES_A_CADA);
+
+        // Ao voltar à aplicação (trocar de separador, reabrir o PWA): envia o
+        // que está pendente, e aproveita para refrescar o catálogo se já tiver
+        // algum tempo. É o momento em que quem está ao balcão vai começar a
+        // usar aquilo, e o melhor para descobrir que falta um artigo.
         document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible' && !state.syncing) {
-                const ok = await checkRealOnline();
-                if (ok) { const n = await refreshPendingCount(); if (n > 0) sync(false); }
+            if (document.visibilityState !== 'visible' || state.syncing) return;
+
+            const ok = await checkRealOnline();
+            if (!ok) return;
+
+            const pendentes = await refreshPendingCount();
+
+            if (pendentes > 0 || desdeAUltimaSync() >= CATALOGO_AO_VOLTAR) {
+                sync(false);
             }
         });
 

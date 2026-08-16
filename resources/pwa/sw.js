@@ -133,6 +133,50 @@ self.addEventListener('sync', (event) => {
     }
 });
 
+/**
+ * Sincronização periódica com a aplicação fechada (Chrome/Android, instalada).
+ *
+ * O que se faz aqui é refrescar as PÁGINAS guardadas, e não os dados.
+ *
+ * Escrever produtos e clientes na IndexedDB a partir daqui obrigava a repetir
+ * toda a lógica de fusão que vive no pwa-invoicing.js — o bulkPut, os
+ * removidos, o marcador last_sync — sem o Dexie e sem partilhar uma linha de
+ * código com ela. Duas implementações da mesma fusão acabam sempre por
+ * divergir, e a divergência aqui é stock e preços errados no balcão. Fica um
+ * único sítio a escrever dados: a aplicação.
+ *
+ * O que isto resolve, e não é pouco: garante que o POS e as outras páginas
+ * abrem mesmo que o servidor esteja em baixo há dias. Assim que abrem, a
+ * sincronização de dentro trata dos dados.
+ */
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'manter-catalogo') {
+        event.waitUntil(refrescarPaginasGuardadas());
+    }
+});
+
+async function refrescarPaginasGuardadas() {
+    const cache = await caches.open(DYNAMIC_CACHE);
+
+    // Uma a uma e com o erro engolido: sem rede, ou com o servidor em baixo,
+    // isto não tem nada que fazer — e ficar tudo como está é o comportamento
+    // certo. O que não pode é uma falha impedir as outras de serem tentadas.
+    await Promise.all(PWA_OFFLINE_FALLBACKS.map(async (url) => {
+        try {
+            const resposta = await fetch(url, { credentials: 'same-origin' });
+
+            if (podeSerGuardada(resposta)) {
+                await cache.put(url, resposta.clone());
+            }
+        } catch (err) {
+            // Sem rede. Fica o que já lá estava.
+        }
+    }));
+
+    // Avisa quem estiver aberto, para os dados também virem.
+    await notifyClientsToSync();
+}
+
 async function notifyClientsToSync() {
     const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: false });
     for (const client of allClients) {

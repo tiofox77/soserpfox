@@ -57,6 +57,29 @@
                 });
                 // Verificar atualização periodicamente (a cada 30 min)
                 setInterval(() => reg.update().catch(() => {}), 30 * 60 * 1000);
+
+                // Sincronização periódica com a aplicação FECHADA.
+                //
+                // Só existe no Chrome/Android e só para quem tem a aplicação
+                // instalada; o browser é que decide quando corre, e costuma ser
+                // de doze em doze horas. Não substitui a sincronização de
+                // dentro da aplicação — é um extra para o aparelho não ficar
+                // parado dias a fio sem trazer nada.
+                //
+                // Pede-se sempre e falha em silêncio onde não existe: um
+                // `catch` vazio aqui vale mais do que uma lista de browsers
+                // que envelhece connosco.
+                if ('periodicSync' in reg) {
+                    navigator.permissions?.query({ name: 'periodic-background-sync' })
+                        .then((estado) => {
+                            if (estado.state !== 'granted') return;
+
+                            return reg.periodicSync.register('manter-catalogo', {
+                                minInterval: 6 * 60 * 60 * 1000,
+                            });
+                        })
+                        .catch(() => {});
+                }
                 // E sempre que a janela volta a ficar visível
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') reg.update().catch(() => {});
