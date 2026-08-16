@@ -219,9 +219,29 @@ class InvoicingSettings extends Model
 
     protected static function resolverParaTenant($tenantId)
     {
+        // Sem empresa não se grava nada.
+        //
+        // O activeTenantId() devolve null quando quem está autenticado não
+        // está ligado a empresa nenhuma — é o estado normal do dono da
+        // plataforma. Isto descia ao firstOrCreate na mesma e tentava INSERIR
+        // uma linha de definições sem empresa; a coluna é NOT NULL e o ecrã
+        // dava 500. Devolve-se uma instância POR GRAVAR com os mesmos valores
+        // por omissão: quem só quer ler um valor — e é o que quase todos os
+        // sítios fazem — continua a lê-lo, e não fica lixo na base.
+        if (empty($tenantId)) {
+            return new static(static::valoresPorOmissao());
+        }
+
         return static::firstOrCreate(
             ['tenant_id' => $tenantId],
-            [
+            static::valoresPorOmissao()
+        );
+    }
+
+    /** Os valores com que umas definições nascem. */
+    protected static function valoresPorOmissao(): array
+    {
+        return [
                 // Moeda e Câmbio
                 'default_currency' => 'AOA',
                 'default_exchange_rate' => 1.0000,
@@ -280,8 +300,7 @@ class InvoicingSettings extends Model
                 // coluna. Nomear colunas novas neste array partiria a criação de
                 // definições no intervalo entre subir o código e correr a
                 // migração.
-            ]
-        );
+        ];
     }
     
     /**

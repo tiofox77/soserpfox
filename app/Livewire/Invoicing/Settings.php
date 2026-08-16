@@ -467,6 +467,16 @@ class Settings extends Component
     
     public function render()
     {
+        // Sem empresa activa não há definições para editar, e desenhar o
+        // formulário na mesma era pior do que o erro que isto substitui: a
+        // ficha aparecia toda preenchida com os valores por omissão de uma
+        // linha que não existe na base, e gravá-la não gravava nada em lado
+        // nenhum. Quem entra sem empresa — o dono da plataforma, tipicamente —
+        // fica a saber porquê, em vez de escrever para o vazio.
+        if (!activeTenantId()) {
+            return view('livewire.invoicing.settings-sem-empresa');
+        }
+
         $warehouses = Warehouse::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->get();
