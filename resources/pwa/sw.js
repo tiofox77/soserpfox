@@ -5,15 +5,39 @@
 
 const CACHE_VERSION = 'soserp-v1.0.0';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
+
+// O cache das PÁGINAS não leva a versão, e isso é deliberado.
+//
+// O activate apaga todos os caches cujo nome não tenha a versão actual, e o
+// servidor injecta uma versão nova a cada deploy. Com o nome versionado, cada
+// deploy deitava fora as páginas guardadas — incluindo o POS offline — e o
+// aparelho ficava sem rede de segurança até alguém voltar a abrir cada página
+// com internet. Se o servidor caísse nesse intervalo, não havia nada que
+// mostrar. Foi o que aconteceu.
+//
+// Sem versão, as páginas atravessam os deploys. Ficarem velhas não é problema:
+// a estratégia é network-first, portanto com rede vem sempre a versão nova, e
+// o que está guardado só serve quando não há mais nada.
+const DYNAMIC_CACHE = 'dynamic-paginas';
 
 // Recursos estáticos pré-cacheados (App Shell)
 const PRECACHE_URLS = [
     '/offline',
     '/pwa/icon-192x192.png',
     '/pwa/icon-512x512.png',
+
+    // Estes dois não são enfeite: sem o Dexie o motor offline nem arranca — o
+    // pwa-invoicing.js começa com um `if (typeof Dexie === 'undefined') return`
+    // — e sem o Alpine o ecrã não responde a nada. Ficavam guardados na mesma,
+    // mas só DEPOIS de a página ter carregado bem uma vez; até lá, um aparelho
+    // acabado de instalar não tinha como funcionar sem rede. Os URLs têm de ser
+    // exactamente os do layouts/pwa.blade.php: um URL diferente é uma entrada
+    // diferente no cache, e não serve de nada.
+    'https://unpkg.com/dexie@4.0.10/dist/dexie.min.js',
+    'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
+
     'https://cdn.tailwindcss.com',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
@@ -63,11 +87,19 @@ self.addEventListener('install', (event) => {
         caches.open(STATIC_CACHE)
             .then((cache) => {
                 console.log('[SW] Pre-caching App Shell');
-                return cache.addAll(PRECACHE_URLS).catch((err) => {
-                    console.warn('[SW] Some precache items failed:', err);
-                    // Não falhar se algum recurso CDN não carregar
-                    return Promise.resolve();
-                });
+                // Um a um, e não com addAll.
+                //
+                // O addAll é tudo-ou-nada: basta UM dos URLs falhar — um CDN
+                // com soluços, um bloqueio na rede da loja — e nada fica
+                // guardado, nem sequer a página /offline e os ícones. O catch
+                // que estava aqui salvava a instalação e perdia o cache
+                // inteiro, silenciosamente. Assim, o que falha é só o que
+                // falhou, e o resto fica.
+                return Promise.all(PRECACHE_URLS.map((url) =>
+                    cache.add(url).catch((err) => {
+                        console.warn('[SW] Não foi possível pré-guardar:', url, err);
+                    })
+                ));
             })
         // NOTA: NÃO chamamos skipWaiting() aqui. O cliente decide quando
         // ativar a nova versão (ou o user clica "Atualizar agora").
@@ -119,6 +151,12 @@ self.addEventListener('activate', (event) => {
                 return Promise.all(
                     cacheNames
                         .filter((name) => {
+                            // O cache das páginas fica, venha a versão que vier:
+                            // é a única coisa que sustenta o sistema quando o
+                            // servidor não responde, e apagá-lo num deploy
+                            // deixava os aparelhos sem nada.
+                            if (name === DYNAMIC_CACHE) return false;
+
                             return !name.includes(CACHE_VERSION);
                         })
                         .map((name) => {
@@ -216,15 +254,40 @@ async function cacheFirst(request, cacheName, limit) {
  * Ideal para: páginas HTML (conteúdo dinâmico)
  */
 async function networkFirst(request) {
+    let respostaDaRede = null;
+
     try {
         const response = await fetch(request);
-        if (response.ok) {
+
+        // Guardar SÓ o que é mesmo a aplicação. Uma sessão expirada devolve um
+        // 302 para /login que acaba em 200: sem este teste, a página de login
+        // ficava gravada no lugar do POS e passava a ser ela a aparecer offline.
+        if (podeSerGuardada(response)) {
             const cache = await caches.open(DYNAMIC_CACHE);
             cache.put(request, response.clone());
             trimCache(DYNAMIC_CACHE, DYNAMIC_CACHE_LIMIT);
+            return response;
         }
-        return response;
+
+        // Aqui estava a avaria que deixou toda a gente sem sistema no sábado.
+        //
+        // O `fetch` só REJEITA quando a rede falha por completo — DNS, ligação
+        // recusada, sem rota. Um servidor de pé mas avariado (502 e 503 do
+        // alojamento quando o PHP morre, 500 do Laravel) devolve uma resposta
+        // com sucesso, e o antigo `return response` entregava a página de erro
+        // ao utilizador. O recurso ao cache vivia só no catch, e o catch nunca
+        // corria: o PWA tinha tudo guardado e não chegava a usá-lo.
+        //
+        // Agora uma resposta má vale o mesmo que não haver rede: procura-se no
+        // cache primeiro, e a resposta má só sai daqui se não houver nada
+        // guardado — porque aí é melhor mostrar o erro do servidor do que uma
+        // página em branco.
+        respostaDaRede = response;
     } catch (err) {
+        // Sem rede nenhuma. Segue para o cache, como sempre seguiu.
+    }
+
+    try {
         // 1) Cache exacto da URL pedida
         const cached = await caches.match(request);
         if (cached) return cached;
@@ -249,12 +312,44 @@ async function networkFirst(request) {
         // 3) Página /offline genérica (pré-cached em STATIC_CACHE)
         const offlinePage = await caches.match('/offline');
         if (offlinePage) return offlinePage;
-
-        // 4) Último recurso: HTML inline
-        return new Response(getOfflineHTML(), {
-            headers: { 'Content-Type': 'text/html' }
-        });
+    } catch (err) {
+        // Uma falha a ler o cache não pode ser o fim: segue para o que resta.
     }
+
+    // 4) Nada no cache. Se o servidor chegou a responder — mesmo que mal — é
+    //    melhor mostrar o erro dele do que uma página em branco: quem está a
+    //    ver percebe que o problema é do lado de lá.
+    if (respostaDaRede) return respostaDaRede;
+
+    // 5) Último recurso: HTML inline
+    return new Response(getOfflineHTML(), {
+        headers: { 'Content-Type': 'text/html' }
+    });
+}
+
+/**
+ * Isto é mesmo a aplicação, ou é uma página de erro ou de login?
+ *
+ * Só o que passa aqui vai para o cache — é o cache que sustenta o sistema
+ * quando o servidor não está, e uma página de erro guardada lá dentro é pior
+ * do que cache nenhum: fica a aparecer offline, e ninguém percebe porquê.
+ */
+function podeSerGuardada(response) {
+    if (!response || !response.ok) return false;
+
+    // O `type: 'opaqueredirect'` e o `redirected` denunciam a ida ao /login.
+    if (response.type === 'opaqueredirect') return false;
+
+    if (response.redirected) {
+        try {
+            const destino = new URL(response.url).pathname;
+            if (NEVER_CACHE.some((rota) => destino.startsWith(rota))) return false;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
