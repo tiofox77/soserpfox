@@ -97,9 +97,28 @@
                                     </p>
                                     <ul class="space-y-1.5">
                                         @foreach($items as $item)
+                                            {{-- Um item tanto pode ser texto simples — como são as centenas
+                                                 de linhas de histórico já escritas — como um par
+                                                 ['texto' => ..., 'produto' => 'web'|'pwa'|'ambos']. As duas
+                                                 formas convivem de propósito: marcar o produto passou a
+                                                 fazer falta quando o PWA ganhou vida própria, e reescrever
+                                                 o passado todo para isso não valia o risco de o estragar. --}}
+                                            @php
+                                                $texto   = is_array($item) ? ($item['texto'] ?? '') : $item;
+                                                $produto = is_array($item) ? ($item['produto'] ?? null) : null;
+                                            @endphp
                                             <li class="flex items-start gap-2 text-sm text-gray-700">
                                                 <i class="fas fa-check-circle {{ $meta['class'] }} mt-0.5 text-xs"></i>
-                                                <span>{{ $item }}</span>
+                                                <span>
+                                                    @if($produto)
+                                                        <span class="inline-block align-middle mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
+                                                            {{ $produto === 'pwa' ? 'bg-emerald-100 text-emerald-700'
+                                                               : ($produto === 'web' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-700') }}">
+                                                            {{ $produto === 'ambos' ? __('Web + Offline') : ($produto === 'pwa' ? __('Offline') : __('Web')) }}
+                                                        </span>
+                                                    @endif
+                                                    {{ $texto }}
+                                                </span>
                                             </li>
                                         @endforeach
                                     </ul>

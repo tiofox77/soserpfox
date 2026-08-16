@@ -15,9 +15,214 @@
 return [
 
     // Versão actualmente em produção (mostrada no badge)
-    'current' => '2026.06.12.2',
+    //
+    // ATENÇÃO ao mexer aqui: o layout do PWA usa este valor como chave do
+    // "warmup" (resources/views/layouts/pwa.blade.php). Quando muda, cada
+    // aparelho volta a puxar as páginas do modo offline para a cache. É de
+    // propósito — é assim que uma versão nova chega aos telemóveis — mas
+    // significa que mudar esta linha tem efeito real, e não é só um rótulo.
+    'current' => '2026.08.16.1',
 
     'releases' => [
+
+        [
+            'version'      => '2026.08.16.1',
+            'date'         => '2026-08-16',
+            'type'         => 'minor',
+            'title'        => 'Modo offline à prova de servidor em baixo',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Aviso por email e SMS a quem administra a plataforma sempre que uma empresa nova se regista. Antes não era avisado ninguém, por nenhuma das vias de registo.'],
+                ['produto' => 'web', 'texto' => 'Novo ecrã para enviar um SMS às empresas — a todas, às escolhidas uma a uma, ou às de certos planos. Mostra quantas recebem e quantas ficam de fora por não terem telefone, e conta o custo em partes de SMS antes de enviar.'],
+            ],
+            'improvements' => [
+                ['produto' => 'pwa', 'texto' => 'O catálogo passa a ser refrescado sozinho de cinco em cinco minutos, e ao voltar à aplicação. Antes só era descarregado quando havia vendas por enviar: um posto que não vendesse nada ficava com os artigos e os preços do dia anterior.'],
+                ['produto' => 'pwa', 'texto' => 'Em Android com a aplicação instalada, as páginas do modo offline são refrescadas em segundo plano mesmo com a aplicação fechada.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'pwa', 'texto' => 'CRÍTICO: com o servidor em baixo, a aplicação offline não abria — apesar de ter tudo guardado. Um servidor avariado responde com um erro, e não com silêncio; a aplicação tomava esse erro por resposta boa e mostrava-o em vez de usar o que tinha guardado. Foi o que deixou todos os balcões parados no sábado.'],
+                ['produto' => 'pwa', 'texto' => 'Cada actualização do sistema apagava as páginas guardadas para uso offline, incluindo o POS. Até alguém voltar a abri-las com internet, o aparelho ficava sem rede de segurança. As páginas passam a atravessar as actualizações.'],
+                ['produto' => 'pwa', 'texto' => 'Com a sessão expirada, a página de entrada ficava guardada por cima do POS e passava a ser ela a aparecer sem internet.'],
+                ['produto' => 'pwa', 'texto' => 'Bastava um dos componentes externos falhar para nada ficar guardado na instalação — nem a página de emergência nem os ícones. Passa a guardar-se o que se consegue.'],
+                ['produto' => 'web', 'texto' => 'O ecrã de Configurações de Faturação dava erro a quem não tem empresa activa. Passa a explicar que é preciso escolher uma empresa primeiro.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.14.1',
+            'date'         => '2026-08-14',
+            'type'         => 'minor',
+            'title'        => 'Hora de Angola, e séries de documentos sem ambiguidade',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Painel de avisos da plataforma no ecrã de entrada: as comunicações da equipa SOS ERP ficam ali para consulta, mesmo depois de dispensada a barra do topo.'],
+            ],
+            'improvements' => [
+                ['produto' => 'ambos', 'texto' => 'O sistema passa a trabalhar em hora de Angola. As horas que aparecem — de uma venda, de um turno, de um movimento — deixam de estar uma hora atrasadas. Os documentos anteriores a esta actualização mantêm a hora com que foram gravados.'],
+                ['produto' => 'web', 'texto' => 'O prefixo AGT de cada tipo de documento passa a ter uma única origem no sistema, e o ecrã das séries mostra como fica o próximo número antes de gravar.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'IMPORTANTE: séries gravadas com um prefixo fora do catálogo da AGT — o ecrã chegou a sugerir "PRF" onde a AGT espera "PR" — faziam a submissão ser recusada com erro E32. Corrigidas 24 séries.'],
+                ['produto' => 'web', 'texto' => 'Havia empresas com duas séries marcadas como padrão para o mesmo tipo de documento: qual delas numerava o documento seguinte era imprevisível. Passa a ser impossível ter duas.'],
+                ['produto' => 'web', 'texto' => 'Uma mensagem da plataforma marcada para as 10:20 só aparecia às 11:20, por a hora escrita ser lida como se fosse de outro fuso.'],
+                ['produto' => 'web', 'texto' => 'Com todas as séries de um tipo desactivadas, o POS deixava de abrir com erro de numeração.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.13.1',
+            'date'         => '2026-08-13',
+            'type'         => 'major',
+            'title'        => 'Três línguas, perfis de negócio, lotes e validades',
+            'features'     => [
+                ['produto' => 'ambos', 'texto' => 'O sistema passa a falar português, inglês e francês — facturação, POS (offline incluído), stock, catálogo, compras, relatórios e definições.'],
+                ['produto' => 'web', 'texto' => 'Perfis de negócio nas definições: farmácia, boutique, cosmética ou mercearia. Ao activar um, o cadastro de artigos e o stock passam a mostrar os campos daquele ramo — princípio activo e receita obrigatória na farmácia, tamanho e cor no vestuário, e assim por diante.'],
+                ['produto' => 'pwa', 'texto' => 'Cópia de segurança do modo offline: exportar no aparelho e importar no sistema, para não se perder o trabalho de um telemóvel avariado.'],
+                ['produto' => 'web', 'texto' => 'O assistente de registo passa a perguntar o regime fiscal da empresa, e a lista de empresas do super admin ganhou filtros, ordenação e sinais de actividade.'],
+            ],
+            'improvements' => [
+                ['produto' => 'pwa', 'texto' => 'As vendas feitas offline passam a consumir os lotes, pelo mais próximo da validade e saltando o que já expirou.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'Lotes e validades: nove defeitos corrigidos, entre eles um lote expirado impedir a venda de todo o artigo, e a correcção de uma quantidade inventar stock que não existia.'],
+                ['produto' => 'pwa', 'texto' => 'Dois postos a sincronizar ao mesmo tempo podiam duplicar clientes ou perder vendas. A sincronização passa a aguentar o regresso simultâneo de vários aparelhos.'],
+                ['produto' => 'pwa', 'texto' => 'Cinco defeitos silenciosos no que o aparelho descarrega: artigos repostos não voltavam, artigos desactivados nunca desapareciam, e clientes sem NIF nunca chegavam a sincronizar.'],
+            ],
+            'security'     => [
+                ['produto' => 'web', 'texto' => 'Os lotes de um artigo podiam ser vistos e alterados a partir de outra empresa.'],
+            ],
+        ],
+
+        [
+            'version'      => '2026.08.12.1',
+            'date'         => '2026-08-12',
+            'type'         => 'major',
+            'title'        => 'Plataforma, notificações e auditoria',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Mensagens da plataforma às empresas: avisos em barra ou em janela, dirigidos a todas, a algumas, ou às de um plano, com registo de quem leu.'],
+                ['produto' => 'web', 'texto' => 'Aplicação móvel de facturação (Flutter), a acompanhar o modo offline do browser.'],
+                ['produto' => 'web', 'texto' => 'Analítica de visitas com origem e região, e aviso por SMS dos pagamentos por aprovar.'],
+            ],
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'A trilha de auditoria passa a dizer o que aconteceu em palavras, e não apenas identificadores.'],
+                ['produto' => 'web', 'texto' => 'O módulo de notificações passa a funcionar sem depender de processos em segundo plano.'],
+                ['produto' => 'web', 'texto' => 'Plano FOX Friendly de 6 para 3 meses, uma cortesia por cliente, e preços multi-empresa revistos.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'pwa', 'texto' => 'Uma sessão expirada congelava o balcão: o POS deixava de responder em vez de pedir para entrar de novo. O carrinho passa também a ser guardado no aparelho e reposto ao voltar.'],
+                ['produto' => 'web', 'texto' => 'No super admin, apagar uma empresa passa a apagar mesmo, e os limites dos planos passam a ser respeitados.'],
+                ['produto' => 'web', 'texto' => 'As definições de recursos humanos existiam apenas para a primeira empresa.'],
+                ['produto' => 'web', 'texto' => 'As transferências entre armazéns ganharam rastreio completo, correcção de quantidades e mais velocidade.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.07.1',
+            'date'         => '2026-08-07',
+            'type'         => 'minor',
+            'title'        => 'Impostos por linha e região fiscal',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Imposto Especial de Consumo e Imposto de Selo por linha de documento, com os códigos SAFT que faltavam nas compras.'],
+                ['produto' => 'web', 'texto' => 'Região fiscal nas proformas e nas compras — antes só a factura de venda a tinha.'],
+            ],
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'A regra dos impostos por linha passou a viver num só sítio, partilhado por todos os documentos.'],
+                ['produto' => 'web', 'texto' => 'Cabeçalho único nos quatro ecrãs de criação de documentos.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'A devolução feita no POS não era enviada à AGT, e um pedido para abrandar era tomado por recusa definitiva.'],
+                ['produto' => 'web', 'texto' => 'A região fiscal escolhida na proforma de venda não chegava a ser gravada.'],
+                ['produto' => 'ambos', 'texto' => 'O carrinho do POS passa a ser por empresa, e o fecho da venda verifica se os artigos são mesmo dela.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.06.1',
+            'date'         => '2026-08-06',
+            'type'         => 'minor',
+            'title'        => 'AGT — numeração aceite e envio automático',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'O envio automático à AGT passa a valer para todos os documentos fiscais, e as submissões andam com o tráfego normal, sem depender de processos em segundo plano.'],
+            ],
+            'improvements' => [
+                ['produto' => 'ambos', 'texto' => 'O QR code e o rodapé do talão seguem o ambiente configurado na empresa.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'CRÍTICO: o número do documento começava por "SOS" em vez do tipo, e a AGT recusava-o. Corrigidos também os números já emitidos.'],
+                ['produto' => 'ambos', 'texto' => 'As facturas do POS eram enviadas à AGT sem uma única linha.'],
+                ['produto' => 'web', 'texto' => 'Uma falha de rede deixava o documento marcado como recusado para sempre, mesmo tendo sido aceite.'],
+                ['produto' => 'web', 'texto' => 'PDF das notas de crédito e dos restantes documentos: saíam cortados à direita e a passar para a segunda página.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.05.1',
+            'date'         => '2026-08-05',
+            'type'         => 'minor',
+            'title'        => 'AGT — homologação e produção lado a lado',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Credenciais e chave passam a ter os dois ambientes — homologação e produção — configurados em separado, sem se pisarem.'],
+            ],
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'O histórico de stock passa a mostrar saldo anterior, quantidade e saldo final de cada movimento.'],
+                ['produto' => 'web', 'texto' => 'O comando de reconciliação de stock passa a simular por omissão: só altera quando lhe for pedido.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'Erro E39 da AGT: era enviado o número de certificação de produção quando se estava em homologação.'],
+                ['produto' => 'web', 'texto' => 'Sem chave da empresa, os documentos eram assinados com a do produtor sem que nada o dissesse.'],
+                ['produto' => 'web', 'texto' => 'O selector de ambiente voltava sozinho a homologação, e chegava a mudar o rótulo sem mudar o campo.'],
+                ['produto' => 'ambos', 'texto' => 'Uma venda descontava mais do que havia e deixava o armazém negativo.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.04.1',
+            'date'         => '2026-08-04',
+            'type'         => 'minor',
+            'title'        => 'Extractos de conta corrente e mapa de ajustes',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'Extracto de conta corrente de clientes e fornecedores: tudo o que mexeu na conta pela ordem em que aconteceu, com saldo acumulado e saldo anterior ao período. Exporta para PDF.'],
+                ['produto' => 'web', 'texto' => 'Mapa de seguimento dos ajustes de stock: o que foi mexido à mão num período, por operador, com resumo de quem concentra mais ajustes.'],
+                ['produto' => 'ambos', 'texto' => 'Leitor de código de barras no POS.'],
+            ],
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'O relatório do POS passa a incluir as notas de crédito e a filtrar por tipo de documento.'],
+                ['produto' => 'web', 'texto' => 'O modo de manutenção deixa de trancar a porta por dentro: dá para voltar a ligar o sistema sem acesso aos ficheiros.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'O aviso de stock baixo nunca chegou a disparar.'],
+                ['produto' => 'web', 'texto' => 'As facturas de compra podiam ser apagadas.'],
+                ['produto' => 'web', 'texto' => 'Um separador antigo aberto no browser dava erro em vez de recarregar.'],
+            ],
+            'security'     => [],
+        ],
+
+        [
+            'version'      => '2026.08.03.1',
+            'date'         => '2026-08-03',
+            'type'         => 'minor',
+            'title'        => 'Movimentação de stock em lote, com documento',
+            'features'     => [
+                ['produto' => 'web', 'texto' => 'A movimentação de stock em lote passa a gerar um documento com referência própria e comprovativo em PDF, reimprimível a qualquer altura. Cada movimento guarda o saldo do momento, para a reimpressão dizer o que se passou nessa altura.'],
+            ],
+            'improvements' => [
+                ['produto' => 'web', 'texto' => 'No histórico, transferências e ajustes passam a ser identificados à parte e ficam fora dos totais — uma transferência muda o artigo de armazém sem alterar o que a empresa tem.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'web', 'texto' => 'As vendas do hotel, da oficina e do restaurante emitiam factura sem dar baixa no stock.'],
+                ['produto' => 'ambos', 'texto' => 'Uma transferência sem quantidade suficiente deixava um registo vazio no destino que fazia o artigo aparecer esgotado na caixa e no POS offline.'],
+                ['produto' => 'ambos', 'texto' => 'Enquanto se registava uma movimentação em lote, ficavam travadas as vendas e a sincronização do POS offline de toda a empresa.'],
+            ],
+            'security'     => [
+                ['produto' => 'web', 'texto' => 'Quem tinha acesso a mais do que uma empresa podia, ao trabalhar na segunda, executar acções com as permissões da primeira — e ver-se recusado onde tinha mesmo autorização.'],
+                ['produto' => 'web', 'texto' => 'No ecrã de Gestão de Stock, um pedido adulterado podia dar entrada de mercadoria num armazém de outra empresa. O ecrã passa também a exigir permissão de consulta de stock.'],
+                ['produto' => 'ambos', 'texto' => 'A trilha de auditoria não guardava os movimentos de stock gerados pelas vendas — precisamente os que mais interessa poder consultar.'],
+            ],
+        ],
 
         [
             'version'      => '2026.06.12.2',
