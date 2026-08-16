@@ -28,8 +28,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // IMPORTANTE: Só executa em rotas web que exigem autenticação
         $middleware->appendToGroup('web', \App\Http\Middleware\CheckSubscription::class);
         
-        // Middleware para registrar último login
-        $middleware->append(\App\Http\Middleware\RecordLastLogin::class);
+        // Middleware para registrar último login.
+        //
+        // No GRUPO WEB e não no global, e a diferença é tudo: o middleware
+        // global corre ANTES de a sessão arrancar, e ali o auth()->check() é
+        // sempre falso. Esteve dez meses appended ao global sem nunca gravar
+        // uma única entrada — a lista de empresas dizia "nunca entrou" de toda
+        // a gente, incluindo de quem estava a facturar naquele minuto.
+        //
+        // O CheckSubscription e o DespacharAgtPendentes, aqui ao lado, já
+        // estavam no grupo web pela mesma razão.
+        $middleware->appendToGroup('web', \App\Http\Middleware\RecordLastLogin::class);
 
         // Faz andar as submissões AGT aproveitando o tráfego.
         //

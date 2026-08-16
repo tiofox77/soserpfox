@@ -202,21 +202,24 @@
                                 @endif
                                 <span class="inline-flex items-center px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium">
                                     <i class="fas fa-users mr-1.5"></i>
-                                    {{ $tenant->max_users }} utilizadores
+                                    {{ __(":n utilizadores no plano", ["n" => $tenant->max_users]) }}
                                 </span>
                                 <span class="inline-flex items-center px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-medium">
                                     <i class="fas fa-database mr-1.5"></i>
-                                    {{ $tenant->max_storage_mb }}MB storage
+                                    {{ __(":n MB de espaço", ["n" => $tenant->max_storage_mb]) }}
                                 </span>
                                 @if($tenant->modules->count() > 0)
                                     <span class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium">
                                         <i class="fas fa-puzzle-piece mr-1.5"></i>
-                                        {{ $tenant->modules->where('pivot.is_active', true)->count() }} modulos
+                                        {{ __(":n modulos", ["n" => $tenant->modules->where("pivot.is_active", true)->count()]) }}
                                     </span>
                                 @endif
                                 <span class="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
                                     <i class="fas fa-users mr-1.5"></i>
-                                    {{ $tenant->users_count ?? 0 }} users
+                                    {{-- "no plano" no outro crachá e "criados" aqui: os dois números
+                                         apareciam lado a lado como "5 utilizadores" e "1 users", e liam-se
+                                         como uma contradição em vez de limite e realidade. --}}
+                                    {{ __(':n criados', ['n' => $tenant->users_count ?? 0]) }}
                                 </span>
                             </div>
 
