@@ -320,6 +320,10 @@ class SyncController extends Controller
             'user' => [
                 'id' => auth()->id(),
                 'name' => auth()->user()->name,
+                // O email vai porque no aparelho ele é a única forma de
+                // distinguir dois operadores com o mesmo nome próprio — e
+                // porque é com ele que se entra quando não há internet.
+                'email' => auth()->user()->email,
             ],
             'company' => [
                 'name' => $tenant->company_name ?? $tenant->name ?? 'Empresa',

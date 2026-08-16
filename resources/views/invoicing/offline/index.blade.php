@@ -3,12 +3,74 @@
 @section('content')
 <div x-data="pwaHome()" x-init="init()" x-cloak>
     <div class="bg-gradient-to-br from-blue-700 to-indigo-800 text-white rounded-2xl shadow-xl p-5 mb-4">
-        <p class="text-xs opacity-80 uppercase font-bold">Olá</p>
+        <p class="text-xs opacity-80 uppercase font-bold">{{ __('Olá') }}</p>
         <h1 class="text-xl font-bold" x-text="userName">…</h1>
-        <p class="text-sm opacity-90 mt-1">
-            <i class="fas fa-clock mr-1"></i>
-            Última sincronização: <span x-text="lastSyncText">a verificar…</span>
-        </p>
+        <p class="text-xs opacity-75" x-show="userEmail" x-text="userEmail"></p>
+
+        {{-- Empresa e armazém: quem trabalha em mais do que uma empresa precisa
+             de saber em qual está ANTES de vender, e não depois. --}}
+        <div class="mt-3 pt-3 border-t border-white/20 space-y-1 text-sm">
+            <p x-show="companyName">
+                <i class="fas fa-building mr-1.5 opacity-75"></i>
+                <span class="font-semibold" x-text="companyName"></span>
+                <span class="opacity-70 text-xs" x-show="companyNif" x-text="' · NIF ' + companyNif"></span>
+            </p>
+            <p x-show="warehouseName">
+                <i class="fas fa-warehouse mr-1.5 opacity-75"></i>
+                <span x-text="warehouseName"></span>
+            </p>
+            <p class="opacity-90">
+                <i class="fas fa-clock mr-1.5 opacity-75"></i>
+                {{ __('Última sincronização:') }} <span x-text="lastSyncText">a verificar…</span>
+            </p>
+        </div>
+    </div>
+
+    {{-- O TURNO.
+         Vem do cache local, por isso continua a dizer a verdade sem internet —
+         que é quando faz falta: quem está na caixa precisa de saber se o turno
+         está aberto, desde quando, e com quanto começou. --}}
+    <div class="rounded-2xl shadow p-4 mb-4"
+         :class="shift.open ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-gray-200'">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                     :class="shift.open ? 'bg-emerald-100' : 'bg-gray-200'">
+                    <i class="fas fa-cash-register"
+                       :class="shift.open ? 'text-emerald-600' : 'text-gray-500'"></i>
+                </div>
+                <div class="min-w-0">
+                    <p class="font-bold text-sm"
+                       :class="shift.open ? 'text-emerald-900' : 'text-gray-700'"
+                       x-text="shift.open ? '{{ __('Turno aberto') }}' : '{{ __('Sem turno aberto') }}'"></p>
+                    <p class="text-xs text-gray-500" x-show="shift.open && shift.number"
+                       x-text="'{{ __('Turno') }} #' + shift.number + (shift.openedAt ? ' · ' + horaDoTurno() : '')"></p>
+                    <p class="text-xs text-gray-500" x-show="!shift.open">
+                        {{ __('Abra um turno no POS antes de começar a vender.') }}
+                    </p>
+                </div>
+            </div>
+
+            <a href="{{ route('invoicing.offline.pos') }}"
+               class="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition"
+               :class="shift.open ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+               x-text="shift.open ? '{{ __('Ir para o POS') }}' : '{{ __('Abrir turno') }}'"></a>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-emerald-200" x-show="shift.open">
+            <div>
+                <p class="text-[10px] uppercase font-bold text-gray-500">{{ __('Abertura') }}</p>
+                <p class="text-sm font-bold text-gray-900" x-text="kz(shift.opening)"></p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase font-bold text-gray-500">{{ __('Dinheiro') }}</p>
+                <p class="text-sm font-bold text-gray-900" x-text="kz(shift.cash)"></p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase font-bold text-gray-500">{{ __('Total vendido') }}</p>
+                <p class="text-sm font-bold text-emerald-700" x-text="kz(shift.total)"></p>
+            </div>
+        </div>
     </div>
 
     {{-- KPIs do cache local --}}
@@ -144,6 +206,13 @@
 function pwaHome() {
     return {
         userName: '…',
+        userEmail: '',
+        companyName: '',
+        companyNif: '',
+        warehouseName: '',
+        // O turno vem do sync e fica no cache local: é preciso saber de quem é
+        // a caixa e desde quando, mesmo — sobretudo — sem internet.
+        shift: { open: false, number: null, openedAt: null, opening: 0, cash: 0, total: 0 },
         lastSyncText: 'a verificar…',
         counts: { products: 0, clients: 0, drafts: 0, pending: 0 },
         busy: false,
@@ -156,6 +225,33 @@ function pwaHome() {
         async init() {
             await this.refresh();
             window.addEventListener('pwa:synced', () => this.refresh());
+        },
+
+        /** Kwanzas como se escrevem em Angola, e sem casas decimais a mais. */
+        kz(valor) {
+            return new Intl.NumberFormat('pt-AO', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(Number(valor) || 0) + ' Kz';
+        },
+
+        /**
+         * Desde que horas o turno está aberto.
+         *
+         * A data vem em ISO com fuso, por isso o telemóvel mostra-a na hora
+         * dele — que é a de quem está ao balcão. Se vier ilegível, mostra-se
+         * nada em vez de "Invalid Date".
+         */
+        horaDoTurno() {
+            if (!this.shift.openedAt) return '';
+
+            const quando = new Date(this.shift.openedAt);
+            if (Number.isNaN(quando.getTime())) return '';
+
+            return '{{ __('desde') }} ' + quando.toLocaleTimeString('pt-PT', {
+                hour: '2-digit',
+                minute: '2-digit',
+            });
         },
 
         async run(label, fn) {
@@ -296,6 +392,24 @@ function pwaHome() {
             const db = window.SosPwa.db;
             const user = await db.meta.get('user');
             this.userName = user?.value?.name || 'Utilizador';
+            this.userEmail = user?.value?.email || '';
+
+            const empresa = await db.meta.get('company');
+            this.companyName = empresa?.value?.name || '';
+            this.companyNif = empresa?.value?.nif || '';
+
+            const armazem = await db.meta.get('warehouse');
+            this.warehouseName = armazem?.value?.name || '';
+
+            const turno = await db.meta.get('shift');
+            this.shift = {
+                open: !!turno?.value?.open,
+                number: turno?.value?.number ?? null,
+                openedAt: turno?.value?.opened_at ?? null,
+                opening: Number(turno?.value?.opening_balance ?? 0),
+                cash: Number(turno?.value?.cash_sales ?? 0),
+                total: Number(turno?.value?.total_sales ?? 0),
+            };
 
             const last = await db.meta.get('last_sync');
             this.lastSyncText = last ? new Date(last.value).toLocaleString('pt-PT') : 'nunca';
