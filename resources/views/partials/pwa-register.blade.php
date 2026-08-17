@@ -3,6 +3,26 @@
 (function() {
     if (!('serviceWorker' in navigator)) return;
 
+    // Dizer alto quando o modo offline NÃO vai funcionar.
+    //
+    // Um service worker só corre em contexto seguro: HTTPS com certificado de
+    // confiança, ou http://localhost. Um domínio local como https://soserp.test
+    // com certificado auto-assinado NÃO é contexto seguro — o browser recusa o
+    // registo, e recusa-o em silêncio. O sintoma é o pior possível: a aplicação
+    // parece bem enquanto há rede, e no dia em que o servidor cai aparece a
+    // página de erro do browser, como se o modo offline nunca tivesse existido.
+    //
+    // Fica no console porque é lá que se vai ver quando se está a testar isto.
+    if (!window.isSecureContext) {
+        console.warn(
+            '[PWA] Sem contexto seguro (%s). O browser NÃO regista o service worker aqui, '
+            + 'e o modo offline não vai funcionar. Use https com certificado de confiança, '
+            + 'ou http://localhost.',
+            location.origin
+        );
+        return;
+    }
+
     try { localStorage.setItem('soserp-last-online', Date.now().toString()); } catch (e) {}
 
     let refreshing = false;
