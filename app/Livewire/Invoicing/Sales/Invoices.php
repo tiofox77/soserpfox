@@ -62,6 +62,21 @@ class Invoices extends Component
                   ->orWhereHas('Client', function ($q2) {
                       $q2->where('name', 'like', '%' . $this->search . '%');
                   });
+
+                // Pelo número provisório do talão offline.
+                //
+                // Uma venda feita sem internet sai com um talão a dizer
+                // PEND-20260817-A3F9C1, e é esse papel que o cliente leva. Ao
+                // sincronizar, a venda recebe o número fiscal a sério e o
+                // provisório deixa de aparecer em lado nenhum — quem voltasse
+                // com o talão a pedir a factura não era encontrado.
+                //
+                // Não é preciso guardar nada de novo: o provisório TERMINA nos
+                // últimos seis caracteres do local_uuid da venda, que já fica
+                // gravado. Procura-se por esses seis.
+                if ($cauda = $this->caudaDoNumeroProvisorio()) {
+                    $q->orWhere('local_uuid', 'like', '%' . $cauda);
+                }
             });
         }
 
@@ -293,5 +308,27 @@ class Invoices extends Component
         
         // Redirecionar para rota de PDF
         return redirect()->route('invoicing.sales.invoices.pdf', $invoice->id);
+    }
+
+    /**
+     * Os seis caracteres finais de um número provisório do POS offline.
+     *
+     * O talão sai como PEND-20260817-A3F9C1, e esses seis são a cauda do
+     * local_uuid da venda. Aceita-se o número inteiro ou só a cauda, porque
+     * quem lê um talão amarrotado ao telefone dita o que consegue.
+     *
+     * Devolve null quando a pesquisa não tem ar de número provisório — sem
+     * isso, procurar por um nome ia bater contra os local_uuid todos e trazer
+     * facturas que não têm nada que ver.
+     */
+    private function caudaDoNumeroProvisorio(): ?string
+    {
+        $termo = trim((string) $this->search);
+
+        if (preg_match('/^PEND[-\s]?\d{6,8}[-\s]?([0-9A-Za-z]{6})$/i', $termo, $m)) {
+            return $m[1];
+        }
+
+        return preg_match('/^[0-9A-Fa-f]{6}$/', $termo) ? $termo : null;
     }
 }
