@@ -141,7 +141,17 @@
                     <div>
                         <p class="font-bold text-sm leading-tight">PWA Faturação</p>
                         <p class="text-xs opacity-75 leading-tight">
-                            Modo Offline · <span class="font-mono">v{{ config('changelog.current', '1.0') }}</span>
+                            {{-- Duas versões, e as duas fazem falta.
+                                 A do changelog é a RELEASE — o que mudou e está escrito
+                                 em /changelog. A build é o que este aparelho está mesmo a
+                                 correr, e muda a cada deploy que toque no PWA. Só a
+                                 primeira não chegava: dizia 16.08 num aparelho a correr
+                                 código do dia 17, e não havia como distinguir aparelhos. --}}
+                            Modo Offline ·
+                            <span class="font-mono">v{{ config('changelog.current', '1.0') }}</span>
+                            <span class="font-mono opacity-60" title="{{ __('Versão instalada neste aparelho') }}">
+                                ·{{ app(\App\Http\Controllers\PwaController::class)->buildVersion() }}
+                            </span>
                             <span id="pwa-last-sync-badge" class="hidden ml-1 font-normal"></span>
                         </p>
                     </div>

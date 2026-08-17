@@ -260,19 +260,44 @@ class PwaController extends Controller
      * Versão usada para o cache do SW e para invalidar ícones/manifest.
      * Baseada no mtime do sw.js + mtime do logo do sistema (se existir).
      */
-    protected function buildVersion(): string
+    public function buildVersion(): string
     {
         return Cache::remember('pwa.version', 60, function () {
             $parts = [];
-            $sw = resource_path('pwa/sw.js');
-            if (is_file($sw)) {
-                $parts[] = filemtime($sw);
+
+            // Tudo o que compõe a aplicação offline, e não só o service worker.
+            //
+            // Antes olhava para o sw.js e para o logótipo, e mais nada. Um
+            // deploy que mudasse o motor do PWA ou as páginas do modo offline
+            // deixava esta versão IGUAL — o service worker não se dava por
+            // actualizado, os aparelhos ficavam com o que tinham, e não havia
+            // como saber que versão cada um estava a correr. Aconteceu: num só
+            // dia saíram alterações ao motor e às vistas sem esta linha mexer.
+            $vigiados = [
+                resource_path('pwa/sw.js'),
+                public_path('js/pwa-invoicing.js'),
+                resource_path('views/layouts/pwa.blade.php'),
+            ];
+
+            foreach ($vigiados as $ficheiro) {
+                if (is_file($ficheiro)) {
+                    $parts[] = filemtime($ficheiro);
+                }
             }
+
+            // E as páginas do modo offline, todas: são elas que ficam em cache
+            // e são elas que o utilizador vê quando não há rede.
+            foreach (glob(resource_path('views/invoicing/offline/*.blade.php')) ?: [] as $ficheiro) {
+                $parts[] = filemtime($ficheiro);
+            }
+
             $logo = function_exists('app_logo_path') ? app_logo_path() : null;
             if ($logo && is_file($logo)) {
                 $parts[] = filemtime($logo);
             }
+
             $parts[] = config('app.version', '1.0');
+
             return substr(md5(implode('-', $parts)), 0, 10);
         });
     }
