@@ -120,6 +120,38 @@
             + '-' + doisDigitos(agora.getDate());
     }
 
+    /**
+     * As formas equivalentes de um código de barras lido.
+     *
+     * Espelha App\Support\CodigoDeBarras no servidor — se um dia mudar lá,
+     * muda aqui. O mesmo artigo pode estar guardado com o envelope GS1 à
+     * frente (o "01" é um identificador de aplicação, não faz parte do
+     * código) ou só com o EAN-13 de dentro, e o leitor tanto manda um como
+     * o outro.
+     */
+    function formasDeCodigo(lido) {
+        const t = String(lido || '').trim();
+        const d = t.replace(/\D/g, '');
+        const formas = [t];
+
+        if (d && d !== t) formas.push(d);
+
+        if (d.length >= 16 && d.startsWith('01')) {
+            const gtin = d.substr(2, 14);
+            formas.push(gtin);
+            if (gtin[0] === '0') formas.push(gtin.substr(1));
+        }
+
+        if (d.length === 14 && d[0] === '0') formas.push(d.substr(1));
+
+        if (d.length === 13) {
+            formas.push('0' + d);
+            formas.push('010' + d);
+        }
+
+        return formas.filter((f, i) => f !== '' && formas.indexOf(f) === i);
+    }
+
     function csrf() {
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
     }
@@ -627,7 +659,15 @@
             let coll = db.products.toCollection();
             if (filter.search) {
                 const s = filter.search.toLowerCase();
+
+                // As formas equivalentes do que foi lido — o mesmo que o
+                // servidor faz em App\Support\CodigoDeBarras. Sem isto, ler
+                // a caixa offline falhava sempre que o catálogo guardasse o
+                // código na outra forma, e é offline que não há alternativa.
+                const formas = formasDeCodigo(filter.search);
+
                 return (await coll.toArray()).filter(p =>
+                    (p.barcode && formas.includes(p.barcode.trim())) ||
                     (p.name || '').toLowerCase().includes(s) ||
                     (p.sku || '').toLowerCase().includes(s) ||
                     (p.barcode || '').toLowerCase().includes(s) ||

@@ -6,6 +6,7 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Models\Product;
+use App\Support\CodigoDeBarras;
 use App\Models\Client;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesInvoiceItem;
@@ -426,9 +427,19 @@ class POSSystem extends Component
             return;
         }
 
-        $produto = Product::where('tenant_id', activeTenantId())
-            ->where('barcode', $codigo)
-            ->first();
+        // O mesmo artigo pode estar guardado com o envelope GS1 à frente ou
+        // só com o EAN-13 de dentro, conforme o sistema de onde veio o
+        // catálogo; e o leitor tanto manda um como o outro. Procura-se por
+        // todas as formas equivalentes, senão o POS diz "não existe" com o
+        // produto na mão do operador.
+        $formas = CodigoDeBarras::formas($codigo);
+
+        $encontrados = Product::where('tenant_id', activeTenantId())
+            ->whereIn('barcode', $formas)
+            ->get();
+
+        // Correspondência exacta manda; a equivalência é o plano B.
+        $produto = $encontrados->firstWhere('barcode', $codigo) ?? $encontrados->first();
 
         if (!$produto) {
             return;   // não é um código conhecido: fica a servir de filtro

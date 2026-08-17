@@ -151,4 +151,44 @@ class PosBarcodeTest extends TenantTestCase
 
         $this->assertCount(0, \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent());
     }
+
+    public function test_le_o_ean13_e_encontra_o_artigo_guardado_com_o_envelope_gs1(): void
+    {
+        // O catálogo veio de um sistema que guardava a linha completa do
+        // leitor; o leitor da loja manda só o EAN-13 de dentro.
+        $p = $this->comCodigo('0108902292003269');
+
+        Livewire::test(POSSystem::class)
+            ->set('search', '8902292003269');
+
+        $this->assertTrue(
+            \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent()->contains(fn ($i) => (int) $i->id === $p->id),
+            'ler o EAN-13 tinha de encontrar o artigo guardado com o envelope'
+        );
+    }
+
+    public function test_le_o_envelope_gs1_e_encontra_o_artigo_guardado_como_ean13(): void
+    {
+        $p = $this->comCodigo('8902292003269');
+
+        Livewire::test(POSSystem::class)
+            ->set('search', '0108902292003269');
+
+        $this->assertTrue(
+            \Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent()->contains(fn ($i) => (int) $i->id === $p->id),
+            'ler a linha GS1 tinha de encontrar o artigo guardado como EAN-13'
+        );
+    }
+
+    public function test_um_codigo_interno_com_zeros_a_frente_continua_a_encontrar_se(): void
+    {
+        // Os zeros à frente são do código interno da farmácia, não são
+        // envelope nenhum: têm de continuar a dar correspondência exacta.
+        $p = $this->comCodigo('0000548');
+
+        Livewire::test(POSSystem::class)
+            ->set('search', '0000548');
+
+        $this->assertTrue(\Darryldecode\Cart\Facades\CartFacade::session($this->chaveDoCarrinho())->getContent()->contains(fn ($i) => (int) $i->id === $p->id));
+    }
 }
