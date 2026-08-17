@@ -36,6 +36,7 @@ class ImportarArtigosCsv extends Command
                             {--ficheiro= : caminho do CSV}
                             {--so-stock : só lança stock; não cria artigos nem toca em preços}
                             {--sincronizar : a folha manda; põe a quantidade exacta, zeros incluídos}
+                            {--verificar : só compara a folha com a base e diz o que difere}
                             {--aplicar : grava (sem isto é simulação)}';
 
     protected $description = 'Importa artigos de um CSV para uma empresa, com armazém e stock (simulação por omissão)';
@@ -90,6 +91,10 @@ class ImportarArtigosCsv extends Command
             ->where('tenant_id', $empresa->id)
             ->whereIn('barcode', array_column($linhas, 'codigo_barras'))
             ->pluck('id', 'barcode');
+
+        if ($this->option('verificar')) {
+            return $this->verificar($linhas, $empresa);
+        }
 
         // Sincronizar é o caso de uma contagem nova do mesmo armazém: a folha
         // manda, e uma quantidade que desceu a zero TEM de descer a zero. O
@@ -241,6 +246,86 @@ class ImportarArtigosCsv extends Command
             $this->info(sprintf('  ✓ %d artigos criados, %d actualizados, %d com stock no armazém "%s".',
                 $criados, $actualizados, $comStock, $armazem->name));
         }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Compara a folha com o que está na base. Só lê.
+     *
+     * Depois de uma importação o comando diz o que FEZ. Isto diz o que ESTÁ,
+     * que não é a mesma coisa — uma linha que falhou em silêncio só aparece
+     * numa contagem feita do outro lado.
+     */
+    private function verificar(array $linhas, Tenant $empresa): int
+    {
+        $armazem = Warehouse::withoutGlobalScopes()
+            ->where('tenant_id', $empresa->id)
+            ->where('name', trim((string) $this->option('armazem')))
+            ->first();
+
+        if (!$armazem) {
+            $this->error('Armazém não encontrado: ' . $this->option('armazem'));
+
+            return self::FAILURE;
+        }
+
+        $produtos = Product::query()
+            ->where('tenant_id', $empresa->id)
+            ->whereIn('barcode', array_column($linhas, 'codigo_barras'))
+            ->pluck('id', 'barcode');
+
+        $stock = Stock::withoutGlobalScopes()
+            ->where('tenant_id', $empresa->id)
+            ->where('warehouse_id', $armazem->id)
+            ->whereIn('product_id', $produtos->values())
+            ->pluck('quantity', 'product_id');
+
+        $batem = 0;
+        $semArtigo = 0;
+        $diferencas = [];
+
+        foreach ($linhas as $l) {
+            $id = $produtos->get($l['codigo_barras']);
+
+            if (!$id) {
+                $semArtigo++;
+
+                continue;
+            }
+
+            // Sem linha de stock e a folha a dizer zero é o mesmo que zero.
+            $naBase = (float) ($stock->get($id) ?? 0);
+
+            if (abs($naBase - (float) $l['quantidade']) < 0.001) {
+                $batem++;
+
+                continue;
+            }
+
+            $diferencas[] = [$l['codigo_barras'], mb_substr($l['descricao'], 0, 32), $l['quantidade'], $naBase];
+        }
+
+        $this->newLine();
+        $this->line(sprintf('  batem certo:        %d', $batem));
+        $this->line(sprintf('  diferentes:         %d', count($diferencas)));
+        $this->line(sprintf('  sem artigo na base: %d', $semArtigo));
+        $this->newLine();
+
+        if ($diferencas) {
+            $this->table(
+                ['código', 'descrição', 'na folha', 'na base'],
+                array_slice($diferencas, 0, 25)
+            );
+
+            if (count($diferencas) > 25) {
+                $this->warn('  (mostradas as primeiras 25 de ' . count($diferencas) . ')');
+            }
+
+            return self::FAILURE;
+        }
+
+        $this->info('  ✓ A base diz exactamente o que a folha diz.');
 
         return self::SUCCESS;
     }
