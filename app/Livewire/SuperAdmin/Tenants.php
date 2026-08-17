@@ -91,7 +91,7 @@ class Tenants extends Component
         'slug' => 'required|unique:tenants,slug',
         'email' => 'required|email',
         'company_name' => 'nullable',
-        'nif' => 'nullable',
+        'nif' => 'nullable|nif_empresa',
         'phone' => 'nullable',
         'max_users' => 'required|integer|min:1',
         'max_storage_mb' => 'required|integer|min:100',

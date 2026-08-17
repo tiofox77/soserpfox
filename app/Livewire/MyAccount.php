@@ -198,7 +198,7 @@ class MyAccount extends Component
         // Validação
         $this->validate([
             'newCompanyName' => 'required|min:3|max:255',
-            'newCompanyNif' => 'required|min:9|max:14',
+            'newCompanyNif' => ['required', new \App\Rules\NifDeEmpresa()],
             'newCompanyRegime' => 'required|in:' . implode(',', array_merge(array_keys(\App\Models\Tenant::REGIMES), array_keys(\App\Models\Tenant::REGIME_ALIASES))),
             'newCompanyAddress' => 'nullable|max:255',
             'newCompanyPhone' => 'nullable|max:20',

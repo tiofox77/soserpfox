@@ -296,7 +296,7 @@ class RegisterWizard extends Component
     {
         return $this->validate([
             'company_name' => 'required|min:3',
-            'company_nif' => 'required|min:5|unique:tenants,nif',
+            'company_nif' => ['required', new \App\Rules\NifDeEmpresa(), 'unique:tenants,nif'],
             'company_regime' => 'required|in:' . implode(',', array_keys(Tenant::REGIMES)),
             'company_address' => 'nullable',
             'company_phone' => 'nullable',

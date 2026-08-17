@@ -274,14 +274,22 @@
                                 <!-- NIF -->
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        <i class="fas fa-id-card text-purple-500 mr-2"></i>NIF *
+                                        <i class="fas fa-id-card text-purple-500 mr-2"></i>{{ __('NIF da empresa') }} *
                                     </label>
+                                    {{-- O exemplo era "123456789": nove dígitos começados por 1, que não
+                                         é NIF de empresa nenhum. O formulário estava a ensinar o número
+                                         errado. Um exemplo começado por 5 diz a regra sem ser preciso lê-la. --}}
                                     <input wire:model.blur="company_nif" type="text" required
+                                           inputmode="numeric" maxlength="14"
                                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition @error('company_nif') border-red-500 @enderror"
-                                           placeholder="123456789">
+                                           placeholder="5417289442">
                                     @error('company_nif')
                                         <p class="mt-2 text-sm text-red-600 flex items-center">
                                             <i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}
+                                        </p>
+                                    @else
+                                        <p class="mt-2 text-xs text-gray-500">
+                                            {{ __('Nove ou dez dígitos, começados por 5. Não é o número do bilhete de identidade.') }}
                                         </p>
                                     @enderror
                                 </div>

@@ -76,6 +76,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // O NIF de empresa também com nome, e não só como objecto.
+        //
+        // O ecrã de empresas do super admin guarda as regras numa PROPRIEDADE
+        // de classe, e ali o PHP não deixa instanciar nada. Registada assim,
+        // a mesma regra serve tanto o `new NifDeEmpresa()` como o
+        // 'nullable|nif_empresa' — sem uma segunda cópia da regra a envelhecer
+        // em paralelo com a primeira.
+        \Illuminate\Support\Facades\Validator::extend('nif_empresa', function ($atributo, $valor, $parametros, $validador) {
+            $falhou = null;
+
+            (new \App\Rules\NifDeEmpresa())->validate($atributo, $valor, function ($mensagem, $dados = []) use (&$falhou) {
+                $falhou = __($mensagem, $dados);
+            });
+
+            if ($falhou !== null) {
+                $validador->setCustomMessages([$atributo . '.nif_empresa' => $falhou]);
+            }
+
+            return $falhou === null;
+        });
+
         // Auto-cleanup PWA: garantir que ficheiros estáticos legados são removidos
         // para que as rotas dinâmicas Laravel sejam usadas. Idempotente, leve.
         // Só corre em requests HTTP (não em comandos artisan) e no máximo 1x/dia.
