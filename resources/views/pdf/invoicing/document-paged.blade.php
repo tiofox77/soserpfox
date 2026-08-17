@@ -600,7 +600,7 @@
                             <div style="width: 90px; height: 55px; background: {{ $primaryColor }}; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;">LOGO</div>
                         @endif
                     </div>
-                    <div class="company-name">{{ $tenant->name }}</div>
+                    <div class="company-name">{{ $tenant->nomeParaDocumentos() }}</div>
                     <div class="company-details">
                         NIF: {{ $tenant->nif ?? 'N/A' }}<br>
                         {{ $tenant->address ?? '' }}<br>
@@ -841,7 +841,7 @@
             
             {{-- Número da página --}}
             <div class="page-number-footer">
-                {{ $tenant->name }} | NIF: {{ $tenant->nif ?? 'N/A' }} | Página {{ $page['number'] }} de {{ $totalPages }}
+                {{ $tenant->nomeParaDocumentos() }} | NIF: {{ $tenant->nif ?? 'N/A' }} | Página {{ $page['number'] }} de {{ $totalPages }}
             </div>
         </div>
     </div>@endforeach

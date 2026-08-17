@@ -869,6 +869,36 @@ class Tenant extends Model
      *
      * @return array{can_delete:bool, reason:?string, encontrado:array<string,int>}
      */
+    /**
+     * O nome da empresa como deve sair IMPRESSO nos documentos.
+     *
+     * Uma empresa tem dois nomes: o comercial (`name`), que é o da tabuleta e
+     * o que o cliente conhece, e a designação social (`company_name`), que é
+     * o do registo. A empresa escolhe nas Definições de Faturação qual sai.
+     *
+     * Se o escolhido estiver vazio usa-se o outro — mais vale o nome errado
+     * do que um documento com um cabeçalho em branco.
+     *
+     * ISTO É SÓ O QUE SE IMPRIME. O SAFT-AO e a comunicação à AGT não passam
+     * por aqui de propósito: o que vai para o fisco não é uma preferência de
+     * quem usa o sistema.
+     */
+    public function nomeParaDocumentos(): string
+    {
+        $comercial = trim((string) $this->name);
+        $social = trim((string) $this->company_name);
+
+        $escolha = optional(
+            \App\Models\Invoicing\InvoicingSettings::forTenant($this->id)
+        )->nome_nos_documentos;
+
+        if ($escolha === \App\Models\Invoicing\InvoicingSettings::NOME_COMERCIAL) {
+            return $comercial !== '' ? $comercial : $social;
+        }
+
+        return $social !== '' ? $social : $comercial;
+    }
+
     public function canBeDeleted()
     {
         $encontrado = [];

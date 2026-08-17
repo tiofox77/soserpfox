@@ -62,6 +62,14 @@ class Settings extends Component
     // Impressão
     public $auto_print_after_save = false;
     public $show_company_logo = true;
+
+    /**
+     * Qual dos nomes da empresa sai impresso: 'social' ou 'comercial'.
+     *
+     * A omissao e a designacao social, que e o que se espera num documento
+     * fiscal. Nao mexe no SAFT-AO nem na comunicacao a AGT.
+     */
+    public $nome_nos_documentos = InvoicingSettings::NOME_SOCIAL;
     public $invoice_footer_text;
     
     // Observações
@@ -165,6 +173,9 @@ class Settings extends Component
     public function save()
     {
         $this->validate([
+            // Só os dois valores conhecidos: o que vem do navegador não manda
+            // numa coluna que decide o cabeçalho de todos os documentos.
+            'nome_nos_documentos' => 'required|in:social,comercial',
             'default_currency' => 'required|in:AOA,USD,EUR',
             'default_exchange_rate' => 'required|numeric|min:0',
             'proforma_series' => 'required|max:10',
@@ -213,6 +224,7 @@ class Settings extends Component
             'invoice_due_days' => $this->invoice_due_days,
             'auto_print_after_save' => $this->auto_print_after_save,
             'show_company_logo' => $this->show_company_logo,
+            'nome_nos_documentos' => $this->nome_nos_documentos,
             'invoice_footer_text' => $this->invoice_footer_text,
             'default_notes' => $this->default_notes,
             'default_terms' => $this->default_terms,

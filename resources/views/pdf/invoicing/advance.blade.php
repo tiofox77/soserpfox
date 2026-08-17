@@ -550,7 +550,7 @@
                             @include('pdf.invoicing.partials.logo')
                         </div>
                         <div>
-                            <div class="company-name">{{ $tenant->name }}</div>
+                            <div class="company-name">{{ $tenant->nomeParaDocumentos() }}</div>
                         </div>
                     </div>
                     <div class="company-details">

@@ -1099,6 +1099,21 @@
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                {{ __('Nome da empresa nos documentos') }}
+                            </label>
+                            <select wire:model="nome_nos_documentos"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                                <option value="social">{{ __('Designação social (nome fiscal)') }}</option>
+                                <option value="comercial">{{ __('Nome comercial') }}</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-2">
+                                {{ __('Escolhe qual dos dois nomes sai impresso nas faturas, talões e restantes documentos. Se o escolhido estiver vazio, é usado o outro.') }}
+                                <span class="block mt-1">{{ __('Não afeta o SAFT-AO nem a comunicação à AGT: o que vai para o fisco não muda com esta escolha.') }}</span>
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 {{ __('Texto Rodapé Fatura') }}
                             </label>
                             <textarea wire:model="invoice_footer_text" rows="3"

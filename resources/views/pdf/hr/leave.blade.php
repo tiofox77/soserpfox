@@ -101,7 +101,7 @@
                     <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo">
                 @endif
                 <div>
-                    <h2>{{ $tenant->name ?? 'Empresa' }}</h2>
+                    <h2>{{ optional($tenant)->nomeParaDocumentos() ?: 'Empresa' }}</h2>
                     <p>NIF: {{ $tenant->nif ?? '—' }} | Tel: {{ $tenant->phone ?? '—' }}</p>
                     <p>{{ $tenant->address ?? '' }}</p>
                 </div>
@@ -200,7 +200,7 @@
         </div>
 
         <div class="footer">
-            {{ $tenant->name ?? 'SOS ERP' }} — Comprovativo de Licença/Falta nº {{ $leave->leave_number }} — Emitido em {{ now()->format('d/m/Y H:i') }}
+            {{ optional($tenant)->nomeParaDocumentos() ?: 'SOS ERP' }} — Comprovativo de Licença/Falta nº {{ $leave->leave_number }} — Emitido em {{ now()->format('d/m/Y H:i') }}
         </div>
     </div>
 </body>

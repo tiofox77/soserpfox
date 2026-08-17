@@ -104,7 +104,7 @@
 <div class="header">
     <div class="left">
         @include('pdf.invoicing.partials.logo')
-        <h1>{{ $tenant->company_name ?: $tenant->name }}</h1>
+        <h1>{{ $tenant->nomeParaDocumentos() }}</h1>
         <div class="small">
             NIF: {{ $tenant->nif ?: '—' }}<br>
             {{ $tenant->address ?: '—' }}{{ $tenant->city ? ', ' . $tenant->city : '' }}<br>
@@ -236,7 +236,7 @@
 <div class="footer-note">
     Documento interno de conferência de armazém — não é documento fiscal e não substitui factura,
     guia de transporte ou nota de crédito.<br>
-    {{ $tenant->company_name ?: $tenant->name }} · {{ $reference }} · gerado pelo SOS ERP
+    {{ $tenant->nomeParaDocumentos() }} · {{ $reference }} · gerado pelo SOS ERP
 </div>
 
 </body>

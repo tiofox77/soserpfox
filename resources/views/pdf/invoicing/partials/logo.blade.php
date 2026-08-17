@@ -29,7 +29,7 @@
     };
 
     $__logo = $__comoImagem($tenant->logo ?? null);
-    $__alt  = $tenant->name ?? 'Empresa';
+    $__alt  = optional($tenant)->nomeParaDocumentos() ?: 'Empresa';
 
     if (!$__logo) {
         // Logótipo do sistema (SuperAdmin › Definições)

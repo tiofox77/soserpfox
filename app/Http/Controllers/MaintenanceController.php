@@ -91,6 +91,8 @@ class MaintenanceController extends Controller
         // Cria utilizadores de uma empresa. Simulacao por omissao; as
         // palavras-passe sao geradas e mostradas uma unica vez.
         'utilizadores:criar',
+        // Que nome da empresa sai impresso. Sem --usar apenas lista.
+        'empresas:nome-documentos',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
         'agt:diagnostico-fila',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já

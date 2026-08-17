@@ -34,7 +34,7 @@
 <body>
     <div class="header">
         <div class="left">
-            <h1>{{ $tenant->company_name ?? $tenant->name }}</h1>
+            <h1>{{ $tenant->nomeParaDocumentos() }}</h1>
             <div class="small">
                 NIF: {{ $tenant->nif ?? '—' }}<br>
                 {{ $tenant->address ?? '—' }}<br>

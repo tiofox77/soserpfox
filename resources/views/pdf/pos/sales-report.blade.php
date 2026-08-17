@@ -36,7 +36,7 @@
             @endif
             <h1>RELATÓRIO DE VENDAS POS</h1>
             <div class="small">
-                <strong>{{ $tenant->company_name ?? $tenant->name }}</strong> — NIF: {{ $tenant->nif ?? '—' }}<br>
+                <strong>{{ $tenant->nomeParaDocumentos() }}</strong> — NIF: {{ $tenant->nif ?? '—' }}<br>
                 {{ $tenant->address ?? '' }} @if($tenant->phone) | Tel: {{ $tenant->phone }} @endif
             </div>
         </div>

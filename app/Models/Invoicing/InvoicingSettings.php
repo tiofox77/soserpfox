@@ -18,6 +18,10 @@ class InvoicingSettings extends Model
      * POS) usa estas constantes e nunca o nome da coluna — assim a forma como
      * isto está guardado pode mudar sem obrigar a mexer em quem lê.
      */
+    /** Que nome da empresa sai impresso nos documentos. */
+    public const NOME_SOCIAL = 'social';
+    public const NOME_COMERCIAL = 'comercial';
+
     public const PERFIL_FARMACIA = 'farmacia';
     public const PERFIL_VESTUARIO = 'vestuario';
     public const PERFIL_COSMETICA = 'cosmetica';
@@ -54,6 +58,7 @@ class InvoicingSettings extends Model
         'invoice_due_days',
         'auto_print_after_save',
         'show_company_logo',
+        'nome_nos_documentos',
         'invoice_footer_text',
         'saft_software_cert',
         'saft_product_id',

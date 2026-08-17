@@ -59,7 +59,7 @@
         </div>
     @endif
     <div class="center">
-        <h3>{{ $tenant->company_name ?? $tenant->name }}</h3>
+        <h3>{{ $tenant->nomeParaDocumentos() }}</h3>
         <div>NIF: {{ $tenant->nif ?? '—' }}</div>
         <div>{{ $tenant->address ?? '' }}</div>
         <div>Tel: {{ $tenant->phone ?? '' }}</div>

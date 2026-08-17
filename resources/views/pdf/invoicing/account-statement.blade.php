@@ -54,7 +54,7 @@
 <div class="header">
     <div class="left">
         @include('pdf.invoicing.partials.logo')
-        <h1>{{ $tenant->company_name ?: $tenant->name }}</h1>
+        <h1>{{ $tenant->nomeParaDocumentos() }}</h1>
         <div class="small">
             NIF: {{ $tenant->nif ?: '—' }}<br>
             {{ $tenant->address ?: '—' }}{{ $tenant->city ? ', ' . $tenant->city : '' }}<br>
@@ -142,7 +142,7 @@
 
 <div class="footer-note">
     Documento informativo de conferência de conta corrente — não é documento fiscal.<br>
-    {{ $tenant->company_name ?: $tenant->name }} · {{ $titular->name }} · gerado pelo SOS ERP
+    {{ $tenant->nomeParaDocumentos() }} · {{ $titular->name }} · gerado pelo SOS ERP
 </div>
 
 </body>

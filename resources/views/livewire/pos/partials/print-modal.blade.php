@@ -46,7 +46,7 @@
                     @if(app_logo())
                         <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 48px; width: auto; margin-bottom: 6px;">
                     @endif
-                    <h3 style="font-size: 15px; font-weight: 400; text-transform: uppercase; margin: 0;">{{ $tenant->company_name ?? $tenant->name }}</h3>
+                    <h3 style="font-size: 15px; font-weight: 400; text-transform: uppercase; margin: 0;">{{ $tenant->nomeParaDocumentos() }}</h3>
                     <p style="font-size: 14px; margin: 0;">NIF: {{ $tenant->nif ?? 'N/A' }}</p>
                     <p style="font-size: 14px; margin: 0;">{{ $tenant->address ?? 'Endereço' }}</p>
                     <p style="font-size: 14px; margin: 0;">Tel: {{ $tenant->phone ?? 'Telefone' }}</p>
