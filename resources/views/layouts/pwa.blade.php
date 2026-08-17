@@ -35,6 +35,74 @@
 </head>
 <body class="bg-slate-50 min-h-screen pwa-shell">
 
+{{-- Ecrã de carregamento.
+
+     Tudo o que interessa nas páginas do PWA está atrás de um x-cloak, que é
+     `display: none` até o Alpine arrancar. Enquanto ele não chega — e vem da
+     internet — o ecrã fica CINZENTO e vazio: a aplicação parece encravada, e
+     quem está ao balcão não sabe se há-de esperar, tocar outra vez, ou fechar.
+
+     Este ecrã aparece de imediato e sai quando o Alpine arranca. Escrito com
+     estilos e JavaScript à mão, sem Tailwind nem Alpine, de propósito: é para
+     funcionar exactamente quando eles não funcionam. --}}
+<div id="pwa-a-carregar" role="status" aria-live="polite"
+     style="position:fixed;inset:0;z-index:9998;background:linear-gradient(160deg,#1e3a8a,#312e81);
+            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+            font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;text-align:center;padding:24px">
+    <div style="width:64px;height:64px;border-radius:20px;background:rgba(255,255,255,.15);
+                display:flex;align-items:center;justify-content:center;font-size:30px">⚡</div>
+
+    <div style="width:34px;height:34px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;
+                border-radius:50%;animation:pwa-roda .8s linear infinite"></div>
+
+    <div>
+        <p style="margin:0;font-weight:700;font-size:16px">{{ __('A preparar o ponto de venda') }}</p>
+        <p id="pwa-a-carregar-nota" style="margin:6px 0 0;font-size:13px;opacity:.75">
+            {{ __('Um momento…') }}
+        </p>
+    </div>
+</div>
+
+<style>
+    @keyframes pwa-roda { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+(function () {
+    var ecra = document.getElementById('pwa-a-carregar');
+    var nota = document.getElementById('pwa-a-carregar-nota');
+    if (!ecra) return;
+
+    function sair() {
+        ecra.style.transition = 'opacity .25s';
+        ecra.style.opacity = '0';
+        setTimeout(function () { ecra.remove(); }, 260);
+    }
+
+    // O Alpine avisa quando termina de arrancar. É o sinal certo: a partir daí
+    // o x-cloak sai e há mesmo alguma coisa por baixo para se ver.
+    document.addEventListener('alpine:initialized', sair, { once: true });
+
+    // Já cá estava quando este script correu (página vinda da cache, rápida).
+    if (typeof window.Alpine !== 'undefined') sair();
+
+    // Ao fim de quatro segundos, dizer que ainda se está a tentar. Uma roda a
+    // girar sem explicação, passado algum tempo, lê-se como bloqueio.
+    setTimeout(function () {
+        if (nota && document.body.contains(ecra)) {
+            nota.textContent = @json(__('A carregar pela primeira vez. Com internet é mais rápido.'));
+        }
+    }, 4000);
+
+    // Rede de último recurso: se o Alpine nunca arrancar, o aviso que está no
+    // fim do corpo assume — e este ecrã tem de sair da frente para ele se ver.
+    setTimeout(function () {
+        if (typeof window.Alpine === 'undefined') sair();
+    }, 8200);
+})();
+</script>
+
+
     {{-- Banner de instalação PWA --}}
     <div id="pwa-install-banner" class="hidden fixed bottom-20 inset-x-3 z-50 bg-gradient-to-r from-indigo-600 to-blue-700 text-white rounded-2xl shadow-2xl p-4">
         <div class="flex items-center gap-3">

@@ -53,4 +53,25 @@ class PwaEcraCinzentoTest extends TenantTestCase
 
         $this->assertStringContainsString('[x-cloak] { display: none !important; }', $html);
     }
+
+    /** O ecra de carregamento aparece DE IMEDIATO, sem depender de nada. */
+    public function test_ha_ecra_de_carregamento_desde_o_primeiro_instante(): void
+    {
+        $html = $this->pos();
+
+        $this->assertStringContainsString("pwa-a-carregar", $html);
+        $this->assertStringContainsString("A preparar o ponto de venda", $html);
+    }
+
+    /** E sai quando o Alpine arranca, que e quando ha algo por baixo para ver. */
+    public function test_o_ecra_de_carregamento_sai_quando_o_alpine_arranca(): void
+    {
+        $this->assertStringContainsString("alpine:initialized", $this->pos());
+    }
+
+    /** Passado algum tempo diz porque esta a demorar, em vez de so rodar. */
+    public function test_ao_fim_de_algum_tempo_explica_a_demora(): void
+    {
+        $this->assertStringContainsString("A carregar pela primeira vez", $this->pos());
+    }
 }
