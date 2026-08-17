@@ -973,6 +973,53 @@
             return m ? m.value : null;
         },
 
+        /**
+         * A fila de envio, em linguagem de quem está ao balcão.
+         *
+         * Contar quantos faltam não chega: quando um fica preso, quem está na
+         * caixa precisa de ver O QUÊ ficou preso e porquê. "3 por enviar" não
+         * se distingue de "3 perdidos".
+         */
+        async getQueue() {
+            const nomes = {
+                create_pos_sale: 'Venda',
+                create_client: 'Cliente',
+                create_draft: 'Documento',
+                open_pos_shift: 'Abertura de turno',
+                close_pos_shift: 'Fecho de turno',
+                logout: 'Saída de sessão',
+            };
+
+            const itens = await db.sync_queue.orderBy('created_at').toArray();
+
+            return itens.map(j => {
+                const p = j.payload || {};
+                let detalhe = '';
+
+                if (j.op === 'create_pos_sale') {
+                    const n = (p.items || []).length;
+                    const total = (p.items || []).reduce(
+                        (s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.unit_price) || 0), 0
+                    );
+                    detalhe = `${n} artigo(s) · ${total.toFixed(2)} Kz`;
+                } else if (j.op === 'create_client') {
+                    detalhe = p.name || '';
+                } else if (j.op === 'create_draft') {
+                    detalhe = (p.doc_type || '').toUpperCase();
+                }
+
+                return {
+                    id: j.id,
+                    tipo: nomes[j.op] || j.op,
+                    detalhe,
+                    quando: j.created_at,
+                    estado: j.status,
+                    tentativas: j.retries || 0,
+                    erro: j.last_error || null,
+                };
+            });
+        },
+
         async getFailedJobs() {
             return await db.sync_queue.where('status').equals('failed').toArray();
         },

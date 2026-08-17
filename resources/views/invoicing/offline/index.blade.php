@@ -139,6 +139,56 @@
         </ul>
     </div>
 
+    {{-- Fila de envio --}}
+    <div class="bg-white rounded-xl shadow p-4 mb-4" x-show="fila.length || filaErros" x-cloak>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-800">
+                <i class="fas fa-paper-plane text-blue-600 mr-1"></i>{{ __('Por enviar') }}
+            </h2>
+            <button @click="enviarAgora" :disabled="aEnviar"
+                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold">
+                <span x-show="!aEnviar">{{ __('Enviar agora') }}</span>
+                <span x-show="aEnviar" x-cloak>{{ __('A enviar…') }}</span>
+            </button>
+        </div>
+
+        {{-- Contar não chega: quem está à caixa precisa de ver O QUÊ ficou
+             preso. "3 por enviar" não se distingue de "3 perdidos". --}}
+        <ul class="divide-y divide-gray-100">
+            <template x-for="j in fila" :key="j.id">
+                <li class="py-2">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="text-xs font-semibold" x-text="j.tipo"></p>
+                            <p class="text-[11px] text-gray-500 truncate" x-text="j.detalhe"></p>
+                            <p class="text-[10px] text-gray-400" x-text="quandoTexto(j.quando)"></p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                  :class="j.estado === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                                  x-text="j.estado === 'failed' ? '{{ __('com erro') }}' : '{{ __('à espera') }}'"></span>
+                            <p x-show="j.tentativas > 0" x-cloak class="text-[10px] text-gray-400 mt-0.5">
+                                <span x-text="j.tentativas"></span> {{ __('tentativa(s)') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div x-show="j.erro" x-cloak class="mt-1 flex items-center justify-between gap-2">
+                        <p class="text-[10px] text-red-600 truncate" x-text="j.erro"></p>
+                        <button @click="repetir(j.id)"
+                                class="shrink-0 text-[10px] font-bold text-blue-700 hover:underline">
+                            {{ __('Repetir') }}
+                        </button>
+                    </div>
+                </li>
+            </template>
+        </ul>
+
+        <p x-show="!fila.length" x-cloak class="text-xs text-gray-400 text-center py-2">
+            {{ __('Está tudo enviado.') }}
+        </p>
+    </div>
+
     {{-- Ações --}}
     <div class="space-y-3">
         <a href="{{ route('invoicing.offline.pos') }}" class="block bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
@@ -262,6 +312,35 @@ function pwaHome() {
         lastSyncText: 'a verificar…',
         counts: { products: 0, clients: 0, drafts: 0, pending: 0 },
         vendas: { total: 0, porEmitir: 0, valor: 0, ultimas: [] },
+        fila: [],
+        filaErros: 0,
+        aEnviar: false,
+
+        quandoTexto(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return isNaN(d) ? '' : d.toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        },
+
+        async enviarAgora() {
+            if (this.aEnviar) return;
+            this.aEnviar = true;
+            try {
+                await window.SosPwa.sync(true);
+            } catch (_) {
+            } finally {
+                this.aEnviar = false;
+                await this.refresh();
+            }
+        },
+
+        async repetir(id) {
+            // Um trabalho com erro fica parado de propósito, para não repetir
+            // um pedido que talvez tenha chegado. Quem decide repetir é quem
+            // está à caixa e sabe se a venda saiu.
+            await window.SosPwa.retryFailedJob(id);
+            await this.refresh();
+        },
         busy: false,
         busyText: '',
         statusMsg: '',
@@ -465,6 +544,9 @@ function pwaHome() {
             this.counts.clients = await db.clients.count();
             this.counts.drafts = await db.draft_documents.count();
             this.counts.pending = await window.SosPwa.refreshPendingCount();
+
+            this.fila = await window.SosPwa.getQueue();
+            this.filaErros = this.fila.filter(j => j.estado === 'failed').length;
 
             // As facturas vendidas HOJE. Quem está ao balcão quer saber o que
             // já vendeu e se está tudo entregue ao servidor — não o número de
