@@ -88,6 +88,9 @@ class MaintenanceController extends Controller
         // --aplicar E --confirmo-que-apaga, e nunca apaga um artigo que
         // esteja numa factura, nota ou receita.
         'artigos:apagar',
+        // Cria utilizadores de uma empresa. Simulacao por omissao; as
+        // palavras-passe sao geradas e mostradas uma unica vez.
+        'utilizadores:criar',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
         'agt:diagnostico-fila',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
