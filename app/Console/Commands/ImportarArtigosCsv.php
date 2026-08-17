@@ -34,6 +34,7 @@ class ImportarArtigosCsv extends Command
                             {--tenant= : id da empresa}
                             {--armazem=Loja : nome do armazém que recebe o stock}
                             {--ficheiro= : caminho do CSV}
+                            {--so-stock : só lança stock; não cria artigos nem toca em preços}
                             {--aplicar : grava (sem isto é simulação)}';
 
     protected $description = 'Importa artigos de um CSV para uma empresa, com armazém e stock (simulação por omissão)';
@@ -80,14 +81,30 @@ class ImportarArtigosCsv extends Command
         $this->line($aplicar ? ' MODO: --aplicar — VAI GRAVAR.' : ' MODO: simulação — nada é gravado.');
         $this->line(str_repeat('=', 62));
 
-        $jaExistem = Product::withoutGlobalScopes()
+        // Sem withoutGlobalScopes: o Product não tem scope global de empresa
+        // (o filtro por tenant_id é este), e o único que tem é o do soft
+        // delete. Destapá-lo faria a importação encontrar artigos da
+        // reciclagem e escrever neles em vez de nos que estão no catálogo.
+        $jaExistem = Product::query()
             ->where('tenant_id', $empresa->id)
             ->whereIn('barcode', array_column($linhas, 'codigo_barras'))
             ->pluck('id', 'barcode');
 
-        $this->line(sprintf('  artigos novos:        %d', count($linhas) - $jaExistem->count()));
-        $this->line(sprintf('  artigos a actualizar: %d', $jaExistem->count()));
-        $this->line(sprintf('  com stock a lançar:   %d', count(array_filter($linhas, fn ($l) => $l['quantidade'] > 0))));
+        $soStock = (bool) $this->option('so-stock');
+        $comStockNoFicheiro = count(array_filter($linhas, fn ($l) => $l['quantidade'] > 0));
+
+        if ($soStock) {
+            // Só stock: o catálogo e os preços são os que já lá estão. Serve
+            // para lançar um segundo armazém sem que a folha nova mande nos
+            // preços que alguém já afinou no sistema.
+            $this->line(sprintf('  artigos encontrados:  %d', $jaExistem->count()));
+            $this->line(sprintf('  não existem (ignorados): %d', count($linhas) - $jaExistem->count()));
+            $this->line(sprintf('  com stock a lançar:   %d', $comStockNoFicheiro));
+        } else {
+            $this->line(sprintf('  artigos novos:        %d', count($linhas) - $jaExistem->count()));
+            $this->line(sprintf('  artigos a actualizar: %d', $jaExistem->count()));
+            $this->line(sprintf('  com stock a lançar:   %d', $comStockNoFicheiro));
+        }
 
         if (!$aplicar) {
             $this->newLine();
@@ -105,34 +122,46 @@ class ImportarArtigosCsv extends Command
         // transacção única mantém a tabela trancada durante todo o processo e
         // pára a loja. Cada lote fecha-se sozinho, e repetir o comando retoma
         // de onde ficou — é idempotente.
+        $ignorados = 0;
+
         foreach (array_chunk($linhas, 200) as $lote) {
-            DB::transaction(function () use ($lote, $empresa, $armazem, &$criados, &$actualizados, &$comStock) {
+            DB::transaction(function () use ($lote, $empresa, $armazem, $soStock, &$criados, &$actualizados, &$comStock, &$ignorados) {
                 foreach ($lote as $l) {
-                    $produto = Product::withoutGlobalScopes()->firstOrNew([
+                    $produto = Product::query()->firstOrNew([
                         'tenant_id' => $empresa->id,
                         'barcode'   => $l['codigo_barras'],
                     ]);
 
                     $novo = !$produto->exists;
 
-                    $produto->name = $l['descricao'];
-                    $produto->cost = $l['preco_compra'];
-                    $produto->price = $l['preco_venda'];
-                    $produto->tenant_id = $empresa->id;
+                    if ($soStock) {
+                        if ($novo) {
+                            $ignorados++;
 
-                    // O `code` é obrigatório e único por empresa; sem outro
-                    // critério, o código de barras serve-lhe de valor.
-                    if (empty($produto->code)) {
-                        $produto->code = $l['codigo_barras'];
+                            continue;
+                        }
+
+                        $actualizados++;
+                    } else {
+                        $produto->name = $l['descricao'];
+                        $produto->cost = $l['preco_compra'];
+                        $produto->price = $l['preco_venda'];
+                        $produto->tenant_id = $empresa->id;
+
+                        // O `code` é obrigatório e único por empresa; sem outro
+                        // critério, o código de barras serve-lhe de valor.
+                        if (empty($produto->code)) {
+                            $produto->code = $l['codigo_barras'];
+                        }
+
+                        if (empty($produto->sku)) {
+                            $produto->sku = $l['codigo_barras'];
+                        }
+
+                        $produto->save();
+
+                        $novo ? $criados++ : $actualizados++;
                     }
-
-                    if (empty($produto->sku)) {
-                        $produto->sku = $l['codigo_barras'];
-                    }
-
-                    $produto->save();
-
-                    $novo ? $criados++ : $actualizados++;
 
                     if ($l['quantidade'] <= 0) {
                         continue;
@@ -160,8 +189,14 @@ class ImportarArtigosCsv extends Command
         }
 
         $this->newLine(2);
-        $this->info(sprintf('  ✓ %d artigos criados, %d actualizados, %d com stock no armazém "%s".',
-            $criados, $actualizados, $comStock, $armazem->name));
+
+        if ($soStock) {
+            $this->info(sprintf('  ✓ %d linhas de stock no armazém "%s". %d artigos ignorados por não existirem.',
+                $comStock, $armazem->name, $ignorados));
+        } else {
+            $this->info(sprintf('  ✓ %d artigos criados, %d actualizados, %d com stock no armazém "%s".',
+                $criados, $actualizados, $comStock, $armazem->name));
+        }
 
         return self::SUCCESS;
     }
