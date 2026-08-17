@@ -169,21 +169,24 @@ class StockManagement extends Component
         ];
     }
 
-    public function render()
+    /**
+     * A consulta de stock com os filtros do ecrã aplicados.
+     *
+     * A lista E os cartões saem daqui. Estavam separados, e os cartões
+     * contavam a empresa toda: escolher um armazém filtrava as linhas e
+     * deixava os totais quietos, a dizer outra coisa. Quem confere a
+     * prateleira lê o número grande, não conta as linhas.
+     */
+    private function consultaComFiltros()
     {
         $query = Stock::where('tenant_id', activeTenantId())
             ->whereHas('product')
-            ->whereHas('warehouse')
-            // O eager load do artigo já traz `net_content` e `storage_conditions`
-            // com o resto da ficha: a lista mostra-os sem uma consulta por linha.
-            ->with(['warehouse', 'product']);
+            ->whereHas('warehouse');
 
-        // Warehouse Filter
         if ($this->warehouseFilter) {
             $query->where('warehouse_id', $this->warehouseFilter);
         }
 
-        // Search
         if ($this->search) {
             $query->whereHas('product', function ($q) {
                 $q->where('name', 'like', '%' . $this->search . '%')
@@ -191,18 +194,14 @@ class StockManagement extends Component
             });
         }
 
-        // Low Stock Filter
         if ($this->lowStockFilter) {
-            $query->whereHas('product', function ($q) {
-                $q->whereColumn('invoicing_stocks.quantity', '<=', 'invoicing_products.stock_min');
-            });
+            $query->whereHas('product', $this->condicaoStockBaixo());
         }
 
         // Conservação. `whereHas` e não JOIN de propósito: o global scope de
         // BelongsToTenant é do STOCK, e escreve `tenant_id` sem qualificar a
         // tabela — junte-se invoicing_products, que também tem tenant_id, e a
-        // condição fica ambígua. É a mesma armadilha documentada na contagem de
-        // stock baixo aqui em baixo.
+        // condição fica ambígua.
         //
         // O filtro de empresa vai à mão porque o ARTIGO não é tenant-scoped:
         // Product não usa BelongsToTenant, e uma subconsulta sem esta linha
@@ -215,7 +214,26 @@ class StockManagement extends Component
             });
         }
 
-        $stocks = $query->paginate($this->perPage);
+        return $query;
+    }
+
+    /** Abaixo do mínimo, como subconsulta correlacionada — sem JOIN, sem ambiguidade. */
+    private function condicaoStockBaixo(): \Closure
+    {
+        return function ($q) {
+            $q->whereColumn('invoicing_stocks.quantity', '<=', 'invoicing_products.stock_min');
+        };
+    }
+
+    public function render()
+    {
+        $base = $this->consultaComFiltros();
+
+        // O eager load do artigo já traz `net_content` e `storage_conditions`
+        // com o resto da ficha: a lista mostra-os sem uma consulta por linha.
+        $stocks = (clone $base)
+            ->with(['warehouse', 'product'])
+            ->paginate($this->perPage);
 
         $tenantId = activeTenantId();
 
@@ -224,8 +242,7 @@ class StockManagement extends Component
             ->get();
 
         // Stats — uma única query agregada (em vez de 4) + 1 query para low_stock.
-        // Reduz substancialmente a latência da página.
-        $agg = Stock::where('tenant_id', $tenantId)
+        $agg = (clone $base)
             ->selectRaw('
                 COUNT(DISTINCT product_id) AS total_products,
                 COALESCE(SUM(quantity), 0)               AS total_quantity,
@@ -233,13 +250,11 @@ class StockManagement extends Component
             ')
             ->first();
 
-        // Usa query builder directo para evitar a ambiguidade introduzida
-        // pelo global scope BelongsToTenant (`tenant_id = X` sem qualificar a tabela)
-        // quando se faz JOIN com invoicing_products (que também tem tenant_id).
-        $lowStockCount = \DB::table('invoicing_stocks')
-            ->join('invoicing_products', 'invoicing_products.id', '=', 'invoicing_stocks.product_id')
-            ->where('invoicing_stocks.tenant_id', $tenantId)
-            ->whereColumn('invoicing_stocks.quantity', '<=', 'invoicing_products.stock_min')
+        // Sobre o mesmo conjunto filtrado. Se o filtro de stock baixo já está
+        // ligado, isto não muda nada — e é isso mesmo que se quer: o cartão
+        // passa a valer o total da lista.
+        $lowStockCount = (clone $base)
+            ->whereHas('product', $this->condicaoStockBaixo())
             ->count();
 
         $stats = [
@@ -739,6 +754,13 @@ class StockManagement extends Component
 
     public function updatingWarehouseFilter()
     {
+        $this->resetPage();
+    }
+
+    public function updatingLowStockFilter()
+    {
+        // Faltava: ligar o filtro na página 3 deixava-a na página 3, que já
+        // não existe no conjunto filtrado — e o ecrã vinha vazio.
         $this->resetPage();
     }
 
