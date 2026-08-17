@@ -320,7 +320,16 @@
                                     </span>
                                 </button>
                                 <button wire:click="openDeleteModal({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors">
-                                    <i class="fas fa-trash mr-1.5"></i>Excluir
+                                    <i class="fas fa-box-archive mr-1.5"></i>{{ __('Suspender') }}
+                                </button>
+                                {{-- O botao acima chama o delete() do modelo, e como o Tenant usa
+                                     SoftDeletes isso e uma SUSPENSAO: sai da lista e fica na base.
+                                     Dizia "Excluir", pelo que ninguem sabia — e ninguem tinha como
+                                     limpar as empresas de lixo. Este segundo apaga mesmo. --}}
+                                <button wire:click="abrirApagarDefinitivo({{ $tenant->id }})"
+                                        class="inline-flex items-center px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-semibold transition border border-red-200"
+                                        title="{{ __('Apagar da base de dados, sem retorno') }}">
+                                    <i class="fas fa-trash mr-1.5"></i>{{ __('Apagar') }}
                                 </button>
                             </div>
                         </div>
@@ -352,4 +361,60 @@
     @include('livewire.super-admin.tenants.partials.users-modal')
     @include('livewire.super-admin.tenants.partials.plan-modal')
     @include('livewire.super-admin.tenants.partials.deactivation-modal')
+
+    {{-- Apagar em definitivo. Vermelho, com o que se perde à vista e o nome a
+         escrever à mão — não é burocracia: é a diferença entre carregar num
+         botão por engano e decidir. Isto não se desfaz. --}}
+    @if($apagarDefinitivoId)
+        <div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/60" wire:click="fecharApagarDefinitivo"></div>
+
+            <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+                <div class="bg-red-600 px-6 py-4">
+                    <h3 class="text-white font-bold flex items-center gap-2">
+                        <i class="fas fa-triangle-exclamation"></i>{{ __('Apagar em definitivo') }}
+                    </h3>
+                </div>
+
+                <div class="p-6">
+                    @if($apagarDefinitivoImpedido)
+                        <p class="text-sm text-gray-800 leading-relaxed">{{ $apagarDefinitivoImpedido }}</p>
+                    @else
+                        <p class="text-sm text-gray-800 leading-relaxed">
+                            {{ __('Vai apagar :nome e tudo o que é dela. Não há como voltar atrás.', ['nome' => $apagarDefinitivoNome]) }}
+                        </p>
+
+                        <ul class="mt-3 text-sm text-gray-600 space-y-0.5">
+                            @foreach($apagarDefinitivoPerdas as $rotulo => $quantos)
+                                <li>· {{ $quantos }} {{ __($rotulo) }}</li>
+                            @endforeach
+                        </ul>
+
+                        <label class="block text-sm font-semibold text-gray-700 mt-5 mb-1">
+                            {{ __('Escreva o nome da empresa para confirmar:') }}
+                        </label>
+                        <p class="text-xs text-gray-400 mb-2 font-mono">{{ $apagarDefinitivoNome }}</p>
+                        <input type="text" wire:model="apagarDefinitivoConfirmacao"
+                               class="w-full px-3 py-2 border-2 border-gray-300 rounded-xl focus:border-red-500 focus:outline-none">
+                        @error('apagarDefinitivoConfirmacao')
+                            <p class="text-red-600 text-xs mt-1">{{ $message }}</p>
+                        @enderror
+                    @endif
+                </div>
+
+                <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+                    <button wire:click="fecharApagarDefinitivo"
+                            class="px-4 py-2 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-100">
+                        {{ __('Cancelar') }}
+                    </button>
+                    @unless($apagarDefinitivoImpedido)
+                        <button wire:click="confirmarApagarDefinitivo" wire:loading.attr="disabled"
+                                class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold disabled:opacity-50">
+                            {{ __('Apagar para sempre') }}
+                        </button>
+                    @endunless
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

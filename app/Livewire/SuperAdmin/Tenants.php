@@ -375,6 +375,78 @@ class Tenants extends Component
         $this->deactivationReason = '';
     }
 
+    /** Estado do apagar definitivo: id da empresa e o que se perde com ela. */
+    public $apagarDefinitivoId = null;
+    public $apagarDefinitivoNome = '';
+    public array $apagarDefinitivoPerdas = [];
+    public $apagarDefinitivoImpedido = null;
+    public $apagarDefinitivoConfirmacao = '';
+
+    /**
+     * Abre a confirmação do apagar DEFINITIVO — o que tira mesmo da base.
+     *
+     * O botão "Excluir" que já existia chama o delete() do modelo, e como o
+     * Tenant usa SoftDeletes isso é uma suspensão: a empresa sai da lista e
+     * fica na base, recuperável. Só que o rótulo dizia "Excluir", pelo que
+     * ninguém sabia disso e ninguém tinha como limpar as empresas de lixo.
+     */
+    public function abrirApagarDefinitivo($id)
+    {
+        $this->apenasDonoDaPlataforma();
+
+        $empresa = Tenant::withTrashed()->findOrFail($id);
+        $servico = app(\App\Services\Plataforma\EliminarEmpresa::class);
+
+        $this->apagarDefinitivoId = $id;
+        $this->apagarDefinitivoNome = $empresa->name;
+        $this->apagarDefinitivoConfirmacao = '';
+        $this->apagarDefinitivoPerdas = $servico->oQueSePerde($empresa);
+        $this->apagarDefinitivoImpedido = $servico->comunicouAAgt($empresa)
+            ? 'Esta empresa já comunicou documentos à AGT. Não pode ser apagada — suspenda-a.'
+            : null;
+    }
+
+    public function fecharApagarDefinitivo()
+    {
+        $this->reset([
+            'apagarDefinitivoId', 'apagarDefinitivoNome', 'apagarDefinitivoPerdas',
+            'apagarDefinitivoImpedido', 'apagarDefinitivoConfirmacao',
+        ]);
+    }
+
+    /**
+     * Apaga mesmo, e só depois de o nome ser escrito à mão.
+     *
+     * Escrever o nome não é burocracia: é a diferença entre carregar num botão
+     * por engano e decidir. Isto não se desfaz.
+     */
+    public function confirmarApagarDefinitivo()
+    {
+        $this->apenasDonoDaPlataforma();
+
+        $empresa = Tenant::withTrashed()->findOrFail($this->apagarDefinitivoId);
+
+        if (trim($this->apagarDefinitivoConfirmacao) !== trim($empresa->name)) {
+            $this->addError('apagarDefinitivoConfirmacao', 'Escreva o nome da empresa exactamente como está.');
+
+            return;
+        }
+
+        try {
+            $linhas = app(\App\Services\Plataforma\EliminarEmpresa::class)->eliminar($empresa);
+
+            $this->fecharApagarDefinitivo();
+            $this->dispatch('success', message: "Empresa apagada em definitivo ({$linhas} registos).");
+        } catch (\DomainException $e) {
+            $this->addError('apagarDefinitivoConfirmacao', $e->getMessage());
+        }
+    }
+
+    private function apenasDonoDaPlataforma(): void
+    {
+        abort_unless(auth()->check() && auth()->user()->is_super_admin, 403);
+    }
+
     public function openDeleteModal($id)
     {
         $tenant = Tenant::findOrFail($id);
