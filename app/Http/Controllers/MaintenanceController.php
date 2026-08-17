@@ -76,6 +76,11 @@ class MaintenanceController extends Controller
         // errado não dá erro nenhum cá dentro — o documento sai, e só a AGT o
         // recusa depois, com a factura já entregue ao cliente.
         'series:diagnostico',
+        // Procurar uma empresa e ver os contactos dela. So le.
+        'tenants:procurar',
+        // Importacao de artigos de um CSV. Simulacao por omissao: so grava
+        // com --aplicar, e e idempotente pelo codigo de barras.
+        'artigos:importar',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
         'agt:diagnostico-fila',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
