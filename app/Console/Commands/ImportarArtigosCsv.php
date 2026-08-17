@@ -185,6 +185,16 @@ class ImportarArtigosCsv extends Command
                             $produto->sku = $l['codigo_barras'];
                         }
 
+                        // Um artigo novo nasce com o regime fiscal da empresa.
+                        // Sem isto, uma empresa em não sujeição ficava com o
+                        // catálogo todo a liquidar IVA — a folha importada não
+                        // traz regime nenhum, e o valor por omissão da tabela é
+                        // "iva". Só nos artigos NOVOS: num que já existe, a
+                        // isenção pode ter sido decidida artigo a artigo.
+                        if ($novo) {
+                            $this->aplicarRegime($produto, $empresa);
+                        }
+
                         $produto->save();
 
                         $novo ? $criados++ : $actualizados++;
@@ -248,6 +258,41 @@ class ImportarArtigosCsv extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Põe no artigo o regime fiscal da empresa.
+     *
+     * A mesma regra do TaxRegimeSyncer, que é quem manda: numa empresa em não
+     * sujeição o artigo sai isento com o motivo obrigatório; nas outras leva a
+     * taxa por omissão da empresa.
+     */
+    private function aplicarRegime(Product $produto, Tenant $empresa): void
+    {
+        $meta = $empresa->regimeMeta();
+
+        if (!empty($meta['exempt'])) {
+            $produto->tax_type = 'isento';
+            $produto->tax_rate_id = null;
+            $produto->exemption_reason = $meta['exemption_code'];
+
+            return;
+        }
+
+        $produto->tax_type = 'iva';
+        $produto->exemption_reason = null;
+        $produto->tax_rate_id = $this->taxaPorOmissao($empresa, $meta);
+    }
+
+    /** A taxa da empresa para o regime; null se ainda não estiver semeada. */
+    private function taxaPorOmissao(Tenant $empresa, array $meta): ?int
+    {
+        static $cache = [];
+
+        return $cache[$empresa->id] ??= \App\Models\Invoicing\Tax::withoutGlobalScopes()
+            ->where('tenant_id', $empresa->id)
+            ->where('code', $meta['tax_code'])
+            ->value('id');
     }
 
     /**
