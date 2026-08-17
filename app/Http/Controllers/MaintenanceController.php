@@ -84,6 +84,8 @@ class MaintenanceController extends Controller
         'artigos:corrigir-codigo',
         // Só leitura: mostra o que ficou mesmo gravado.
         'artigos:ver',
+        // Ultimos documentos emitidos e o imposto de cada um. So le.
+        'documentos:ver',
         // Apaga artigos da base a sério, para refazer uma importação. Exige
         // --aplicar E --confirmo-que-apaga, e nunca apaga um artigo que
         // esteja numa factura, nota ou receita.
