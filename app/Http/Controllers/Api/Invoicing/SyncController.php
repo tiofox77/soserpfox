@@ -83,8 +83,18 @@ class SyncController extends Controller
 
         // Ocultar produtos sem stock (excepto serviços) se configurado em Settings → Faturação
         $hideOutOfStock = \App\Models\Invoicing\InvoicingSettings::forTenant($tenantId)->pos_hide_out_of_stock ?? true;
-        if ($hideOutOfStock) {
+
+        // SEM ARMAZÉM ACTIVO NÃO SE ESCONDE NADA.
+        //
+        // Sem armazém, a expressão de stock dá 0 a todos os produtos que
+        // tenham linha em invoicing_stocks — e o filtro esvaziava o catálogo
+        // inteiro. Num dispositivo offline isso não se nota: ele fica com o
+        // que já tinha, velho, e continua a vender por preços e impostos
+        // desactualizados sem nada a indicá-lo.
+        if ($hideOutOfStock && $whId) {
             $productsQuery->whereRaw("(invoicing_products.type = 'servico' OR {$stockExpr} > 0)", [$tenantId]);
+        } else {
+            $hideOutOfStock = false;
         }
 
         if ($sinceDate) {
@@ -224,6 +234,34 @@ class SyncController extends Controller
                 ->where('updated_at', '>=', $sinceDate)
                 ->pluck('id')
                 ->all();
+
+            // O QUE FICA ESCONDIDO POR NÃO TER STOCK TAMBÉM TEM DE SAIR.
+            //
+            // O dispositivo junta o que recebe e nunca apaga. Um artigo que
+            // deixe de ser enviado por estar esgotado ficava lá com os dados
+            // da última vez que passou — incluindo o stock de então, que era
+            // por definição maior que zero, e o imposto de então. Mudava-se o
+            // regime da empresa para isento e esse artigo continuava a ser
+            // vendável offline, a cobrar IVA, sem forma de se corrigir: nem a
+            // sincronização forçada o alcança, porque ele nunca mais vem na
+            // resposta.
+            if ($hideOutOfStock) {
+                $escondidos = Product::where('invoicing_products.tenant_id', $tenantId)
+                    ->where(function ($q) {
+                        $q->where('invoicing_products.is_active', true)
+                          ->orWhereNull('invoicing_products.is_active');
+                    })
+                    ->leftJoin('invoicing_stocks', function ($join) use ($whId, $tenantId) {
+                        $join->on('invoicing_stocks.product_id', '=', 'invoicing_products.id')
+                             ->where('invoicing_stocks.tenant_id', $tenantId)
+                             ->where('invoicing_stocks.warehouse_id', $whId);
+                    })
+                    ->whereRaw("invoicing_products.type <> 'servico' AND {$stockExpr} <= 0", [$tenantId])
+                    ->pluck('invoicing_products.id')
+                    ->all();
+
+                $removedProducts = array_values(array_unique(array_merge($removedProducts, $escondidos)));
+            }
 
             $removedClients = Client::withTrashed()
                 ->where('tenant_id', $tenantId)

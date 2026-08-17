@@ -167,8 +167,21 @@ class SalesProforma extends Model
         foreach ($this->items as $item) {
             // Campos fiscais AGT: a proforma pode não os ter (colunas recentes) e
             // uma linha a 0% sem motivo de isenção é rejeitada pela AGT.
-            $rate = (float) ($item->tax_rate ?? 0);
             $tx = \App\Services\Invoicing\TaxResolver::forProductId($item->product_id, $this->tenant_id);
+
+            // A TAXA É A DE HOJE, não a que ficou gravada na proforma.
+            //
+            // A factura é um documento fiscal NOVO, com data de hoje. Uma
+            // proforma feita antes de a empresa mudar de regime tem a taxa
+            // antiga na linha, e copiá-la fazia nascer hoje uma factura a
+            // liquidar IVA que a empresa já não pode cobrar — só corrigível
+            // por nota de crédito. Todos os outros caminhos de emissão
+            // resolvem a taxa no momento; esta conversão era a excepção.
+            //
+            // O resolvedor devolve sempre taxa: do artigo, ou a do regime da
+            // empresa quando a linha não tem artigo. Não há caso em que a
+            // proforma saiba melhor.
+            $rate = (float) $tx['rate'];
 
             SalesInvoiceItem::create([
                 'sales_invoice_id' => $invoice->id,
@@ -183,18 +196,32 @@ class SalesProforma extends Model
                 'subtotal' => $item->subtotal,
                 'tax_rate_id' => $item->tax_rate_id,
                 'tax_rate' => $rate,
-                'tax_amount' => $item->tax_amount,
-                'total' => $item->total,
+                // tax_amount e total não se copiam: o hook `saving` da linha
+                // recalcula-os a partir da taxa, e copiar os da proforma
+                // deixava o imposto antigo ao lado da taxa nova.
                 'order' => $item->order,
-                // AGT DS.120
+                // AGT DS.120 — tudo do resolvedor, para a linha não ficar com
+                // metade dos campos de um regime e metade do outro.
                 'tax_country_region'   => $item->tax_country_region ?? 'AO',
-                'tax_code'             => $item->tax_code ?: ($rate > 0 ? 'NOR' : 'ISE'),
-                'tax_exemption_code'   => $rate > 0 ? null
-                    : ($item->tax_exemption_code ?: $tx['exemption_code']),
-                'tax_exemption_reason' => $rate > 0 ? null
-                    : ($item->tax_exemption_reason ?: $tx['exemption_reason']),
+                'tax_code'             => $tx['tax_code'] ?: ($rate > 0 ? 'NOR' : 'ISE'),
+                'tax_exemption_code'   => $rate > 0 ? null : $tx['exemption_code'],
+                'tax_exemption_reason' => $rate > 0 ? null : $tx['exemption_reason'],
             ]);
         }
+
+        // Os totais do documento saem das linhas já gravadas. O cabeçalho
+        // nasceu com os valores da proforma, que podem ter outra taxa.
+        $invoice->load('items');
+        $subtotal = (float) $invoice->items->sum('subtotal');
+        $desconto = (float) $invoice->items->sum('discount_amount');
+        $imposto = (float) $invoice->items->sum('tax_amount');
+
+        $invoice->update([
+            'subtotal'        => $subtotal,
+            'discount_amount' => $desconto,
+            'tax_amount'      => $imposto,
+            'total'           => $subtotal - $desconto + $imposto,
+        ]);
 
         // Permitir múltiplas conversões - não mudar status
         // $this->update(['status' => 'converted']);
