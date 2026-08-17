@@ -7,6 +7,10 @@ use App\Models\UserInvitation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
+// Ligado a uma rota, portanto e uma pagina inteira: sem isto o Livewire
+// procura o layout components.layouts.app, que este projecto nao tem, e
+// a pagina rebenta com 500 assim que o modulo estiver ligado.
+#[\Livewire\Attributes\Layout('layouts.app')]
 class InviteUser extends Component
 {
     public $name = '';

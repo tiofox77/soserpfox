@@ -7,6 +7,7 @@ use App\Models\SmsSetting;
 use App\Models\Tenant;
 use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 /**
@@ -26,6 +27,10 @@ use Livewire\Component;
  *     parte encolhe de 160 para 70;
  *   · há uma confirmação explícita, com o número de mensagens à vista.
  */
+// Sem isto o Livewire procura o layout `components.layouts.app`, que este
+// projecto não tem, e a página rebenta com 500 — como aconteceu. Os outros
+// ecrãs do super admin declaram-no todos; este ficou por declarar.
+#[Layout('layouts.superadmin')]
 class SmsParaEmpresas extends Component
 {
     /** Limites do GSM-7 e do UCS-2, e o que sobra em cada parte quando a mensagem se divide. */

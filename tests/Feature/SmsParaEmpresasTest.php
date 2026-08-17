@@ -227,4 +227,31 @@ class SmsParaEmpresasTest extends TenantTestCase
 
         Livewire::test(SmsParaEmpresas::class)->assertForbidden();
     }
+
+    /**
+     * A pagina abre mesmo.
+     *
+     * Faltava este: os outros testes exercitavam o COMPONENTE pelo Livewire::test,
+     * que nao passa pelo layout. A rota rebentava com 500 por o layout nao estar
+     * declarado, e nenhum teste dava por isso.
+     */
+    public function test_a_pagina_abre(): void
+    {
+        $this->comoDonoDaPlataforma();
+
+        $this->get("/superadmin/sms-empresas")
+            ->assertOk()
+            ->assertSee("SMS");
+    }
+
+    /** E quem nao e dono da plataforma nao entra por la. */
+    public function test_a_rota_recusa_quem_nao_e_dono_da_plataforma(): void
+    {
+        $this->user->update(["is_super_admin" => false]);
+        $this->actingAs($this->user->fresh());
+
+        $resposta = $this->get("/superadmin/sms-empresas");
+
+        $this->assertNotEquals(200, $resposta->getStatusCode());
+    }
 }
