@@ -37,4 +37,27 @@ class LoginController extends Controller
         $this->middleware('guest')->except('logout');
         $this->middleware('auth')->only('logout');
     }
+
+    /**
+     * Quem entra pelo PWA volta para o PWA.
+     *
+     * O redireccionamento normal é para o URL que a pessoa tentou abrir, e
+     * quando não há nenhum cai em `/home`. A entrada do PWA abre-se
+     * directamente — ninguém foi barrado a caminho de lado nenhum —, por isso
+     * não há URL pretendido e o operador da caixa ia parar ao painel da
+     * aplicação web. Num telemóvel instalado, isso é sair do sítio onde se
+     * vende para um sítio onde não se vende.
+     *
+     * O sinal vem do formulário da entrada do PWA e não do navegador: uma
+     * aplicação instalada não se distingue de um separador normal do lado do
+     * servidor.
+     */
+    protected function authenticated(\Illuminate\Http\Request $request, $user)
+    {
+        if ($request->boolean('pwa')) {
+            return redirect()->route('invoicing.offline.pos');
+        }
+
+        return null;
+    }
 }
