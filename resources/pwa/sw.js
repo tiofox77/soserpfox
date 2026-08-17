@@ -326,6 +326,20 @@ async function networkFirst(request) {
         // cache primeiro, e a resposta má só sai daqui se não houver nada
         // guardado — porque aí é melhor mostrar o erro do servidor do que uma
         // página em branco.
+        // SEM SESSÃO E COM REDE, MOSTRA-SE O LOGIN.
+        //
+        // Este é o único caso em que uma resposta não guardável ganha ao
+        // cache. "O servidor está em baixo" e "tu não tens sessão" são coisas
+        // diferentes: na primeira o cache salva o dia, na segunda o cache
+        // esconde o problema — o POS aparece, parece funcionar, e a primeira
+        // venda falha por não haver quem a assine.
+        //
+        // Sem rede a resposta nem chega aqui, e o offline continua a servir-se
+        // do cache como sempre.
+        if (ehIdaAoLogin(response)) {
+            return response;
+        }
+
         respostaDaRede = response;
     } catch (err) {
         // Sem rede nenhuma. Segue para o cache, como sempre seguiu.
@@ -378,6 +392,29 @@ async function networkFirst(request) {
  * quando o servidor não está, e uma página de erro guardada lá dentro é pior
  * do que cache nenhum: fica a aparecer offline, e ninguém percebe porquê.
  */
+/**
+ * O servidor mandou-nos ao login?
+ *
+ * É o que acontece quando a sessão expira ou o aparelho nunca entrou. Com
+ * rede, isto tem de chegar ao ecrã: é a única forma de a pessoa voltar a
+ * entrar. Sem rede nunca se chega aqui.
+ */
+function ehIdaAoLogin(response) {
+    if (!response) return false;
+
+    if (response.type === 'opaqueredirect') return true;
+
+    if (!response.redirected) return false;
+
+    try {
+        const destino = new URL(response.url).pathname;
+
+        return destino.startsWith('/login') || destino.startsWith('/register');
+    } catch (e) {
+        return false;
+    }
+}
+
 function podeSerGuardada(response) {
     if (!response || !response.ok) return false;
 

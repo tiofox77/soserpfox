@@ -623,7 +623,14 @@
     /**
      * Adiciona uma operação à fila de sync
      */
-    async function enqueue(op, payload) {
+    /**
+     * Põe um trabalho na fila.
+     *
+     * `autoSync` a false serve a quem quer ESPERAR pelo resultado: o disparo
+     * automático marca a sincronização como a decorrer, e uma segunda chamada
+     * a sync() sai logo sem esperar por nada. Quem espera, dispara.
+     */
+    async function enqueue(op, payload, autoSync = true) {
         await db.sync_queue.add({
             op,
             payload,
@@ -639,8 +646,49 @@
             }
         } catch (_) {}
         // tenta sincronizar imediatamente se online
-        if (navigator.onLine) {
+        if (autoSync && navigator.onLine) {
             checkRealOnline().then(ok => { if (ok) sync(false); });
+        }
+    }
+
+    /**
+     * Com rede, emite já: espera pela sincronização desta venda.
+     *
+     * O documento provisório existe para o caso de NÃO haver rede. Havendo,
+     * não há razão para o cliente sair da loja com um talão "PEND-" e o
+     * número fiscal aparecer meia hora depois — nem para quem está ao balcão
+     * ter de saber o que é um documento por sincronizar.
+     *
+     * Grava-se sempre primeiro em local. Se a rede falhar a meio, a venda
+     * não se perde: fica na fila, como sempre esteve.
+     *
+     * @return {Promise<object|null>} a venda já com número real, ou null
+     */
+    async function emitirJa(local_uuid, msLimite = 8000) {
+        try {
+            if (!navigator.onLine || !(await checkRealOnline())) return null;
+
+            // Um limite de espera para o balcão não ficar preso a uma rede
+            // que existe mas está lenta. Passando disto, segue como pendente
+            // e a fila trata do resto.
+            //
+            // O temporizador limpa-se quando a sincronização ganha: senão
+            // ficava pendurado até ao fim, e num POS que fecha dezenas de
+            // vendas por hora isso é lixo a acumular.
+            let travao;
+            const limite = new Promise(resolve => { travao = setTimeout(resolve, msLimite); });
+
+            try {
+                await Promise.race([sync(false), limite]);
+            } finally {
+                clearTimeout(travao);
+            }
+
+            const actual = await db.pos_sales.get(local_uuid);
+
+            return (actual && actual._synced) ? actual : null;
+        } catch (_) {
+            return null;
         }
     }
 
@@ -860,9 +908,13 @@
                     is_service: !!i.is_service,
                     unit: i.unit || 'UN',
                 })),
-            });
+            }, false);
 
-            return record;
+            // Havendo rede, a factura sai já com o número fiscal. Sem rede —
+            // ou se a rede demorar — segue o provisório e a fila trata dela.
+            const emitida = await emitirJa(local_uuid);
+
+            return emitida || record;
         },
 
         async getPosSales() {

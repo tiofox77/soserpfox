@@ -93,6 +93,52 @@
         </div>
     </div>
 
+    {{-- Facturas vendidas hoje --}}
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-800">
+                <i class="fas fa-receipt text-emerald-600 mr-1"></i>{{ __('Facturas de hoje') }}
+            </h2>
+            <span class="text-sm font-bold text-emerald-700" x-text="kz(vendas.valor)">—</span>
+        </div>
+
+        <div class="flex gap-2 mb-3">
+            <div class="flex-1 bg-emerald-50 rounded-lg px-3 py-2">
+                <p class="text-[10px] uppercase font-bold text-emerald-700">{{ __('Emitidas') }}</p>
+                <p class="text-lg font-bold text-emerald-800" x-text="vendas.total - vendas.porEmitir">—</p>
+            </div>
+            {{-- Só aparece quando há alguma por emitir: um zero permanente a
+                 vermelho ensina o operador a ignorar o aviso. --}}
+            <div x-show="vendas.porEmitir > 0" x-cloak class="flex-1 bg-amber-50 rounded-lg px-3 py-2">
+                <p class="text-[10px] uppercase font-bold text-amber-700">{{ __('Por emitir') }}</p>
+                <p class="text-lg font-bold text-amber-800" x-text="vendas.porEmitir">—</p>
+            </div>
+        </div>
+
+        <template x-if="!vendas.ultimas.length">
+            <p class="text-xs text-gray-400 text-center py-3">{{ __('Ainda não há vendas hoje.') }}</p>
+        </template>
+
+        <ul class="divide-y divide-gray-100">
+            <template x-for="v in vendas.ultimas" :key="v.numero">
+                <li class="py-2 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold truncate" x-text="v.numero"></p>
+                        <p class="text-[11px] text-gray-500 truncate">
+                            <span x-text="v.hora"></span> · <span x-text="v.cliente"></span>
+                        </p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-xs font-bold" x-text="kz(v.total)"></p>
+                        <p class="text-[10px]"
+                           :class="v.emitida ? 'text-emerald-600' : 'text-amber-600'"
+                           x-text="v.emitida ? '{{ __('emitida') }}' : '{{ __('por emitir') }}'"></p>
+                    </div>
+                </li>
+            </template>
+        </ul>
+    </div>
+
     {{-- Ações --}}
     <div class="space-y-3">
         <a href="{{ route('invoicing.offline.pos') }}" class="block bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
@@ -215,6 +261,7 @@ function pwaHome() {
         shift: { open: false, number: null, openedAt: null, opening: 0, cash: 0, total: 0 },
         lastSyncText: 'a verificar…',
         counts: { products: 0, clients: 0, drafts: 0, pending: 0 },
+        vendas: { total: 0, porEmitir: 0, valor: 0, ultimas: [] },
         busy: false,
         busyText: '',
         statusMsg: '',
@@ -418,6 +465,26 @@ function pwaHome() {
             this.counts.clients = await db.clients.count();
             this.counts.drafts = await db.draft_documents.count();
             this.counts.pending = await window.SosPwa.refreshPendingCount();
+
+            // As facturas vendidas HOJE. Quem está ao balcão quer saber o que
+            // já vendeu e se está tudo entregue ao servidor — não o número de
+            // artigos no catálogo.
+            const hoje = new Date().toISOString().slice(0, 10);
+            const vendas = (await window.SosPwa.getPosSales())
+                .filter(v => String(v.created_at || '').slice(0, 10) === hoje);
+
+            this.vendas = {
+                total: vendas.length,
+                porEmitir: vendas.filter(v => !v._synced).length,
+                valor: vendas.reduce((s, v) => s + (Number(v.total) || 0), 0),
+                ultimas: vendas.slice(0, 8).map(v => ({
+                    numero: v._synced ? v._server_number : v.provisional_number,
+                    emitida: !!v._synced,
+                    cliente: v.client_name || '{{ __('Consumidor Final') }}',
+                    total: Number(v.total) || 0,
+                    hora: String(v.created_at || '').slice(11, 16),
+                })),
+            };
 
             // Detalhes (painel de manutenção)
             const products = await db.products.toArray();

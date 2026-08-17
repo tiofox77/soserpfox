@@ -222,12 +222,29 @@ test('a pagina de login NAO fica guardada no lugar do POS', async () => {
         'a sessao expirada ficava gravada por cima do POS e passava a aparecer offline');
 });
 
-test('uma sessao expirada nao apaga o que ja estava guardado', async () => {
+test('sem sessao MAS COM REDE, mostra-se o login e nao o POS guardado', async () => {
     const ambiente = montarAmbiente({
         respostaDaRede: new RespostaFalsa('<h1>Entrar</h1>', {
             status: 200, redirected: true, url: 'https://soserp.vip/login',
         }),
     });
+    const sw = await carregarServiceWorker(ambiente);
+
+    const cache = await ambiente.caches.open(sw.DYNAMIC_CACHE);
+    await cache.put(PEDIDO_POS, new RespostaFalsa('<h1>POS offline</h1>'));
+
+    const resposta = await sw.networkFirst(PEDIDO_POS);
+
+    // Servir o POS guardado escondia o problema: o ecra aparecia, parecia
+    // funcionar, e a primeira venda falhava por nao haver quem a assine.
+    assert.equal(resposta.corpo, '<h1>Entrar</h1>');
+
+    // E o POS guardado continua la para quando faltar a rede.
+    assert.equal((await cache.match(PEDIDO_POS)).corpo, '<h1>POS offline</h1>');
+});
+
+test('sem rede nenhuma, a sessao expirada nao tira o POS guardado', async () => {
+    const ambiente = montarAmbiente({ erroDeRede: new Error("sem rede") });
     const sw = await carregarServiceWorker(ambiente);
 
     const cache = await ambiente.caches.open(sw.DYNAMIC_CACHE);
