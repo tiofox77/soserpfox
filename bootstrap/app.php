@@ -40,6 +40,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // estavam no grupo web pela mesma razão.
         $middleware->appendToGroup('web', \App\Http\Middleware\RecordLastLogin::class);
 
+        // Empresa com NIF de pessoa singular leva ao ecrã onde se corrige.
+        // No grupo web e depois do RecordLastLogin, pela mesma razão: precisa
+        // da sessão de pé para saber qual é a empresa activa.
+        $middleware->appendToGroup('web', \App\Http\Middleware\ExigirNifDeEmpresa::class);
+
         // Faz andar as submissões AGT aproveitando o tráfego.
         //
         // Este alojamento não tem worker de fila — mediram-se 165 tarefas

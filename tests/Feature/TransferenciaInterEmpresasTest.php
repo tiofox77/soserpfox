@@ -37,7 +37,7 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
         $this->empresaB = Tenant::create([
             'name'      => 'Empresa Destino',
             'slug'      => 'empresa-destino-' . uniqid(),
-            'nif'       => (string) random_int(600000000, 699999999),
+            'nif'       => '5' . random_int(100000000, 999999999),
             'email'     => 'destino' . uniqid() . '@exemplo.ao',
             'is_active' => true,
         ]);

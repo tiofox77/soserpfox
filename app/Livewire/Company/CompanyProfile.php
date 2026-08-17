@@ -84,7 +84,11 @@ class CompanyProfile extends Component
             'name'         => 'required|string|min:2|max:255',
             'company_name' => 'nullable|string|max:255',
             // NIF angolano: 9-14 alfanuméricos (pessoa coletiva termina em letras)
-            'nif'          => 'nullable|string|max:20|regex:/^[A-Za-z0-9]{5,20}$/',
+            // O NIF de EMPRESA, e nao o que este campo aceitava: o
+            // [A-Za-z0-9]{5,20} deixava passar o numero do bilhete de
+            // identidade, com letras e tudo — no proprio ecra onde se vem
+            // corrigir isso.
+            'nif'          => ['required', new \App\Rules\NifDeEmpresa()],
             'email'        => 'nullable|email|max:255',
             'phone'        => 'nullable|string|max:50',
             'address'      => 'nullable|string|max:500',

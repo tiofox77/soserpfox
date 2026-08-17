@@ -187,7 +187,7 @@ class PosSalesReportNotasCreditoTest extends TenantTestCase
 
         $outra = \App\Models\Tenant::create([
             'name' => 'Outra', 'slug' => 'outra-' . uniqid(),
-            'nif' => (string) random_int(600000000, 699999999),
+            'nif' => '5' . random_int(100000000, 999999999),
             'email' => 'o' . uniqid() . '@x.ao', 'is_active' => true,
         ]);
 
