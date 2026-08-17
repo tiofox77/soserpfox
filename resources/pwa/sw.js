@@ -72,6 +72,10 @@ const IMAGE_CACHE_LIMIT = 200;
 const PWA_OFFLINE_FALLBACKS = [
     '/invoicing/offline/',
     '/invoicing/offline/index',
+    // A entrada do PWA. Tem de estar guardada: quem sair sem rede ia parar a
+    // um ecrã de erro, com a sessão do servidor ainda aberta e sem forma de
+    // voltar a entrar no aparelho.
+    '/invoicing/offline/login',
     '/invoicing/offline/pos',
     '/invoicing/offline/catalog',
     '/invoicing/offline/clients',

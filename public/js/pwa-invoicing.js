@@ -539,6 +539,14 @@
                             detail: { action: 'close', shift: result.shift || null },
                         }));
                     }
+                } else if (job.op === 'logout') {
+                    // A saída pedida sem rede. O servidor fecha a sessão
+                    // agora; se ela já tiver caído, responde na mesma que
+                    // está feito — senão o trabalho ficava a repetir-se.
+                    result = await fetchJson('/invoicing/offline/sair', {
+                        method: 'POST',
+                        body: JSON.stringify({ da_fila: true }),
+                    });
                 } else if (job.op === 'create_pos_sale') {
                     // Venda POS offline → cria Fatura-Recibo real (idempotente via local_uuid)
                     let payload = { ...job.payload };
@@ -915,6 +923,30 @@
             const emitida = await emitirJa(local_uuid);
 
             return emitida || record;
+        },
+
+        /**
+         * Sair, com rede ou sem ela.
+         *
+         * Sem rede o servidor não pode saber já — mas a sessão dele continua
+         * aberta, e deixá-la aberta é deixar a conta acessível a quem apanhe
+         * o aparelho com rede outra vez. Por isso a saída entra na fila como
+         * qualquer outra coisa e é comunicada quando houver ligação.
+         *
+         * NÃO SE APAGA A BASE LOCAL. Pode ter vendas por enviar, e limpá-la
+         * ao sair fazia desaparecer facturas que o servidor ainda não viu.
+         */
+        async sair() {
+            await db.meta.delete('sessao_local');
+
+            await enqueue('logout', { pedido_em: new Date().toISOString() }, false);
+
+            // Com rede tenta-se já, para a sessão do servidor fechar agora.
+            if (navigator.onLine) {
+                try { await sync(false); } catch (_) {}
+            }
+
+            return true;
         },
 
         async getPosSales() {

@@ -164,8 +164,38 @@
                 <button onclick="window.SosPwa.sync(true)" id="pwa-sync-btn" class="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold transition" title="Sincronizar agora">
                     <i class="fas fa-rotate"></i>
                 </button>
-                <a href="{{ route('invoicing.offline.exit') }}" class="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold transition">
-                    <i class="fas fa-arrow-right-from-bracket mr-1"></i>Sair do PWA
+                {{-- Sair é sair mesmo: termina a sessão e volta à entrada do
+                     PWA, de onde se pode entrar com rede ou sem ela. Antes
+                     isto só saltava para a aplicação web, que sem rede não
+                     abre — quem saísse ficava sem forma de voltar a entrar.
+                     A base local não se toca: pode ter vendas por enviar. --}}
+                <form id="pwa-sair" method="POST" action="{{ route('invoicing.offline.sair') }}">
+                    @csrf
+                    <button type="submit" class="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold transition">
+                        <i class="fas fa-arrow-right-from-bracket mr-1"></i>{{ __('Sair') }}
+                    </button>
+                </form>
+
+                <script>
+                document.getElementById('pwa-sair').addEventListener('submit', async function (e) {
+                    if (!confirm(@json(__('Sair da conta? As vendas por enviar ficam guardadas neste aparelho.')))) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    // Sem rede o formulário não chega a lado nenhum e o
+                    // utilizador ficava preso numa página de erro, com sessão
+                    // aberta. A saída passa pela fila e é comunicada depois.
+                    if (!navigator.onLine && window.SosPwa) {
+                        e.preventDefault();
+                        try { await window.SosPwa.sair(); } catch (_) {}
+                        window.location.href = @json(route('invoicing.offline.login'));
+                    }
+                });
+                </script>
+
+                <a href="{{ route('invoicing.offline.exit') }}" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold transition" title="{{ __('Ir para a aplicação completa') }}">
+                    <i class="fas fa-up-right-from-square"></i>
                 </a>
             </div>
         </div>

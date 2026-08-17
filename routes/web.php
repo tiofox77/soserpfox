@@ -150,6 +150,21 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 });
 
 // PWA Offline — Faturação (rotas standalone com auth por sessão)
+// Entrada do PWA — FORA do `auth`, senão a página de entrada mandava o
+// utilizador para o login para poder mostrar o login. Precisa de sessão para
+// o token CSRF do formulário, por isso fica no grupo `web`.
+Route::get('/invoicing/offline/login', fn () => view('invoicing.offline.login'))
+    ->name('invoicing.offline.login');
+
+// Sair: termina a sessão e volta à entrada do PWA. Não apaga nada do
+// aparelho — pode haver vendas por enviar.
+// Sem `auth`: quando a saída é feita sem rede, ela vai para a fila e chega
+// aqui mais tarde — se a sessão já tiver caído entretanto, isto tem de ser um
+// nada-a-fazer e não um 302 para o login, senão o trabalho ficava a falhar
+// para sempre na fila do aparelho.
+Route::post('/invoicing/offline/sair', \App\Http\Controllers\Invoicing\PwaSairController::class)
+    ->name('invoicing.offline.sair');
+
 Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offline.')->group(function () {
     Route::get('/', fn() => view('invoicing.offline.index'))->name('index');
     Route::get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
