@@ -23,7 +23,12 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         .pwa-shell { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+        /* O x-cloak esconde o conteúdo até o Alpine arrancar. Se ele NÃO
+           arrancar, esconde-o para sempre — e o ecrã fica cinzento, sem uma
+           palavra. O `html.alpine-falhou` desfaz isso: ver o script no fim do
+           corpo, que é quem a põe. */
         [x-cloak] { display: none !important; }
+        html.alpine-falhou [x-cloak] { display: revert !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -415,5 +420,67 @@
     </script>
 
     @stack('scripts')
+{{-- Rede de segurança do ecrã cinzento.
+
+     O start_url do PWA é a página do POS, e essa página tem vinte e dois
+     x-cloak. O x-cloak é `display: none !important` até o Alpine arrancar — e
+     o Alpine vem do unpkg. Numa instalação acabada de fazer, com a rede a
+     falhar, ele não chega: fica tudo escondido, o utilizador vê um ecrã
+     cinzento e nada lhe diz porquê nem o que fazer. Foi o que se viu ao
+     reinstalar a aplicação.
+
+     Isto não faz o Alpine funcionar — nada aqui pode. O que faz é trocar um
+     ecrã mudo por um ecrã que se explica e oferece uma saída. --}}
+<script>
+(function () {
+    var SEGUNDOS = 8;
+
+    function arrancou() {
+        return typeof window.Alpine !== 'undefined';
+    }
+
+    function desistir() {
+        if (arrancou()) return;
+
+        // Mostrar o que estava escondido: mesmo por hidratar, a página tem o
+        // menu e os links, e com eles dá para sair dali.
+        document.documentElement.classList.add('alpine-falhou');
+
+        if (document.getElementById('pwa-aviso-arranque')) return;
+
+        var aviso = document.createElement('div');
+        aviso.id = 'pwa-aviso-arranque';
+        aviso.setAttribute('role', 'alert');
+        aviso.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;'
+            + 'background:#b45309;color:#fff;padding:12px 16px;font-size:14px;line-height:1.45;'
+            + 'font-family:-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+        aviso.innerHTML =
+            '<strong>A aplicação não carregou por completo.</strong> '
+            + 'Faltou uma parte que vem da internet. Ligue-se à rede e recarregue — '
+            + 'depois de carregar uma vez, passa a abrir sem internet.'
+            + '<button type="button" id="pwa-aviso-recarregar" '
+            + 'style="margin-left:12px;background:#fff;color:#b45309;border:0;border-radius:8px;'
+            + 'padding:6px 14px;font-weight:700;cursor:pointer">Recarregar</button>';
+
+        document.body.appendChild(aviso);
+        document.getElementById('pwa-aviso-recarregar').onclick = function () {
+            window.location.reload();
+        };
+
+        console.warn('[PWA] O Alpine não arrancou em ' + SEGUNDOS + 's. Conteúdo revelado à força.');
+    }
+
+    // Depois do load e não a partir do início: com a rede lenta, o Alpine pode
+    // demorar e não vale a pena assustar ninguém enquanto ele ainda vem a
+    // caminho.
+    if (document.readyState === 'complete') {
+        setTimeout(desistir, SEGUNDOS * 1000);
+    } else {
+        window.addEventListener('load', function () {
+            setTimeout(desistir, SEGUNDOS * 1000);
+        });
+    }
+})();
+</script>
 </body>
 </html>
