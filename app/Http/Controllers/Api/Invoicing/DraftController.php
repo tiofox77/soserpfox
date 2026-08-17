@@ -28,7 +28,13 @@ class DraftController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'doc_type' => 'required|in:FT,FR,NC,proforma',
+            // SO documentos de VENDA. A nota de credito estava aqui e nao
+            // podia: o createInvoice() escreve-a na tabela das VENDAS com
+            // invoice_type=NC, e o que nasce e uma factura — nao estorna
+            // nada, nao aponta para o documento original, e conta como
+            // receita nos totais. As notas de credito a serio vivem em
+            // invoicing_credit_notes, com serie e numeracao proprias.
+            'doc_type' => 'required|in:FT,FR,proforma',
             'client_id' => 'nullable|integer',
             'client_local_uuid' => 'nullable|string',
             'notes' => 'nullable|string|max:2000',

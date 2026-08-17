@@ -219,7 +219,10 @@ function draftForm() {
             { code: 'FT', label: 'Fatura', icon: 'fas fa-file-invoice', activeClass: 'bg-blue-600 text-white border-blue-600' },
             { code: 'FR', label: 'Fatura-Recibo', icon: 'fas fa-receipt', activeClass: 'bg-emerald-600 text-white border-emerald-600' },
             { code: 'proforma', label: 'Proforma', icon: 'fas fa-file-lines', activeClass: 'bg-amber-600 text-white border-amber-600' },
-            { code: 'NC', label: 'Nota de Crédito', icon: 'fas fa-rotate-left', activeClass: 'bg-red-600 text-white border-red-600' },
+            // A Nota de Credito saiu daqui: nao e um documento de venda, e o
+            // servidor escrevia-a na tabela das VENDAS — nascia uma factura que
+            // nao estornava nada e contava como receita. As notas de credito
+            // fazem-se no sistema online, contra o documento original.
         ],
 
         form: {
