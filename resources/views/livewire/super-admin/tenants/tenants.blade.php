@@ -148,7 +148,10 @@
                             </div>
                             
                             <!-- Info Grid -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                            {{-- Quatro colunas e não três: entrou o NIF, que é por onde a AGT
+                                 identifica a empresa e o primeiro número que se pede ao telefone
+                                 quando um cliente liga. Estava só dentro da ficha de edição. --}}
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
                                 <!-- Contact -->
                                 <div class="flex items-start space-x-2">
                                     <span class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -170,6 +173,31 @@
                                     </div>
                                 </div>
                                 
+                                <div class="flex items-start space-x-2">
+                                    <span class="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-id-card text-amber-600 text-xs"></i>
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs text-gray-500 font-medium">{{ __('NIF') }}</p>
+                                        @if($tenant->nif)
+                                            {{-- font-mono: um NIF lê-se dígito a dígito, e é assim que se
+                                                 confere ao telefone sem trocar um 5 por um 6. --}}
+                                            <p class="text-sm text-gray-900 font-mono">{{ $tenant->nif }}</p>
+                                            @unless(preg_match('/^5\d{8,9}$/', preg_replace('/\D/', '', $tenant->nif)))
+                                                {{-- Dito aqui porque é aqui que se vê: um NIF que não começa
+                                                     por 5 não é de empresa, e é ele que vai nos documentos
+                                                     comunicados à AGT. As empresas antigas ficaram com o que
+                                                     escreveram antes de haver validação no registo. --}}
+                                                <p class="text-[11px] text-amber-700 font-semibold">
+                                                    <i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Não é NIF de empresa') }}
+                                                </p>
+                                            @endunless
+                                        @else
+                                            <p class="text-sm text-gray-400">{{ __('por preencher') }}</p>
+                                        @endif
+                                    </div>
+                                </div>
+
                                 <div class="flex items-start space-x-2">
                                     <span class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                                         <i class="fas fa-calendar text-purple-600 text-xs"></i>
