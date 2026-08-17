@@ -144,7 +144,16 @@ class SmsParaEmpresas extends Component
                 // Uma falha não pode parar as restantes: com trinta empresas,
                 // a décima em baixo deixaria vinte por avisar sem ninguém saber
                 // quais. Guarda-se o que falhou e mostra-se no fim.
-                $servico->send($empresa->phone, $this->mensagem, 'aviso_plataforma', null, $empresa->id);
+                // O retorno conta: o send() apanha as falhas do fornecedor por
+                // dentro e devolve um array em vez de as deixar subir. Ignorar
+                // esse array fazia o ecrã dizer "enviado a 30 empresas" quando
+                // metade tinha falhado do outro lado.
+                $resultado = $servico->send($empresa->phone, $this->mensagem, 'aviso_plataforma', null, $empresa->id);
+
+                if (is_array($resultado) && ($resultado['success'] ?? true) === false) {
+                    throw new \RuntimeException($resultado['error'] ?? 'o fornecedor recusou');
+                }
+
                 $enviados++;
             } catch (\Throwable $e) {
                 $falhados[] = $empresa->name;

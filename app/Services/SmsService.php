@@ -13,6 +13,27 @@ class SmsService
      */
     public function send($recipient, $message, $type = null, $userId = null, $tenantId = null)
     {
+        // FORA do try, e de propósito.
+        //
+        // O try deste método engole tudo e devolve um array, pelo que uma
+        // excepção lançada lá dentro nunca chegava a quem chama — e o painel de
+        // envio em massa contava como enviado um SMS que não saiu. Um número
+        // que não se pode marcar é um erro de quem chama, e tem de o saber.
+        //
+        // Sem isto, um número mal gravado seguia para o fornecedor, era cobrado,
+        // e falhava sem ninguém dar por isso: o histórico até dizia "Enviado".
+        if ($this->formatPhoneNumber($recipient) === null) {
+            Log::warning('SMS não enviado: número inválido.', [
+                'recipient' => $recipient,
+                'type'      => $type,
+            ]);
+
+            throw new \InvalidArgumentException(
+                'Número de telefone inválido: ' . $recipient
+                    . '. Em Angola são nove dígitos, com ou sem o indicativo 244.'
+            );
+        }
+
         try {
             Log::info('📱 Iniciando envio de SMS', [
                 'recipient' => $recipient,
@@ -174,17 +195,49 @@ class SmsService
     /**
      * Formatar número de telefone
      */
-    private function formatPhoneNumber($phone)
+    /**
+     * O número em formato internacional, com o indicativo de Angola.
+     *
+     * Isto limitava-se a tirar os caracteres estranhos e a pôr um '+' à frente.
+     * O que saía era o que estava gravado: uns com indicativo e outros sem —
+     * '+938023744' ao lado de '+244944111781', e até '+83635622', que não é
+     * número nenhum. Um número sem indicativo não chega ao destino, e o envio
+     * é cobrado na mesma.
+     *
+     * As regras de Angola: nove dígitos a nível nacional (telemóveis começam
+     * por 9, fixos por 2) e indicativo 244. Aceita-se como vem — com +244, com
+     * 00244, com 244 à frente, ou só os nove dígitos — e sai sempre igual.
+     *
+     * @return string|null null quando não é um número que se possa marcar
+     */
+    public function formatPhoneNumber($phone): ?string
     {
-        // Remove espaços e caracteres especiais
-        $phone = preg_replace('/[^0-9+]/', '', $phone);
+        $digitos = preg_replace('/\D/', '', (string) $phone);
 
-        // Adiciona + se não tiver
-        if (!str_starts_with($phone, '+')) {
-            $phone = '+' . $phone;
+        if ($digitos === '') {
+            return null;
         }
 
-        return $phone;
+        // 00244... é a forma antiga de escrever +244.
+        if (str_starts_with($digitos, '00244')) {
+            $digitos = substr($digitos, 2);
+        }
+
+        // Já vem com indicativo: nove dígitos depois do 244 e está feito.
+        if (str_starts_with($digitos, '244')) {
+            return strlen($digitos) === 12 ? '+' . $digitos : null;
+        }
+
+        // Nacional: nove dígitos. É aqui que se acrescenta o indicativo — o
+        // caso que faltava e que deixou metade dos SMS por entregar.
+        if (preg_match('/^[29]\d{8}$/', $digitos)) {
+            return '+244' . $digitos;
+        }
+
+        // Não é de Angola nem tem forma de o ser. Devolver null e não um
+        // palpite: mandar um número inventado ao fornecedor custa dinheiro e
+        // falha em silêncio, que é o pior dos dois mundos.
+        return null;
     }
 
     /**
