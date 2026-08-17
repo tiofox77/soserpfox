@@ -81,6 +81,7 @@ class MaintenanceController extends Controller
         // Importacao de artigos de um CSV. Simulacao por omissao: so grava
         // com --aplicar, e e idempotente pelo codigo de barras.
         'artigos:importar',
+        'artigos:corrigir-codigo',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
         'agt:diagnostico-fila',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
