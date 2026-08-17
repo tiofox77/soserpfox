@@ -73,14 +73,31 @@ class CorrigirCodigoDeBarras extends Command
         $this->line($aplicar ? ' MODO: --aplicar — VAI GRAVAR.' : ' MODO: simulação — nada é gravado.');
         $this->line(str_repeat('=', 62));
 
-        $porCodigo = Product::withoutGlobalScopes()
+        // Product não tem scope global de empresa — o filtro por tenant_id é
+        // manual. O único scope global que tem é o do soft delete, por isso
+        // withoutGlobalScopes() aqui não alargaria a empresa nenhuma: só
+        // traria artigos da reciclagem, que não se querem nem ler nem
+        // escrever. Renomear um artigo apagado dava um "✓ corrigido" a
+        // mentir, com o artigo vivo a ficar com o código errado.
+        $vivos = Product::query()
             ->where('tenant_id', $empresa->id)
-            ->pluck('id', 'barcode');
+            ->get(['id', 'barcode', 'code']);
+
+        // Por código de barras, TODAS as linhas — o campo não tem índice
+        // único, e o balcão pode ter criado à mão um artigo com o mesmo
+        // código. Guardar só uma escondia as outras do relatório.
+        $porCodigo = $vivos->groupBy('barcode');
+
+        // O índice único da tabela é (tenant_id, code), não o barcode. É
+        // contra este que a gravação rebenta, por isso é este que se testa.
+        $codeOcupado = $vivos->pluck('id', 'code');
 
         $aMudar = [];
         $inexistente = 0;
         $jaCerto = 0;
         $colisao = [];
+        $codePreso = [];
+        $repetidos = 0;
 
         foreach ($pares as $par) {
             $de = (string) ($par['de'] ?? '');
@@ -107,15 +124,35 @@ class CorrigirCodigoDeBarras extends Command
                 continue;
             }
 
-            $aMudar[] = ['id' => $porCodigo->get($de), 'de' => $de, 'para' => $para];
+            $achados = $porCodigo->get($de);
+
+            if ($achados->count() > 1) {
+                $repetidos++;
+            }
+
+            foreach ($achados as $artigo) {
+                // O code de destino pertence a outro artigo: gravar violava
+                // o índice único e rebentava a transacção do lote inteiro.
+                $dono = $codeOcupado->get($para);
+
+                if ($dono !== null && $dono !== $artigo->id) {
+                    $codePreso[] = $par;
+
+                    continue;
+                }
+
+                $aMudar[] = ['id' => $artigo->id, 'de' => $de, 'para' => $para];
+            }
         }
 
-        $this->line(sprintf('  a renomear:                %d', count($aMudar)));
-        $this->line(sprintf('  já com o código certo:     %d', $jaCerto));
-        $this->line(sprintf('  não existem nesta empresa: %d', $inexistente));
+        $this->line(sprintf('  a renomear:                 %d', count($aMudar)));
+        $this->line(sprintf('  já com o código certo:      %d', $jaCerto));
+        $this->line(sprintf('  não existem nesta empresa:  %d', $inexistente));
         $this->line(sprintf('  colisões (destino ocupado): %d', count($colisao)));
+        $this->line(sprintf('  código de origem repetido:  %d', $repetidos));
+        $this->line(sprintf('  code de destino preso:      %d', count($codePreso)));
 
-        foreach (array_slice($colisao, 0, 10) as $c) {
+        foreach (array_slice(array_merge($colisao, $codePreso), 0, 10) as $c) {
             $this->warn(sprintf('     %s -> %s  %s', $c['de'], $c['para'], $c['descricao'] ?? ''));
         }
 
@@ -131,7 +168,10 @@ class CorrigirCodigoDeBarras extends Command
         foreach (array_chunk($aMudar, 200) as $lote) {
             DB::transaction(function () use ($lote, $empresa, &$feitos) {
                 foreach ($lote as $m) {
-                    $produto = Product::withoutGlobalScopes()
+                    // Também aqui sem withoutGlobalScopes: escrever num
+                    // artigo da reciclagem contava-se como corrigido e
+                    // deixava o artigo vivo com o código errado.
+                    $produto = Product::query()
                         ->where('tenant_id', $empresa->id)
                         ->find($m['id']);
 

@@ -82,6 +82,12 @@ class MaintenanceController extends Controller
         // com --aplicar, e e idempotente pelo codigo de barras.
         'artigos:importar',
         'artigos:corrigir-codigo',
+        // Só leitura: mostra o que ficou mesmo gravado.
+        'artigos:ver',
+        // Apaga artigos da base a sério, para refazer uma importação. Exige
+        // --aplicar E --confirmo-que-apaga, e nunca apaga um artigo que
+        // esteja numa factura, nota ou receita.
+        'artigos:apagar',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
         'agt:diagnostico-fila',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já

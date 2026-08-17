@@ -131,6 +131,89 @@ class CorrigirCodigoDeBarrasTest extends TestCase
         $this->assertSame(1, Product::withoutGlobalScopes()->where('tenant_id', $t->id)->count());
     }
 
+    public function test_nao_renomeia_artigos_da_reciclagem(): void
+    {
+        $t = $this->empresa();
+        $vivo = $this->artigo($t, '0108904182603610', 'O que está no catálogo');
+
+        // Mesmo código de barras, `code` diferente — o único índice único da
+        // tabela é (tenant_id, code), e o barcode pode mesmo repetir-se.
+        $apagado = Product::withoutGlobalScopes()->create([
+            'tenant_id' => $t->id,
+            'name'      => 'O que foi apagado',
+            'barcode'   => '0108904182603610',
+            'code'      => 'APAGADO-1',
+            'sku'       => 'APAGADO-1',
+            'price'     => 100,
+            'cost'      => 50,
+        ]);
+        $apagado->delete();
+
+        $this->artisan('artigos:corrigir-codigo', [
+            '--tenant'   => $t->id,
+            '--ficheiro' => $this->mapa([['de' => '0108904182603610', 'para' => '8904182603610']]),
+            '--aplicar'  => true,
+        ])->assertSuccessful();
+
+        // Renomear o apagado dava um "✓ corrigido" a mentir: o artigo que
+        // está no catálogo, no stock e no POS ficava com o código errado.
+        $this->assertSame('8904182603610', $vivo->refresh()->barcode);
+        $this->assertSame('0108904182603610', $apagado->refresh()->barcode);
+    }
+
+    public function test_renomeia_todos_os_artigos_que_partilham_o_codigo_errado(): void
+    {
+        $t = $this->empresa();
+        $um = $this->artigo($t, '0108904182603610', 'Veio da importação');
+        $dois = Product::withoutGlobalScopes()->create([
+            'tenant_id' => $t->id,
+            'name'      => 'Criado ao balcão',
+            'barcode'   => '0108904182603610',
+            'code'      => 'BALCAO-1',
+            'sku'       => 'BALCAO-1',
+            'price'     => 100,
+            'cost'      => 50,
+        ]);
+
+        $this->artisan('artigos:corrigir-codigo', [
+            '--tenant'   => $t->id,
+            '--ficheiro' => $this->mapa([['de' => '0108904182603610', 'para' => '8904182603610']]),
+            '--aplicar'  => true,
+        ])->assertSuccessful();
+
+        // O barcode não tem índice único: dois artigos podem partilhar o
+        // código errado. Corrigir só um deixava o outro por arranjar sem
+        // aparecer em lado nenhum do relatório.
+        $this->assertSame('8904182603610', $um->refresh()->barcode);
+        $this->assertSame('8904182603610', $dois->refresh()->barcode);
+    }
+
+    public function test_nao_grava_quando_o_code_de_destino_pertence_a_outro_artigo(): void
+    {
+        $t = $this->empresa();
+        $alvo = $this->artigo($t, '0108904182603610', 'O que ia ser renomeado');
+
+        // Outro artigo já ocupa o `code` de destino — e o índice único da
+        // tabela é (tenant_id, code). Gravar rebentava a transacção inteira.
+        Product::withoutGlobalScopes()->create([
+            'tenant_id' => $t->id,
+            'name'      => 'Já tem esse code',
+            'barcode'   => 'OUTRO-BARCODE',
+            'code'      => '8904182603610',
+            'sku'       => 'OUTRO',
+            'price'     => 10,
+            'cost'      => 5,
+        ]);
+
+        $this->artisan('artigos:corrigir-codigo', [
+            '--tenant'   => $t->id,
+            '--ficheiro' => $this->mapa([['de' => '0108904182603610', 'para' => '8904182603610']]),
+            '--aplicar'  => true,
+        ])->assertSuccessful();
+
+        $this->assertSame('0108904182603610', $alvo->refresh()->barcode);
+    }
+
     public function test_ignora_um_par_cuja_origem_nao_existe(): void
     {
         $t = $this->empresa();
