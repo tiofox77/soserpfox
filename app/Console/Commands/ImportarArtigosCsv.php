@@ -35,6 +35,7 @@ class ImportarArtigosCsv extends Command
                             {--armazem=Loja : nome do armazém que recebe o stock}
                             {--ficheiro= : caminho do CSV}
                             {--so-stock : só lança stock; não cria artigos nem toca em preços}
+                            {--sincronizar : a folha manda; põe a quantidade exacta, zeros incluídos}
                             {--aplicar : grava (sem isto é simulação)}';
 
     protected $description = 'Importa artigos de um CSV para uma empresa, com armazém e stock (simulação por omissão)';
@@ -90,10 +91,30 @@ class ImportarArtigosCsv extends Command
             ->whereIn('barcode', array_column($linhas, 'codigo_barras'))
             ->pluck('id', 'barcode');
 
-        $soStock = (bool) $this->option('so-stock');
+        // Sincronizar é o caso de uma contagem nova do mesmo armazém: a folha
+        // manda, e uma quantidade que desceu a zero TEM de descer a zero. O
+        // --so-stock simples ignora as linhas a zero — serve para lançar um
+        // armazém novo, onde zero quer dizer "não há nada a lançar", e aqui
+        // quer dizer o contrário: "vendeu-se tudo".
+        $sincronizar = (bool) $this->option('sincronizar');
+        $soStock = $sincronizar || (bool) $this->option('so-stock');
         $comStockNoFicheiro = count(array_filter($linhas, fn ($l) => $l['quantidade'] > 0));
 
-        if ($soStock) {
+        if ($sincronizar) {
+            $this->line(sprintf('  artigos encontrados:  %d', $jaExistem->count()));
+            $this->line(sprintf('  não existem (ignorados): %d', count($linhas) - $jaExistem->count()));
+            $this->line(sprintf('  com quantidade > 0:   %d', $comStockNoFicheiro));
+
+            // Quantas linhas de stock deste armazém a folha manda pôr a zero.
+            // É o número que interessa ver ANTES: é o único que apaga stock.
+            $armazemActual = Warehouse::withoutGlobalScopes()
+                ->where('tenant_id', $empresa->id)
+                ->where('name', trim((string) $this->option('armazem')))
+                ->first();
+
+            $this->line(sprintf('  a pôr a zero:         %d',
+                $armazemActual ? $this->aZerar($linhas, $empresa, $armazemActual) : 0));
+        } elseif ($soStock) {
             // Só stock: o catálogo e os preços são os que já lá estão. Serve
             // para lançar um segundo armazém sem que a folha nova mande nos
             // preços que alguém já afinou no sistema.
@@ -123,9 +144,10 @@ class ImportarArtigosCsv extends Command
         // pára a loja. Cada lote fecha-se sozinho, e repetir o comando retoma
         // de onde ficou — é idempotente.
         $ignorados = 0;
+        $zerados = 0;
 
         foreach (array_chunk($linhas, 200) as $lote) {
-            DB::transaction(function () use ($lote, $empresa, $armazem, $soStock, &$criados, &$actualizados, &$comStock, &$ignorados) {
+            DB::transaction(function () use ($lote, $empresa, $armazem, $soStock, $sincronizar, &$criados, &$actualizados, &$comStock, &$ignorados, &$zerados) {
                 foreach ($lote as $l) {
                     $produto = Product::query()->firstOrNew([
                         'tenant_id' => $empresa->id,
@@ -163,7 +185,26 @@ class ImportarArtigosCsv extends Command
                         $novo ? $criados++ : $actualizados++;
                     }
 
-                    if ($l['quantidade'] <= 0) {
+                    // A sincronizar, zero é um valor e não uma ausência: se a
+                    // folha diz zero e há linha de stock, ela vai a zero.
+                    // Criar uma linha nova a zero não serve para nada.
+                    if ($l['quantidade'] <= 0 && !$sincronizar) {
+                        continue;
+                    }
+
+                    if ($l['quantidade'] <= 0 && $sincronizar) {
+                        $linha = Stock::withoutGlobalScopes()
+                            ->where('tenant_id', $empresa->id)
+                            ->where('warehouse_id', $armazem->id)
+                            ->where('product_id', $produto->id)
+                            ->first();
+
+                        if ($linha && (float) $linha->quantity != 0.0) {
+                            $linha->quantity = 0;
+                            $linha->save();
+                            $zerados++;
+                        }
+
                         continue;
                     }
 
@@ -190,7 +231,10 @@ class ImportarArtigosCsv extends Command
 
         $this->newLine(2);
 
-        if ($soStock) {
+        if ($sincronizar) {
+            $this->info(sprintf('  ✓ %d linhas com quantidade nova e %d postas a zero no armazém "%s". %d ignorados por não existirem.',
+                $comStock, $zerados, $armazem->name, $ignorados));
+        } elseif ($soStock) {
             $this->info(sprintf('  ✓ %d linhas de stock no armazém "%s". %d artigos ignorados por não existirem.',
                 $comStock, $armazem->name, $ignorados));
         } else {
@@ -199,6 +243,38 @@ class ImportarArtigosCsv extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Quantas linhas de stock deste armazém a folha manda pôr a zero.
+     *
+     * Só conta as que TÊM alguma coisa agora: uma linha já a zero não é uma
+     * baixa, e contá-la dava um número assustador na simulação sem nada por
+     * trás.
+     */
+    private function aZerar(array $linhas, Tenant $empresa, Warehouse $armazem): int
+    {
+        $codigos = array_column(array_filter($linhas, fn ($l) => $l['quantidade'] <= 0), 'codigo_barras');
+
+        if (!$codigos) {
+            return 0;
+        }
+
+        $ids = Product::query()
+            ->where('tenant_id', $empresa->id)
+            ->whereIn('barcode', $codigos)
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        return Stock::withoutGlobalScopes()
+            ->where('tenant_id', $empresa->id)
+            ->where('warehouse_id', $armazem->id)
+            ->whereIn('product_id', $ids)
+            ->where('quantity', '<>', 0)
+            ->count();
     }
 
     /** O armazém, criado se não existir. */
