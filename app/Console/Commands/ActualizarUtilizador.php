@@ -101,6 +101,12 @@ class ActualizarUtilizador extends Command
         $this->line('  email: ' . $user->email . ($email !== $user->email ? "  →  {$email}" : '  (sem mudança)'));
         $this->line('  palavra-passe: ' . ($senha ? 'vai ser mudada' : 'sem mudança'));
 
+        // Os papéis são por empresa no Spatie: sem dizer qual, vinha vazio e
+        // parecia que a pessoa não tinha acesso a nada.
+        setPermissionsTeamId($empresa->id);
+        $papeis = $user->roles()->pluck('name')->implode(', ');
+        $this->line('  papéis: ' . ($papeis ?: '(nenhum)'));
+
         if (!$this->option('aplicar')) {
             $this->newLine();
             $this->warn('  Nada foi gravado. Repita com --aplicar.');
