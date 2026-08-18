@@ -95,6 +95,9 @@ class MaintenanceController extends Controller
         // Papel "Stock e Vendas": vende, gere stock, cria artigos sem editar.
         'papel:stock-vendas',
         'utilizadores:criar',
+        // Corrige nome/email/palavra-passe. A palavra-passe vem de ficheiro,
+        // nunca de argumento: um argumento de URL fica nos registos.
+        'utilizadores:actualizar',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
         'empresas:nome-documentos',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
