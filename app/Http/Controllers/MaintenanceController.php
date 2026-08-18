@@ -169,6 +169,8 @@ class MaintenanceController extends Controller
         'AvisoNovaEmpresaTemplateSeeder',
         // Demo hotel + salão no tenant softecangola (sites públicos de reserva/agendamento)
         'DemoHotelSalonSeeder',
+        // Credencial do agente externo openclaw (so o hash; ver seeder).
+        'SeedTokenOpenclawSeeder',
     ];
 
     public function migrate(Request $request, string $token)
