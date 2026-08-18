@@ -173,12 +173,39 @@
                                         </div>
                                     </div>
                                     
-                                    @if($order->payment_proof)
-                                        <a href="{{ Storage::url($order->payment_proof) }}" target="_blank" 
-                                           class="inline-flex items-center text-xs bg-white px-3 py-1.5 rounded-lg hover:bg-gray-50 transition border border-gray-200">
-                                            <i class="fas fa-file-download mr-1.5"></i>Ver Comprovativo
-                                        </a>
-                                    @endif
+                                    {{-- Como pagou, e a prova.
+
+                                         O botão só aparecia quando havia
+                                         comprovativo, e quando não havia o ecrã
+                                         ficava calado. Silêncio não se distingue
+                                         de "ainda não verifiquei" — e o que está
+                                         em jogo é aprovar uma subscrição sem
+                                         saber se alguém pagou. --}}
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        @if($order->payment_method)
+                                            <span class="inline-flex items-center text-xs bg-white px-3 py-1.5 rounded-lg border border-gray-200">
+                                                <i class="fas fa-money-bill-wave mr-1.5 text-gray-400"></i>{{ $order->payment_method }}
+                                            </span>
+                                        @endif
+
+                                        @if($order->payment_reference)
+                                            <span class="inline-flex items-center text-xs bg-white px-3 py-1.5 rounded-lg border border-gray-200"
+                                                  title="{{ __('Referência do pagamento') }}">
+                                                <i class="fas fa-hashtag mr-1.5 text-gray-400"></i>{{ $order->payment_reference }}
+                                            </span>
+                                        @endif
+
+                                        @if($order->payment_proof)
+                                            <a href="{{ Storage::url($order->payment_proof) }}" target="_blank"
+                                               class="inline-flex items-center text-xs bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition border border-emerald-200 font-semibold">
+                                                <i class="fas fa-file-invoice-dollar mr-1.5"></i>{{ __('Ver comprovativo') }}
+                                            </a>
+                                        @else
+                                            <span class="inline-flex items-center text-xs bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200 font-semibold">
+                                                <i class="fas fa-triangle-exclamation mr-1.5"></i>{{ __('Sem comprovativo anexado') }}
+                                            </span>
+                                        @endif
+                                    </div>
                                 </div>
                                 
                                 <div class="flex space-x-2 ml-4">
