@@ -100,6 +100,8 @@ class MaintenanceController extends Controller
         'utilizadores:actualizar',
         // Periodo de teste de uma empresa. Simulacao por omissao: mexe em receita.
         'subscricao:trial',
+        // Troca de plano pela mesma regra do ecra. Simulacao por omissao.
+        'empresas:trocar-plano',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
         'empresas:nome-documentos',
         // De quem são as tarefas paradas na fila do AGT. Só lê.

@@ -821,44 +821,15 @@ class Tenants extends Component
             $tenant = Tenant::find($this->managingPlanTenantId);
             $plan = \App\Models\Plan::find($this->selectedPlanId);
             
-            // Atualizar ou criar subscription
-            $subscription = $tenant->activeSubscription;
-            
-            $periodEnd = match($this->billingCycle) {
-                'yearly' => now()->addMonths(14),
-                'semiannual' => now()->addMonths(6),
-                'quarterly' => now()->addMonths(3),
-                default => now()->addMonth(),
-            };
-            
-            if ($subscription) {
-                // Atualizar subscription existente
-                $subscription->update([
-                    'plan_id' => $plan->id,
-                    'billing_cycle' => $this->billingCycle,
-                    'amount' => $plan->getPrice($this->billingCycle),
-                    'status' => 'active',
-                    'current_period_start' => now(),
-                    'current_period_end' => $periodEnd,
-                ]);
-            } else {
-                // Criar nova subscription
-                $tenant->subscriptions()->create([
-                    'plan_id' => $plan->id,
-                    'billing_cycle' => $this->billingCycle,
-                    'amount' => $plan->getPrice($this->billingCycle),
-                    'status' => 'active',
-                    'current_period_start' => now(),
-                    'current_period_end' => $periodEnd,
-                ]);
-            }
-            
-            // Atualizar limites do tenant baseado no plano
-            $tenant->update([
-                'max_users' => $plan->max_users,
-                'max_storage_mb' => $plan->max_storage_mb,
-            ]);
-            
+            // A troca de plano vive no TrocarDePlano: o antigo e cancelado
+            // com tudo a zero e nasce um novo, com dias novos. Aqui
+            // reaproveitava-se a subscricao existente e so se lhe trocava o
+            // plano — ficava la o fim do teste e as datas do plano anterior,
+            // e a empresa acabava com um plano novo a correr com as contas do
+            // velho.
+            app(\App\Services\Plataforma\TrocarDePlano::class)
+                ->aplicar($tenant, $plan, $this->billingCycle);
+
             // Sincronizar módulos do plano com o tenant
             $this->syncPlanModules($tenant, $plan);
             
