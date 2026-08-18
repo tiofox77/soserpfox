@@ -312,10 +312,15 @@
             //    definitivamente (5+ tentativas) para nova tentativa. Evita que uma
             //    venda fique presa para sempre após um erro entretanto corrigido.
             if (force) {
+                // O last_error NAO se apaga.
+                //
+                // Apagava-se aqui, e cada toque em "Enviar agora" levava com ele
+                // a unica pista do que tinha corrido mal — o trabalho voltava a
+                // "a espera", limpo, e falhava outra vez em silencio. Quem esta
+                // ao balcao via tres vendas paradas sem uma palavra sobre porque.
                 await db.sync_queue.where('status').equals('failed').modify({
                     status: 'pending',
                     retries: 0,
-                    last_error: null,
                 });
             }
 
@@ -1022,7 +1027,9 @@
         },
 
         async retryFailedJob(jobId) {
-            await db.sync_queue.update(jobId, { status: 'pending', retries: 0, last_error: null });
+            // Guarda-se o erro anterior: se voltar a falhar do mesmo modo,
+            // isso e informacao, e nao um ecra em branco.
+            await db.sync_queue.update(jobId, { status: 'pending', retries: 0 });
             await refreshPendingCount();
             if (navigator.onLine) {
                 checkRealOnline().then(ok => { if (ok) sync(false); });
