@@ -652,7 +652,7 @@
                         <td class="currency">{{ number_format($item->unit_price, 2, ',', '.') }}</td>
                         <td class="currency">{{ number_format($item->quantity * $item->unit_price, 2, ',', '.') }}</td>
                         <td>{{ number_format($item->discount_percent ?? 0, 0) }}%</td>
-                        <td>{{ number_format($item->tax_rate ?? 14, 0) }}%</td>
+                        <td>{{ number_format($item->tax_rate ?? 0, 0) }}%</td>
                         <td class="currency">{{ number_format($item->tax_amount, 2, ',', '.') }}</td>
                         <td class="currency">{{ number_format($item->total, 2, ',', '.') }}</td>
                     </tr>

@@ -187,7 +187,14 @@ class InvoiceCreate extends Component
                 'price' => $item->unit_price,
                 'quantity' => $item->quantity,
                 'attributes' => [
-                    'tax_rate' => $item->tax_rate,
+                    // Uma linha gravada sem taxa nao e uma linha isenta nem uma
+                    // linha a 14%: reresolve-se pelo TaxResolver. Enquanto isto
+                    // passava nulo, o ecra mostrava Isento e o resumo cobrava 14%.
+                    'tax_rate' => $item->tax_rate !== null
+                        ? (float) $item->tax_rate
+                        : (float) \App\Services\Invoicing\TaxResolver::forProductId($item->product_id, activeTenantId())['rate'],
+                    'tax_type' => $item->product->tax_type ?? 'iva',
+                    'exemption_reason' => $item->product->exemption_reason ?? null,
                     'discount_percent' => $item->discount_percent,
                     'unit' => $item->unit,
                 ]
@@ -307,10 +314,12 @@ class InvoiceCreate extends Component
                 'message' => __('Quantidade incrementada: :detalhe', ['detalhe' => $product->name])]);
         } else {
             // Determinar taxa de IVA baseado no produto
-            $taxRate = 0;
-            if ($product->tax_type === 'iva' && $product->taxRate) {
-                $taxRate = $product->taxRate->rate;
-            }
+            // A taxa vem do TaxResolver, a fonte UNICA do imposto por linha,
+            // igual ao ecra de venda: respeita o regime da empresa e tem
+            // recurso a taxa por omissao. Ler $product->taxRate em bruto
+            // deixava a linha sem taxa quando o produto nao a tinha atribuida.
+            $lineTx  = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
+            $taxRate = (float) $lineTx['rate'];
             
             // Adiciona novo item
             Cart::session($this->cartInstance)->add([
@@ -372,10 +381,9 @@ class InvoiceCreate extends Component
         }
         
         // Determinar taxa de IVA
-        $taxRate = 0;
-        if ($product->tax_type === 'iva' && $product->taxRate) {
-            $taxRate = $product->taxRate->rate;
-        }
+        // Mesma fonte unica do imposto por linha (ver addProduct).
+        $lineTx  = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
+        $taxRate = (float) $lineTx['rate'];
         
         // Adicionar ao carrinho com dados do lote
         Cart::session($this->cartInstance)->add([

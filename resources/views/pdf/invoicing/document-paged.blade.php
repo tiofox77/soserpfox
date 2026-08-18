@@ -56,7 +56,7 @@
             'unit_price' => $item->unit_price,
             'discount_percent' => $item->discount_percent ?? 0,
             'discount_amount' => $item->discount_amount ?? 0,
-            'tax_rate' => $item->tax_rate ?? 14,
+            'tax_rate' => $item->tax_rate ?? 0,
             'tax_amount' => $item->tax_amount ?? 0,
             'subtotal' => $item->subtotal ?? ($item->quantity * $item->unit_price),
             'total' => $item->total ?? 0,
@@ -708,7 +708,7 @@
                         <td class="currency">{{ number_format($item['unit_price'], 2, ',', '.') }}</td>
                         <td class="currency">{{ number_format($item['quantity'] * $item['unit_price'], 2, ',', '.') }}</td>
                         <td>{{ number_format($item['discount_percent'] ?? 0, 0) }}%</td>
-                        <td>{{ number_format($item['tax_rate'] ?? 14, 0) }}%</td>
+                        <td>{{ number_format($item['tax_rate'] ?? 0, 0) }}%</td>
                         <td class="currency">{{ number_format($item['tax_amount'] ?? 0, 2, ',', '.') }}</td>
                         <td class="currency">{{ number_format($item['total'] ?? 0, 2, ',', '.') }}</td>
                     </tr>

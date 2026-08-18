@@ -432,8 +432,11 @@ class AGTClient
                     'taxes' => [[
                         'taxType' => 'IVA',
                         'taxCountryRegion' => 'AO',
-                        'taxCode' => ($item->tax_rate ?? 14) > 0 ? 'NOR' : 'ISE',
-                        'taxPercentage' => $item->tax_rate ?? 14,
+                        // Uma linha sem taxa NAO se declara a 14% a AGT: isso
+                        // inventa imposto num documento que nao o cobrou e parte
+                        // a igualdade netTotal + taxPayable = grossTotal.
+                        'taxCode' => ((float) ($item->tax_rate ?? 0)) > 0 ? 'NOR' : 'ISE',
+                        'taxPercentage' => (float) ($item->tax_rate ?? 0),
                         'taxContribution' => round($item->tax_amount ?? 0, 2),
                     ]],
                     'settlementAmount' => 0,

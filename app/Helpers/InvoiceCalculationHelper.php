@@ -78,7 +78,11 @@ class InvoiceCalculationHelper
             $baseIvaLinha = $valorLiquidoLinha - $descComercialAdicionalLinha - $descFinanceiroLinha;
             
             // IVA da linha
-            $taxRate = $attributes['tax_rate'] ?? 14;
+            // NUNCA inventar 14%: uma linha sem taxa resolvida nao e uma linha a 14%.
+            // O ecra mostra Isento quando esta chave falta (?? 0); se aqui
+            // caissemos em 14 o documento cobrava IVA que nenhuma linha declara.
+            // A taxa por linha vem do TaxResolver, a fonte unica; aqui so se le.
+            $taxRate = $attributes['tax_rate'] ?? 0;
             $taxAmountLinha = $baseIvaLinha * ($taxRate / 100);
             $taxAmount += $taxAmountLinha;
         }

@@ -336,7 +336,7 @@
                                         @php
                                             // Usar métodos do Cart para cálculos corretos
                                             $itemPriceSum = $item->getPriceSum(); // Preço × Qtd com desconto aplicado
-                                            $itemTax = $itemPriceSum * (($item->attributes['tax_rate'] ?? 14) / 100);
+                                            $itemTax = $itemPriceSum * (($item->attributes['tax_rate'] ?? 0) / 100);
                                             $itemGrandTotal = $itemPriceSum + $itemTax;
                                             
                                             // Calcular desconto aplicado

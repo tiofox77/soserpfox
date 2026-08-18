@@ -399,7 +399,7 @@
                                         @php
                                             // Usar métodos do Cart para cálculos corretos
                                             $itemPriceSum = $item->getPriceSum(); // Preço × Qtd com desconto aplicado
-                                            $itemTax = $itemPriceSum * (($item->attributes['tax_rate'] ?? 14) / 100);
+                                            $itemTax = $itemPriceSum * (($item->attributes['tax_rate'] ?? 0) / 100);
                                             $itemGrandTotal = $itemPriceSum + $itemTax;
                                             
                                             // Calcular desconto aplicado
@@ -545,10 +545,10 @@
                                 <span class="text-base font-bold text-gray-900">{{ number_format($discount_financial, 2) }}</span>
                             </div>
                             
-                            {{-- IVA (14%) --}}
+                            {{-- IVA: a taxa mostrada e a das linhas, nao um 14% fixo --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-blue-50 px-2 rounded">
                                 <span class="text-sm font-semibold text-blue-700">
-                                    <i class="fas fa-percentage mr-1"></i>IVA (14%)
+                                    <i class="fas fa-percentage mr-1"></i>IVA
                                 </span>
                                 <span class="text-base font-bold text-blue-700">{{ number_format($tax_amount, 2) }}</span>
                             </div>

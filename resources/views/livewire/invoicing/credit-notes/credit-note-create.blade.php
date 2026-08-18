@@ -185,13 +185,13 @@
                                     <td class="px-4 py-3 text-center">
                                         <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded inline-flex items-center">
                                             <i class="fas fa-percent mr-1"></i>
-                                            IVA {{ $item->attributes['tax_rate'] ?? 14 }}%
+                                            IVA {{ $item->attributes['tax_rate'] ?? 0 }}%
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-right">
                                         @php
                                             $itemSubtotal = $item->price * $item->quantity;
-                                            $itemTax = $itemSubtotal * (($item->attributes['tax_rate'] ?? 14) / 100);
+                                            $itemTax = $itemSubtotal * (($item->attributes['tax_rate'] ?? 0) / 100);
                                             $itemTotal = $itemSubtotal + $itemTax;
                                         @endphp
                                         <span class="text-lg font-bold text-gray-900">{{ number_format($itemTotal, 2) }}</span>
