@@ -45,6 +45,7 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.categories.edit', 'invoicing.categories.delete',
             'invoicing.suppliers.view', 'invoicing.suppliers.create',
             'invoicing.suppliers.edit', 'invoicing.suppliers.delete',
+            'invoicing.pos.reports', 'invoicing.pos.reports.all',
         ] as $p) {
             \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
         }
@@ -86,6 +87,7 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.warehouse-transfer.create',
             'invoicing.categories.create', 'invoicing.categories.edit',
             'invoicing.suppliers.create', 'invoicing.suppliers.edit',
+            'invoicing.pos.reports',
         ] as $p) {
             $this->assertContains($p, $tem, "faltava poder {$p}");
         }
@@ -105,6 +107,8 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.products.delete',
             'invoicing.categories.delete',
             'invoicing.suppliers.delete',
+            // O apuramento de TODAS as caixas nao e para quem opera uma.
+            'invoicing.pos.reports.all',
             'invoicing.inter-company-transfer.create',
         ] as $p) {
             $this->assertNotContains($p, $tem, "não podia poder {$p}");
