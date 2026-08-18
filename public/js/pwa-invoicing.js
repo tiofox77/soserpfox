@@ -865,6 +865,10 @@
                 discount_financial: parseFloat(draft.discount_financial) || 0,
                 delivery_date: draft.delivery_date || null,
                 delivery_location: draft.delivery_location || null,
+                is_service: !!draft.is_service,
+                withholding_percentage: draft.is_service
+                    ? (parseFloat(draft.withholding_percentage) || 6.5)
+                    : null,
                 items: draft.items,
             });
             return record;

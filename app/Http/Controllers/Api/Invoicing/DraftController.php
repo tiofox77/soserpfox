@@ -60,6 +60,10 @@ class DraftController extends Controller
             'discount_financial'  => 'nullable|numeric|min:0',
             'delivery_date'       => 'nullable|date',
             'delivery_location'   => 'nullable|string|max:255',
+            // Retenção na fonte. É a prestação de serviço que a justifica —
+            // uma venda de mercadoria não retém IRT.
+            'is_service'            => 'nullable|boolean',
+            'withholding_percentage' => 'nullable|numeric|min:0|max:100',
             'local_uuid' => 'nullable|string|max:80',
         ]);
 
@@ -132,7 +136,9 @@ class DraftController extends Controller
         $totals = $this->calculateTotals(
             $data['items'],
             (float) ($data['discount_commercial'] ?? 0),
-            (float) ($data['discount_financial'] ?? 0)
+            (float) ($data['discount_financial'] ?? 0),
+            (bool) ($data['is_service'] ?? false),
+            $data['withholding_percentage'] ?? null
         );
         $invoice->subtotal = $totals['subtotal'];
         $invoice->net_total = $totals['subtotal'];
@@ -145,6 +151,8 @@ class DraftController extends Controller
         $invoice->discount_amount = ($totals['comercial'] ?? 0) + ($totals['financeiro'] ?? 0);
         $invoice->delivery_date = $data['delivery_date'] ?? null;
         $invoice->delivery_location = $data['delivery_location'] ?? null;
+        $invoice->is_service = (bool) ($data['is_service'] ?? false);
+        $invoice->irt_amount = $totals['retencao'] ?? 0;
 
         // O identificador local GRAVA-SE.
         //
@@ -277,7 +285,9 @@ class DraftController extends Controller
         $totals = $this->calculateTotals(
             $data['items'],
             (float) ($data['discount_commercial'] ?? 0),
-            (float) ($data['discount_financial'] ?? 0)
+            (float) ($data['discount_financial'] ?? 0),
+            (bool) ($data['is_service'] ?? false),
+            $data['withholding_percentage'] ?? null
         );
         $proforma->subtotal = $totals['subtotal'];
         $proforma->tax_amount = $totals['tax'];
@@ -365,8 +375,13 @@ class DraftController extends Controller
      * um imposto diferente no mesmo documento — e é o imposto que vai para a
      * AGT.
      */
-    private function calculateTotals(array $items, float $descontoComercial = 0, float $descontoFinanceiro = 0): array
-    {
+    private function calculateTotals(
+        array $items,
+        float $descontoComercial = 0,
+        float $descontoFinanceiro = 0,
+        bool $prestacaoDeServico = false,
+        $percentagemRetencao = null
+    ): array {
         $subtotal = 0;
         $tax = 0;
         $extrasTotal = 0;
@@ -419,7 +434,22 @@ class DraftController extends Controller
         // O IEC e o Selo ACRESCEM ao total: nao sao IVA, mas sao imposto a
         // cobrar ao cliente. Ficam de fora do desconto financeiro, que e um
         // acerto comercial e nao um alivio fiscal.
-        $total = max(0, $liquido + $imposto + $extrasTotal - $descontoFinanceiro);
+        // RETENÇÃO NA FONTE.
+        //
+        // Só existe em prestação de serviços — uma venda de mercadoria não
+        // retém IRT. A percentagem indicada manda; sem ela, 6,5%, que é a
+        // taxa corrente do IRT sobre serviços.
+        //
+        // A retenção NÃO é imposto do documento: é dinheiro que o cliente
+        // entrega ao Estado em vez de o entregar a quem factura. Por isso
+        // BAIXA o total a receber e não entra no imposto que vai à AGT.
+        $pct = $percentagemRetencao !== null && $percentagemRetencao !== ''
+            ? (float) $percentagemRetencao
+            : 6.5;
+
+        $retencao = $prestacaoDeServico ? round($liquido * $pct / 100, 2) : 0.0;
+
+        $total = max(0, $liquido + $imposto + $extrasTotal - $descontoFinanceiro - $retencao);
 
         return [
             'subtotal'   => round($liquido, 2),
@@ -428,6 +458,7 @@ class DraftController extends Controller
             'comercial'  => round($comercial, 2),
             'financeiro' => round(min($descontoFinanceiro, $liquido + $imposto), 2),
             'extras'     => round($extrasTotal, 2),
+            'retencao'   => $retencao,
         ];
     }
 }

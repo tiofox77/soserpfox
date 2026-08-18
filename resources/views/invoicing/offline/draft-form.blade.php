@@ -184,6 +184,28 @@
         </div>
     </div>
 
+    {{-- Retenção na fonte.
+
+         Só existe em prestação de serviços — uma venda de mercadoria não
+         retém IRT. E não é imposto do documento: é dinheiro que o cliente
+         entrega ao Estado em vez de o entregar a quem factura, por isso
+         baixa o total a receber e não mexe no IVA. --}}
+    <div class="bg-white rounded-2xl shadow p-3 mb-3">
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" x-model="form.is_service" class="w-4 h-4 rounded border-gray-300">
+            <span class="text-sm font-semibold text-gray-700">{{ __('É prestação de serviço') }}</span>
+        </label>
+
+        <div x-show="form.is_service" x-cloak class="mt-2">
+            <label class="block text-[10px] font-bold text-gray-500 uppercase">{{ __('Retenção %') }}</label>
+            <input x-model.number="form.withholding_percentage" type="number" min="0" max="100" step="0.01"
+                   class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
+            <p class="text-[11px] text-gray-400 mt-1">
+                {{ __('6,5% é a taxa corrente do IRT sobre serviços. Deixe assim se não souber.') }}
+            </p>
+        </div>
+    </div>
+
     {{-- Notas --}}
     <div class="bg-white rounded-2xl shadow p-3 mb-3">
         <label class="block text-xs font-bold text-gray-600 uppercase mb-1 px-1">Notas</label>
@@ -196,6 +218,7 @@
     <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl shadow-lg p-4 mb-3">
         <div class="flex justify-between text-sm opacity-90"><span>Subtotal</span><span x-text="formatMoney(totals.subtotal)"></span></div>
         <div class="flex justify-between text-sm opacity-90"><span>IVA</span><span x-text="formatMoney(totals.tax)"></span></div>
+        <div x-show="totals.retencao > 0" x-cloak class="flex justify-between text-sm opacity-90"><span>{{ __('Retenção na fonte') }}</span><span x-text='"-" + formatMoney(totals.retencao)'></span></div>
         <div class="border-t border-white/30 mt-2 pt-2 flex justify-between text-lg font-bold"><span>TOTAL</span><span x-text="formatMoney(totals.total)"></span></div>
     </div>
 
@@ -317,6 +340,8 @@ function draftForm() {
             discount_financial: 0,
             delivery_date: '',
             delivery_location: '',
+            is_service: false,
+            withholding_percentage: 6.5,
             items: [],
         },
 
@@ -400,10 +425,18 @@ function draftForm() {
             const imposto = subtotal > 0 ? tax * (liquido / subtotal) : 0;
             const financeiro = parseFloat(this.form.discount_financial) || 0;
 
+            // A MESMA regra do servidor: so ha retencao em prestacao de
+            // servico, e ela baixa o total a receber sem mexer no imposto.
+            const pctRet = parseFloat(this.form.withholding_percentage);
+            const retencao = this.form.is_service
+                ? Math.round(liquido * (Number.isFinite(pctRet) ? pctRet : 6.5)) / 100
+                : 0;
+
             return {
                 subtotal: liquido,
                 tax: imposto,
-                total: Math.max(0, liquido + imposto - financeiro),
+                retencao,
+                total: Math.max(0, liquido + imposto - financeiro - retencao),
             };
         },
 
