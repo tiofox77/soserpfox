@@ -104,34 +104,48 @@ class OrderObserver
 
         \DB::beginTransaction();
         try {
-            // Buscar subscription ativa atual
-            $currentSubscription = $tenant->subscriptions()
-                ->where('status', 'active')
-                ->with('plan.modules')
-                ->first();
-
-            $oldPlan = $currentSubscription ? $currentSubscription->plan : null;
-
-            // 1. CANCELAR SUBSCRIPTION ANTIGA
-            if ($currentSubscription) {
-                $currentSubscription->update([
-                    'status' => 'cancelled',
-                    'ends_at' => now(),
-                ]);
-
-                \Log::info("📦 Subscription antiga cancelada", [
-                    'tenant_id' => $tenant->id,
-                    'old_plan' => $oldPlan->name ?? 'N/A',
-                ]);
-            }
-
-            // 2. ATIVAR SUBSCRIPTION PENDENTE (ou criar nova se não existir)
-            // Buscar subscription pendente do mesmo plano e tenant
+            // A subscrição pendente DESTE plano, se existir — é ela que se
+            // activa, e por isso tem de ser identificada ANTES de cancelar as
+            // outras, senão cancelava-se a própria.
             $pendingSubscription = $tenant->subscriptions()
                 ->where('plan_id', $newPlan->id)
                 ->where('status', 'pending')
                 ->latest()
                 ->first();
+
+            // TODAS as anteriores saem, não só as que estão 'active'.
+            //
+            // Isto olhava só para status='active'. Uma subscrição em 'trial' —
+            // ou em qualquer outro estado vivo — ficava de pé ao lado da nova,
+            // e a empresa passava a ter duas subscrições ao mesmo tempo: dois
+            // planos, dois limites, e a cobrança a olhar para a que calhasse.
+            $anteriores = $tenant->subscriptions()
+                ->whereNotIn('status', ['cancelled', 'expired'])
+                ->when($pendingSubscription, fn ($q) => $q->where('id', '<>', $pendingSubscription->id))
+                ->with('plan.modules')
+                ->get();
+
+            $currentSubscription = $anteriores->first();
+            $oldPlan = $currentSubscription ? $currentSubscription->plan : null;
+
+            // 1. CANCELAR AS ANTERIORES
+            foreach ($anteriores as $anterior) {
+                $anterior->update([
+                    'status'  => 'cancelled',
+                    'ends_at' => now(),
+                ]);
+
+                \Log::info("📦 Subscription anterior cancelada", [
+                    'tenant_id'       => $tenant->id,
+                    'subscription_id' => $anterior->id,
+                    'estado_anterior' => $anterior->getOriginal('status'),
+                    'old_plan'        => $anterior->plan->name ?? 'N/A',
+                ]);
+            }
+
+            // 2. ATIVAR SUBSCRIPTION PENDENTE (ou criar nova se não existir)
+            // A $pendingSubscription foi identificada lá em cima, ANTES dos
+            // cancelamentos — procurá-la outra vez aqui não daria nada.
             
             $startDate = now();
             $endDate = match($order->billing_cycle) {
