@@ -46,6 +46,11 @@ class CriarPapelStockEVendas extends Command
         'invoicing.stock.view',
         'invoicing.stock.edit',
         'invoicing.warehouses.view',
+        // Transferir entre armazéns da MESMA empresa. A transferência
+        // entre empresas fica de fora: move mercadoria entre patrimónios
+        // diferentes e é decisão de quem gere, não de quem opera.
+        'invoicing.warehouse-transfer.view',
+        'invoicing.warehouse-transfer.create',
         'invoicing.product-batches.view',
         'invoicing.product-batches.create',
         'invoicing.product-batches.edit',

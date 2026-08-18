@@ -39,6 +39,8 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.stock.view', 'invoicing.stock.edit',
             'invoicing.products.view', 'invoicing.products.create',
             'invoicing.products.edit', 'invoicing.products.delete',
+            'invoicing.warehouse-transfer.view', 'invoicing.warehouse-transfer.create',
+            'invoicing.inter-company-transfer.create',
         ] as $p) {
             \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
         }
@@ -77,6 +79,7 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.stock.view', 'invoicing.stock.edit',
             'invoicing.products.view', 'invoicing.products.create',
             'invoicing.products.edit',
+            'invoicing.warehouse-transfer.create',
         ] as $p) {
             $this->assertContains($p, $tem, "faltava poder {$p}");
         }
@@ -90,7 +93,9 @@ class PapelStockEVendasTest extends TestCase
         $tem = $papel->permissions()->pluck('name')->all();
 
         // Editar passou a poder; APAGAR nao, e essa e a linha que fica.
-        foreach (['invoicing.products.delete'] as $p) {
+        // A transferencia ENTRE EMPRESAS move mercadoria entre patrimonios
+        // diferentes: e decisao de quem gere, nao de quem opera.
+        foreach (['invoicing.products.delete', 'invoicing.inter-company-transfer.create'] as $p) {
             $this->assertNotContains($p, $tem, "não podia poder {$p}");
         }
     }
