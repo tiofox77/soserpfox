@@ -36,6 +36,7 @@ Route::prefix('api/agent/v1')
             Route::middleware('agent.scope:tenants:read')->group(function () {
                 Route::get('tenants', [AgentController::class, 'tenants']);
                 Route::get('tenants/{tenant}', [AgentController::class, 'tenant']);
+                Route::get('plans', [AgentController::class, 'planos']);
             });
 
             Route::middleware('agent.scope:health:read')->group(function () {

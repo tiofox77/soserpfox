@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Services\Agent\DecisaoDePedido;
 use App\Services\Agent\DestinatariosPermitidos;
 use App\Services\Agent\EnvioDeFollowUp;
+use App\Services\Agent\SinaisDoTenant;
 use App\Services\Audit\AuditRecorder;
 use App\Services\Plataforma\Inconsistencias;
 use App\Support\AgenteAutenticado;
@@ -97,10 +98,13 @@ class AgentController extends Controller
         ]);
     }
 
-    public function tenant(Tenant $tenant, DestinatariosPermitidos $destinatarios)
+    public function tenant(Tenant $tenant, DestinatariosPermitidos $destinatarios, SinaisDoTenant $sinais)
     {
         return response()->json([
             'empresa'       => $this->resumoDoTenant($tenant),
+            'nif'           => $sinais->nif($tenant),        // classificado e mascarado
+            'produtos'      => $sinais->produtos($tenant->id), // só contagens
+            'envios'        => $sinais->envios($tenant->id),   // relatório de email/SMS
             'destinatarios' => $destinatarios->paraTenant($tenant),
         ]);
     }
@@ -185,10 +189,66 @@ class AgentController extends Controller
 
     public function pedido(Order $order, DecisaoDePedido $decisao)
     {
+        $plano = $order->plan;
+
         return response()->json([
             'pedido'   => $decisao->prever($order),
             'estado'   => $order->status,
             'bloqueio' => $decisao->porqueNaoPode($order),
+            // Como pagou — sem expor a referência nem o comprovativo. O
+            // caminho do comprovativo fica num disco público e a referência
+            // é PII financeira: o agente só sabe SE existem, não o quê.
+            'pagamento' => [
+                'metodo'           => $order->payment_method,
+                'tem_comprovativo' => !empty($order->payment_proof),
+                'tem_referencia'   => !empty($order->payment_reference),
+                'aprovado_por'     => $order->approvedBy?->name,
+                'aprovado_em'      => $order->approved_at?->toDateTimeString(),
+            ],
+            // O que o plano inclui (catálogo comercial, sem PII).
+            'plano_detalhe' => $plano ? [
+                'nome'       => $plano->name,
+                'trial_dias' => $plano->trial_days,
+                'modulos'    => $plano->moduleSlugsWithDependencies(),
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Catálogo de pacotes.
+     *
+     * Tudo aqui é comercial e público — preços por ciclo, limites, módulos
+     * incluídos (já com as dependências resolvidas: quem tem faturação tem
+     * tesouraria). Sem PII, vai em claro.
+     */
+    public function planos()
+    {
+        $planos = \App\Models\Plan::where('is_active', true)
+            ->orderBy('order')
+            ->get()
+            ->map(fn ($p) => [
+                'nome'        => $p->name,
+                'slug'        => $p->slug,
+                'descricao'   => $p->description,
+                'promocional' => (bool) $p->is_promotional,
+                'trial_dias'  => $p->trial_days,
+                'precos' => [
+                    'mensal'     => $p->getPrice('monthly'),
+                    'trimestral' => $p->getPrice('quarterly'),
+                    'semestral'  => $p->getPrice('semiannual'),
+                    'anual'      => $p->getPrice('yearly'),
+                ],
+                'limites' => [
+                    'utilizadores' => $p->max_users,
+                    'empresas'     => $p->max_companies,
+                    'armazenamento_mb' => $p->max_storage_mb,
+                ],
+                'modulos' => $p->moduleSlugsWithDependencies(),
+            ]);
+
+        return response()->json([
+            'planos' => $planos,
+            'nota'   => 'Anual dá 14 meses (12 + 2 grátis). Faturação inclui sempre Tesouraria.',
         ]);
     }
 

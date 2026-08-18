@@ -129,6 +129,9 @@ return [
         'pedidos_duplicados',
         'tenant_sem_subscricao',
         'nif_invalido',
+        'agt_fila_parada',
+        'documentos_por_comunicar',
+        'stock_negativo',
     ],
 
     /*

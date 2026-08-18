@@ -51,6 +51,18 @@ class Inconsistencias
                 'descricao'  => 'Empresa com NIF ausente ou que não parece um NIF de empresa',
                 'severidade' => 'alta',
             ],
+            'agt_fila_parada' => [
+                'descricao'  => 'Documentos à espera de resposta da AGT há demasiado tempo',
+                'severidade' => 'alta',
+            ],
+            'documentos_por_comunicar' => [
+                'descricao'  => 'Facturas emitidas sem estado de comunicação à AGT',
+                'severidade' => 'media',
+            ],
+            'stock_negativo' => [
+                'descricao'  => 'Artigos com quantidade negativa em armazém',
+                'severidade' => 'media',
+            ],
         ];
     }
 
@@ -242,5 +254,89 @@ class Inconsistencias
         }
 
         return $achados;
+    }
+
+    /**
+     * Documentos presos na fila da AGT.
+     *
+     * Submetidos ou por submeter, sem resposta confirmada. A antiguidade do
+     * mais antigo diz há quanto tempo está preso — sinal de chaves em falta,
+     * fila sem worker, ou a AGT em baixo.
+     */
+    private function verificarAgtFilaParada(?int $tenantId): array
+    {
+        $q = DB::table('agt_submissions')
+            ->whereIn('status', ['pending', 'submitted'])
+            ->where('created_at', '<', now()->subHours(6))
+            ->selectRaw('tenant_id, COUNT(*) total, MIN(created_at) mais_antigo')
+            ->groupBy('tenant_id');
+
+        if ($tenantId) {
+            $q->where('tenant_id', $tenantId);
+        }
+
+        return $q->limit(200)->get()->map(fn ($linha) => $this->achado(
+            'agt_fila_parada',
+            $linha->tenant_id,
+            "{$linha->total} documento(s) sem resposta da AGT.",
+            ['presos' => (int) $linha->total, 'mais_antigo' => (string) $linha->mais_antigo],
+            'Verificar as chaves AGT da empresa e se a fila está a ser processada.'
+        ))->all();
+    }
+
+    /**
+     * Facturas emitidas sem estado de comunicação à AGT.
+     *
+     * Conta só as facturas de venda (a tabela principal). Cresce em silêncio
+     * quando a comunicação automática está ligada mas falta configuração.
+     */
+    private function verificarDocumentosPorComunicar(?int $tenantId): array
+    {
+        $q = DB::table('invoicing_sales_invoices')
+            ->whereNull('deleted_at')
+            ->where(function ($w) {
+                $w->whereNull('agt_status')->orWhere('agt_status', '');
+            })
+            ->selectRaw('tenant_id, COUNT(*) total')
+            ->groupBy('tenant_id')
+            ->havingRaw('COUNT(*) > 0');
+
+        if ($tenantId) {
+            $q->where('tenant_id', $tenantId);
+        }
+
+        return $q->limit(200)->get()->map(fn ($linha) => $this->achado(
+            'documentos_por_comunicar',
+            $linha->tenant_id,
+            "{$linha->total} factura(s) de venda sem estado de comunicação à AGT.",
+            ['por_comunicar' => (int) $linha->total],
+            'Confirmar se a comunicação automática está ligada e as chaves configuradas.'
+        ))->all();
+    }
+
+    /**
+     * Stock negativo: vendeu-se mais do que havia num armazém.
+     *
+     * As linhas de invoicing_stocks são a fonte de verdade. Nunca corrigir a
+     * partir daqui — o stock:reconcile é de um humano.
+     */
+    private function verificarStockNegativo(?int $tenantId): array
+    {
+        $q = DB::table('invoicing_stocks')
+            ->where('quantity', '<', 0)
+            ->selectRaw('tenant_id, COUNT(*) total')
+            ->groupBy('tenant_id');
+
+        if ($tenantId) {
+            $q->where('tenant_id', $tenantId);
+        }
+
+        return $q->limit(200)->get()->map(fn ($linha) => $this->achado(
+            'stock_negativo',
+            $linha->tenant_id,
+            "{$linha->total} artigo(s) com stock negativo.",
+            ['negativos' => (int) $linha->total],
+            'Investigar a origem; correr stock:reconcile é decisão de um humano.'
+        ))->all();
     }
 }
