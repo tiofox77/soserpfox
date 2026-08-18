@@ -280,7 +280,7 @@ class InvoiceCreate extends Component
         $this->due_date = DocumentConfigHelper::getInvoiceDueDate()->format('Y-m-d');
         
         // Unique cart instance per user and tenant (persiste entre reloads)
-        $this->cartInstance = 'invoice_' . activeTenantId() . '_' . auth()->id();
+        $this->cartInstance = 'sales_invoice_' . activeTenantId() . '_' . auth()->id();
         
         // Set default warehouse
         $defaultWarehouse = Warehouse::where('tenant_id', activeTenantId())

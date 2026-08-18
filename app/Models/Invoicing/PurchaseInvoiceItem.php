@@ -23,6 +23,7 @@ class PurchaseInvoiceItem extends Model
         'subtotal',
         'tax_rate_id',
         'tax_rate',
+        'tax_country_region',
         'tax_amount',
         'total',
         'order',

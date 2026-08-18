@@ -103,6 +103,43 @@ class DocumentoDoPwaComIecESeloTest extends TenantTestCase
         );
     }
 
+    /**
+     * O cabecalho estava certo e a LINHA errada — e e da linha que o
+     * DocumentMapper recompoe o payload da AGT. Como o hook saving() do
+     * model so consegue ler o IEC quando a linha ja existe, no INSERT ele
+     * lia IEC = 0 e sobrepunha o imposto correcto. Os testes acima nao
+     * apanhavam nada disto porque olhavam so para $doc->tax_amount.
+     */
+    public function test_a_LINHA_gravada_tambem_leva_o_iec_na_base_do_iva(): void
+    {
+        $doc = $this->criar(['iec_pautal' => $this->pautalCom(10)]);
+        $linha = $doc->items()->first();
+
+        $iec = (float) LineTax::where('line_type', SalesInvoiceItem::class)
+            ->where('line_id', $linha->id)
+            ->where('tax_type', 'IEC')
+            ->sum('tax_amount');
+
+        $this->assertGreaterThan(0, $iec, 'o cenario exige IEC na linha');
+
+        $base = (float) $linha->subtotal - (float) $linha->discount_amount;
+        $esperado = ($base + $iec) * (float) $linha->tax_rate / 100;
+
+        $this->assertEqualsWithDelta($esperado, (float) $linha->tax_amount, 0.01,
+            'a linha gravada apurou o IVA sem o IEC na base');
+    }
+
+    /** O documento tem de fechar: o que esta no cabecalho e a soma das linhas. */
+    public function test_o_cabecalho_bate_certo_com_as_linhas(): void
+    {
+        $doc = $this->criar(['iec_pautal' => $this->pautalCom(10)]);
+
+        $somaDasLinhas = (float) $doc->items()->sum('tax_amount');
+
+        $this->assertEqualsWithDelta($somaDasLinhas, (float) $doc->tax_amount, 0.01,
+            'o imposto do cabecalho nao bate com a soma das linhas');
+    }
+
     public function test_o_selo_NAO_entra_na_base_do_iva(): void
     {
         $semSelo = $this->criar([]);

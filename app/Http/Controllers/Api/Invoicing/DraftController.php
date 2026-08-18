@@ -246,6 +246,17 @@ class DraftController extends Controller
             // Os impostos extra so DEPOIS de a linha existir: eles apontam
             // para ela numa tabela a parte, e sem id nao ha para onde apontar.
             $totalExtras += \App\Services\Invoicing\ImpostosDaLinha::gravar($line, $extras);
+
+            // Regravar a linha depois de existirem as linhas de imposto.
+            // O calculateTotals() do model corre em cada save e so consegue
+            // ler o IEC quando a linha ja existe ($this->exists). No INSERT
+            // acima ele leu IEC = 0 e sobrepos o $taxAmount correcto pelo
+            // valor calculado so sobre o liquido. O cabecalho ficava certo e
+            // a LINHA errada — e e da linha que o DocumentMapper recompoe o
+            // payload da AGT. O ecra web ja se protegia assim.
+            if ($iec > 0) {
+                $line->save();
+            }
         }
 
         // O selo só DEPOIS das linhas: o hash encadeia o documento inteiro,
@@ -354,6 +365,17 @@ class DraftController extends Controller
             // Os impostos extra so DEPOIS de a linha existir: eles apontam
             // para ela numa tabela a parte, e sem id nao ha para onde apontar.
             $totalExtras += \App\Services\Invoicing\ImpostosDaLinha::gravar($line, $extras);
+
+            // Regravar a linha depois de existirem as linhas de imposto.
+            // O calculateTotals() do model corre em cada save e so consegue
+            // ler o IEC quando a linha ja existe ($this->exists). No INSERT
+            // acima ele leu IEC = 0 e sobrepos o $taxAmount correcto pelo
+            // valor calculado so sobre o liquido. O cabecalho ficava certo e
+            // a LINHA errada — e e da linha que o DocumentMapper recompoe o
+            // payload da AGT. O ecra web ja se protegia assim.
+            if ($iec > 0) {
+                $line->save();
+            }
         }
 
         return response()->json([

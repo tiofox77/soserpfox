@@ -167,7 +167,7 @@ class ProformaCreate extends Component
         $this->valid_until = DocumentConfigHelper::getProformaValidUntil()->format('Y-m-d');
         
         // Unique cart instance per user and tenant (persiste entre reloads)
-        $this->cartInstance = 'proforma_' . activeTenantId() . '_' . auth()->id();
+        $this->cartInstance = 'sales_proforma_' . activeTenantId() . '_' . auth()->id();
         
         // Set default warehouse
         $defaultWarehouse = Warehouse::where('tenant_id', activeTenantId())

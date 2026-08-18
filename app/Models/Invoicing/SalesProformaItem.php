@@ -4,6 +4,7 @@ namespace App\Models\Invoicing;
 
 use App\Models\Product;
 use App\Models\Invoicing\Tax;
+use App\Models\Invoicing\LineTax;
 use Illuminate\Database\Eloquent\Model;
 
 class SalesProformaItem extends Model
@@ -78,7 +79,20 @@ class SalesProformaItem extends Model
         }
         
         $subtotalAfterDiscount = $this->subtotal - $this->discount_amount;
-        $this->tax_amount = ($subtotalAfterDiscount * $this->tax_rate) / 100;
-        $this->total = $subtotalAfterDiscount + $this->tax_amount;
+
+        // O IVA incide sobre o liquido ACRESCIDO do IEC, tal como na factura
+        // (ver SalesInvoiceItem::calculateTotals). Sem isto a linha da
+        // proforma apurava o IVA so sobre o liquido e ficava a divergir do
+        // cabecalho, que ja soma o IEC a base. O Imposto de Selo nao entra.
+        $iec = 0.0;
+        if ($this->exists) {
+            $iec = (float) LineTax::where('line_type', static::class)
+                ->where('line_id', $this->id)
+                ->where('tax_type', LineTax::TIPO_IEC)
+                ->sum('tax_amount');
+        }
+
+        $this->tax_amount = (($subtotalAfterDiscount + $iec) * $this->tax_rate) / 100;
+        $this->total = $subtotalAfterDiscount + $this->tax_amount + $iec;
     }
 }

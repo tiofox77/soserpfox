@@ -20,6 +20,7 @@ class PurchaseProformaItem extends Model
         'discount_amount',
         'subtotal',
         'tax_rate',
+        'tax_country_region',
         'tax_amount',
         'total',
         'order',
