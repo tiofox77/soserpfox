@@ -60,6 +60,13 @@ class CriarPapelStockEVendas extends Command
         'invoicing.products.view',
         'invoicing.products.create',
         'invoicing.products.edit',
+
+        // Categorias: ver, criar e editar. Apagar fica de fora pela mesma
+        // razão dos artigos — apagar uma categoria desarruma todos os
+        // artigos que estavam nela, e isso não se desfaz num clique.
+        'invoicing.categories.view',
+        'invoicing.categories.create',
+        'invoicing.categories.edit',
     ];
 
     public function handle(): int
