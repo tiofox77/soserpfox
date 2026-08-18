@@ -157,7 +157,8 @@
                                  correr, e muda a cada deploy que toque no PWA. Só a
                                  primeira não chegava: dizia 16.08 num aparelho a correr
                                  código do dia 17, e não havia como distinguir aparelhos. --}}
-                            {{ __('Actualizado em') }}
+                            <span class="font-mono">v{{ config('changelog.current', '1.0') }}</span>
+                            ·
                             <span class="font-semibold"
                                   title="{{ __('Versão :v · assinatura :h', [
                                       'v' => config('changelog.current', '1.0'),

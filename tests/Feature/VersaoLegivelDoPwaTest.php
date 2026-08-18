@@ -55,4 +55,15 @@ class VersaoLegivelDoPwaTest extends TestCase
         $this->assertStringContainsString($c->buildLabel(), $html);
         $this->assertStringContainsString($c->buildVersion(), $html, 'a assinatura fica no title, para comparar aparelhos');
     }
+
+    public function test_a_versao_aparece_ao_lado_da_data(): void
+    {
+        // As duas dizem coisas diferentes: a versão é o que foi lançado, a
+        // data é o que este aparelho tem. Quem reporta um problema precisa
+        // de dar as duas.
+        $html = view('layouts.pwa', ['title' => 'x'])->render();
+
+        $this->assertStringContainsString('v' . config('changelog.current', '1.0'), $html);
+        $this->assertStringContainsString((new PwaController)->buildLabel(), $html);
+    }
 }

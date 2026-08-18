@@ -21,9 +21,40 @@ return [
     // aparelho volta a puxar as páginas do modo offline para a cache. É de
     // propósito — é assim que uma versão nova chega aos telemóveis — mas
     // significa que mudar esta linha tem efeito real, e não é só um rótulo.
-    'current' => '2026.08.16.1',
+    'current' => '2026.08.18.1',
 
     'releases' => [
+
+        [
+            'version'      => '2026.08.18.1',
+            'date'         => '2026-08-18',
+            'type'         => 'minor',
+            'title'        => 'Entrada própria do PWA, e o imposto certo em cada empresa',
+            'features'     => [
+                ['produto' => 'pwa', 'texto' => 'Entrada própria da aplicação: entra-se com rede ou sem ela. Sair passa a terminar mesmo a sessão e a devolver a este ecrã — antes saltava para a aplicação web, que sem internet não abre, e quem saísse ficava sem forma de voltar a entrar.'],
+                ['produto' => 'pwa', 'texto' => 'Com rede, a venda sai já com o número fiscal em vez de um número provisório. Sem rede continua a ir para a fila, como sempre.'],
+                ['produto' => 'pwa', 'texto' => 'O painel mostra as facturas do dia e a fila de envio item a item, com o erro de cada trabalho que não tenha subido.'],
+            ],
+            'improvements' => [
+                ['produto' => 'pwa', 'texto' => 'O cabeçalho passa a dizer a data e a hora da última actualização deste aparelho, ao lado da versão. Antes eram dois códigos que não respondiam à única pergunta que se faz ali: já tenho a correcção de hoje?'],
+                ['produto' => 'pwa', 'texto' => 'O leitor de código de barras encontra o artigo venha o código na forma completa ou só com os treze dígitos. Uma caixa lida numa forma e guardada na outra deixava de ser encontrada.'],
+                ['produto' => 'ambos', 'texto' => 'A numeração fiscal, o selo e a comunicação à AGT passam a viver num sítio só, partilhado por todos os documentos.'],
+            ],
+            'fixes'        => [
+                ['produto' => 'pwa', 'texto' => 'CRÍTICO: as taxas de IVA oferecidas eram sempre as mesmas quatro — 0, 5, 7 e 14 — a qualquer empresa. Numa empresa isenta, bastava escolher para emitir um documento com IVA que ela não pode cobrar. Passam a ser as taxas da própria empresa.'],
+                ['produto' => 'pwa', 'texto' => 'Sem turno aberto já não se vende. Antes perguntava se queria continuar, e a venda saía fora do fecho de caixa — ao fim do dia o dinheiro na gaveta não batia certo e não se sabia porquê.'],
+                ['produto' => 'pwa', 'texto' => 'A lista de vendas por enviar mostrava também as que já tinham sido entregues ao servidor. Aparecia dinheiro por cobrar que afinal já estava cobrado.'],
+                ['produto' => 'pwa', 'texto' => 'Sem sessão e com internet, aparecia o POS guardado em vez do ecrã de entrada: parecia funcionar e a primeira venda falhava.'],
+                ['produto' => 'pwa', 'texto' => 'Um artigo esgotado deixava de ser enviado ao aparelho e ficava lá com o stock e o imposto antigos — vendável offline com dados velhos.'],
+                ['produto' => 'web', 'texto' => 'Os dados de qualquer ecrã só apareciam actualizados à segunda vez que se recarregava a página.'],
+                ['produto' => 'web', 'texto' => 'Converter uma proforma em factura copiava a taxa gravada na proforma. Uma proforma feita antes de a empresa mudar de regime dava, com um clique, uma factura nova a liquidar imposto que a empresa já não pode cobrar.'],
+                ['produto' => 'web', 'texto' => 'Os cartões da Gestão de Stock não acompanhavam os filtros do ecrã: escolher um armazém filtrava a lista e deixava os totais a falar de todos.'],
+                ['produto' => 'web', 'texto' => 'A empresa passa a escolher se sai o nome comercial ou a designação social nos documentos. Antes a factura imprimia um e o talão do POS imprimia o outro.'],
+            ],
+            'security'     => [
+                ['produto' => 'pwa', 'texto' => 'A entrada sem rede confere a palavra-passe contra um verificador guardado no aparelho, nunca contra a palavra-passe em si.'],
+            ],
+        ],
 
         [
             'version'      => '2026.08.16.1',
