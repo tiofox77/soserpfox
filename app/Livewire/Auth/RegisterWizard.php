@@ -285,8 +285,8 @@ class RegisterWizard extends Component
     protected function validateStep1()
     {
         return $this->validate([
-            'name' => 'required|min:3',
-            'email' => 'required|email|unique:users,email',
+            'name' => ['required', 'min:3', new \App\Rules\NomeQueParecePessoa()],
+            'email' => ['required', 'email', 'unique:users,email', new \App\Rules\EmailQueExiste()],
             'password' => 'required|min:6|confirmed',
         ]);
     }
@@ -295,7 +295,7 @@ class RegisterWizard extends Component
     protected function validateStep2()
     {
         return $this->validate([
-            'company_name' => 'required|min:3',
+            'company_name' => ['required', 'min:3', new \App\Rules\NomeQueParecePessoa()],
             'company_nif' => ['required', new \App\Rules\NifDeEmpresa(), 'unique:tenants,nif'],
             'company_regime' => 'required|in:' . implode(',', array_keys(Tenant::REGIMES)),
             'company_address' => 'nullable',
