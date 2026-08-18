@@ -76,6 +76,31 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Limites de chamadas da API do agente externo.
+        //
+        // A contagem é por TOKEN, não por IP: dois agentes atrás do mesmo
+        // NAT não podem gastar a quota um do outro, e um agente que mude
+        // de IP não escapa ao limite.
+        \Illuminate\Support\Facades\RateLimiter::for('agent-read', function ($request) {
+            $token = app()->bound(\App\Support\AgenteAutenticado::class)
+                ? app(\App\Support\AgenteAutenticado::class)->id()
+                : $request->ip();
+
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(
+                (int) config('agent.limites.leitura_por_minuto', 120)
+            )->by('agent-read:' . $token);
+        });
+
+        \Illuminate\Support\Facades\RateLimiter::for('agent-write', function ($request) {
+            $token = app()->bound(\App\Support\AgenteAutenticado::class)
+                ? app(\App\Support\AgenteAutenticado::class)->id()
+                : $request->ip();
+
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(
+                (int) config('agent.limites.escrita_por_minuto', 10)
+            )->by('agent-write:' . $token);
+        });
+
         // O NIF de empresa também com nome, e não só como objecto.
         //
         // O ecrã de empresas do super admin guarda as regras numa PROPRIEDADE

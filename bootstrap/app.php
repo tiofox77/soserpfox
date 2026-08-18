@@ -8,6 +8,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
+        // API do agente externo: FORA do grupo web, sem sessao nem CSRF.
+        then: function () {
+            \Illuminate\Support\Facades\Route::group([], __DIR__.'/../routes/agent.php');
+        },
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -97,6 +101,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Middleware aliases
         $middleware->alias([
+            // API do agente externo (openclaw)
+            'agent.token'       => \App\Http\Middleware\AutenticaAgente::class,
+            'agent.scope'       => \App\Http\Middleware\ExigeEscopoDoAgente::class,
+            'agent.idempotencia' => \App\Http\Middleware\IdempotenciaDoAgente::class,
             'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
             'superadmin' => \App\Http\Middleware\SuperAdminMiddleware::class,
             'tenant.module' => \App\Http\Middleware\CheckTenantModule::class,
