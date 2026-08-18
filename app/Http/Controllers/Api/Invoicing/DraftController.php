@@ -48,6 +48,12 @@ class DraftController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.tax_rate' => 'nullable|numeric|min:0|max:100',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
+            // Descontos do DOCUMENTO. O comercial incide antes do IVA e o
+            // financeiro depois — a ordem nao e detalhe, muda o imposto.
+            'discount_commercial' => 'nullable|numeric|min:0',
+            'discount_financial'  => 'nullable|numeric|min:0',
+            'delivery_date'       => 'nullable|date',
+            'delivery_location'   => 'nullable|string|max:255',
             'local_uuid' => 'nullable|string|max:80',
         ]);
 
@@ -117,13 +123,22 @@ class DraftController extends Controller
             . (isset($data['reference']) ? "\n\nReferência: " . $data['reference'] : '')
             . "\n\n[Criado via PWA Offline]";
 
-        $totals = $this->calculateTotals($data['items']);
+        $totals = $this->calculateTotals(
+            $data['items'],
+            (float) ($data['discount_commercial'] ?? 0),
+            (float) ($data['discount_financial'] ?? 0)
+        );
         $invoice->subtotal = $totals['subtotal'];
         $invoice->net_total = $totals['subtotal'];
         $invoice->tax_amount = $totals['tax'];
         $invoice->tax_payable = $totals['tax'];
         $invoice->total = $totals['total'];
         $invoice->gross_total = $totals['total'];
+        $invoice->discount_commercial = $totals['comercial'] ?? 0;
+        $invoice->discount_financial = $totals['financeiro'] ?? 0;
+        $invoice->discount_amount = ($totals['comercial'] ?? 0) + ($totals['financeiro'] ?? 0);
+        $invoice->delivery_date = $data['delivery_date'] ?? null;
+        $invoice->delivery_location = $data['delivery_location'] ?? null;
 
         // O identificador local GRAVA-SE.
         //
@@ -233,7 +248,11 @@ class DraftController extends Controller
         $proforma->notes = ($data['notes'] ?? '') . "\n\n[Criado via PWA Offline]";
 
         // NOTA: invoicing_sales_proformas NÃO tem net_total/tax_payable/gross_total.
-        $totals = $this->calculateTotals($data['items']);
+        $totals = $this->calculateTotals(
+            $data['items'],
+            (float) ($data['discount_commercial'] ?? 0),
+            (float) ($data['discount_financial'] ?? 0)
+        );
         $proforma->subtotal = $totals['subtotal'];
         $proforma->tax_amount = $totals['tax'];
         $proforma->total = $totals['total'];
@@ -292,7 +311,15 @@ class DraftController extends Controller
         ], 201);
     }
 
-    private function calculateTotals(array $items): array
+    /**
+     * Os totais do documento.
+     *
+     * A ORDEM DOS DESCONTOS NÃO É DETALHE: o comercial incide ANTES do IVA e
+     * baixa o imposto; o financeiro incide DEPOIS e não lhe toca. Trocá-los dá
+     * um imposto diferente no mesmo documento — e é o imposto que vai para a
+     * AGT.
+     */
+    private function calculateTotals(array $items, float $descontoComercial = 0, float $descontoFinanceiro = 0): array
     {
         $subtotal = 0;
         $tax = 0;
@@ -318,10 +345,23 @@ class DraftController extends Controller
             $subtotal += $lineNet;
             $tax += $taxAmount;
         }
+        // Comercial: sai do líquido, e o imposto recalcula-se sobre o que
+        // sobra. Aplicá-lo depois do IVA daria imposto sobre dinheiro que
+        // o cliente não chegou a pagar.
+        $comercial = min($descontoComercial, $subtotal);
+        $liquido = $subtotal - $comercial;
+        $imposto = $subtotal > 0 ? $tax * ($liquido / $subtotal) : 0;
+
+        // Financeiro: desconto de pronto pagamento, já sobre o total com
+        // imposto. Não mexe no que se entrega à AGT.
+        $total = max(0, $liquido + $imposto - $descontoFinanceiro);
+
         return [
-            'subtotal' => round($subtotal, 2),
-            'tax' => round($tax, 2),
-            'total' => round($subtotal + $tax, 2),
+            'subtotal'   => round($liquido, 2),
+            'tax'        => round($imposto, 2),
+            'total'      => round($total, 2),
+            'comercial'  => round($comercial, 2),
+            'financeiro' => round(min($descontoFinanceiro, $liquido + $imposto), 2),
         ];
     }
 }

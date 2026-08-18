@@ -76,7 +76,7 @@
                         <p class="font-semibold text-sm flex-1" x-text="itm.product_name"></p>
                         <button type="button" @click="form.items.splice(idx, 1)" class="text-red-500 hover:text-red-700 text-xs"><i class="fas fa-trash"></i></button>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase">Qtd</label>
                             <input x-model.number="itm.quantity" type="number" min="0.01" step="0.01" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
@@ -84,6 +84,11 @@
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase">Preço</label>
                             <input x-model.number="itm.unit_price" type="number" min="0" step="0.01" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase">Desc %</label>
+                            <input x-model.number="itm.discount_percent" type="number" min="0" max="100" step="0.01"
+                                   class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase">IVA %</label>
@@ -99,13 +104,52 @@
                         </div>
                     </div>
                     <p class="text-right text-xs text-gray-600 mt-1">
-                        Subtotal: <strong x-text="formatMoney(itm.quantity * itm.unit_price)"></strong>
-                        · IVA: <span x-text="formatMoney(itm.quantity * itm.unit_price * itm.tax_rate / 100)"></span>
+                        Subtotal: <strong x-text="formatMoney(liquidoDaLinha(itm))"></strong>
+                        · IVA: <span x-text="formatMoney(liquidoDaLinha(itm) * itm.tax_rate / 100)"></span>
                     </p>
                 </div>
             </template>
             <div x-show="!form.items.length" class="text-center py-6 text-gray-400 italic text-sm">
                 Sem itens. Toca em "Adicionar"
+            </div>
+        </div>
+    </div>
+
+    {{-- Descontos do documento e entrega.
+
+         O comercial incide ANTES do IVA e baixa o imposto; o financeiro
+         incide DEPOIS e não lhe toca. Quem apura é o servidor — aqui só se
+         escrevem os valores, para o total no ecrã bater com o do documento. --}}
+    <div class="bg-white rounded-2xl shadow p-3 mb-3">
+        <p class="text-xs font-bold text-gray-500 uppercase mb-2">{{ __('Descontos') }}</p>
+
+        <div class="grid grid-cols-2 gap-2">
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase">{{ __('Comercial (antes do IVA)') }}</label>
+                <input x-model.number="form.discount_commercial" type="number" min="0" step="0.01"
+                       class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase">{{ __('Financeiro (após IVA)') }}</label>
+                <input x-model.number="form.discount_financial" type="number" min="0" step="0.01"
+                       class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow p-3 mb-3">
+        <p class="text-xs font-bold text-gray-500 uppercase mb-2">{{ __('Entrega') }}</p>
+
+        <div class="grid grid-cols-2 gap-2">
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase">{{ __('Data') }}</label>
+                <input x-model="form.delivery_date" type="date"
+                       class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase">{{ __('Local') }}</label>
+                <input x-model="form.delivery_location" type="text" placeholder="{{ __('Local de entrega dos bens') }}"
+                       class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm">
             </div>
         </div>
     </div>
@@ -237,6 +281,12 @@ function draftForm() {
             due_date: new Date(Date.now() + 30*86400000).toISOString().slice(0, 10),
             reference: '',
             notes: '',
+            // Descontos do documento. O comercial incide ANTES do IVA e o
+            // financeiro depois — quem apura e o servidor, aqui so se enviam.
+            discount_commercial: 0,
+            discount_financial: 0,
+            delivery_date: '',
+            delivery_location: '',
             items: [],
         },
 
@@ -286,17 +336,38 @@ function draftForm() {
             return list.slice(0, 100);
         },
 
+        /** O líquido de uma linha, já com o desconto dela. */
+        liquidoDaLinha(itm) {
+            const bruto = (parseFloat(itm.quantity) || 0) * (parseFloat(itm.unit_price) || 0);
+            const desc = parseFloat(itm.discount_percent) || 0;
+
+            return bruto - (bruto * desc / 100);
+        },
+
         get totals() {
-            let subtotal = 0, tax = 0;
-            for (const i of this.form.items) {
-                const qty = parseFloat(i.quantity) || 0;
-                const price = parseFloat(i.unit_price) || 0;
-                const taxRate = parseFloat(i.tax_rate) || 0;
-                const net = qty * price;
-                subtotal += net;
-                tax += net * taxRate / 100;
+            let subtotal = 0;
+            let tax = 0;
+
+            for (const itm of this.form.items) {
+                const liquido = this.liquidoDaLinha(itm);
+                subtotal += liquido;
+                tax += liquido * (parseFloat(itm.tax_rate) || 0) / 100;
             }
-            return { subtotal, tax, total: subtotal + tax };
+
+            // A MESMA ordem do servidor: o comercial sai do líquido e o imposto
+            // recalcula-se sobre o que sobra; o financeiro sai do total já com
+            // imposto. Se o ecrã contasse de outra maneira, o total mostrado ao
+            // cliente não bateria com o do documento emitido.
+            const comercial = Math.min(parseFloat(this.form.discount_commercial) || 0, subtotal);
+            const liquido = subtotal - comercial;
+            const imposto = subtotal > 0 ? tax * (liquido / subtotal) : 0;
+            const financeiro = parseFloat(this.form.discount_financial) || 0;
+
+            return {
+                subtotal: liquido,
+                tax: imposto,
+                total: Math.max(0, liquido + imposto - financeiro),
+            };
         },
 
         get canSave() {

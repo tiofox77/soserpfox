@@ -840,6 +840,13 @@
                 reference: draft.reference || '',
                 invoice_date: record.invoice_date,
                 due_date: record.due_date,
+                // Os descontos do documento e a entrega. Sem isto ficavam no
+                // ecra e nunca chegavam ao documento emitido — o operador via
+                // um total com desconto e saia uma factura sem ele.
+                discount_commercial: parseFloat(draft.discount_commercial) || 0,
+                discount_financial: parseFloat(draft.discount_financial) || 0,
+                delivery_date: draft.delivery_date || null,
+                delivery_location: draft.delivery_location || null,
                 items: draft.items,
             });
             return record;
