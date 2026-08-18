@@ -278,6 +278,9 @@
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-{{ $sub['cor'] }}-100 text-{{ $sub['cor'] }}-700"
                                           title="{{ $sub['detalhe'] }}">
                                         <i class="fas {{ $sub['icone'] }} mr-1.5"></i>{{ $sub['rotulo'] }}
+                                        @if(is_null($sub['dias']) && !empty($sub['nota']))
+                                            <span class="ml-1 font-normal opacity-90">· {{ $sub['nota'] }}</span>
+                                        @endif
                                         @if(!is_null($sub['dias']))
                                             <span class="ml-1 font-normal opacity-90">
                                                 · {{ \App\Support\EstadoDaSubscricao::quantoFalta($sub['dias']) }}

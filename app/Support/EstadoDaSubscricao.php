@@ -116,13 +116,21 @@ class EstadoDaSubscricao
             ];
         }
 
+        // Activo SEM data de fim.
+        //
+        // Acontece nos planos promocionais e nos activados a mao: ninguem
+        // pos data nenhuma. O cartao mostrava so "Activo" e ficava-se sem
+        // saber se aquilo renova, quando, ou se vai durar para sempre — que
+        // e precisamente o caso a vigiar, porque e receita que nunca mais e
+        // cobrada. Dizer que nao ha data e informacao; nao dizer nada nao.
         return [
             'rotulo'  => 'Activo',
             'cor'     => 'emerald',
             'dias'    => null,
             'icone'   => 'fa-circle-check',
-            'detalhe' => 'Sem data de fim.',
+            'detalhe' => 'Sem data de fim definida — nao expira sozinho.',
             'ate'     => null,
+            'nota'    => 'sem prazo',
         ];
     }
 }

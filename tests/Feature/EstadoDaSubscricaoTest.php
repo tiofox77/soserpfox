@@ -134,4 +134,19 @@ class EstadoDaSubscricaoTest extends TestCase
 
         $this->assertSame(now()->addDays(14)->format('d/m/Y'), $e['ate']);
     }
+
+    public function test_activo_sem_data_de_fim_diz_que_nao_expira(): void
+    {
+        // Acontece nos planos promocionais e nos activados a mao. O cartao
+        // mostrava so 'Activo' e ficava-se sem saber se aquilo renova, quando,
+        // ou se vai durar para sempre — que e o caso a vigiar, porque e
+        // receita que nunca mais e cobrada.
+        $e = \App\Support\EstadoDaSubscricao::para($this->empresaCom([
+            'status' => 'active',
+        ]));
+
+        $this->assertSame('Activo', $e['rotulo']);
+        $this->assertSame('sem prazo', $e['nota'] ?? null);
+        $this->assertStringContainsString('nao expira', $e['detalhe']);
+    }
 }
