@@ -287,8 +287,6 @@
                                             </span>
                                         @endif
                                     </span>
-                                        @endif
-                                    </span>
 
                                     <span class="text-xs text-gray-600" title="Facturas emitidas nos últimos 30 dias">
                                         <i class="fas fa-file-invoice text-gray-400 mr-1"></i>
