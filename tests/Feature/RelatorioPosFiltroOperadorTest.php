@@ -98,4 +98,29 @@ class RelatorioPosFiltroOperadorTest extends TenantTestCase
         $this->assertTrue($c->instance()->operadores->contains('id', $outro->id));
     }
 
+
+    public function test_escolher_um_operador_muda_a_LISTA_e_nao_so_as_estatisticas(): void
+    {
+        $outro = $this->outroOperador();
+
+        $this->comPermissoes('invoicing.pos.reports', 'invoicing.pos.reports.all');
+
+        $c = Livewire::test(SalesReport::class)->set('userId', $outro->id);
+
+        // A lista vai por outra consulta que não o applyScope. Sem isto,
+        // escolher um nome mudava as estatísticas e deixava a lista igual.
+        $filtros = (fn () => $this->filtros())->call($c->instance());
+
+        $this->assertSame($outro->id, $filtros['only_user_id']);
+    }
+
+    public function test_sem_escolher_ninguem_a_lista_mostra_todos(): void
+    {
+        $this->comPermissoes('invoicing.pos.reports', 'invoicing.pos.reports.all');
+
+        $c = Livewire::test(SalesReport::class);
+        $filtros = (fn () => $this->filtros())->call($c->instance());
+
+        $this->assertNull($filtros['only_user_id']);
+    }
 }

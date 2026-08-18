@@ -173,7 +173,15 @@ class SalesReport extends Component
             'document_type'  => $this->documentType,
             // A restrição por operador vale também para as notas de crédito:
             // sem isso, o mapa restrito mostrava devoluções de colegas.
-            'only_user_id'   => auth()->user()?->can('invoicing.pos.reports.all') ? null : auth()->id(),
+            //
+            // E é AQUI que o filtro por operador tem de entrar. A LISTA não
+            // passa pelo applyScope — vai por esta consulta — por isso
+            // escolher um nome mudava as estatísticas e deixava a lista
+            // igual. Uma decisão, um sítio: sem o direito de ver todas, fica
+            // preso às suas; com ele, vale o que escolheu.
+            'only_user_id'   => auth()->user()?->can('invoicing.pos.reports.all')
+                ? ($this->userId ?: null)
+                : auth()->id(),
         ];
     }
 
