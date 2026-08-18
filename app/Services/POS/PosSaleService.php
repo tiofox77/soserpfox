@@ -157,8 +157,12 @@ class PosSaleService
             );
 
             // ---- Série POS (FR) + número ----
-            $series = InvoicingSeries::getIssuanceSeries($tenantId, 'pos');
-            $invoiceNumber = $series->getNextNumber();
+            // Pelo EmissorFiscal: a numeração é a mesma para todos os
+            // documentos fiscais, e uma cópia dela aqui acabaria por
+            // divergir da dos outros.
+            $numeracao = app(\App\Services\Invoicing\EmissorFiscal::class)->numerar($tenantId, 'pos');
+            $series = $numeracao['serie'];
+            $invoiceNumber = $numeracao['numero'];
 
             $amountReceived = (float) ($payload['amount_received'] ?? $calc['total']);
 
@@ -307,32 +311,10 @@ class PosSaleService
             // ---- Turno aberto do operador (best-effort) ----
             $this->linkToOpenShift($invoice, $client, $paymentMethod, $tenantId, $userId, $items, $amountReceived);
 
-            // ---- Hash SAFT-AO (encadear) ----
-            try {
-                $invoice->generateHash();
-            } catch (\Throwable $e) {
-                Log::error('PosSaleService: erro ao gerar hash', [
-                    'invoice' => $invoice->invoice_number,
-                    'error'   => $e->getMessage(),
-                ]);
-            }
-
-            // ---- Auto-submeter à AGT se configurado ----
-            try {
-                $settings = InvoicingSettings::forTenant($tenantId);
-                if (!empty($settings->agt_auto_submit)) {
-                    // fresh(): a colecção `items` deste objecto foi lida na
-                    // criação da factura, antes de existirem linhas, e o
-                    // Eloquent guardou-a vazia. Sem isto o documento seguia
-                    // para a AGT com os totais e ZERO linhas.
-                    $invoice->fresh()->submitToAGT();
-                }
-            } catch (\Throwable $e) {
-                Log::error('PosSaleService: erro submeter AGT', [
-                    'invoice' => $invoice->invoice_number,
-                    'error'   => $e->getMessage(),
-                ]);
-            }
+            // ---- Selo fiscal: hash encadeado + AGT ----
+            // Os erros não sobem, e isso é do EmissorFiscal: a venda já
+            // aconteceu e o número já saiu da série. Ver lá porquê.
+            app(\App\Services\Invoicing\EmissorFiscal::class)->selar($invoice, $tenantId);
 
             return $invoice->fresh();
         });
