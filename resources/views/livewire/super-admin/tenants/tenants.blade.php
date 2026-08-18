@@ -265,6 +265,30 @@
                                         {{ $v->estado['texto'] }}
                                     </span>
 
+                                    {{-- Em que pé está a subscrição.
+
+                                         A lista dizia o plano e mais nada.
+                                         "Pacote Vendas · Monthly" não responde
+                                         ao que interessa a quem gere: está em
+                                         teste? falta quanto? já passou do prazo
+                                         e continua a usar? Sem isto, um teste
+                                         que expira passa despercebido até
+                                         alguém reparar por acaso. --}}
+                                    @php $sub = \App\Support\EstadoDaSubscricao::para($tenant); @endphp
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-{{ $sub['cor'] }}-100 text-{{ $sub['cor'] }}-700"
+                                          title="{{ $sub['detalhe'] }}">
+                                        <i class="fas {{ $sub['icone'] }} mr-1.5"></i>{{ $sub['rotulo'] }}
+                                        @if(!is_null($sub['dias']))
+                                            <span class="ml-1 font-normal opacity-90">
+                                                @if($sub['dias'] >= 0)
+                                                    · {{ $sub['dias'] }}d
+                                                @else
+                                                    · há {{ abs($sub['dias']) }}d
+                                                @endif
+                                            </span>
+                                        @endif
+                                    </span>
+
                                     <span class="text-xs text-gray-600" title="Facturas emitidas nos últimos 30 dias">
                                         <i class="fas fa-file-invoice text-gray-400 mr-1"></i>
                                         <strong>{{ $v->facturas_30d }}</strong> factura(s)/30d
