@@ -43,6 +43,8 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.inter-company-transfer.create',
             'invoicing.categories.view', 'invoicing.categories.create',
             'invoicing.categories.edit', 'invoicing.categories.delete',
+            'invoicing.suppliers.view', 'invoicing.suppliers.create',
+            'invoicing.suppliers.edit', 'invoicing.suppliers.delete',
         ] as $p) {
             \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
         }
@@ -83,6 +85,7 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.products.edit',
             'invoicing.warehouse-transfer.create',
             'invoicing.categories.create', 'invoicing.categories.edit',
+            'invoicing.suppliers.create', 'invoicing.suppliers.edit',
         ] as $p) {
             $this->assertContains($p, $tem, "faltava poder {$p}");
         }
@@ -101,6 +104,7 @@ class PapelStockEVendasTest extends TestCase
         foreach ([
             'invoicing.products.delete',
             'invoicing.categories.delete',
+            'invoicing.suppliers.delete',
             'invoicing.inter-company-transfer.create',
         ] as $p) {
             $this->assertNotContains($p, $tem, "não podia poder {$p}");

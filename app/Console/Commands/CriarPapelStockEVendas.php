@@ -67,6 +67,14 @@ class CriarPapelStockEVendas extends Command
         'invoicing.categories.view',
         'invoicing.categories.create',
         'invoicing.categories.edit',
+
+        // Fornecedores: quem recebe mercadoria precisa de dar entrada de um
+        // fornecedor novo e de corrigir os dados de um que já existe.
+        // Apagar fica de fora: um fornecedor apagado leva consigo a ligação
+        // às compras que já lhe foram feitas.
+        'invoicing.suppliers.view',
+        'invoicing.suppliers.create',
+        'invoicing.suppliers.edit',
     ];
 
     public function handle(): int
