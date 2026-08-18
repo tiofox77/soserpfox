@@ -141,17 +141,28 @@
                     <div>
                         <p class="font-bold text-sm leading-tight">PWA Faturação</p>
                         <p class="text-xs opacity-75 leading-tight">
-                            {{-- Duas versões, e as duas fazem falta.
+                            {{-- A versão que se lê é a DATA da última alteração.
+
+                                 Estava aqui "v2026.08.16.1 · b0243ac3a1": duas versões
+                                 correctas e nenhuma legível. Quem olha para o cabeçalho
+                                 faz uma pergunta só — já tenho a correcção de hoje? — e
+                                 um md5 não responde. A data responde.
+
+                                 As duas continuam lá, no title, para quando é preciso
+                                 comparar aparelhos ao certo.
+
+                                 Duas versões, e as duas fazem falta.
                                  A do changelog é a RELEASE — o que mudou e está escrito
                                  em /changelog. A build é o que este aparelho está mesmo a
                                  correr, e muda a cada deploy que toque no PWA. Só a
                                  primeira não chegava: dizia 16.08 num aparelho a correr
                                  código do dia 17, e não havia como distinguir aparelhos. --}}
-                            Modo Offline ·
-                            <span class="font-mono">v{{ config('changelog.current', '1.0') }}</span>
-                            <span class="font-mono opacity-60" title="{{ __('Versão instalada neste aparelho') }}">
-                                ·{{ app(\App\Http\Controllers\PwaController::class)->buildVersion() }}
-                            </span>
+                            {{ __('Actualizado em') }}
+                            <span class="font-semibold"
+                                  title="{{ __('Versão :v · assinatura :h', [
+                                      'v' => config('changelog.current', '1.0'),
+                                      'h' => app(\App\Http\Controllers\PwaController::class)->buildVersion(),
+                                  ]) }}">{{ app(\App\Http\Controllers\PwaController::class)->buildLabel() }}</span>
                             <span id="pwa-last-sync-badge" class="hidden ml-1 font-normal"></span>
                         </p>
                     </div>

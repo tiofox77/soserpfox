@@ -260,6 +260,55 @@ class PwaController extends Controller
      * Versão usada para o cache do SW e para invalidar ícones/manifest.
      * Baseada no mtime do sw.js + mtime do logo do sistema (se existir).
      */
+    /**
+     * A versão como quem a lê a entende: a data e a hora da última alteração.
+     *
+     * O buildVersion é um md5 — serve para o service worker comparar, mas a
+     * ninguém diz nada. "b0243ac3a1" não responde à única pergunta que se
+     * faz ao olhar para ali: já tenho a correcção de hoje, ou não?
+     *
+     * Sai da MESMA lista de ficheiros vigiados, por isso muda exactamente
+     * quando a outra muda — as duas nunca podem discordar.
+     */
+    public function buildLabel(): string
+    {
+        return Cache::remember('pwa.version.label', 60, function () {
+            $ultima = 0;
+
+            foreach ($this->ficheirosVigiados() as $ficheiro) {
+                $ultima = max($ultima, filemtime($ficheiro));
+            }
+
+            if (!$ultima) {
+                return config('changelog.current', '1.0');
+            }
+
+            // No fuso de Angola: é a hora a que quem usa isto vive.
+            return \Carbon\Carbon::createFromTimestamp($ultima, config('app.timezone'))
+                ->format('d/m/Y H:i');
+        });
+    }
+
+    /** Tudo o que compõe a aplicação offline. Uma lista só, para as duas versões. */
+    private function ficheirosVigiados(): array
+    {
+        $lista = [
+            resource_path('pwa/sw.js'),
+            public_path('js/pwa-invoicing.js'),
+            resource_path('views/layouts/pwa.blade.php'),
+        ];
+
+        $lista = array_merge($lista, glob(resource_path('views/invoicing/offline/*.blade.php')) ?: []);
+
+        $logo = function_exists('app_logo_path') ? app_logo_path() : null;
+
+        if ($logo) {
+            $lista[] = $logo;
+        }
+
+        return array_values(array_filter($lista, 'is_file'));
+    }
+
     public function buildVersion(): string
     {
         return Cache::remember('pwa.version', 60, function () {
