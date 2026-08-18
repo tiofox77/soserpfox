@@ -170,7 +170,7 @@
             {{-- Aviso: sem turno aberto --}}
             <div x-show="!shift.open" x-cloak class="shrink-0 mx-4 mb-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2 text-xs flex items-center gap-2">
                 <i class="fas fa-triangle-exclamation"></i>
-                <span class="flex-1">{{ __('Sem turno aberto — as vendas podem não entrar no fecho de caixa.') }}</span>
+                <span class="flex-1">{{ __('Sem turno aberto — abra um turno para poder vender.') }}</span>
                 <button @click="openOpenShiftModal()" class="underline font-bold whitespace-nowrap">{{ __('Abrir') }}</button>
             </div>
 
@@ -274,7 +274,9 @@
                 </template>
 
                 {{-- Finalizar --}}
-                <button @click="checkout()" :disabled="!cart.length || saving"
+                {{-- Desactivado sem turno: um botao que se carrega e nao vende
+                     ensina a carregar duas vezes. --}}
+                <button @click="checkout()" :disabled="!cart.length || saving || !shift.open"
                         class="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-bold text-base py-4 shadow-lg disabled:opacity-50 active:scale-[0.99] transition">
                     <span x-show="!saving"><i class="fas fa-circle-check mr-1.5"></i>{{ __('Finalizar Venda') }}</span>
                     <span x-show="saving"><i class="fas fa-spinner fa-spin mr-1.5"></i>{{ __('A guardar…') }}</span>
@@ -1053,8 +1055,15 @@ function posOffline() {
 
         async checkout() {
             if (!this.cart.length || this.saving) return;
-            // Verificação de turno: avisar se não houver turno aberto
-            if (!this.shift.open && !confirm('⚠️ ' + __('Não há turno aberto.') + '\n' + __('A venda pode não entrar no fecho de caixa. Continuar mesmo assim?'))) {
+            // SEM TURNO NÃO SE VENDE.
+            //
+            // Isto perguntava se queria continuar, e continuar era o caminho
+            // fácil: a venda saía, mas ficava fora do fecho de caixa. Ao fim
+            // do dia o dinheiro na gaveta não batia certo com o sistema e
+            // ninguém sabia de que venda vinha a diferença — e uma caixa que
+            // não fecha não serve para conferir ninguém.
+            if (!this.shift.open) {
+                this.openOpenShiftModal();
                 return;
             }
             this.saving = true;
