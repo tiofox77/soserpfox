@@ -98,6 +98,8 @@ class MaintenanceController extends Controller
         // Corrige nome/email/palavra-passe. A palavra-passe vem de ficheiro,
         // nunca de argumento: um argumento de URL fica nos registos.
         'utilizadores:actualizar',
+        // Periodo de teste de uma empresa. Simulacao por omissao: mexe em receita.
+        'subscricao:trial',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
         'empresas:nome-documentos',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
