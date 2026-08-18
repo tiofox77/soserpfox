@@ -676,7 +676,12 @@ function posOffline() {
                     if (this.lastReceipt) {
                         this.lastReceipt.synced = true;
                         this.lastReceipt.number = e.detail.invoice_number;
-                        this.lastReceipt.message = __('Sincronizada com a AGT — :numero', { numero: e.detail.invoice_number });
+                        // NAO dizer "sincronizada com a AGT": o documento foi
+                        // emitido e numerado, e a comunicacao a AGT vai a
+                        // seguir, em fila. Prometer o que ainda nao aconteceu
+                        // e pior do que nao prometer nada — alguem confia e
+                        // deixa de conferir.
+                        this.lastReceipt.message = __('Emitida — :numero', { numero: e.detail.invoice_number });
                     }
                 }
             });

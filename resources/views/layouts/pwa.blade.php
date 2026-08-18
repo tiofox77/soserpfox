@@ -190,19 +190,32 @@
 
                 <script>
                 document.getElementById('pwa-sair').addEventListener('submit', async function (e) {
+                    // SAIR É SEMPRE LOCAL PRIMEIRO.
+                    //
+                    // Isto só tomava o caminho local quando navigator.onLine era
+                    // falso — e esse valor diz apenas que há placa de rede ligada,
+                    // não que haja internet. Com wifi sem saída, o formulário ia ao
+                    // servidor e ficava pendurado: quem carregava em Sair não saía,
+                    // e a caixa seguinte não conseguia entrar.
+                    //
+                    // Numa loja isso é grave: a internet pode faltar dias e as
+                    // pessoas rendem-se de turno na mesma. A saída tem de acontecer
+                    // no aparelho e ser comunicada ao servidor quando der.
+                    e.preventDefault();
+
                     if (!confirm(@json(__('Sair da conta? As vendas por enviar ficam guardadas neste aparelho.')))) {
-                        e.preventDefault();
                         return;
                     }
 
-                    // Sem rede o formulário não chega a lado nenhum e o
-                    // utilizador ficava preso numa página de erro, com sessão
-                    // aberta. A saída passa pela fila e é comunicada depois.
-                    if (!navigator.onLine && window.SosPwa) {
-                        e.preventDefault();
-                        try { await window.SosPwa.sair(); } catch (_) {}
-                        window.location.href = @json(route('invoicing.offline.login'));
+                    try {
+                        if (window.SosPwa) {
+                            await window.SosPwa.sair();
+                        }
+                    } catch (_) {
+                        // Falhar a comunicar não pode impedir a saída.
                     }
+
+                    window.location.href = @json(route('invoicing.offline.login'));
                 });
                 </script>
 
