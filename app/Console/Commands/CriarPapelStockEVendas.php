@@ -10,11 +10,11 @@ use Spatie\Permission\Models\Role;
 /**
  * Cria o papel "Stock e Vendas" numa empresa.
  *
- * Quem o tem gere stock, vende, e CRIA artigos sem os poder EDITAR. A
- * diferença é o ponto todo do papel: quem recebe mercadoria precisa de dar
- * entrada de um artigo novo, mas mexer no preço ou no regime fiscal de um
- * artigo que já existe é decisão de quem gere — e um preço mal mudado sai em
- * facturas até alguém dar por isso.
+ * Quem o tem gere stock, vende, e cria e edita artigos.
+ *
+ * APAGAR artigos fica de fora, e essa é a linha que se mantém: um artigo
+ * apagado leva consigo a ligação ao que já foi vendido com ele, e isso não
+ * se desfaz. Editar um preço vê-se e corrige-se; apagar não.
  *
  * SIMULAÇÃO POR OMISSÃO. É idempotente: correr outra vez só acerta as
  * permissões, não duplica o papel.
@@ -50,9 +50,11 @@ class CriarPapelStockEVendas extends Command
         'invoicing.product-batches.create',
         'invoicing.product-batches.edit',
 
-        // Artigos: ver e criar. Sem editar e sem apagar, de propósito.
+        // Artigos: ver, criar e editar. APAGAR fica de fora, de propósito:
+        // um artigo apagado leva consigo a ligação ao que já foi vendido.
         'invoicing.products.view',
         'invoicing.products.create',
+        'invoicing.products.edit',
     ];
 
     public function handle(): int
@@ -82,7 +84,7 @@ class CriarPapelStockEVendas extends Command
 
         // Estas ficam explicitamente DE FORA — é o que distingue este papel.
         $this->newLine();
-        $this->warn('  NÃO pode: editar artigos, apagar artigos, anular facturas, definições.');
+        $this->warn('  NÃO pode: apagar artigos, anular facturas, definições.');
 
         if (!$aplicar) {
             $this->newLine();

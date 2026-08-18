@@ -76,19 +76,21 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.pos.access', 'invoicing.pos.sell',
             'invoicing.stock.view', 'invoicing.stock.edit',
             'invoicing.products.view', 'invoicing.products.create',
+            'invoicing.products.edit',
         ] as $p) {
             $this->assertContains($p, $tem, "faltava poder {$p}");
         }
     }
 
-    public function test_nao_pode_editar_nem_apagar_artigos(): void
+    public function test_nao_pode_apagar_artigos(): void
     {
         $t = $this->empresa();
         $papel = $this->criar($t);
 
         $tem = $papel->permissions()->pluck('name')->all();
 
-        foreach (['invoicing.products.edit', 'invoicing.products.delete'] as $p) {
+        // Editar passou a poder; APAGAR nao, e essa e a linha que fica.
+        foreach (['invoicing.products.delete'] as $p) {
             $this->assertNotContains($p, $tem, "não podia poder {$p}");
         }
     }
