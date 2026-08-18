@@ -222,15 +222,26 @@
         w.classList.remove('hidden');
     }
 
+    /**
+     * Quantas coisas faltam MESMO enviar.
+     *
+     * Isto somava as vendas por sincronizar, os clientes, os rascunhos E o
+     * comprimento da fila. Mas cada um desses registos TEM um trabalho na
+     * fila — são a mesma coisa contada de dois lados. Uma venda offline dava
+     * 2, e o ecrã do POS, que conta só as vendas, dava 1. O operador via dois
+     * números diferentes para a mesma coisa e não sabia em qual acreditar.
+     *
+     * A fila é a fonte: tudo o que tem de subir é enfileirado, e um trabalho
+     * na fila é uma coisa por enviar. Os marcadores `_synced` continuam a
+     * servir para mostrar o estado de CADA registo — não para os contar.
+     */
     async function refreshPendingCount() {
-        const pendingClients = await db.clients.where('_synced').equals(0).count();
-        const pendingDocs = await db.draft_documents.where('_synced').equals(0).count();
-        const pendingPosSales = await db.pos_sales.where('_synced').equals(0).count();
-        const queueLen = await db.sync_queue.where('status').equals('pending').count();
-        state.pendingCount = pendingClients + pendingDocs + pendingPosSales + queueLen;
+        state.pendingCount = await db.sync_queue.where('status').equals('pending').count();
         updateStatusBar();
+
         return state.pendingCount;
     }
+
 
     // ========================
     // ONLINE/OFFLINE EVENTS
