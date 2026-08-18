@@ -322,6 +322,17 @@ class SyncController extends Controller
             ]];
         }
 
+        // ---- Tabelas da AGT para os impostos extra ----
+        $iecPautais = DB::table('agt_iec_pautal_codes')
+            ->where('is_active', true)
+            ->orderBy('pautal_code')
+            ->get(['pautal_code', 'description', 'rate_percentage']);
+
+        $isVerbas = DB::table('agt_is_verbas')
+            ->where('is_active', true)
+            ->orderBy('verba_no')
+            ->get(['verba_no', 'description', 'rate', 'rate_type']);
+
         // ---- Métodos de pagamento (Tesouraria) ----
         $paymentMethods = collect();
         try {
@@ -416,6 +427,11 @@ class SyncController extends Controller
                 'clients' => $clients,
                 'series' => $series,
                 'tax_rates' => $taxRates,
+                // As tabelas do IEC e do Selo. Sao pequenas (29 e 67 linhas)
+                // e iguais para todas as empresas — sao tabelas da AGT, nao
+                // da empresa. Sem elas, o aparelho nao tem por onde escolher.
+                'iec_pautais' => $iecPautais,
+                'is_verbas'   => $isVerbas,
                 'payment_methods' => $paymentMethods,
                 // Ids que o dispositivo tem de APAGAR. Ver acima.
                 'removed_products' => $removedProducts,

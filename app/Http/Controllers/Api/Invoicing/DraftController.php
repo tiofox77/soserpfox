@@ -48,6 +48,12 @@ class DraftController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.tax_rate' => 'nullable|numeric|min:0|max:100',
             'items.*.discount_percent' => 'nullable|numeric|min:0|max:100',
+            // IEC e Imposto de Selo: o dispositivo manda a ESCOLHA (o código
+            // pautal, a verba) e nunca o valor. Quem apura é o servidor, pelo
+            // ImpostosDaLinha — se o aparelho calculasse, o documento ficava
+            // com dois apuramentos do mesmo imposto e a AGT recusa.
+            'items.*.iec_pautal' => 'nullable|string|max:40',
+            'items.*.is_verba'   => 'nullable|string|max:40',
             // Descontos do DOCUMENTO. O comercial incide antes do IVA e o
             // financeiro depois — a ordem nao e detalhe, muda o imposto.
             'discount_commercial' => 'nullable|numeric|min:0',
@@ -170,6 +176,8 @@ class DraftController extends Controller
 
         $invoice->save();
 
+        $totalExtras = 0.0;
+
         foreach ($data['items'] as $idx => $itm) {
             $qty = (float) $itm['quantity'];
             $unitPrice = (float) $itm['unit_price'];
@@ -187,7 +195,21 @@ class DraftController extends Controller
             $lineGross = $qty * $unitPrice;
             $discount = $lineGross * $discountPercent / 100;
             $lineNet = $lineGross - $discount;
-            $taxAmount = $lineNet * $taxRate / 100;
+
+            // IEC e Selo, apurados AQUI e nunca no dispositivo.
+            $extras = \App\Services\Invoicing\ImpostosDaLinha::calcular(
+                $lineNet,
+                $itm['iec_pautal'] ?? null,
+                $itm['is_verba'] ?? null
+            );
+
+            $iec = collect($extras)->firstWhere('tax_type', 'IEC')['tax_amount'] ?? 0;
+
+            // O IVA incide sobre o líquido ACRESCIDO do IEC. O Imposto de Selo
+            // NÃO entra nesta base. Sem isto, netTotal + taxPayable ≠ grossTotal
+            // e a AGT recusa com "taxContribution não corresponde ao imposto
+            // apurado".
+            $taxAmount = ($lineNet + $iec) * $taxRate / 100;
 
             $line = new SalesInvoiceItem();
             $line->sales_invoice_id = $invoice->id;
@@ -212,6 +234,10 @@ class DraftController extends Controller
                 $line->tax_exemption_reason = $tx['exemption_reason'];
             }
             $line->save();
+
+            // Os impostos extra so DEPOIS de a linha existir: eles apontam
+            // para ela numa tabela a parte, e sem id nao ha para onde apontar.
+            $totalExtras += \App\Services\Invoicing\ImpostosDaLinha::gravar($line, $extras);
         }
 
         // O selo só DEPOIS das linhas: o hash encadeia o documento inteiro,
@@ -258,6 +284,8 @@ class DraftController extends Controller
         $proforma->total = $totals['total'];
         $proforma->save();
 
+        $totalExtras = 0.0;
+
         foreach ($data['items'] as $idx => $itm) {
             $qty = (float) $itm['quantity'];
             $unitPrice = (float) $itm['unit_price'];
@@ -275,7 +303,21 @@ class DraftController extends Controller
             $lineGross = $qty * $unitPrice;
             $discount = $lineGross * $discountPercent / 100;
             $lineNet = $lineGross - $discount;
-            $taxAmount = $lineNet * $taxRate / 100;
+
+            // IEC e Selo, apurados AQUI e nunca no dispositivo.
+            $extras = \App\Services\Invoicing\ImpostosDaLinha::calcular(
+                $lineNet,
+                $itm['iec_pautal'] ?? null,
+                $itm['is_verba'] ?? null
+            );
+
+            $iec = collect($extras)->firstWhere('tax_type', 'IEC')['tax_amount'] ?? 0;
+
+            // O IVA incide sobre o líquido ACRESCIDO do IEC. O Imposto de Selo
+            // NÃO entra nesta base. Sem isto, netTotal + taxPayable ≠ grossTotal
+            // e a AGT recusa com "taxContribution não corresponde ao imposto
+            // apurado".
+            $taxAmount = ($lineNet + $iec) * $taxRate / 100;
 
             $line = new SalesProformaItem();
             $line->sales_proforma_id = $proforma->id;
@@ -298,6 +340,10 @@ class DraftController extends Controller
                 $line->tax_exemption_reason = $__tx['exemption_reason'];
             }
             $line->save();
+
+            // Os impostos extra so DEPOIS de a linha existir: eles apontam
+            // para ela numa tabela a parte, e sem id nao ha para onde apontar.
+            $totalExtras += \App\Services\Invoicing\ImpostosDaLinha::gravar($line, $extras);
         }
 
         return response()->json([
@@ -323,6 +369,7 @@ class DraftController extends Controller
     {
         $subtotal = 0;
         $tax = 0;
+        $extrasTotal = 0;
         foreach ($items as $itm) {
             $qty = (float) $itm['quantity'];
             $unitPrice = (float) $itm['unit_price'];
@@ -340,10 +387,25 @@ class DraftController extends Controller
             $lineGross = $qty * $unitPrice;
             $discount = $lineGross * $discountPercent / 100;
             $lineNet = $lineGross - $discount;
-            $taxAmount = $lineNet * $taxRate / 100;
+
+            // IEC e Selo, apurados AQUI e nunca no dispositivo.
+            $extras = \App\Services\Invoicing\ImpostosDaLinha::calcular(
+                $lineNet,
+                $itm['iec_pautal'] ?? null,
+                $itm['is_verba'] ?? null
+            );
+
+            $iec = collect($extras)->firstWhere('tax_type', 'IEC')['tax_amount'] ?? 0;
+
+            // O IVA incide sobre o líquido ACRESCIDO do IEC. O Imposto de Selo
+            // NÃO entra nesta base. Sem isto, netTotal + taxPayable ≠ grossTotal
+            // e a AGT recusa com "taxContribution não corresponde ao imposto
+            // apurado".
+            $taxAmount = ($lineNet + $iec) * $taxRate / 100;
 
             $subtotal += $lineNet;
             $tax += $taxAmount;
+            $extrasTotal += array_sum(array_column($extras, 'tax_amount'));
         }
         // Comercial: sai do líquido, e o imposto recalcula-se sobre o que
         // sobra. Aplicá-lo depois do IVA daria imposto sobre dinheiro que
@@ -354,7 +416,10 @@ class DraftController extends Controller
 
         // Financeiro: desconto de pronto pagamento, já sobre o total com
         // imposto. Não mexe no que se entrega à AGT.
-        $total = max(0, $liquido + $imposto - $descontoFinanceiro);
+        // O IEC e o Selo ACRESCEM ao total: nao sao IVA, mas sao imposto a
+        // cobrar ao cliente. Ficam de fora do desconto financeiro, que e um
+        // acerto comercial e nao um alivio fiscal.
+        $total = max(0, $liquido + $imposto + $extrasTotal - $descontoFinanceiro);
 
         return [
             'subtotal'   => round($liquido, 2),
@@ -362,6 +427,7 @@ class DraftController extends Controller
             'total'      => round($total, 2),
             'comercial'  => round($comercial, 2),
             'financeiro' => round(min($descontoFinanceiro, $liquido + $imposto), 2),
+            'extras'     => round($extrasTotal, 2),
         ];
     }
 }

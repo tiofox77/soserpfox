@@ -31,6 +31,11 @@
     db.version(3).stores({
         pos_sales: 'local_uuid, created_at, _synced, _server_id, _server_number',
     });
+    // v4 — tabelas da AGT para o IEC e o Imposto de Selo
+    db.version(4).stores({
+        iec_pautais: 'pautal_code',
+        is_verbas: 'verba_no',
+    });
 
     // ========================
     // STATE
@@ -348,6 +353,19 @@
             if (json.data.series?.length) {
                 await db.series.bulkPut(json.data.series);
             }
+            // As tabelas da AGT: substituem-se por inteiro, nao se juntam.
+            // Sao listas fechadas — um pautal que saia da tabela tem de sair
+            // tambem do aparelho, senao continua a ser oferecido.
+            if (json.data.iec_pautais) {
+                await db.iec_pautais.clear();
+                await db.iec_pautais.bulkPut(json.data.iec_pautais);
+            }
+
+            if (json.data.is_verbas) {
+                await db.is_verbas.clear();
+                await db.is_verbas.bulkPut(json.data.is_verbas);
+            }
+
             if (json.data.tax_rates?.length) {
                 await db.tax_rates.clear();
                 await db.tax_rates.bulkPut(json.data.tax_rates);
@@ -945,6 +963,9 @@
                     unit_price: parseFloat(i.unit_price) || 0,
                     // NÃO usar "|| 14": 0% (isento) é falsy e viraria 14%.
                     tax_rate: Number.isFinite(parseFloat(i.tax_rate)) ? parseFloat(i.tax_rate) : 0,
+                    // A ESCOLHA, nunca o valor: quem apura e o servidor.
+                    iec_pautal: i.iec_pautal || null,
+                    is_verba: i.is_verba || null,
                     is_service: !!i.is_service,
                     unit: i.unit || 'UN',
                 })),

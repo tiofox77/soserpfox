@@ -103,6 +103,36 @@
                             </select>
                         </div>
                     </div>
+
+                    {{-- IEC e Imposto de Selo.
+
+                         O que se escolhe aqui é o CÓDIGO, não o valor: quem
+                         apura é o servidor. Um valor calculado no aparelho
+                         daria dois apuramentos do mesmo imposto no documento,
+                         e a AGT recusa-o. --}}
+                    <div class="grid grid-cols-2 gap-2 mt-2" x-show="pautais.length || verbas.length" x-cloak>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase">+ IEC</label>
+                            <select x-model="itm.iec_pautal" class="w-full px-1 py-1.5 border border-gray-200 rounded-lg text-xs">
+                                <option :value="null">{{ __('Sem IEC') }}</option>
+                                <template x-for="p in pautais" :key="p.pautal_code">
+                                    <option :value="p.pautal_code"
+                                            x-text="p.pautal_code + ' · ' + p.description + ' (' + p.rate_percentage + '%)'"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase">+ Selo</label>
+                            <select x-model="itm.is_verba" class="w-full px-1 py-1.5 border border-gray-200 rounded-lg text-xs">
+                                <option :value="null">{{ __('Sem selo') }}</option>
+                                <template x-for="v in verbas" :key="v.verba_no">
+                                    <option :value="v.verba_no"
+                                            x-text="v.verba_no + ' · ' + v.description"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
                     <p class="text-right text-xs text-gray-600 mt-1">
                         Subtotal: <strong x-text="formatMoney(liquidoDaLinha(itm))"></strong>
                         · IVA: <span x-text="formatMoney(liquidoDaLinha(itm) * itm.tax_rate / 100)"></span>
@@ -293,6 +323,10 @@ function draftForm() {
         /** As taxas da empresa, sincronizadas. Nunca uma lista inventada. */
         taxas: [],
 
+        /** Tabelas da AGT, sincronizadas. */
+        pautais: [],
+        verbas: [],
+
         async init() {
             await this.loadCatalog();
             // Recarrega quando o catálogo sincroniza (evita ter de fazer refresh manual)
@@ -314,6 +348,9 @@ function draftForm() {
             // Sem taxas sincronizadas fica SÓ a isenta. Oferecer 14% a quem
             // ainda não sincronizou é adivinhar o regime da empresa — e
             // adivinhar a favor do imposto é o pior lado para errar.
+            this.pautais = await window.SosPwa.db.iec_pautais.toArray();
+            this.verbas = await window.SosPwa.db.is_verbas.toArray();
+
             this.taxas = taxas.length
                 ? taxas
                 : [{ rate: 0, label: @json(__('Isento (0%)')) }];
@@ -405,6 +442,10 @@ function draftForm() {
                 // NÃO usar "|| 14": 0% (isento) é falsy e viraria 14%.
                 tax_rate: Number.isFinite(parseFloat(p.tax_rate)) ? parseFloat(p.tax_rate) : 0,
                 discount_percent: 0,
+                // A ESCOLHA do IEC e do Selo. Nunca o valor: quem apura e o
+                // servidor, pelo ImpostosDaLinha.
+                iec_pautal: null,
+                is_verba: null,
             });
         },
 
