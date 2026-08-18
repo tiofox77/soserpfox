@@ -978,11 +978,46 @@ class InvoiceCreate extends Component
             $invoice_line_discounts = 0;   // descontos de linha (antes eram ignorados no total)
             $extraTaxes = 0;               // IEC + IS de todas as linhas
 
+            // Os descontos comerciais GLOBAIS têm de DESCER ÀS LINHAS antes de
+            // se apurar o IVA. Enquanto não desciam, o Resumo do ecrã (que os
+            // distribui) e o documento gravado (que os ignorava) apuravam
+            // impostos diferentes: o utilizador aprovava um valor e o razão
+            // ficava com outro, e a soma das linhas não fechava com o
+            // cabeçalho — que é o que a AGT valida.
+            //
+            // O desconto FINANCEIRO não entra aqui: é acerto de pronto
+            // pagamento, sai do total já depois do imposto.
+            // Mesma regra do caminho do PWA (DraftController::calculateTotals).
+            $descontosGlobais = (float) $this->discount_commercial + (float) $this->discount_amount;
+            $liquidoDasLinhas = 0.0;
+            foreach ($cartItems as $__linha) {
+                $__bruto = $__linha->price * $__linha->quantity;
+                $__pct   = $__linha->attributes['discount_percent'] ?? 0;
+                $liquidoDasLinhas += $__bruto - ($__bruto * ($__pct / 100));
+            }
+            // Nunca descontar mais do que existe.
+            $descontosGlobais = max(0.0, min($descontosGlobais, $liquidoDasLinhas));
+
             foreach ($cartItems as $item) {
                 // Calcular valores do item conforme AGT Angola
                 $valorBrutoLinha = $item->price * $item->quantity;
                 $descontoPercent = $item->attributes['discount_percent'] ?? 0;
                 $descontoAmount = $valorBrutoLinha * ($descontoPercent / 100);
+
+                // Quota desta linha nos descontos comerciais globais,
+                // proporcional ao seu peso no líquido do documento.
+                $liquidoLinha = $valorBrutoLinha - $descontoAmount;
+                if ($descontosGlobais > 0 && $liquidoDasLinhas > 0) {
+                    $descontoAmount += $descontosGlobais * ($liquidoLinha / $liquidoDasLinhas);
+
+                    // Gravar a percentagem EFECTIVA: o hook saving() do model
+                    // reescreve discount_amount a partir de discount_percent,
+                    // e sem isto apagaria a quota que acabámos de distribuir.
+                    $descontoPercent = $valorBrutoLinha > 0
+                        ? ($descontoAmount / $valorBrutoLinha) * 100
+                        : 0;
+                }
+
                 $subtotal = $valorBrutoLinha;
                 $valorAposDesconto = $valorBrutoLinha - $descontoAmount;
 
@@ -1084,11 +1119,16 @@ class InvoiceCreate extends Component
             }
 
             // Calcular total da fatura conforme AGT Angola.
-            // Os descontos de LINHA têm de entrar no total do documento — antes só
-            // reduziam o valor do item e o cliente acabava a pagar a mais.
-            $desconto_comercial_total = $invoice_line_discounts + $invoice->discount_commercial + $invoice->discount_amount;
+            // $invoice_line_discounts JÁ inclui a quota que cada linha recebeu
+            // dos descontos comerciais globais (ver o pré-passe acima). Somar
+            // aqui outra vez discount_commercial/discount_amount descontaria
+            // o mesmo dinheiro duas vezes.
+            $desconto_comercial_total = $invoice_line_discounts;
             $valor_apos_desc_comercial = $invoice_subtotal - $desconto_comercial_total;
-            $incidencia_iva = $valor_apos_desc_comercial - $invoice->discount_financial;
+
+            // Base do IVA: só o desconto comercial. O financeiro sai do total
+            // depois do imposto, mais abaixo.
+            $incidencia_iva = $valor_apos_desc_comercial;
             // Retenção: a explícita do ecrã tem prioridade; o IRT automático de
             // 6,5% sobre serviços mantém-se como antes quando nada é indicado.
             $retencaoExplicita = (float) $this->withholding_amount;
@@ -1098,7 +1138,9 @@ class InvoiceCreate extends Component
 
             // IEC e IS acrescem ao IVA no imposto total do documento.
             $imposto_total = $invoice_tax_amount + $extraTaxes;
-            $total_final = $incidencia_iva + $imposto_total - $irt_amount;
+            $total_final = $incidencia_iva + $imposto_total
+                - (float) ($invoice->discount_financial ?? 0)
+                - $irt_amount;
 
             // Atualizar totais da fatura
             $invoice->subtotal = $invoice_subtotal;
@@ -1107,7 +1149,12 @@ class InvoiceCreate extends Component
             $invoice->total = $total_final;
 
             // Campos SAFT-AO obrigatórios (Decreto Presidencial 71/25)
-            $invoice->net_total = $invoice_subtotal - $desconto_comercial_total - ($invoice->discount_financial ?? 0);
+            // net_total é a soma dos líquidos das LINHAS: é das linhas que o
+            // DocumentMapper recompõe o payload da AGT, e cabeçalho e linhas
+            // têm de fechar. O desconto financeiro não entra — reduz o que se
+            // recebe (total), não o valor fiscal do documento, tal como a
+            // retenção na fonte.
+            $invoice->net_total = $valor_apos_desc_comercial;
             // taxPayable inclui TODOS os impostos liquidados, senão
             // netTotal + taxPayable ≠ grossTotal e a AGT recusa o documento.
             $invoice->tax_payable = $imposto_total;

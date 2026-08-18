@@ -21,6 +21,33 @@ class InvoiceCalculationHelper
      * @param bool $isService Se é prestação de serviço (para IRT)
      * @return array Array com todos os valores calculados
      */
+    /**
+     * Atributos de uma linha do carrinho, em array.
+     *
+     * NÃO usar (array) directamente: os atributos vêm numa
+     * ItemAttributeCollection e o cast devolve as propriedades internas da
+     * colecção (#*#items), não os atributos. Com o cast, 'tax_rate' estava
+     * SEMPRE ausente e o cálculo caía no valor por omissão — foi assim que
+     * documentos de linhas isentas apareceram a cobrar imposto.
+     */
+    public static function atributos($item): array
+    {
+        $atributos = $item->attributes ?? [];
+
+        if (is_array($atributos)) {
+            return $atributos;
+        }
+
+        if ($atributos instanceof \Illuminate\Support\Collection) {
+            return $atributos->toArray();
+        }
+
+        if (is_object($atributos) && method_exists($atributos, 'toArray')) {
+            return $atributos->toArray();
+        }
+
+        return (array) $atributos;
+    }
     public static function calculateTotals($cartItems, $discountCommercial = 0, $discountAmount = 0, $discountFinancial = 0, $isService = false)
     {
         // PASSO 1: TOTAL BRUTO (Valor Ilíquido - Σ Quantidade × Preço)
@@ -32,7 +59,7 @@ class InvoiceCalculationHelper
             $totalBruto += $valorBrutoLinha;
             
             // Desconto comercial da linha (aplicado PRIMEIRO)
-            $attributes = is_array($item->attributes) ? $item->attributes : (array)$item->attributes;
+            $attributes = static::atributos($item);
             $descontoPercent = $attributes['discount_percent'] ?? 0;
             $descontoLinha = $valorBrutoLinha * ($descontoPercent / 100);
             $descontoComercialLinhas += $descontoLinha;
@@ -49,7 +76,13 @@ class InvoiceCalculationHelper
         // Desconto financeiro já é passado como parâmetro
         
         // PASSO 5: INCIDÊNCIA IVA (Base de IVA)
-        $incidenciaIva = $valorAposDescComercial - $discountFinancial;
+        //
+        // Só o desconto COMERCIAL baixa a base tributável. O desconto
+        // FINANCEIRO é um acerto de pronto pagamento: sai do total DEPOIS
+        // do imposto (PASSO 8) e nunca da base. Enquanto entrou aqui, o
+        // Resumo mostrava menos IVA do que o documento ia gravar.
+        // Mesma regra do caminho do PWA (DraftController::calculateTotals).
+        $incidenciaIva = $valorAposDescComercial;
         
         // PASSO 6: CÁLCULO DO IVA (sobre Incidência IVA, distribuído proporcionalmente)
         $taxAmount = 0;
@@ -60,7 +93,7 @@ class InvoiceCalculationHelper
             $valorBrutoLinha = $item->price * $item->quantity;
             
             // Desconto comercial da linha
-            $attributes = is_array($item->attributes) ? $item->attributes : (array)$item->attributes;
+            $attributes = static::atributos($item);
             $descontoPercent = $attributes['discount_percent'] ?? 0;
             $descontoLinha = $valorBrutoLinha * ($descontoPercent / 100);
             $valorLiquidoLinha = $valorBrutoLinha - $descontoLinha;
@@ -74,8 +107,9 @@ class InvoiceCalculationHelper
             // Desconto financeiro proporcional
             $descFinanceiroLinha = $discountFinancial * $proporcao;
             
-            // Base IVA da linha (incidência)
-            $baseIvaLinha = $valorLiquidoLinha - $descComercialAdicionalLinha - $descFinanceiroLinha;
+            // Base do IVA da linha: só os descontos comerciais. O financeiro
+            // não entra (ver PASSO 5).
+            $baseIvaLinha = $valorLiquidoLinha - $descComercialAdicionalLinha;
             
             // IVA da linha
             // NUNCA inventar 14%: uma linha sem taxa resolvida nao e uma linha a 14%.
@@ -93,7 +127,8 @@ class InvoiceCalculationHelper
         }
         
         // PASSO 8: TOTAL A PAGAR
-        $total = $incidenciaIva + $taxAmount - $irtAmount;
+        // O desconto financeiro entra AQUI, já depois do imposto apurado.
+        $total = $incidenciaIva + $taxAmount - $discountFinancial - $irtAmount;
         
         return [
             'subtotal_original' => round($totalBruto, 2),              // Total Bruto
@@ -164,7 +199,7 @@ class InvoiceCalculationHelper
         
         foreach ($cartItems as $item) {
             $valorBruto = $item->price * $item->quantity;
-            $attributes = is_array($item->attributes) ? $item->attributes : (array)$item->attributes;
+            $attributes = static::atributos($item);
             $descontoPercent = $attributes['discount_percent'] ?? 0;
             $desconto = $valorBruto * ($descontoPercent / 100);
             $valorLiquido = $valorBruto - $desconto;

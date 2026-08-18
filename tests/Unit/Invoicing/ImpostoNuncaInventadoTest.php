@@ -74,4 +74,64 @@ class ImpostoNuncaInventadoTest extends TestCase
             'O resumo cobrava 15.283,62 (14%) num documento todo isento.');
         $this->assertSame(109168.68, $totais['total']);
     }
+    /**
+     * Os atributos chegam numa ItemAttributeCollection, não num array.
+     *
+     * O código lia-os com (array)$item->attributes, que devolve as
+     * propriedades internas da colecção — 'tax_rate' ficava SEMPRE ausente
+     * e o cálculo caía no valor por omissão. Com o antigo `?? 14` isso
+     * cobrava 14% a toda a gente, inclusive a linhas isentas; trocar o
+     * fallback para 0 só inverteu o erro. A correcção é ler mesmo.
+     */
+    public function test_a_taxa_e_lida_de_uma_coleccao_de_atributos(): void
+    {
+        $linha = (object) [
+            'price' => 1000.0,
+            'quantity' => 1,
+            'attributes' => new \Darryldecode\Cart\ItemAttributeCollection([
+                'tax_rate' => 14,
+                'discount_percent' => 0,
+            ]),
+        ];
+
+        $totais = InvoiceCalculationHelper::calculateTotals([$linha]);
+
+        $this->assertSame(140.0, $totais['tax_amount'],
+            'a taxa da linha nao foi lida da coleccao de atributos');
+    }
+
+    /** E uma coleccao com taxa 0 tem mesmo de dar imposto 0. */
+    public function test_coleccao_isenta_nao_gera_imposto(): void
+    {
+        $linha = (object) [
+            'price' => 1000.0,
+            'quantity' => 1,
+            'attributes' => new \Darryldecode\Cart\ItemAttributeCollection([
+                'tax_rate' => 0,
+                'discount_percent' => 0,
+            ]),
+        ];
+
+        $totais = InvoiceCalculationHelper::calculateTotals([$linha]);
+
+        $this->assertSame(0.0, $totais['tax_amount']);
+    }
+
+    /** O desconto por linha tambem vinha da coleccao e era ignorado. */
+    public function test_o_desconto_da_linha_e_lido_da_coleccao(): void
+    {
+        $linha = (object) [
+            'price' => 1000.0,
+            'quantity' => 1,
+            'attributes' => new \Darryldecode\Cart\ItemAttributeCollection([
+                'tax_rate' => 14,
+                'discount_percent' => 10,
+            ]),
+        ];
+
+        $totais = InvoiceCalculationHelper::calculateTotals([$linha]);
+
+        $this->assertSame(900.0, $totais['subtotal'], 'o desconto de linha nao foi lido');
+        $this->assertSame(126.0, $totais['tax_amount']);
+    }
 }

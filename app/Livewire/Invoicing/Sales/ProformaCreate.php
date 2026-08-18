@@ -542,7 +542,7 @@ class ProformaCreate extends Component
             if ($item) {
                 // MERGE (não substituir): substituir os attributes deitava fora
                 // tax_type e exemption_reason, e a linha perdia o motivo de isenção.
-                $attrs = is_array($item->attributes) ? $item->attributes : (array) $item->attributes;
+                $attrs = \App\Helpers\InvoiceCalculationHelper::atributos($item);
                 Cart::session($this->cartInstance)->update($productId, [
                     'attributes' => array_merge($attrs, [
                         'tax_rate' => $attrs['tax_rate'] ?? 0,

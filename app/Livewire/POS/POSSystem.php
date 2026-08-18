@@ -231,7 +231,7 @@ class POSSystem extends Component
         // desconto, pelo que o total mostrado (e o troco) não batiam com o
         // documento emitido.
         $calcItems = collect($this->cartItems)->map(function ($item) use ($defaultTaxRate) {
-            $attrs = is_array($item->attributes) ? $item->attributes : (array) $item->attributes;
+            $attrs = \App\Helpers\InvoiceCalculationHelper::atributos($item);
             return (object) [
                 'price'      => $item->price,
                 'quantity'   => $item->quantity,
@@ -257,7 +257,7 @@ class POSSystem extends Component
         $this->cartIrt = 0;
         if ($applyIrtServices) {
             foreach ($this->cartItems as $item) {
-                $attrs = is_array($item->attributes) ? $item->attributes : (array) $item->attributes;
+                $attrs = \App\Helpers\InvoiceCalculationHelper::atributos($item);
                 $isService = ($attrs['type'] ?? null) === 'service';
                 if ($isService) {
                     $base = $item->price * $item->quantity;
