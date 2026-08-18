@@ -1,21 +1,66 @@
-{{-- Botão Flutuante de Suporte --}}
-<div x-data="{ open: false, tab: 'ticket' }" 
+{{-- Botão Flutuante de Suporte
+
+     PODE FECHAR-SE, e isso não é um enfeite: ele fica por cima do canto
+     inferior direito, que é onde as tabelas põem os botões de acção. Quem
+     está a trabalhar numa lista tinha o último botão de cada linha tapado e
+     nada que pudesse fazer quanto a isso.
+
+     Fechado, fica um puxador estreito na borda para o trazer de volta —
+     esconder de vez deixava as pessoas sem suporte e sem saber porquê. A
+     escolha guarda-se no aparelho, senão voltava a aparecer a cada página. --}}
+<div x-data="{
+        open: false,
+        tab: 'ticket',
+        escondido: false,
+
+        init() {
+            try { this.escondido = localStorage.getItem('suporte-escondido') === '1'; } catch (e) {}
+        },
+
+        esconder() {
+            this.open = false;
+            this.escondido = true;
+            try { localStorage.setItem('suporte-escondido', '1'); } catch (e) {}
+        },
+
+        mostrar() {
+            this.escondido = false;
+            try { localStorage.removeItem('suporte-escondido'); } catch (e) {}
+        },
+     }"
+     x-init="init()"
      class="fixed bottom-6 right-6 z-50">
-    
+
+    {{-- Puxador de volta: estreito, encostado à borda, fora do caminho. --}}
+    <button x-show="escondido" x-cloak @click="mostrar()"
+            title="{{ __('Mostrar o suporte') }}"
+            class="fixed bottom-6 right-0 bg-purple-600/70 hover:bg-purple-600 text-white rounded-l-lg py-3 px-1.5 shadow-lg transition">
+        <i class="fas fa-life-ring text-xs"></i>
+    </button>
+
+    <div x-show="!escondido" x-cloak class="relative">
+
+    {{-- Fechar: só aparece ao passar o rato, para não competir com o botão. --}}
+    <button @click.stop="esconder()"
+            title="{{ __('Fechar o suporte') }}"
+            class="absolute -top-1 -left-1 z-10 w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-900 text-white text-[10px] leading-none shadow opacity-0 hover:opacity-100 focus:opacity-100 group-hover/suporte:opacity-100 transition">
+        &times;
+    </button>
+
     {{-- Botão Principal --}}
     <button @click="open = !open"
-            class="group relative bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full p-4 shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-purple-300">
+            class="group/suporte relative bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full p-4 shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-purple-300">
         <i class="fas fa-life-ring text-2xl"  x-show="!open"></i>
         <i class="fas fa-times text-2xl" x-show="open" x-cloak></i>
-        
+
         {{-- Tooltip --}}
-        <div x-show="!open" 
-             class="absolute right-full mr-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div x-show="!open"
+             class="absolute right-full mr-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover/suporte:opacity-100 transition-opacity pointer-events-none">
             Precisa de ajuda?
             <div class="absolute top-1/2 -right-1 transform -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
         </div>
     </button>
-    
+
     {{-- Modal/Panel de Suporte --}}
     <div x-show="open"
          x-transition:enter="transition ease-out duration-300"
@@ -86,6 +131,8 @@
             Equipe de Suporte disponível 24/7
         </div>
     </div>
+
+    </div>{{-- fim do bloco visivel --}}
 </div>
 
 <style>
