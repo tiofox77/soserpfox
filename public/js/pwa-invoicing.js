@@ -232,7 +232,6 @@
     // ========================
     window.addEventListener('online', async () => {
         state.online = true;
-        console.log('[PWA] online event — a verificar conectividade real');
         const real = await checkRealOnline();
         updateStatusBar();
         if (real) await sync(false);
@@ -240,7 +239,6 @@
 
     window.addEventListener('offline', () => {
         state.online = false;
-        console.log('[PWA] Offline');
         updateStatusBar();
     });
 
@@ -295,7 +293,6 @@
     async function sync(force = false) {
         if (state.syncing) return;
         if (!navigator.onLine) {
-            console.log('[PWA] Offline — sync adiada');
             return;
         }
 
@@ -305,7 +302,6 @@
         // Verificar conectividade real antes de iniciar (evita falso positivo WiFi)
         const actuallyOnline = await checkRealOnline();
         if (!actuallyOnline) {
-            console.log('[PWA] Sem conectividade real — sync cancelada');
             state.syncing = false;
             updateStatusBar();
             return;
@@ -363,12 +359,10 @@
             // nunca aparecem nesta lista, que só traz ids do servidor.
             if (json.data.removed_products?.length) {
                 await db.products.bulkDelete(json.data.removed_products);
-                console.log('[PWA] Produtos removidos do catálogo:', json.data.removed_products.length);
             }
 
             if (json.data.removed_clients?.length) {
                 await db.clients.bulkDelete(json.data.removed_clients);
-                console.log('[PWA] Clientes removidos:', json.data.removed_clients.length);
             }
 
             await db.meta.put({ key: 'last_sync', value: json.server_time });
@@ -422,7 +416,6 @@
             }
 
             state.lastSync = json.server_time;
-            console.log('[PWA] Sync OK', json.meta);
 
             // dispatch evento para páginas atualizarem
             window.dispatchEvent(new CustomEvent('pwa:synced', { detail: json }));
@@ -937,7 +930,11 @@
          * ao sair fazia desaparecer facturas que o servidor ainda não viu.
          */
         async sair() {
-            await db.meta.delete('sessao_local');
+            // Tranca este aparelho: o acesso offline guardado continua lá, e é
+            // com ele que a próxima pessoa entra sem rede. Apagá-lo aqui
+            // obrigaria a uma ida à internet só para voltar a trabalhar.
+            try { sessionStorage.removeItem('pwa_unlocked'); } catch (_) {}
+            try { sessionStorage.removeItem('pwa_unlocked_at'); } catch (_) {}
 
             await enqueue('logout', { pedido_em: new Date().toISOString() }, false);
 
@@ -1097,7 +1094,6 @@
                     expires_at: expiresAt.toISOString(),
                 },
             });
-            console.log('[PWA] Login offline ativado para ' + user.email);
             return true;
         },
 
@@ -1300,7 +1296,6 @@
         if (deferredPrompt) {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            console.log('[PWA] Install outcome:', outcome);
             deferredPrompt = null;
             refreshInstallUI();
             return;
@@ -1337,7 +1332,6 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.addEventListener('message', (event) => {
                 if (event.data?.type === 'BG_SYNC' && !state.syncing) {
-                    console.log('[PWA] Background Sync recebido do SW');
                     checkRealOnline().then(ok => { if (ok) sync(false); });
                 }
             });
@@ -1345,7 +1339,6 @@
     });
 
     window.addEventListener('appinstalled', () => {
-        console.log('[PWA] Instalada com sucesso');
         deferredPrompt = null;
         document.getElementById('pwa-install-banner')?.classList.add('hidden');
         document.getElementById('pwa-install-header')?.classList.add('hidden');
@@ -1376,7 +1369,6 @@
             await db.products.clear();
             await db.meta.delete('last_sync');
             await db.meta.put({ key: 'catalog_version', value: CATALOG_VERSION });
-            console.log('[PWA] Catálogo atualizado para v' + CATALOG_VERSION + ' — re-sync completo');
         }
 
         // Repõe jobs que tinham falhado (5+ tentativas) para nova tentativa no

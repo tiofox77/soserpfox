@@ -97,11 +97,9 @@ const PWA_OFFLINE_FALLBACKS = [
 // INSTALL - Pré-cache
 // ========================
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing Service Worker v' + CACHE_VERSION);
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then((cache) => {
-                console.log('[SW] Pre-caching App Shell');
                 // Um a um, e não com addAll.
                 //
                 // O addAll é tudo-ou-nada: basta UM dos URLs falhar — um CDN
@@ -203,7 +201,6 @@ async function notifyClientsToSync() {
 // ACTIVATE - Limpar caches antigos
 // ========================
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating Service Worker v' + CACHE_VERSION);
     event.waitUntil(
         caches.keys()
             .then((cacheNames) => {
@@ -219,7 +216,6 @@ self.addEventListener('activate', (event) => {
                             return !name.includes(CACHE_VERSION);
                         })
                         .map((name) => {
-                            console.log('[SW] Deleting old cache:', name);
                             return caches.delete(name);
                         })
                 );

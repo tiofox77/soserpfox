@@ -27,6 +27,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
+    {{-- O MESMO motor do resto do PWA. Uma segunda base aqui dentro era um
+         segundo sistema de login offline, cego ao que o outro guardou. --}}
+    <script src="{{ asset('js/pwa-invoicing.js') }}"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-900 to-blue-700 min-h-screen flex items-center justify-center p-4">
 
@@ -55,7 +58,7 @@
     <div class="bg-white rounded-2xl shadow-2xl p-6">
 
         {{-- Com rede: formulário normal, para o servidor. É ele que cria sessão. --}}
-        <form x-show="online" x-cloak method="POST" action="{{ route('login') }}" @submit="guardarVerificador">
+        <form x-show="online" x-cloak method="POST" action="{{ route('login') }}">
             @csrf
             <input type="hidden" name="pwa" value="1">
 
@@ -79,23 +82,24 @@
             </button>
         </form>
 
-        {{-- Sem rede: confere-se contra o verificador guardado neste aparelho. --}}
+        {{-- Sem rede: confere-se contra o acesso offline guardado no aparelho
+             pela barra "Ativar login offline", ja dentro da aplicacao. --}}
         <div x-show="!online" x-cloak>
             <template x-if="!temVerificador">
                 <div class="text-center py-4">
                     <i class="fas fa-wifi text-3xl text-amber-500 mb-2"></i>
-                    <p class="text-sm font-semibold text-gray-800">{{ __('Este aparelho ainda não entrou uma vez.') }}</p>
+                    <p class="text-sm font-semibold text-gray-800">{{ __('Este aparelho não tem acesso offline activado.') }}</p>
                     <p class="text-xs text-gray-500 mt-1">
-                        {{ __('A primeira entrada tem de ser com ligação. Depois disso passa a funcionar sem rede.') }}
+                        {{ __('Entre uma vez com ligação e active em "Ativar login offline". Depois passa a funcionar sem rede.') }}
                     </p>
                 </div>
             </template>
 
             <template x-if="temVerificador">
                 <form @submit.prevent="entrarLocal">
-                    <label class="block text-xs font-bold text-gray-600 mb-1">{{ __('Email') }}</label>
-                    <input type="email" x-model="email" required autocomplete="username"
-                           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm mb-3">
+                    <p class="text-xs text-gray-500 mb-1">{{ __('Conta guardada neste aparelho') }}</p>
+                    <p class="text-sm font-bold text-gray-900 mb-3" x-text="nomeGuardado"></p>
+                    <input type="hidden" x-model="email">
 
                     <label class="block text-xs font-bold text-gray-600 mb-1">{{ __('Palavra-passe') }}</label>
                     <input type="password" x-model="password" required autocomplete="current-password"
@@ -128,39 +132,21 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <script>
-// A base é a mesma do motor offline; aqui só se lê o `meta` e a fila.
-const dbLogin = new Dexie('SosErpInvoicing');
-dbLogin.version(3).stores({
-    products: 'id, name, sku, barcode, type, category',
-    clients: 'id, local_uuid, name, nif, _synced',
-    series: 'id, document_type',
-    tax_rates: '++id, rate',
-    draft_invoices: 'local_uuid, client_id, client_local_uuid, created_at, _synced, _status',
-    sync_queue: '++id, op, created_at, retries, status',
-    meta: 'key',
-    draft_documents: 'local_uuid, doc_type, client_id, client_local_uuid, created_at, _synced, _server_id',
-    pos_sales: 'local_uuid, created_at, _synced, _server_id, _server_number',
-});
+// O acesso offline é o do próprio motor (SosPwa): a mesma gaveta, o mesmo
+// hash e a mesma validade. Isto aqui só o consulta.
+async function pwa() {
+    for (let i = 0; i < 60 && !window.SosPwa; i++) {
+        await new Promise(r => setTimeout(r, 100));
+    }
 
-/** PBKDF2-SHA256. Devagar de propósito: um aparelho roubado dá tentativas sem conta. */
-async function derivar(password, saltB64, iteracoes = 210000) {
-    const enc = new TextEncoder();
-    const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
-    const chave = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-    const bits = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', salt, iterations: iteracoes, hash: 'SHA-256' },
-        chave, 256
-    );
-    return btoa(String.fromCharCode(...new Uint8Array(bits)));
+    return window.SosPwa || null;
 }
 
-/** Comparação de tempo constante: não deixar o tempo de resposta dizer nada. */
-function igual(a, b) {
-    if (a.length !== b.length) return false;
-    let d = 0;
-    for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    return d === 0;
-}
+const URL_POS         = @json(route('invoicing.offline.pos'));
+const MSG_SEM_MOTOR   = @json(__('O motor offline ainda não carregou. Tente outra vez.'));
+const MSG_EXPIRADO    = @json(__('O acesso offline deste aparelho expirou. É preciso entrar uma vez com ligação.'));
+const MSG_NAO_CONFERE = @json(__('Email ou palavra-passe que não conferem.'));
+const MSG_FALHOU      = @json(__('Não foi possível verificar neste aparelho.'));
 
 function pwaLogin() {
     return {
@@ -170,40 +156,29 @@ function pwaLogin() {
         erro: '',
         ocupado: false,
         temVerificador: false,
+        nomeGuardado: '',
         pendentes: 0,
 
         async arranque() {
             window.addEventListener('online', () => { this.online = true; });
             window.addEventListener('offline', () => { this.online = false; });
 
-            try {
-                const v = await dbLogin.meta.get('acesso_local');
-                this.temVerificador = !!(v && v.value && v.value.hash);
-                if (v?.value?.email) this.email = v.value.email;
+            const p = await pwa();
+            if (!p) return;
 
-                this.pendentes = await dbLogin.sync_queue.where('status').equals('pending').count();
+            try {
+                // Quem já activou o acesso offline não volta a ser perguntado
+                // quem é: o aparelho sabe. Só falta a palavra-passe.
+                const info = await p.getOfflineAuthInfo();
+
+                if (info && !info.expired) {
+                    this.temVerificador = true;
+                    this.email = info.email;
+                    this.nomeGuardado = info.name || info.email;
+                }
+
+                this.pendentes = await p.db.sync_queue.where('status').equals('pending').count();
             } catch (_) {}
-        },
-
-        /**
-         * Entrada COM rede: antes de o formulário partir, guarda-se o
-         * verificador para as próximas vezes sem rede.
-         *
-         * Guarda-se aqui e não no servidor porque é aqui que a palavra-passe
-         * existe — e sai daqui derivada, nunca em claro.
-         */
-        async guardarVerificador() {
-            try {
-                const salt = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
-                const hash = await derivar(this.password, salt);
-
-                await dbLogin.meta.put({
-                    key: 'acesso_local',
-                    value: { email: (this.email || '').trim().toLowerCase(), salt, hash, em: new Date().toISOString() },
-                });
-            } catch (_) {
-                // Falhar a guardar não pode impedir a entrada normal.
-            }
         },
 
         async entrarLocal() {
@@ -212,31 +187,25 @@ function pwaLogin() {
             this.erro = '';
 
             try {
-                const v = (await dbLogin.meta.get('acesso_local'))?.value;
+                const p = await pwa();
 
-                if (!v) {
-                    this.erro = '{{ __('Este aparelho ainda não entrou uma vez com ligação.') }}';
+                if (!p) {
+                    this.erro = MSG_SEM_MOTOR;
                     return;
                 }
 
-                const mesmoEmail = (this.email || '').trim().toLowerCase() === v.email;
-                const hash = await derivar(this.password, v.salt);
+                const r = await p.verifyOfflineAuth(this.email, this.password);
 
-                // As duas condições avaliam-se sempre, e a mensagem é uma só:
-                // dizer qual delas falhou é dizer se o email existe.
-                if (!mesmoEmail || !igual(hash, v.hash)) {
-                    this.erro = '{{ __('Email ou palavra-passe que não conferem.') }}';
+                if (!r.ok) {
+                    // Uma mensagem só para email errado e palavra-passe errada:
+                    // distingui-las é dizer a quem tenta se o email existe.
+                    this.erro = (r.reason === 'EXPIRED') ? MSG_EXPIRADO : MSG_NAO_CONFERE;
                     return;
                 }
 
-                await dbLogin.meta.put({
-                    key: 'sessao_local',
-                    value: { email: v.email, desde: new Date().toISOString() },
-                });
-
-                window.location.href = '{{ route('invoicing.offline.pos') }}';
+                window.location.href = URL_POS;
             } catch (e) {
-                this.erro = '{{ __('Não foi possível verificar neste aparelho.') }}';
+                this.erro = MSG_FALHOU;
             } finally {
                 this.ocupado = false;
                 this.password = '';
@@ -244,6 +213,7 @@ function pwaLogin() {
         },
     };
 }
+
 </script>
 </body>
 </html>

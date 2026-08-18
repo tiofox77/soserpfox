@@ -286,7 +286,6 @@
                     URLS.map((u) => fetch(u, { credentials: 'same-origin', cache: 'no-store' }))
                 ).then(() => {
                     try { localStorage.setItem(WARMUP_KEY, '1'); } catch (e) {}
-                    console.log('[PWA] Warmup concluído — app pronta para offline.');
                 });
             }, 1500);
         });

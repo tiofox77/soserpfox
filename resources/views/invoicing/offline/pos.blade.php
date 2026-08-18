@@ -1214,7 +1214,6 @@ function posOffline() {
                     .toArray();
                 if (old.length > 0) {
                     await window.SosPwa.db.pos_sales.bulkDelete(old.map(s => s.local_uuid));
-                    console.log('[POS] Purge: removidas ' + old.length + ' vendas sincronizadas com mais de 30 dias');
                 }
             } catch (e) { console.warn('[POS] Purge falhou:', e); }
         },
