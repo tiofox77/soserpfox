@@ -18,7 +18,33 @@ use App\Models\Tenant;
 class EstadoDaSubscricao
 {
     /**
-     * @return array{rotulo:string, cor:string, dias:?int, icone:string, detalhe:string}
+     * Quantos dias faltam, por extenso.
+     *
+     * "14d" e telegrafico: quem le a lista quer saber quanto falta sem
+     * ter de decifrar nem passar o rato por cima. E quando ja passou, a
+     * frase tem de dizer isso — um numero negativo nao se le.
+     */
+    public static function quantoFalta(?int $dias): string
+    {
+        if ($dias === null) {
+            return '';
+        }
+
+        if ($dias < 0) {
+            $passados = abs($dias);
+
+            return $passados === 1 ? 'terminou ontem' : "terminou ha {$passados} dias";
+        }
+
+        return match (true) {
+            $dias === 0 => 'termina hoje',
+            $dias === 1 => 'falta 1 dia',
+            default     => "faltam {$dias} dias",
+        };
+    }
+
+    /**
+     * @return array{rotulo:string, cor:string, dias:?int, icone:string, detalhe:string, ate:?string}
      */
     public static function para(Tenant $empresa): array
     {
@@ -31,6 +57,7 @@ class EstadoDaSubscricao
                 'dias'    => null,
                 'icone'   => 'fa-circle-minus',
                 'detalhe' => 'Nunca teve plano activo.',
+                'ate'     => null,
             ];
         }
 
@@ -48,6 +75,7 @@ class EstadoDaSubscricao
                     'dias'    => $dias,
                     'icone'   => 'fa-hourglass-half',
                     'detalhe' => 'Teste acaba em ' . $s->trial_ends_at->format('d/m/Y') . '.',
+                    'ate'     => $s->trial_ends_at->format('d/m/Y'),
                 ];
             }
 
@@ -59,6 +87,7 @@ class EstadoDaSubscricao
                     'dias'    => $dias,
                     'icone'   => 'fa-triangle-exclamation',
                     'detalhe' => 'Acabou em ' . $s->trial_ends_at->format('d/m/Y') . ' e continua activa.',
+                    'ate'     => $s->trial_ends_at->format('d/m/Y'),
                 ];
             }
         }
@@ -73,6 +102,7 @@ class EstadoDaSubscricao
                     'dias'    => $dias,
                     'icone'   => 'fa-circle-xmark',
                     'detalhe' => 'Terminou em ' . $s->ends_at->format('d/m/Y') . '.',
+                    'ate'     => $s->ends_at->format('d/m/Y'),
                 ];
             }
 
@@ -82,6 +112,7 @@ class EstadoDaSubscricao
                 'dias'    => $dias,
                 'icone'   => 'fa-circle-check',
                 'detalhe' => 'Renova em ' . $s->ends_at->format('d/m/Y') . '.',
+                'ate'     => $s->ends_at->format('d/m/Y'),
             ];
         }
 
@@ -91,6 +122,7 @@ class EstadoDaSubscricao
             'dias'    => null,
             'icone'   => 'fa-circle-check',
             'detalhe' => 'Sem data de fim.',
+            'ate'     => null,
         ];
     }
 }

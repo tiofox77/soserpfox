@@ -280,12 +280,13 @@
                                         <i class="fas {{ $sub['icone'] }} mr-1.5"></i>{{ $sub['rotulo'] }}
                                         @if(!is_null($sub['dias']))
                                             <span class="ml-1 font-normal opacity-90">
-                                                @if($sub['dias'] >= 0)
-                                                    · {{ $sub['dias'] }}d
-                                                @else
-                                                    · há {{ abs($sub['dias']) }}d
+                                                · {{ \App\Support\EstadoDaSubscricao::quantoFalta($sub['dias']) }}
+                                                @if($sub['ate'])
+                                                    ({{ $sub['ate'] }})
                                                 @endif
                                             </span>
+                                        @endif
+                                    </span>
                                         @endif
                                     </span>
 

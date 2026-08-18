@@ -110,4 +110,28 @@ class EstadoDaSubscricaoTest extends TestCase
         $this->assertSame('Expirado', $e['rotulo']);
         $this->assertSame('red', $e['cor']);
     }
+
+    public function test_os_dias_saem_por_extenso(): void
+    {
+        $q = fn ($d) => \App\Support\EstadoDaSubscricao::quantoFalta($d);
+
+        // "14d" e telegrafico: quem le a lista quer saber quanto falta sem
+        // ter de decifrar nem passar o rato por cima.
+        $this->assertSame('faltam 14 dias', $q(14));
+        $this->assertSame('falta 1 dia', $q(1), 'singular');
+        $this->assertSame('termina hoje', $q(0));
+        $this->assertSame('terminou ontem', $q(-1));
+        $this->assertSame('terminou ha 15 dias', $q(-15), 'um numero negativo nao se le');
+        $this->assertSame('', $q(null));
+    }
+
+    public function test_a_data_de_fim_vem_no_resultado(): void
+    {
+        // Para o cartao a mostrar ao lado, em vez de a esconder no tooltip.
+        $e = \App\Support\EstadoDaSubscricao::para($this->empresaCom([
+            'status' => 'trial', 'trial_ends_at' => now()->addDays(14),
+        ]));
+
+        $this->assertSame(now()->addDays(14)->format('d/m/Y'), $e['ate']);
+    }
 }
