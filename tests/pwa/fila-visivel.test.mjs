@@ -21,8 +21,15 @@ assert.ok(corpo, 'getQueue não foi encontrada no pwa-invoicing.js');
 function montar(itens) {
     const fabrica = new Function('db', `return { ${corpo[0]} }.getQueue;`);
 
+    // O duplo imita a consulta real: so pendentes e falhados.
     return fabrica({
-        sync_queue: { orderBy: () => ({ toArray: async () => itens }) },
+        sync_queue: {
+            where: () => ({
+                anyOf: (...estados) => ({
+                    sortBy: async () => itens.filter((j) => estados.includes(j.status)),
+                }),
+            }),
+        },
     });
 }
 
@@ -86,4 +93,42 @@ test('fila vazia devolve lista vazia', async () => {
     const getQueue = montar([]);
 
     assert.deepStrictEqual(await getQueue.call(null), []);
+});
+
+test('um trabalho JÁ ENTREGUE não aparece na lista do que falta', () => {
+    // Os entregues ficam marcados 'done' na tabela e nunca são removidos.
+    // Listá-los punha vendas já recebidas pelo servidor a aparecer como
+    // "à espera" — o operador via três vendas paradas que afinal tinham
+    // subido todas.
+    const fonteAtual = readFileSync(join(raiz, 'public', 'js', 'pwa-invoicing.js'), 'utf8');
+    const corpoAtual = fonteAtual.match(/async getQueue\(\) \{[\s\S]*?\n        \},/);
+
+    assert.ok(corpoAtual);
+    assert.match(
+        corpoAtual[0],
+        /anyOf\(\s*'pending',\s*'failed'\s*\)/,
+        'a lista tem de pedir só o que ainda falta, e não a tabela toda'
+    );
+    assert.doesNotMatch(corpoAtual[0], /orderBy\('created_at'\)\.toArray\(\)/);
+});
+
+test('os entregues antigos são limpos, para a tabela não crescer sem fim', () => {
+    const fonteAtual = readFileSync(join(raiz, 'public', 'js', 'pwa-invoicing.js'), 'utf8');
+
+    assert.match(fonteAtual, /async function limparEntreguesAntigos/);
+    assert.match(fonteAtual, /await limparEntreguesAntigos\(\);/);
+});
+
+test('o entregue fica de fora mesmo estando na tabela', async () => {
+    const getQueue = montar([
+        { id: 1, op: 'create_pos_sale', status: 'done', payload: { items: [] } },
+        { id: 2, op: 'create_pos_sale', status: 'pending', payload: { items: [{ quantity: 1, unit_price: 500 }] } },
+        { id: 3, op: 'create_pos_sale', status: 'failed', last_error: 'x', payload: { items: [] } },
+    ]);
+
+    const j = await getQueue.call(null);
+
+    // O 'done' é uma venda que o servidor JÁ recebeu. Mostrá-la como
+    // "à espera" é dizer ao operador que o dinheiro dele não chegou.
+    assert.deepStrictEqual(j.map(x => x.id), [2, 3]);
 });

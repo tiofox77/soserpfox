@@ -460,6 +460,20 @@
      * Processa fila de operações offline pendentes.
      * Operações suportadas: create_client, create_draft (Fase 4)
      */
+    /** Os trabalhos ja entregues ha mais de uma semana. */
+    async function limparEntreguesAntigos(dias = 7) {
+        const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+
+        try {
+            await db.sync_queue
+                .where('status').equals('done')
+                .filter((j) => (j.synced_at || j.created_at || '') < limite)
+                .delete();
+        } catch (_) {
+            // Falhar a limpar nunca pode impedir uma venda de subir.
+        }
+    }
+
     async function processQueue() {
         const pending = await db.sync_queue.where('status').equals('pending').sortBy('created_at');
         if (!pending.length) return;
@@ -594,6 +608,11 @@
                 }
 
                 await db.sync_queue.update(job.id, { status: 'done', synced_at: new Date().toISOString() });
+
+                // Os entregues de ha mais de uma semana saem. Guardam-se uns
+                // dias para se poder conferir o que subiu e quando; para alem
+                // disso e so uma tabela a crescer num telemovel.
+                await limparEntreguesAntigos();
             } catch (err) {
                 console.error('[PWA] Job falhou:', job, err);
                 await db.sync_queue.update(job.id, {
@@ -992,7 +1011,15 @@
                 logout: 'Saída de sessão',
             };
 
-            const itens = await db.sync_queue.orderBy('created_at').toArray();
+            // SÓ o que ainda falta: pendentes e falhados.
+            //
+            // Os entregues ficam na tabela marcados 'done' e nunca sao
+            // removidos. Listá-los aqui punha vendas JÁ ENTREGUES a aparecer
+            // como "à espera" — que foi o que se viu: tres vendas paradas no
+            // ecrã, e o servidor com as tres recebidas.
+            const itens = await db.sync_queue
+                .where('status').anyOf('pending', 'failed')
+                .sortBy('created_at');
 
             return itens.map(j => {
                 const p = j.payload || {};
