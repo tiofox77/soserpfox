@@ -240,7 +240,7 @@
             </a>
             <a href="{{ route('invoicing.offline.drafts') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.drafts') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
                 <i class="fas fa-file-invoice block text-lg"></i>
-                <span class="text-[10px] font-semibold">Rascunhos</span>
+                <span class="text-[10px] font-semibold">Documentos</span>
             </a>
         </div>
     </nav>

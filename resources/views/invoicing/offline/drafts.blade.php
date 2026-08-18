@@ -1,4 +1,4 @@
-@extends('layouts.pwa', ['title' => 'Rascunhos Locais'])
+@extends('layouts.pwa', ['title' => 'Documentos Locais'])
 
 @section('content')
 <div x-data="draftsList()" x-init="init()" x-cloak>
@@ -6,7 +6,7 @@
     <div class="bg-gradient-to-br from-blue-700 to-indigo-800 text-white rounded-2xl shadow-lg p-4 mb-3">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-file-invoice"></i>Rascunhos</h1>
+                <h1 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-file-invoice"></i>Documentos</h1>
                 <p class="text-xs opacity-90 mt-0.5"><span x-text="drafts.length"></span> total · <span class="font-bold" x-text="pendingCount"></span> por sincronizar</p>
             </div>
             <a href="{{ route('invoicing.offline.draft-new') }}" class="bg-white/20 hover:bg-white/30 backdrop-blur px-3 py-2 rounded-xl text-sm font-bold transition">
@@ -53,13 +53,13 @@
         </template>
         <div x-show="!filtered.length" class="text-center py-16 text-gray-400 italic text-sm">
             <i class="fas fa-inbox text-4xl mb-2 block"></i>
-            Nenhum rascunho ainda.<br>Toca em "+ Novo" para começar.
+            Nenhum documento ainda.<br>Toca em "+ Novo" para começar.
         </div>
     </div>
 
     <div class="mt-6 bg-blue-50 border-l-4 border-blue-500 p-3 rounded-lg text-[11px] text-blue-900">
         <p class="font-bold mb-1"><i class="fas fa-circle-info mr-1"></i>O que acontece a seguir</p>
-        Os rascunhos sincronizados aparecem no módulo de Faturação como <strong>status "Rascunho"</strong>.
+        Os documentos sobem já emitidos, com número fiscal e hash.
         Para emitir com validade fiscal, abre o documento no servidor e usa o botão <strong>"Finalizar"</strong> para obter o número AGT.
     </div>
 </div>
@@ -110,7 +110,7 @@ function draftsList() {
         },
 
         async remove(d) {
-            if (!confirm('Apagar este rascunho? Se já estiver sincronizado, permanecerá no servidor.')) return;
+            if (!confirm('Apagar este documento da lista local? Se já foi emitido, continua no servidor — um documento fiscal não se apaga.')) return;
             await window.SosPwa.db.draft_documents.where('local_uuid').equals(d.local_uuid).delete();
             await this.refresh();
         },

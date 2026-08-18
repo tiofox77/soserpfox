@@ -8,7 +8,7 @@
         </a>
         <div>
             <h1 class="text-xl font-bold text-gray-900">Novo Documento</h1>
-            <p class="text-xs text-gray-500">Rascunho offline · finaliza no servidor</p>
+            <p class="text-xs text-gray-500">Documento · emitido ao sincronizar</p>
         </div>
     </div>
 
@@ -132,7 +132,7 @@
 
     <div class="bg-orange-50 border-l-4 border-orange-500 p-3 rounded-lg text-xs text-orange-900 mb-3">
         <i class="fas fa-circle-exclamation mr-1"></i>
-        <strong>Sem validade fiscal.</strong> Documentos criados ficam como rascunho — finalize no módulo de Faturação para obter número AGT e hash legal.
+        <strong>Documento definitivo.</strong> Ao sincronizar, o documento é emitido com número fiscal e hash. Sem rede fica em fila e sobe assim que houver ligação.
     </div>
 
     <div class="flex gap-3 pb-4">
@@ -143,7 +143,7 @@
                 class="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg disabled:opacity-50">
             <i class="fas fa-save mr-1" x-show="!saving"></i>
             <i class="fas fa-spinner fa-spin mr-1" x-show="saving"></i>
-            <span x-text="saving ? 'A guardar...' : 'Guardar Rascunho'"></span>
+            <span x-text="saving ? 'A guardar...' : 'Emitir Documento'"></span>
         </button>
     </div>
 
@@ -250,7 +250,7 @@ function draftForm() {
             // Rede de segurança: catálogo vazio mas online → força sync e recarrega
             if (navigator.onLine && !this.allProducts.length) {
                 try { await window.SosPwa.sync(true); }
-                catch (e) { console.error('[Rascunho] sync inicial falhou', e); }
+                catch (e) { console.error('[Documentos] sync inicial falhou', e); }
                 await this.loadCatalog();
             }
         },
@@ -347,8 +347,8 @@ function draftForm() {
             try {
                 await window.SosPwa.createDraftOffline({ ...this.form });
                 this.successMsg = navigator.onLine
-                    ? 'Rascunho guardado — a enviar para o servidor...'
-                    : 'Rascunho guardado localmente.';
+                    ? 'Documento guardado — a emitir no servidor…'
+                    : 'Documento guardado. Sai emitido assim que houver rede.';
                 setTimeout(() => {
                     window.location.href = '{{ route("invoicing.offline.drafts") }}';
                 }, 1200);

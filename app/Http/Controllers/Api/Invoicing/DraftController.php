@@ -87,10 +87,24 @@ class DraftController extends Controller
         $invoice->client_id = $clienteResolvido->id;
         $invoice->invoice_date = $data['invoice_date'] ?? now()->toDateString();
         $invoice->due_date = $data['due_date'] ?? now()->addDays(30)->toDateString();
-        $invoice->status = 'draft';
-        // invoice_status é ENUM ['N','A','F'] (Normal/Anulado/Finalizado). O estado
-        // de rascunho é dado por status='draft'; aqui fica 'N' (ainda não finalizado).
-        $invoice->invoice_status = 'N';
+        // EMITIDO, NÃO RASCUNHO.
+        //
+        // Isto gravava status='draft' e alguém tinha de ir ao servidor carregar
+        // em "Finalizar" para o documento ganhar número fiscal. Um documento
+        // que o balcão deu por feito e que ficava à espera de um segundo passo
+        // que ninguém via — e sem número, sem hash e sem comunicação.
+        //
+        // A numeração e o selo vêm do EmissorFiscal, o mesmo que o POS usa: a
+        // série é a de emissão deste tipo de documento e o número sai dela.
+        $tipoDeSerie = $docType === 'FR' ? 'pos' : 'invoice';
+        $numeracao = app(\App\Services\Invoicing\EmissorFiscal::class)->numerar($tenantId, $tipoDeSerie);
+
+        $invoice->series_id = $numeracao['serie']->id;
+        $invoice->invoice_number = $numeracao['numero'];
+
+        // Uma Fatura-Recibo é paga no acto; uma Fatura fica a aguardar.
+        $invoice->status = $docType === 'FR' ? 'paid' : 'pending';
+        $invoice->invoice_status = 'F';
         $invoice->invoice_status_date = now();
         $invoice->source_id = auth()->id() ?? 'PWA';
         $invoice->source_billing = 'P';
@@ -185,14 +199,21 @@ class DraftController extends Controller
             $line->save();
         }
 
+        // O selo só DEPOIS das linhas: o hash encadeia o documento inteiro,
+        // e um documento sem linhas hasheia-se a si próprio vazio.
+        app(\App\Services\Invoicing\EmissorFiscal::class)->selar($invoice, $tenantId);
+
+        $invoice->refresh();
+
         return response()->json([
             'id' => $invoice->id,
             'doc_type' => $docType,
             'local_uuid' => $data['local_uuid'] ?? null,
             'invoice_number' => $invoice->invoice_number,
+            'atcud' => $invoice->atcud,
             'total' => (float) $invoice->total,
-            'status' => 'draft',
-            'message' => 'Rascunho criado. Finalize no módulo de Faturação para obter número AGT.',
+            'status' => $invoice->status,
+            'message' => 'Documento emitido: ' . $invoice->invoice_number,
         ], 201);
     }
 
