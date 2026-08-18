@@ -92,6 +92,8 @@ class MaintenanceController extends Controller
         'artigos:apagar',
         // Cria utilizadores de uma empresa. Simulacao por omissao; as
         // palavras-passe sao geradas e mostradas uma unica vez.
+        // Papel "Stock e Vendas": vende, gere stock, cria artigos sem editar.
+        'papel:stock-vendas',
         'utilizadores:criar',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
         'empresas:nome-documentos',

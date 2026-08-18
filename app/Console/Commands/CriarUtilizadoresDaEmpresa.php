@@ -33,6 +33,7 @@ class CriarUtilizadoresDaEmpresa extends Command
     protected $signature = 'utilizadores:criar
                             {--tenant= : id da empresa}
                             {--papel=Caixa : nome do papel a atribuir}
+                            {--papel-id= : id do papel (útil quando o nome tem espaços)}
                             {--nomes= : nomes separados por ponto e vírgula}
                             {--ficheiro= : ficheiro de texto com um nome por linha}
                             {--dominio= : domínio do email gerado (ex: kienga.local)}
@@ -83,9 +84,24 @@ class CriarUtilizadoresDaEmpresa extends Command
 
         $dominio = trim((string) $this->option('dominio')) ?: 'local';
         $papel = trim((string) $this->option('papel'));
+        $role = null;
+
+        // Pelo ID quando o nome tem espaços: a rota de manutenção parte os
+        // argumentos nos espaços, e "Stock e Vendas" chegava aqui partido.
+        if ($id = $this->option('papel-id')) {
+            $role = Role::where('id', $id)->where('tenant_id', $empresa->id)->first();
+
+            if (!$role) {
+                $this->error("A empresa nao tem o papel #{$id}.");
+
+                return self::FAILURE;
+            }
+
+            $papel = $role->name;
+        }
 
         // O papel é por empresa: o Spatie guarda tenant_id na própria linha.
-        $role = Role::where('name', $papel)
+        $role = $role ?? Role::where('name', $papel)
             ->where(fn ($q) => $q->where('tenant_id', $empresa->id)->orWhereNull('tenant_id'))
             ->orderByRaw('tenant_id IS NULL')   // o da empresa ganha ao global
             ->first();
