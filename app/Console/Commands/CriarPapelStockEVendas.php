@@ -36,10 +36,12 @@ class CriarPapelStockEVendas extends Command
         // Vender
         'invoicing.pos.access',
         'invoicing.pos.sell',
-        // Relatórios do POS: os DELA. O `.reports.all` fica de fora — esse
-        // mostra o apuramento de todas as caixas, e quem confere o próprio
-        // fecho não tem de ver o dinheiro das colegas.
+        // Relatórios do POS, de TODAS as caixas: este papel é de quem gere
+        // o stock e confere o fecho, e conferir sem ver o de todos não é
+        // conferir nada. É também o que destranca o filtro por operador no
+        // ecrã de relatórios — sem o `.all`, esse filtro não aparece.
         'invoicing.pos.reports',
+        'invoicing.pos.reports.all',
         'invoicing.sales.invoices.view',
         'invoicing.sales.invoices.create',
         'invoicing.sales.invoices.pdf',

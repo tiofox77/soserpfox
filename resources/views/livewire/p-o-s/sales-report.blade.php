@@ -138,6 +138,28 @@
                 </select>
             </div>
 
+            {{-- Filtro por operador.
+
+                 Só aparece a quem pode ver as vendas de todos: a quem está
+                 preso às suas, uma lista de nomes seria uma porta que não
+                 abre. O componente ignora este campo nesse caso — o filtro
+                 vive dentro da mesma função que aplica a restrição, para não
+                 poderem divergir. --}}
+            @if (!$this->ownOnly && $this->operadores->isNotEmpty())
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                        <i class="fas fa-user mr-1"></i>{{ __('Operador') }}
+                    </label>
+                    <select wire:model.live="userId"
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-sm bg-white">
+                        <option value="">{{ __('Todos') }}</option>
+                        @foreach ($this->operadores as $operador)
+                            <option value="{{ $operador->id }}">{{ $operador->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>Buscar</label>
                 <input type="text" wire:model.live.debounce.300ms="search"

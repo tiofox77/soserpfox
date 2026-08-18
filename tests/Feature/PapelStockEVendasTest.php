@@ -87,7 +87,7 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.warehouse-transfer.create',
             'invoicing.categories.create', 'invoicing.categories.edit',
             'invoicing.suppliers.create', 'invoicing.suppliers.edit',
-            'invoicing.pos.reports',
+            'invoicing.pos.reports', 'invoicing.pos.reports.all',
         ] as $p) {
             $this->assertContains($p, $tem, "faltava poder {$p}");
         }
@@ -107,8 +107,6 @@ class PapelStockEVendasTest extends TestCase
             'invoicing.products.delete',
             'invoicing.categories.delete',
             'invoicing.suppliers.delete',
-            // O apuramento de TODAS as caixas nao e para quem opera uma.
-            'invoicing.pos.reports.all',
             'invoicing.inter-company-transfer.create',
         ] as $p) {
             $this->assertNotContains($p, $tem, "não podia poder {$p}");

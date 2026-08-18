@@ -35,6 +35,15 @@ class SalesReport extends Component
      */
     public $documentType = '';
 
+    /**
+     * Filtro por operador. Só serve a quem pode ver as vendas de todos.
+     *
+     * Quem não tem `pos.reports.all` já está preso às próprias vendas pelo
+     * applyScope; este campo é ignorado nesse caso, e tem de ser — senão
+     * bastava escolher outro nome na lista para dar a volta à permissão.
+     */
+    public $userId = '';
+
     // Modal
     public $showDetailsModal = false;
     public $showPrintModal = false;
@@ -82,8 +91,39 @@ class SalesReport extends Component
     {
         if (!auth()->user()?->can('invoicing.pos.reports.all')) {
             $query->where('created_by', auth()->id());
+
+            // Sai já: o filtro por operador não se aplica a quem só pode
+            // ver as suas. Deixá-lo passar aqui era dar a volta à
+            // permissão escolhendo outro nome na lista.
+            return $query;
         }
+
+        if ($this->userId) {
+            $query->where('created_by', $this->userId);
+        }
+
         return $query;
+    }
+
+    /** Quem emitiu vendas nesta empresa — só esses valem como filtro. */
+    public function getOperadoresProperty()
+    {
+        if ($this->ownOnly) {
+            return collect();
+        }
+
+        return \App\Models\User::whereIn('id', 
+            \App\Models\Invoicing\SalesInvoice::where('tenant_id', activeTenantId())
+                ->whereNotNull('created_by')
+                ->distinct()
+                ->pluck('created_by')
+        )->orderBy('name')->get(['id', 'name']);
+    }
+
+    public function updatedUserId()
+    {
+        $this->loadStatistics();
+        $this->resetPage();
     }
 
     /**
@@ -164,6 +204,7 @@ class SalesReport extends Component
         $this->status        = '';
         $this->paymentMethod = '';
         $this->documentType  = '';
+        $this->userId        = '';
         $this->resetPage();
         $this->loadStatistics();
     }
