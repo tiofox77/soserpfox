@@ -786,6 +786,14 @@
          * @param {Object} draft - { doc_type, client_id?, client_local_uuid?, items[], notes, reference, invoice_date, due_date }
          */
         async createDraftOffline(draft) {
+            // O QUE ENTRA NA BASE TEM DE SER DADOS SIMPLES.
+            //
+            // O ecrã manda um objecto reactivo do Alpine, que é um Proxy, e o
+            // IndexedDB não sabe clonar Proxies: rebentava com
+            // "could not be cloned" e o documento não chegava a ser gravado.
+            // Passar por JSON deixa só os valores.
+            draft = JSON.parse(JSON.stringify(draft ?? {}));
+
             const local_uuid = 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
             // Calcular totais localmente para mostrar na lista
