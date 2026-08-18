@@ -264,7 +264,12 @@
             <button @click="forceUpdateApp()" :disabled="busy" class="bg-purple-100 hover:bg-purple-200 text-purple-800 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-50">
                 <i class="fas fa-cloud-arrow-down mr-1"></i>Atualizar App
             </button>
-            <a href="/api/v1/invoicing/diagnose" target="_blank" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold text-center">
+            {{-- O diagnostico do servidor nao ve a fila, que vive no aparelho.
+                 Sem ela, uma venda presa e invisivel de fora. --}}
+            <button type="button" @click="diagnosticar" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold text-center">
+                <i class="fas fa-stethoscope mr-1"></i>Diagnosticar
+            </button>
+            <a href="/api/v1/invoicing/diagnose" target="_blank" class="hidden">
                 <i class="fas fa-stethoscope mr-1"></i>Diagnosticar
             </a>
             <button @click="detailsOpen = !detailsOpen" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold">
@@ -331,6 +336,50 @@ function pwaHome() {
             } finally {
                 this.aEnviar = false;
                 await this.refresh();
+            }
+        },
+
+        /**
+         * Diagnostico dos DOIS lados.
+         *
+         * O do servidor dizia o catalogo e ficava-se sem saber o que estava
+         * preso no aparelho — e e no aparelho que as vendas ficam. Sem a fila
+         * ao lado, "3 por enviar" nao se explica de fora.
+         */
+        async diagnosticar() {
+            let servidor = null;
+
+            try {
+                servidor = await (await fetch('/api/v1/invoicing/diagnose', { credentials: 'same-origin' })).json();
+            } catch (e) {
+                servidor = { erro: String(e && e.message || e) };
+            }
+
+            const fila = await window.SosPwa.getQueue();
+            const vendas = await window.SosPwa.getPosSales();
+
+            const relatorio = {
+                servidor,
+                aparelho: {
+                    online: navigator.onLine,
+                    fila_total: fila.length,
+                    fila_com_erro: fila.filter(j => j.estado === 'failed').length,
+                    fila,
+                    vendas_locais: vendas.length,
+                    vendas_por_emitir: vendas.filter(v => !v._synced).length,
+                },
+            };
+
+            const texto = JSON.stringify(relatorio, null, 2);
+
+            try { await navigator.clipboard.writeText(texto); } catch (_) {}
+
+            const j = window.open('', '_blank');
+            if (j) {
+                j.document.write('<pre style="font:12px monospace;white-space:pre-wrap">'
+                    + texto.replace(/</g, '&lt;') + '</pre>');
+            } else {
+                alert(texto.slice(0, 3000));
             }
         },
 
