@@ -57,10 +57,21 @@ const NEVER_CACHE = [
     '/sanctum/csrf-cookie',
 ];
 
-// Rotas de API/dados dinâmicos (cache curto)
+// Rotas de API/dados dinâmicos.
+//
+// ISTO ESTAVA DECLARADO E NUNCA ERA USADO, e os pedidos de dados caíam no
+// "tudo o resto" lá em baixo, que é stale-while-revalidate: devolve o que
+// está guardado e só depois vai buscar o novo. Dava exactamente o que se via
+// no ecrã — recarregar uma vez não mudava nada, recarregar outra vez mostrava
+// os dados. Numa lista de turnos ou num relatório de caixa, isso é ler
+// números de ontem a pensar que são de hoje.
 const API_ROUTES = [
     '/api/',
-    '/livewire/message/',
+    // O Livewire 3 usa /livewire/update; o /message é do Livewire 2 e ficou
+    // aqui de arrasto. Os dois vão a POST e já saltam pelo método, mas a
+    // lista tem de dizer a verdade sobre o que existe hoje.
+    '/livewire/update',
+    '/livewire/message',
 ];
 
 // Limite de itens no cache dinâmico (HTML páginas precisam de mais espaço para PWA offline)
@@ -256,13 +267,23 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 4) Páginas HTML → Network First (com fallback offline)
+    // 4) Dados → Network First.
+    //
+    // Tem de vir ANTES das páginas: um pedido de dados também pode trazer
+    // text/html no Accept, e caía no ramo errado. Com rede vem sempre o
+    // valor de agora; o que está guardado só serve quando não há rede.
+    if (API_ROUTES.some((rota) => url.pathname.startsWith(rota))) {
+        event.respondWith(networkFirst(request));
+        return;
+    }
+
+    // 5) Páginas HTML → Network First (com fallback offline)
     if (request.headers.get('Accept')?.includes('text/html')) {
         event.respondWith(networkFirst(request));
         return;
     }
 
-    // 5) Tudo o resto → Stale While Revalidate
+    // 6) Tudo o resto → Stale While Revalidate
     event.respondWith(staleWhileRevalidate(request, DYNAMIC_CACHE, DYNAMIC_CACHE_LIMIT));
 });
 
