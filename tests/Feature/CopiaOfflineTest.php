@@ -152,9 +152,27 @@ class CopiaOfflineTest extends TenantTestCase
         $ft = SalesInvoice::where('local_uuid', 'copia-ft-1')->first();
 
         $this->assertNotNull($ft);
-        $this->assertSame('draft', $ft->status);
-        $this->assertSame('N', $ft->invoice_status);
-        $this->assertEmpty($ft->saft_hash, 'Um rascunho não pode entrar na cadeia AGT.');
+        // Os documentos do PWA passaram a ser DEFINITIVOS: uma venda feita
+        // offline e uma venda real, e ao chegar ao servidor tem de ficar
+        // numerada e selada, nao em rascunho. O que continua a nao poder
+        // acontecer e a MESMA venda entrar duas vezes — e isso que se guarda
+        // aqui, pelo local_uuid.
+        $this->assertSame('pending', $ft->status);
+        $this->assertNotEmpty($ft->invoice_number, 'uma venda real tem de ficar numerada');
+        $this->assertSame('F', $ft->invoice_status);
+
+        // Reimportar a mesma copia nao pode criar um segundo documento.
+        $this->importar($this->copia([[
+            'op' => 'create_draft',
+            'payload' => [
+                'doc_type'   => 'FT',
+                'local_uuid' => 'copia-ft-1',
+                'items'      => [$this->linha()],
+            ],
+        ]]));
+
+        $this->assertSame(1, SalesInvoice::where('local_uuid', 'copia-ft-1')->count(),
+            'a mesma venda offline entrou duas vezes');
     }
 
     /** E a proforma também. */
