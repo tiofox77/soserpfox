@@ -87,11 +87,14 @@
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase">IVA %</label>
+                            {{-- As taxas são as DA EMPRESA, sincronizadas.
+                                 Estavam aqui fixas (0/5/7/14) e o servidor mandava
+                                 a mesma lista a toda a gente: numa empresa em não
+                                 sujeição, os 14% ficavam a um toque de distância. --}}
                             <select x-model.number="itm.tax_rate" class="w-full px-1 py-1.5 border border-gray-200 rounded-lg text-sm">
-                                <option value="0">0%</option>
-                                <option value="5">5%</option>
-                                <option value="7">7%</option>
-                                <option value="14">14%</option>
+                                <template x-for="t in taxas" :key="t.rate">
+                                    <option :value="t.rate" x-text="t.label"></option>
+                                </template>
                             </select>
                         </div>
                     </div>
@@ -237,6 +240,9 @@ function draftForm() {
             items: [],
         },
 
+        /** As taxas da empresa, sincronizadas. Nunca uma lista inventada. */
+        taxas: [],
+
         async init() {
             await this.loadCatalog();
             // Recarrega quando o catálogo sincroniza (evita ter de fazer refresh manual)
@@ -252,6 +258,15 @@ function draftForm() {
         async loadCatalog() {
             this.allProducts = await window.SosPwa.db.products.toArray();
             this.allClients = await window.SosPwa.db.clients.toArray();
+
+            const taxas = await window.SosPwa.db.tax_rates.toArray();
+
+            // Sem taxas sincronizadas fica SÓ a isenta. Oferecer 14% a quem
+            // ainda não sincronizou é adivinhar o regime da empresa — e
+            // adivinhar a favor do imposto é o pior lado para errar.
+            this.taxas = taxas.length
+                ? taxas
+                : [{ rate: 0, label: @json(__('Isento (0%)')) }];
         },
 
         get filteredProducts() {

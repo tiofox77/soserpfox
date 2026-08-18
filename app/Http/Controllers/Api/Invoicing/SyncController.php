@@ -283,13 +283,44 @@ class SyncController extends Controller
             \Log::warning('Sync series query failed: ' . $e->getMessage());
         }
 
-        // ---- Taxas de IVA aplicáveis ----
-        $taxRates = [
-            ['rate' => 0, 'label' => 'Isento (0%)'],
-            ['rate' => 5, 'label' => 'IVA Reduzido (5%)'],
-            ['rate' => 7, 'label' => 'IVA Cabinda (7%)'],
-            ['rate' => 14, 'label' => 'IVA Normal (14%)'],
-        ];
+        // ---- Taxas de IVA DA EMPRESA ----
+        //
+        // Isto era uma lista fixa — 0, 5, 7 e 14 — igual para toda a gente.
+        // Numa empresa em nao sujeicao punha os 14% ao alcance de um toque, e
+        // um documento emitido assim leva IVA que a empresa nao pode cobrar.
+        // As taxas sao da empresa, como tudo o resto: o aparelho so sincroniza
+        // o que a empresa tem.
+        $taxRates = \App\Models\Invoicing\Tax::where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->orderBy('rate')
+            ->get()
+            ->map(fn ($t) => [
+                'id'             => $t->id,
+                'rate'           => (float) $t->rate,
+                'label'          => $t->name ?: (rtrim(rtrim(number_format((float) $t->rate, 2, ',', ''), '0'), ',') . '%'),
+                'code'           => $t->code,
+                'saft_code'      => $t->saft_code,
+                'exemption_code' => $t->exemption_code,
+                'is_default'     => (bool) $t->is_default,
+            ])
+            ->values()
+            ->all();
+
+        // Sem taxas configuradas, vale a do regime — nunca uma lista inventada.
+        if (!$taxRates) {
+            $meta = optional(\App\Models\Tenant::find($tenantId))->regimeMeta()
+                ?? ['default_rate' => 0, 'tax_code' => 'ISENTO-EXCL', 'exemption_code' => 'M04'];
+
+            $taxRates = [[
+                'id'             => null,
+                'rate'           => (float) ($meta['default_rate'] ?? 0),
+                'label'          => $meta['label'] ?? 'Regime da empresa',
+                'code'           => $meta['tax_code'] ?? null,
+                'saft_code'      => $meta['saft_type'] ?? null,
+                'exemption_code' => $meta['exemption_code'] ?? null,
+                'is_default'     => true,
+            ]];
+        }
 
         // ---- Métodos de pagamento (Tesouraria) ----
         $paymentMethods = collect();
