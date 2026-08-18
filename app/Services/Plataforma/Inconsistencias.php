@@ -47,6 +47,10 @@ class Inconsistencias
                 'descricao'  => 'Empresa registada sem subscrição nenhuma',
                 'severidade' => 'media',
             ],
+            'nif_invalido' => [
+                'descricao'  => 'Empresa com NIF ausente ou que não parece um NIF de empresa',
+                'severidade' => 'alta',
+            ],
         ];
     }
 
@@ -200,5 +204,43 @@ class Inconsistencias
             ['criada_em' => (string) $t->created_at],
             'Confirmar se o registo ficou a meio; se sim, acompanhar o cliente.'
         ))->all();
+    }
+
+    /**
+     * NIF de empresa ausente ou que não parece um NIF de empresa.
+     *
+     * O NIF vai em cada documento fiscal comunicado à AGT — um NIF errado só
+     * aparece quando as facturas começam a ser recusadas, altura em que já há
+     * documentos emitidos com o número errado. O agente assinala; o número
+     * sai sempre MASCARADO (ver App\Support\NifAngolano).
+     */
+    private function verificarNifInvalido(?int $tenantId): array
+    {
+        $q = Tenant::query();
+
+        if ($tenantId) {
+            $q->where('id', $tenantId);
+        }
+
+        $achados = [];
+        foreach ($q->limit(500)->get(['id', 'name', 'nif']) as $t) {
+            $c = \App\Support\NifAngolano::classificar($t->nif);
+
+            if ($c['estado'] === \App\Support\NifAngolano::VALIDO) {
+                continue;
+            }
+
+            $achados[] = $this->achado(
+                'nif_invalido',
+                $t->id,
+                "NIF {$c['estado']}: {$c['motivo']}.",
+                ['nif_mascarado' => $c['mascarado'], 'estado' => $c['estado']],
+                $c['estado'] === \App\Support\NifAngolano::AUSENTE
+                    ? 'Pedir o NIF da empresa antes de emitir documentos.'
+                    : 'Confirmar o NIF com o cliente; corrigir antes de haver mais documentos emitidos.'
+            );
+        }
+
+        return $achados;
     }
 }

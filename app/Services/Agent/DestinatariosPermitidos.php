@@ -33,7 +33,14 @@ class DestinatariosPermitidos
             ];
         }
 
-        $responsavel = $tenant->users()->where('is_active', true)->first();
+        // users.is_active QUALIFICADO: users e a pivot tenant_user tem, ambas,
+        // uma coluna is_active, e sem prefixo o MySQL recusa por ambiguidade
+        // (500 "Column 'is_active' in WHERE is ambiguous"). Queremos a conta
+        // activa (users), e a ligacao activa ao tenant (wherePivot).
+        $responsavel = $tenant->users()
+            ->where('users.is_active', true)
+            ->wherePivot('is_active', true)
+            ->first();
         if ($responsavel) {
             $lista[] = [
                 'handle'   => 'responsavel',
@@ -61,7 +68,10 @@ class DestinatariosPermitidos
         }
 
         if ($handle === 'responsavel') {
-            $u = $tenant->users()->where('is_active', true)->first();
+            $u = $tenant->users()
+                ->where('users.is_active', true)
+                ->wherePivot('is_active', true)
+                ->first();
 
             return $u ? $this->contacto($u->name, $u->email, $u->phone ?? null) : null;
         }

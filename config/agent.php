@@ -128,6 +128,7 @@ return [
         'pedidos_pendentes_antigos',
         'pedidos_duplicados',
         'tenant_sem_subscricao',
+        'nif_invalido',
     ],
 
     /*
