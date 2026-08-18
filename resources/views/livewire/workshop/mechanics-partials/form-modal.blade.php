@@ -33,7 +33,7 @@
                     </label>
                     <input type="text" wire:model="phone" 
                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 @error('phone') border-red-500 @enderror"
-                           placeholder="+244 939 779 902">
+                           placeholder="+244 939 729 902">
                     @error('phone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 

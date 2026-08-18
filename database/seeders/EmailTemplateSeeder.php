@@ -317,7 +317,7 @@ class EmailTemplateSeeder extends Seeder
         </div>
         <div class="footer">
             <p>&copy; ' . date('Y') . ' {app_name}. Todos os direitos reservados.</p>
-            <p style="color: #999; margin-top: 10px;">📧 Email: suporte@soserp.vip | 📞 Telefone: +244 939 779 902</p>
+            <p style="color: #999; margin-top: 10px;">📧 Email: suporte@soserp.vip | 📞 Telefone: +244 939 729 902</p>
         </div>
     </div>
 </body>

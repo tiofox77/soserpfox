@@ -146,14 +146,14 @@
         "geo": {"@type": "GeoCoordinates", "latitude": -8.838333, "longitude": 13.234444},
         "contactPoint": [{
             "@type": "ContactPoint",
-            "telephone": "+244-939-779-902",
+            "telephone": "+244-939-729-902",
             "email": "comercial@soserp.vip",
             "contactType": "sales",
             "areaServed": "AO",
             "availableLanguage": ["Portuguese", "pt-AO"]
         }, {
             "@type": "ContactPoint",
-            "telephone": "+244-939-779-902",
+            "telephone": "+244-939-729-902",
             "email": "suporte@soserp.vip",
             "contactType": "customer support",
             "areaServed": "AO",
@@ -2052,7 +2052,7 @@
                         <li>
                             <div class="flex items-start">
                                 <i class="fas fa-phone mt-1 mr-2 text-blue-400"></i>
-                                <a href="tel:+244939779902" class="hover:text-white">+244 939 779 902</a>
+                                <a href="tel:+244939729902" class="hover:text-white">+244 939 729 902</a>
                             </div>
                         </li>
                         <li>

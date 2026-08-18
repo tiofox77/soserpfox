@@ -188,7 +188,7 @@
                         <li>
                             <div class="flex items-start">
                                 <i class="fas fa-phone mt-1 mr-2 text-blue-400"></i>
-                                <a href="tel:+244939779902" class="hover:text-white">+244 939 779 902</a>
+                                <a href="tel:+244939729902" class="hover:text-white">+244 939 729 902</a>
                             </div>
                         </li>
                         <li>

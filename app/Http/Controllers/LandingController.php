@@ -27,7 +27,7 @@ class LandingController extends Controller
                 'app_description' => SystemSetting::get('app_description', 'Sistema ERP Multi-tenant'),
                 'app_url' => SystemSetting::get('app_url', config('app.url')),
                 'contact_email' => SystemSetting::get('contact_email', 'contato@soserp.vip'),
-                'contact_phone' => SystemSetting::get('contact_phone', '+244 939 779 902'),
+                'contact_phone' => SystemSetting::get('contact_phone', '+244 939 729 902'),
                 
                 // Appearance
                 'app_logo' => SystemSetting::get('app_logo'),
