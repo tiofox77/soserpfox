@@ -55,6 +55,7 @@ class MaintenanceController extends Controller
         'tenant:set-tax-exclusion',
         'planos:trial-automatico',
         'planos:dias-de-teste',
+        'planos:coerencia',
         // Só lê: procura empresa por nome/NIF/email.
         'tenants:procurar',
         'tenant:iniciar-trial',
