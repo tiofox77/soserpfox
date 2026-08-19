@@ -161,8 +161,13 @@
                                 <button wire:click="edit({{ $user->id }})" class="text-blue-600 hover:text-blue-900 mr-3">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                <button wire:click="openPinModal({{ $user->id }})"
+                                        class="{{ $user->temPinPos() ? 'text-emerald-600 hover:text-emerald-900' : 'text-gray-400 hover:text-gray-700' }} mr-3"
+                                        title="{{ $user->temPinPos() ? 'Repor PIN de turno (POS offline)' : 'Definir PIN de turno (POS offline)' }}">
+                                    <i class="fas fa-key"></i>
+                                </button>
                                 @if(!$user->is_super_admin && $user->id != auth()->id())
-                                    <button wire:click="confirmDelete({{ $user->id }})" 
+                                    <button wire:click="confirmDelete({{ $user->id }})"
                                             class="text-red-600 hover:text-red-900 transition">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -493,4 +498,57 @@
     
     {{-- Modal de Exclusão --}}
     @include('livewire.users.partials.delete-modal')
+
+    {{-- Modal: PIN de turno (login offline do POS) --}}
+    @if($showPinModal)
+        <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showPinModal') }" x-show="show" x-cloak>
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" wire:click="closePinModal"></div>
+
+                <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                            <i class="fas fa-key text-emerald-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">PIN de turno</h3>
+                            <p class="text-sm text-gray-500">{{ $pinUserName }}</p>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-gray-500 mb-4">
+                        O PIN abre o turno no POS sem internet. Diga-o ao funcionário por um canal seguro — ele pode mudá-lo depois no seu perfil. Vai para os tablets na próxima sincronização.
+                    </p>
+
+                    <form wire:submit="savePin" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">PIN (4 a 6 dígitos)</label>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                                   wire:model="posPin" autocomplete="off"
+                                   class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-lg text-center tracking-[0.4em] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                            @error('posPin') <span class="text-xs text-rose-600">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Repita o PIN</label>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                                   wire:model="posPinConfirmation" autocomplete="off"
+                                   class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-lg text-center tracking-[0.4em] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" wire:click="closePinModal"
+                                    class="flex-1 py-2.5 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50">
+                                Cancelar
+                            </button>
+                            <button type="submit" wire:loading.attr="disabled"
+                                    class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg">
+                                <span wire:loading.remove wire:target="savePin">Guardar PIN</span>
+                                <span wire:loading wire:target="savePin">A guardar…</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

@@ -309,6 +309,80 @@ class UserManagement extends Component
         $this->dispatch('success', message: "Utilizador {$status} com sucesso!");
     }
 
+    // ── PIN de turno (login offline do POS) ──────────────────────────
+    // O admin define ou repõe o PIN de um funcionário — util para o primeiro
+    // provisionamento e para quem se esqueceu do PIN. O verificador segue para
+    // os tablets na próxima sincronização.
+    public $showPinModal = false;
+    public $pinUserId = null;
+    public $pinUserName = '';
+    public $posPin = '';
+    public $posPinConfirmation = '';
+
+    public function openPinModal($id)
+    {
+        $user = User::findOrFail($id);
+
+        // Só funcionários desta empresa (a não ser super admin).
+        $tenantId = activeTenantId();
+        if (!auth()->user()->is_super_admin && !$user->tenants()->where('tenants.id', $tenantId)->exists()) {
+            $this->dispatch('error', message: 'Sem permissão para este utilizador.');
+            return;
+        }
+
+        $this->pinUserId = $user->id;
+        $this->pinUserName = $user->name;
+        $this->posPin = '';
+        $this->posPinConfirmation = '';
+        $this->resetErrorBag(['posPin']);
+        $this->showPinModal = true;
+    }
+
+    public function savePin()
+    {
+        $this->validate([
+            'posPin' => ['required', 'digits_between:4,6', 'same:posPinConfirmation'],
+        ], [
+            'posPin.required'       => 'Escreva o PIN.',
+            'posPin.digits_between' => 'O PIN tem de ter 4 a 6 dígitos.',
+            'posPin.same'           => 'Os dois PIN não coincidem.',
+        ]);
+
+        $user = User::findOrFail($this->pinUserId);
+
+        $tenantId = activeTenantId();
+        if (!auth()->user()->is_super_admin && !$user->tenants()->where('tenants.id', $tenantId)->exists()) {
+            $this->dispatch('error', message: 'Sem permissão para este utilizador.');
+            return;
+        }
+
+        if (in_array($this->posPin, ['0000', '1111', '1234', '123456', '000000', '111111'], true)) {
+            $this->addError('posPin', 'Escolha um PIN menos óbvio.');
+            return;
+        }
+
+        try {
+            $user->definirPinPos($this->posPin);
+        } catch (\InvalidArgumentException $e) {
+            $this->addError('posPin', $e->getMessage());
+            return;
+        }
+
+        // Não deixar o PIN no snapshot do componente.
+        $this->reset(['posPin', 'posPinConfirmation']);
+        $this->showPinModal = false;
+
+        $this->dispatch('success', message:
+            "PIN de {$this->pinUserName} definido. Vai para os tablets na próxima sincronização.");
+    }
+
+    public function closePinModal()
+    {
+        $this->reset(['posPin', 'posPinConfirmation', 'pinUserId', 'pinUserName']);
+        $this->showPinModal = false;
+        $this->resetErrorBag(['posPin']);
+    }
+
     public $showDeleteModal = false;
     public $deletingUserId = null;
     public $deletingUserName = '';
