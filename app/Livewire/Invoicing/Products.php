@@ -589,6 +589,12 @@ class Products extends Component
             'origin_country' => $this->origin_country,
         ];
 
+        // A gravação vai dentro de um try: uma falha da base de dados subia
+        // como excepção, o Livewire devolvia 500 e o formulário ficava
+        // exactamente na mesma — sem gravar e sem dizer porquê. Quem está do
+        // outro lado carrega em "Criar" outra vez, e outra, sem perceber nada.
+        try {
+
         if ($this->editingProductId) {
             // NUNCA escrever o agregado stock_quantity na edição: é derivado
             // (StockObserver mantém = SUM(invoicing_stocks)). Escrevê-lo aqui
@@ -703,6 +709,20 @@ class Products extends Component
             $this->dispatch('success', message: __('Produto criado com sucesso!'));
         }
 
+        } catch (\Throwable $e) {
+            \Log::error('Products::save falhou', [
+                'tenant_id' => activeTenantId(),
+                'editing'   => $this->editingProductId,
+                'error'     => $e->getMessage(),
+            ]);
+
+            // A mensagem técnica não vai para o ecrã — mas o utilizador tem de
+            // saber que NÃO gravou, em vez de ficar a olhar para o formulário.
+            $this->dispatch('error', message: __('Não foi possível gravar o produto. Verifique os campos e tente de novo.'));
+
+            return;
+        }
+
         $this->closeModal();
     }
 
@@ -811,6 +831,20 @@ class Products extends Component
         // se estraga no dia em que se abre.
         $pao = trim((string) $this->pao_months);
         $this->pao_months = $pao === '' ? null : (int) $pao;
+
+        // Os campos de stock também vêm como TEXTO, e um campo limpo chega
+        // aqui como ''. A validação deixa passar (são nullable), mas o MySQL
+        // recusa '' numa coluna inteira e o INSERT rebentava — o formulário
+        // não gravava e não dizia porquê. O mínimo em branco é 0 (não há
+        // mínimo); o máximo em branco é "sem máximo", ou seja null.
+        $min = trim((string) $this->stock_min);
+        $this->stock_min = $min === '' ? 0 : (int) $min;
+
+        $max = trim((string) $this->stock_max);
+        $this->stock_max = $max === '' ? null : (int) $max;
+
+        $qtd = trim((string) $this->stock_quantity);
+        $this->stock_quantity = $qtd === '' ? 0 : (float) $qtd;
     }
 
     private function resetForm()
