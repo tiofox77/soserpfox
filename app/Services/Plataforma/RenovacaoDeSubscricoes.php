@@ -72,12 +72,22 @@ class RenovacaoDeSubscricoes
                 continue;
             }
 
+            $valor = $this->valorDoProximoPeriodo($sub);
+
+            // Um plano a zero não se cobra. É o caso dos promocionais (FOX
+            // Friendly) e das cortesias: emitir uma factura de 0,00 Kz só
+            // enchia a conta do cliente de papel que não lhe pede nada.
+            if ($valor <= 0) {
+                $ignoradas++;
+                continue;
+            }
+
             $linha = [
                 'tenant_id' => $sub->tenant_id,
                 'empresa'   => $sub->tenant->name,
                 'plano'     => $sub->plan->name,
                 'termina'   => $sub->current_period_end->toDateString(),
-                'valor'     => $this->valorDoProximoPeriodo($sub),
+                'valor'     => $valor,
             ];
 
             if ($soVer) {

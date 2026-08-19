@@ -148,6 +148,19 @@ class RenovacaoDeSubscricoesTest extends TenantTestCase
         $this->assertSame(250000.0, (float) $factura->total);
     }
 
+    public function test_um_plano_a_zero_nao_gera_factura(): void
+    {
+        // Promocionais e cortesias: uma factura de 0,00 Kz não pede nada a
+        // ninguém e só enche a conta do cliente de papel.
+        $gratis = $this->plano(['price_monthly' => 0, 'price_yearly' => 0]);
+        $this->subscricao(3, ['plan_id' => $gratis->id, 'amount' => 0]);
+
+        $r = $this->renovacao->emitirFacturasAVencer();
+
+        $this->assertSame(0, $r['emitidas']);
+        $this->assertSame(0, Invoice::where('tenant_id', $this->tenant->id)->count());
+    }
+
     public function test_so_ver_nao_grava_nada(): void
     {
         $this->subscricao(3);

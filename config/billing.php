@@ -11,21 +11,24 @@ return [
     | (ver App\Services\Plataforma\RenovacaoDeSubscricoes) à boleia do tráfego,
     | uma vez por hora — ver App\Http\Middleware\FacturarRenovacoes.
     |
-    | NASCE DESLIGADO DE PROPÓSITO. Uma factura é um documento que o cliente vê
-    | e sobre o qual lhe é pedido dinheiro; a primeira passagem em produção
-    | emite de uma vez as contas de TODAS as subscrições a acabar nos próximos
-    | dias, e isso deve ser visto antes de acontecer. O caminho é:
+    | Uma factura é um documento que o cliente vê e sobre o qual lhe é pedido
+    | dinheiro, pelo que a primeira passagem em produção NÃO se dá às cegas:
+    | vê-se primeiro o que ela faria, e só depois se liga.
     |
     |   1. php artisan subscriptions:renovar --so-ver   (não grava nada)
     |   2. conferir a lista
-    |   3. ligar aqui, ou pôr RENOVACAO_AUTOMATICA=true no .env
+    |   3. ligar aqui, ou pôr RENOVACAO_AUTOMATICA=false no .env para desligar
+    |
+    | Feito a 19/08/2026: a leitura seca em produção deu zero facturas a
+    | emitir (a renovação mais próxima é a 18/09/2026), pelo que ligar não
+    | emitiu nada nesse momento. Fica ligado a partir daqui.
     |
     | Desligado, o comando continua a existir e pode ser corrido à mão; o que
     | não acontece é a emissão sozinha.
     |
     */
 
-    'renovacao_automatica' => env('RENOVACAO_AUTOMATICA', false),
+    'renovacao_automatica' => env('RENOVACAO_AUTOMATICA', true),
 
     /*
     |--------------------------------------------------------------------------
