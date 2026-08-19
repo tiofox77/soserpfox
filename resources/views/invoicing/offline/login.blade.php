@@ -29,7 +29,8 @@
     <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
     {{-- O MESMO motor do resto do PWA. Uma segunda base aqui dentro era um
          segundo sistema de login offline, cego ao que o outro guardou. --}}
-    <script src="{{ asset('js/pwa-invoicing.js') }}"></script>
+    <script src="/js/vendor/bcrypt.min.js?v=1"></script>
+    <script src="{{ asset('js/pwa-invoicing.js') }}?v=18"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-900 to-blue-700 min-h-screen flex items-center justify-center p-4">
 
@@ -85,25 +86,33 @@
         {{-- Sem rede: confere-se contra o acesso offline guardado no aparelho
              pela barra "Ativar login offline", ja dentro da aplicacao. --}}
         <div x-show="!online" x-cloak>
-            <template x-if="!temVerificador">
+            <template x-if="!temAcessoOffline">
                 <div class="text-center py-4">
                     <i class="fas fa-wifi text-3xl text-amber-500 mb-2"></i>
-                    <p class="text-sm font-semibold text-gray-800">{{ __('Este aparelho não tem acesso offline activado.') }}</p>
+                    <p class="text-sm font-semibold text-gray-800">{{ __('Este aparelho ainda não sincronizou a empresa.') }}</p>
                     <p class="text-xs text-gray-500 mt-1">
-                        {{ __('Entre uma vez com ligação e active em "Ativar login offline". Depois passa a funcionar sem rede.') }}
+                        {{ __('Ligue à internet e sincronize uma vez. Depois, qualquer funcionário com PIN entra sem rede.') }}
+                    </p>
+                    <p x-show="janelaExpirada" x-cloak class="text-xs text-amber-700 mt-2 font-semibold">
+                        {{ __('O acesso offline deste aparelho caducou. É preciso sincronizar de novo com internet.') }}
                     </p>
                 </div>
             </template>
 
-            <template x-if="temVerificador">
+            {{-- Qualquer funcionário activo da empresa entra com o seu email e
+                 o PIN de turno — mesmo que nunca tenha usado este aparelho. --}}
+            <template x-if="temAcessoOffline">
                 <form @submit.prevent="entrarLocal">
-                    <p class="text-xs text-gray-500 mb-1">{{ __('Conta guardada neste aparelho') }}</p>
-                    <p class="text-sm font-bold text-gray-900 mb-3" x-text="nomeGuardado"></p>
-                    <input type="hidden" x-model="email">
+                    <label class="block text-xs font-bold text-gray-600 mb-1">{{ __('Email') }}</label>
+                    <input type="email" x-model="email" required autocomplete="username"
+                           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm mb-3"
+                           placeholder="seu@email.com">
 
-                    <label class="block text-xs font-bold text-gray-600 mb-1">{{ __('Palavra-passe') }}</label>
-                    <input type="password" x-model="password" required autocomplete="current-password"
-                           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm mb-4">
+                    <label class="block text-xs font-bold text-gray-600 mb-1">{{ __('PIN de turno') }}</label>
+                    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                           x-model="pin" required autocomplete="off"
+                           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-lg text-center tracking-[0.4em] mb-4"
+                           placeholder="••••">
 
                     <p x-show="erro" x-cloak class="text-red-600 text-xs mb-3" x-text="erro"></p>
 
@@ -114,7 +123,7 @@
                     </button>
 
                     <p class="text-[11px] text-gray-400 mt-3 leading-snug">
-                        {{ __('Entra no que já está guardado neste aparelho. As vendas ficam em fila e sobem ao servidor assim que houver rede.') }}
+                        {{ __('O PIN define-se com internet, em "PIN de turno". As vendas ficam em fila e sobem ao servidor assim que houver rede.') }}
                     </p>
                 </form>
             </template>
@@ -145,18 +154,19 @@ async function pwa() {
 const URL_POS         = @json(route('invoicing.offline.pos'));
 const MSG_SEM_MOTOR   = @json(__('O motor offline ainda não carregou. Tente outra vez.'));
 const MSG_EXPIRADO    = @json(__('O acesso offline deste aparelho expirou. É preciso entrar uma vez com ligação.'));
-const MSG_NAO_CONFERE = @json(__('Email ou palavra-passe que não conferem.'));
+const MSG_NAO_CONFERE = @json(__('Email ou PIN que não conferem.'));
 const MSG_FALHOU      = @json(__('Não foi possível verificar neste aparelho.'));
+const MSG_TRANCADO    = @json(__('Demasiadas tentativas. Espere :seg segundos.'));
 
 function pwaLogin() {
     return {
         online: navigator.onLine,
         email: '',
-        password: '',
+        pin: '',
         erro: '',
         ocupado: false,
-        temVerificador: false,
-        nomeGuardado: '',
+        temAcessoOffline: false,
+        janelaExpirada: false,
         pendentes: 0,
 
         async arranque() {
@@ -167,14 +177,20 @@ function pwaLogin() {
             if (!p) return;
 
             try {
-                // Quem já activou o acesso offline não volta a ser perguntado
-                // quem é: o aparelho sabe. Só falta a palavra-passe.
+                // Há acesso offline se a empresa já foi sincronizada (há
+                // funcionários com PIN e a janela não caducou) ou se ainda
+                // existe o verificador legado de um operador.
                 const info = await p.getOfflineAuthInfo();
 
-                if (info && !info.expired) {
-                    this.temVerificador = true;
-                    this.email = info.email;
-                    this.nomeGuardado = info.name || info.email;
+                const temFuncionarios = info && info.employees > 0 && !info.window_expired;
+                const temLegado = info && info.legacy && new Date(info.legacy.expires_at) >= new Date();
+
+                this.temAcessoOffline = !!(temFuncionarios || temLegado);
+                this.janelaExpirada = !!(info && info.employees > 0 && info.window_expired);
+
+                // Num aparelho legado (um só operador), pré-preenche o email.
+                if (!temFuncionarios && temLegado) {
+                    this.email = info.legacy.email;
                 }
 
                 this.pendentes = await p.db.sync_queue.where('status').equals('pending').count();
@@ -194,12 +210,21 @@ function pwaLogin() {
                     return;
                 }
 
-                const r = await p.verifyOfflineAuth(this.email, this.password);
+                const r = await p.verifyOfflineAuth(this.email, this.pin);
 
                 if (!r.ok) {
-                    // Uma mensagem só para email errado e palavra-passe errada:
-                    // distingui-las é dizer a quem tenta se o email existe.
-                    this.erro = (r.reason === 'EXPIRED') ? MSG_EXPIRADO : MSG_NAO_CONFERE;
+                    if (r.reason === 'LOCKED') {
+                        const seg = Math.max(1, Math.ceil((r.until - Date.now()) / 1000));
+                        this.erro = MSG_TRANCADO.replace(':seg', seg);
+                    } else if (r.reason === 'EXPIRED_WINDOW' || r.reason === 'EXPIRED') {
+                        this.erro = MSG_EXPIRADO;
+                        this.temAcessoOffline = false;
+                        this.janelaExpirada = true;
+                    } else {
+                        // Uma mensagem só para email e PIN: distingui-los diria
+                        // a quem tenta se o email existe.
+                        this.erro = MSG_NAO_CONFERE;
+                    }
                     return;
                 }
 
@@ -208,7 +233,7 @@ function pwaLogin() {
                 this.erro = MSG_FALHOU;
             } finally {
                 this.ocupado = false;
-                this.password = '';
+                this.pin = '';
             }
         },
     };

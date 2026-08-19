@@ -3,7 +3,7 @@
  * Cache imersivo + Offline parcial
  */
 
-const CACHE_VERSION = 'soserp-v1.0.0';
+const CACHE_VERSION = 'soserp-v1.1.0';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -44,6 +44,9 @@ const PRECACHE_URLS = [
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-regular-400.woff2',
     'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js',
+
+    // bcryptjs — verifica o PIN de turno offline (self-hosted).
+    '/js/vendor/bcrypt.min.js?v=1',
 ];
 
 // Rotas que NUNCA devem ser cacheadas

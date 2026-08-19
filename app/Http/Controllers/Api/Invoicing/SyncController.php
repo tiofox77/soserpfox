@@ -397,6 +397,11 @@ class SyncController extends Controller
         return response()->json([
             'server_time' => now()->toIso8601String(),
             'tenant_id' => $tenantId,
+            // Até quando o login offline continua válido sem nova sincronização.
+            // Passada esta janela, o tablet recusa qualquer login offline e
+            // obriga a sincronizar — o que reflecte quem saiu da empresa ou
+            // mudou de PIN, e desactiva um aparelho perdido.
+            'offline_valid_until' => now()->addDays(14)->toIso8601String(),
             'user' => [
                 'id' => auth()->id(),
                 'name' => auth()->user()->name,
@@ -405,6 +410,12 @@ class SyncController extends Controller
                 // porque é com ele que se entra quando não há internet.
                 'email' => auth()->user()->email,
             ],
+            // TODOS os funcionários activos COM PIN definido, para qualquer um
+            // poder abrir turno offline neste aparelho — mesmo que nunca cá
+            // tenha entrado. Vai o verificador (bcrypt do PIN), nunca o PIN.
+            // Lista completa e autoritária: o cliente substitui a sua por esta,
+            // por isso quem for desactivado desaparece na próxima sincronização.
+            'employees' => $this->buildEmployees($tenant),
             'company' => [
                 'name' => $tenant->company_name ?? $tenant->name ?? 'Empresa',
                 'nif' => $tenant->nif ?? '',
@@ -446,6 +457,32 @@ class SyncController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Os funcionários activos que podem abrir turno offline neste aparelho.
+     *
+     * Só entram os que estão activos (conta E ligação ao tenant) e que já
+     * definiram um PIN — sem PIN não há como entrar offline. Vai o email
+     * (identificador offline) e o verificador bcrypt do PIN, já normalizado
+     * para o bcryptjs do tablet. Nunca vai o PIN nem a password.
+     */
+    private function buildEmployees(\App\Models\Tenant $tenant): array
+    {
+        return $tenant->users()
+            ->where('users.is_active', true)
+            ->wherePivot('is_active', true)
+            ->whereNotNull('users.pos_pin_hash')
+            ->get()
+            ->map(fn (\App\Models\User $u) => [
+                'id'         => $u->id,
+                'name'       => $u->name,
+                'email'      => mb_strtolower(trim($u->email)),
+                'pin_hash'   => $u->verificadorPinPos(),
+                'updated_at' => optional($u->pos_pin_set_at)->toIso8601String(),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

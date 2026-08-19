@@ -43,6 +43,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        // O hash do PIN nunca vai numa serializacao normal do utilizador.
+        'pos_pin_hash',
     ];
 
     /**
@@ -59,7 +61,56 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'last_password_changed' => 'datetime',
+            'pos_pin_set_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Define o PIN de turno (4 a 6 dígitos) para login offline no POS.
+     *
+     * Guarda-se sempre com BCRYPT — nunca argon — porque é o bcryptjs no
+     * tablet que o vai verificar sem rede, e esse só entende bcrypt. O PIN
+     * em claro não se guarda em lado nenhum.
+     *
+     * @throws \InvalidArgumentException se o PIN não tiver 4 a 6 dígitos
+     */
+    public function definirPinPos(string $pin): void
+    {
+        if (!preg_match('/^\d{4,6}$/', $pin)) {
+            throw new \InvalidArgumentException('O PIN tem de ter 4 a 6 dígitos.');
+        }
+
+        // Custo 12: uma verificação legítima é rápida, mas força bruta a um
+        // PIN de baixa entropia fica cara o suficiente para a janela curta de
+        // validade offline (14 dias) a tornar inútil.
+        $this->pos_pin_hash = \Illuminate\Support\Facades\Hash::driver('bcrypt')
+            ->make($pin, ['rounds' => 12]);
+        $this->pos_pin_set_at = now();
+        $this->save();
+    }
+
+    public function temPinPos(): bool
+    {
+        return !empty($this->pos_pin_hash);
+    }
+
+    /**
+     * O verificador do PIN, pronto para o bcryptjs do tablet.
+     *
+     * O Laravel produz hashes com prefixo $2y$; algumas versões do bcryptjs
+     * só reconhecem $2a$/$2b$. O algoritmo é idêntico — só o prefixo difere —
+     * por isso normaliza-se para $2a$ antes de enviar. Nunca sai daqui o PIN,
+     * só o hash.
+     */
+    public function verificadorPinPos(): ?string
+    {
+        if (empty($this->pos_pin_hash)) {
+            return null;
+        }
+
+        // O prefixo $2y$ só aparece no início de um hash bcrypt, por isso o
+        // str_replace é seguro e mais claro que um preg_replace com $.
+        return str_replace('$2y$', '$2a$', $this->pos_pin_hash);
     }
 
     // Relacionamentos

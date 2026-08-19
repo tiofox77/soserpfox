@@ -36,6 +36,12 @@
         iec_pautais: 'pautal_code',
         is_verbas: 'verba_no',
     });
+    // v5 — funcionários do tenant para login offline (PIN de turno).
+    // Aditiva: não toca em products, sync_queue nem pos_sales — a fila de
+    // vendas por sincronizar não é afectada por este upgrade.
+    db.version(5).stores({
+        employees: 'email, id',
+    });
 
     // ========================
     // STATE
@@ -404,33 +410,64 @@
             // Sync online bem-sucedido → sessão Laravel válida → desbloqueia este tab.
             try { sessionStorage.setItem('pwa_unlocked', '1'); } catch (_) {}
 
-            // ---- WIPE ao trocar de utilizador ----
-            // Se o user.id mudou (outro operador fez login no mesmo browser)
-            // limpa dados sensíveis preservando a fila de sincronização.
-            const prevUser = await db.meta.get('user');
-            const prevId = prevUser?.value?.id;
-            const newId = json.user?.id;
-            if (prevId && newId && prevId !== newId) {
-                console.warn('[PWA] Utilizador mudou (' + prevId + '→' + newId + ') — a limpar dados locais');
+            // ---- WIPE ao trocar de EMPRESA ----
+            // Antes limpava-se ao trocar de UTILIZADOR — mas agora o aparelho
+            // guarda os dados de toda a empresa (produtos, funcionários) para
+            // qualquer funcionário entrar offline. Trocar de operador da MESMA
+            // empresa não pode apagar o catálogo nem a lista de funcionários.
+            // Só quando o TENANT muda (o aparelho passou a ser de outra
+            // empresa) é que se limpa tudo o que é dessa empresa. A fila de
+            // sincronização é sempre preservada.
+            const prevTenantMeta = await db.meta.get('tenant_id');
+            const prevTenant = prevTenantMeta?.value;
+            const newTenant = json.tenant_id;
+            if (prevTenant && newTenant && prevTenant !== newTenant) {
+                console.warn('[PWA] Empresa mudou (' + prevTenant + '→' + newTenant + ') — a limpar dados locais');
                 await db.products.clear();
                 await db.clients.clear();
                 await db.series.clear();
                 await db.tax_rates.clear();
                 await db.draft_documents.clear();
                 await db.pos_sales.clear();
+                await db.employees.clear();
                 // sync_queue é preservada intencionalmente
                 await db.meta.delete('shift');
                 await db.meta.delete('last_sync');
                 await db.meta.delete('catalog_version');
-                await db.meta.delete('auth_cache'); // login offline do operador anterior
+                await db.meta.delete('auth_cache'); // login offline legado da empresa anterior
+                await db.meta.delete('offline_valid_until');
+                await db.meta.delete('pin_attempts');
                 try { sessionStorage.removeItem('pwa_unlocked'); } catch (_) {}
-                window.dispatchEvent(new CustomEvent('pwa:user-changed', {
-                    detail: { prev: prevId, next: newId },
+                window.dispatchEvent(new CustomEvent('pwa:tenant-changed', {
+                    detail: { prev: prevTenant, next: newTenant },
                 }));
             }
 
             await db.meta.put({ key: 'user', value: json.user });
             await db.meta.put({ key: 'tenant_id', value: json.tenant_id });
+
+            // ---- Funcionários para login offline ----
+            // Lista completa e autoritária: substitui-se a local por esta, para
+            // quem foi desactivado desaparecer. Guardam-se só os verificadores
+            // (bcrypt do PIN), nunca o PIN. É isto que deixa QUALQUER
+            // funcionário activo abrir turno offline neste aparelho.
+            if (Array.isArray(json.employees)) {
+                await db.employees.clear();
+                if (json.employees.length) {
+                    await db.employees.bulkPut(json.employees.map(e => ({
+                        email: (e.email || '').toLowerCase().trim(),
+                        id: e.id,
+                        name: e.name,
+                        pin_hash: e.pin_hash,
+                        updated_at: e.updated_at || null,
+                    })));
+                }
+            }
+            // Até quando o login offline vale sem nova sincronização.
+            if (json.offline_valid_until) {
+                await db.meta.put({ key: 'offline_valid_until', value: json.offline_valid_until });
+            }
+
             if (json.company) {
                 await db.meta.put({ key: 'company', value: json.company });
             }
@@ -1182,33 +1219,120 @@
             return true;
         },
 
+        // ---- Verificação do PIN com bcrypt (o mesmo hash que o servidor) ----
+        // O bcryptjs é servido pelo próprio domínio e está em cache do SW, por
+        // isso funciona sem rede. A forma com callback não tranca o ecrã.
+        _bcryptCompare(secret, hash) {
+            const bc = window.bcrypt || (window.dcodeIO && window.dcodeIO.bcrypt);
+            return new Promise((resolve) => {
+                if (!bc || !hash) return resolve(false);
+                try { bc.compare(String(secret), hash, (err, ok) => resolve(!err && !!ok)); }
+                catch (_) { resolve(false); }
+            });
+        },
+
+        // A janela de validade offline (14 dias). Sem valor guardado (sync
+        // antigo) não se bloqueia, para não trancar aparelhos já provisionados.
+        async _offlineWindowOk() {
+            const m = await db.meta.get('offline_valid_until');
+            if (!m?.value) return true;
+            return new Date(m.value) >= new Date();
+        },
+
+        // ---- Trava anti-força-bruta por funcionário ----
+        // Um PIN é de baixa entropia; sem trava, um tablet roubado permitiria
+        // tentar milhares de PIN. 5 falhas → 60 s de espera.
+        async _pinLockedUntil(email) {
+            const all = (await db.meta.get('pin_attempts'))?.value || {};
+            const until = all[email]?.until || 0;
+            return until > Date.now() ? until : 0;
+        },
+        async _recordPinFail(email) {
+            const all = (await db.meta.get('pin_attempts'))?.value || {};
+            const rec = all[email] || { count: 0, until: 0 };
+            rec.count = (rec.count || 0) + 1;
+            if (rec.count >= 5) { rec.until = Date.now() + 60000; rec.count = 0; }
+            all[email] = rec;
+            await db.meta.put({ key: 'pin_attempts', value: all });
+        },
+        async _resetPinFail(email) {
+            const all = (await db.meta.get('pin_attempts'))?.value || {};
+            if (all[email]) { delete all[email]; await db.meta.put({ key: 'pin_attempts', value: all }); }
+        },
+
         async isOfflineAuthEnabled() {
+            // Novo modelo: há funcionários sincronizados e a janela é válida.
+            const count = await db.employees.count();
+            if (count > 0 && await this._offlineWindowOk()) return true;
+            // Recurso: o verificador legado de um único operador.
             const m = await db.meta.get('auth_cache');
-            if (!m?.value) return false;
-            if (new Date(m.value.expires_at) < new Date()) return false;
-            return true;
+            if (m?.value && new Date(m.value.expires_at) >= new Date()) return true;
+            return false;
         },
 
         async getOfflineAuthInfo() {
-            const m = await db.meta.get('auth_cache');
-            if (!m?.value) return null;
+            const count = await db.employees.count();
+            const win = await db.meta.get('offline_valid_until');
+            const legacy = await db.meta.get('auth_cache');
             return {
-                email: m.value.email,
-                name: m.value.name,
-                expires_at: m.value.expires_at,
-                expired: new Date(m.value.expires_at) < new Date(),
+                employees: count,
+                valid_until: win?.value || null,
+                window_expired: win?.value ? new Date(win.value) < new Date() : false,
+                legacy: legacy?.value ? {
+                    email: legacy.value.email,
+                    name: legacy.value.name,
+                    expires_at: legacy.value.expires_at,
+                } : null,
             };
         },
 
-        async verifyOfflineAuth(email, password) {
+        /**
+         * Entra offline. `secret` é o PIN de turno (modelo novo) ou a password
+         * (verificador legado). Descobre-se qual pelo email: se o email está na
+         * lista de funcionários, é PIN via bcrypt; senão, tenta o cache legado.
+         */
+        async verifyOfflineAuth(email, secret) {
+            const mail = (email || '').toLowerCase().trim();
+            if (!mail || !secret) return { ok: false, reason: 'MISSING' };
+
+            const lockedUntil = await this._pinLockedUntil(mail);
+            if (lockedUntil) return { ok: false, reason: 'LOCKED', until: lockedUntil };
+
+            // ---- Modelo novo: funcionário com PIN ----
+            const emp = await db.employees.get(mail);
+            if (emp && emp.pin_hash) {
+                if (!(await this._offlineWindowOk())) {
+                    return { ok: false, reason: 'EXPIRED_WINDOW' };
+                }
+                const ok = await this._bcryptCompare(secret, emp.pin_hash);
+                if (!ok) {
+                    await this._recordPinFail(mail);
+                    return { ok: false, reason: 'BAD_PIN' };
+                }
+                await this._resetPinFail(mail);
+                // O operador que entra passa a ser o operador activo — é ele
+                // que o talão e a comunicação AGT vão registar.
+                const tenantId = (await db.meta.get('tenant_id'))?.value || null;
+                await db.meta.put({ key: 'user', value: {
+                    id: emp.id, name: emp.name, email: mail, tenant_id: tenantId,
+                } });
+                try { sessionStorage.setItem('pwa_unlocked', '1'); } catch (_) {}
+                try { sessionStorage.setItem('pwa_unlocked_at', new Date().toISOString()); } catch (_) {}
+                return { ok: true, name: emp.name, email: mail };
+            }
+
+            // ---- Recurso: verificador legado (SHA-256 da password) ----
             const m = await db.meta.get('auth_cache');
             if (!m?.value) return { ok: false, reason: 'NO_CACHE' };
             const cache = m.value;
             if (new Date(cache.expires_at) < new Date()) return { ok: false, reason: 'EXPIRED' };
-            if ((email || '').toLowerCase().trim() !== cache.email) return { ok: false, reason: 'EMAIL_MISMATCH' };
-            const hash = await this._hashCredentials(email, password, cache.salt);
-            if (hash !== cache.hash) return { ok: false, reason: 'BAD_PASSWORD' };
-            // Sucesso — desbloqueia este tab
+            if (mail !== cache.email) return { ok: false, reason: 'EMAIL_MISMATCH' };
+            const hash = await this._hashCredentials(mail, secret, cache.salt);
+            if (hash !== cache.hash) {
+                await this._recordPinFail(mail);
+                return { ok: false, reason: 'BAD_PASSWORD' };
+            }
+            await this._resetPinFail(mail);
             try { sessionStorage.setItem('pwa_unlocked', '1'); } catch (_) {}
             try { sessionStorage.setItem('pwa_unlocked_at', new Date().toISOString()); } catch (_) {}
             return { ok: true, name: cache.name, email: cache.email };

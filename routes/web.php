@@ -166,6 +166,8 @@ Route::post('/invoicing/offline/sair', \App\Http\Controllers\Invoicing\PwaSairCo
     ->name('invoicing.offline.sair');
 
 Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offline.')->group(function () {
+    // O funcionario define/muda o PIN de turno (login offline no POS).
+    Route::get('pin', \App\Livewire\Invoicing\Offline\DefinirPin::class)->name('pin');
     Route::get('/', fn() => view('invoicing.offline.index'))->name('index');
     Route::get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
     Route::get('/clients', fn() => view('invoicing.offline.clients'))->name('clients');

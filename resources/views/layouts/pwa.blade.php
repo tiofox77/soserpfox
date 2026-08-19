@@ -17,6 +17,10 @@
     {{-- Dexie (IndexedDB wrapper) --}}
     <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
 
+    {{-- bcryptjs — verifica o PIN de turno offline. Servido pelo próprio
+         domínio e pré-cacheado no Service Worker, para funcionar sem rede. --}}
+    <script src="/js/vendor/bcrypt.min.js?v=1"></script>
+
     {{-- Alpine.js --}}
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
@@ -276,7 +280,7 @@
         window.SOS_USER_NAME = @json(auth()->user()?->name);
     </script>
 
-    <script src="/js/pwa-invoicing.js?v=17"></script>
+    <script src="/js/pwa-invoicing.js?v=18"></script>
     <script src="/js/pos-offline-ticket.js?v=3"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
@@ -292,13 +296,15 @@
 
         const URLS = [
             '{{ route('invoicing.offline.index') }}',
+            '{{ route('invoicing.offline.login') }}',
             '{{ route('invoicing.offline.catalog') }}',
             '{{ route('invoicing.offline.pos') }}',
             '{{ route('invoicing.offline.clients') }}',
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=17',
+            '/js/pwa-invoicing.js?v=18',
+            '/js/vendor/bcrypt.min.js?v=1',
             '/js/pos-offline-ticket.js?v=3',
             '/manifest.webmanifest',
         ];
@@ -421,10 +427,17 @@
         function showOverlay(info) {
             overlay.classList.remove('hidden');
             const emailInput = document.getElementById('pwa-offline-login-email');
-            if (info?.email) {
-                emailInput.value = info.email;
+            // Modelo novo (funcionários com PIN): qualquer um entra, email
+            // editável. Legado (um só operador): pré-preenche o email guardado.
+            const legadoEmail = (info && info.employees === 0 && info.legacy) ? info.legacy.email : null;
+            if (legadoEmail) {
+                emailInput.value = legadoEmail;
                 emailInput.readOnly = true;
-                subtitle.textContent = 'Insira a password de ' + info.email;
+                subtitle.textContent = 'Insira a palavra-passe de ' + legadoEmail;
+            } else {
+                emailInput.value = '';
+                emailInput.readOnly = false;
+                subtitle.textContent = 'Entre com o seu email e PIN de turno';
             }
             document.getElementById('pwa-offline-login-password').focus();
         }
@@ -468,11 +481,12 @@
                     hideOverlay();
                     window.dispatchEvent(new CustomEvent('pwa:offline-login-success', { detail: res }));
                 } else {
-                    let msg = 'Credenciais inválidas';
-                    if (res.reason === 'EXPIRED')        msg = 'Cache expirou — ligue-se à internet e faça login.';
-                    else if (res.reason === 'NO_CACHE')  msg = 'Login offline não está configurado.';
+                    let msg = 'Email ou PIN que não conferem.';
+                    if (res.reason === 'LOCKED')              msg = 'Demasiadas tentativas. Aguarde um momento.';
+                    else if (res.reason === 'EXPIRED' || res.reason === 'EXPIRED_WINDOW')
+                                                             msg = 'O acesso offline caducou — sincronize com internet.';
+                    else if (res.reason === 'NO_CACHE')      msg = 'Este aparelho ainda não sincronizou a empresa.';
                     else if (res.reason === 'EMAIL_MISMATCH') msg = 'Este email não está registado offline.';
-                    else if (res.reason === 'BAD_PASSWORD')   msg = 'Password incorreta.';
                     errEl.textContent = msg;
                     errEl.classList.remove('hidden');
                 }
