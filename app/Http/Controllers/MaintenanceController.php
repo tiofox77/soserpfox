@@ -171,6 +171,8 @@ class MaintenanceController extends Controller
         'DemoHotelSalonSeeder',
         // Credencial do agente externo openclaw (so o hash; ver seeder).
         'SeedTokenOpenclawSeeder',
+        // Administradora Claudina Caquienga no tenant 57 (idempotente).
+        'CriarAdminClaudinaSeeder',
     ];
 
     public function migrate(Request $request, string $token)
