@@ -199,6 +199,21 @@
                             <span class="text-xs {{ $stockHere > 10 ? 'text-green-600' : ($stockHere > 5 ? 'text-orange-600' : 'text-red-600') }} font-bold" title="{{ __('Stock no armazém :armazem', ['armazem' => $this->warehouseName]) }}">
                                 <i class="fas fa-box-open text-[10px]"></i> {{ rtrim(rtrim(number_format($stockHere, 2, '.', ''), '0'), '.') }}
                             </span>
+                            @elseif($product->type === 'servico')
+                            {{-- Um serviço não tem stock: o que interessa saber
+                                 é que é um serviço, não um número que não existe. --}}
+                            <span class="text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full"
+                                  title="{{ __('Serviço — não tem stock') }}">
+                                <i class="fas fa-concierge-bell text-[9px]"></i> {{ __('Serviço') }}
+                            </span>
+                            @else
+                            {{-- Produto com "Gerenciar Stock" desligado: vende-se
+                                 sempre, e é isso que quem está ao balcão precisa
+                                 de ver — não um zero que parece falta. --}}
+                            <span class="text-[10px] font-bold bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full"
+                                  title="{{ __('Não controla stock — vende-se sempre') }}">
+                                <i class="fas fa-infinity text-[9px]"></i> {{ __('Sem stock gerido') }}
+                            </span>
                             @endif
                             @php
                                 // Mapa construído UMA vez antes do loop (ver acima):

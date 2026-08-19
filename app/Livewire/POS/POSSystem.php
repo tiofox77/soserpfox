@@ -530,6 +530,20 @@ class POSSystem extends Component
             return;
         }
 
+        // Artigo de um módulo de negócio: vende-se no POS desse módulo, não
+        // aqui. A grelha já não o mostra, mas o id vem do browser — a grelha
+        // filtra, não protege.
+        if (filled($product->module)) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => '❌ ' . __(':artigo vende-se no POS do módulo :modulo.', [
+                    'artigo' => $product->name,
+                    'modulo' => $product->module,
+                ]),
+            ]);
+            return;
+        }
+
         // Artigos que não controlam stock (serviços e produtos com "Gerenciar
         // Stock" desligado) vendem-se sempre — sem validação de disponibilidade
         // e sem lotes. Entram directos no carrinho.
@@ -1560,6 +1574,12 @@ class POSSystem extends Component
 
         $productsQuery = Product::where('invoicing_products.tenant_id', $tenantId)
             ->where('invoicing_products.is_active', true)
+            // Artigos de um MÓDULO de negócio (hoje: salão) não se vendem aqui.
+            // Um "Corte de Cabelo" existe em invoicing_products só para a linha
+            // da factura ter artigo de catálogo — quem o marca e cobra é o POS
+            // do salão, que sabe do profissional, da duração e da marcação.
+            // Ao balcão da facturação era um artigo solto, sem nada disso.
+            ->whereNull('invoicing_products.module')
             ->leftJoin('invoicing_stocks', function ($join) use ($whId, $tenantId) {
                 $join->on('invoicing_stocks.product_id', '=', 'invoicing_products.id')
                      ->where('invoicing_stocks.tenant_id', $tenantId)

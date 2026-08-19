@@ -74,6 +74,10 @@ class SyncController extends Controller
                 $q->where('invoicing_products.is_active', true)
                   ->orWhereNull('invoicing_products.is_active');
             })
+            // Artigos de um MÓDULO de negócio (salão) não vão para o POS
+            // offline: vendem-se no POS do próprio módulo, que precisa de
+            // marcação e profissional — coisas que o balcão não tem.
+            ->whereNull('invoicing_products.module')
             ->leftJoin('invoicing_stocks', function ($join) use ($whId, $tenantId) {
                 $join->on('invoicing_stocks.product_id', '=', 'invoicing_products.id')
                      ->where('invoicing_stocks.tenant_id', $tenantId)

@@ -102,10 +102,23 @@
                             </div>
                             <div class="mt-auto pt-1.5 flex items-center justify-between gap-1">
                                 <span class="font-bold text-blue-700 text-sm whitespace-nowrap" x-text="formatMoney(p.price)"></span>
+                                {{-- Três estados, os mesmos do POS online: com
+                                     stock gerido mostra-se o número; serviço
+                                     diz-se que é serviço; e um produto sem
+                                     gestão de stock diz que se vende sempre —
+                                     um zero ali parecia falta de stock. --}}
                                 <span x-show="p.type !== 'servico' && p.manage_stock !== false"
                                       :class="(p.stock_quantity > 0) ? 'bg-gray-100 text-gray-500' : 'bg-red-100 text-red-600'"
                                       class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap"
                                       x-text="(p.stock_quantity > 0) ? p.stock_quantity : __('Esgot.')"></span>
+                                <span x-show="p.type === 'servico'" x-cloak
+                                      class="text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    {{ __('Serviço') }}
+                                </span>
+                                <span x-show="p.type !== 'servico' && p.manage_stock === false" x-cloak
+                                      class="text-[10px] font-bold bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    {{ __('Sem stock gerido') }}
+                                </span>
                             </div>
                         </button>
                     </template>
