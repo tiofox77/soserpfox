@@ -11,7 +11,7 @@ class LandingController extends Controller
     public function home()
     {
         try {
-            $plans = Plan::where('is_active', true)
+            $plans = Plan::publico()
                          ->orderBy('order')
                          ->get();
             

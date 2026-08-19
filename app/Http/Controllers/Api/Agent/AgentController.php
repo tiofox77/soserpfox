@@ -223,7 +223,7 @@ class AgentController extends Controller
      */
     public function planos()
     {
-        $planos = \App\Models\Plan::where('is_active', true)
+        $planos = \App\Models\Plan::publico()
             ->orderBy('order')
             ->get()
             ->map(fn ($p) => [

@@ -327,6 +327,11 @@
                                 <button wire:click="managePlan({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors">
                                     <i class="fas fa-crown mr-1.5"></i>Plano
                                 </button>
+                                <button wire:click="abrirPlanoAMedida({{ $tenant->id }})"
+                                        title="Montar um plano só para esta empresa"
+                                        class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors">
+                                    <i class="fas fa-sliders mr-1.5"></i>À medida
+                                </button>
                                 <button wire:click="viewDetails({{ $tenant->id }})" class="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition-colors">
                                     <i class="fas fa-eye mr-1.5"></i>Ver Detalhes
                                 </button>
@@ -386,6 +391,7 @@
     @include('livewire.super-admin.tenants.partials.view-modal')
     @include('livewire.super-admin.tenants.partials.users-modal')
     @include('livewire.super-admin.tenants.partials.plan-modal')
+    @include('livewire.super-admin.tenants.partials.plano-medida-modal')
     @include('livewire.super-admin.tenants.partials.deactivation-modal')
 
     {{-- Apagar em definitivo. Vermelho, com o que se perde à vista e o nome a

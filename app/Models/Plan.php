@@ -24,6 +24,7 @@ class Plan extends Model
         'features',
         'included_modules',
         'is_active',
+        'is_public',
         'is_featured',
         'is_promotional',
         'trial_days',
@@ -39,6 +40,7 @@ class Plan extends Model
         'features' => 'array',
         'included_modules' => 'array',
         'is_active' => 'boolean',
+        'is_public' => 'boolean',
         'is_featured' => 'boolean',
         'is_promotional' => 'boolean',
         'auto_activate' => 'boolean',
@@ -112,6 +114,18 @@ class Plan extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Os planos da MONTRA: activos e públicos.
+     *
+     * Um plano feito à medida de um cliente fica activo (para a subscrição
+     * funcionar e continuar visível na gestão) mas fora daqui — não tem de
+     * aparecer a quem não o comprou.
+     */
+    public function scopePublico($query)
+    {
+        return $query->where('is_active', true)->where('is_public', true);
     }
 
     public function scopeFeatured($query)

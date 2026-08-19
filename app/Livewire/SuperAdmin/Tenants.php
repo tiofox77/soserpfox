@@ -786,6 +786,109 @@ class Tenants extends Component
         $this->dispatch('success', message: "Papel alterado para {$papel->name}.");
     }
     
+    // ── Plano à medida ───────────────────────────────────────────────
+    // Monta-se um plano para ESTE cliente: escolhem-se os módulos, os
+    // limites e o preço, e o plano é criado e atribuído de uma vez. Fica
+    // fora da montra — não aparece na landing nem aos outros clientes.
+    public $showMedidaModal = false;
+    public $medidaNome = '';
+    public $medidaModulos = [];
+    public $medidaPrecoMensal = null;
+    public $medidaPrecoAnual = null;
+    public $medidaUtilizadores = 5;
+    public $medidaEmpresas = 1;
+    public $medidaArmazenamento = 2000;
+    public $medidaDiasTeste = 0;
+    public $medidaCiclo = 'monthly';
+
+    public function abrirPlanoAMedida($tenantId)
+    {
+        $this->apenasDonoDaPlataforma();
+
+        $tenant = Tenant::find($tenantId);
+        if (!$tenant) {
+            $this->dispatch('error', message: 'Empresa não encontrada.');
+            return;
+        }
+
+        $this->managingPlanTenantId = $tenantId;
+        $this->medidaNome = 'Plano ' . $tenant->name;
+        $this->medidaModulos = [];
+        $this->medidaPrecoMensal = null;
+        $this->medidaPrecoAnual = null;
+        $this->medidaUtilizadores = 5;
+        $this->medidaEmpresas = 1;
+        $this->medidaArmazenamento = 2000;
+        $this->medidaDiasTeste = 0;
+        $this->medidaCiclo = 'monthly';
+        $this->resetErrorBag();
+        $this->showMedidaModal = true;
+    }
+
+    public function fecharPlanoAMedida(): void
+    {
+        $this->showMedidaModal = false;
+        $this->managingPlanTenantId = null;
+    }
+
+    /** O anual sugerido: doze mensalidades. Quem manda é o valor escrito. */
+    public function getMedidaAnualSugeridoProperty(): float
+    {
+        return round(((float) $this->medidaPrecoMensal) * 12, 2);
+    }
+
+    public function guardarPlanoAMedida(\App\Services\Plataforma\PlanoAMedida $servico)
+    {
+        $this->apenasDonoDaPlataforma();
+
+        $this->validate([
+            'medidaNome'          => 'required|string|min:3|max:120',
+            'medidaModulos'       => 'required|array|min:1',
+            'medidaPrecoMensal'   => 'required|numeric|gt:0',
+            'medidaPrecoAnual'    => 'nullable|numeric|min:0',
+            'medidaUtilizadores'  => 'required|integer|min:1',
+            'medidaEmpresas'      => 'required|integer|min:1',
+            'medidaArmazenamento' => 'required|integer|min:100',
+            'medidaDiasTeste'     => 'nullable|integer|min:0|max:365',
+            'medidaCiclo'         => 'required|in:monthly,quarterly,semiannual,yearly',
+        ], [
+            'medidaModulos.required'   => 'Escolha pelo menos um módulo.',
+            'medidaPrecoMensal.gt'     => 'A mensalidade tem de ser maior que zero — um plano a zero gasta a cortesia única do cliente.',
+        ]);
+
+        $tenant = Tenant::find($this->managingPlanTenantId);
+        if (!$tenant) {
+            $this->dispatch('error', message: 'Empresa não encontrada.');
+            return;
+        }
+
+        try {
+            $plano = $servico->criarEAtribuir($tenant, [
+                'nome'           => $this->medidaNome,
+                'modulos'        => $this->medidaModulos,
+                'preco_mensal'   => $this->medidaPrecoMensal,
+                'preco_anual'    => $this->medidaPrecoAnual,
+                'max_users'      => $this->medidaUtilizadores,
+                'max_companies'  => $this->medidaEmpresas,
+                'max_storage_mb' => $this->medidaArmazenamento,
+                'trial_days'     => $this->medidaDiasTeste,
+                'ciclo'          => $this->medidaCiclo,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Plano à medida falhou', [
+                'tenant_id' => $tenant->id,
+                'erro'      => $e->getMessage(),
+            ]);
+            $this->dispatch('error', message: $e->getMessage());
+            return;
+        }
+
+        $this->fecharPlanoAMedida();
+
+        $this->dispatch('success', message:
+            "Plano \"{$plano->name}\" criado e atribuído a {$tenant->name}.");
+    }
+
     // Plan Management
     public function managePlan($tenantId)
     {
@@ -982,7 +1085,11 @@ class Tenants extends Component
         // Para o filtro por plano — sempre, e não só com a modal aberta.
         $planosParaFiltro = \App\Models\Plan::where('is_active', true)->orderBy('order')->get(['id', 'name']);
 
-        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'sinais', 'contagens', 'planosParaFiltro', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant'));
+        // Catálogo de módulos para montar um plano à medida.
+        $modulosDisponiveis = \App\Models\Module::where('is_active', true)
+            ->orderBy('name')->get();
+
+        return view('livewire.super-admin.tenants.tenants', compact('tenants', 'sinais', 'contagens', 'planosParaFiltro', 'tenantUsers', 'availableUsers', 'roles', 'allPlans', 'managingPlanTenant', 'modulosDisponiveis'));
     }
     
     protected function sendSuspensionNotification($tenant)

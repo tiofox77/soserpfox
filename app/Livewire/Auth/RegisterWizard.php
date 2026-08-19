@@ -76,7 +76,7 @@ class RegisterWizard extends Component
     public function mount()
     {
         $this->captureAcquisition();
-        $this->plans = Plan::where('is_active', true)->orderBy('order')->get();
+        $this->plans = Plan::publico()->orderBy('order')->get();
         $requestedPlan = request()->query('plan');
         
         // Verificar se usuário está logado

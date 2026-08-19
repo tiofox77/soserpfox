@@ -190,7 +190,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     @php
-                        $plans = \App\Models\Plan::where('is_active', true)->orderBy('order')->get();
+                        $plans = \App\Models\Plan::publico()->orderBy('order')->get();
                     @endphp
                     
                     @foreach($plans as $plan)

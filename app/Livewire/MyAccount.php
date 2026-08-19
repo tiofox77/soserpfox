@@ -1092,7 +1092,7 @@ class MyAccount extends Component
         }
         
         // Buscar todos os planos disponíveis para upgrade
-        $availablePlans = \App\Models\Plan::where('is_active', true)
+        $availablePlans = \App\Models\Plan::publico()
             ->with('modules')
             ->orderBy('price_monthly')
             ->get();
