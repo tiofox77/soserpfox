@@ -111,7 +111,7 @@
                         wire:target="addToCart({{ $product->id }})"
                         wire:loading.attr="disabled"
                         wire:loading.class="scale-95 opacity-70"
-                        class="group relative bg-white border border-gray-200 rounded-lg p-1.5 hover:border-indigo-500 hover:shadow transition-all duration-200 {{ ($product->stock_in_warehouse ?? 0) <= 0 ? 'opacity-50 cursor-not-allowed' : '' }} h-fit disabled:cursor-wait">
+                        class="group relative bg-white border border-gray-200 rounded-lg p-1.5 hover:border-indigo-500 hover:shadow transition-all duration-200 {{ ($product->controlaStock() && ($product->stock_in_warehouse ?? 0) <= 0) ? 'opacity-50 cursor-not-allowed' : '' }} h-fit disabled:cursor-wait">
                     
                     {{-- Imagem --}}
                     <div class="aspect-square bg-gray-100 rounded mb-0.5 overflow-hidden">
@@ -188,10 +188,18 @@
 
                         <p class="text-xs font-bold text-indigo-600">{{ number_format($product->price, 0) }}</p>
                         <div class="flex items-center gap-1 mt-0.5">
-                            @php $stockHere = (float) ($product->stock_in_warehouse ?? 0); @endphp
+                            @php
+                                $stockHere = (float) ($product->stock_in_warehouse ?? 0);
+                                // Serviços e artigos sem gestão de stock não têm
+                                // stock nenhum para mostrar: um "Corte de Cabelo"
+                                // a -5 não quer dizer nada a quem está ao balcão.
+                                $mostraStock = $product->controlaStock();
+                            @endphp
+                            @if($mostraStock)
                             <span class="text-xs {{ $stockHere > 10 ? 'text-green-600' : ($stockHere > 5 ? 'text-orange-600' : 'text-red-600') }} font-bold" title="{{ __('Stock no armazém :armazem', ['armazem' => $this->warehouseName]) }}">
                                 <i class="fas fa-box-open text-[10px]"></i> {{ rtrim(rtrim(number_format($stockHere, 2, '.', ''), '0'), '.') }}
                             </span>
+                            @endif
                             @php
                                 // Mapa construído UMA vez antes do loop (ver acima):
                                 // CartFacade::get() reconstrói a colecção inteira do
@@ -212,8 +220,11 @@
                         </div>
                     </div>
 
-                    {{-- Badge Sem Stock --}}
-                    @if(($product->stock_in_warehouse ?? 0) <= 0)
+                    {{-- Véu "Esgotado" — SÓ para artigos que controlam stock.
+                         Estava incondicional: os serviços do salão apareciam
+                         tapados e marcados como esgotados, quando um serviço
+                         nunca esgota. --}}
+                    @if($product->controlaStock() && ($product->stock_in_warehouse ?? 0) <= 0)
                     <div class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
                         <span class="bg-red-600 text-white px-2 py-1 rounded font-bold text-xs">
                             {{ __('Esgotado em :armazem', ['armazem' => $this->warehouseName]) }}

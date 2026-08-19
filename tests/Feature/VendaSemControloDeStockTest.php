@@ -82,4 +82,48 @@ class VendaSemControloDeStockTest extends TenantTestCase
         $this->assertNotNull($enviado, 'produto sem controlo de stock (e sem stock) tinha de ser enviado');
         $this->assertFalse($enviado['manage_stock'], 'o flag tem de ir no payload');
     }
+
+    /**
+     * Um SERVIÇO vendido sem o flag is_service no payload não pode descontar
+     * stock. Era esta a origem dos serviços do salão a aparecer com stock
+     * negativo (-2, -5, -9) e marcados como "Esgotado" no POS: o serviço
+     * confiava no flag do dispositivo em vez do tipo real do artigo.
+     */
+    public function test_um_servico_nunca_desconta_stock_mesmo_sem_o_flag(): void
+    {
+        $servico = Product::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Corte de Cabelo',
+            'code' => 'SVC' . uniqid(),
+            'type' => 'servico',
+            'price' => 3000,
+            'manage_stock' => false,
+            'stock_quantity' => 0,
+            'is_active' => true,
+            'tax_type' => 'isento',
+        ]);
+
+        $this->assertFalse($servico->controlaStock());
+
+        app(PosSaleService::class)->createFromPayload([
+            'local_uuid' => 'venda-servico-' . uniqid(),
+            'payment_method' => 'cash',
+            'items' => [[
+                'product_id' => $servico->id,
+                'product_name' => $servico->name,
+                'quantity' => 2,
+                'unit_price' => 3000,
+                'tax_rate' => 0,
+                // NOTA: sem 'is_service' de propósito — é o caso que partia.
+            ]],
+        ], $this->tenant->id, $this->user->id);
+
+        $movimentos = StockMovement::where('tenant_id', $this->tenant->id)
+            ->where('product_id', $servico->id)->count();
+        $this->assertSame(0, $movimentos, 'um serviço não pode gerar movimento de stock');
+
+        $linhas = \App\Models\Invoicing\Stock::where('tenant_id', $this->tenant->id)
+            ->where('product_id', $servico->id)->sum('quantity');
+        $this->assertEquals(0, (float) $linhas, 'um serviço não pode ficar com stock negativo');
+    }
 }
