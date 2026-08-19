@@ -53,6 +53,7 @@ class MaintenanceController extends Controller
         'permissions:sync-product-batches',
         'permissions:sync-pos-reports',
         'tenant:set-tax-exclusion',
+        'planos:trial-automatico',
         'roles:backfill',
         'taxes:backfill',
         'treasury:bundle',
