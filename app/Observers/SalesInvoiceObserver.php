@@ -89,6 +89,15 @@ class SalesInvoiceObserver
 
         foreach ($invoice->items as $item) {
             if ($item->product_id) {
+                // Artigos que não controlam stock (serviços e produtos com
+                // "Gerenciar Stock" desligado) não geram movimento nem baixam
+                // stock — vendem-se sem inventário. Regra única (Product::controlaStock).
+                $produtoDoItem = \App\Models\Product::where('tenant_id', $invoice->tenant_id)
+                    ->find($item->product_id);
+                if ($produtoDoItem && !$produtoDoItem->controlaStock()) {
+                    continue;
+                }
+
                 // Tentar alocar usando FIFO
                 $allocation = $batchService->allocateFIFO(
                     $item->product_id,

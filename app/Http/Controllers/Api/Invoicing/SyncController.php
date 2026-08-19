@@ -92,7 +92,7 @@ class SyncController extends Controller
         // que já tinha, velho, e continua a vender por preços e impostos
         // desactualizados sem nada a indicá-lo.
         if ($hideOutOfStock && $whId) {
-            $productsQuery->whereRaw("(invoicing_products.type = 'servico' OR {$stockExpr} > 0)", [$tenantId]);
+            $productsQuery->whereRaw("(invoicing_products.type = 'servico' OR invoicing_products.manage_stock = 0 OR {$stockExpr} > 0)", [$tenantId]);
         } else {
             $hideOutOfStock = false;
         }
@@ -155,6 +155,9 @@ class SyncController extends Controller
             'exemption_reason' => $p->exemption_reason,
             // Stock no armazém ATIVO (fonte única no POS Offline)
             'stock_quantity' => (float) ($p->stock_in_warehouse ?? 0),
+            // O POS offline usa isto para NAO bloquear nem baixar stock de
+            // artigos que nao o controlam.
+            'manage_stock' => (bool) $p->manage_stock,
             'warehouse_id' => $whId,
             'category' => $p->category_id ? ($categoryMap[$p->category_id] ?? null) : null,
 

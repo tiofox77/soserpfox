@@ -253,7 +253,9 @@ class PosSaleService
                 // valor do observer e perpetuava divergências agregado/armazéns.
                 if (!$isService && $productId && is_numeric($productId)) {
                     $product = Product::where("tenant_id", $tenantId)->find($productId);
-                    if ($product) {
+                    // Só baixa stock quem o controla. Um produto com "Gerenciar
+                    // Stock" desligado vende-se sem mexer em stock nem lotes.
+                    if ($product && $product->controlaStock()) {
                         // Regra única (BaixaDeStock): desconta a quantidade toda,
                         // mesmo que o armazém fique negativo. O max(0, …) que
                         // aqui estava travava o stock em zero enquanto o

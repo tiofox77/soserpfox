@@ -217,6 +217,8 @@ class LotesNoPosOfflineTest extends TenantTestCase
             'code'      => 'SACO-' . uniqid(),
             'price'     => 50,
             'type'      => 'produto',
+            // Artigo gerido sem lotes: controla stock, logo desconta.
+            'manage_stock' => true,
             'is_active' => true,
             'tax_id'    => $this->imposto->id,
         ]);

@@ -61,15 +61,15 @@
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
                     <template x-for="p in visibleProducts" :key="p.id">
                         <button @click="addToCart(p)"
-                                :disabled="p.type !== 'servico' && p.stock_quantity <= 0"
-                                :class="p.type !== 'servico' && p.stock_quantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''"
+                                :disabled="p.type !== 'servico' && p.manage_stock !== false && p.stock_quantity <= 0"
+                                :class="p.type !== 'servico' && p.manage_stock !== false && p.stock_quantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''"
                                 class="relative bg-white rounded-2xl shadow-sm p-2.5 text-left flex flex-col border border-gray-100 hover:border-blue-300 hover:shadow-md active:scale-95 transition">
                             <div class="relative w-full aspect-square rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center mb-2">
                                 <i :class="p.type === 'servico' ? 'fas fa-concierge-bell text-purple-500' : 'fas fa-box text-blue-500'" class="text-3xl"></i>
                                 <span x-show="qtyInCart(p) > 0"
                                       class="absolute top-1 right-1 bg-emerald-600 text-white text-[11px] font-bold min-w-[24px] h-6 px-1 rounded-full flex items-center justify-center shadow"
                                       x-text="qtyInCart(p)" x-cloak></span>
-                                <span x-show="p.type !== 'servico' && p.stock_quantity <= 0"
+                                <span x-show="p.type !== 'servico' && p.manage_stock !== false && p.stock_quantity <= 0"
                                       class="absolute inset-0 rounded-xl bg-red-500/15 flex items-center justify-center" x-cloak>
                                     <span class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{{ __('ESGOTADO') }}</span>
                                 </span>
@@ -102,7 +102,7 @@
                             </div>
                             <div class="mt-auto pt-1.5 flex items-center justify-between gap-1">
                                 <span class="font-bold text-blue-700 text-sm whitespace-nowrap" x-text="formatMoney(p.price)"></span>
-                                <span x-show="p.type !== 'servico'"
+                                <span x-show="p.type !== 'servico' && p.manage_stock !== false"
                                       :class="(p.stock_quantity > 0) ? 'bg-gray-100 text-gray-500' : 'bg-red-100 text-red-600'"
                                       class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap"
                                       x-text="(p.stock_quantity > 0) ? p.stock_quantity : __('Esgot.')"></span>
@@ -727,7 +727,8 @@ function posOffline() {
             for (const item of this.cart) {
                 if (!item.product_id) continue;
                 const prod = this.allProducts.find(p => p.id === item.product_id);
-                if (!prod || prod.type === 'servico') continue;
+                // Serviços e produtos sem controlo de stock nunca sobrevendem.
+                if (!prod || prod.type === 'servico' || prod.manage_stock === false) continue;
                 if (item.quantity > (parseFloat(prod.stock_quantity) || 0)) return true;
             }
             return false;
@@ -863,7 +864,7 @@ function posOffline() {
 
         addToCart(p) {
             // Bloquear se stock 0 (produto físico)
-            if (p.type !== 'servico' && (parseFloat(p.stock_quantity) || 0) <= 0) return;
+            if (p.type !== 'servico' && p.manage_stock !== false && (parseFloat(p.stock_quantity) || 0) <= 0) return;
 
             // Psicotrópico / estupefaciente: confirmar ANTES de entrar no
             // carrinho. Estes artigos têm registo obrigatório e vendê-los por

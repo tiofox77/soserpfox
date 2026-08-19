@@ -517,9 +517,22 @@ class POSSystem extends Component
             return;
         }
 
-        $available = $product ? $this->stockInWarehouse($product) : 0;
+        if (!$product) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => '❌ ' . __('Produto não encontrado!')
+            ]);
+            return;
+        }
 
-        if (!$product || $available <= 0) {
+        // Artigos que não controlam stock (serviços e produtos com "Gerenciar
+        // Stock" desligado) vendem-se sempre — sem validação de disponibilidade
+        // e sem lotes. Entram directos no carrinho.
+        $controlaStock = $product->controlaStock();
+
+        $available = $controlaStock ? $this->stockInWarehouse($product) : 0;
+
+        if ($controlaStock && $available <= 0) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => '❌ ' . __('Produto sem stock no armazém :armazem!', ['armazem' => $this->warehouseName])
@@ -531,9 +544,9 @@ class POSSystem extends Component
         $cartItem = Cart::session($this->cartKey())->get($productId);
         $currentQuantity = $cartItem ? $cartItem->quantity : 0;
         $newQuantity = $currentQuantity + 1;
-        
+
         // Se produto rastreia lotes, validar disponibilidade nos lotes
-        if ($product->track_batches) {
+        if ($controlaStock && $product->track_batches) {
             $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
                 ->where('product_id', $productId)
                 ->where('status', 'active')
@@ -571,8 +584,8 @@ class POSSystem extends Component
                 return;
             }
         }
-        // Validar stock disponível NO ARMAZÉM
-        elseif ($newQuantity > $available) {
+        // Validar stock disponível NO ARMAZÉM (só se o artigo controla stock).
+        elseif ($controlaStock && $newQuantity > $available) {
             $this->dispatch('stock-error');
             $this->dispatch('notify', [
                 'type' => 'warning',
@@ -745,10 +758,11 @@ class POSSystem extends Component
         $newQuantity = $cartItem->quantity + 1;
         $isService = isset($cartItem->attributes['type']) && $cartItem->attributes['type'] === 'service';
         
-        // Para produtos, validar stock disponível
+        // Só validar stock quando o artigo o controla. Serviços e produtos com
+        // "Gerenciar Stock" desligado sobem de quantidade sem limite.
         if (!$isService) {
             $product = Product::where("tenant_id", activeTenantId())->find($itemId);
-            
+
             if (!$product) {
                 $this->dispatch('notify', [
                     'type' => 'error',
@@ -756,9 +770,9 @@ class POSSystem extends Component
                 ]);
                 return;
             }
-            
+
             $available = $this->stockInWarehouse($product);
-            if ($newQuantity > $available) {
+            if ($product->controlaStock() && $newQuantity > $available) {
                 $this->dispatch('stock-error');
                 $this->dispatch('notify', [
                     'type' => 'warning',
@@ -1444,7 +1458,12 @@ class POSSystem extends Component
         // Ocultar produtos sem stock (não afecta serviços) — controlado em Settings → Faturacão
         $hideOutOfStock = \App\Models\Invoicing\InvoicingSettings::forTenant($tenantId)->pos_hide_out_of_stock ?? true;
         if ($hideOutOfStock) {
-            $productsQuery->whereRaw("(invoicing_products.type = 'servico' OR {$stockExpr} > 0)", [$tenantId]);
+            // Nunca esconder serviços NEM produtos que não controlam stock:
+            // esses vendem-se sempre, com ou sem stock no armazém.
+            $productsQuery->whereRaw(
+                "(invoicing_products.type = 'servico' OR invoicing_products.manage_stock = 0 OR {$stockExpr} > 0)",
+                [$tenantId]
+            );
         }
 
         if ($this->search) {

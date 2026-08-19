@@ -50,6 +50,9 @@ class SyncNaoDeixaArtigoVelhoNoDispositivoTest extends TenantTestCase
             'code'      => $c, 'sku' => $c, 'barcode' => $c,
             'price'     => 100, 'cost' => 50,
             'type'      => 'produto',
+            // Este teste é sobre esconder por falta de stock — que só se
+            // aplica a artigos que CONTROLAM stock.
+            'manage_stock' => true,
             'is_active' => true,
         ]);
 

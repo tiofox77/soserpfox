@@ -959,7 +959,8 @@
                 const pid = Number.isInteger(itm.product_id) ? itm.product_id : null;
                 if (!pid) continue;
                 const prod = await db.products.get(pid);
-                if (!prod || prod.type === 'servico') continue;
+                // Nao decrementar artigos que nao controlam stock.
+                if (!prod || prod.type === 'servico' || !prod.manage_stock) continue;
                 const current = parseFloat(prod.stock_quantity) || 0;
                 const sold = parseFloat(itm.quantity) || 0;
                 await db.products.update(pid, {

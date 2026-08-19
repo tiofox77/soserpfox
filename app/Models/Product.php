@@ -187,6 +187,23 @@ class Product extends Model
     }
 
     // Relacionamentos
+    /**
+     * Este artigo controla stock?
+     *
+     * Só controla quando é um PRODUTO com "Gerenciar Stock" ligado. Serviços
+     * e produtos com o stock desligado vendem-se sempre, sem validação de
+     * disponibilidade e sem baixar stock — é a regra única usada no POS, na
+     * venda web e na sincronização offline.
+     */
+    public function controlaStock(): bool
+    {
+        // Rastrear lotes É controlar stock: um artigo com lotes desconta e
+        // consome-os mesmo que "Gerenciar Stock" não esteja explicitamente
+        // ligado. Serviços nunca controlam.
+        return ($this->type !== 'servico')
+            && ((bool) $this->manage_stock || (bool) $this->track_batches);
+    }
+
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);
