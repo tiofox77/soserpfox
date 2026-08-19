@@ -1120,7 +1120,24 @@ class MyAccount extends Component
                 ->get();
         }
         
-        return view('livewire.my-account', compact('myTenants', 'currentPlan', 'currentSubscription', 'availablePlans', 'orders', 'pendingOrders', 'pendingSubscriptions'));
+        // As facturas da subscrição — o que a plataforma cobra a esta empresa.
+        //
+        // O separador de facturação mostrava só PEDIDOS, e um pedido só existe
+        // quando se contrata. As renovações emitem factura sem pedido nenhum
+        // (ver App\Services\Plataforma\RenovacaoDeSubscricoes), pelo que o
+        // cliente recebia a conta do período seguinte e não tinha onde a ver.
+        $facturas = collect();
+
+        if ($activeTenant) {
+            $facturas = \App\Models\Invoice::where('tenant_id', $activeTenant->id)
+                ->whereNotNull('subscription_id')
+                ->orderByDesc('invoice_date')
+                ->orderByDesc('id')
+                ->limit(12)
+                ->get();
+        }
+
+        return view('livewire.my-account', compact('myTenants', 'currentPlan', 'currentSubscription', 'availablePlans', 'orders', 'pendingOrders', 'pendingSubscriptions', 'facturas'));
     }
     
     /**

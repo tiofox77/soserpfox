@@ -34,6 +34,19 @@ Schedule::command('hotel:send-prearrival --days=2')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Facturas de renovação: a conta do período seguinte, 8 dias antes do fim.
+//
+// NÃO ESTÁ AGENDADO AQUI, DE PROPÓSITO. Corre à boleia do tráfego — ver
+// App\Http\Middleware\FacturarRenovacoes — como as notificações e as
+// submissões à AGT, e pela mesma razão: este alojamento não tem processo
+// permanente e o `schedule:run` pode nunca ser chamado. Pôr a única coisa que
+// faz a plataforma cobrar dependente de um cron que não se sabe se existe era
+// repetir o erro que deixou clientes sem receberem a segunda factura.
+//
+// Basta haver alguém autenticado a usar o sistema: uma vez por hora, o pedido
+// dele serve de relógio. O comando `subscriptions:renovar` continua a existir
+// para ver (`--so-ver`) e forçar à mão.
+
 // Expirar subscriptions vencidas - Executar a cada hora
 Schedule::command('subscriptions:expire')
     ->hourly()

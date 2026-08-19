@@ -56,6 +56,10 @@ class MaintenanceController extends Controller
         'planos:trial-automatico',
         'planos:dias-de-teste',
         'planos:coerencia',
+        // Facturas de renovação. Corre-se SEMPRE com ?args=--so-ver primeiro:
+        // sem isso emite facturas a sério, e uma factura é um documento que o
+        // cliente vê e sobre o qual lhe é pedido dinheiro.
+        'subscriptions:renovar',
         // Só lê: procura empresa por nome/NIF/email.
         'tenants:procurar',
         'tenant:iniciar-trial',

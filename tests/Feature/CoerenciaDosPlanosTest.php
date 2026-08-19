@@ -84,18 +84,60 @@ class CoerenciaDosPlanosTest extends TenantTestCase
         }
     }
 
-    public function test_os_planos_que_dizem_todos_os_modulos_tem_mesmo_todos(): void
+    public function test_o_enterprise_tem_mesmo_todos_os_modulos(): void
     {
         $this->artisan('planos:coerencia')->assertSuccessful();
 
-        $todos = Module::count();
+        $this->assertSame(
+            Module::count(),
+            Plan::where('slug', 'enterprise')->first()->modules()->count(),
+            'o Enterprise anuncia todos os módulos — tem de os ter'
+        );
+    }
 
-        foreach (['business', 'enterprise'] as $slug) {
-            $this->assertSame(
-                $todos,
-                Plan::where('slug', $slug)->first()->modules()->count(),
-                "o plano {$slug} anuncia todos os módulos — tem de os ter"
-            );
+    /**
+     * Business e Enterprise não podem dar o mesmo.
+     *
+     * Custam 44.900 e 89.900 Kz. Se derem os mesmos módulos, quem paga o
+     * dobro recebe utilizadores e mais nada — e o degrau de cima deixa de ser
+     * um degrau.
+     */
+    public function test_o_enterprise_da_mais_modulos_que_o_business(): void
+    {
+        $this->artisan('planos:coerencia')->assertSuccessful();
+
+        $business = $this->modulos('business');
+        $enterprise = $this->modulos('enterprise');
+
+        $this->assertNotEmpty(
+            array_diff($enterprise, $business),
+            'quem paga o dobro tem de receber módulos a mais'
+        );
+    }
+
+    /** Os módulos de sector são o que o Business não leva. */
+    public function test_o_business_nao_leva_os_modulos_de_sector(): void
+    {
+        $this->artisan('planos:coerencia')->assertSuccessful();
+
+        $business = $this->modulos('business');
+
+        foreach (['hotel', 'restaurant', 'salon', 'eventos'] as $sector) {
+            $this->assertNotContains($sector, $business,
+                "o módulo de sector '{$sector}' é o que distingue o Enterprise");
+            $this->assertContains($sector, $this->modulos('enterprise'));
+        }
+    }
+
+    /** Mas leva todos os horizontais — é isso que justifica o preço dele. */
+    public function test_o_business_leva_todos_os_modulos_de_gestao(): void
+    {
+        $this->artisan('planos:coerencia')->assertSuccessful();
+
+        $business = $this->modulos('business');
+
+        foreach (['invoicing', 'treasury', 'rh', 'inventario', 'contabilidade'] as $slug) {
+            $this->assertContains($slug, $business);
         }
     }
 

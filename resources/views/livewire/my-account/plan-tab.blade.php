@@ -93,12 +93,82 @@
                         <div class="text-blue-100 text-xs mb-1">Storage</div>
                         <div class="text-xl font-bold">{{ number_format($currentPlan->max_storage_mb / 1000, 1) }}GB</div>
                     </div>
+                    {{-- Quem já tem plano quer saber até quando o tem, não
+                         quantos dias de teste o plano oferece a quem chega. --}}
                     <div class="bg-white/10 rounded-lg p-3">
-                        <div class="text-blue-100 text-xs mb-1">Trial</div>
-                        <div class="text-xl font-bold">{{ $currentPlan->trial_days }} dias</div>
+                        @if($currentSubscription && $currentSubscription->current_period_end)
+                            <div class="text-blue-100 text-xs mb-1">
+                                {{ $currentSubscription->status === 'trial' ? 'Teste até' : 'Válido até' }}
+                            </div>
+                            <div class="text-xl font-bold">
+                                {{ $currentSubscription->current_period_end->format('d/m/Y') }}
+                            </div>
+                        @else
+                            <div class="text-blue-100 text-xs mb-1">Trial</div>
+                            <div class="text-xl font-bold">{{ $currentPlan->trial_days }} dias</div>
+                        @endif
                     </div>
                 </div>
             </div>
+
+            {{-- Quando acaba e o que falta pagar.
+                 O ecrã dizia o preço e os limites e nunca dizia até quando o
+                 plano estava pago — a informação que o cliente mais procura
+                 aqui. --}}
+            @if($currentSubscription && $currentSubscription->current_period_end)
+                @php
+                    $fim = $currentSubscription->current_period_end;
+                    $diasQueFaltam = (int) ceil(now()->floatDiffInDays($fim, false));
+                    $porPagar = isset($facturas)
+                        ? $facturas->whereIn('status', ['pending', 'overdue'])
+                        : collect();
+                    $aTerminar = $diasQueFaltam <= 10;
+                @endphp
+
+                <div class="mb-6 rounded-2xl border-2 p-5
+                            {{ $aTerminar ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-gray-50' }}">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-calendar-check text-2xl mt-0.5
+                                      {{ $aTerminar ? 'text-amber-600' : 'text-gray-400' }}"></i>
+                            <div>
+                                <p class="font-bold text-gray-900">
+                                    @if($diasQueFaltam < 0)
+                                        O período terminou a {{ $fim->format('d/m/Y') }}
+                                    @elseif($diasQueFaltam === 0)
+                                        O período termina hoje
+                                    @else
+                                        {{ $diasQueFaltam }} dia(s) até {{ $fim->format('d/m/Y') }}
+                                    @endif
+                                </p>
+                                <p class="text-sm text-gray-600">
+                                    Ciclo {{ strtolower(\App\Support\CicloDeFacturacao::nome($currentSubscription->billing_cycle)) }}
+                                    @if($currentSubscription->status === 'trial')
+                                        — em período de teste
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+
+                        @if($porPagar->count() > 0)
+                            @php $proxima = $porPagar->sortBy('due_date')->first(); @endphp
+                            <a href="{{ route('my-account', ['tab' => 'billing']) }}"
+                               class="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg whitespace-nowrap">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                                Pagar {{ number_format($porPagar->sum('total'), 2, ',', '.') }} Kz
+                            </a>
+                        @endif
+                    </div>
+
+                    @if($porPagar->count() > 0)
+                        <p class="text-sm text-gray-700 mt-3 pt-3 border-t border-amber-200">
+                            Já foi emitida a factura do período seguinte
+                            (<strong>{{ $porPagar->sortBy('due_date')->first()->invoice_number }}</strong>).
+                            Pagando-a, os dias novos somam-se aos que ainda tem — não perde nada por pagar já.
+                        </p>
+                    @endif
+                </div>
+            @endif
 
             <!-- Features -->
             @if($currentPlan->features)

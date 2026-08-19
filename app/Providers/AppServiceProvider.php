@@ -165,6 +165,13 @@ class AppServiceProvider extends ServiceProvider
         // devoluções e as cobranças adicionais ficavam fora dos livros.
         \App\Models\Invoicing\CreditNote::observe(\App\Observers\NoteAccountingObserver::class);
         \App\Models\Invoicing\DebitNote::observe(\App\Observers\NoteAccountingObserver::class);
+
+        // Pagar a factura de subscrição estende a subscrição — a peça que
+        // fecha o ciclo de facturação da plataforma. Note-se que é o
+        // FacturaDeSubscricaoObserver e NÃO o InvoiceObserver ao lado (esse
+        // manda facturas para a contabilidade da empresa, e o que a empresa
+        // paga à plataforma não entra nos livros dela).
+        Invoice::observe(\App\Observers\FacturaDeSubscricaoObserver::class);
         
         // Registrar Observers para notificações imediatas de eventos
         if (class_exists(\App\Models\Events\Event::class)) {

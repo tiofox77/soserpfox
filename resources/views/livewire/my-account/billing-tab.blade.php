@@ -30,6 +30,108 @@
         </div>
     </div>
 
+    {{-- Facturas da subscrição.
+         Distintas dos pedidos: um pedido nasce quando se contrata, e uma
+         renovação não tem pedido nenhum — tem factura. Sem esta lista, a
+         conta do período seguinte era emitida e o cliente não tinha onde a
+         ver. --}}
+    @if(isset($facturas) && $facturas->count() > 0)
+        @php
+            $porPagar = $facturas->whereIn('status', ['pending', 'overdue']);
+        @endphp
+
+        @if($porPagar->count() > 0)
+            @php $proxima = $porPagar->sortBy('due_date')->first(); @endphp
+            <div class="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-file-invoice-dollar text-2xl text-amber-600 mt-0.5"></i>
+                        <div>
+                            <h3 class="font-bold text-gray-900">
+                                Tem {{ $porPagar->count() }} factura(s) por pagar
+                            </h3>
+                            <p class="text-sm text-gray-700">
+                                A mais próxima, <strong>{{ $proxima->invoice_number }}</strong>, vence a
+                                <strong>{{ $proxima->due_date->format('d/m/Y') }}</strong>
+                                @if($proxima->due_date->isPast())
+                                    <span class="text-rose-700 font-bold">(vencida)</span>
+                                @else
+                                    ({{ (int) ceil(now()->floatDiffInDays($proxima->due_date, false)) }} dia(s))
+                                @endif
+                                — o acesso mantém-se até essa data.
+                            </p>
+                        </div>
+                    </div>
+                    <p class="text-2xl font-extrabold text-amber-700 whitespace-nowrap">
+                        {{ number_format($porPagar->sum('total'), 2, ',', '.') }} Kz
+                    </p>
+                </div>
+            </div>
+        @endif
+
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-900">Facturas da subscrição</h2>
+                <p class="text-sm text-gray-600 mt-1">O que a SOS ERP lhe cobra pelo plano</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Factura</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Descrição</th>
+                            <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Valor</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Vencimento</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @foreach($facturas as $factura)
+                            @php
+                                $vencida = $factura->status !== 'paid' && $factura->due_date && $factura->due_date->isPast();
+                            @endphp
+                            <tr class="hover:bg-gray-50 transition">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-semibold text-gray-900">{{ $factura->invoice_number }}</div>
+                                    <div class="text-xs text-gray-500">{{ optional($factura->invoice_date)->format('d/m/Y') }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm text-gray-800">{{ $factura->description ?: 'Subscrição' }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <div class="text-sm font-bold text-gray-900">
+                                        {{ number_format($factura->total, 2, ',', '.') }} Kz
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm {{ $vencida ? 'text-rose-700 font-semibold' : 'text-gray-700' }}">
+                                        {{ optional($factura->due_date)->format('d/m/Y') ?? '—' }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($factura->status === 'paid')
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                            <i class="fas fa-check-circle mr-1"></i>Paga
+                                        </span>
+                                    @elseif($vencida)
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">
+                                            <i class="fas fa-triangle-exclamation mr-1"></i>Vencida
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                            <i class="fas fa-clock mr-1"></i>Por pagar
+                                        </span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
     {{-- Histórico de Pedidos --}}
     <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div class="p-6 border-b border-gray-200">
@@ -148,10 +250,11 @@
         <div class="flex items-start">
             <i class="fas fa-info-circle text-blue-500 text-xl mt-0.5 mr-3"></i>
             <div>
-                <h4 class="font-semibold text-blue-900 mb-1">Informações sobre Faturas</h4>
+                <h4 class="font-semibold text-blue-900 mb-1">Como funciona a facturação</h4>
                 <ul class="text-sm text-blue-800 space-y-1">
-                    <li>• Faturas são geradas automaticamente após confirmação de pagamento</li>
-                    <li>• Você pode baixar suas faturas em PDF a qualquer momento</li>
+                    <li>• A factura da renovação é emitida <strong>8 dias antes</strong> do fim do período, e vence no último dia dele</li>
+                    <li>• O acesso mantém-se até à data de vencimento; o pagamento acrescenta logo o período seguinte</li>
+                    <li>• Quem paga antes do fim não perde os dias que ainda tinha — o período novo começa onde o antigo acaba</li>
                     <li>• Pedidos pendentes expiram após 7 dias sem pagamento</li>
                 </ul>
             </div>

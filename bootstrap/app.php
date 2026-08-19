@@ -71,6 +71,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // mesmo aviso a cada janela do dia. Tranca de dez minutos por empresa.
         $middleware->appendToGroup('web', \App\Http\Middleware\DespacharNotificacoes::class);
 
+        // Emite as facturas de renovação pela mesma via, e pela mesma razão.
+        // Faltava a peça do meio do ciclo: facturava-se ao contratar, cortava-se
+        // o acesso no fim do período, e no meio não saía conta nenhuma. Tranca
+        // de uma hora para TODA a plataforma — isto é trabalho da plataforma, o
+        // pedido de quem navega serve só de relógio.
+        $middleware->appendToGroup('web', \App\Http\Middleware\FacturarRenovacoes::class);
+
         // Com o sistema em manutenção, as rotas de manutenção continuam a
         // responder.
         //
