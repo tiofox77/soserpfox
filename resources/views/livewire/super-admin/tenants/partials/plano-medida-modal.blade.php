@@ -162,9 +162,29 @@
                     </div>
                 </div>
 
+                {{-- Pagamento: a factura é sempre emitida; o que muda é se
+                     nasce paga ou a aguardar. --}}
+                <label class="flex items-start gap-3 p-3 border-2 rounded-xl cursor-pointer transition
+                              {{ $medidaJaPago ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200' }}">
+                    <input type="checkbox" wire:model.live="medidaJaPago"
+                           class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm">
+                        <span class="font-bold text-gray-800">O cliente já pagou</span>
+                        <span class="block text-[11px] text-gray-500">
+                            @if($medidaJaPago)
+                                A factura sai <strong>paga</strong>, com data de hoje.
+                            @else
+                                A factura sai <strong>pendente</strong>, com vencimento a 8 dias — fica
+                                a constar o que há a receber.
+                            @endif
+                        </span>
+                    </span>
+                </label>
+
                 <p class="text-[11px] text-gray-500">
                     O plano fica activo para esta empresa mas <strong>fora da montra</strong>: não aparece
-                    na página de preços, no registo, nem aos outros clientes.
+                    na página de preços, no registo, nem aos outros clientes. É sempre emitido o contrato
+                    (pedido) e a factura, para o valor entrar na facturação e na receita.
                 </p>
             </div>
 

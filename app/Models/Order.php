@@ -102,12 +102,7 @@ class Order extends Model
 
             // 2. ATIVAR NOVA SUBSCRIPTION
             $startDate = now();
-            $endDate = match($this->billing_cycle) {
-                'yearly' => $startDate->copy()->addMonths(14), // 12 + 2 grátis
-                'semiannual' => $startDate->copy()->addMonths(6),
-                'quarterly' => $startDate->copy()->addMonths(3),
-                default => $startDate->copy()->addMonth(),
-            };
+            $endDate = \App\Support\CicloDeFacturacao::fim($startDate, $this->billing_cycle);
 
             $newSubscription = $tenant->subscriptions()->create([
                 'plan_id' => $newPlan->id,

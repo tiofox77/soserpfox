@@ -109,12 +109,7 @@ class Subscription extends Model
     public function renew()
     {
         $periodStart = ($this->current_period_end ?? now())->copy();
-        $periodEnd = match($this->billing_cycle) {
-            'yearly' => $periodStart->copy()->addMonths(14),
-            'semiannual' => $periodStart->copy()->addMonths(6),
-            'quarterly' => $periodStart->copy()->addMonths(3),
-            default => $periodStart->copy()->addMonth(),
-        };
+        $periodEnd = \App\Support\CicloDeFacturacao::fim($periodStart, $this->billing_cycle);
 
         $this->update([
             'status' => 'active',

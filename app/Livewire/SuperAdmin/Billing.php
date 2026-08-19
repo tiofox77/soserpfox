@@ -243,12 +243,7 @@ class Billing extends Component
             $plan   = Plan::findOrFail($this->plan_id);
 
             $amount    = $plan->getPrice($this->billing_cycle);
-            $periodEnd = match($this->billing_cycle) {
-                'yearly'     => now()->addMonths(14),
-                'semiannual' => now()->addMonths(6),
-                'quarterly'  => now()->addMonths(3),
-                default      => now()->addMonth(),
-            };
+            $periodEnd = \App\Support\CicloDeFacturacao::fim(now(), $this->billing_cycle);
 
             $subStatus = $this->marcarComoPago ? 'active' : 'pending';
 
@@ -434,13 +429,8 @@ class Billing extends Component
      */
     public static function nomeDoCiclo(?string $ciclo): string
     {
-        return match ($ciclo) {
-            'yearly'     => 'Anual',
-            'semiannual' => 'Semestral',
-            'quarterly'  => 'Trimestral',
-            'monthly'    => 'Mensal',
-            default      => 'Mensal',
-        };
+        // Fonte única (ver App\Support\CicloDeFacturacao).
+        return \App\Support\CicloDeFacturacao::nome($ciclo);
     }
 
     public function viewSubscription($id)

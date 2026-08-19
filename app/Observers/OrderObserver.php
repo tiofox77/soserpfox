@@ -148,12 +148,7 @@ class OrderObserver
             // cancelamentos — procurá-la outra vez aqui não daria nada.
             
             $startDate = now();
-            $endDate = match($order->billing_cycle) {
-                'yearly' => $startDate->copy()->addMonths(14), // 12 + 2 grátis
-                'semiannual' => $startDate->copy()->addMonths(6),
-                'quarterly' => $startDate->copy()->addMonths(3),
-                default => $startDate->copy()->addMonth(),
-            };
+            $endDate = \App\Support\CicloDeFacturacao::fim($startDate, $order->billing_cycle);
             
             if ($pendingSubscription) {
                 // ATIVAR a subscription pendente existente

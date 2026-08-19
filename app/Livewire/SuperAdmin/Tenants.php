@@ -801,6 +801,7 @@ class Tenants extends Component
     public $medidaEmpresas = 1;
     public $medidaArmazenamento = 2000;
     public $medidaCiclo = 'monthly';
+    public $medidaJaPago = false;   // o cliente já pagou?
 
     public function abrirPlanoAMedida($tenantId)
     {
@@ -843,6 +844,7 @@ class Tenants extends Component
         $this->medidaEmpresas = 1;
         $this->medidaArmazenamento = max(2000, (int) $tenant->max_storage_mb);
         $this->medidaCiclo = 'monthly';
+        $this->medidaJaPago = false;
         $this->resetErrorBag();
         $this->showMedidaModal = true;
     }
@@ -913,6 +915,7 @@ class Tenants extends Component
                 'max_storage_mb' => $this->medidaArmazenamento,
                 'trial_days'     => 0,   // o teste aqui é POR MÓDULO
                 'ciclo'          => $this->medidaCiclo,
+                'ja_pago'        => $this->medidaJaPago,
             ]);
         } catch (\Throwable $e) {
             \Log::error('Plano à medida falhou', [

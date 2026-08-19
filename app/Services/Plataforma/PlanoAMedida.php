@@ -2,10 +2,13 @@
 
 namespace App\Services\Plataforma;
 
+use App\Models\Invoice;
 use App\Models\Module;
+use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Tenant;
 use App\Services\Tenant\TenantModuleSyncService;
+use App\Support\CicloDeFacturacao;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -51,6 +54,12 @@ class PlanoAMedida
             //    que permite dar um módulo a experimentar sem pôr o plano
             //    inteiro em teste, e saber de onde veio o total cobrado.
             $this->marcarModulos($empresa, $dados);
+
+            // 4) O pedido e a factura. Sem isto o cliente ficava com acesso
+            //    total e NENHUM documento: não aparecia na facturação, não
+            //    contava na receita, e ninguém sabia se havia dinheiro a
+            //    receber. Mesmo caminho do painel de Billing.
+            $this->emitirDocumentos($empresa, $plano, $dados);
 
             // 3) Os limites do plano passam a ser os da empresa.
             $empresa->forceFill([
@@ -133,6 +142,68 @@ class PlanoAMedida
         $plano->modules()->sync($ids);
 
         return $plano;
+    }
+
+    /**
+     * O pedido e a factura do plano à medida.
+     *
+     * A factura é SEMPRE emitida — paga, se o admin disser que já recebeu;
+     * pendente, com vencimento, caso contrário. É isso que faz o valor
+     * aparecer na facturação e na receita, em vez de o cliente usar o
+     * sistema sem rasto nenhum de que há dinheiro a receber.
+     */
+    private function emitirDocumentos(Tenant $empresa, Plan $plano, array $dados): void
+    {
+        $ciclo = CicloDeFacturacao::normalizar($dados['ciclo'] ?? 'monthly');
+        $valor = (float) $plano->getPrice($ciclo);
+        $pago  = (bool) ($dados['ja_pago'] ?? false);
+
+        // O pedido fica em nome do DONO da empresa, não de quem o criou no
+        // painel — é ele o cliente.
+        $dono = $empresa->users()->orderBy('tenant_user.id')->first();
+
+        Order::create([
+            'tenant_id'      => $empresa->id,
+            'user_id'        => $dono?->id ?? auth()->id(),
+            'plan_id'        => $plano->id,
+            'amount'         => $valor,
+            'billing_cycle'  => $ciclo,
+            // Nasce APROVADO, como o registo faz nos planos auto-activados.
+            //
+            // Duas razões. Não pode ficar 'pending': a subscrição já foi
+            // aplicada, logo não há nada a aprovar, e ficaria na fila do
+            // painel a pedir uma decisão que — se tomada — acordaria o
+            // OrderObserver e criaria uma SEGUNDA subscrição por cima desta.
+            // E nasce aprovado sem risco: o observer só reage à MUDANÇA de
+            // estado (updated), não à criação.
+            //
+            // Quem carrega o "há dinheiro a receber" é a FACTURA, abaixo.
+            'status'         => 'approved',
+            'approved_at'    => now(),
+            'approved_by'    => auth()->id(),
+            'payment_method' => $dados['metodo_pagamento'] ?? 'bank_transfer',
+            'payment_reference' => $dados['referencia'] ?? null,
+            'notes'          => 'Plano à medida montado pelo Super Admin. '
+                . 'Subscrição aplicada directamente; este registo é o do contrato.',
+        ]);
+
+        $subscricao = $empresa->subscriptions()->latest('id')->first();
+
+        Invoice::create([
+            'tenant_id'       => $empresa->id,
+            'subscription_id' => $subscricao?->id,
+            'invoice_number'  => Invoice::generateInvoiceNumber(),
+            'description'     => "Subscrição {$plano->name} — " . CicloDeFacturacao::nome($ciclo),
+            'invoice_date'    => now(),
+            'due_date'        => $pago ? now() : now()->addDays(8),
+            'paid_at'         => $pago ? now() : null,
+            'payment_method'  => $dados['metodo_pagamento'] ?? 'bank_transfer',
+            'payment_reference' => $dados['referencia'] ?? null,
+            'subtotal'        => $valor,
+            'tax'             => 0,
+            'total'           => $valor,
+            'status'          => $pago ? 'paid' : 'pending',
+        ]);
     }
 
     /**

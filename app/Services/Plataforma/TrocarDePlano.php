@@ -91,12 +91,8 @@ class TrocarDePlano
 
     private function fimDoPeriodo(\Carbon\Carbon $inicio, string $ciclo): \Carbon\Carbon
     {
-        return match ($ciclo) {
-            // Anual leva dois meses de oferta, como no resto do sistema.
-            'yearly'     => $inicio->copy()->addMonths(14),
-            'semiannual' => $inicio->copy()->addMonths(6),
-            'quarterly'  => $inicio->copy()->addMonths(3),
-            default      => $inicio->copy()->addMonth(),
-        };
+        // Fonte única: o anual leva dois meses de oferta, como no resto do
+        // sistema (ver App\Support\CicloDeFacturacao).
+        return \App\Support\CicloDeFacturacao::fim($inicio, $ciclo);
     }
 }
