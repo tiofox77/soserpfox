@@ -230,6 +230,10 @@ class Plan extends Model
                     $modulesToSync[$moduleId] = [
                         'is_active' => true,
                         'activated_at' => now(),
+                        // Activar por direito de plano encerra qualquer teste
+                        // anterior — senao um trial expirado bloqueava o
+                        // modulo mesmo depois de o cliente pagar o plano.
+                        'trial_ends_at' => null,
                     ];
                 }
 
@@ -279,6 +283,9 @@ class Plan extends Model
                     $moduleId => [
                         'is_active' => true,
                         'activated_at' => now(),
+                        // Ver acima: activar por direito de plano encerra
+                        // qualquer período de teste anterior do módulo.
+                        'trial_ends_at' => null,
                     ]
                 ]);
 
@@ -327,6 +334,9 @@ class Plan extends Model
                     $moduleId => [
                         'is_active' => true,
                         'activated_at' => now(),
+                        // Ver acima: activar por direito de plano encerra
+                        // qualquer período de teste anterior do módulo.
+                        'trial_ends_at' => null,
                     ]
                 ]);
 

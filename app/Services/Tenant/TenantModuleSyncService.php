@@ -249,6 +249,13 @@ class TenantModuleSyncService
                 'is_active'       => true,
                 'activated_at'    => now(),
                 'deactivated_at'  => null,
+                // Activar um módulo POR DIREITO DE PLANO encerra qualquer
+                // período de teste anterior. Sem esta linha, um teste que
+                // expirou ficava a envenenar o módulo para sempre: o
+                // Tenant::hasModule filtra por trial_ends_at, e nem comprar
+                // um plano que inclui o módulo o recuperava — o cliente
+                // pagava e continuava barrado, sem explicação.
+                'trial_ends_at'   => null,
             ],
         ]);
 

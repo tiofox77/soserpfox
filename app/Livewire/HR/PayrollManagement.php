@@ -72,8 +72,30 @@ class PayrollManagement extends Component
 
             $this->dispatch('notify', type: 'success', message: 'Folha de pagamento criada com sucesso!');
             $this->showCreateModal = false;
-        } catch (\Exception $e) {
-            $this->dispatch('notify', type: 'error', message: 'Erro ao criar folha: ' . $e->getMessage());
+        } catch (\App\Exceptions\HR\FolhaJaExiste $e) {
+            // Caso previsto e explicado por palavras: a folha do mês já existe.
+            $this->dispatch('notify', type: 'warning', message: $e->getMessage());
+            $this->showCreateModal = false;
+
+            // Levar o utilizador à folha que já lá está, em vez de o deixar a
+            // olhar para a lista sem saber qual é.
+            if ($e->folha) {
+                $this->yearFilter = $e->folha->year;
+                $this->monthFilter = $e->folha->month;
+                $this->resetPage();
+            }
+        } catch (\Throwable $e) {
+            // Falha não prevista: o utilizador NÃO tem de ler SQL. A mensagem
+            // técnica vai para o log, onde serve para alguma coisa.
+            \Log::error('HR: falha ao criar folha de pagamento', [
+                'tenant_id' => auth()->user()->activeTenantId(),
+                'ano'       => $this->createYear,
+                'mes'       => $this->createMonth,
+                'erro'      => $e->getMessage(),
+            ]);
+
+            $this->dispatch('notify', type: 'error', message:
+                'Não foi possível criar a folha. A ocorrência ficou registada — tente de novo ou contacte o suporte.');
         }
     }
 

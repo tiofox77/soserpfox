@@ -2,6 +2,7 @@
 
 namespace App\Services\HR;
 
+use App\Exceptions\HR\FolhaJaExiste;
 use App\Models\HR\Payroll;
 use App\Models\HR\PayrollItem;
 use App\Models\HR\Employee;
@@ -22,13 +23,62 @@ class PayrollService
      */
     public function createPayroll(int $tenantId, int $year, int $month): Payroll
     {
+        // Já existe folha deste mês?
+        //
+        // Há um índice único (tenant_id, year, month) — e sem esta verificação
+        // a segunda tentativa rebentava com o erro cru da base a ser mostrado
+        // ao utilizador: "Duplicate entry '70-2026-8' for key
+        // hr_payrolls_tenant_id_year_month_unique". Quem está do outro lado
+        // não tem como perceber que o problema é a folha já existir.
+        $existente = Payroll::where('tenant_id', $tenantId)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->first();
+
+        if ($existente) {
+            $mes = Carbon::create($year, $month, 1)->translatedFormat('F \d\e Y');
+
+            throw new FolhaJaExiste(
+                "Já existe uma folha de {$mes} nesta empresa ({$existente->payroll_number}, "
+                . "estado: {$existente->status}). Abra essa folha em vez de criar outra — "
+                . 'para recomeçar, elimine-a primeiro.',
+                $existente
+            );
+        }
+
+        try {
+            return $this->gravarFolha($tenantId, $year, $month);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // A verificação acima tem janela de corrida: dois cliques ao mesmo
+            // tempo passam ambos. Apanha-se a violação do índice único e
+            // devolve-se a MESMA mensagem — o utilizador não tem de saber que
+            // houve uma corrida, só que a folha já existe.
+            $folha = Payroll::where('tenant_id', $tenantId)
+                ->where('year', $year)->where('month', $month)->first();
+
+            $mes = Carbon::create($year, $month, 1)->translatedFormat('F \d\e Y');
+
+            throw new FolhaJaExiste(
+                "Já existe uma folha de {$mes} nesta empresa"
+                . ($folha ? " ({$folha->payroll_number})" : '')
+                . '. Abra essa folha em vez de criar outra.',
+                $folha
+            );
+        }
+    }
+
+    private function gravarFolha(int $tenantId, int $year, int $month): Payroll
+    {
         return DB::transaction(function () use ($tenantId, $year, $month) {
             $periodStart = Carbon::create($year, $month, 1);
             $periodEnd = $periodStart->copy()->endOfMonth();
-            
+
             $payrollNumber = $this->generatePayrollNumber($tenantId, $year, $month);
-            
-            // Criar folha
+
+            // Criar folha. A verificacao acima tem janela de corrida (dois
+            // cliques ao mesmo tempo passam ambos), por isso a violacao do
+            // indice unico e apanhada e convertida na mesma mensagem — o
+            // mesmo padrao usado no checkout do restaurante e no POS.
             $payroll = Payroll::create([
                 'tenant_id' => $tenantId,
                 'payroll_number' => $payrollNumber,
