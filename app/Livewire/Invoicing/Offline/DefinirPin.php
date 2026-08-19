@@ -52,12 +52,16 @@ class DefinirPin extends Component
 
         // A password confirma que é mesmo o dono da conta a definir o PIN.
         if (!Hash::check($this->password, auth()->user()->password)) {
+            // Limpar o PIN também nos early-return: é propriedade pública e
+            // ficaria no snapshot devolvido ao cliente até nova submissão.
+            $this->reset(['pin', 'pin_confirmation']);
             $this->addError('password', 'Palavra-passe incorrecta.');
             return;
         }
 
         // PIN óbvio é um PIN que não protege nada.
         if (in_array($this->pin, ['0000', '1111', '1234', '123456', '000000', '111111'], true)) {
+            $this->reset(['pin', 'pin_confirmation']);
             $this->addError('pin', 'Escolha um PIN menos óbvio.');
             return;
         }
@@ -65,6 +69,7 @@ class DefinirPin extends Component
         try {
             auth()->user()->definirPinPos($this->pin);
         } catch (\InvalidArgumentException $e) {
+            $this->reset(['pin', 'pin_confirmation']);
             $this->addError('pin', $e->getMessage());
             return;
         }

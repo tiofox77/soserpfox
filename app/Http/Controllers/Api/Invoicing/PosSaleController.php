@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Invoicing\Concerns\ResolveOperadorOffline;
 use App\Services\POS\PosSaleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Validator;
  */
 class PosSaleController extends Controller
 {
+    use ResolveOperadorOffline;
+
     public function store(Request $request, PosSaleService $service): JsonResponse
     {
         $tenantId = activeTenantId();
@@ -27,6 +30,8 @@ class PosSaleController extends Controller
 
         $validator = Validator::make($request->all(), [
             'local_uuid'          => 'required|string|max:80',
+            'operator_id'         => 'nullable|integer',
+            'operator_email'      => 'nullable|string|max:191',
             'client_id'           => 'nullable|integer',
             'payment_method'      => 'nullable|string|max:30',
             'amount_received'     => 'nullable|numeric|min:0',
@@ -55,7 +60,8 @@ class PosSaleController extends Controller
             $invoice = $service->createFromPayload(
                 $validator->validated(),
                 $tenantId,
-                auth()->id()
+                // O operador que fez a venda offline (PIN), validado; senao a sessao.
+                $this->operadorOffline($request, $tenantId)
             );
 
             // QR Code AGT definitivo (server-side)

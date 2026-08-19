@@ -48,7 +48,7 @@
         </form>
 
         <p class="text-xs text-gray-400 mt-5">
-            {{ __('Guardamos apenas um verificador do PIN, nunca o PIN em si. Ele só é enviado aos tablets da sua empresa, cifrado, e deixa de valer 14 dias após a última sincronização.') }}
+            {{ __('Guardamos apenas um verificador do PIN, nunca o PIN em si. Ele só vai para os tablets da sua empresa e deixa de valer 14 dias após a última sincronização. O PIN identifica quem está na caixa; não substitui o cuidado de não deixar o aparelho em mãos alheias.') }}
         </p>
     </div>
 </div>

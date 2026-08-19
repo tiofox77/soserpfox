@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Invoicing\Concerns\ResolveOperadorOffline;
 use App\Models\Invoicing\PosShift;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\Validator;
  */
 class PosShiftController extends Controller
 {
+    use ResolveOperadorOffline;
+
     public function open(Request $request): JsonResponse
     {
         $tenantId = activeTenantId();
@@ -42,9 +45,12 @@ class PosShiftController extends Controller
             ], 422);
         }
 
+        // O operador que abre o turno offline (PIN), validado; senao a sessao.
+        $operatorId = $this->operadorOffline($request, $tenantId);
+
         // Idempotência: já existe turno aberto deste operador → devolver
         $existing = PosShift::where('tenant_id', $tenantId)
-            ->where('user_id', auth()->id())
+            ->where('user_id', $operatorId)
             ->where('status', 'open')
             ->latest('opened_at')
             ->first();
@@ -61,7 +67,7 @@ class PosShiftController extends Controller
 
             $shift = PosShift::createSafely([
                 'tenant_id'       => $tenantId,
-                'user_id'         => auth()->id(),
+                'user_id'         => $operatorId,
                 'status'          => 'open',
                 'opened_at'       => $openedAt,
                 'opening_balance' => (float) $request->input('opening_balance', 0),
@@ -105,8 +111,11 @@ class PosShiftController extends Controller
             ], 422);
         }
 
+        // O operador que fecha o turno offline (PIN), validado; senao a sessao.
+        $operatorId = $this->operadorOffline($request, $tenantId);
+
         $shift = PosShift::where('tenant_id', $tenantId)
-            ->where('user_id', auth()->id())
+            ->where('user_id', $operatorId)
             ->where('status', 'open')
             ->latest('opened_at')
             ->first();
@@ -114,7 +123,7 @@ class PosShiftController extends Controller
         // Idempotência: já não há turno aberto → devolver o último fechado
         if (!$shift) {
             $last = PosShift::where('tenant_id', $tenantId)
-                ->where('user_id', auth()->id())
+                ->where('user_id', $operatorId)
                 ->where('status', 'closed')
                 ->latest('closed_at')
                 ->first();

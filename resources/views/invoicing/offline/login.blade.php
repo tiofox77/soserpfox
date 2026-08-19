@@ -29,8 +29,11 @@
     <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
     {{-- O MESMO motor do resto do PWA. Uma segunda base aqui dentro era um
          segundo sistema de login offline, cego ao que o outro guardou. --}}
+    {{-- Caminho literal, igual ao do precache/warmup do SW: um asset() com
+         host de APP_URL diferente da origem servida seria outra chave de
+         cache e offline ficava sem motor. --}}
     <script src="/js/vendor/bcrypt.min.js?v=1"></script>
-    <script src="{{ asset('js/pwa-invoicing.js') }}?v=18"></script>
+    <script src="/js/pwa-invoicing.js?v=18"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-900 to-blue-700 min-h-screen flex items-center justify-center p-4">
 
@@ -213,7 +216,9 @@ function pwaLogin() {
                 const r = await p.verifyOfflineAuth(this.email, this.pin);
 
                 if (!r.ok) {
-                    if (r.reason === 'LOCKED') {
+                    if (r.reason === 'NO_ENGINE') {
+                        this.erro = MSG_SEM_MOTOR;
+                    } else if (r.reason === 'LOCKED') {
                         const seg = Math.max(1, Math.ceil((r.until - Date.now()) / 1000));
                         this.erro = MSG_TRANCADO.replace(':seg', seg);
                     } else if (r.reason === 'EXPIRED_WINDOW' || r.reason === 'EXPIRED') {

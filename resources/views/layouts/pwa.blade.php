@@ -458,14 +458,22 @@
             // Se já desbloqueado neste tab, não fazer nada
             if (window.SosPwa.isPwaUnlocked()) return;
 
-            // Se há auth_cache válido, mostrar overlay
+            const info = await window.SosPwa.getOfflineAuthInfo();
             const enabled = await window.SosPwa.isOfflineAuthEnabled();
+
+            // Acesso offline caducou (funcionários sincronizados, janela
+            // passada): mostrar o overlay a explicar, não assumir sessão.
+            if (info && info.window_expired && info.employees > 0) {
+                showOverlay(info);
+                subtitle.textContent = 'O acesso offline caducou — ligue-se à internet e sincronize.';
+                return;
+            }
+
             if (enabled) {
-                const info = await window.SosPwa.getOfflineAuthInfo();
                 showOverlay(info);
             }
-            // Se não há cache: assume sessão Laravel válida (página foi servida).
-            // O sync online vai marcar pwa_unlocked.
+            // Sem acesso offline: assume sessão Laravel válida (página foi
+            // servida). O sync online vai marcar pwa_unlocked.
         }
 
         form?.addEventListener('submit', async (e) => {
@@ -482,7 +490,8 @@
                     window.dispatchEvent(new CustomEvent('pwa:offline-login-success', { detail: res }));
                 } else {
                     let msg = 'Email ou PIN que não conferem.';
-                    if (res.reason === 'LOCKED')              msg = 'Demasiadas tentativas. Aguarde um momento.';
+                    if (res.reason === 'NO_ENGINE')          msg = 'O motor offline ainda não carregou. Ligue-se à rede e recarregue uma vez.';
+                    else if (res.reason === 'LOCKED')         msg = 'Demasiadas tentativas. Aguarde um momento.';
                     else if (res.reason === 'EXPIRED' || res.reason === 'EXPIRED_WINDOW')
                                                              msg = 'O acesso offline caducou — sincronize com internet.';
                     else if (res.reason === 'NO_CACHE')      msg = 'Este aparelho ainda não sincronizou a empresa.';

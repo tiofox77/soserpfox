@@ -21,7 +21,7 @@ return [
     // aparelho volta a puxar as páginas do modo offline para a cache. É de
     // propósito — é assim que uma versão nova chega aos telemóveis — mas
     // significa que mudar esta linha tem efeito real, e não é só um rótulo.
-    'current' => '2026.08.18.1',
+    'current' => '2026.08.19.1',
 
     'releases' => [
 

@@ -722,6 +722,20 @@
      * a sync() sai logo sem esperar por nada. Quem espera, dispara.
      */
     async function enqueue(op, payload, autoSync = true) {
+        // Carimbar QUEM fez a operação offline nas ops fiscais. O login por PIN
+        // é do lado do cliente; a sessão Laravel do aparelho continua a ser a
+        // do último a sincronizar. Sem isto, a venda de B (entrou por PIN) era
+        // comunicada à AGT em nome de A. O servidor valida este operador antes
+        // de o aceitar (ver ResolveOperadorOffline).
+        const OPS_COM_OPERADOR = ['create_pos_sale', 'open_pos_shift', 'close_pos_shift'];
+        if (OPS_COM_OPERADOR.includes(op) && payload && payload.operator_id === undefined) {
+            try {
+                const u = (await db.meta.get('user'))?.value;
+                if (u) {
+                    payload = { ...payload, operator_id: u.id || null, operator_email: u.email || null };
+                }
+            } catch (_) {}
+        }
         await db.sync_queue.add({
             op,
             payload,
@@ -1222,8 +1236,15 @@
         // ---- Verificação do PIN com bcrypt (o mesmo hash que o servidor) ----
         // O bcryptjs é servido pelo próprio domínio e está em cache do SW, por
         // isso funciona sem rede. A forma com callback não tranca o ecrã.
+        // O motor de bcrypt (self-hosted, em cache do SW). Se não carregou,
+        // devolve null — e quem chama TEM de distinguir isso de PIN errado,
+        // senão tranca toda a gente em silêncio e ainda conta como tentativa.
+        _bcryptEngine() {
+            return window.bcrypt || (window.dcodeIO && window.dcodeIO.bcrypt) || null;
+        },
+
         _bcryptCompare(secret, hash) {
-            const bc = window.bcrypt || (window.dcodeIO && window.dcodeIO.bcrypt);
+            const bc = this._bcryptEngine();
             return new Promise((resolve) => {
                 if (!bc || !hash) return resolve(false);
                 try { bc.compare(String(secret), hash, (err, ok) => resolve(!err && !!ok)); }
@@ -1231,12 +1252,28 @@
             });
         },
 
-        // A janela de validade offline (14 dias). Sem valor guardado (sync
-        // antigo) não se bloqueia, para não trancar aparelhos já provisionados.
+        // A janela de validade offline (14 dias). FAIL-CLOSED: este método só
+        // é consultado no caminho do PIN, onde há funcionários sincronizados —
+        // e um sync real grava SEMPRE offline_valid_until. Faltar essa chave
+        // (apagada à mão, estado incoerente) tem de NEGAR, não permitir; senão
+        // apagar a chave reabriria o acesso para sempre.
         async _offlineWindowOk() {
             const m = await db.meta.get('offline_valid_until');
-            if (!m?.value) return true;
+            if (!m?.value) return false;
             return new Date(m.value) >= new Date();
+        },
+
+        // Desactiva mesmo o acesso offline deste aparelho: apaga os
+        // verificadores e a janela. Só volta a haver login offline após nova
+        // sincronização com rede — que reflecte demissões e mudanças de PIN.
+        async _expirarAcessoOffline() {
+            try {
+                await db.employees.clear();
+                await db.meta.delete('auth_cache');
+                await db.meta.delete('offline_valid_until');
+                await db.meta.delete('pin_attempts');
+                try { sessionStorage.removeItem('pwa_unlocked'); } catch (_) {}
+            } catch (_) {}
         },
 
         // ---- Trava anti-força-bruta por funcionário ----
@@ -1302,7 +1339,16 @@
             const emp = await db.employees.get(mail);
             if (emp && emp.pin_hash) {
                 if (!(await this._offlineWindowOk())) {
+                    // A janela caducou: desactiva mesmo o aparelho — apaga os
+                    // verificadores, não apenas recusa (senão os hashes ficavam
+                    // lá para sempre). Obriga a sincronizar com rede.
+                    await this._expirarAcessoOffline();
                     return { ok: false, reason: 'EXPIRED_WINDOW' };
+                }
+                // Motor de cripto ausente ≠ PIN errado. Não conta como
+                // tentativa (não escala a trava) e diz-se ao operador.
+                if (!this._bcryptEngine()) {
+                    return { ok: false, reason: 'NO_ENGINE' };
                 }
                 const ok = await this._bcryptCompare(secret, emp.pin_hash);
                 if (!ok) {
