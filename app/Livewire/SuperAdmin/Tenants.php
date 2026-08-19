@@ -793,19 +793,20 @@ class Tenants extends Component
     public $showMedidaModal = false;
     public $medidaNome = '';
     public $medidaModulos = [];
-    public $medidaPrecoMensal = null;
+    public $medidaPrecos = [];      // [slug => preço mensal]
+    public $medidaTestes = [];      // [slug => dias de teste]
+    public $medidaJaTem = [];       // slugs que a empresa já tem hoje
     public $medidaPrecoAnual = null;
     public $medidaUtilizadores = 5;
     public $medidaEmpresas = 1;
     public $medidaArmazenamento = 2000;
-    public $medidaDiasTeste = 0;
     public $medidaCiclo = 'monthly';
 
     public function abrirPlanoAMedida($tenantId)
     {
         $this->apenasDonoDaPlataforma();
 
-        $tenant = Tenant::find($tenantId);
+        $tenant = Tenant::with('activeSubscription.plan')->find($tenantId);
         if (!$tenant) {
             $this->dispatch('error', message: 'Empresa não encontrada.');
             return;
@@ -813,16 +814,46 @@ class Tenants extends Component
 
         $this->managingPlanTenantId = $tenantId;
         $this->medidaNome = 'Plano ' . $tenant->name;
-        $this->medidaModulos = [];
-        $this->medidaPrecoMensal = null;
+
+        // O que a empresa JÁ TEM activo hoje — para se ver o que se está a
+        // acrescentar ou a tirar, em vez de montar às cegas.
+        $this->medidaJaTem = $tenant->modules()
+            ->wherePivot('is_active', true)
+            ->pluck('modules.slug')->all();
+
+        // Arranca com o que ela já tem: o caso comum é acrescentar, não
+        // recomeçar do zero.
+        $this->medidaModulos = $this->medidaJaTem;
+
+        // Preços sugeridos: o preço base de cada módulo. O que a empresa já
+        // paga por um módulo (pivô) tem prioridade — é o valor combinado.
+        $this->medidaPrecos = [];
+        $this->medidaTestes = [];
+        foreach (\App\Models\Module::where('is_active', true)->get() as $modulo) {
+            $doPivo = $tenant->modules()
+                ->where('modules.id', $modulo->id)
+                ->first()?->pivot?->price;
+
+            $this->medidaPrecos[$modulo->slug] = (float) ($doPivo ?? $modulo->default_price ?? 0);
+            $this->medidaTestes[$modulo->slug] = 0;
+        }
+
         $this->medidaPrecoAnual = null;
-        $this->medidaUtilizadores = 5;
+        $this->medidaUtilizadores = max(5, (int) $tenant->max_users);
         $this->medidaEmpresas = 1;
-        $this->medidaArmazenamento = 2000;
-        $this->medidaDiasTeste = 0;
+        $this->medidaArmazenamento = max(2000, (int) $tenant->max_storage_mb);
         $this->medidaCiclo = 'monthly';
         $this->resetErrorBag();
         $this->showMedidaModal = true;
+    }
+
+    /** A mensalidade é a soma do que cada módulo escolhido custa. */
+    public function getMedidaTotalMensalProperty(): float
+    {
+        return \App\Services\Plataforma\PlanoAMedida::somar(
+            $this->medidaModulos ?? [],
+            $this->medidaPrecos ?? []
+        );
     }
 
     public function fecharPlanoAMedida(): void
@@ -834,7 +865,7 @@ class Tenants extends Component
     /** O anual sugerido: doze mensalidades. Quem manda é o valor escrito. */
     public function getMedidaAnualSugeridoProperty(): float
     {
-        return round(((float) $this->medidaPrecoMensal) * 12, 2);
+        return round($this->medidaTotalMensal * 12, 2);
     }
 
     public function guardarPlanoAMedida(\App\Services\Plataforma\PlanoAMedida $servico)
@@ -844,17 +875,24 @@ class Tenants extends Component
         $this->validate([
             'medidaNome'          => 'required|string|min:3|max:120',
             'medidaModulos'       => 'required|array|min:1',
-            'medidaPrecoMensal'   => 'required|numeric|gt:0',
+            'medidaPrecos.*'      => 'nullable|numeric|min:0',
+            'medidaTestes.*'      => 'nullable|integer|min:0|max:365',
             'medidaPrecoAnual'    => 'nullable|numeric|min:0',
             'medidaUtilizadores'  => 'required|integer|min:1',
             'medidaEmpresas'      => 'required|integer|min:1',
             'medidaArmazenamento' => 'required|integer|min:100',
-            'medidaDiasTeste'     => 'nullable|integer|min:0|max:365',
             'medidaCiclo'         => 'required|in:monthly,quarterly,semiannual,yearly',
         ], [
-            'medidaModulos.required'   => 'Escolha pelo menos um módulo.',
-            'medidaPrecoMensal.gt'     => 'A mensalidade tem de ser maior que zero — um plano a zero gasta a cortesia única do cliente.',
+            'medidaModulos.required' => 'Escolha pelo menos um módulo.',
         ]);
+
+        // A mensalidade é a soma dos módulos — e tem de dar mais do que zero.
+        // Um plano a zero é tratado em todo o sistema como o plano gratuito e
+        // gastaria a cortesia única do cliente.
+        if ($this->medidaTotalMensal <= 0) {
+            $this->addError('medidaPrecos', 'A soma dos módulos tem de ser maior que zero — um plano a zero gasta a cortesia única do cliente.');
+            return;
+        }
 
         $tenant = Tenant::find($this->managingPlanTenantId);
         if (!$tenant) {
@@ -866,12 +904,14 @@ class Tenants extends Component
             $plano = $servico->criarEAtribuir($tenant, [
                 'nome'           => $this->medidaNome,
                 'modulos'        => $this->medidaModulos,
-                'preco_mensal'   => $this->medidaPrecoMensal,
+                'precos'         => $this->medidaPrecos,
+                'testes'         => $this->medidaTestes,
+                'preco_mensal'   => $this->medidaTotalMensal,
                 'preco_anual'    => $this->medidaPrecoAnual,
                 'max_users'      => $this->medidaUtilizadores,
                 'max_companies'  => $this->medidaEmpresas,
                 'max_storage_mb' => $this->medidaArmazenamento,
-                'trial_days'     => $this->medidaDiasTeste,
+                'trial_days'     => 0,   // o teste aqui é POR MÓDULO
                 'ciclo'          => $this->medidaCiclo,
             ]);
         } catch (\Throwable $e) {

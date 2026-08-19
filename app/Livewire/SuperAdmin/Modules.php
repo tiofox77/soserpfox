@@ -19,6 +19,8 @@ class Modules extends Component
     public $name, $slug, $description, $icon = 'puzzle-piece';
     public $version = '1.0.0', $order = 0;
     public $is_active = true, $is_core = false;
+    /** Preço mensal sugerido — usado para somar um plano à medida. */
+    public $default_price = 0;
     public $dependencies = [];
 
     protected $rules = [
@@ -28,6 +30,7 @@ class Modules extends Component
         'icon' => 'required',
         'version' => 'required',
         'order' => 'required|integer',
+        'default_price' => 'nullable|numeric|min:0',
     ];
 
     public function create()
@@ -47,6 +50,7 @@ class Modules extends Component
         $this->version = $module->version;
         $this->order = $module->order;
         $this->is_active = $module->is_active;
+        $this->default_price = $module->default_price;
         $this->is_core = $module->is_core;
         $this->dependencies = $module->dependencies ?? [];
         $this->showModal = true;
@@ -67,6 +71,7 @@ class Modules extends Component
             'icon' => $this->icon,
             'version' => $this->version,
             'order' => $this->order,
+            'default_price' => (float) ($this->default_price ?: 0),
             'is_active' => $this->is_active,
             'is_core' => $this->is_core,
             'dependencies' => $this->dependencies,

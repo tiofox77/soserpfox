@@ -674,7 +674,7 @@ class Tenant extends Model
     public function modules()
     {
         return $this->belongsToMany(Module::class, 'tenant_module')
-            ->withPivot('is_active', 'activated_at', 'deactivated_at')
+            ->withPivot('is_active', 'activated_at', 'deactivated_at', 'trial_ends_at', 'price')
             ->withTimestamps();
     }
 
@@ -751,13 +751,32 @@ class Tenant extends Model
             return $this->modules()
                     ->whereIn('slug', ['treasury', 'invoicing'])
                     ->wherePivot('is_active', true)
+                    ->where(fn ($q) => $this->aindaDentroDoTeste($q))
                     ->exists();
         }
-        
+
         return $this->modules()
             ->where('slug', $moduleSlug)
             ->wherePivot('is_active', true)
+            ->where(fn ($q) => $this->aindaDentroDoTeste($q))
             ->exists();
+    }
+
+    /**
+     * Um módulo dado a experimentar deixa de valer quando o prazo passa.
+     *
+     * Sem prazo (trial_ends_at a NULL) é um módulo normal do plano e vale
+     * sempre — é o caso da esmagadora maioria. Só quando alguém marcou uma
+     * data é que ela conta, e passada essa data o módulo deixa de aparecer
+     * como disponível: este é o único portão por onde o acesso passa
+     * (CheckTenantModule chama hasModule).
+     */
+    protected function aindaDentroDoTeste($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('tenant_module.trial_ends_at')
+              ->orWhere('tenant_module.trial_ends_at', '>=', now());
+        });
     }
     
     public function isActive()

@@ -18,6 +18,9 @@ class Module extends Model
         'version',
         'is_core',
         'is_active',
+        // Preço mensal sugerido do módulo. Serve para montar um plano à
+        // medida somando o que se escolhe, em vez de calcular de cabeça.
+        'default_price',
         'order',
         'dependencies',
     ];

@@ -47,6 +47,11 @@ class PlanoAMedida
             // 2) Os módulos e as permissões — o que o TrocarDePlano não faz.
             $this->sincronizarModulos($empresa, $plano);
 
+            // 3) O preço e o teste de CADA módulo, no pivô da empresa. É o
+            //    que permite dar um módulo a experimentar sem pôr o plano
+            //    inteiro em teste, e saber de onde veio o total cobrado.
+            $this->marcarModulos($empresa, $dados);
+
             // 3) Os limites do plano passam a ser os da empresa.
             $empresa->forceFill([
                 'max_users'       => $plano->max_users,
@@ -55,6 +60,22 @@ class PlanoAMedida
 
             return $plano;
         });
+    }
+
+    /**
+     * A mensalidade é a SOMA do que cada módulo custa.
+     *
+     * @param  array  $precos  [slug => preço mensal]
+     */
+    public static function somar(array $modulos, array $precos): float
+    {
+        $total = 0.0;
+
+        foreach ($modulos as $slug) {
+            $total += (float) ($precos[$slug] ?? 0);
+        }
+
+        return round($total, 2);
     }
 
     private function validar(array $dados): void
@@ -112,6 +133,35 @@ class PlanoAMedida
         $plano->modules()->sync($ids);
 
         return $plano;
+    }
+
+    /**
+     * Grava, por módulo, quanto custa a esta empresa e até quando é teste.
+     *
+     * O trial por módulo tem efeito real: o Tenant::hasModule — o único
+     * portão por onde o acesso aos módulos passa — deixa de o dar como
+     * disponível depois da data.
+     */
+    private function marcarModulos(Tenant $empresa, array $dados): void
+    {
+        $precos = $dados['precos'] ?? [];
+        $testes = $dados['testes'] ?? [];
+
+        $ids = Module::whereIn('slug', $dados['modulos'])->pluck('id', 'slug');
+
+        foreach ($dados['modulos'] as $slug) {
+            if (!isset($ids[$slug])) {
+                continue;
+            }
+
+            $dias = (int) ($testes[$slug] ?? 0);
+
+            $empresa->modules()->updateExistingPivot($ids[$slug], [
+                'price'         => round((float) ($precos[$slug] ?? 0), 2),
+                // Sem dias não há teste: o módulo vale enquanto o plano valer.
+                'trial_ends_at' => $dias > 0 ? now()->addDays($dias) : null,
+            ]);
+        }
     }
 
     /** Slug único e reconhecível: quem o vir na base sabe de quem é. */

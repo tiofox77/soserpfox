@@ -68,7 +68,21 @@
                             <input wire:model="order" type="number" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
                             @error('order') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
                         </div>
-                        
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-tag text-orange-500 mr-2"></i>Preço mensal sugerido (Kz)
+                            </label>
+                            <input wire:model="default_price" type="number" min="0" step="100"
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-right focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                            <p class="text-[11px] text-gray-400 mt-1">
+                                É o valor que aparece já preenchido ao montar um plano à medida. Pode ser
+                                alterado por cliente.
+                            </p>
+                            @error('default_price') <span class="text-red-500 text-xs mt-1 block"><i class="fas fa-exclamation-circle mr-1"></i>{{ $message }}</span> @enderror
+                        </div>
+
+
                         <div class="col-span-2">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-align-left text-gray-500 mr-2"></i>Descrição *
