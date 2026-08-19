@@ -54,6 +54,10 @@ class MaintenanceController extends Controller
         'permissions:sync-pos-reports',
         'tenant:set-tax-exclusion',
         'planos:trial-automatico',
+        'planos:dias-de-teste',
+        // Só lê: procura empresa por nome/NIF/email.
+        'tenants:procurar',
+        'tenant:iniciar-trial',
         'roles:backfill',
         'taxes:backfill',
         'treasury:bundle',
