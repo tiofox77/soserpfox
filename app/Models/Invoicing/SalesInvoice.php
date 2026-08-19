@@ -237,6 +237,12 @@ class SalesInvoice extends Model
         return $this->hasMany(SalesInvoiceItem::class, 'sales_invoice_id')->orderBy('order');
     }
 
+    /** Formas de pagamento (multi-tender no POS). */
+    public function payments()
+    {
+        return $this->hasMany(SalePayment::class, 'sales_invoice_id');
+    }
+
     public function receipts()
     {
         return $this->hasMany(Receipt::class, 'invoice_id')->where('type', 'sale');

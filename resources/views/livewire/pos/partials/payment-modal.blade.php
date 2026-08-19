@@ -43,10 +43,20 @@
                 </div>
             </div>
 
+            {{-- Alternar entre uma forma e várias (multi-tender) --}}
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-gray-700">💳 {{ __('Pagamento') }}</span>
+                <button type="button" wire:click="toggleMultiPagamento"
+                        class="text-xs font-semibold px-3 py-1.5 rounded-lg transition {{ $multiPagamento ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    <i class="fas fa-layer-group mr-1"></i>{{ $multiPagamento ? __('Voltar a uma forma') : __('Várias formas') }}
+                </button>
+            </div>
+
+            @if(!$multiPagamento)
             {{-- Método de Pagamento --}}
             <div>
                 <label class="block text-sm font-bold text-gray-700 mb-2">💳 {{ __('Método de Pagamento') }}</label>
-                <select wire:model="paymentMethod" 
+                <select wire:model="paymentMethod"
                         class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 text-lg">
                     @if($paymentMethods && $paymentMethods->count() > 0)
                         @foreach($paymentMethods as $method)
@@ -100,6 +110,58 @@
                 </p>
             </div>
             @endif
+            @endif {{-- fim do modo de uma forma --}}
+
+            @if($multiPagamento)
+            {{-- Várias formas de pagamento (numerário + multicaixa, …) --}}
+            <div class="space-y-2">
+                @foreach($payments as $i => $p)
+                    <div class="flex items-center gap-2">
+                        <select wire:model="payments.{{ $i }}.method"
+                                class="flex-1 min-w-0 px-2 py-2 border-2 border-gray-300 rounded-lg text-sm">
+                            @if($paymentMethods && $paymentMethods->count() > 0)
+                                @foreach($paymentMethods as $method)
+                                    <option value="{{ $method->code }}">{{ $method->name }}</option>
+                                @endforeach
+                            @else
+                                <option value="cash">💵 {{ __('Dinheiro') }}</option>
+                                <option value="transfer">🏦 {{ __('Transferência') }}</option>
+                                <option value="multicaixa">💳 Multicaixa</option>
+                                <option value="tpa">💳 TPA</option>
+                                <option value="mbway">📱 MB Way</option>
+                            @endif
+                        </select>
+                        <input type="number" step="0.01" wire:model.live="payments.{{ $i }}.amount"
+                               class="w-28 px-2 py-2 border-2 border-gray-300 rounded-lg text-right font-bold text-sm">
+                        <button type="button" wire:click="removePayment({{ $i }})"
+                                class="text-red-500 hover:text-red-700 px-2 py-2" title="{{ __('Remover') }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                @endforeach
+
+                <button type="button" wire:click="addPayment"
+                        class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                    <i class="fas fa-plus mr-1"></i>{{ __('Adicionar pagamento') }}
+                </button>
+
+                @php $falta = round(($cartTotal ?? 0) - collect($payments)->sum(fn($p) => (float) ($p['amount'] ?? 0)), 2); @endphp
+                <div class="flex items-center justify-between rounded-xl p-3 border-2 {{ abs($falta) < 0.02 ? 'bg-green-50 border-green-300' : ($falta > 0 ? 'bg-amber-50 border-amber-300' : 'bg-red-50 border-red-300') }}">
+                    <span class="text-sm font-bold {{ abs($falta) < 0.02 ? 'text-green-800' : ($falta > 0 ? 'text-amber-800' : 'text-red-800') }}">
+                        @if(abs($falta) < 0.02)
+                            ✅ {{ __('Formas somam o total') }}
+                        @elseif($falta > 0)
+                            {{ __('Falta pagar') }}
+                        @else
+                            {{ __('Excede o total') }}
+                        @endif
+                    </span>
+                    <span class="text-lg font-bold {{ abs($falta) < 0.02 ? 'text-green-700' : ($falta > 0 ? 'text-amber-700' : 'text-red-700') }}">
+                        {{ number_format(abs($falta), 2) }} Kz
+                    </span>
+                </div>
+            </div>
+            @endif
 
             {{-- Observações --}}
             <div>
@@ -120,12 +182,16 @@
                 </button>
                 {{-- wire:target: sem ele o botão entrava em "Processando..." a
                      cada tecla no valor recebido, não só ao confirmar a venda. --}}
+                @php
+                    $faltaConf = round(($cartTotal ?? 0) - collect($payments)->sum(fn($p) => (float) ($p['amount'] ?? 0)), 2);
+                    $vendaBloqueada = $multiPagamento ? (abs($faltaConf) > 0.02) : ($change < 0);
+                @endphp
                 <button wire:click="completeSale"
                         wire:target="completeSale"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-70 scale-95"
-                        class="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {{ $change < 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
-                        @if($change < 0) disabled @endif>
+                        class="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed {{ $vendaBloqueada ? 'opacity-50 cursor-not-allowed' : '' }}"
+                        @if($vendaBloqueada) disabled @endif>
                     <span wire:loading.remove wire:target="completeSale">
                         <i class="fas fa-check-circle mr-2"></i>{{ __('Confirmar Venda') }}
                     </span>

@@ -34,6 +34,11 @@ class PosSaleController extends Controller
             'operator_email'      => 'nullable|string|max:191',
             'client_id'           => 'nullable|integer',
             'payment_method'      => 'nullable|string|max:30',
+            // Multi-tender: formas repartidas. A soma == total valida-se no serviço.
+            'payments'             => 'nullable|array',
+            'payments.*.method'    => 'required_with:payments|string|max:30',
+            'payments.*.amount'    => 'required_with:payments|numeric|min:0',
+            'payments.*.reference' => 'nullable|string|max:100',
             'amount_received'     => 'nullable|numeric|min:0',
             'discount_commercial' => 'nullable|numeric|min:0|max:100',
             'notes'               => 'nullable|string|max:2000',

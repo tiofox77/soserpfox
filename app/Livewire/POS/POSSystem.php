@@ -86,6 +86,11 @@ class POSSystem extends Component
     public $discount = 0;
     public $discountType = 'percentage'; // percentage ou fixed
     public $paymentMethods = []; // Métodos de pagamento do Treasury
+
+    // Formas de pagamento repartidas (multi-tender). Vazio = uma forma só
+    // (o $paymentMethod). Cada entrada: {method, amount, reference}.
+    public $payments = [];
+    public $multiPagamento = false;
     
     // Calculados
     public $cartItems = [];
@@ -967,6 +972,74 @@ class POSSystem extends Component
         $this->change = $amountReceived - $this->cartTotal;
     }
 
+    // ── Multi-pagamento ──────────────────────────────────────────────
+    public function toggleMultiPagamento(): void
+    {
+        $this->multiPagamento = !$this->multiPagamento;
+        if ($this->multiPagamento && empty($this->payments)) {
+            // Arranca com uma linha no método actual e o total em falta.
+            $this->payments = [[
+                'method' => $this->paymentMethod,
+                'amount' => round((float) $this->cartTotal, 2),
+                'reference' => '',
+            ]];
+        }
+        if (!$this->multiPagamento) {
+            $this->payments = [];
+        }
+    }
+
+    public function addPayment(): void
+    {
+        $this->payments[] = [
+            'method' => $this->paymentMethod,
+            'amount' => round(max(0, (float) $this->cartTotal - $this->pagamentosTotal()), 2),
+            'reference' => '',
+        ];
+    }
+
+    public function removePayment($i): void
+    {
+        unset($this->payments[$i]);
+        $this->payments = array_values($this->payments);
+    }
+
+    public function pagamentosTotal(): float
+    {
+        return round(array_sum(array_map(fn ($p) => (float) ($p['amount'] ?? 0), $this->payments)), 2);
+    }
+
+    public function faltaPagar(): float
+    {
+        return round((float) $this->cartTotal - $this->pagamentosTotal(), 2);
+    }
+
+    /**
+     * As formas de pagamento a gravar. Sem multi-pagamento é uma só, pelo
+     * total, no método escolhido — o comportamento de sempre.
+     */
+    private function tendersActuais(float $total): array
+    {
+        if (!$this->multiPagamento || empty($this->payments)) {
+            return [['method' => $this->paymentMethod, 'amount' => round($total, 2), 'reference' => null]];
+        }
+
+        $tenders = [];
+        foreach ($this->payments as $p) {
+            $valor = round((float) ($p['amount'] ?? 0), 2);
+            if ($valor <= 0) {
+                continue;
+            }
+            $tenders[] = [
+                'method'    => (string) ($p['method'] ?? $this->paymentMethod),
+                'amount'    => $valor,
+                'reference' => ($p['reference'] ?? '') !== '' ? (string) $p['reference'] : null,
+            ];
+        }
+
+        return $tenders ?: [['method' => $this->paymentMethod, 'amount' => round($total, 2), 'reference' => null]];
+    }
+
     public function completeSale()
     {
         if ($this->cartItems->isEmpty()) {
@@ -985,7 +1058,19 @@ class POSSystem extends Component
             return;
         }
 
-        if ($this->amountReceived < $this->cartTotal) {
+        if ($this->multiPagamento) {
+            // Multi-tender: a soma das formas tem de bater com o total.
+            if (abs($this->pagamentosTotal() - (float) $this->cartTotal) > 0.02) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => __('As formas de pagamento (:pago) não somam o total (:total).', [
+                        'pago'  => number_format($this->pagamentosTotal(), 2),
+                        'total' => number_format((float) $this->cartTotal, 2),
+                    ]),
+                ]);
+                return;
+            }
+        } elseif ($this->amountReceived < $this->cartTotal) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => __('Valor recebido insuficiente!')
@@ -1173,46 +1258,66 @@ class POSSystem extends Component
                 }
             }
 
-            // Criar transação no Treasury (Fatura-Recibo)
-            $this->createTreasuryTransaction($invoice);
-            
-            // Registrar transação no turno POS
+            // ---- Formas de pagamento (multi-tender) ----
+            // Cada parte (numerário, multicaixa, …) fica registada por si, e
+            // gera a sua linha de tesouraria e de turno. O bucketing do turno
+            // por método passa a ficar certo num pagamento misto.
+            $tenders = $this->tendersActuais((float) $invoice->total);
+
+            if (count($tenders) > 1) {
+                $invoice->payment_method = 'multiple';
+                $invoice->save();
+            }
+
             if ($this->currentShift) {
-                // Recarregar turno para garantir que está aberto
                 $this->currentShift->refresh();
-                
-                try {
-                    $this->currentShift->addTransaction([
-                        'type' => 'invoice',
-                        'reference_type' => 'App\\Models\\Invoicing\\SalesInvoice',
-                        'reference_id' => $invoice->id,
-                        'reference_number' => $invoice->invoice_number,
-                        'payment_method' => $this->paymentMethod,
-                        'amount' => $invoice->total,
-                        'description' => 'Venda POS - ' . $invoice->invoice_number,
-                        'metadata' => [
-                            'client_id' => $this->selectedClient->id,
-                            'client_name' => $this->selectedClient->name,
-                            'items_count' => $this->cartItems->count(),
-                            'amount_received' => $this->amountReceived,
-                            'change' => $this->change,
-                        ],
-                    ]);
-                    
-                    \Log::info('Venda registrada no turno com sucesso', [
-                        'shift_number' => $this->currentShift->shift_number,
-                        'invoice_number' => $invoice->invoice_number,
-                        'amount' => $invoice->total,
-                    ]);
-                } catch (\Exception $e) {
-                    \Log::error('ERRO ao registrar venda no turno', [
-                        'shift_id' => $this->currentShift->id,
-                        'invoice_id' => $invoice->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                    // Não bloqueia a venda, apenas registra o erro
+            }
+
+            foreach ($tenders as $tender) {
+                \App\Models\Invoicing\SalePayment::create([
+                    'sales_invoice_id'  => $invoice->id,
+                    'tenant_id'         => activeTenantId(),
+                    'payment_method'    => $tender['method'],
+                    'payment_method_id' => TreasuryPaymentMethod::where('tenant_id', activeTenantId())
+                        ->whereRaw('LOWER(code) = ?', [strtolower($tender['method'])])->value('id'),
+                    'amount'            => $tender['amount'],
+                    'reference'         => $tender['reference'],
+                    'user_id'           => auth()->id(),
+                ]);
+
+                // Tesouraria: uma linha por tender.
+                $this->createTreasuryTransaction($invoice, $tender['method'], (float) $tender['amount']);
+
+                // Turno: uma transacção por tender.
+                if ($this->currentShift) {
+                    try {
+                        $this->currentShift->addTransaction([
+                            'type' => 'invoice',
+                            'reference_type' => 'App\\Models\\Invoicing\\SalesInvoice',
+                            'reference_id' => $invoice->id,
+                            'reference_number' => $invoice->invoice_number,
+                            'payment_method' => $tender['method'],
+                            'amount' => $tender['amount'],
+                            'description' => 'Venda POS - ' . $invoice->invoice_number,
+                            'metadata' => [
+                                'client_id' => $this->selectedClient->id,
+                                'client_name' => $this->selectedClient->name,
+                                'items_count' => $this->cartItems->count(),
+                                'amount_received' => $this->amountReceived,
+                                'change' => $this->change,
+                            ],
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('ERRO ao registrar venda no turno', [
+                            'shift_id' => $this->currentShift->id,
+                            'invoice_id' => $invoice->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
-            } else {
+            }
+
+            if (!$this->currentShift) {
                 \Log::warning('Venda realizada sem turno aberto', [
                     'invoice_number' => $invoice->invoice_number,
                     'user_id' => auth()->id(),
@@ -1279,7 +1384,9 @@ class POSSystem extends Component
             $this->notes = '';
             $this->change = 0;
             $this->discount = 0;
-            
+            $this->payments = [];
+            $this->multiPagamento = false;
+
             // Abrir modal de impressão
             $this->showPrintModal = true;
 
@@ -1349,10 +1456,15 @@ class POSSystem extends Component
         return $metodos->first()->code ?? 'cash';
     }
 
-    private function createTreasuryTransaction($invoice)
+    private function createTreasuryTransaction($invoice, ?string $paymentMethod = null, ?float $amount = null)
     {
+        // Cada forma de pagamento (tender) é uma linha própria. Sem argumentos
+        // é o comportamento antigo: uma linha pelo total, no método escolhido.
+        $paymentMethod = $paymentMethod ?? $this->paymentMethod;
+        $amount = $amount ?? (float) $invoice->total;
+
         // Buscar payment method do Treasury (case-insensitive pelo código)
-        $code = strtolower((string) $this->paymentMethod);
+        $code = strtolower((string) $paymentMethod);
         $treasuryPaymentMethod = TreasuryPaymentMethod::where('tenant_id', activeTenantId())
             ->whereRaw('LOWER(code) = ?', [$code])
             ->first();
@@ -1397,7 +1509,7 @@ class POSSystem extends Component
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),
             'type' => 'income',
             'category' => $category,
-            'amount' => $invoice->total,
+            'amount' => $amount,
             'currency' => 'AOA',
             'transaction_date' => now(),
             'reference' => $invoice->invoice_number,
@@ -1407,9 +1519,9 @@ class POSSystem extends Component
             'is_reconciled' => false,
         ]);
 
-        // Se for pagamento em dinheiro e houver caixa ativo, atualizar saldo
+        // Só a parte em numerário deste tender sobe ao saldo da caixa.
         if ($cashRegisterId) {
-            $activeCashRegister->current_balance += $invoice->total;
+            $activeCashRegister->current_balance += $amount;
             $activeCashRegister->save();
         }
     }

@@ -307,11 +307,34 @@ class PosSaleService
                 }
             }
 
-            // ---- Tesouraria ----
-            $this->createTreasuryTransaction($invoice, $client, $paymentMethod, $notes, $tenantId, $userId);
+            // ---- Formas de pagamento (multi-tender) ----
+            // Uma venda pode ser paga em partes (numerário + multicaixa). Cada
+            // parte é uma linha própria em tesouraria e no turno, para o
+            // "Dinheiro Esperado" do fecho não somar tudo num só método.
+            $tenders = $this->tendersDoPayload($payload, (float) $invoice->total, $paymentMethod);
 
-            // ---- Turno aberto do operador (best-effort) ----
-            $this->linkToOpenShift($invoice, $client, $paymentMethod, $tenantId, $userId, $items, $amountReceived);
+            if (count($tenders) > 1) {
+                $invoice->payment_method = 'multiple';
+                $invoice->save();
+            }
+
+            foreach ($tenders as $tender) {
+                \App\Models\Invoicing\SalePayment::create([
+                    'sales_invoice_id'  => $invoice->id,
+                    'tenant_id'         => $tenantId,
+                    'payment_method'    => $tender['method'],
+                    'payment_method_id' => $this->resolverMetodo($tenantId, $tender['method'])?->id,
+                    'amount'            => $tender['amount'],
+                    'reference'         => $tender['reference'],
+                    'user_id'           => $userId,
+                ]);
+
+                // ---- Tesouraria: uma linha por tender ----
+                $this->createTreasuryTransaction($invoice, $client, $tender['method'], (float) $tender['amount'], $notes, $tenantId, $userId);
+
+                // ---- Turno: uma transacção por tender ----
+                $this->linkToOpenShift($invoice, $client, $tender['method'], (float) $tender['amount'], $tenantId, $userId, $items, $amountReceived);
+            }
 
             // ---- Selo fiscal: hash encadeado + AGT ----
             // Os erros não sobem, e isso é do EmissorFiscal: a venda já
@@ -440,10 +463,64 @@ class PosSaleService
     /**
      * Cria transação de tesouraria (income) associada à fatura.
      */
+    /**
+     * Normaliza as formas de pagamento de uma venda.
+     *
+     * Com 'payments' no payload, usa-se essa lista (multi-tender). Sem ela,
+     * uma só forma pelo total — o comportamento de sempre. A soma tem de bater
+     * com o total; um cliente que envie partes que não somam está errado e a
+     * venda não pode registar pagamentos incoerentes.
+     */
+    protected function tendersDoPayload(array $payload, float $total, string $fallbackMethod): array
+    {
+        $lista = $payload['payments'] ?? null;
+
+        if (!is_array($lista) || count($lista) === 0) {
+            return [['method' => $fallbackMethod, 'amount' => round($total, 2), 'reference' => null]];
+        }
+
+        $tenders = [];
+        $soma = 0.0;
+        foreach ($lista as $p) {
+            $valor = round((float) ($p['amount'] ?? 0), 2);
+            if ($valor <= 0) {
+                continue;
+            }
+            $tenders[] = [
+                'method'    => (string) ($p['method'] ?? $fallbackMethod),
+                'amount'    => $valor,
+                'reference' => isset($p['reference']) ? (string) $p['reference'] : null,
+            ];
+            $soma += $valor;
+        }
+
+        if (count($tenders) === 0) {
+            return [['method' => $fallbackMethod, 'amount' => round($total, 2), 'reference' => null]];
+        }
+
+        // A soma tem de bater com o total (tolerância de arredondamento).
+        if (abs($soma - round($total, 2)) > 0.02) {
+            throw new \InvalidArgumentException(
+                "As formas de pagamento somam {$soma} mas o total é " . round($total, 2) . '.'
+            );
+        }
+
+        return $tenders;
+    }
+
+    /** O TreasuryPaymentMethod pelo código (case-insensitive). */
+    protected function resolverMetodo(int $tenantId, string $code): ?TreasuryPaymentMethod
+    {
+        return TreasuryPaymentMethod::where('tenant_id', $tenantId)
+            ->whereRaw('LOWER(code) = ?', [strtolower($code)])
+            ->first();
+    }
+
     protected function createTreasuryTransaction(
         SalesInvoice $invoice,
         Client $client,
         string $paymentMethod,
+        float $amount,
         ?string $notes,
         int $tenantId,
         int $userId
@@ -451,9 +528,7 @@ class PosSaleService
         $code = strtolower((string) $paymentMethod);
 
         // Método do Treasury (case-insensitive pelo código)
-        $treasuryPaymentMethod = TreasuryPaymentMethod::where('tenant_id', $tenantId)
-            ->whereRaw('LOWER(code) = ?', [$code])
-            ->first();
+        $treasuryPaymentMethod = $this->resolverMetodo($tenantId, $code);
 
         // Categoria: derivar do TIPO do método quando existir; senão, mapa por código
         $typeToCategory = [
@@ -492,7 +567,7 @@ class PosSaleService
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),
             'type'               => 'income',
             'category'           => $category,
-            'amount'             => $invoice->total,
+            'amount'             => $amount,
             'currency'           => 'AOA',
             'transaction_date'   => now(),
             'reference'          => $invoice->invoice_number,
@@ -502,8 +577,9 @@ class PosSaleService
             'is_reconciled'      => false,
         ]);
 
+        // A caixa só sobe com a PARTE em numerário deste tender.
         if ($cashRegisterId && $activeCashRegister) {
-            $activeCashRegister->current_balance += $invoice->total;
+            $activeCashRegister->current_balance += $amount;
             $activeCashRegister->save();
         }
     }
@@ -515,6 +591,7 @@ class PosSaleService
         SalesInvoice $invoice,
         Client $client,
         string $paymentMethod,
+        float $amount,
         int $tenantId,
         int $userId,
         array $items,
@@ -537,7 +614,7 @@ class PosSaleService
                 'reference_id'     => $invoice->id,
                 'reference_number' => $invoice->invoice_number,
                 'payment_method'   => $paymentMethod,
-                'amount'           => $invoice->total,
+                'amount'           => $amount,
                 'description'      => 'Venda POS Offline - ' . $invoice->invoice_number,
                 'metadata'         => [
                     'client_id'       => $client->id,

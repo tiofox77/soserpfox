@@ -196,10 +196,22 @@
 
             {{-- Pagamento --}}
             <div class="text-xs mb-3 pb-3 border-b border-dashed border-gray-400 space-y-1">
-                <div class="flex justify-between">
-                    <span>Forma Pagamento:</span>
-                    <span class="font-bold uppercase">{{ $lastInvoice->payment_method ?? 'Dinheiro' }}</span>
-                </div>
+                @php $formas = $lastInvoice->relationLoaded('payments') ? $lastInvoice->payments : $lastInvoice->payments()->get(); @endphp
+                @if($formas->count() > 1)
+                    {{-- Pago em várias formas: uma linha por cada. --}}
+                    <p class="font-bold">Formas de Pagamento:</p>
+                    @foreach($formas as $f)
+                        <div class="flex justify-between pl-2">
+                            <span class="uppercase">{{ $f->payment_method }}</span>
+                            <span>{{ number_format($f->amount, 2) }} Kz</span>
+                        </div>
+                    @endforeach
+                @else
+                    <div class="flex justify-between">
+                        <span>Forma Pagamento:</span>
+                        <span class="font-bold uppercase">{{ $formas->first()->payment_method ?? ($lastInvoice->payment_method ?? 'Dinheiro') }}</span>
+                    </div>
+                @endif
                 <div class="flex justify-between">
                     <span>Valor Recebido:</span>
                     <span>{{ number_format($lastInvoice->paid_amount, 2) }} Kz</span>
