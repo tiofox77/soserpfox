@@ -116,7 +116,19 @@ class Products extends Component
     public $category_id = null;
     public $brand_id = null;
     public $supplier_id = null;
-    public $manage_stock = false;
+    /**
+     * Um artigo FÍSICO conta stock por omissão.
+     *
+     * Isto nascia a `false`, e por isso quem criasse um artigo sem reparar na
+     * caixa ficava com um artigo que se vendia e nunca descia. Nada no ecrã o
+     * avisava, e o sintoma só aparecia semanas depois, com as contagens já
+     * fora e sem se saber quais os artigos afectados. Numa farmácia estava
+     * errado para praticamente todos.
+     *
+     * O `updatedType` desliga-o sozinho quando o tipo passa a serviço — um
+     * serviço com esta bandeira ligada é recusado no POS por "esgotado".
+     */
+    public $manage_stock = true;
     public $stock_quantity = 0;
     public $stock_min = 0;
     public $stock_max = null;
@@ -327,12 +339,24 @@ class Products extends Component
         $this->showModal = true;
     }
     
-    // Atualizar código quando o tipo mudar
+    /**
+     * O tipo manda no código e na gestão de stock.
+     *
+     * Um SERVIÇO não tem stock: deixar-lhe a bandeira ligada faz o POS
+     * recusá-lo por "esgotado" — já aconteceu com os serviços do salão. E um
+     * artigo físico conta stock, que é o caso normal.
+     *
+     * Só em criação: a editar, quem manda é o que está gravado, e mexer nisso
+     * por trocar o tipo apagaria uma decisão do utilizador.
+     */
     public function updatedType($value)
     {
-        if (!$this->editingProductId) {
-            $this->code = Product::generateProductCode(activeTenantId(), $value);
+        if ($this->editingProductId) {
+            return;
         }
+
+        $this->code = Product::generateProductCode(activeTenantId(), $value);
+        $this->manage_stock = ($value !== 'servico');
     }
 
     /** Produto cujo rastreio está aberto. */
@@ -874,7 +898,8 @@ class Products extends Component
         $this->tax_type = 'iva';
         $this->tax_rate_id = null;
         $this->exemption_reason = null;
-        $this->manage_stock = false;
+        // Mesmo valor por omissão da propriedade: artigo físico conta stock.
+        $this->manage_stock = true;
         $this->stock_quantity = 0;
         $this->stock_min = 0;
         $this->stock_max = null;
