@@ -107,11 +107,16 @@ class VendasDescontarStockEmFalta extends Command
 
         $falhas = $this->emFalta($tenantId, $desde, $ate);
 
+        $this->contas();
+
         if (empty($falhas)) {
-            $this->info('Nada em falta: todas as vendas do período descontaram o que deviam.');
+            $this->newLine();
+            $this->info('Nada a lançar neste período.');
 
             return self::SUCCESS;
         }
+
+        $this->newLine();
 
         $this->mostrar($falhas);
 
@@ -123,13 +128,6 @@ class VendasDescontarStockEmFalta extends Command
             $this->numero($unidades),
             count(array_unique(array_column($falhas, 'factura_id')))
         ));
-
-        if ($this->saltadosPorContagem > 0) {
-            $this->line(sprintf(
-                'Ignoradas por já terem sido contadas: <info>%d</info> linha(s)',
-                $this->saltadosPorContagem
-            ));
-        }
 
         $negativos = array_filter($falhas, fn ($f) => $f['depois'] < 0);
 
@@ -177,6 +175,13 @@ class VendasDescontarStockEmFalta extends Command
             ->get();
 
         if ($facturas->isEmpty()) {
+            // As contas têm de existir mesmo quando não há nada: é o
+            // relatório que prova que se olhou.
+            $this->contas = [
+                'facturas' => 0, 'ja_descontadas' => 0, 'por_contagem' => 0,
+                'sem_stock_gerido' => 0, 'sem_armazem' => 0, 'da_oficina' => 0,
+            ];
+
             return [];
         }
 
@@ -201,6 +206,10 @@ class VendasDescontarStockEmFalta extends Command
         $armazemPorOmissao = $this->armazemPorOmissao($tenantId);
         $ultimaContagem = $this->ultimaContagemPorArtigo($tenantId);
         $saltadosPorContagem = 0;
+        $semArmazem = 0;
+        $daOficinaSaltadas = 0;
+        $semStockGerido = 0;
+        $jaDescontadas = 0;
 
         // Saldo corrente por (armazém, artigo), para se poder mostrar o antes
         // e o depois de várias linhas do mesmo artigo sem ir à base a cada uma.
@@ -209,12 +218,14 @@ class VendasDescontarStockEmFalta extends Command
 
         foreach ($facturas as $factura) {
             if (isset($daOficina[$factura->id])) {
+                $daOficinaSaltadas++;
                 continue;
             }
 
             $armazem = $factura->warehouse_id ?: $armazemPorOmissao;
 
             if (!$armazem) {
+                $semArmazem++;
                 continue;   // sem armazém não há onde descontar
             }
 
@@ -230,6 +241,7 @@ class VendasDescontarStockEmFalta extends Command
 
                 // Se ainda não conta stock, é porque assim se quer.
                 if (!$produto || !$produto->controlaStock()) {
+                    $semStockGerido++;
                     continue;
                 }
 
@@ -254,6 +266,7 @@ class VendasDescontarStockEmFalta extends Command
                 $falta = round($linha['qtd'] - $saiu, 3);
 
                 if ($falta <= 0) {
+                    $jaDescontadas++;
                     continue;
                 }
 
@@ -282,13 +295,26 @@ class VendasDescontarStockEmFalta extends Command
             }
         }
 
-        $this->saltadosPorContagem = $saltadosPorContagem;
+        $this->contas = [
+            'facturas'         => $facturas->count(),
+            'ja_descontadas'   => $jaDescontadas,
+            'por_contagem'     => $saltadosPorContagem,
+            'sem_stock_gerido' => $semStockGerido,
+            'sem_armazem'      => $semArmazem,
+            'da_oficina'       => $daOficinaSaltadas,
+        ];
 
         return $falhas;
     }
 
-    /** Quantas linhas foram salvas pela regra da contagem física. */
-    private int $saltadosPorContagem = 0;
+    /**
+     * Porque é que cada linha NÃO entrou.
+     *
+     * Um comando que diz "nada em falta" depois de ter saltado tudo por uma
+     * razão estrutural — nenhum armazém, artigos sem inventário — está a
+     * mentir com a verdade. Estas contas são a prova de que ele olhou.
+     */
+    private array $contas = [];
 
     /**
      * A data da última contagem de cada artigo.
@@ -425,6 +451,45 @@ class VendasDescontarStockEmFalta extends Command
 
         if (count($falhas) > $limite) {
             $this->line('… e mais ' . (count($falhas) - $limite) . ' (ver --limite=).');
+        }
+    }
+
+    /** O que foi visto e porque é que ficou de fora. */
+    private function contas(): void
+    {
+        $c = $this->contas + [
+            'facturas' => 0, 'ja_descontadas' => 0, 'por_contagem' => 0,
+            'sem_stock_gerido' => 0, 'sem_armazem' => 0, 'da_oficina' => 0,
+        ];
+
+        $this->line("Facturas no período: <info>{$c['facturas']}</info>");
+
+        $linhas = [];
+
+        if ($c['ja_descontadas']) {
+            $linhas[] = ["já tinham descontado", $c['ja_descontadas']];
+        }
+        if ($c['por_contagem']) {
+            $linhas[] = ['já cobertas por uma contagem física', $c['por_contagem']];
+        }
+        if ($c['sem_stock_gerido']) {
+            $linhas[] = ['artigos sem inventário (serviços ou bandeira desligada)', $c['sem_stock_gerido']];
+        }
+        if ($c['da_oficina']) {
+            $linhas[] = ['facturas de Ordem de Serviço (saíram noutra referência)', $c['da_oficina']];
+        }
+        if ($c['sem_armazem']) {
+            $linhas[] = ['<comment>facturas SEM ARMAZÉM — não há onde descontar</comment>', $c['sem_armazem']];
+        }
+
+        if ($linhas) {
+            $this->table(['ficaram de fora porque…', 'linhas'], $linhas);
+        }
+
+        if ($c['sem_armazem'] > 0) {
+            $this->warn('Há facturas sem armazém e a empresa não tem armazém por omissão.');
+            $this->line('  Sem isso não há onde lançar a saída. Criar um armazém em');
+            $this->line('  Inventário → Armazéns e voltar a correr.');
         }
     }
 
