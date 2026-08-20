@@ -55,4 +55,10 @@ class FeatureRequest extends Model
             default => 'gray',
         };
     }
+    /** A empresa a que este registo pertence. */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Tenant::class);
+    }
+
 }

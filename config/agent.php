@@ -36,6 +36,22 @@ return [
         'followup:read'   => 'Ver modelos, destinatários e histórico de envios',
         'followup:email'  => 'Enviar email de seguimento',
         'followup:sms'    => 'Enviar SMS de seguimento',
+
+        // Contactos REAIS, por mascarar. Existe para o agente poder mandar
+        // WhatsApp, que sai do lado dele e precisa do número inteiro. Fica
+        // num escopo à parte de propósito: sem ele a API continua a devolver
+        // tudo mascarado, que é o que deve acontecer a qualquer token que
+        // não precise de contactar ninguém.
+        'contacts:read'   => 'Ver contactos reais (email e telefone) para contacto directo',
+
+        // Operação da plataforma.
+        'logs:read'       => 'Ver os erros do sistema, agrupados',
+        'logs:write'      => 'Marcar erros como vistos ou resolvidos',
+        'billing:read'    => 'Ver subscrições, facturas e o estado do ciclo',
+        'billing:write'   => 'Emitir facturas de renovação e disparar avisos ao cliente',
+        'support:read'    => 'Ver pedidos de suporte, sugestões e mensagens de contacto',
+        'support:write'   => 'Responder e mudar o estado de pedidos de suporte',
+        'tenants:write'   => 'Suspender e reactivar empresas',
     ],
 
     /*
@@ -132,6 +148,40 @@ return [
         'agt_fila_parada',
         'documentos_por_comunicar',
         'stock_negativo',
+    ],
+
+    /*
+     |--------------------------------------------------------------------
+     | Erros do sistema
+     |--------------------------------------------------------------------
+     | O log tem 2000 linhas das quais 1972 são INFO de rotina: um erro a
+     | sério afoga-se lá dentro e ninguém o vê. Os erros passam a ser
+     | agrupados por PROBLEMA na tabela `erros_do_sistema` — uma linha com um
+     | contador, não mil linhas — e o agente externo avisa uma vez por
+     | problema.
+     |
+     | `capturar` e `notificar` são interruptores SEPARADOS: guardar os erros
+     | é barato e não incomoda ninguém; empurrá-los para fora é um pedido HTTP
+     | para outra máquina e uma mensagem a alguém.
+     */
+    'erros' => [
+        'capturar'  => env('AGENT_ERROS_CAPTURAR', true),
+        'notificar' => env('AGENT_ERROS_NOTIFICAR', false),
+
+        // Para onde. Sem isto configurado, nada é empurrado — o agente pode
+        // à mesma perguntar por GET /logs/errors.
+        'webhook_url'    => env('AGENT_ERROS_WEBHOOK', ''),
+
+        // Assina o corpo com HMAC-SHA256 sobre "timestamp.corpo", no
+        // cabeçalho X-Soserp-Signature. É o que permite ao agente saber que a
+        // mensagem veio daqui e não de quem descobriu o URL dele.
+        'webhook_secret' => env('AGENT_ERROS_SEGREDO', ''),
+
+        // Uma avaria que produza cinquenta problemas distintos em dois
+        // minutos não pode virar cinquenta mensagens.
+        'max_por_passagem'    => 10,
+        'intervalo_segundos'  => 300,
+        'timeout'             => 8,
     ],
 
     /*

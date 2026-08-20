@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Agent\AgentController;
+use App\Http\Controllers\Api\Agent\OperacoesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,6 +55,35 @@ Route::prefix('api/agent/v1')
                 Route::get('followup/envios', [AgentController::class, 'envios']);
                 Route::post('followup/preview', [AgentController::class, 'preview']);
             });
+
+            // ── Operação da plataforma ────────────────────────────
+
+            // O resumo de hora a hora. UMA chamada, não sete: se
+            // `precisa_atencao` for falso não há nada a dizer e o agente
+            // fica calado, que é metade do trabalho de quem vigia.
+            Route::middleware('agent.scope:logs:read')
+                ->get('status/resumo', [OperacoesController::class, 'resumo']);
+
+            Route::middleware('agent.scope:logs:read')->group(function () {
+                Route::get('logs/errors', [OperacoesController::class, 'erros']);
+                Route::get('logs/errors/{erro}', [OperacoesController::class, 'erro']);
+            });
+
+            Route::middleware('agent.scope:billing:read')->group(function () {
+                Route::get('billing/ciclo', [OperacoesController::class, 'ciclo']);
+            });
+
+            Route::middleware('agent.scope:support:read')->group(function () {
+                Route::get('support/tickets', [OperacoesController::class, 'suporte']);
+                Route::get('support/feedback', [OperacoesController::class, 'feedback']);
+            });
+
+            // Contactos REAIS, por mascarar. Escopo próprio, dado à mão:
+            // em toda a restante API os contactos continuam mascarados.
+            // Cada leitura fica no registo de pedidos do agente, portanto há
+            // sempre resposta para "quem viu este número e quando".
+            Route::middleware('agent.scope:contacts:read')
+                ->get('tenants/{tenant}/contacts', [OperacoesController::class, 'contactos']);
         });
 
         // ── Escrita ──────────────────────────────────────────────
@@ -71,5 +101,31 @@ Route::prefix('api/agent/v1')
 
             Route::middleware('agent.scope:followup:sms')
                 ->post('followup/sms', [AgentController::class, 'enviarSms']);
+
+            // ── Operação da plataforma ────────────────────────────
+
+            Route::middleware('agent.scope:logs:write')->group(function () {
+                Route::post('logs/errors/{erro}/estado', [OperacoesController::class, 'fecharErro']);
+                Route::post('logs/empurrar', [OperacoesController::class, 'empurrarErros']);
+            });
+
+            // Emitir facturas e disparar avisos. As DUAS nascem em modo de
+            // leitura (`so_ver` por omissão): uma factura é um documento que o
+            // cliente vê e sobre o qual lhe é pedido dinheiro, e um aviso vai
+            // para a caixa de correio ou o telemóvel de uma pessoa real. Para
+            // agir mesmo, o agente tem de o dizer explicitamente.
+            Route::middleware('agent.scope:billing:write')->group(function () {
+                Route::post('billing/renovar', [OperacoesController::class, 'renovar']);
+                Route::post('billing/avisar', [OperacoesController::class, 'avisar']);
+            });
+
+            Route::middleware('agent.scope:support:write')
+                ->post('support/tickets/{ticket}/nota', [OperacoesController::class, 'anotarTicket']);
+
+            // Suspender corta o acesso a toda a gente de uma empresa — é a
+            // acção mais pesada que o agente pode fazer. Exige motivo escrito
+            // e é reversível pela mesma rota.
+            Route::middleware('agent.scope:tenants:write')
+                ->post('tenants/{tenant}/estado', [OperacoesController::class, 'estadoDaEmpresa']);
         });
     });

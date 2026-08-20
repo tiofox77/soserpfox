@@ -63,6 +63,10 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            // Os erros passam tambem para a tabela `erros_do_sistema`, agrupados
+            // por problema, para o agente externo poder avisar. O ficheiro
+            // continua a receber tudo — isto e um ouvinte a mais.
+            'tap' => [\App\Logging\LigarCapturaDeErros::class],
         ],
 
         'daily' => [

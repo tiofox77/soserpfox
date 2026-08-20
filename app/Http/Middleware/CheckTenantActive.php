@@ -16,6 +16,21 @@ class CheckTenantActive
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // A API do agente externo fica de fora.
+        //
+        // Este middleware e GLOBAL, logo apanha-a tambem — e ali fazia duas
+        // coisas erradas: respondia a uma chamada maquina-a-maquina com um
+        // redirect para uma pagina HTML, e mexia na sessao (session() e
+        // auth()->logout()) num pedido que foi montado de proposito SEM
+        // sessao. O agente que suspendesse uma empresa levava 302 na
+        // chamada seguinte e nao percebia porque.
+        //
+        // O acesso do agente ja e decidido pelo token e pelos escopos; que a
+        // empresa esteja suspensa e informacao que ele PRECISA de poder ler.
+        if ($request->is('api/agent/*')) {
+            return $next($request);
+        }
+
         // Pular verificação para super admin
         if (auth()->check() && auth()->user()->is_super_admin) {
             return $next($request);
