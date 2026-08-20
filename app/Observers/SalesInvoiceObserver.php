@@ -237,11 +237,48 @@ class SalesInvoiceObserver
     /**
      * Devolve o stock quando fatura é cancelada
      */
+    /**
+     * Devolve ao stock o que a factura tirou — e SÓ o que ela tirou.
+     *
+     * Devolvia a quantidade da linha sem olhar a nada. Duas consequências, as
+     * duas a inflacionar inventário a partir do nada:
+     *
+     * · uma venda de um artigo que NÃO contava stock nunca desceu nada, e ao
+     *   ser anulada subia. Com o "Gerenciar Stock" desligado num catálogo
+     *   inteiro, cada anulação criava produto do nada;
+     * · anular duas vezes devolvia duas vezes.
+     *
+     * Agora devolve-se no máximo o que os movimentos dizem ter saído por esta
+     * factura. Se não saiu nada, não se devolve nada.
+     */
     private function returnStock(SalesInvoice $invoice): void
     {
         foreach ($invoice->items as $item) {
             if ($item->product_id) {
-                // Atualiza stock
+                // Artigos sem inventário não têm o que devolver.
+                $produto = \App\Models\Product::where('tenant_id', $invoice->tenant_id)
+                    ->find($item->product_id);
+
+                if ($produto && !$produto->controlaStock()) {
+                    continue;
+                }
+
+                // Quanto é que esta factura tirou mesmo deste artigo, já
+                // descontado do que lhe tenha sido devolvido antes.
+                $movimentos = StockMovement::where('tenant_id', $invoice->tenant_id)
+                    ->where('reference_type', SalesInvoice::class)
+                    ->where('reference_id', $invoice->id)
+                    ->where('product_id', $item->product_id);
+
+                $saiu = (float) (clone $movimentos)->where('type', 'out')->sum('quantity');
+                $devolvido = (float) (clone $movimentos)->where('type', 'in')->sum('quantity');
+
+                $aDevolver = min((float) $item->quantity, $saiu - $devolvido);
+
+                if ($aDevolver <= 0) {
+                    continue;
+                }
+
                 $stock = Stock::where([
                     'tenant_id' => $invoice->tenant_id,
                     'warehouse_id' => $invoice->warehouse_id,
@@ -250,13 +287,13 @@ class SalesInvoiceObserver
 
                 if ($stock) {
                     // save() Eloquent (não increment): dispara o StockObserver.
-                    $stock->quantity = (float) $stock->quantity + (float) $item->quantity;
+                    $stock->quantity = (float) $stock->quantity + $aDevolver;
                     $stock->save();
 
                     // Registra movimento de devolução. semAplicarStock: o hook created
                     // chamava addStock() e repunha o stock uma SEGUNDA vez — cada
                     // anulação de fatura DUPLICAVA a devolução ("stock aumenta sozinho").
-                    StockMovement::semAplicarStock(function () use ($invoice, $item) {
+                    StockMovement::semAplicarStock(function () use ($invoice, $item, $aDevolver) {
                         StockMovement::create([
                             'tenant_id' => $invoice->tenant_id,
                             'warehouse_id' => $invoice->warehouse_id,
@@ -264,7 +301,7 @@ class SalesInvoiceObserver
                             'type' => 'in',
                             'reference_type' => SalesInvoice::class,
                             'reference_id' => $invoice->id,
-                            'quantity' => $item->quantity,
+                            'quantity' => $aDevolver,
                             'unit_cost' => $item->unit_price,
                             'user_id' => auth()->id(),
                             'notes' => "Devolução - Fatura {$invoice->invoice_number} cancelada",

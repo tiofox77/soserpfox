@@ -75,6 +75,10 @@ class MaintenanceController extends Controller
         // por omissão: sem ?args=--aplicar não grava nada. Nunca toca em
         // serviços nem na quantidade.
         'produtos:gerir-stock',
+        // Lanca as saidas das vendas que nao descontaram stock. Simulacao
+        // por omissao; so grava com ?args=--aplicar. Respeita as contagens
+        // fisicas: vendas anteriores a ultima contagem ficam de fora.
+        'vendas:descontar-stock-em-falta',
         // Só lê: procura empresa por nome/NIF/email.
         'tenants:procurar',
         'tenant:iniciar-trial',
