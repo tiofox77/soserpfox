@@ -68,6 +68,9 @@ class MaintenanceController extends Controller
         // que emite credenciais, continua de fora de propósito — a resposta
         // desta rota é texto simples e ficaria com o segredo em claro.
         'agente:escopos',
+        // Os erros do sistema, agrupados. Só lê (fechar e empurrar exigem
+        // ?args=--resolver=N ou --empurrar, explícitos).
+        'erros:ver',
         // Só lê: procura empresa por nome/NIF/email.
         'tenants:procurar',
         'tenant:iniciar-trial',
