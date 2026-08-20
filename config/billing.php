@@ -43,4 +43,51 @@ return [
 
     'dias_de_antecedencia' => (int) env('RENOVACAO_DIAS_ANTECEDENCIA', 8),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Avisos ao cliente
+    |--------------------------------------------------------------------------
+    |
+    | Interruptor MESTRE dos avisos de facturação ao cliente (email e SMS):
+    | factura emitida, a vencer, vencida, renovada, e plano a expirar.
+    |
+    | NASCE DESLIGADO. Assim que se liga, a primeira varredura percorre todas
+    | as subscrições e facturas de uma vez — são mensagens a pessoas reais.
+    | Ver primeiro o que ela faria:
+    |
+    |   php artisan subscricoes:avisos --so-ver
+    |
+    */
+
+    'avisos_ao_cliente' => env('BILLING_AVISOS_CLIENTE', false),
+
+    /*
+    | O canal PAGO, com interruptor SEPARADO do mestre e de propósito.
+    |
+    | Cada SMS é dinheiro na conta da plataforma. Ligar os avisos não pode, por
+    | si só, começar a gastar na operadora: liga-se o email, vê-se uma semana
+    | de registos limpos, e só então se liga isto.
+    */
+
+    'avisos_sms' => env('BILLING_AVISOS_SMS', false),
+
+    /*
+    | Em que dias exactos se avisa — não em que intervalo.
+    |
+    | Um intervalo mandava o mesmo aviso todos os dias até o cliente pagar. O 8
+    | não está na lista porque é o dia em que a factura é emitida, e já leva o
+    | seu próprio aviso.
+    */
+
+    'avisos_dias_antes'  => [3, 1],       // antes do vencimento
+    'avisos_dias_atraso' => [1, 3, 7],    // depois do vencimento
+
+    /*
+    | Tecto de mensagens por passagem. Uma rajada acidental fica contida, e o
+    | que sobra sai na passagem seguinte. Quando é atingido fica registado —
+    | um tecto que corta em silêncio faz parecer que está tudo tratado.
+    */
+
+    'avisos_max_por_passagem' => (int) env('BILLING_AVISOS_MAX', 25),
+
 ];

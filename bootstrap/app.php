@@ -78,6 +78,21 @@ return Application::configure(basePath: dirname(__DIR__))
         // pedido de quem navega serve só de relógio.
         $middleware->appendToGroup('web', \App\Http\Middleware\FacturarRenovacoes::class);
 
+        // E avisa o cliente do que se passa com a subscrição dele — factura
+        // emitida, a vencer, vencida, período a acabar. Pela mesma via e pela
+        // mesma razão, mas com tranca e interruptor PRÓPRIOS: desligar a
+        // emissão de facturas não pode calar os avisos das que já existem.
+        // Depois do FacturarRenovacoes de propósito, para que uma factura
+        // acabada de emitir já exista quando a varredura corre.
+        $middleware->appendToGroup('web', \App\Http\Middleware\AvisarSubscricoes::class);
+
+        // Empurra os erros novos para o agente externo (openclaw), que
+        // depois avisa quem é preciso. Pela mesma via e pela mesma razão:
+        // um alarme pendurado num cron que pode não existir é um alarme que
+        // nunca toca. Os pedidos do próprio agente ficam de fora, senão ele
+        // disparava o empurrão para si mesmo. Tranca de cinco minutos.
+        $middleware->appendToGroup('web', \App\Http\Middleware\EmpurrarErrosParaOAgente::class);
+
         // Com o sistema em manutenção, as rotas de manutenção continuam a
         // responder.
         //

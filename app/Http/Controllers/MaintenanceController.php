@@ -60,6 +60,9 @@ class MaintenanceController extends Controller
         // sem isso emite facturas a sério, e uma factura é um documento que o
         // cliente vê e sobre o qual lhe é pedido dinheiro.
         'subscriptions:renovar',
+        // Avisos de facturação ao cliente. Também aqui o `?args=--so-ver`
+        // primeiro: do outro lado estão emails e SMS a pessoas reais.
+        'subscricoes:avisos',
         // Só lê: procura empresa por nome/NIF/email.
         'tenants:procurar',
         'tenant:iniciar-trial',

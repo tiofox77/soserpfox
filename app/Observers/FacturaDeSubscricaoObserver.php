@@ -38,8 +38,15 @@ class FacturaDeSubscricaoObserver
             return;
         }
 
+        // Guardado ANTES, porque é a única forma de saber se o pagamento fez
+        // alguma coisa: o aplicarPagamento devolve a mesma subscrição quer
+        // tenha estendido o período, quer tenha desistido por já estar
+        // estendido. Avisar pelo valor de retorno era dizer ao cliente que
+        // renovou quando não renovou.
+        $antes = $factura->subscription?->current_period_end?->toDateTimeString();
+
         try {
-            app(RenovacaoDeSubscricoes::class)->aplicarPagamento($factura);
+            $sub = app(RenovacaoDeSubscricoes::class)->aplicarPagamento($factura);
         } catch (\Throwable $e) {
             // O pagamento fica registado de qualquer maneira; o que falha é a
             // extensão automática, e essa dá-se à mão no painel.
@@ -47,6 +54,26 @@ class FacturaDeSubscricaoObserver
                 'invoice_id' => $factura->id,
                 'erro'       => $e->getMessage(),
             ]);
+
+            return;
         }
+
+        if (!$sub || $sub->current_period_end?->toDateTimeString() === $antes) {
+            return;   // não houve período novo: não há nada a anunciar
+        }
+
+        // O aviso corre DEPOIS da resposta seguir para o browser: quem carregou
+        // em "marcar como paga" não espera pelo servidor de email nem pela
+        // operadora de SMS.
+        defer(function () use ($factura, $sub) {
+            try {
+                app(\App\Services\Billing\AvisosDeSubscricao::class)->renovada($factura, $sub);
+            } catch (\Throwable $e) {
+                Log::error('Renovação: aviso de renovação falhou', [
+                    'invoice_id' => $factura->id,
+                    'erro'       => $e->getMessage(),
+                ]);
+            }
+        });
     }
 }

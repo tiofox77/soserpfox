@@ -45,6 +45,16 @@ class TemplateMail extends Mailable
         'invoice_overdue',
         'account_suspended',
         'account_reactivated',
+
+        // Avisos de facturação da PLATAFORMA ao cliente. Têm de sair sempre
+        // pelo SMTP do super admin: são a plataforma a cobrar, e sair pelo
+        // servidor de email do próprio cliente seria ele a mandar-se a conta
+        // a si mesmo. Ver App\Services\Billing\AvisosDeSubscricao.
+        'subscricao_factura_emitida',
+        'subscricao_factura_a_vencer',
+        'subscricao_factura_vencida',
+        'subscricao_renovada',
+        'subscricao_plano_a_expirar',
     ];
 
     /**

@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
             AGTIsVerbaSeeder::class,
             AGTCaeCodeSeeder::class,
             AGTIecPautalCodeSeeder::class,
+            // Os textos dos avisos de facturação ao cliente. Sem eles o serviço
+            // de avisos não tem o que enviar e regista falha em cada tentativa.
+            AvisosDeSubscricaoTemplatesSeeder::class,
         ]);
     }
 }

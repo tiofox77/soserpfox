@@ -100,6 +100,22 @@ class RenovacaoDeSubscricoes
                 $factura = $this->emitir($sub);
                 $emitidas++;
                 $detalhe[] = $linha + ['factura' => $factura->invoice_number];
+
+                // O aviso ao cliente tem try/catch PRÓPRIO: uma falha do
+                // servidor de email não pode fazer a factura — que já está
+                // gravada — cair no catch de baixo e ser contada como
+                // ignorada. E é aqui, no sítio exacto onde a factura de
+                // renovação nasce: uma varredura não a distinguiria da
+                // PRIMEIRA factura de uma subscrição nova, que não é renovação.
+                try {
+                    app(\App\Services\Billing\AvisosDeSubscricao::class)
+                        ->facturaEmitida($factura, $sub);
+                } catch (\Throwable $e) {
+                    Log::error('Renovação: aviso da factura emitida falhou', [
+                        'factura' => $factura->id,
+                        'erro'    => $e->getMessage(),
+                    ]);
+                }
             } catch (\Throwable $e) {
                 $ignoradas++;
                 Log::error('Renovação: falha ao emitir factura', [
