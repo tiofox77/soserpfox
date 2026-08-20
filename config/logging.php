@@ -72,6 +72,11 @@ return [
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
+            // O mesmo tap do canal `single`. Está nos DOIS de propósito: qual
+            // deles está em uso depende do .env de cada instalação, e um tap
+            // só no que não é usado seria mais uma peça que existe e nunca
+            // corre — sem erro em lado nenhum a dizê-lo.
+            'tap' => [\App\Logging\LigarCapturaDeErros::class],
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,

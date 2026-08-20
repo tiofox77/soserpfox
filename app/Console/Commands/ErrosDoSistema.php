@@ -23,7 +23,8 @@ class ErrosDoSistema extends Command
         {--horas= : só o que aconteceu nas últimas N horas}
         {--detalhe= : mostra o contexto completo de um id}
         {--resolver= : marca um id como resolvido}
-        {--empurrar : envia os que faltam para o webhook do agente}';
+        {--empurrar : envia os que faltam para o webhook do agente}
+        {--teste : escreve UM erro de mentira e confirma que foi apanhado}';
 
     protected $description = 'Vê os erros do sistema, agrupados por problema';
 
@@ -35,6 +36,10 @@ class ErrosDoSistema extends Command
 
         if ($id = $this->option('resolver')) {
             return $this->resolver((int) $id);
+        }
+
+        if ($this->option('teste')) {
+            return $this->teste();
         }
 
         if ($this->option('empurrar')) {
@@ -83,6 +88,45 @@ class ErrosDoSistema extends Command
 
         $this->info("{$abertos} problema(s) por resolver; {$porAvisar} por comunicar ao agente.");
         $this->line('Detalhe de um: php artisan erros:ver --detalhe=<id>');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Prova que a corrente toda está ligada.
+     *
+     * Escreve um erro de mentira e vai ver se ele chegou à tabela. Serve para
+     * responder à pergunta que de outro modo não tem resposta: "está mesmo a
+     * apanhar, ou o tap está pendurado num canal de log que esta instalação
+     * não usa?". Sem isto, a diferença entre "não houve erros" e "a captura
+     * está morta" é invisível — e são a mesma coisa vista de fora.
+     */
+    private function teste(): int
+    {
+        $marca = 'ensaio da captura de erros ' . bin2hex(random_bytes(4));
+
+        \Log::error($marca, ['origem' => 'erros:ver --teste']);
+
+        $erro = ErroDoSistema::where('mensagem', $marca)->first();
+
+        if (!$erro) {
+            $this->error('A captura NÃO está a funcionar: o erro foi escrito no log e não chegou à tabela.');
+            $this->line('Ver o `tap` em config/logging.php e `agent.erros.capturar` em config/agent.php.');
+
+            return self::FAILURE;
+        }
+
+        $this->info("A captura está viva. Erro de ensaio gravado como #{$erro->id}.");
+
+        // Não deixar lixo: o ensaio fecha-se a si próprio.
+        $erro->forceFill([
+            'resolvido_em'  => now(),
+            'resolvido_por' => 'ensaio',
+            'notificado_em' => now(),
+            'nota'          => 'erro de ensaio, criado por erros:ver --teste',
+        ])->save();
+
+        $this->line('Marcado como resolvido — não fica a pedir atenção.');
 
         return self::SUCCESS;
     }
