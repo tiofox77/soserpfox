@@ -45,13 +45,14 @@
                             </label>
                             <select wire:model="form.category" 
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:ring-2 focus:ring-teal-200">
+                                {{-- Fonte única: App\Support\CategoriasDeTesouraria.
+                                     Estavam aqui seis opções escritas à mão que NÃO existiam
+                                     na base — quem escolhesse uma ficava com uma transacção
+                                     que nenhum filtro nem relatório encontrava. --}}
                                 <option value="">Selecione a categoria</option>
-                                <option value="sale">Venda</option>
-                                <option value="purchase">Compra</option>
-                                <option value="salary">Salário</option>
-                                <option value="rent">Aluguel</option>
-                                <option value="utilities">Utilidades</option>
-                                <option value="other">Outro</option>
+                                @foreach($categoriasParaEscolher as $chave => $rotulo)
+                                    <option value="{{ $chave }}">{{ $rotulo }}</option>
+                                @endforeach
                             </select>
                             @error('form.category') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>

@@ -93,11 +93,11 @@ class Banks extends Component
             $bank = Bank::findOrFail($this->bankId);
             $bank->update($this->form);
             
-            session()->flash('message', 'Banco atualizado com sucesso!');
+            $this->dispatch('success', message: 'Banco atualizado com sucesso!');
         } else {
             Bank::create($this->form);
             
-            session()->flash('message', 'Banco criado com sucesso!');
+            $this->dispatch('success', message: 'Banco criado com sucesso!');
         }
         
         $this->closeModal();
@@ -125,7 +125,7 @@ class Banks extends Component
     {
         Bank::findOrFail($this->bankId)->delete();
         
-        session()->flash('message', 'Banco eliminado com sucesso!');
+        $this->dispatch('success', message: 'Banco eliminado com sucesso!');
         
         $this->closeDeleteModal();
         $this->dispatch('refreshComponent');

@@ -157,6 +157,8 @@ class MaintenanceController extends Controller
         // RH — cria as definições em falta nas empresas com o módulo activo.
         // Só ACRESCENTA: nunca altera um valor que a empresa tenha mudado.
         'hr:settings-sync',
+        // Porque e que este funcionario sai assim na folha. So le.
+        'rh:diagnostico',
         // Notificações dos modelos activos. Já corre sozinho à boleia do
         // tráfego; isto serve para forçar uma passagem e ver o resultado.
         // Não duplica nada — o que saiu hoje não volta a sair.

@@ -430,6 +430,12 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
 Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name('treasury.')->group(function () {
     Route::get('/dashboard', \App\Livewire\Treasury\Dashboard::class)->name('dashboard');
     Route::get('/reports', \App\Livewire\Treasury\Reports::class)->name('reports');
+    // Descarga dos relatórios financeiros. Só se via no ecrã, e um relatório
+    // que não se pode levar ao banco nem ao contabilista serve para pouco.
+    Route::get('/reports/pdf', [\App\Http\Controllers\Treasury\ReportExportController::class, 'pdf'])
+        ->name('reports.pdf');
+    Route::get('/reports/excel', [\App\Http\Controllers\Treasury\ReportExportController::class, 'excel'])
+        ->name('reports.excel');
     Route::get('/payment-methods', \App\Livewire\Treasury\PaymentMethods::class)->name('payment-methods');
     Route::get('/banks', \App\Livewire\Treasury\Banks::class)->name('banks');
     Route::get('/accounts', \App\Livewire\Treasury\Accounts::class)->name('accounts');

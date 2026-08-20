@@ -425,22 +425,44 @@ Isto tem uma consequência que é a origem do erro mais caro já cometido neste 
 <div class="tbl-scroll">
 <table>
 <thead><tr><th class="mono">slug</th><th>Preço/mês</th><th>Trial</th>
-  <th>Auto-activa</th><th>Users</th><th>Empresas</th></tr></thead>
+  <th>Auto-activa</th><th>Users</th><th>Empresas</th><th>Módulos</th></tr></thead>
 <tbody>
-<tr><td class="mono">fox-friendly</td><td>0 Kz</td><td>180 d</td>
-    <td><b style="color:var(--ok)">sim</b></td><td>999</td><td>50</td></tr>
-<tr><td class="mono">starter</td><td>4.900 Kz</td><td>14 d</td><td>não</td><td>3</td><td>1</td></tr>
-<tr><td class="mono">pacote-vendas</td><td>5.900 Kz</td><td>14 d</td><td>não</td><td>5</td><td>1</td></tr>
-<tr><td class="mono">pacote-salao</td><td>7.900 Kz</td><td>14 d</td><td>não</td><td>6</td><td>1</td></tr>
-<tr><td class="mono">pacote-rh</td><td>9.900 Kz</td><td>14 d</td><td>não</td><td>8</td><td>1</td></tr>
-<tr><td class="mono">professional</td><td>11.900 Kz</td><td>14 d</td><td>não</td><td>10</td><td>3</td></tr>
-<tr><td class="mono">pacote-oficina</td><td>12.900 Kz</td><td>14 d</td><td>não</td><td>8</td><td>1</td></tr>
-<tr><td class="mono">pacote-restaurante</td><td>14.900 Kz</td><td>14 d</td><td>não</td><td>10</td><td>1</td></tr>
-<tr><td class="mono">pacote-hotel</td><td>19.900 Kz</td><td>30 d</td><td>não</td><td>10</td><td>1</td></tr>
-<tr><td class="mono">business</td><td>24.900 Kz</td><td>30 d</td><td>não</td><td>50</td><td>10</td></tr>
-<tr><td class="mono">enterprise</td><td>49.900 Kz</td><td>30 d</td><td>não</td><td>999</td><td>999</td></tr>
+<tr><td class="mono">fox-friendly</td><td>0 Kz</td><td>90 d</td>
+    <td><b style="color:var(--ok)">sim</b></td><td>999</td><td>50</td><td>14</td></tr>
+<tr><td class="mono">starter</td><td>4.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>3</td><td>1</td><td>2</td></tr>
+<tr><td class="mono">pacote-vendas</td><td>5.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>5</td><td>1</td><td>2</td></tr>
+<tr><td class="mono">pacote-salao</td><td>7.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>6</td><td>1</td><td>3</td></tr>
+<tr><td class="mono">pacote-rh</td><td>9.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>8</td><td>1</td><td>3</td></tr>
+<tr><td class="mono">pacote-oficina</td><td>12.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>8</td><td>1</td><td>3</td></tr>
+<tr><td class="mono">pacote-restaurante</td><td>14.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>10</td><td>1</td><td>3</td></tr>
+<tr><td class="mono">professional</td><td>17.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>10</td><td>3</td><td>5</td></tr>
+<tr><td class="mono">pacote-hotel</td><td>19.900 Kz</td><td>30 d</td><td><b style="color:var(--ok)">sim</b></td><td>10</td><td>1</td><td>3</td></tr>
+<tr><td class="mono">business</td><td>44.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>50</td><td>10</td><td><b>9</b></td></tr>
+<tr><td class="mono">enterprise</td><td>89.900 Kz</td><td>14 d</td><td><b style="color:var(--ok)">sim</b></td><td>999</td><td>999</td><td><b>14</b></td></tr>
 </tbody>
 </table>
+</div>
+
+<div class="note ok">
+  <b>A escada: 2 → 5 → 9 → 14 módulos</b>
+  <p>Cada degrau contém o de baixo <b>e acrescenta-lhe alguma coisa</b>. O <b>Business</b> leva
+  os módulos <i>horizontais</i> — os que qualquer empresa usa; o <b>Enterprise</b> acrescenta os de
+  <i>sector</i>: hotel, restaurante, salão, oficina e eventos.</p>
+  <p>Até 20/08/2026 davam os mesmos 14: quem pagava o dobro só recebia utilizadores. Garantido por
+  <code>php artisan planos:coerencia</code>, que acusa tanto "falta o que o de baixo tem" como
+  "dá exactamente o mesmo".</p>
+  <p>Os <b>pacotes verticais</b> ficam fora da escada de propósito: são especializados e baratos,
+  não degraus. E mudar os módulos de um plano <b>não tira acesso a ninguém</b> — o portão é o pivô
+  <code>tenant_module</code>, não o plano.</p>
+</div>
+
+<div class="note warn">
+  <b>O teste arranca sozinho</b>
+  <p>Todo o plano com <code>trial_days &gt; 0</code> entra em teste automaticamente, sem comprovativo
+  de pagamento. Decisão comercial de Agosto/2026: exigir prova antes de deixar experimentar
+  afastava quem ainda não sabia se queria o sistema.</p>
+  <p>Só a <b>primeira</b> subscrição da empresa dá teste (<code>TrocarDePlano</code>) — sem isso,
+  bastava trocar de plano para ganhar outro período grátis, e outro.</p>
 </div>
 
 <div class="note info">
@@ -510,6 +532,81 @@ Isto tem uma consequência que é a origem do erro mais caro já cometido neste 
 </div>
 
 <!-- ══════════════════════════════════════════════════ -->
+<h2><span class="num">05b</span>Ciclo de facturação da plataforma</h2>
+
+<div class="note warn">
+  <b>O ciclo estava aberto no meio</b>
+  <p>Facturava-se ao contratar e, no fim do período, o <code>subscriptions:expire</code> cortava o
+  acesso. Entre uma coisa e outra <b>não saía conta nenhuma</b>: o cliente era bloqueado sem nunca ter
+  recebido a factura do período seguinte, e o <code>Subscription::renew()</code> não tinha um único
+  chamador. Fechado a 19/08/2026.</p>
+</div>
+
+<div class="tbl-scroll">
+<table>
+<thead><tr><th>Peça</th><th>O que faz</th><th>O que NÃO faz</th></tr></thead>
+<tbody>
+<tr>
+  <td class="mono">emitirFacturasAVencer()</td>
+  <td>8 dias antes do fim, emite factura <b>pendente</b> do período seguinte, com vencimento no
+      último dia do período em curso</td>
+  <td>não estende a subscrição — <b>cobrar não dá acesso</b></td>
+</tr>
+<tr>
+  <td class="mono">aplicarPagamento(Invoice)</td>
+  <td>a factura passar a <code>paid</code> estende a subscrição, começando <b>onde a anterior
+      acabou</b> (quem paga adiantado não perde os dias que tinha)</td>
+  <td>não emite nada — <b>pagar é que dá acesso</b></td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<p>Juntar as duas metades daria meses de graça a quem nunca pagou. O pagamento é apanhado pelo
+<code>FacturaDeSubscricaoObserver</code> — e <b>não</b> pelo <code>InvoiceObserver</code> ao lado, que
+está deliberadamente por registar porque manda facturas para a contabilidade da <i>empresa</i>.</p>
+
+<div class="note info">
+  <b>Idempotência por invariantes, não por bandeiras</b>
+  <p><b>Não emitir duas vezes:</b> já existe factura com <code>invoice_date</code> posterior ao início
+  do período em curso.</p>
+  <p><b>Não estender duas vezes:</b> <code>current_period_end &gt; due_date</code> significa "já
+  aplicado" — e apanha também a factura <i>inicial</i> da subscrição, que não deve estender nada.</p>
+</div>
+
+<div class="note warn">
+  <b>Não é cron — corre à boleia do tráfego</b>
+  <p>Como as notificações e as submissões AGT, e pela mesma razão: este alojamento não tem processo
+  permanente e o <code>schedule:run</code> pode nunca ser chamado. Pôr a única coisa que faz a
+  plataforma cobrar dependente disso era repetir o erro que deixou clientes sem segunda factura.</p>
+  <p><code>FacturarRenovacoes</code> corre no <code>terminate</code>, com <code>Cache::add</code> de
+  1 h para <b>toda</b> a plataforma. Interruptor em <code>config/billing.php</code>. Antes de ligar em
+  produção, sempre: <code>subscriptions:renovar --so-ver</code>.</p>
+</div>
+
+<h3>Avisos ao cliente</h3>
+
+<p><code>AvisosDeSubscricao</code> avisa por <b>email e SMS</b> em cinco ocasiões: factura emitida, a
+vencer, vencida, renovada, e plano a expirar (esta última cobre testes e promocionais, que não se
+facturam).</p>
+
+<ul>
+  <li>memória permanente em <code>avisos_de_subscricao</code>, com índice único e <b>reserva antes de
+      enviar</b> — sem isso a varredura horária repetia tudo até alguém pagar, e em SMS isso é
+      dinheiro a sair;</li>
+  <li>dias exactos (<code>[3,1]</code> antes, <code>[1,3,7]</code> de atraso), nunca intervalos;</li>
+  <li>o canal <b>SMS tem interruptor próprio</b>, separado do mestre: ligar os avisos não pode, por si
+      só, começar a gastar na operadora;</li>
+  <li>SMTP e SMS são sempre os da <b>plataforma</b> — usar os do cliente seria a plataforma a
+      cobrar-lhe com a conta dele.</li>
+</ul>
+
+<div class="note info">
+  <b>Duração dos ciclos — fonte única</b>
+  <p><code>App\Support\CicloDeFacturacao</code>. O <b>anual são 14 meses</b> (12 + 2 de oferta) —
+  política comercial que estava copiada em cinco sítios.</p>
+</div>
+
 <h2><span class="num">06</span>Facturação e conformidade AGT</h2>
 <p class="lead">O coração fiscal do produto. Erros aqui têm consequências legais para o cliente.
 Facturação certificada ao abrigo do <b>Decreto 71/25</b>, com exportação SAFT-AO.</p>

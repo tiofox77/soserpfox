@@ -25,6 +25,19 @@ class Transactions extends Component
     public $filterType = '';
     public $filterStatus = '';
     public $perPage = 10;
+
+    /**
+     * Filtros que o ecrã não tinha.
+     *
+     * A lista mostrava tudo desde sempre, paginado, sem forma de a limitar a
+     * um período, a uma conta ou a um caixa. Numa empresa com milhares de
+     * movimentos isso não é uma lista: é um monte.
+     */
+    public $filterCategory = '';
+    public $filterAccount = '';
+    public $filterCashRegister = '';
+    public $dataDe = '';
+    public $dataAte = '';
     
     public $showModal = false;
     public $showDeleteModal = false;
@@ -72,6 +85,29 @@ class Transactions extends Component
         ];
     }
     
+    /**
+     * Mudar de filtro volta à primeira página.
+     *
+     * Sem isto, filtrar estando na página 4 deixava a lista vazia — e lê-se
+     * como "o filtro não funciona".
+     */
+    public function updatedFilterType() { $this->resetPage(); }
+    public function updatedFilterStatus() { $this->resetPage(); }
+    public function updatedFilterCategory() { $this->resetPage(); }
+    public function updatedFilterAccount() { $this->resetPage(); }
+    public function updatedFilterCashRegister() { $this->resetPage(); }
+    public function updatedDataDe() { $this->resetPage(); }
+    public function updatedDataAte() { $this->resetPage(); }
+    public function updatedPerPage() { $this->resetPage(); }
+
+    /** Limpa tudo de uma vez. */
+    public function limparFiltros(): void
+    {
+        $this->reset(['search', 'filterType', 'filterStatus', 'filterCategory',
+            'filterAccount', 'filterCashRegister', 'dataDe', 'dataAte']);
+        $this->resetPage();
+    }
+
     public function updatingSearch()
     {
         $this->resetPage();
@@ -200,7 +236,7 @@ class Transactions extends Component
     {
         Transaction::findOrFail($this->transactionId)->delete();
         
-        session()->flash('message', 'Transação eliminada com sucesso!');
+        $this->dispatch('success', message: 'Transação eliminada com sucesso!');
         
         $this->closeDeleteModal();
         $this->dispatch('refreshComponent');
@@ -352,43 +388,78 @@ class Transactions extends Component
         }
     }
     
-    public function render()
+    /**
+     * Os filtros do ecrã, num sítio só.
+     *
+     * A lista e os totais têm de ver exactamente o mesmo. Repetir as
+     * condições em dois sítios é como eles passam a discordar.
+     */
+    private function aplicarFiltros($query)
     {
-        $query = Transaction::with(['paymentMethod', 'account', 'cashRegister', 'user'])
-            ->where('tenant_id', activeTenantId());
-        
-        // Search
         if ($this->search) {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->where('transaction_number', 'like', '%' . $this->search . '%')
                   ->orWhere('description', 'like', '%' . $this->search . '%')
                   ->orWhere('reference', 'like', '%' . $this->search . '%');
             });
         }
-        
-        // Filter by type
+
         if ($this->filterType) {
             $query->where('type', $this->filterType);
         }
-        
-        // Filter by status
+
+        if ($this->filterCategory) {
+            $query->where('category', $this->filterCategory);
+        }
+
+        if ($this->filterAccount) {
+            $query->where('account_id', $this->filterAccount);
+        }
+
+        if ($this->filterCashRegister) {
+            $query->where('cash_register_id', $this->filterCashRegister);
+        }
+
+        if ($this->dataDe) {
+            $query->whereDate('transaction_date', '>=', $this->dataDe);
+        }
+
+        if ($this->dataAte) {
+            $query->whereDate('transaction_date', '<=', $this->dataAte);
+        }
+
+        return $query;
+    }
+
+    public function render()
+    {
+        $query = $this->aplicarFiltros(
+            Transaction::with(['paymentMethod', 'account', 'cashRegister', 'user'])
+                ->where('tenant_id', activeTenantId())
+        );
+
+        // O estado fica fora do aplicarFiltros: os totais só contam as
+        // concluídas, a lista mostra o que o utilizador escolher.
         if ($this->filterStatus) {
             $query->where('status', $this->filterStatus);
         }
+
         
         $transactions = $query->orderBy('transaction_date', 'desc')
             ->orderBy('id', 'desc')
             ->paginate($this->perPage);
         
-        $totalIncome = Transaction::where('tenant_id', activeTenantId())
-            ->where('type', 'income')
-            ->where('status', 'completed')
-            ->sum('amount');
-            
-        $totalExpense = Transaction::where('tenant_id', activeTenantId())
-            ->where('type', 'expense')
-            ->where('status', 'completed')
-            ->sum('amount');
+        // Os totais seguem os MESMOS filtros da lista.
+        //
+        // Somavam sempre tudo desde sempre. Filtrar por um mês e ver em cima
+        // o total de três anos faz o utilizador desconfiar dos dois números,
+        // e com razão — não batiam certo com nada do que estava no ecrã.
+        $base = fn () => $this->aplicarFiltros(
+            Transaction::where('tenant_id', activeTenantId())->where('status', 'completed')
+        );
+
+        $totalIncome = $base()->where('type', 'income')->sum('amount');
+        $totalExpense = $base()->where('type', 'expense')->sum('amount');
         
         $paymentMethods = PaymentMethod::where('tenant_id', activeTenantId())
             ->where('is_active', true)
@@ -412,6 +483,8 @@ class Transactions extends Component
             'paymentMethods' => $paymentMethods,
             'accounts' => $accounts,
             'cashRegisters' => $cashRegisters,
+            'categoriasParaEscolher' => \App\Support\CategoriasDeTesouraria::paraEscolher(),
+            'categoriasParaFiltrar'  => \App\Support\CategoriasDeTesouraria::paraEmpresa(activeTenantId()),
         ]);
     }
 }

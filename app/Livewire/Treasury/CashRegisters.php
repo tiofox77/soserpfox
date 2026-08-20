@@ -40,7 +40,15 @@ class CashRegisters extends Component
     public function rules()
     {
         return [
-            'form.user_id' => 'required|exists:users,id',
+            // Tem de ser alguém DESTA empresa. `exists:users,id` aceitava
+            // qualquer utilizador do sistema — bastava trocar o valor no
+            // pedido para pôr uma pessoa de outra empresa como responsável de
+            // um caixa que não é dela.
+            'form.user_id' => [
+                'required',
+                \Illuminate\Validation\Rule::exists('tenant_user', 'user_id')
+                    ->where('tenant_id', activeTenantId()),
+            ],
             'form.name' => 'required|string|max:255',
             'form.code' => 'required|string|max:255|unique:treasury_cash_registers,code,' . ($this->cashRegisterId ?? 'NULL'),
             'form.opening_balance' => 'nullable|numeric|min:0',
@@ -99,14 +107,14 @@ class CashRegisters extends Component
             $cashRegister = CashRegister::findOrFail($this->cashRegisterId);
             $cashRegister->update($data);
             
-            session()->flash('message', 'Caixa atualizado com sucesso!');
+            $this->dispatch('success', message: 'Caixa atualizado com sucesso!');
         } else {
             $data['current_balance'] = 0;
             $data['expected_balance'] = 0;
             
             CashRegister::create($data);
             
-            session()->flash('message', 'Caixa criado com sucesso!');
+            $this->dispatch('success', message: 'Caixa criado com sucesso!');
         }
         
         $this->closeModal();
@@ -150,7 +158,7 @@ class CashRegisters extends Component
     {
         CashRegister::findOrFail($this->cashRegisterId)->delete();
         
-        session()->flash('message', 'Caixa eliminado com sucesso!');
+        $this->dispatch('success', message: 'Caixa eliminado com sucesso!');
         
         $this->closeDeleteModal();
         $this->dispatch('refreshComponent');
@@ -200,9 +208,26 @@ class CashRegisters extends Component
             ->where('status', 'open')
             ->sum('current_balance');
         
-        $users = User::where('tenant_id', activeTenantId())
-            ->orderBy('name')
-            ->get();
+        // Os utilizadores DESTA empresa, pelo pivô `tenant_user`.
+        //
+        // Isto procurava por `users.tenant_id`. A coluna existe e está quase
+        // toda preenchida, mas NÃO é a fonte de verdade: quem entra numa
+        // empresa entra pelo pivô, e quem for acrescentado sem passar pela
+        // coluna antiga desaparece da lista. Medido em produção: uma empresa
+        // com 9 pessoas no pivô mostrava 8 — e a que faltava não podia ser
+        // escolhida como responsável de caixa nenhum.
+        //
+        // `users.is_active` QUALIFICADO: a coluna existe nas duas tabelas e
+        // sem prefixo o MySQL recusa a consulta por ambiguidade.
+        $empresa = \App\Models\Tenant::find(activeTenantId());
+
+        $users = $empresa
+            ? $empresa->users()
+                ->where('users.is_active', true)
+                ->wherePivot('is_active', true)
+                ->orderBy('users.name')
+                ->get()
+            : collect();
         
         return view('livewire.treasury.cash-registers.cash-registers', [
             'cashRegisters' => $cashRegisters,

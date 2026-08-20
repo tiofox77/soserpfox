@@ -59,6 +59,32 @@
                 </button>
             </div>
         </div>
+
+        {{-- Descarregar.
+             Os ficheiros são gerados pelo ReportExportController a partir do
+             MESMO serviço que alimenta este ecrã, com o tipo e as datas que
+             estão aqui — o papel não pode dizer outra coisa que o ecrã. --}}
+        <div class="flex flex-wrap items-center gap-3 mt-4">
+            <span class="text-sm text-gray-500 mr-1">
+                <i class="fas fa-download mr-1"></i>Descarregar este relatório:
+            </span>
+
+            <a href="{{ route('treasury.reports.pdf', $this->parametrosDeExportacao) }}"
+               target="_blank" rel="noopener"
+               class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition shadow">
+                <i class="fas fa-file-pdf mr-2"></i>PDF
+            </a>
+
+            <a href="{{ route('treasury.reports.excel', $this->parametrosDeExportacao) }}"
+               class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition shadow">
+                <i class="fas fa-file-excel mr-2"></i>Excel
+            </a>
+
+            <span class="text-xs text-gray-400">
+                {{ \Carbon\Carbon::parse($startDate)->format('d/m/Y') }}
+                a {{ \Carbon\Carbon::parse($endDate)->format('d/m/Y') }}
+            </span>
+        </div>
     </div>
 
     {{-- Report Content --}}

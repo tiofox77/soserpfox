@@ -162,14 +162,14 @@ class Accounts extends Component
             
             $account->update($data);
             
-            session()->flash('message', 'Conta bancária atualizada com sucesso!');
+            $this->dispatch('success', message: 'Conta bancária atualizada com sucesso!');
         } else {
             // Ao criar, o saldo atual = saldo inicial
             $data['current_balance'] = $data['initial_balance'];
             
             Account::create($data);
             
-            session()->flash('message', 'Conta bancária criada com sucesso!');
+            $this->dispatch('success', message: 'Conta bancária criada com sucesso!');
         }
         
         $this->closeModal();
@@ -197,7 +197,7 @@ class Accounts extends Component
     {
         Account::findOrFail($this->accountId)->delete();
         
-        session()->flash('message', 'Conta bancária eliminada com sucesso!');
+        $this->dispatch('success', message: 'Conta bancária eliminada com sucesso!');
         
         $this->closeDeleteModal();
         $this->dispatch('refreshComponent');

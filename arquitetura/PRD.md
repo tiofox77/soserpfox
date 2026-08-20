@@ -7,7 +7,7 @@
 >
 > Complemento visual: `arquitetura/arquitetura.html` (abrir no browser).
 >
-> Última revisão: 2026-08-02 · Versão do sistema: v1.4.x (FE/AGT multi-tenant)
+> Última revisão: 2026-08-20 · Versão do sistema: v1.5.x (FE/AGT multi-tenant)
 
 ---
 
@@ -188,29 +188,52 @@ que resolve dependências transitivamente e semeia pré-requisitos
 (`seedModulePrerequisites`: métodos de pagamento, impostos, armazém por omissão,
 configurações). Nunca escrevas directamente na tabela pivot `tenant_module`.
 
-### Planos (10)
+### Planos (11)
 
-| Slug | Preço/mês | Trial | Auto-activa | Users | Empresas |
-|---|---|---|---|---|---|
-| `fox-friendly` | 0 Kz | 180 d | **sim** | 999 | 50 |
-| `starter` | 4.900 Kz | 14 d | não | 3 | 1 |
-| `pacote-vendas` | 5.900 Kz | 14 d | não | 5 | 1 |
-| `pacote-salao` | 7.900 Kz | 14 d | não | 6 | 1 |
-| `pacote-rh` | 9.900 Kz | 14 d | não | 8 | 1 |
-| `professional` | 11.900 Kz | 14 d | não | 10 | 3 |
-| `pacote-oficina` | 12.900 Kz | 14 d | não | 8 | 1 |
-| `pacote-hotel` | 19.900 Kz | 30 d | não | 10 | 1 |
-| `business` | 24.900 Kz | 30 d | não | 50 | 10 |
-| `enterprise` | 49.900 Kz | 30 d | não | 999 | 999 |
+| Slug | Preço/mês | Trial | Auto-activa | Users | Empresas | Módulos |
+|---|---|---|---|---|---|---|
+| `fox-friendly` | 0 Kz | 90 d | **sim** | 999 | 50 | 14 |
+| `starter` | 4.900 Kz | 14 d | **sim** | 3 | 1 | 2 |
+| `pacote-vendas` | 5.900 Kz | 14 d | **sim** | 5 | 1 | 2 |
+| `pacote-salao` | 7.900 Kz | 14 d | **sim** | 6 | 1 | 3 |
+| `pacote-rh` | 9.900 Kz | 14 d | **sim** | 8 | 1 | 3 |
+| `pacote-oficina` | 12.900 Kz | 14 d | **sim** | 8 | 1 | 3 |
+| `pacote-restaurante` | 14.900 Kz | 14 d | **sim** | 10 | 1 | 3 |
+| `professional` | 17.900 Kz | 14 d | **sim** | 10 | 3 | 5 |
+| `pacote-hotel` | 19.900 Kz | 30 d | **sim** | 10 | 1 | 3 |
+| `business` | 44.900 Kz | 14 d | **sim** | 50 | 10 | 9 |
+| `enterprise` | 89.900 Kz | 14 d | **sim** | 999 | 999 | 14 |
+
+#### A escada: 2 → 5 → 9 → 14
+
+Cada degrau contém o de baixo **e acrescenta-lhe alguma coisa**. Garantido
+por `php artisan planos:coerencia` e pelo `CoerenciaDosPlanosTest`.
+
+- **Business** leva os módulos HORIZONTAIS — os que qualquer empresa usa.
+- **Enterprise** acrescenta os de SECTOR: hotel, restaurante, salão, oficina
+  e eventos (`CoerenciaDosPlanos::DE_SECTOR`).
+
+Os dois davam os mesmos 14 módulos até 20/08/2026: quem pagava o dobro só
+recebia utilizadores. Um degrau que não acrescenta nada não é um degrau.
+
+Os **pacotes verticais** ficam fora da escada de propósito — são
+especializados e baratos, não degraus.
+
+> Mudar os módulos de um plano **não tira acesso a ninguém**: o portão é o
+> pivô `tenant_module` (`Tenant::hasModule`), não o plano.
 
 ### Regra de activação — não a inverta
 
-- **Plano gratuito** (`price_monthly <= 0` ou `auto_activate = 1`) → activa
-  **automaticamente** no registo.
-- **Plano pago** → fica em `pending`. **O super admin da plataforma activa
-  manualmente** depois de validar o comprovativo de pagamento.
-- **Enquanto `pending`, nenhum módulo é activado.** Um bug anterior activava
-  planos pagos automaticamente — buraco de receita directo.
+- **Todo o plano com `trial_days > 0` arranca em TESTE, automaticamente.**
+  Foi decisão comercial de 2026-08: exigir comprovativo antes de deixar
+  experimentar afastava clientes que ainda não sabiam se queriam o sistema.
+  O teste é gratuito e não pede prova de pagamento nenhuma.
+- **Acabado o teste**, a subscrição fica activa até ao fim do período pago e
+  depois é o `subscriptions:expire` que corta.
+- **Sem teste configurado** (`trial_days = 0`) → fica em `pending` e o super
+  admin activa depois de validar o comprovativo.
+- Só a PRIMEIRA subscrição da empresa dá teste (`TrocarDePlano`): sem isso,
+  bastava trocar de plano para ganhar outro período grátis, e outro.
 - Planos com `is_promotional = 1` (FOX Friendly) só podem ser activados **uma
   vez por empresa**.
 
@@ -219,6 +242,81 @@ configurações). Nunca escrevas directamente na tabela pivot `tenant_module`.
 Quando um utilizador cria uma 2.ª empresa, ela **herda os módulos do plano**,
 não os da 1.ª empresa. A propagação respeita `plans.max_companies`
 (`CheckSubscription`).
+
+---
+
+## 5-B. Ciclo de facturação da plataforma
+
+> Acrescentado a 2026-08-19/20. Antes disto o ciclo estava **aberto no meio**:
+> facturava-se ao contratar, e no fim do período o `subscriptions:expire`
+> cortava o acesso. Entre uma coisa e outra não saía conta nenhuma — o cliente
+> era bloqueado sem nunca ter recebido a factura do período seguinte.
+
+### Duas metades, deliberadamente separadas
+
+`App\Services\Plataforma\RenovacaoDeSubscricoes`:
+
+| Método | O que faz |
+|---|---|
+| `emitirFacturasAVencer()` | 8 dias antes do fim, emite factura **pendente** do período seguinte, com vencimento no último dia do período em curso |
+| `aplicarPagamento(Invoice)` | a factura passar a `paid` estende a subscrição, começando **onde a anterior acabou** |
+
+**Cobrar não dá acesso; pagar é que dá.** Juntar as duas metades daria meses de
+graça a quem nunca pagou.
+
+O pagamento é apanhado por `App\Observers\FacturaDeSubscricaoObserver` — e
+**não** pelo `InvoiceObserver` ao lado, que está deliberadamente por registar
+porque manda facturas para a contabilidade da *empresa*.
+
+### Idempotência por invariantes, não por bandeiras
+
+- **não emitir duas vezes**: já existe factura com `invoice_date` posterior ao
+  início do período em curso;
+- **não estender duas vezes**: `current_period_end > due_date` significa "já
+  aplicado" — e apanha também a factura *inicial*, que não deve estender nada.
+
+Planos a 0 Kz não geram factura.
+
+### Não é cron — corre à boleia do tráfego
+
+Como as notificações e as submissões AGT, e pela mesma razão (ver §12): este
+alojamento não tem processo permanente e o `schedule:run` pode nunca ser
+chamado. `App\Http\Middleware\FacturarRenovacoes` corre no `terminate`, com
+`Cache::add` de 1 h para toda a plataforma.
+
+Interruptor: `config/billing.php` → `billing.renovacao_automatica`.
+
+**Antes de ligar em produção**, sempre: `subscriptions:renovar --so-ver`.
+
+### Avisos ao cliente
+
+`App\Services\Billing\AvisosDeSubscricao` avisa por **email e SMS** em cinco
+ocasiões: factura emitida, a vencer, vencida, renovada, e plano a expirar (esta
+última cobre testes e promocionais, que não se facturam).
+
+- memória permanente em `avisos_de_subscricao`, com índice único e **reserva
+  antes de enviar** — sem isso, a varredura horária repetia tudo até alguém
+  pagar, e em SMS isso é dinheiro a sair;
+- dias exactos (`[3, 1]` antes, `[1, 3, 7]` de atraso), não intervalos;
+- o canal **SMS tem interruptor próprio** (`billing.avisos_sms`), separado do
+  mestre: ligar os avisos não pode, por si só, começar a gastar na operadora;
+- SMTP e SMS são sempre os da **plataforma** (`tenantId = null`) — usar os do
+  cliente seria a plataforma a cobrar-lhe com a conta dele.
+
+### Plano à medida
+
+`App\Services\Plataforma\PlanoAMedida` monta um plano para um cliente concreto:
+módulos escolhidos, preço por módulo, teste por módulo, e o plano nasce activo
+mas **fora da montra** (`is_public = false`).
+
+> **Armadilha:** um plano com `price_monthly <= 0` é tratado em todo o sistema
+> como *o plano gratuito* e queima a cortesia única do cliente. Para oferecer,
+> ponha valor simbólico e faça o desconto na cobrança.
+
+### Duração dos ciclos — fonte única
+
+`App\Support\CicloDeFacturacao`. O **anual são 14 meses** (12 + 2 de oferta) —
+política comercial que estava copiada em cinco sítios.
 
 ---
 
@@ -415,6 +513,57 @@ eventos Eloquent `saved` e `deleted`.
 
 Reparação: `php artisan stock:reconcile --fix-negatives`.
 
+### "Gerenciar Stock" — a bandeira que nascia desligada
+
+> Corrigido a 2026-08-20.
+
+O formulário de artigos nascia com `manage_stock = false`. Quem criasse um
+artigo sem reparar na caixa ficava com um artigo que se vendia e nunca descia,
+e **nada no ecrã o avisava** — o sintoma só aparecia semanas depois, com as
+contagens já fora. Numa farmácia (#57) eram 2523 de 2525 artigos.
+
+Passa a nascer **ligada**, e `updatedType()` desliga-a quando o tipo é serviço:
+um serviço com a bandeira ligada é recusado no POS por "esgotado".
+
+| Comando | Para quê |
+|---|---|
+| `produtos:gerir-stock --todas` | panorama de todas as empresas |
+| `produtos:gerir-stock --tenant=N` | simula (nunca grava sem `--aplicar`) |
+| `produtos:gerir-stock --tenant=N --zerados` | quais contam stock, estão a zero e por isso **não aparecem no POS** |
+| `produtos:gerir-stock --tenant=N --esconder-sem-stock=0` | desliga o `pos_hide_out_of_stock` da empresa |
+| `vendas:descontar-stock-em-falta --tenant=N` | lança as saídas das vendas que nunca desceram |
+
+**Armadilha ao ligar a bandeira num catálogo inteiro:** com o
+`pos_hide_out_of_stock` ligado (o valor por omissão), tudo o que esteja a zero
+**desaparece do POS**. Na Vital Saúde foram 1175 de 2525 — quase metade do
+balcão. O antídoto é `--esconder-sem-stock=0` até haver contagem física.
+
+E ligar a bandeira **não cria o histórico que faltou**: os artigos foram
+vendidos sem descontar, portanto a quantidade não corresponde à prateleira.
+
+### A contagem física manda
+
+O `vendas:descontar-stock-em-falta` só considera vendas **posteriores à última
+contagem** de cada artigo. Um movimento `adjustment` é alguém que foi à
+prateleira e contou: nesse instante tudo o que se vendera até aí já está
+reflectido, tenha havido movimento ou não.
+
+Numa base real isto foi a diferença entre 1640 e 430 linhas — **1210 que teriam
+sido descontadas a dobrar** numa farmácia que se mantém em ordem à custa de
+contagens periódicas.
+
+Compara por **linha**, não por documento: o `SalesInvoiceObserver` trata a
+factura como um todo, e um único movimento fá-lo dizer "já está", deixando as
+outras linhas por descontar para sempre.
+
+### Anular só devolve o que saiu
+
+`SalesInvoiceObserver::returnStock` devolvia a quantidade da linha **sem
+verificar se alguma coisa tinha saído**. Duas consequências, ambas a
+inflacionar inventário do nada: anular uma venda de artigo sem stock gerido
+*subia* o stock, e anular duas vezes devolvia duas vezes. Passa a devolver no
+máximo `saiu − já devolvido`.
+
 Este conjunto de regras nasceu de uma corrupção massiva de stock em produção
 (causa raiz + 12 bugs de código + reparação de dados).
 
@@ -511,6 +660,99 @@ divergência em produção.
 
 ---
 
+## 11-B. Tesouraria
+
+> Revista a 2026-08-20.
+
+Sete ecrãs Livewire em `app/Livewire/Treasury/`: bancos, contas, caixas,
+métodos de pagamento, transacções, transferências e relatórios.
+
+### O ecrã tem de falar
+
+O módulo usava `session()->flash('message', ...)` para confirmar gravações — e
+**nada nesta aplicação renderiza isso**. Criar um banco funcionava e parecia
+não funcionar: a linha era gravada, a modal fechava, e o utilizador não via
+nada. A convenção da casa é `$this->dispatch('success', message: ...)`, que o
+layout apanha em `Livewire.on('success')`.
+
+Há um teste que falha se o `flash` invisível voltar a aparecer na Tesouraria.
+
+### Responsável de caixa vem do pivô
+
+`treasury_cash_registers.user_id` é o responsável. A lista saía de
+`User::where('tenant_id', ...)` — a coluna existe e está quase toda preenchida
+mas **não é a fonte de verdade**: quem entra numa empresa entra pelo pivô
+`tenant_user`. Medido em produção: uma empresa com 9 pessoas no pivô mostrava
+8. A validação passou de `exists:users,id` (que aceitava qualquer utilizador do
+sistema, incluindo de outra empresa) para `exists` sobre `tenant_user` com o
+tenant activo.
+
+### A coluna `category` fala duas línguas
+
+O formulário oferecia seis opções escritas à mão (venda, compra, salário…) e
+**nenhuma existia na base**. O que lá está foi escrito por quem cria as
+transacções a sério:
+
+- o **POS** grava o tipo do método de pagamento (`cash`, `card`,
+  `bank_transfer`, `digital_payment`);
+- o **pagamento de facturas** grava `customer_payment` / `supplier_payment`;
+- a **nota de crédito** grava `credit_note`.
+
+`App\Support\CategoriasDeTesouraria` assume as duas famílias, dá-lhes nome em
+português, e a lista mostrada é sempre a união do canónico com o que a empresa
+**realmente** tem — senão a maior parte do movimento fica impossível de
+filtrar.
+
+### Filtros e totais
+
+O ecrã de transacções não tinha filtro por data, categoria, conta ou caixa, e
+os totais do topo somavam **sempre tudo desde sempre** — filtrar por um mês e
+ver o total de três anos faz desconfiar dos dois números, e com razão. Lista e
+totais passam pelo mesmo `aplicarFiltros()`: repetir as condições em dois
+sítios é como eles passam a discordar.
+
+### Relatórios
+
+As contas vivem em `App\Services\Treasury\RelatoriosDeTesouraria`, **não** no
+componente Livewire — porque o PDF e o Excel são gerados por
+`Treasury\ReportExportController` e um relatório que dá números diferentes no
+ecrã e no papel é pior do que não existir.
+
+Quatro relatórios: fluxo de caixa, demonstração de resultados, contas a receber
+e contas a pagar. Rotas `treasury.reports.pdf` e `treasury.reports.excel`.
+
+> A DR é uma aproximação: sem imposto sobre o lucro e sem deduções por notas de
+> crédito. O relatório **di-lo**, em vez de deixar o leitor supor.
+
+---
+
+## 11-C. Observabilidade e agente externo
+
+### Erros do sistema
+
+`erros_do_sistema` agrupa por impressão digital. `php artisan erros:ver`
+(whitelisted na manutenção) lista o que está por resolver; `--detalhe=N` mostra
+o contexto e `--resolver=N` fecha, reabrindo sozinho se voltar a acontecer.
+
+Provou-se no dia em que entrou: apanhou, em minutos, um erro que estava no log
+desde as 09:39 — **pagar uma factura de compra nunca funcionou** (a chave
+estrangeira de `invoicing_receipts.invoice_id` aponta para facturas de VENDA) e
+havia alguém há 45 minutos a tentar lançar 109.168,68 Kz numa farmácia.
+
+### API do agente (openclaw)
+
+`routes/agent.php`, fora do grupo `web`, com token próprio, lista de IPs,
+escopos por rota e registo de cada pedido em `agent_requests`.
+
+> **NADA nesta API vai mascarado** (decisão de 2026-08-20). NIF, email e
+> telefone vão por inteiro. Um valor cortado ao meio não se marca, não se
+> verifica contra a AGT e não se compara com um documento — o agente via os
+> dados e não os conseguia usar. O que protege é o token + IP + escopos +
+> registo, não a máscara. Há um teste que falha se voltarem a aparecer `***`
+> numa resposta.
+
+---
+
 ## 12. Deploy e operação
 
 **Não há CI/CD.** O deploy é por FTP para `soserp.vip`.
@@ -600,6 +842,36 @@ protegido por chave, chamá-lo, e **apagá-lo imediatamente**, confirmando 404.
 ---
 
 ## 14. Estado de implementação e handoff para a próxima IA
+
+### Agosto de 2026 — o que mudou nesta ronda
+
+| Área | O que era | O que é |
+|---|---|---|
+| Ciclo de facturação | facturava ao contratar, cortava no fim, nada no meio | renovação + pagamento estende (§5-B) |
+| Avisos ao cliente | nenhum | email + SMS em 5 ocasiões, com memória |
+| Business vs Enterprise | os mesmos 14 módulos | 9 vs 14 (§5) |
+| Trials | pediam comprovativo | arrancam sozinhos |
+| `manage_stock` | nascia desligado | nasce ligado (§7) |
+| Pagar factura de compra | rebentava sempre | `purchase_invoice_id` próprio |
+| API do agente | tudo mascarado | nada mascarado (§11-C) |
+| Tesouraria | gravava em silêncio | avisa, filtra e exporta (§11-B) |
+
+**Suite: 1382 testes.** `php artisan test` corre em MySQL `soserp_test`;
+preparar com `php scripts/prepare_test_db.php` e voltar a correr DEPOIS de
+cada migração nova — o esquema é copiado, as migrações não correm de raiz.
+
+### Por decidir (não são bugs; precisam de decisão do dono)
+
+- `produtos:gerir-stock`: #17 (78 artigos), #19 (48), #30 (3), #44 (2),
+  #58 (1), #23 (1). O #11 é empresa de serviços — talvez seja de propósito.
+- `vendas:descontar-stock-em-falta`: #17 (173 linhas), #19 (93).
+- Contagem física na Vital Saúde (#57): o stock conta a partir de agora, mas
+  o ponto de partida ainda não está certo.
+- `modules.default_price` está a 0 em todos os módulos.
+- **Credenciais em git**: token de manutenção em `config/maintenance.php`,
+  FTP em `scripts/ftp_*.ps1`, token D7 em `SmsSettingSeeder`. E ficheiros
+  servidos publicamente em `soserp.vip` (`/scripts/`, `/storage/logs/`) —
+  a password de FTP deve considerar-se comprometida e ser rodada.
 
 ### Concluído e publicado
 

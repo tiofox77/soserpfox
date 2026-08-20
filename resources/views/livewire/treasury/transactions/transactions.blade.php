@@ -91,6 +91,65 @@
                 </select>
             </div>
         </div>
+
+        {{-- Período, categoria, conta e caixa.
+             O ecrã não tinha nada disto: mostrava tudo desde sempre,
+             paginado, sem forma de limitar. Numa empresa com milhares de
+             movimentos isso não é uma lista, é um monte. --}}
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4 pt-4 border-t border-gray-100">
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">De</label>
+                <input type="date" wire:model.live="dataDe"
+                       class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-teal-500">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Até</label>
+                <input type="date" wire:model.live="dataAte"
+                       class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-teal-500">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Categoria</label>
+                <select wire:model.live="filterCategory"
+                        class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-teal-500">
+                    <option value="">Todas</option>
+                    @foreach($categoriasParaFiltrar as $chave => $rotulo)
+                        <option value="{{ $chave }}">{{ $rotulo }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Conta</label>
+                <select wire:model.live="filterAccount"
+                        class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-teal-500">
+                    <option value="">Todas</option>
+                    @foreach($accounts as $account)
+                        <option value="{{ $account->id }}">{{ $account->account_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Caixa</label>
+                <select wire:model.live="filterCashRegister"
+                        class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-teal-500">
+                    <option value="">Todos</option>
+                    @foreach($cashRegisters as $register)
+                        <option value="{{ $register->id }}">{{ $register->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        @if($search || $filterType || $filterStatus || $filterCategory || $filterAccount || $filterCashRegister || $dataDe || $dataAte)
+            <div class="mt-4 flex items-center justify-between bg-teal-50 border border-teal-200 rounded-xl px-4 py-2.5">
+                <span class="text-sm text-teal-800">
+                    <i class="fas fa-filter mr-1"></i>
+                    A mostrar <strong>{{ $transactions->total() }}</strong> transacção(ões) — os totais acima seguem estes filtros.
+                </span>
+                <button wire:click="limparFiltros" class="text-sm font-semibold text-teal-700 hover:text-teal-900">
+                    <i class="fas fa-times mr-1"></i>Limpar filtros
+                </button>
+            </div>
+        @endif
     </div>
 
     <!-- Tabela -->
@@ -123,7 +182,7 @@
                             <td class="px-6 py-4">
                                 <p class="font-semibold text-gray-900">{{ Str::limit($transaction->description ?? 'Sem descrição', 30) }}</p>
                                 @if($transaction->category)
-                                    <p class="text-xs text-gray-500">{{ ucfirst($transaction->category) }}</p>
+                                    <p class="text-xs text-gray-500">{{ \App\Support\CategoriasDeTesouraria::nome($transaction->category) }}</p>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

@@ -71,7 +71,7 @@
                 </div>
                 <div>
                     <p class="text-xs text-gray-500 mb-1">Categoria</p>
-                    <p class="font-semibold text-gray-900">{{ ucfirst($viewingTransaction->category) ?? '-' }}</p>
+                    <p class="font-semibold text-gray-900">{{ \App\Support\CategoriasDeTesouraria::nome($viewingTransaction->category) }}</p>
                 </div>
             </div>
 
