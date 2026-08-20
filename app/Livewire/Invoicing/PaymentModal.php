@@ -193,7 +193,13 @@ class PaymentModal extends Component
                     'type' => $this->invoiceType,
                     'client_id' => $this->invoiceType === 'sale' ? $this->invoice->client_id : null,
                     'supplier_id' => $this->invoiceType === 'purchase' ? $this->invoice->supplier_id : null,
-                    'invoice_id' => $this->invoiceId,
+                    // Cada tipo na SUA coluna. Escrever o id de uma factura
+                    // de compra em `invoice_id` — que tem chave estrangeira
+                    // para as facturas de VENDA — fazia a base recusar a
+                    // linha inteira, e pagar uma compra nunca funcionou.
+                    // É o mesmo que o movimento de caixa aqui ao lado já faz.
+                    'invoice_id' => $this->invoiceType === 'sale' ? $this->invoiceId : null,
+                    'purchase_invoice_id' => $this->invoiceType === 'purchase' ? $this->invoiceId : null,
                     'payment_date' => now(),
                     'payment_method' => $this->payment_method,
                     'amount_paid' => $this->amount,
@@ -248,7 +254,13 @@ class PaymentModal extends Component
             // enviado à AGT — ficava só na aplicação. Depois do commit: já está
             // gravado, e uma falha da AGT não o pode desfazer.
             $avisoAgt = '';
-            if (isset($receipt)) {
+
+            // Só o recibo de VENDA vai à AGT. Um recibo de compra regista
+            // dinheiro que a empresa PAGOU a um fornecedor: não é documento
+            // fiscal emitido por ela e submetê-lo seria declarar como receita
+            // uma despesa. Nunca aconteceu porque pagar uma compra rebentava
+            // antes de chegar aqui — agora que funciona, tem de estar travado.
+            if (isset($receipt) && $this->invoiceType === 'sale') {
                 $agt = \App\Services\AGT\AutoSubmissao::submeter($receipt);
 
                 if ($agt['enviado']) {

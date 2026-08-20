@@ -110,6 +110,10 @@ class SAFTGenerator extends Component
 
         // Recibos
         $this->totalReceipts = Receipt::where('tenant_id', $tenantId)
+            // Só os de VENDA. Um recibo de compra é dinheiro que a empresa
+            // PAGOU a um fornecedor — não é documento que ela emita, e não
+            // tem nada que fazer nos Payments do SAF-T.
+            ->where('type', 'sale')
             ->whereBetween('payment_date', [$this->startDate, $this->endDate])
             ->where('status', '!=', 'cancelled')
             ->count();
@@ -593,6 +597,8 @@ class SAFTGenerator extends Component
     private function buildPaymentsSection(\SimpleXMLElement $sourceDocuments, int $tenantId): void
     {
         $receipts = Receipt::where('tenant_id', $tenantId)
+            // Ver a nota na contagem: recibos de compra ficam de fora.
+            ->where('type', 'sale')
             ->whereBetween('payment_date', [$this->startDate, $this->endDate])
             ->where('status', '!=', 'cancelled')
             ->with(['client', 'invoice'])

@@ -127,7 +127,11 @@ class ReceiptCreate extends Component
                     'type' => $this->type,
                     'client_id' => $this->type === 'sale' ? $this->client_id : null,
                     'supplier_id' => $this->type === 'purchase' ? $this->supplier_id : null,
-                    'invoice_id' => $this->invoice_id ?: null,
+                    // Cada tipo na SUA coluna: `invoice_id` tem chave
+                    // estrangeira para as facturas de VENDA, e o id de uma
+                    // compra escrito ali fazia a base recusar a linha.
+                    'invoice_id' => $this->type === 'sale' ? ($this->invoice_id ?: null) : null,
+                    'purchase_invoice_id' => $this->type === 'purchase' ? ($this->invoice_id ?: null) : null,
                     'payment_date' => $this->payment_date,
                     'payment_method' => $this->payment_method,
                     'amount_paid' => $this->amount_paid,
@@ -140,7 +144,11 @@ class ReceiptCreate extends Component
                     'type' => $this->type,
                     'client_id' => $this->type === 'sale' ? $this->client_id : null,
                     'supplier_id' => $this->type === 'purchase' ? $this->supplier_id : null,
-                    'invoice_id' => $this->invoice_id ?: null,
+                    // Cada tipo na SUA coluna: `invoice_id` tem chave
+                    // estrangeira para as facturas de VENDA, e o id de uma
+                    // compra escrito ali fazia a base recusar a linha.
+                    'invoice_id' => $this->type === 'sale' ? ($this->invoice_id ?: null) : null,
+                    'purchase_invoice_id' => $this->type === 'purchase' ? ($this->invoice_id ?: null) : null,
                     'payment_date' => $this->payment_date,
                     'payment_method' => $this->payment_method,
                     'amount_paid' => $this->amount_paid,

@@ -23,6 +23,7 @@ class Receipt extends Model
         'receipt_number',
         'type',
         'invoice_id',
+        'purchase_invoice_id',
         'client_id',
         'supplier_id',
         'payment_date',
@@ -60,9 +61,28 @@ class Receipt extends Model
         return $this->belongsTo(\App\Models\Tenant::class);
     }
 
+    /** A factura de VENDA que este recibo paga. Null nos recibos de compra. */
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(SalesInvoice::class, 'invoice_id');
+    }
+
+    /**
+     * A factura de COMPRA que este recibo paga. Null nos recibos de venda.
+     *
+     * Existe porque `invoice_id` tem chave estrangeira para as facturas de
+     * VENDA: escrever lá o id de uma compra fazia a base recusar a linha, e
+     * pagar uma factura de compra nunca funcionou.
+     */
+    public function purchaseInvoice(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
+    }
+
+    /** A factura que este recibo paga, seja de que tipo for. */
+    public function documento()
+    {
+        return $this->type === 'purchase' ? $this->purchaseInvoice : $this->invoice;
     }
 
     public function client(): BelongsTo
