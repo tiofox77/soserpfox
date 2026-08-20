@@ -63,6 +63,11 @@ class MaintenanceController extends Controller
         // Avisos de facturação ao cliente. Também aqui o `?args=--so-ver`
         // primeiro: do outro lado estão emails e SMS a pessoas reais.
         'subscricoes:avisos',
+        // Escopos de uma credencial do agente. Pode estar aqui porque NÃO
+        // mexe no segredo: nada de secreto atravessa a rede. O `agente:token`,
+        // que emite credenciais, continua de fora de propósito — a resposta
+        // desta rota é texto simples e ficaria com o segredo em claro.
+        'agente:escopos',
         // Só lê: procura empresa por nome/NIF/email.
         'tenants:procurar',
         'tenant:iniciar-trial',
@@ -173,6 +178,9 @@ class MaintenanceController extends Controller
         'AGTIecPautalCodeSeeder',
         // RH — escalões IRT (tabela contínua)
         'IRTTaxBracketSeeder',
+        // Os textos dos avisos de facturação ao cliente. firstOrCreate por
+        // slug: correr outra vez não apaga o que foi editado no painel.
+        'AvisosDeSubscricaoTemplatesSeeder',
         // Contabilidade — corrige types do plano legado (classe 6/7 trocadas, classe 3 toda asset)
         'FixLegacyAccountTypesSeeder',
         // Contabilidade — mapeamentos Faturação→Contabilidade (invoice, NC, ND,

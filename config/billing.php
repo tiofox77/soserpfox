@@ -51,15 +51,17 @@ return [
     | Interruptor MESTRE dos avisos de facturação ao cliente (email e SMS):
     | factura emitida, a vencer, vencida, renovada, e plano a expirar.
     |
-    | NASCE DESLIGADO. Assim que se liga, a primeira varredura percorre todas
-    | as subscrições e facturas de uma vez — são mensagens a pessoas reais.
-    | Ver primeiro o que ela faria:
+    | Nasce DESLIGADO em cada instalação nova. Assim que se liga, a primeira
+    | varredura percorre todas as subscrições e facturas de uma vez — são
+    | mensagens a pessoas reais. Ver SEMPRE primeiro o que ela faria:
     |
     |   php artisan subscricoes:avisos --so-ver
     |
     */
 
-    'avisos_ao_cliente' => env('BILLING_AVISOS_CLIENTE', false),
+    // Ligado a 20/08/2026. A leitura seca em produção deu zero — não havia
+    // nada a enviar nesse momento, pelo que ligar não mandou mensagem nenhuma.
+    'avisos_ao_cliente' => env('BILLING_AVISOS_CLIENTE', true),
 
     /*
     | O canal PAGO, com interruptor SEPARADO do mestre e de propósito.
@@ -69,7 +71,10 @@ return [
     | de registos limpos, e só então se liga isto.
     */
 
-    'avisos_sms' => env('BILLING_AVISOS_SMS', false),
+    // Idem. Na prática o volume é pequeno: quase nenhum utilizador tem
+    // telefone gravado, e um número que o SmsService não consiga marcar é
+    // saltado sem se chegar a pagar nada à operadora.
+    'avisos_sms' => env('BILLING_AVISOS_SMS', true),
 
     /*
     | Em que dias exactos se avisa — não em que intervalo.
