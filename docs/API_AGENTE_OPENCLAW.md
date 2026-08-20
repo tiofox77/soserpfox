@@ -129,7 +129,7 @@ Estado comercial e nada mais: rótulo, dias em falta, plano, data de registo.
 salários. O mandato é o estado da subscrição, não os dados dos clientes dos
 clientes.
 
-Contactos vão sempre **mascarados** (`ca***@dominio.ao`, `9****9902`).
+Contactos e NIF vão **por inteiro** — ver *Contactos* mais abaixo.
 
 ### Saúde — `health:read`
 
@@ -223,7 +223,7 @@ Tectos de envio:
 | Silêncio | 21:00–07:00 (Luanda) e domingos |
 
 Use `POST /followup/preview` antes de enviar: mostra o texto renderizado, o
-destinatário mascarado e se algum tecto bloqueia. Como o envio é síncrono e
+destinatário para onde iria mesmo e se algum tecto bloqueia. Como o envio é síncrono e
 não há como o cancelar, rever antes é a única forma de rever.
 
 ---
@@ -299,12 +299,20 @@ o webhook falhar, ele volta na tentativa seguinte, e a pergunta a
 
 ---
 
-### Contactos reais — `contacts:read`
+### Contactos — `contacts:read`
 
-Em toda a restante API os contactos vão **mascarados** (`9****9902`), de
-propósito: quem não precisa de contactar ninguém não precisa do número. Este
-escopo existe para o agente poder mandar **WhatsApp**, que sai do lado dele e
-precisa do número inteiro.
+**Nada nesta API vai mascarado.** NIF, email e telefone vão por inteiro em
+todos os endpoints. Houve uma fase em que iam cortados (`9****9902`,
+`54******56`); foi retirado por decisão de quem gere a plataforma, porque um
+valor cortado ao meio não se marca, não se verifica contra a AGT e não se
+compara com um documento — o agente via os dados e não os conseguia usar.
+
+O que protege esta API é o **token**, a **lista de IPs**, os **escopos** e o
+**registo de cada pedido**. A máscara era uma segunda camada e o custo dela
+era maior do que o que dava.
+
+Este endpoint continua a existir porque junta num sítio só o contacto do
+responsável e o da empresa, com o telefone já normalizado.
 
 ```
 GET /api/agent/v1/tenants/{tenant}/contacts
@@ -432,7 +440,9 @@ Nem com todos os escopos:
 - Desligar ou contornar os próprios controlos.
 - Ler dados operacionais das empresas — vendas, stock, clientes, salários.
   O que vê é o estado COMERCIAL (plano, subscrição, facturas da plataforma) e
-  o que precisa para dar apoio.
+  o que precisa para dar apoio. **Isto continua a ser o limite**, e é onde a
+  linha está desenhada agora que os contactos deixaram de ir mascarados: o
+  agente vê quem é o cliente e como lhe falar, não o negócio dele.
 
 ---
 
@@ -454,16 +464,19 @@ antes e o resultado depois — com a credencial usada, o escopo, o motivo
 declarado e a `Idempotency-Key`. Na auditoria aparece o **humano
 responsável** pela credencial: um agente não responde por nada.
 
-Todos os envios ficam em `agent_messages` com estado, erro e destinatário
-mascarado, consultáveis em `GET /followup/envios`.
+Todos os envios ficam em `agent_messages` com estado, erro e destinatário,
+consultáveis em `GET /followup/envios`.
 
-**Contactos reais.** Com `contacts:read` o agente passa a poder ler o email e
-o telefone por mascarar de uma empresa (`GET /tenants/{id}/contacts`). É uma
-troca deliberada: sem isso não há WhatsApp. Fica atrás de um escopo próprio,
-que se dá a um token concreto e se tira sem deploy, e cada leitura fica no
-registo de pedidos do agente — há sempre resposta para *quem viu o número
-deste cliente e quando*. Em toda a restante API os contactos continuam
-mascarados.
+**Sem máscaras.** NIF, email e telefone vão por inteiro em toda a API. É uma
+troca deliberada e assumida: sem isso não há WhatsApp nem verificação de NIF.
+O que fica no lugar da máscara é o rasto — cada pedido do agente fica
+registado em `agent_requests`, portanto há sempre resposta para *quem viu o
+contacto deste cliente e quando*.
+
+O histórico de envios (`GET /followup/envios`) guarda o destinatário por
+inteiro na coluna `destinatario`. As linhas anteriores a 20/08/2026 ficaram
+com o valor cortado — o completo nunca chegou a ser gravado, e é preferível
+histórico antigo incompleto a dados inventados.
 
 ---
 

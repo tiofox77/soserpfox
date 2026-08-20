@@ -95,15 +95,22 @@ class SinaisDoTenant
         ];
     }
 
-    /** NIF da empresa, classificado e MASCARADO — nunca o número completo. */
+    /**
+     * NIF da empresa, classificado e POR INTEIRO.
+     *
+     * Ia mascarado ('54******23'). Foi retirado a pedido de quem gere a
+     * plataforma: um NIF cortado ao meio não se verifica contra a AGT nem se
+     * compara com um documento — que é exactamente para o que o agente
+     * precisa dele quando encontra um registo por corrigir.
+     */
     public function nif(Tenant $tenant): array
     {
         $c = NifAngolano::classificar($tenant->nif);
 
         return [
-            'estado'    => $c['estado'],
-            'mascarado' => $c['mascarado'],
-            'motivo'    => $c['motivo'],
+            'estado' => $c['estado'],
+            'nif'    => $c['nif'],
+            'motivo' => $c['motivo'],
         ];
     }
 }

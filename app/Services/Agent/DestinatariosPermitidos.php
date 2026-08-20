@@ -8,17 +8,26 @@ use App\Models\Tenant;
 /**
  * Quem o agente pode contactar.
  *
- * O corpo do pedido NUNCA transporta um email ou um telefone: transporta
- * um handle ('responsavel', 'empresa', 'cliente:123') que é aqui resolvido
- * contra a base. Sem isto, a API seria uma máquina de exfiltrar contactos
- * e de enviar, em nome do soserp, para onde quer que alguém indicasse.
+ * O corpo do pedido NUNCA transporta um email ou um telefone: transporta um
+ * handle ('responsavel', 'empresa', 'cliente:123') que é aqui resolvido contra
+ * a base. É esta a fronteira que interessa — sem ela, a API seria uma máquina
+ * de enviar, em nome do soserp, para onde quer que alguém indicasse.
  *
- * Para fora, os contactos vão sempre mascarados — o agente não precisa do
- * endereço, porque não é ele que escolhe para onde a mensagem vai.
+ * OS CONTACTOS VÃO POR INTEIRO
+ * ----------------------------
+ * Iam mascarados ('ca***@dominio.ao', '9****9902'). Foi retirado a pedido de
+ * quem gere a plataforma: o agente contacta os clientes por canais próprios
+ * (WhatsApp, chamada) e um número cortado não serve para nada — não se marca
+ * meio número.
+ *
+ * O que protege isto não é a máscara: é o token, a lista de IPs, os escopos, e
+ * o registo de cada pedido (AgentRequest). A máscara era uma segunda camada e
+ * quem gere a plataforma decidiu que o custo dela — um agente que vê os dados
+ * e não os consegue usar — era maior do que o que ela dava.
  */
 class DestinatariosPermitidos
 {
-    /** Lista os destinatários possíveis de uma empresa, mascarados. */
+    /** Lista os destinatários possíveis de uma empresa. */
     public function paraTenant(Tenant $tenant): array
     {
         $lista = [];
@@ -27,8 +36,8 @@ class DestinatariosPermitidos
             $lista[] = [
                 'handle'  => 'empresa',
                 'quem'    => $tenant->name,
-                'email'   => $this->mascararEmail($tenant->email),
-                'telefone' => $this->mascararTelefone($tenant->phone),
+                'email'   => $tenant->email,
+                'telefone' => $tenant->phone,
                 'canais'  => $this->canais($tenant->email, $tenant->phone),
             ];
         }
@@ -45,8 +54,8 @@ class DestinatariosPermitidos
             $lista[] = [
                 'handle'   => 'responsavel',
                 'quem'     => $responsavel->name,
-                'email'    => $this->mascararEmail($responsavel->email),
-                'telefone' => $this->mascararTelefone($responsavel->phone ?? null),
+                'email'    => $responsavel->email,
+                'telefone' => $responsavel->phone ?? null,
                 'canais'   => $this->canais($responsavel->email, $responsavel->phone ?? null),
             ];
         }
@@ -94,10 +103,13 @@ class DestinatariosPermitidos
     private function contacto(?string $nome, ?string $email, ?string $telefone): array
     {
         return [
-            'nome'      => $nome,
-            'email'     => $email,
-            'telefone'  => $telefone,
-            'mascarado' => $this->mascararEmail($email) ?: $this->mascararTelefone($telefone) ?: '—',
+            'nome'     => $nome,
+            'email'    => $email,
+            'telefone' => $telefone,
+            // Por onde a mensagem sai de facto. Chamava-se 'mascarado' e
+            // guardava 'ca***@dominio.ao'; manter o nome a guardar o valor
+            // inteiro seria uma mentira no código.
+            'contacto' => $email ?: $telefone ?: '—',
         ];
     }
 
@@ -112,37 +124,5 @@ class DestinatariosPermitidos
         }
 
         return $canais;
-    }
-
-    /** ca***@dominio.ao */
-    public function mascararEmail(?string $email): ?string
-    {
-        if (!$email || !str_contains($email, '@')) {
-            return null;
-        }
-
-        [$utilizador, $dominio] = explode('@', $email, 2);
-
-        $visivel = mb_substr($utilizador, 0, min(2, mb_strlen($utilizador)));
-
-        return $visivel . str_repeat('*', max(3, mb_strlen($utilizador) - 2)) . '@' . $dominio;
-    }
-
-    /** 9****9902 */
-    public function mascararTelefone(?string $telefone): ?string
-    {
-        if (!$telefone) {
-            return null;
-        }
-
-        $digitos = preg_replace('/\D/', '', $telefone);
-
-        if (strlen($digitos) < 5) {
-            return str_repeat('*', strlen($digitos));
-        }
-
-        return substr($digitos, 0, 1)
-            . str_repeat('*', strlen($digitos) - 5)
-            . substr($digitos, -4);
     }
 }

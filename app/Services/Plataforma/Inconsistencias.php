@@ -246,7 +246,8 @@ class Inconsistencias
                 'nif_invalido',
                 $t->id,
                 "NIF {$c['estado']}: {$c['motivo']}.",
-                ['nif_mascarado' => $c['mascarado'], 'estado' => $c['estado']],
+                // Por inteiro: o agente tem de o poder verificar e comparar.
+                ['nif' => $c['nif'], 'estado' => $c['estado']],
                 $c['estado'] === \App\Support\NifAngolano::AUSENTE
                     ? 'Pedir o NIF da empresa antes de emitir documentos.'
                     : 'Confirmar o NIF com o cliente; corrigir antes de haver mais documentos emitidos.'

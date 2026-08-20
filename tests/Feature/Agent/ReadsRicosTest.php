@@ -52,21 +52,27 @@ class ReadsRicosTest extends TenantTestCase
             ->assertOk()
             ->assertJsonStructure([
                 'empresa',
-                'nif'      => ['estado', 'mascarado'],
+                'nif'      => ['estado', 'nif'],
                 'produtos' => ['total', 'sem_preco', 'conta_vazia'],
                 'envios'   => ['email', 'sms'],
             ]);
     }
 
-    public function test_o_detalhe_do_tenant_nao_expoe_o_nif_completo(): void
+    /**
+     * O NIF vai por inteiro.
+     *
+     * Ia mascarado ('54******23') e este teste guardava isso. A máscara foi
+     * retirada de toda a API do agente a pedido de quem gere a plataforma:
+     * um NIF cortado ao meio não se verifica contra a AGT nem se compara com
+     * um documento, que é para o que o agente precisa dele.
+     */
+    public function test_o_detalhe_do_tenant_traz_o_nif_por_inteiro(): void
     {
         $this->tenant->update(['nif' => '5417123456']);
 
-        $r = $this->getJson('/api/agent/v1/tenants/' . $this->tenant->id, $this->token());
-
-        $r->assertOk();
-        $this->assertStringNotContainsString('5417123456', $r->getContent(),
-            'o NIF completo escapou no detalhe do tenant');
+        $this->getJson('/api/agent/v1/tenants/' . $this->tenant->id, $this->token())
+            ->assertOk()
+            ->assertJsonPath('nif.nif', '5417123456');
     }
 
     public function test_os_agregados_de_produtos_sao_so_contagens(): void
@@ -109,4 +115,59 @@ class ReadsRicosTest extends TenantTestCase
 
         $this->assertSame([], $r);
     }
+    // ══════════════ nada sai mascarado ══════════════
+
+    /**
+     * A API do agente não mascara NADA.
+     *
+     * Foi decisão de quem gere a plataforma: o agente contacta os clientes por
+     * canais próprios (WhatsApp, chamada) e verifica NIFs contra a AGT — um
+     * valor cortado ao meio não serve para nenhuma dessas coisas, e o agente
+     * ficava a ver dados que não conseguia usar.
+     *
+     * O que protege isto continua a ser o token, a lista de IPs, os escopos e
+     * o registo de cada pedido. Estes testes existem para que ninguém volte a
+     * pôr máscaras aqui a pensar que está a melhorar a segurança.
+     */
+    public function test_os_destinatarios_vem_com_email_e_telefone_inteiros(): void
+    {
+        $this->user->forceFill(['email' => 'ana@cliente.ao', 'phone' => '923456789'])->save();
+        $this->tenant->forceFill(['email' => 'geral@cliente.ao', 'phone' => '222330011'])->save();
+
+        $r = $this->getJson('/api/agent/v1/tenants/' . $this->tenant->id, $this->token())->assertOk();
+
+        $corpo = $r->getContent();
+
+        $this->assertStringContainsString('ana@cliente.ao', $corpo);
+        $this->assertStringContainsString('923456789', $corpo);
+        $this->assertStringContainsString('geral@cliente.ao', $corpo);
+    }
+
+    public function test_nao_sobra_nenhum_asterisco_de_mascara(): void
+    {
+        $this->tenant->update(['nif' => '5417123456']);
+        $this->user->forceFill(['email' => 'ana@cliente.ao', 'phone' => '923456789'])->save();
+        $this->tenant->forceFill(['email' => 'geral@cliente.ao', 'phone' => '222330011'])->save();
+
+        $corpo = $this->getJson('/api/agent/v1/tenants/' . $this->tenant->id, $this->token())
+            ->assertOk()->getContent();
+
+        // Três asteriscos seguidos é a assinatura de qualquer das máscaras
+        // que aqui existiram ('ca***@…', '9****9902', '54******56').
+        $this->assertStringNotContainsString('***', $corpo,
+            'voltou a haver mascaramento na API do agente');
+    }
+
+    public function test_a_inconsistencia_do_nif_traz_o_numero_para_se_poder_corrigir(): void
+    {
+        // NIF de pessoa singular num campo de empresa: é o caso que o agente
+        // detecta. Sem o número, não há como dizer a ninguém qual corrigir.
+        $this->tenant->update(['nif' => '2417123456']);
+
+        $r = $this->getJson('/api/agent/v1/health/inconsistencias?checks[]=nif_invalido', $this->token())
+            ->assertOk();
+
+        $this->assertStringContainsString('2417123456', $r->getContent());
+    }
+
 }

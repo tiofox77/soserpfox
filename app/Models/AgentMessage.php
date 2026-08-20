@@ -9,7 +9,7 @@ class AgentMessage extends Model
 {
     protected $fillable = [
         'agent_token_id', 'tenant_id', 'canal', 'template_slug',
-        'destinatario_handle', 'destinatario_mascarado', 'estado',
+        'destinatario_handle', 'destinatario', 'estado',
         'erro', 'motivo', 'idempotency_key', 'dia',
     ];
 

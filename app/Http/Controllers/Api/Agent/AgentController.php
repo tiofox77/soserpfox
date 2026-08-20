@@ -102,7 +102,7 @@ class AgentController extends Controller
     {
         return response()->json([
             'empresa'       => $this->resumoDoTenant($tenant),
-            'nif'           => $sinais->nif($tenant),        // classificado e mascarado
+            'nif'           => $sinais->nif($tenant),        // classificado, por inteiro
             'produtos'      => $sinais->produtos($tenant->id), // só contagens
             'envios'        => $sinais->envios($tenant->id),   // relatório de email/SMS
             'destinatarios' => $destinatarios->paraTenant($tenant),
@@ -389,7 +389,9 @@ class AgentController extends Controller
         return response()->json([
             'enviaria'     => $bloqueio === null && $contacto !== null,
             'bloqueio'     => $bloqueio,
-            'destinatario' => $contacto['mascarado'] ?? null,
+            // Para onde iria mesmo — sem máscara, para o agente poder
+            // confirmar antes de mandar.
+            'destinatario' => $contacto['email'] ?? $contacto['telefone'] ?? null,
             'texto'        => $dados['canal'] === 'sms'
                 ? $envio->textoDoSms($dados['template'], $dados['variaveis'] ?? [])
                 : '(modelo de email ' . $dados['template'] . ')',
@@ -455,7 +457,7 @@ class AgentController extends Controller
         $envios = AgentMessage::where('agent_token_id', $this->agente()->id())
             ->latest('id')
             ->limit(100)
-            ->get(['id', 'tenant_id', 'canal', 'template_slug', 'destinatario_mascarado', 'estado', 'erro', 'created_at']);
+            ->get(['id', 'tenant_id', 'canal', 'template_slug', 'destinatario', 'estado', 'erro', 'created_at']);
 
         return response()->json(['envios' => $envios]);
     }

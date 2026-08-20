@@ -154,7 +154,8 @@ class EnvioDeFollowUp
                 'canal'                  => $canal,
                 'template_slug'          => $template,
                 'destinatario_handle'    => $handle,
-                'destinatario_mascarado' => $contacto['mascarado'],
+                // Por inteiro: a máscara foi retirada de toda a API do agente.
+                'destinatario'           => $destino,
                 'estado'                 => AgentMessage::RESERVADO,
                 'motivo'                 => $motivo,
                 'idempotency_key'        => $idempotencyKey,
@@ -182,7 +183,7 @@ class EnvioDeFollowUp
             return [
                 'ok'          => true,
                 'mensagem_id' => $registo->id,
-                'destinatario' => $contacto['mascarado'],
+                'destinatario' => $destino,
             ];
         } catch (\Throwable $e) {
             $registo->update([

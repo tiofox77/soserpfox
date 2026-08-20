@@ -46,15 +46,32 @@ class NifAngolanoTest extends TestCase
         $this->assertSame(NifAngolano::INVALIDO, NifAngolano::classificar('12345')['estado']);
     }
 
-    public function test_o_numero_sai_sempre_mascarado(): void
+    /**
+     * O classificar devolve as duas formas.
+     *
+     * `nif` é o número por inteiro — é o que a API do agente usa, desde que
+     * a máscara foi retirada a pedido de quem gere a plataforma. `mascarado`
+     * continua a existir para quem o queira pôr num ecrã público.
+     */
+    public function test_devolve_o_numero_inteiro_e_a_forma_mascarada(): void
     {
         $r = NifAngolano::classificar('5417123456');
-        // valido nao devolve mascarado no fluxo? devolve sim:
-        $this->assertSame('54******56', $r['mascarado']);
 
-        // e nunca aparece o numero completo em lado nenhum do retorno
-        $inv = NifAngolano::classificar('2417123456');
-        $this->assertStringNotContainsString('2417123456', json_encode($inv));
+        $this->assertSame('5417123456', $r['nif']);
+        $this->assertSame('54******56', $r['mascarado']);
+    }
+
+    public function test_o_numero_vem_limpo_de_pontuacao(): void
+    {
+        $this->assertSame('5417123456', NifAngolano::classificar('5417.123.456')['nif']);
+    }
+
+    public function test_sem_nif_nao_ha_numero(): void
+    {
+        $r = NifAngolano::classificar('');
+
+        $this->assertNull($r['nif']);
+        $this->assertSame(NifAngolano::AUSENTE, $r['estado']);
     }
 
     public function test_tolera_pontuacao(): void
