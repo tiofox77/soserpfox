@@ -165,6 +165,56 @@ class ProdutosGerirStockTest extends TenantTestCase
             ->assertSuccessful();
     }
 
+    // ══════════════ o efeito colateral, e o antídoto ══════════════
+
+    /**
+     * Ligar a bandeira a um catálogo inteiro esconde do POS tudo o que estiver
+     * a zero — e num catálogo que nunca contou stock, isso é muito. Do lado do
+     * balcão lê-se como "o sistema deixou de ter metade dos produtos".
+     */
+    public function test_avisa_quantos_artigos_vao_sumir_do_pos(): void
+    {
+        $this->artigo(['stock_quantity' => 0]);
+        $this->artigo(['name' => 'Com stock', 'stock_quantity' => 10]);
+
+        $this->artisan('produtos:gerir-stock', ['--tenant' => $this->tenant->id])
+            ->expectsOutputToContain('1 destes artigos estão a ZERO')
+            ->assertSuccessful();
+    }
+
+    public function test_pode_desligar_o_esconder_sem_stock_da_empresa(): void
+    {
+        $this->artisan('produtos:gerir-stock', [
+            '--tenant' => $this->tenant->id,
+            '--esconder-sem-stock' => '0',
+        ])->assertSuccessful();
+
+        $this->assertFalse(
+            (bool) \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenant->id)->pos_hide_out_of_stock
+        );
+    }
+
+    public function test_e_voltar_a_ligar(): void
+    {
+        $this->artisan('produtos:gerir-stock', ['--tenant' => $this->tenant->id, '--esconder-sem-stock' => '0'])
+            ->assertSuccessful();
+        $this->artisan('produtos:gerir-stock', ['--tenant' => $this->tenant->id, '--esconder-sem-stock' => '1'])
+            ->assertSuccessful();
+
+        $this->assertTrue(
+            (bool) \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenant->id)->pos_hide_out_of_stock
+        );
+    }
+
+    public function test_os_zerados_sao_listados_com_o_estado_da_definicao(): void
+    {
+        $this->artigo(['manage_stock' => true, 'stock_quantity' => 0]);
+
+        $this->artisan('produtos:gerir-stock', ['--tenant' => $this->tenant->id, '--zerados' => true])
+            ->expectsOutputToContain('NÃO aparecem no POS')
+            ->assertSuccessful();
+    }
+
     // ══════════════ a causa ══════════════
 
     /**
