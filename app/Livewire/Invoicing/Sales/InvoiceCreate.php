@@ -1271,19 +1271,23 @@ class InvoiceCreate extends Component
             $sessionKey = 'invoice_client_' . activeTenantId() . '_' . auth()->id();
             session()->forget($sessionKey);
 
-            // Auto-submeter à AGT se habilitado e novo (não edição)
+            // A AGT é o SEGUNDO passo, não o mesmo.
+            //
+            // A factura já está gravada e é válida. Comunicá-la ao fisco é
+            // outra coisa, e não se faz agora, a prender o utilizador à espera
+            // da AGT — que num dia mau responde a 8 segundos, ou não responde.
+            // Aqui só se ENFILEIRA (marca como pendente); quem a envia é o
+            // DespacharAgtPendentes, à boleia do tráfego, depois de a resposta
+            // já ter seguido para o browser. O documento sai na mesma, sem
+            // ninguém a olhar para a ampulheta.
             $agtMessage = '';
             if (!$this->isEdit) {
-                $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
-                if (!empty($settings->agt_auto_submit)) {
-                    try {
-                        $agtResult = $invoice->fresh()->submitToAGT();
-                        $agtMessage = ($agtResult['success'] ?? false)
-                            ? ' · ' . __('AGT requestID: :id', ['id' => $agtResult['requestID'] ?? '—'])
-                            : ' · ' . __('AGT erro: :erro', ['erro' => $agtResult['error'] ?? __('desconhecido')]);
-                    } catch (\Throwable $e) {
-                        $agtMessage = ' · ' . __('AGT excepção: :erro', ['erro' => $e->getMessage()]);
-                    }
+                $fila = \App\Services\AGT\AutoSubmissao::enfileirar($invoice);
+
+                if ($fila['enfileirado']) {
+                    $agtMessage = ' · ' . __('a comunicar à AGT');
+                } elseif ($fila['jaEnviado']) {
+                    $agtMessage = ' · ' . __('já comunicada à AGT');
                 }
             }
 

@@ -166,6 +166,19 @@ class DocumentMapper
      * Resolver tipo de documento AGT (DS.120 §4.1 — 18 tipos suportados).
      * Valida contra `AGTDocumentType` enum; tipos desconhecidos caem em FT.
      */
+    /**
+     * O código AGT do tipo de documento (FT, FR, NC, ND, RC…), sem construir
+     * o payload todo.
+     *
+     * Existe para se poder ENFILEIRAR um documento (criar a submissão
+     * pendente) sem o mapear nem o assinar — o mapeamento completo e a
+     * assinatura ficam para o momento do envio, à boleia do tráfego.
+     */
+    public function documentTypeCode(Model $document): string
+    {
+        return $this->resolveType($document);
+    }
+
     private function resolveType(Model $document): string
     {
         $raw = null;

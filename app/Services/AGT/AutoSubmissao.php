@@ -2,6 +2,7 @@
 
 namespace App\Services\AGT;
 
+use App\Models\AGT\AGTSubmission;
 use App\Models\Invoicing\InvoicingSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -81,6 +82,88 @@ class AutoSubmissao
             ]);
 
             return ['enviado' => false, 'requestID' => null, 'erro' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * ENFILEIRA um documento para a AGT — grava-o como pendente e não o envia.
+     *
+     * É a metade que faltava para separar as duas coisas que nunca deviam ter
+     * andado juntas: gravar a factura e comunicá-la ao fisco. Emitir uma FT
+     * chamava `submitToAGT()` no mesmo pedido, e o utilizador ficava à espera
+     * da AGT — que num dia mau responde a 8 segundos, ou não responde. A venda
+     * já estava feita; não há razão para prender quem a fez enquanto o fisco
+     * pensa.
+     *
+     * Aqui cria-se apenas a `AGTSubmission` PENDENTE. Quem a envia é o
+     * DespachoPendentes, à boleia do tráfego, depois de a resposta já ter
+     * seguido para o browser. O documento sai na mesma — só que sem ninguém
+     * a olhar para a ampulheta.
+     *
+     * Idempotente: se já houver submissão validada ou pendente para este
+     * documento, não cria outra. Uma factura não pode ser comunicada duas
+     * vezes.
+     *
+     * @return array{enfileirado:bool, jaEnviado:bool, erro:?string}
+     */
+    public static function enfileirar(Model $documento, ?int $tenantId = null): array
+    {
+        $tenantId = $tenantId ?: (int) ($documento->tenant_id ?: activeTenantId());
+
+        if (!$tenantId) {
+            return ['enfileirado' => false, 'jaEnviado' => false, 'erro' => 'Sem empresa activa.'];
+        }
+
+        $definicoes = InvoicingSettings::forTenant($tenantId);
+
+        // Sem envio automático, não se enfileira nada — quem comunica é o
+        // utilizador, à mão, quando decidir.
+        if (empty($definicoes->agt_auto_submit)) {
+            return ['enfileirado' => false, 'jaEnviado' => false, 'erro' => null];
+        }
+
+        try {
+            $existente = AGTSubmission::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('document_type', get_class($documento))
+                ->where('document_id', $documento->id)
+                ->whereIn('status', [
+                    AGTSubmission::STATUS_PENDING,
+                    AGTSubmission::STATUS_SUBMITTED,
+                    AGTSubmission::STATUS_VALIDATED,
+                ])
+                ->first();
+
+            // Já está tratado — pendente, enviado ou validado. Não duplicar.
+            if ($existente) {
+                return [
+                    'enfileirado' => false,
+                    'jaEnviado'   => in_array($existente->status, [
+                        AGTSubmission::STATUS_SUBMITTED,
+                        AGTSubmission::STATUS_VALIDATED,
+                    ], true),
+                    'erro' => null,
+                ];
+            }
+
+            // Só o CÓDIGO do tipo (FT, FR, …) — não se mapeia nem se assina o
+            // documento agora; isso fica para o envio, à boleia do tráfego.
+            $tipo = (new DocumentMapper())->documentTypeCode($documento);
+
+            AGTSubmission::createForDocument($documento->fresh() ?: $documento, $tipo);
+
+            return ['enfileirado' => true, 'jaEnviado' => false, 'erro' => null];
+        } catch (\Throwable $e) {
+            // O documento fica gravado. Não conseguir enfileirar não pode
+            // desfazer a venda — fica por comunicar e vê-se no ecrã da AGT.
+            Log::error('AGT: não foi possível enfileirar', [
+                'tenant_id' => $tenantId,
+                'documento' => self::numero($documento),
+                'tipo'      => class_basename($documento),
+                'erro'      => $e->getMessage(),
+            ]);
+
+            return ['enfileirado' => false, 'jaEnviado' => false, 'erro' => $e->getMessage()];
         }
     }
 
