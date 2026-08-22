@@ -9,6 +9,9 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\DB;
+use App\Models\Invoicing\SalesInvoice;
+use App\Models\Invoicing\PurchaseInvoice;
+use App\Models\Treasury\PaymentMethod;
 
 #[Layout('layouts.app')]
 #[Title('Dashboard Tesouraria')]
@@ -56,6 +59,28 @@ class Dashboard extends Component
 
         // Saldo do Período
         $periodBalance = $totalIncome - $totalExpense;
+
+        // Facturar não é o mesmo que receber: estes indicadores mostram a
+        // ponte entre documentos e dinheiro efectivamente movimentado.
+        $sales = SalesInvoice::where('tenant_id', activeTenantId())
+            ->where('invoice_status', 'F')
+            ->whereBetween('invoice_date', [$dateRange['start'], $dateRange['end']]);
+        $purchase = PurchaseInvoice::where('tenant_id', activeTenantId())
+            ->whereBetween('invoice_date', [$dateRange['start'], $dateRange['end']]);
+        $invoicedVolume = (float) (clone $sales)->sum('total');
+        $salesCollected = (float) (clone $sales)->sum('paid_amount');
+        $receivable = max(0, $invoicedVolume - $salesCollected);
+        $purchasedVolume = (float) (clone $purchase)->sum('total');
+        $suppliersPaid = (float) (clone $purchase)->sum('paid_amount');
+        $payable = max(0, $purchasedVolume - $suppliersPaid);
+
+        $unallocatedMovements = Transaction::where('tenant_id', activeTenantId())
+            ->where('status', 'completed')->whereNull('account_id')->whereNull('cash_register_id')->count();
+        $unconfiguredMethods = PaymentMethod::where('tenant_id', activeTenantId())->where('is_active', true)
+            ->where(function ($q) {
+                $q->where(fn ($cash) => $cash->where('type', 'cash')->whereNull('default_cash_register_id'))
+                    ->orWhere(fn ($bank) => $bank->where('type', '!=', 'cash')->whereNull('default_account_id'));
+            })->count();
 
         // Transações Recentes (últimas 10)
         $recentTransactions = Transaction::where('tenant_id', activeTenantId())
@@ -110,6 +135,14 @@ class Dashboard extends Component
             'totalIncome' => $totalIncome,
             'totalExpense' => $totalExpense,
             'periodBalance' => $periodBalance,
+            'invoicedVolume' => $invoicedVolume,
+            'salesCollected' => $salesCollected,
+            'receivable' => $receivable,
+            'purchasedVolume' => $purchasedVolume,
+            'suppliersPaid' => $suppliersPaid,
+            'payable' => $payable,
+            'unallocatedMovements' => $unallocatedMovements,
+            'unconfiguredMethods' => $unconfiguredMethods,
             'recentTransactions' => $recentTransactions,
             'chartData' => $chartData,
             'topExpenseCategories' => $topExpenseCategories,

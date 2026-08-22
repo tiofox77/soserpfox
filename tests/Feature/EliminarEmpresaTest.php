@@ -56,6 +56,21 @@ class EliminarEmpresaTest extends TenantTestCase
             'ficaram dados de uma empresa que ja nao existe');
     }
 
+    /** Apagar a empresa principal não pode apagar o login usado noutra empresa. */
+    public function test_preserva_utilizador_que_pertence_a_outra_empresa(): void
+    {
+        $e = $this->empresaDescartavel();
+        $this->user->tenants()->syncWithoutDetaching([$e->id => [
+            'is_active' => true, 'joined_at' => now(),
+        ]]);
+        $this->user->forceFill(['tenant_id' => $e->id])->save();
+
+        $this->servico()->eliminar($e);
+
+        $this->assertDatabaseHas('users', ['id' => $this->user->id, 'tenant_id' => $this->tenant->id]);
+        $this->assertDatabaseHas('tenant_user', ['user_id' => $this->user->id, 'tenant_id' => $this->tenant->id]);
+    }
+
     /** O travao que importa: com comunicacao a AGT, recusa. */
     public function test_uma_empresa_que_comunicou_a_agt_nao_pode_ser_apagada(): void
     {

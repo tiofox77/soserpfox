@@ -28,7 +28,7 @@ class SalesInvoiceController extends Controller
             ->limit(4)
             ->get();
         
-        $qrCode = getAGTQRData($invoice, 80);
+        $qrCode = getAGTQRData($invoice, 140);
         
         $pdf = Pdf::loadView('pdf.invoicing.sales-invoice', [
                 "paraPdf" => true,
@@ -64,7 +64,7 @@ class SalesInvoiceController extends Controller
             ->get();
         
         // Gerar QR Code AGT
-        $qrCode = getAGTQRData($invoice, 80);
+        $qrCode = getAGTQRData($invoice, 140);
         
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.sales-invoice', [

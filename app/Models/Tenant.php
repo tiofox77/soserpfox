@@ -124,6 +124,7 @@ class Tenant extends Model
         'locale',
         'max_users',
         'max_storage_mb',
+        'restaurant_venue_limit',
         'settings',
         'is_active',
         'accounting_integration_enabled',
@@ -141,6 +142,7 @@ class Tenant extends Model
         'trial_ends_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
         'deactivated_at' => 'datetime',
+        'restaurant_venue_limit' => 'integer',
     ];
 
     protected static function boot()
@@ -169,6 +171,15 @@ class Tenant extends Model
             
             // Popular categorias de equipamentos automaticamente
             self::populateEquipmentCategories($tenant);
+
+            // Catálogo inicial partilhado entre Restaurante, POS e Faturação.
+            try {
+                if (\Schema::hasTable('invoicing_categories')) {
+                    \App\Models\Category::seedRestaurantDefaults($tenant->id);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Tenant: falha ao criar categorias iniciais', ['tenant_id' => $tenant->id, 'error' => $e->getMessage()]);
+            }
             
             // Popular métodos de pagamento padrão
             self::populatePaymentMethods($tenant);
@@ -921,26 +932,46 @@ class Tenant extends Model
     public function canBeDeleted()
     {
         $encontrado = [];
-
         foreach (self::ACTIVIDADE_QUE_IMPEDE_APAGAR as $tabela => $descricao) {
-            if (!\Illuminate\Support\Facades\Schema::hasTable($tabela)) {
-                continue;
-            }
-
+            if (!\Illuminate\Support\Facades\Schema::hasTable($tabela)) continue;
             $n = \DB::table($tabela)->where('tenant_id', $this->id)->count();
-
-            if ($n > 0) {
-                $encontrado[$descricao] = $n;
-            }
+            if ($n > 0) $encontrado[$descricao] = $n;
         }
-
-        // A tabela antiga de facturas, que pode existir em instalações antigas.
         if ($this->invoices()->exists()) {
             $encontrado['facturas'] = $this->invoices()->count();
         }
-
         if (empty($encontrado)) {
             return ['can_delete' => true, 'reason' => null, 'encontrado' => []];
+        }
+        $lista = [];
+        foreach ($encontrado as $descricao => $n) $lista[] = "{$n} {$descricao}";
+        return [
+            'can_delete' => false,
+            'reason' => 'Esta empresa tem actividade registada e não pode ser apagada: '
+                . implode(', ', $lista) . '. Desactive-a — os dados ficam guardados e ninguém entra.',
+            'encontrado' => $encontrado,
+        ];
+    }
+
+    /** Guarda específica do dono: qualquer documento fiscal, até rascunho, bloqueia. */
+    public function canBeArchivedByOwner(): array
+    {
+        $fiscais = [
+            'invoicing_sales_invoices' => 'facturas/FR',
+            'invoicing_credit_notes' => 'notas de crédito',
+            'invoicing_debit_notes' => 'notas de débito',
+            'invoicing_receipts' => 'recibos',
+        ];
+        $encontrado = [];
+        foreach ($fiscais as $tabela => $descricao) {
+            if (!\Illuminate\Support\Facades\Schema::hasTable($tabela)) continue;
+            $q = \DB::table($tabela)->where('tenant_id', $this->id);
+            $n = $q->count();
+            if ($n > 0) $encontrado[$descricao] = $n;
+        }
+
+        if (empty($encontrado)) {
+            return ['can_delete' => true, 'reason' => null, 'encontrado' => [], 'invoices_count' => 0];
         }
 
         $lista = [];
@@ -950,10 +981,10 @@ class Tenant extends Model
 
         return [
             'can_delete' => false,
-            'reason' => 'Esta empresa tem actividade registada e não pode ser apagada: '
-                . implode(', ', $lista) . '. '
-                . 'Desactive-a — os dados ficam guardados e ninguém entra.',
+            'reason' => 'Esta empresa tem documentos fiscais definitivos e não pode ser apagada: '
+                . implode(', ', $lista) . '.',
             'encontrado' => $encontrado,
+            'invoices_count' => array_sum($encontrado),
         ];
     }
 }

@@ -10,6 +10,7 @@ use App\Services\Restaurant\RestaurantOrderService;
 use App\Services\Restaurant\RestaurantCheckoutService;
 use App\Models\Client;
 use App\Models\Treasury\PaymentMethod;
+use App\Models\Invoicing\PosShift;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\Layout;
@@ -31,14 +32,19 @@ class OrderManagement extends Component
     public ?string $itemNotes = null;
     public ?int $selectedProductId = null;
     public bool $showCheckout = false;
+    public bool $showShiftRequired = false;
     public string $documentType = 'FR';
     public ?int $clientId = null;
     public ?int $paymentMethodId = null;
     public string $checkoutKey = '';
     public ?string $invoiceResult = null;
+    public ?int $invoiceResultId = null;
+    public bool $showPrintModal = false;
     public array $billItemIds = [];
     public ?int $secondPaymentMethodId = null;
     public float $secondPaymentAmount = 0;
+    public bool $multiPayment = false;
+    public array $payments = [];
     public ?int $targetTableId = null;
     public ?int $targetOrderId = null;
     public string $voidReason = '';
@@ -73,11 +79,32 @@ class OrderManagement extends Component
         $this->dispatch('notify', type: 'success', message: 'Artigo adicionado à comanda.');
     }
 
+    public function quickAddProduct(int $productId, RestaurantOrderService $service): void
+    {
+        $this->selectedProductId = $productId;
+        $this->addItem($service);
+    }
+
     public function removeItem(int $itemId, RestaurantOrderService $service): void
     {
         $item = OrderItem::where('tenant_id', activeTenantId())->findOrFail($itemId);
         $service->removeItem($item, activeTenantId(), auth()->id(), 'Removido antes da confirmação');
         $this->dispatch('notify', type: 'success', message: 'Artigo removido.');
+    }
+
+    public function changeItemQuantity(int $itemId, float $delta, RestaurantOrderService $service): void
+    {
+        try {
+            $item = OrderItem::where('tenant_id', activeTenantId())->findOrFail($itemId);
+            $next = round((float) $item->quantity + $delta, 3);
+            if ($next <= 0) {
+                $service->removeItem($item, activeTenantId(), auth()->id(), 'Quantidade reduzida a zero no POS');
+            } else {
+                $service->updateItemQuantity($item, $next, activeTenantId(), auth()->id());
+            }
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+        }
     }
 
     public function confirmOrder(RestaurantOrderService $service): void
@@ -89,6 +116,12 @@ class OrderManagement extends Component
 
     public function openCheckout(): void
     {
+        if (! PosShift::withoutGlobalScopes()->where('tenant_id', activeTenantId())
+            ->where('user_id', auth()->id())->whereNull('deleted_at')->where('status', 'open')->exists()) {
+            $this->showCheckout = false;
+            $this->showShiftRequired = true;
+            return;
+        }
         $selected = Order::where('tenant_id', activeTenantId())->findOrFail($this->order);
         if (!in_array($selected->status, ['ready', 'served', 'partially_billed'], true)) {
             $this->dispatch('notify', type: 'error', message: 'A comanda deve estar pronta ou servida antes de faturar.');
@@ -99,6 +132,47 @@ class OrderManagement extends Component
         $this->clientId = $selected->client_id;
         $this->showCheckout = true;
         $this->billItemIds = $selected->items()->whereColumn('billed_quantity','<','quantity')->pluck('id')->map(fn($id)=>(string)$id)->all();
+        $this->multiPayment = false;
+        $this->payments = [];
+        $this->secondPaymentMethodId = null;
+        $this->secondPaymentAmount = 0;
+    }
+
+    public function toggleMultiPayment(): void
+    {
+        $this->multiPayment = ! $this->multiPayment;
+        $this->payments = $this->multiPayment ? [[
+            'payment_method_id' => $this->paymentMethodId,
+            'amount' => round($this->checkoutTotal, 2),
+        ]] : [];
+    }
+
+    public function addPayment(): void
+    {
+        $used = array_filter(array_column($this->payments, 'payment_method_id'));
+        $next = PaymentMethod::where('tenant_id', activeTenantId())->where('is_active', true)
+            ->whereNotIn('id', $used)->orderBy('sort_order')->value('id');
+        if (! $next) {
+            $this->dispatch('notify', type: 'error', message: 'Todos os métodos de pagamento disponíveis já foram adicionados.');
+            return;
+        }
+        $this->payments[] = ['payment_method_id' => $next, 'amount' => max(0, $this->paymentRemaining)];
+    }
+
+    public function removePayment(int $index): void
+    {
+        unset($this->payments[$index]);
+        $this->payments = array_values($this->payments);
+    }
+
+    public function getPaymentsTotalProperty(): float
+    {
+        return round(collect($this->payments)->sum(fn ($p) => (float) ($p['amount'] ?? 0)), 2);
+    }
+
+    public function getPaymentRemainingProperty(): float
+    {
+        return round($this->checkoutTotal - $this->paymentsTotal, 2);
     }
 
     public function checkout(RestaurantCheckoutService $service): void
@@ -109,20 +183,29 @@ class OrderManagement extends Component
             'paymentMethodId' => [$this->documentType === 'FR' ? 'required' : 'nullable', 'integer'],
             'checkoutKey' => ['required', 'uuid'],
             'billItemIds' => ['required', 'array', 'min:1'],
-            'secondPaymentAmount' => ['numeric', 'min:0', 'max:'.$this->checkoutTotal],
+            'payments' => [$this->multiPayment && $this->documentType === 'FR' ? 'required' : 'nullable', 'array'],
+            'payments.*.payment_method_id' => ['nullable', 'integer'],
+            'payments.*.amount' => ['nullable', 'numeric', 'min:0.01'],
         ]);
         try {
+            $tenders = $this->multiPayment ? collect($this->payments)
+                ->filter(fn ($p) => (float) ($p['amount'] ?? 0) > 0)
+                ->values()->all() : [['payment_method_id' => $this->paymentMethodId, 'amount' => $this->checkoutTotal]];
+            if ($this->documentType === 'FR' && $this->multiPayment) {
+                if (count($tenders) < 2) throw new \InvalidArgumentException('Adicione pelo menos dois métodos para usar pagamento múltiplo.');
+                if (abs($this->paymentRemaining) > .02) throw new \InvalidArgumentException($this->paymentRemaining > 0 ? 'Ainda falta distribuir '.number_format($this->paymentRemaining, 2, ',', '.').' Kz.' : 'Os pagamentos excedem o total em '.number_format(abs($this->paymentRemaining), 2, ',', '.').' Kz.');
+                if (count(array_unique(array_column($tenders, 'payment_method_id'))) !== count($tenders)) throw new \InvalidArgumentException('Não repita o mesmo método de pagamento. Some os valores numa única linha.');
+            }
             $order = Order::where('tenant_id', activeTenantId())->findOrFail($this->order);
             $invoice = $service->checkout($order, [
                 'document_type' => $this->documentType, 'client_id' => $this->clientId,
                 'payment_method_id' => $this->paymentMethodId, 'idempotency_key' => $this->checkoutKey, 'item_ids'=>$this->billItemIds,
-                'payments' => $this->documentType==='FR' ? array_values(array_filter([
-                    ['payment_method_id'=>$this->paymentMethodId,'amount'=>$this->checkoutTotal-$this->secondPaymentAmount],
-                    $this->secondPaymentMethodId&&$this->secondPaymentAmount>0?['payment_method_id'=>$this->secondPaymentMethodId,'amount'=>$this->secondPaymentAmount]:null,
-                ])) : null,
+                'payments' => $this->documentType==='FR' ? $tenders : null,
             ], activeTenantId(), auth()->id());
             $this->invoiceResult = $invoice->invoice_number;
+            $this->invoiceResultId = $invoice->id;
             $this->showCheckout = false;
+            $this->showPrintModal = true;
             $this->dispatch('notify', type: 'success', message: "Documento {$invoice->invoice_number} emitido com sucesso.");
         } catch (\Throwable $e) {
             $this->dispatch('notify', type: 'error', message: $e->getMessage());
@@ -200,12 +283,12 @@ class OrderManagement extends Component
             : null;
 
         $products = collect();
-        if ($selectedOrder && mb_strlen($this->productSearch) >= 2) {
+        if ($selectedOrder && in_array($selectedOrder->status, ['draft', 'confirmed', 'in_preparation', 'ready', 'served'], true)) {
             $products = Product::where('tenant_id', activeTenantId())
                 ->where('is_active', true)
-                ->where('name', 'like', '%' . $this->productSearch . '%')
+                ->when(trim($this->productSearch) !== '', fn ($q) => $q->where('name', 'like', '%' . trim($this->productSearch) . '%'))
                 ->orderBy('name')
-                ->limit(12)
+                ->limit(24)
                 ->get();
         }
 

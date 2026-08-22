@@ -28,7 +28,13 @@ class RestaurantKitchenService
 
             $items = OrderItem::withoutGlobalScopes()
                 ->where('tenant_id', $tenantId)->where('order_id', $order->id)
-                ->where('kitchen_status', 'queued')->lockForUpdate()->get();
+                ->where('kitchen_status', 'queued')
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('restaurant_kitchen_ticket_items as ticket_items')
+                        ->whereColumn('ticket_items.order_item_id', 'restaurant_order_items.id');
+                })
+                ->lockForUpdate()->get();
 
             $existing = KitchenTicket::withoutGlobalScopes()
                 ->where('tenant_id', $tenantId)->where('order_id', $order->id)
@@ -48,7 +54,10 @@ class RestaurantKitchenService
                 ]);
             }
             $order->update(['status' => 'in_preparation']);
-            app(RestaurantStockService::class)->consume($order->fresh('venue'), $tenantId, $userId);
+            $settings = \App\Models\Restaurant\RestaurantSettings::withoutGlobalScopes()->where('tenant_id', $tenantId)->first();
+            if ($settings?->consume_stock_on_kitchen) {
+                app(RestaurantStockService::class)->consume($order->fresh('venue'), $tenantId, $userId);
+            }
             OrderEvent::withoutGlobalScopes()->create([
                 'tenant_id' => $tenantId, 'order_id' => $order->id, 'user_id' => $userId,
                 'event' => 'kitchen_ticket_created', 'payload' => ['ticket_id' => $ticket->id, 'items' => $items->pluck('id')->all()],

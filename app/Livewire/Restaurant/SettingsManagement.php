@@ -9,6 +9,9 @@ use App\Models\Restaurant\DiningTable;
 use App\Models\Restaurant\KitchenStation;
 use App\Models\Restaurant\RestaurantSettings;
 use App\Models\Restaurant\Venue;
+use App\Models\Restaurant\VenueLimitRequest;
+use App\Models\Tenant;
+use App\Services\Restaurant\RestaurantVenueLimitService;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,20 +22,25 @@ use Livewire\Component;
 class SettingsManagement extends Component
 {
     public ?int $warehouseId = null, $clientId = null, $selectedVenueId = null;
-    public bool $requireOpenShift = true, $reserveStock = true, $consumeStock = true, $allowNegative = false;
+    public bool $requireOpenShift = true, $useKitchen = true, $requireRecipes = false, $reserveStock = true, $consumeStock = true, $allowNegative = false;
     public string $venueCode = '', $venueName = '', $areaName = '', $stationCode = '', $stationName = '';
     public ?int $venueWarehouseId = null;
     public ?string $editType = null;
     public ?int $editId = null;
     public string $editName = '', $editCode = '';
     public int $editCapacity = 4;
+    public bool $showVenueRequest = false;
+    public int $requestedVenueLimit = 2;
+    public string $venueRequestReason = '';
 
     public function mount(): void
     {
         $settings = RestaurantSettings::forTenant(activeTenantId());
         $this->warehouseId = $settings->default_warehouse_id;
         $this->clientId = $settings->default_client_id;
-        $this->requireOpenShift = (bool) ($settings->require_open_shift ?? true);
+        $this->requireOpenShift = true;
+        $this->useKitchen = (bool) ($settings->use_kitchen_workflow ?? true);
+        $this->requireRecipes = (bool) ($settings->require_recipe_for_products ?? false);
         $this->reserveStock = (bool) ($settings->reserve_stock_on_confirm ?? true);
         $this->consumeStock = (bool) ($settings->consume_stock_on_kitchen ?? true);
         $this->allowNegative = (bool) ($settings->allow_negative_stock ?? false);
@@ -43,22 +51,42 @@ class SettingsManagement extends Component
     {
         RestaurantSettings::withoutGlobalScopes()->where('tenant_id', activeTenantId())->update([
             'default_warehouse_id' => $this->warehouseId, 'default_client_id' => $this->clientId,
-            'require_open_shift' => $this->requireOpenShift, 'reserve_stock_on_confirm' => $this->reserveStock,
+            'require_open_shift' => true, 'reserve_stock_on_confirm' => $this->reserveStock,
+            'use_kitchen_workflow' => $this->useKitchen, 'require_recipe_for_products' => $this->requireRecipes,
             'consume_stock_on_kitchen' => $this->consumeStock, 'allow_negative_stock' => $this->allowNegative,
         ]);
         $this->dispatch('notify', type: 'success', message: 'Configurações guardadas.');
     }
 
-    public function createVenue(): void
+    public function createVenue(RestaurantVenueLimitService $service): void
     {
         $data = $this->validate([
             'venueCode' => ['required', 'max:30', Rule::unique('restaurant_venues', 'code')->where('tenant_id', activeTenantId())],
             'venueName' => ['required', 'max:120'], 'venueWarehouseId' => ['nullable', 'integer'],
         ]);
-        $venue = Venue::create(['tenant_id' => activeTenantId(), 'code' => strtoupper($data['venueCode']), 'name' => $data['venueName'], 'warehouse_id' => $data['venueWarehouseId'], 'is_active' => true]);
+        $venue = $service->createVenue(activeTenantId(), ['code' => strtoupper($data['venueCode']), 'name' => $data['venueName'], 'warehouse_id' => $data['venueWarehouseId'], 'is_active' => true]);
         $this->selectedVenueId = $venue->id;
         $this->reset(['venueCode', 'venueName', 'venueWarehouseId']);
         $this->dispatch('notify', type: 'success', message: 'Estabelecimento criado.');
+    }
+
+    public function openVenueRequest(): void
+    {
+        $limit = max(1, (int) Tenant::findOrFail(activeTenantId())->restaurant_venue_limit);
+        $this->requestedVenueLimit = $limit + 1;
+        $this->venueRequestReason = '';
+        $this->showVenueRequest = true;
+    }
+
+    public function requestVenueIncrease(RestaurantVenueLimitService $service): void
+    {
+        $this->validate([
+            'requestedVenueLimit' => ['required', 'integer', 'min:2', 'max:20'],
+            'venueRequestReason' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $service->requestIncrease(activeTenantId(), auth()->id(), $this->requestedVenueLimit, $this->venueRequestReason);
+        $this->showVenueRequest = false;
+        $this->dispatch('notify', type: 'success', message: 'Pedido enviado ao administrador. Será avisado após a análise.');
     }
 
     public function createArea(): void
@@ -138,8 +166,11 @@ class SettingsManagement extends Component
     public function render()
     {
         $venues = Venue::where('tenant_id', activeTenantId())->with(['areas.tables'])->orderBy('name')->get();
+        $tenant = Tenant::findOrFail(activeTenantId());
         return view('livewire.restaurant.settings-management', [
             'venues' => $venues,
+            'venueLimit' => max(1, (int) $tenant->restaurant_venue_limit),
+            'pendingVenueRequest' => VenueLimitRequest::withoutGlobalScopes()->where('tenant_id', activeTenantId())->where('status', 'pending')->latest()->first(),
             'stations' => KitchenStation::where('tenant_id', activeTenantId())->with('venue')->orderBy('sort_order')->get(),
             'warehouses' => Warehouse::where('tenant_id', activeTenantId())->where('is_active', true)->get(),
             'clients' => Client::where('tenant_id', activeTenantId())->where('is_active', true)->orderBy('name')->get(),

@@ -150,6 +150,9 @@
                         <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-info-circle mr-1 text-gray-600"></i>{{ __('Estado') }}
                         </th>
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase whitespace-nowrap">
+                            <i class="fas fa-landmark mr-1 text-slate-600"></i>{{ __('Portal AGT') }}
+                        </th>
                         <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-money-bill mr-1 text-green-600"></i>{{ __('Total') }}
                         </th>
@@ -205,6 +208,9 @@
                                     <br>Falta: {{ number_format($invoice->balance, 2) }} AOA
                                 </div>
                             @endif
+                        </td>
+                        <td class="px-6 py-4 text-center whitespace-nowrap">
+                            @include('livewire.invoicing.partials.agt-document-status', ['document' => $invoice, 'direction' => 'purchase'])
                         </td>
                         <td class="px-6 py-4 text-right">
                             <span class="text-lg font-bold text-gray-900">{{ number_format($invoice->total, 2) }}</span>

@@ -43,13 +43,20 @@ class AGTPayloadBuilder
         // assinava com a chave de produtor de homologação e a AGT recusava.
         $ambienteProdutor = AGTProducerStore::normalizar($settings->agt_environment ?? null);
 
+        $producerPrivatePath = AGTProducerStore::privateKeyPath($ambienteProdutor);
+        if (!Storage::disk('local')->exists($producerPrivatePath)) {
+            throw new \RuntimeException(sprintf(
+                'Chave privada do produtor SOS ERP para %s em falta. Instale o par certificado pela AGT em storage/app/private/%s.',
+                $ambienteProdutor === 'production' ? 'Produção' : 'Homologação',
+                AGTProducerStore::directory($ambienteProdutor)
+            ));
+        }
+
         $this->softwareSigner = new JwsSigner(
-            Storage::disk('local')->exists(AGTProducerStore::privateKeyPath($ambienteProdutor))
-                ? Storage::disk('local')->get(AGTProducerStore::privateKeyPath($ambienteProdutor))
-                : null,
+            Storage::disk('local')->get($producerPrivatePath),
             Storage::disk('local')->exists(AGTProducerStore::publicKeyPath($ambienteProdutor))
                 ? Storage::disk('local')->get(AGTProducerStore::publicKeyPath($ambienteProdutor))
-                : null
+                : ''
         );
         if ($signer) {
             $this->signer = $signer;
@@ -101,14 +108,16 @@ class AGTPayloadBuilder
     /** softwareInfo + jwsSoftwareSignature */
     public function softwareInfo(): array
     {
-        // O número de certificação é POR AMBIENTE: a AGT certifica o software
-        // em separado em homologação e em produção. Mandar o de produção para
-        // homologação dá E39.
+        // Os TRÊS campos assinados são POR AMBIENTE: a AGT certifica o software
+        // em separado em homologação e em produção, e compara-os letra a letra
+        // com o Processo de Certificação. Mandar o número, o nome ou a versão
+        // de um ambiente no outro dá E39. Aqui homologação ficou com
+        // «SOS ERP - …» / «1.0» e produção com «SOS ERP — …» / «1.0.0».
         $ambiente = AGTProducerStore::normalizar($this->settings->agt_environment ?? null);
 
         $detail = [
-            'productId'                => softwareSetting('invoicing', 'saft_product_id', $this->settings->agt_product_id ?? 'SOS ERP'),
-            'productVersion'           => softwareSetting('invoicing', 'saft_version', $this->settings->agt_product_version ?? '1.0'),
+            'productId'                => AGTProducerStore::productId($ambiente),
+            'productVersion'           => AGTProducerStore::productVersion($ambiente),
             'softwareValidationNumber' => AGTProducerStore::numeroCertificacao($ambiente)
                 ?: ($this->settings->agt_software_validation_number ?? 'C_000'),
             'signatureVersion'         => 1,

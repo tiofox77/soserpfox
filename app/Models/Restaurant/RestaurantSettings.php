@@ -13,12 +13,14 @@ class RestaurantSettings extends Model
 
     protected $fillable = [
         'tenant_id', 'default_warehouse_id', 'default_client_id',
-        'require_open_shift', 'reserve_stock_on_confirm',
+        'require_open_shift', 'use_kitchen_workflow', 'require_recipe_for_products', 'reserve_stock_on_confirm',
         'consume_stock_on_kitchen', 'allow_negative_stock', 'next_order_number',
     ];
 
     protected $casts = [
         'require_open_shift' => 'boolean',
+        'use_kitchen_workflow' => 'boolean',
+        'require_recipe_for_products' => 'boolean',
         'reserve_stock_on_confirm' => 'boolean',
         'consume_stock_on_kitchen' => 'boolean',
         'allow_negative_stock' => 'boolean',
@@ -32,4 +34,3 @@ class RestaurantSettings extends Model
         );
     }
 }
-

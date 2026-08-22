@@ -69,10 +69,12 @@ class ImpostoNuncaInventadoTest extends TestCase
 
         $totais = InvoiceCalculationHelper::calculateTotals($linhas);
 
-        $this->assertSame(109168.68, $totais['incidencia_iva']);
+        // Cada linha monetária arredonda primeiro a 2 casas: 21.833,74 × 5.
+        // Somar frações invisíveis produzia totais que não batiam com as linhas.
+        $this->assertSame(109168.70, $totais['incidencia_iva']);
         $this->assertSame(0.0, $totais['tax_amount'],
             'O resumo cobrava 15.283,62 (14%) num documento todo isento.');
-        $this->assertSame(109168.68, $totais['total']);
+        $this->assertSame(109168.70, $totais['total']);
     }
     /**
      * Os atributos chegam numa ItemAttributeCollection, não num array.

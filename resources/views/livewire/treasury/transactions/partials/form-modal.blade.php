@@ -28,14 +28,14 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-list mr-1 text-teal-600"></i>Tipo*
                             </label>
-                            <select wire:model="form.type" 
+                            <select wire:model.live="form.transaction_type_id"
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:ring-2 focus:ring-teal-200">
                                 <option value="">Selecione o tipo</option>
-                                <option value="income">Entrada</option>
-                                <option value="expense">Saída</option>
-                                <option value="transfer">Transferência</option>
+                                @foreach($transactionTypes as $type)
+                                    <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                @endforeach
                             </select>
-                            @error('form.type') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            @error('form.transaction_type_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
 
                         <!-- Categoria -->
@@ -43,18 +43,18 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-tag mr-1 text-teal-600"></i>Categoria
                             </label>
-                            <select wire:model="form.category" 
+                            <select wire:model.live="form.transaction_category_id"
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:ring-2 focus:ring-teal-200">
                                 {{-- Fonte única: App\Support\CategoriasDeTesouraria.
                                      Estavam aqui seis opções escritas à mão que NÃO existiam
                                      na base — quem escolhesse uma ficava com uma transacção
                                      que nenhum filtro nem relatório encontrava. --}}
                                 <option value="">Selecione a categoria</option>
-                                @foreach($categoriasParaEscolher as $chave => $rotulo)
-                                    <option value="{{ $chave }}">{{ $rotulo }}</option>
+                                @foreach($transactionCategories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
                                 @endforeach
                             </select>
-                            @error('form.category') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            @error('form.transaction_category_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
 
                         <!-- Valor -->
@@ -97,7 +97,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-credit-card mr-1 text-teal-600"></i>Método de Pagamento*
                             </label>
-                            <select wire:model="form.payment_method_id" 
+                            <select wire:model.live="form.payment_method_id"
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:ring-2 focus:ring-teal-200">
                                 <option value="">Selecione</option>
                                 @foreach($paymentMethods as $method)
@@ -134,6 +134,11 @@
                                 @endforeach
                             </select>
                             @error('form.cash_register_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="md:col-span-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Seleccione <b>uma conta bancária ou um caixa</b>, nunca os dois. O destino configurado no método de pagamento é preenchido automaticamente e determina onde o saldo será actualizado.
                         </div>
 
                         <!-- Referência -->

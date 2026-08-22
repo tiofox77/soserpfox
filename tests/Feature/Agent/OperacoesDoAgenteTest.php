@@ -267,6 +267,17 @@ class OperacoesDoAgenteTest extends TenantTestCase
         )->assertOk()->assertJsonPath('empresa.activa', true);
     }
 
+    public function test_rotas_v2_suspend_e_reactivate_funcionam(): void
+    {
+        $this->postJson("/api/agent/v1/tenants/{$this->tenant->id}/suspend", [
+            'motivo' => 'Teste controlado da rota explícita de suspensão.',
+        ], $this->paraEscrever())->assertOk()->assertJsonPath('empresa.estado', 'Suspenso');
+
+        $this->postJson("/api/agent/v1/tenants/{$this->tenant->id}/reactivate", [
+            'motivo' => 'Reposição após o teste controlado da rota v2.',
+        ], $this->paraEscrever())->assertOk()->assertJsonPath('empresa.estado', 'Ativo');
+    }
+
     public function test_suspender_sem_motivo_e_recusado(): void
     {
         // É a acção mais pesada que o agente pode fazer: corta o acesso a toda

@@ -1033,6 +1033,16 @@
                                     <i class="fas fa-exchange-alt w-5 text-teal-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Transações') }}</span>
                                 </a>
+                                <a href="{{ route('treasury.transaction-types') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.transaction-types') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-list w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tipos de Transação') }}</span>
+                                </a>
+                                <a href="{{ route('treasury.transaction-categories') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('treasury.transaction-categories') ? 'bg-blue-700 border-l-4 border-green-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-tags w-5 text-orange-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Categorias de Transação') }}</span>
+                                </a>
                                 @endcan
                                 
                                 @can('treasury.transfers.view')
@@ -1665,11 +1675,33 @@
                                     </a>
                                 @endcan
                                 @can('restaurant.orders.view')
+                                    <a href="{{ route('restaurant.pos') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.pos') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-cash-register w-5 text-orange-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('POS Restaurante') }}</span>
+                                    </a>
                                     <a href="{{ route('restaurant.orders') }}"
                                        class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.orders') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                         <i class="fas fa-receipt w-5 text-violet-300 text-sm"></i>
                                         <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Comandas') }}</span>
                                     </a>
+                                    <a href="{{ route('restaurant.products') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.products') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-bowl-food w-5 text-amber-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Produtos e Menu') }}</span>
+                                    </a>
+                                    <a href="{{ route('restaurant.categories') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.categories') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-tags w-5 text-pink-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Categorias do Menu') }}</span>
+                                    </a>
+                                    <a href="{{ route('restaurant.contacts') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.contacts') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-address-book w-5 text-blue-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Clientes e Fornecedores') }}</span>
+                                    </a>
+                                    <a href="{{ route('restaurant.shifts') }}" class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.shifts') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition"><i class="fas fa-clock w-5 text-cyan-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Abrir / Fechar Turno') }}</span></a>
+                                    <a href="{{ route('restaurant.shift-history') }}" class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.shift-history') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition"><i class="fas fa-clock-rotate-left w-5 text-purple-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Histórico de Turnos') }}</span></a>
                                 @endcan
                                 @can('restaurant.kitchen.view')
                                     <a href="{{ route('restaurant.kitchen') }}"
@@ -1690,6 +1722,7 @@
                                     <a href="{{route('restaurant.stock')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.stock')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-boxes-stacked w-5 text-emerald-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Stock e Desperdícios') }}</span></a>
                                 @endcan
                                 @can('restaurant.reports.view')
+                                    <a href="{{route('restaurant.sales-report')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.sales-report')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-receipt w-5 text-amber-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Vendas e Caixa') }}</span></a>
                                     <a href="{{route('restaurant.reports')}}" class="flex items-center pl-8 pr-4 py-2.5 {{request()->routeIs('restaurant.reports')?'bg-blue-700 border-l-4 border-orange-400':'hover:bg-blue-700/50'}} transition"><i class="fas fa-chart-column w-5 text-indigo-300 text-sm"></i><span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span></a>
                                 @endcan
                                 @can('restaurant.settings.view')

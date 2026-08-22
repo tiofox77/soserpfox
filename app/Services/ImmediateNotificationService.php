@@ -51,6 +51,10 @@ class ImmediateNotificationService
                 $this->settings->sms_api_token,
                 $this->settings->sms_sender_id
             );
+        } elseif ($provider === 'telcosms') {
+            $this->smsService = new \App\Services\TelcoSmsService(
+                $this->settings->sms_api_token
+            );
         } else {
             // Usar Twilio para SMS
             if ($this->settings->sms_account_sid && $this->settings->sms_auth_token) {

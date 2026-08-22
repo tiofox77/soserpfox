@@ -53,16 +53,10 @@ class AGTProducerStore
     /**
      * Caminho efectivo de uma chave do produtor.
      *
-     * Recorre ao caminho legado quando o do ambiente ainda não existe — nos
-     * DOIS ambientes, ao contrário do que se faz com as chaves do contribuinte.
-     *
-     * A diferença é deliberada: no contribuinte sabia-se que as chaves antigas
-     * eram de homologação, e deixar produção cair nelas assinaria documentos
-     * reais com a chave errada. Aqui não se sabe qual é — o par legado pode ser
-     * o de produção, que é o que hoje assina os documentos de todas as empresas.
-     * Assumir que é de testes e cortá-lo em produção partia a facturação de
-     * quem já está a funcionar. Fica o recurso, e o ecrã diz claramente quando
-     * um ambiente está a usar o par legado em vez do seu.
+     * O par legado é o par certificado do PRODUTO SOS ERP e é deliberadamente
+     * partilhado entre homologação e produção. As chaves que têm de ser
+     * diferentes por ambiente são as do contribuinte/empresa, não esta chave
+     * global do produtor.
      */
     public static function keyPath(string $ambiente, string $tipo): string
     {
@@ -173,5 +167,46 @@ class AGTProducerStore
         $ambiente = self::normalizar($ambiente);
 
         return trim((string) softwareSetting('invoicing', "saft_software_cert_{$ambiente}", '')) !== '';
+    }
+
+    /**
+     * productId e productVersion, POR AMBIENTE.
+     *
+     * Estes dois campos vão dentro do que a jwsSoftwareSignature assina, ao
+     * lado do número de certificação, e a AGT compara-os LETRA A LETRA com o
+     * que consta no Processo de Certificação. Um "1.0" contra "1.0.0", ou um
+     * hífen onde o certificado tem travessão, devolve o mesmo E39 que o número
+     * errado devolvia.
+     *
+     * E a AGT certifica cada ambiente separadamente: nada obriga a que o nome
+     * e a versão registados em homologação sejam os mesmos que em produção.
+     * Foi o que aconteceu aqui — homologação ficou com «SOS ERP - …» / «1.0» e
+     * produção com «SOS ERP — …» / «1.0.0». Enquanto isto era um valor único
+     * partilhado, acertar num ambiente estragava o outro.
+     *
+     * Recorre ao valor único de sempre quando o ambiente não tem o seu — para
+     * não mexer em quem ainda não os separou.
+     */
+    public static function productId(string $ambiente): string
+    {
+        return self::porAmbienteOuGlobal($ambiente, 'saft_product_id', 'SOS ERP');
+    }
+
+    public static function productVersion(string $ambiente): string
+    {
+        return self::porAmbienteOuGlobal($ambiente, 'saft_version', '1.0');
+    }
+
+    private static function porAmbienteOuGlobal(string $ambiente, string $chave, string $omissao): string
+    {
+        $ambiente = self::normalizar($ambiente);
+
+        $doAmbiente = (string) softwareSetting('invoicing', "{$chave}_{$ambiente}", '');
+
+        if (trim($doAmbiente) !== '') {
+            return trim($doAmbiente);
+        }
+
+        return (string) softwareSetting('invoicing', $chave, $omissao);
     }
 }

@@ -72,7 +72,9 @@ class AgtAssinaturaChaveCertaTest extends TenantTestCase
 
     public function test_o_documento_e_assinado_pela_chave_da_empresa(): void
     {
-        $this->chaveDoProdutor();
+        [$pubProdutor, $privProdutor] = $this->chaveDoProdutor();
+        Storage::disk('local')->put('saft/production/public_key.pem', $pubProdutor);
+        Storage::disk('local')->put('saft/production/private_key.pem', $privProdutor);
         [$publicaEmpresa, $privadaEmpresa] = $this->parRsa(1);
         AGTKeyStore::store($this->tenant->id, $publicaEmpresa, $privadaEmpresa, 'sandbox');
 
@@ -136,7 +138,9 @@ class AgtAssinaturaChaveCertaTest extends TenantTestCase
         // O AGTKeyStore relia o ambiente à base de dados quando não lho davam.
         // Duas empresas, dois ambientes, dois pares: tem de usar o que lhe é
         // passado, não o que a base diz.
-        $this->chaveDoProdutor();
+        [$pubProdutor, $privProdutor] = $this->chaveDoProdutor();
+        Storage::disk('local')->put('saft/production/public_key.pem', $pubProdutor);
+        Storage::disk('local')->put('saft/production/private_key.pem', $privProdutor);
         [$pubHml, $privHml] = $this->parRsa(1);
         [$pubPrd, $privPrd] = $this->parRsa(2);
         AGTKeyStore::store($this->tenant->id, $pubHml, $privHml, 'sandbox');

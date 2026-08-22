@@ -40,11 +40,18 @@
             {{-- Cabeçalho: Logo do sistema à esquerda + QR à direita --}}
             @php
                 $tenant = auth()->user()->activeTenant();
+                $ticketLogo = null;
+                if ($tenant?->logo) {
+                    $ticketLogo = str_starts_with($tenant->logo, 'http')
+                        ? $tenant->logo
+                        : asset('storage/' . ltrim($tenant->logo, '/'));
+                }
+                $ticketLogo = $ticketLogo ?: app_logo();
             @endphp
             <div style="display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px dashed #9ca3af; padding-bottom: 10px; margin-bottom: 10px;">
                 <div style="flex: 1;">
-                    @if(app_logo())
-                        <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 48px; width: auto; margin-bottom: 6px;">
+                    @if($ticketLogo)
+                        <img src="{{ $ticketLogo }}" alt="{{ $tenant?->nomeParaDocumentos() ?: app_name() }}" style="display: block; width: 160px; height: 48px; max-width: 100%; object-fit: contain; object-position: left center; margin-bottom: 6px;">
                     @endif
                     <h3 style="font-size: 15px; font-weight: 400; text-transform: uppercase; margin: 0;">{{ $tenant->nomeParaDocumentos() }}</h3>
                     <p style="font-size: 14px; margin: 0;">NIF: {{ $tenant->nif ?? 'N/A' }}</p>

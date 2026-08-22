@@ -38,6 +38,7 @@ class MyAccount extends Component
     public $showDeleteModal = false;
     public $companyToDelete = null;
     public $companyToDeleteName = '';
+    public $companyDeleteConfirmation = '';
     
     // Profile fields
     public $userName = '';
@@ -337,8 +338,7 @@ class MyAccount extends Component
         }
         
         // Verificar se usuário tem permissão (é admin da empresa)
-        $pivot = $user->tenants()->where('tenant_id', $tenantId)->first()?->pivot;
-        if (!$pivot || $pivot->role_id != 2) {
+        if (!$this->isTenantOwner($user, (int) $tenantId)) {
             $this->dispatch('error', message: 'Você não tem permissão para eliminar esta empresa.');
             return;
         }
@@ -350,7 +350,7 @@ class MyAccount extends Component
         }
         
         // Verificar se pode deletar (sem faturas)
-        $canDelete = $tenant->canBeDeleted();
+        $canDelete = $tenant->canBeArchivedByOwner();
         
         if (!$canDelete['can_delete']) {
             $this->dispatch('error', message: $canDelete['reason'] . ' (' . $canDelete['invoices_count'] . ' fatura(s) emitida(s))');
@@ -361,13 +361,14 @@ class MyAccount extends Component
         if (class_exists('\App\Models\Invoicing\Client')) {
             $clientsCount = \App\Models\Invoicing\Client::where('tenant_id', $tenantId)->count();
             if ($clientsCount > 0) {
-                $this->dispatch('warning', message: "Esta empresa possui {$clientsCount} cliente(s) cadastrado(s). Ao eliminar, todos os dados serão perdidos PERMANENTEMENTE da base de dados.");
+                $this->dispatch('warning', message: "Esta empresa possui {$clientsCount} cliente(s). Ao remover a empresa da conta, os dados serão arquivados e preservados para recuperação administrativa.");
             }
         }
         
         // Abrir modal de confirmação
         $this->companyToDelete = $tenantId;
         $this->companyToDeleteName = $tenant->name;
+        $this->companyDeleteConfirmation = '';
         $this->showDeleteModal = true;
     }
     
@@ -376,6 +377,7 @@ class MyAccount extends Component
         $this->showDeleteModal = false;
         $this->companyToDelete = null;
         $this->companyToDeleteName = '';
+        $this->companyDeleteConfirmation = '';
     }
     
     public function deleteCompany()
@@ -393,9 +395,20 @@ class MyAccount extends Component
             $this->closeDeleteModal();
             return;
         }
+
+        if (!$this->isTenantOwner($user, (int) $tenant->id) || $user->tenants()->count() <= 1) {
+            $this->closeDeleteModal();
+            $this->dispatch('error', message: 'Você não tem permissão para eliminar esta empresa.');
+            return;
+        }
+
+        if (trim($this->companyDeleteConfirmation) !== trim($tenant->name)) {
+            $this->addError('companyDeleteConfirmation', 'Escreva exatamente o nome da empresa para confirmar.');
+            return;
+        }
         
         // Verificar se pode ser deletada (sem faturas)
-        $canDelete = $tenant->canBeDeleted();
+        $canDelete = $tenant->canBeArchivedByOwner();
         
         if (!$canDelete['can_delete']) {
             $this->closeDeleteModal();
@@ -405,28 +418,31 @@ class MyAccount extends Component
         
         \DB::beginTransaction();
         try {
-            \Log::info('🗑️ Deletando empresa permanentemente', [
+            $tenantId = $tenant->id;
+            $wasActive = activeTenantId() == $tenantId;
+            \Log::info('Arquivando empresa por soft delete', [
                 'tenant_id' => $tenant->id,
                 'tenant_name' => $tenant->name,
                 'user_id' => $user->id,
                 'user_name' => $user->name,
             ]);
             
-            // Deletar PERMANENTEMENTE (forceDelete irá acionar o evento deleting do boot)
-            $tenant->forceDelete();
+            // Soft delete: os dados e vínculos permanecem recuperáveis. A
+            // cascata destrutiva do model só corre em forceDelete.
+            $tenant->delete();
             
             \DB::commit();
             
-            \Log::info('✅ Empresa deletada com sucesso', [
-                'tenant_id' => $tenant->id,
+            \Log::info('Empresa arquivada com sucesso', [
+                'tenant_id' => $tenantId,
             ]);
             
             $this->closeDeleteModal();
             $this->loadAccountData();
-            $this->dispatch('success', message: 'Empresa eliminada permanentemente com sucesso!');
+            $this->dispatch('success', message: 'Empresa removida da conta e arquivada com segurança.');
             
             // Se deletou a empresa ativa, trocar para outra
-            if (activeTenantId() == $this->companyToDelete) {
+            if ($wasActive) {
                 $firstTenant = $user->tenants()->first();
                 if ($firstTenant) {
                     $user->switchTenant($firstTenant->id);
@@ -446,6 +462,22 @@ class MyAccount extends Component
             $this->closeDeleteModal();
             $this->dispatch('error', message: 'Erro ao eliminar empresa: ' . $e->getMessage());
         }
+    }
+
+    private function isTenantOwner($user, int $tenantId): bool
+    {
+        if ($user->is_super_admin) {
+            return true;
+        }
+
+        $roleId = $user->tenants()
+            ->where('tenants.id', $tenantId)
+            ->value('tenant_user.role_id');
+
+        return $roleId !== null && \DB::table('roles')
+            ->where('id', $roleId)
+            ->whereIn('name', ['Super Admin', 'Owner', 'Dono'])
+            ->exists();
     }
     
     public function openEditCompanyModal($tenantId)

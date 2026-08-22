@@ -23,6 +23,16 @@
         </div>
     </div>
 
+    @if($assignedCashRegisterId)
+    <div class="mb-6 rounded-xl border {{ $assignedCashRegisterStatus === 'open' ? 'border-green-300 bg-green-50 text-green-800' : 'border-amber-300 bg-amber-50 text-amber-800' }} px-5 py-4 flex items-start gap-3">
+        <i class="fas fa-cash-register text-xl mt-0.5"></i>
+        <div>
+            <p class="font-bold">Caixa associado: {{ $assignedCashRegisterName }}</p>
+            <p class="text-sm">Ao abrir o turno, este caixa também será aberto. Ao fechar o turno, o caixa será fechado com o valor contado. Estado actual: <b>{{ $assignedCashRegisterStatus === 'open' ? 'aberto' : 'fechado' }}</b>.</p>
+        </div>
+    </div>
+    @endif
+
     @if(!$currentShift)
         {{-- Sem turno aberto --}}
         <div class="bg-white rounded-2xl shadow-lg p-12 text-center">

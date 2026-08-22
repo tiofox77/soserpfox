@@ -4,6 +4,7 @@ namespace App\Livewire\SuperAdmin;
 
 use App\Models\Plan;
 use App\Models\SmsSetting;
+use App\Models\SmsTemplate;
 use App\Models\Tenant;
 use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
@@ -40,6 +41,7 @@ class SmsParaEmpresas extends Component
     private const UCS2_VARIAS = 67;
 
     public string $mensagem = '';
+    public $template_id = '';
 
     /** todas | empresas | planos */
     public string $publico = 'todas';
@@ -83,6 +85,12 @@ class SmsParaEmpresas extends Component
         if ($campo !== 'porConfirmar') {
             $this->porConfirmar = false;
         }
+    }
+
+    public function updatedTemplateId($id): void
+    {
+        $template = SmsTemplate::whereNull('tenant_id')->where('is_active', true)->find($id);
+        if ($template) $this->mensagem = $template->content;
     }
 
     /** Passo 1: mostrar a quem vai, e quanto custa em partes. */
@@ -138,6 +146,9 @@ class SmsParaEmpresas extends Component
         $enviados = 0;
         $falhados = [];
         $servico  = new SmsService();
+        $template = $this->template_id
+            ? SmsTemplate::whereNull('tenant_id')->where('is_active', true)->find($this->template_id)
+            : null;
 
         foreach ($destinatarios as $empresa) {
             try {
@@ -148,7 +159,12 @@ class SmsParaEmpresas extends Component
                 // dentro e devolve um array em vez de as deixar subir. Ignorar
                 // esse array fazia o ecrã dizer "enviado a 30 empresas" quando
                 // metade tinha falhado do outro lado.
-                $resultado = $servico->send($empresa->phone, $this->mensagem, 'aviso_plataforma', null, $empresa->id);
+                $mensagem = $template ? $template->render([
+                    'app_name' => config('app.name', 'SOS ERP'),
+                    'tenant_name' => $empresa->name,
+                    'app_url' => config('app.url'),
+                ]) : $this->mensagem;
+                $resultado = $servico->send($empresa->phone, $mensagem, 'aviso_plataforma', null, $empresa->id);
 
                 if (is_array($resultado) && ($resultado['success'] ?? true) === false) {
                     throw new \RuntimeException($resultado['error'] ?? 'o fornecedor recusou');
@@ -242,6 +258,8 @@ class SmsParaEmpresas extends Component
             'quantasAlvo'  => $alvo->count(),
             'quantasPodem' => $alvo->filter(fn ($e) => !empty($e->phone))->count(),
             'configurado'  => (bool) SmsSetting::whereNull('tenant_id')->where('is_active', true)->first(),
+            'gateway' => SmsSetting::whereNull('tenant_id')->where('is_active', true)->value('provider'),
+            'templates' => SmsTemplate::whereNull('tenant_id')->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 

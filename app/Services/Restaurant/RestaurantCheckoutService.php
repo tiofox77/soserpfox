@@ -13,6 +13,7 @@ use App\Models\Restaurant\RestaurantSettings;
 use App\Models\Treasury\CashRegister;
 use App\Models\Treasury\PaymentMethod;
 use App\Models\Treasury\Transaction;
+use App\Models\Invoicing\PosShift;
 use App\Services\Invoicing\ModuleInvoiceService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -27,6 +28,9 @@ class RestaurantCheckoutService
         if ($existing?->sales_invoice_id) return \App\Models\Invoicing\SalesInvoice::withoutGlobalScopes()->findOrFail($existing->sales_invoice_id);
 
         return DB::transaction(function () use ($order, $data, $tenantId, $userId, $key) {
+            if (! PosShift::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('user_id', $userId)->whereNull('deleted_at')->where('status', 'open')->exists()) {
+                throw new InvalidArgumentException('Abra o turno e o caixa antes de receber ou faturar uma venda do restaurante.');
+            }
             $order = Order::withoutGlobalScopes()->where('tenant_id', $tenantId)->lockForUpdate()->findOrFail($order->id);
             if (!in_array($order->status, ['served', 'ready', 'partially_billed'], true)) throw new InvalidArgumentException('A comanda ainda não está pronta para faturação.');
 
@@ -73,6 +77,10 @@ class RestaurantCheckoutService
 
             if ($documentType === 'FR') {
                 $payments = $data['payments'] ?? [['payment_method_id' => $data['payment_method_id'] ?? null, 'amount' => $invoice->total]];
+                $payments = array_values(array_filter($payments, fn ($payment) => (float) ($payment['amount'] ?? 0) > 0));
+                if (!$payments) throw new InvalidArgumentException('Indique pelo menos um pagamento válido.');
+                $methodIds = array_map(fn ($payment) => (int) ($payment['payment_method_id'] ?? 0), $payments);
+                if (count(array_unique($methodIds)) !== count($methodIds)) throw new InvalidArgumentException('O mesmo método não pode aparecer mais de uma vez no pagamento múltiplo.');
                 if (abs(collect($payments)->sum('amount') - (float)$invoice->total) > .01) throw new InvalidArgumentException('A soma dos pagamentos deve ser igual ao total desta conta.');
                 foreach ($payments as $payment) $this->registerPayment($invoice, $payment, $tenantId, $userId);
             }
@@ -89,13 +97,10 @@ class RestaurantCheckoutService
     {
         $method = PaymentMethod::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('is_active', true)->find($data['payment_method_id'] ?? null);
         if (!$method) throw new InvalidArgumentException('Método de pagamento inválido.');
-        $cash = null;
-        if ($method->type === 'cash') {
-            $cash = CashRegister::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('is_active', true)->where('status', 'open')->lockForUpdate()->first();
-            if (!$cash) throw new InvalidArgumentException('Abra um caixa na Tesouraria antes de receber em dinheiro.');
-        }
-        Transaction::withoutGlobalScopes()->create([
-            'tenant_id' => $tenantId, 'user_id' => $userId, 'cash_register_id' => $cash?->id,
+        $destination = app(\App\Services\Treasury\TreasuryMovementService::class)->destination($method, $tenantId, userId: $userId);
+        app(\App\Services\Treasury\TreasuryMovementService::class)->post([
+            'tenant_id' => $tenantId, 'user_id' => $userId,
+            'account_id' => $destination['account_id'], 'cash_register_id' => $destination['cash_register_id'],
             'payment_method_id' => $method->id, 'invoice_id' => $invoice->id,
             'transaction_number' => 'TRX-REST-'.strtoupper(uniqid()), 'type' => 'income',
             'category' => $method->type === 'cash' ? 'cash' : ($method->type === 'card' ? 'card' : 'bank_transfer'),
@@ -103,6 +108,5 @@ class RestaurantCheckoutService
             'reference' => $invoice->invoice_number, 'description' => 'Recebimento Restaurante - '.$invoice->invoice_number,
             'status' => 'completed', 'is_reconciled' => false,
         ]);
-        if ($cash) $cash->increment('current_balance', (float)$data['amount']);
     }
 }

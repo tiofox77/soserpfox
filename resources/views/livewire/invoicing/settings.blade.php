@@ -77,6 +77,10 @@
                             <i class="fas fa-cash-register mr-3"></i>
                             {{ __('POS - Ponto de Venda') }}
                         </a>
+                        <a href="{{ route('invoicing.notification-gateways') }}" class="flex items-center px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-xl">
+                            <i class="fas fa-satellite-dish mr-3"></i>
+                            {{ __('Gateways de Notificação') }}
+                        </a>
                     </nav>
                 </div>
             </div>

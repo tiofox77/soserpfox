@@ -32,6 +32,36 @@
         </div>
     </div>
 
+    {{-- Guia de leitura financeira --}}
+    <div class="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h3 class="font-bold text-blue-900"><i class="fas fa-compass mr-2"></i>Como acompanhar o dinheiro da empresa</h3>
+                <p class="text-sm text-blue-800 mt-1"><b>Facturado</b> é o valor dos documentos emitidos. <b>Recebido/Pago</b> é o dinheiro que já entrou ou saiu. <b>Saldo</b> é onde o dinheiro está agora: caixas + contas bancárias.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('treasury.payment-methods') }}" class="px-3 py-2 rounded-lg bg-white border border-blue-300 text-blue-700 text-sm font-semibold"><i class="fas fa-route mr-1"></i>Configurar destinos</a>
+                <a href="{{ route('treasury.transactions') }}" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"><i class="fas fa-search-dollar mr-1"></i>Ver movimentos</a>
+                <a href="{{ route('treasury.reports') }}" class="px-3 py-2 rounded-lg bg-white border border-blue-300 text-blue-700 text-sm font-semibold"><i class="fas fa-file-alt mr-1"></i>Relatórios</a>
+            </div>
+        </div>
+        @if($unallocatedMovements || $unconfiguredMethods)
+            <div class="mt-4 rounded-xl bg-amber-100 border border-amber-300 px-4 py-3 text-sm text-amber-900">
+                <b>Atenção:</b>
+                @if($unconfiguredMethods) {{ $unconfiguredMethods }} método(s) de pagamento sem destino padrão. @endif
+                @if($unallocatedMovements) {{ $unallocatedMovements }} movimento(s) histórico(s) sem conta ou caixa associado. @endif
+                Configure os destinos para os próximos recebimentos ficarem rastreados correctamente.
+            </div>
+        @endif
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Vendas facturadas</p><p class="text-2xl font-bold text-indigo-700">{{ number_format($invoicedVolume, 2) }} Kz</p><p class="text-xs text-gray-500">Volume documental do período</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Recebido de clientes</p><p class="text-2xl font-bold text-emerald-700">{{ number_format($salesCollected, 2) }} Kz</p><p class="text-xs {{ $receivable > 0 ? 'text-amber-600' : 'text-gray-500' }}">Por receber: {{ number_format($receivable, 2) }} Kz</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Compras registadas</p><p class="text-2xl font-bold text-slate-700">{{ number_format($purchasedVolume, 2) }} Kz</p><p class="text-xs text-gray-500">Obrigações com fornecedores</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Pago a fornecedores</p><p class="text-2xl font-bold text-rose-700">{{ number_format($suppliersPaid, 2) }} Kz</p><p class="text-xs {{ $payable > 0 ? 'text-amber-600' : 'text-gray-500' }}">Por pagar: {{ number_format($payable, 2) }} Kz</p></div>
+    </div>
+
     {{-- Stats Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {{-- Saldo Total --}}

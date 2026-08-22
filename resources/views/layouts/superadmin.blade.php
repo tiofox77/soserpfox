@@ -280,6 +280,7 @@
                     ],
                     'Comercial' => [
                         ['route' => 'superadmin.tenants', 'icon' => 'fas fa-building', 'color' => 'text-green-400', 'label' => 'Empresas / Tenants'],
+                        ['route' => 'superadmin.restaurant-venue-requests', 'icon' => 'fas fa-store', 'color' => 'text-orange-400', 'label' => 'Pedidos de Estabelecimentos'],
                         ['route' => 'superadmin.plans', 'icon' => 'fas fa-tags', 'color' => 'text-pink-400', 'label' => 'Planos'],
                         ['route' => 'superadmin.modules', 'icon' => 'fas fa-puzzle-piece', 'color' => 'text-purple-400', 'label' => 'Módulos'],
                         ['route' => 'superadmin.billing', 'icon' => 'fas fa-file-invoice-dollar', 'color' => 'text-emerald-400', 'label' => 'Faturação / Billing'],

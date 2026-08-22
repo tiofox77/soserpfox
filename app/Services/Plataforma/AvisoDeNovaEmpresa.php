@@ -190,12 +190,15 @@ class AvisoDeNovaEmpresa
             // Curto de propósito: um SMS longo parte-se em vários e cada parte
             // custa. O que interessa saber pelo telemóvel é que aconteceu e
             // quem foi; o resto está no email e no ecrã das empresas.
-            $texto = sprintf(
-                'SOS ERP: nova empresa registada - %s%s. Ver em %s/superadmin/tenants',
-                $empresa->name,
-                $empresa->nif ? ' (NIF ' . $empresa->nif . ')' : '',
-                rtrim(config('app.url'), '/')
-            );
+            $template = \App\Models\SmsTemplate::getBySlug('nova_empresa');
+            $dados = [
+                'tenant_name' => $empresa->name,
+                'tenant_nif' => $empresa->nif ? ' (NIF ' . $empresa->nif . ')' : '',
+                'app_url' => rtrim(config('app.url'), '/'),
+            ];
+            $texto = $template
+                ? $template->render($dados)
+                : sprintf('SOS ERP: nova empresa registada - %s%s. Ver em %s/superadmin/tenants', ...array_values($dados));
 
             (new SmsService())->send($admin->phone, $texto, 'nova_empresa', $admin->id);
 

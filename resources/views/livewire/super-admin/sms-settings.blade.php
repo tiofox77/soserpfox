@@ -7,7 +7,7 @@
                     <i class="fas fa-sms mr-3 text-green-600"></i>
                     Configurações SMS
                 </h2>
-                <p class="text-gray-600 mt-1">Gerencie as configurações de envio de SMS via D7 Networks</p>
+                <p class="text-gray-600 mt-1">Gateway global para avisos de novas contas, tenants e planos a expirar</p>
             </div>
             <div class="flex gap-2">
                 <button wire:click="openTestModal" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
@@ -93,18 +93,50 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
         <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
             <i class="fas fa-cog mr-2 text-green-600"></i>
-            Configuração API D7 Networks
+            Configuração do Gateway SMS da Plataforma
         </h3>
 
+        <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <select wire:model.live="logGateway" class="rounded-lg border-gray-300 text-sm">
+                <option value="">Todos gateways</option>
+                <option value="telcosms">TelcoSMS</option>
+                <option value="d7networks">D7 Networks</option>
+            </select>
+            <select wire:model.live="logStatus" class="rounded-lg border-gray-300 text-sm">
+                <option value="">Todos estados</option>
+                <option value="sent">Enviado</option>
+                <option value="failed">Falhou</option>
+                <option value="delivered">Entregue</option>
+            </select>
+            <select wire:model.live="logType" class="rounded-lg border-gray-300 text-sm">
+                <option value="">Todos tipos</option>
+                @foreach($logTypes as $type)<option value="{{ $type }}">{{ $type }}</option>@endforeach
+            </select>
+            <input wire:model.live.debounce.400ms="logSearch" type="search" placeholder="Número ou mensagem" class="rounded-lg border-gray-300 text-sm">
+            <input wire:model.live="logDateFrom" type="date" class="rounded-lg border-gray-300 text-sm" title="Data inicial">
+            <div class="flex gap-2">
+                <input wire:model.live="logDateTo" type="date" class="min-w-0 flex-1 rounded-lg border-gray-300 text-sm" title="Data final">
+                <button wire:click="clearLogFilters" type="button" class="rounded-lg border border-gray-300 bg-white px-3 text-gray-600 hover:bg-gray-100" title="Limpar filtros"><i class="fas fa-eraser"></i></button>
+            </div>
+        </div>
+
         <form wire:submit.prevent="save">
+            <div class="mb-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                <p class="font-bold"><i class="fas fa-circle-check mr-2"></i>Gateway padrão: {{ $provider === 'telcosms' ? 'TelcoSMS Angola' : 'D7 Networks' }}</p>
+                <p class="mt-1 text-sm">Selecione o fornecedor e clique em Salvar. Os avisos globais e os modelos existentes passam a usar este gateway.</p>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fas fa-server text-blue-500 mr-2"></i>Provider
                     </label>
-                    <input wire:model="provider" type="text" readonly class="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100">
+                    <select wire:model.live="provider" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        <option value="d7networks">D7 Networks</option>
+                        <option value="telcosms">TelcoSMS Angola</option>
+                    </select>
                 </div>
 
+                @if($provider !== 'telcosms')
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                         <i class="fas fa-signature text-purple-500 mr-2"></i>Sender ID *
@@ -113,6 +145,19 @@
                     <input wire:model="sender_id" type="text" maxlength="11" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                     @error('sender_id') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
+                @else
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-mobile-screen-button text-green-600 mr-2"></i>Aplicação TelcoSMS *
+                    </label>
+                    <select wire:model="telco_application" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        <option value="soserp_prd">SOSERP — Produção (PRD)</option>
+                        <option value="soserp_qas">SOSERP — Testes (QAS)</option>
+                    </select>
+                    @error('telco_application') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                    <p class="text-xs text-gray-500 mt-1">A chave abaixo deve pertencer à aplicação e ao ambiente selecionados.</p>
+                </div>
+                @endif
             </div>
 
             <div class="mb-4">
@@ -125,12 +170,29 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    <i class="fas fa-key text-yellow-500 mr-2"></i>API Token *
+                    <i class="fas fa-key text-yellow-500 mr-2"></i>{{ $provider === 'telcosms' ? 'Chave API PRD — SOSERP' : 'API Token' }} *
                 </label>
-                <textarea wire:model="api_token" rows="3" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-sm"></textarea>
+                <input type="password" autocomplete="new-password" wire:model="api_token"
+                       placeholder="{{ $apiTokenGuardado ? '•••••••• (guardado)' : ($provider === 'telcosms' ? 'prdcf3a0... ou chave QAS' : 'Bearer token D7') }}"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-sm">
                 @error('api_token') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                <p class="text-xs text-gray-500 mt-1">A credencial fica cifrada e nunca volta a ser exibida no navegador.</p>
             </div>
 
+            @if($provider === 'telcosms')
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-flask text-cyan-600 mr-2"></i>Chave API QAS — SOSERP
+                </label>
+                <input type="password" autocomplete="new-password" wire:model="telco_api_key_qas"
+                       placeholder="{{ $telcoQasKeyGuardada ? '•••••••• (guardada)' : 'qas... da aplicação SOSERP' }}"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-mono text-sm">
+                @error('telco_api_key_qas') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                <p class="text-xs text-gray-500 mt-1">Só será usada quando selecionar “SOSERP — Testes (QAS)”.</p>
+            </div>
+            @endif
+
+            @if($provider !== 'telcosms')
             <div class="mb-4">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">
                     <i class="fas fa-bell text-orange-500 mr-2"></i>Report URL (Opcional)
@@ -139,6 +201,20 @@
                 @error('report_url') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                 <p class="text-xs text-gray-500 mt-1">URL para receber delivery reports da API</p>
             </div>
+            @else
+            <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                <p class="font-bold"><i class="fas fa-signature mr-2"></i>Remetente aprovado: SOSERP</p>
+                <p class="mt-1 text-xs">Na TelcoSMS, o remetente é definido pela aplicação associada à <code>api_key_app</code>; não é enviado como campo separado na API v2.</p>
+            </div>
+            <div class="mb-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+                <p class="font-bold"><i class="fas fa-mobile-screen-button mr-2"></i>TelcoSMS API v2</p>
+                <p class="mt-1">Será usada para SMS de novas contas, mensagens às empresas, pagamentos e planos/subscrições a expirar.</p>
+                <button type="button" wire:click="checkBalance" class="mt-3 rounded-lg bg-green-700 px-4 py-2 font-bold text-white hover:bg-green-800">
+                    <i class="fas fa-coins mr-2"></i>Consultar saldo
+                </button>
+                <p class="mt-2 text-xs">Se a consulta de saldo estiver indisponível na TelcoSMS, use “Enviar SMS Teste” no topo para validar a ligação real.</p>
+            </div>
+            @endif
 
             <div class="mb-4 flex items-center">
                 <input wire:model="is_active" type="checkbox" id="is_active" class="w-5 h-5 text-green-600 rounded mr-2">
@@ -235,6 +311,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Data/Hora</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Destinatário</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Gateway</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Mensagem</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
@@ -249,6 +326,14 @@
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-900 font-mono">
                                 {{ $log->recipient }}
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                @php
+                                    $gateway = $log->gateway ?: ($log->sender_id === 'SOSERP' ? 'telcosms' : 'd7networks');
+                                @endphp
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold {{ $gateway === 'telcosms' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800' }}">
+                                    {{ $gateway === 'telcosms' ? 'TelcoSMS' : 'D7 Networks' }}
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 @php
@@ -284,7 +369,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                                 <i class="fas fa-inbox text-4xl mb-2 text-gray-300"></i>
                                 <p>Nenhum SMS enviado ainda</p>
                             </td>
@@ -395,6 +480,15 @@
                 </div>
 
                 <form wire:submit.prevent="sendTestSms">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-file-lines text-purple-500 mr-2"></i>Template</label>
+                        <select wire:model.live="test_template_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Mensagem manual</option>
+                            @foreach($templates->where('is_active', true) as $template)
+                                <option value="{{ $template->id }}">{{ $template->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="mb-4">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             <i class="fas fa-mobile-alt text-green-500 mr-2"></i>Telefone (com código do país)

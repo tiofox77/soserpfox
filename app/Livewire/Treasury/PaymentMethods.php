@@ -7,6 +7,8 @@ use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Models\Treasury\PaymentMethod;
+use App\Models\Treasury\Account;
+use App\Models\Treasury\CashRegister;
 use Illuminate\Support\Str;
 
 #[Layout('layouts.app')]
@@ -36,6 +38,8 @@ class PaymentMethods extends Component
         'fee_percentage' => 0,
         'fee_fixed' => 0,
         'requires_account' => false,
+        'default_account_id' => null,
+        'default_cash_register_id' => null,
         'is_active' => true,
         'sort_order' => 0,
     ];
@@ -65,6 +69,14 @@ class PaymentMethods extends Component
             'form.fee_percentage' => 'nullable|numeric|min:0|max:100',
             'form.fee_fixed' => 'nullable|numeric|min:0',
             'form.requires_account' => 'boolean',
+            'form.default_account_id' => [
+                'nullable',
+                \Illuminate\Validation\Rule::exists('treasury_accounts', 'id')->where('tenant_id', activeTenantId()),
+            ],
+            'form.default_cash_register_id' => [
+                'nullable',
+                \Illuminate\Validation\Rule::exists('treasury_cash_registers', 'id')->where('tenant_id', activeTenantId()),
+            ],
             'form.is_active' => 'boolean',
             'form.sort_order' => 'nullable|integer',
         ];
@@ -84,7 +96,7 @@ class PaymentMethods extends Component
     {
         $this->reset(['form', 'methodId', 'editMode']);
         $this->form['is_active'] = true;
-        $this->form['type'] = 'manual';
+        $this->form['type'] = 'cash';
         $this->form['icon'] = 'fa-money-bill';
         $this->form['color'] = 'green';
         $this->showModal = true;
@@ -107,6 +119,8 @@ class PaymentMethods extends Component
             'fee_percentage' => $method->fee_percentage,
             'fee_fixed' => $method->fee_fixed,
             'requires_account' => $method->requires_account,
+            'default_account_id' => $method->default_account_id,
+            'default_cash_register_id' => $method->default_cash_register_id,
             'is_active' => $method->is_active,
             'sort_order' => $method->sort_order,
         ];
@@ -117,6 +131,14 @@ class PaymentMethods extends Component
     public function save()
     {
         $this->validate();
+
+        if ($this->form['type'] === 'cash') {
+            $this->form['default_account_id'] = null;
+            $this->form['requires_account'] = false;
+        } else {
+            $this->form['default_cash_register_id'] = null;
+            $this->form['requires_account'] = true;
+        }
         
         $data = array_merge($this->form, [
             'tenant_id' => activeTenantId(),
@@ -178,7 +200,8 @@ class PaymentMethods extends Component
     
     public function render()
     {
-        $query = PaymentMethod::where('tenant_id', activeTenantId());
+        $query = PaymentMethod::with(['defaultAccount.bank', 'defaultCashRegister'])
+            ->where('tenant_id', activeTenantId());
         
         // Search
         if ($this->search) {
@@ -203,11 +226,18 @@ class PaymentMethods extends Component
             
         $inactiveCount = PaymentMethod::where('tenant_id', activeTenantId())
             ->where('is_active', false)->count();
+
+        $accounts = Account::where('tenant_id', activeTenantId())->where('is_active', true)
+            ->with('bank')->orderByDesc('is_default')->orderBy('account_name')->get();
+        $cashRegisters = CashRegister::where('tenant_id', activeTenantId())->where('is_active', true)
+            ->orderByDesc('is_default')->orderBy('name')->get();
         
         return view('livewire.treasury.payment-methods.payment-methods', [
             'paymentMethods' => $paymentMethods,
             'activeCount' => $activeCount,
             'inactiveCount' => $inactiveCount,
+            'accounts' => $accounts,
+            'cashRegisters' => $cashRegisters,
         ]);
     }
 }

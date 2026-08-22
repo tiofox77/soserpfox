@@ -11,9 +11,13 @@ use App\Models\Treasury\Transaction;
 use App\Models\Treasury\PaymentMethod;
 use App\Models\Treasury\Account;
 use App\Models\Treasury\CashRegister;
+use App\Models\Treasury\TransactionType;
+use App\Models\Treasury\TransactionCategory;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\CreditNoteItem;
+use App\Services\Treasury\TreasuryMovementService;
+use Illuminate\Validation\ValidationException;
 
 #[Layout('layouts.app')]
 #[Title('Transações')]
@@ -52,7 +56,9 @@ class Transactions extends Component
     
     public $form = [
         'type' => '',
+        'transaction_type_id' => '',
         'category' => '',
+        'transaction_category_id' => '',
         'amount' => 0,
         'currency' => 'AOA',
         'transaction_date' => '',
@@ -71,13 +77,15 @@ class Transactions extends Component
     {
         return [
             'form.type' => 'required|in:income,expense,transfer',
+            'form.transaction_type_id' => ['required', \Illuminate\Validation\Rule::exists('treasury_transaction_types', 'id')->where('tenant_id', activeTenantId())->where('is_active', true)],
             'form.category' => 'nullable|string|max:255',
+            'form.transaction_category_id' => ['nullable', \Illuminate\Validation\Rule::exists('treasury_transaction_categories', 'id')->where('tenant_id', activeTenantId())->where('is_active', true)],
             'form.amount' => 'required|numeric|min:0.01',
             'form.currency' => 'required|in:AOA,USD,EUR',
             'form.transaction_date' => 'required|date',
-            'form.payment_method_id' => 'required|exists:treasury_payment_methods,id',
-            'form.account_id' => 'nullable|exists:treasury_accounts,id',
-            'form.cash_register_id' => 'nullable|exists:treasury_cash_registers,id',
+            'form.payment_method_id' => ['required', \Illuminate\Validation\Rule::exists('treasury_payment_methods', 'id')->where('tenant_id', activeTenantId())],
+            'form.account_id' => ['nullable', \Illuminate\Validation\Rule::exists('treasury_accounts', 'id')->where('tenant_id', activeTenantId())],
+            'form.cash_register_id' => ['nullable', \Illuminate\Validation\Rule::exists('treasury_cash_registers', 'id')->where('tenant_id', activeTenantId())],
             'form.reference' => 'nullable|string|max:255',
             'form.description' => 'required|string',
             'form.notes' => 'nullable|string',
@@ -99,6 +107,34 @@ class Transactions extends Component
     public function updatedDataDe() { $this->resetPage(); }
     public function updatedDataAte() { $this->resetPage(); }
     public function updatedPerPage() { $this->resetPage(); }
+
+    public function updatedFormPaymentMethodId($id): void
+    {
+        $method = PaymentMethod::where('tenant_id', activeTenantId())->find($id);
+        if (!$method) {
+            return;
+        }
+        $this->form['account_id'] = $method->type === 'cash' ? '' : ($method->default_account_id ?: '');
+        $this->form['cash_register_id'] = $method->type === 'cash' ? ($method->default_cash_register_id ?: '') : '';
+    }
+
+    public function updatedFormTransactionTypeId($id): void
+    {
+        $type = TransactionType::where('tenant_id', activeTenantId())->where('is_active', true)->find($id);
+        $this->form['type'] = $type?->nature ?? '';
+        $category = TransactionCategory::where('tenant_id', activeTenantId())
+            ->find($this->form['transaction_category_id'] ?: 0);
+        if ($category?->transaction_type_id && $category->transaction_type_id !== $type?->id) {
+            $this->form['transaction_category_id'] = '';
+            $this->form['category'] = '';
+        }
+    }
+
+    public function updatedFormTransactionCategoryId($id): void
+    {
+        $category = TransactionCategory::where('tenant_id', activeTenantId())->where('is_active', true)->find($id);
+        $this->form['category'] = $category?->code ?? '';
+    }
 
     /** Limpa tudo de uma vez. */
     public function limparFiltros(): void
@@ -125,10 +161,14 @@ class Transactions extends Component
     
     public function create()
     {
+        TransactionCategory::seedDefaultsForTenant((int) activeTenantId());
         $this->reset(['form', 'transactionId', 'editMode']);
         $this->form['currency'] = 'AOA';
         $this->form['transaction_date'] = date('Y-m-d');
         $this->form['status'] = 'completed';
+        $defaultType = TransactionType::where('tenant_id', activeTenantId())->where('nature', 'income')->where('is_active', true)->first();
+        $this->form['transaction_type_id'] = $defaultType?->id ?? '';
+        $this->form['type'] = $defaultType?->nature ?? 'income';
         $this->showModal = true;
     }
     
@@ -141,7 +181,9 @@ class Transactions extends Component
         
         $this->form = [
             'type' => $transaction->type,
+            'transaction_type_id' => $transaction->transaction_type_id ?: TransactionType::where('tenant_id', activeTenantId())->where('nature', $transaction->type)->value('id'),
             'category' => $transaction->category,
+            'transaction_category_id' => $transaction->transaction_category_id ?: TransactionCategory::where('tenant_id', activeTenantId())->where('code', $transaction->category)->value('id'),
             'amount' => $transaction->amount,
             'currency' => $transaction->currency,
             'transaction_date' => $transaction->transaction_date->format('Y-m-d'),
@@ -160,6 +202,12 @@ class Transactions extends Component
     public function save()
     {
         $this->validate();
+
+        if (empty($this->form['account_id']) === empty($this->form['cash_register_id'])) {
+            throw ValidationException::withMessages([
+                'form.account_id' => 'Seleccione exactamente um destino: conta bancária ou caixa.',
+            ]);
+        }
         
         // Gerar número da transação se for nova
         if (!$this->editMode) {
@@ -176,26 +224,40 @@ class Transactions extends Component
             'tenant_id' => activeTenantId(),
             'user_id' => auth()->id(),
         ]);
+        $data['account_id'] = $data['account_id'] ?: null;
+        $data['cash_register_id'] = $data['cash_register_id'] ?: null;
+        $data['transaction_type_id'] = $data['transaction_type_id'] ?: null;
+        $data['transaction_category_id'] = $data['transaction_category_id'] ?: null;
+        // Compatibilidade com integrações/ecrãs antigos que ainda enviam o
+        // código textual da categoria. O ID é resolvido sem perder o código.
+        if (!$data['transaction_category_id'] && !empty($data['category'])) {
+            $data['transaction_category_id'] = TransactionCategory::where('tenant_id', activeTenantId())
+                ->where('code', $data['category'])->value('id');
+        }
         
         if (!$this->editMode) {
             $data['transaction_number'] = $transactionNumber;
         }
         
-        if ($this->editMode) {
-            $transaction = Transaction::findOrFail($this->transactionId);
-            $transaction->update($data);
-            
-            $this->dispatch('success', message: 'Transação atualizada com sucesso!');
-        } else {
-            Transaction::create($data);
-            
-            // Atualizar saldo da conta/caixa se status for completed
-            if ($this->form['status'] === 'completed') {
-                $this->updateBalance($data);
+        DB::transaction(function () use ($data) {
+            $service = app(TreasuryMovementService::class);
+            if ($this->editMode) {
+                $transaction = Transaction::where('tenant_id', activeTenantId())->lockForUpdate()->findOrFail($this->transactionId);
+                if ($transaction->status === 'completed') {
+                    $service->apply($transaction, -1);
+                }
+                $transaction->update($data);
+                if ($transaction->status === 'completed') {
+                    $service->apply($transaction, 1);
+                }
+            } else {
+                $service->post($data);
             }
-            
-            $this->dispatch('success', message: 'Transação criada com sucesso!');
-        }
+        });
+
+        $this->dispatch('success', message: $this->editMode
+            ? 'Transação atualizada e saldos recalculados com sucesso!'
+            : 'Transação criada e saldo atualizado com sucesso!');
         
         $this->closeModal();
         $this->dispatch('refreshComponent');
@@ -234,7 +296,13 @@ class Transactions extends Component
     
     public function deleteTransaction()
     {
-        Transaction::findOrFail($this->transactionId)->delete();
+        DB::transaction(function () {
+            $transaction = Transaction::where('tenant_id', activeTenantId())->lockForUpdate()->findOrFail($this->transactionId);
+            if ($transaction->status === 'completed') {
+                app(TreasuryMovementService::class)->apply($transaction, -1);
+            }
+            $transaction->delete();
+        });
         
         $this->dispatch('success', message: 'Transação eliminada com sucesso!');
         
@@ -275,6 +343,16 @@ class Transactions extends Component
         if ($transaction->type !== 'income') {
             $this->dispatch('error', message: 'Apenas transações de entrada podem ser creditadas!');
             return;
+        }
+
+        // Quando há factura associada, a única via segura é exactamente a do
+        // Relatório POS: permite escolher itens/quantidades, calcula impostos,
+        // repõe stock, assina, actualiza o saldo da factura e submete à AGT.
+        // O modal antigo daqui criava uma NC incompleta e sempre total.
+        if ($transaction->invoice_id) {
+            return redirect()->route('invoicing.pos.reports', [
+                'credit_transaction' => $transaction->id,
+            ]);
         }
         
         $this->creditingTransaction = $transaction;
@@ -485,6 +563,12 @@ class Transactions extends Component
             'cashRegisters' => $cashRegisters,
             'categoriasParaEscolher' => \App\Support\CategoriasDeTesouraria::paraEscolher(),
             'categoriasParaFiltrar'  => \App\Support\CategoriasDeTesouraria::paraEmpresa(activeTenantId()),
+            'transactionTypes' => TransactionType::where('tenant_id', activeTenantId())->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
+            'transactionCategories' => TransactionCategory::where('tenant_id', activeTenantId())->where('is_active', true)
+                ->where(function ($q) {
+                    $q->whereNull('transaction_type_id');
+                    if (!empty($this->form['transaction_type_id'])) $q->orWhere('transaction_type_id', $this->form['transaction_type_id']);
+                })->orderBy('sort_order')->orderBy('name')->get(),
         ]);
     }
 }

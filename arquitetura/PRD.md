@@ -152,7 +152,7 @@ Comando de reparação: `php artisan modules:sync-permissions`.
 |---|---|---|
 | `invoicing` | Facturação | completo |
 | `treasury` | Tesouraria | completo |
-| `contabilidade` | Contabilidade | completo (PGC-AO) |
+| `contabilidade` | Contabilidade | **50%** (PGC-AO; núcleo disponível, validação fiscal/integrações pendentes) |
 | `rh` | Recursos Humanos | completo (IRT, folha) |
 | `oficina` | Gestão de Oficina | completo |
 | `eventos` | Gestão de Eventos | completo |
@@ -600,6 +600,12 @@ explícita.
 
 ## 8. Contabilidade (PGC-AO)
 
+**Estado de produto: 50% concluído.** O núcleo de contas, diários, períodos,
+lançamentos e demonstrações existe. Ainda faltam validação integral do PGC-AO
+por contabilista, retenções, integração Folha → Contabilidade, testes de fecho
+e reconciliação das demonstrações com casos reais. O roadmap antigo que dizia
+99% confundia presença de ficheiros com funcionalidade validada.
+
 - Novas empresas recebem o **plano de contas PGC-AO** por omissão
   (`AccountSeeder::runForTenant`).
 - Relatórios são **agnósticos ao plano de contas**: o balanço agrupa por **tipo
@@ -740,6 +746,13 @@ estrangeira de `invoicing_receipts.invoice_id` aponta para facturas de VENDA) e
 havia alguém há 45 minutos a tentar lançar 109.168,68 Kz numa farmácia.
 
 ### API do agente (openclaw)
+
+O OpenClaw é o gerente operacional automatizado da plataforma. Pode consultar
+todas as empresas, filtrar por estado/plano/actividade, ver utilizadores novos e
+recentes, auditoria, erros, filas, métricas de adopção e recomendações. Pode
+suspender/reactivar empresas e pedir eliminação, respeitando sempre as guardas
+fiscais. O controlo técnico é uma **allowlist**; nunca aceita comandos Artisan,
+SQL, nomes de ficheiros ou caminhos arbitrários enviados pelo agente.
 
 `routes/agent.php`, fora do grupo `web`, com token próprio, lista de IPs,
 escopos por rota e registo de cada pedido em `agent_requests`.

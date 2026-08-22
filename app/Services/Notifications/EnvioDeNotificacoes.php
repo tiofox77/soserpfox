@@ -168,6 +168,17 @@ class EnvioDeNotificacoes
             return (bool) ($r['success'] ?? false);
         }
 
+        if ($definicoes->sms_provider === 'telcosms') {
+            if (blank($definicoes->sms_api_token)) {
+                return false;
+            }
+
+            $r = (new \App\Services\TelcoSmsService($definicoes->sms_api_token))
+                ->send($telefone, $texto);
+
+            return (bool) ($r['success'] ?? false);
+        }
+
         // Outras operadoras ainda não têm caminho próprio. Devolver falso é
         // honesto: fica registado como falha e vê-se no ecrã, em vez de sair um
         // WhatsApp a fingir de SMS.

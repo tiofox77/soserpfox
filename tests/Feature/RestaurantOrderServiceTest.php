@@ -13,6 +13,10 @@ use App\Services\Restaurant\RestaurantCheckoutService;
 use App\Services\Restaurant\RestaurantReservationService;
 use Illuminate\Support\Str;
 use Tests\TenantTestCase;
+use Livewire\Livewire;
+use App\Livewire\Restaurant\OrderManagement;
+use App\Livewire\Restaurant\FloorManagement;
+use App\Livewire\Restaurant\RestaurantPos;
 
 class RestaurantOrderServiceTest extends TenantTestCase
 {
@@ -25,6 +29,12 @@ class RestaurantOrderServiceTest extends TenantTestCase
 
         RestaurantSettings::forTenant($this->tenant->id)->update([
             'default_warehouse_id' => $this->armazem->id,
+            'require_open_shift' => true,
+        ]);
+        \App\Models\Invoicing\PosShift::create([
+            'tenant_id' => $this->tenant->id, 'user_id' => $this->user->id,
+            'shift_number' => 'REST-'.strtoupper(substr(uniqid(), -8)),
+            'opened_at' => now(), 'opening_balance' => 0, 'status' => 'open',
         ]);
         $this->venue = Venue::create([
             'tenant_id' => $this->tenant->id,
@@ -132,6 +142,139 @@ class RestaurantOrderServiceTest extends TenantTestCase
         $this->service()->removeItem($item->fresh(), $this->tenant->id, $this->user->id, 'Tentativa tardia');
     }
 
+    public function test_segunda_ronda_pode_ser_adicionada_e_reenviada_a_cozinha(): void
+    {
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open([
+            'venue_id' => $this->venue->id, 'table_id' => $this->table->id,
+        ], $this->tenant->id, $this->user->id);
+        $primeiro = $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+        $this->service()->confirm($order, $this->tenant->id, $this->user->id);
+
+        $segundo = $this->service()->addItem($order->fresh(), $product->id, 1, 'Segunda ronda', $this->tenant->id, $this->user->id);
+        $this->assertSame('draft', $segundo->fresh()->kitchen_status);
+
+        $this->service()->confirm($order->fresh(), $this->tenant->id, $this->user->id);
+        $this->assertSame('queued', $segundo->fresh()->kitchen_status);
+        $this->assertSame('queued', $primeiro->fresh()->kitchen_status);
+        $this->assertSame(2, \App\Models\Restaurant\KitchenTicket::withoutGlobalScopes()
+            ->where('tenant_id', $this->tenant->id)->where('order_id', $order->id)->count());
+    }
+
+    public function test_pos_abre_mesa_e_adiciona_produto_sem_sair_da_janela(): void
+    {
+        $product = $this->produtoComStock(10, 1000);
+
+        Livewire::actingAs($this->user)->test(RestaurantPos::class)
+            ->assertSee('POS Restaurante')
+            ->call('chooseTable', $this->table->id)
+            ->assertSet('showTables', false)
+            ->call('quickAddProduct', $product->id)
+            ->assertSee($product->name);
+
+        $order = Order::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->latest('id')->firstOrFail();
+        $this->assertSame($this->table->id, $order->table_id);
+        $this->assertDatabaseHas('restaurant_order_items', [
+            'tenant_id' => $this->tenant->id,
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+        ]);
+    }
+
+    public function test_pos_ajusta_quantidade_e_recalcula_iva_e_total(): void
+    {
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $item = $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+
+        $updated = $this->service()->updateItemQuantity($item, 3, $this->tenant->id, $this->user->id);
+
+        $this->assertEquals(3, (float) $updated->quantity);
+        $this->assertEquals(14, (float) $updated->tax_rate);
+        $this->assertEquals(420, (float) $updated->tax_amount);
+        $this->assertEquals(3420, (float) $updated->line_total);
+        $this->assertEquals(3000, (float) $order->fresh()->subtotal);
+        $this->assertEquals(420, (float) $order->fresh()->tax_total);
+        $this->assertEquals(3420, (float) $order->fresh()->grand_total);
+    }
+
+    public function test_pos_reserva_e_liberta_mesa_sem_comanda(): void
+    {
+        Livewire::actingAs($this->user)->test(RestaurantPos::class)
+            ->call('prepareReservation', $this->table->id)
+            ->set('reservationGuestName', 'Cliente Reserva POS')
+            ->set('reservationPhone', '923000000')
+            ->set('reservationGuests', 2)
+            ->set('reservationAt', now()->addDay()->format('Y-m-d\TH:i'))
+            ->call('saveReservation')
+            ->assertSet('showReservation', false);
+
+        $this->assertSame('reserved', $this->table->fresh()->status);
+        $this->assertDatabaseHas('restaurant_reservations', [
+            'tenant_id' => $this->tenant->id,
+            'table_id' => $this->table->id,
+            'guest_name' => 'Cliente Reserva POS',
+            'status' => 'confirmed',
+        ]);
+
+        Livewire::actingAs($this->user)->test(RestaurantPos::class)
+            ->call('tableStatus', $this->table->id, 'available');
+        $this->assertSame('available', $this->table->fresh()->status);
+    }
+
+    public function test_sem_cozinha_pedido_fica_pronto_imediatamente(): void
+    {
+        RestaurantSettings::forTenant($this->tenant->id)->update([
+            'use_kitchen_workflow' => false,
+            'consume_stock_on_kitchen' => false,
+        ]);
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $item = $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+
+        $ready = $this->service()->confirm($order, $this->tenant->id, $this->user->id);
+
+        $this->assertSame('served', $ready->status);
+        $this->assertSame('served', $item->fresh()->kitchen_status);
+        $this->assertSame('served', $this->table->fresh()->status);
+        $this->assertDatabaseCount('restaurant_kitchen_tickets', 0);
+    }
+
+    public function test_turno_aberto_e_sempre_obrigatorio(): void
+    {
+        RestaurantSettings::forTenant($this->tenant->id)->update(['require_open_shift' => false]);
+        \App\Models\Invoicing\PosShift::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->forceDelete();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Abra o turno e o caixa');
+        $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+    }
+
+    public function test_ao_receber_sem_turno_exibe_janela_para_abrir_caixa(): void
+    {
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $order->update(['status' => 'served']);
+        \App\Models\Invoicing\PosShift::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->forceDelete();
+
+        Livewire::actingAs($this->user)->test(OrderManagement::class)
+            ->set('order', $order->id)
+            ->call('openCheckout')
+            ->assertSet('showCheckout', false)
+            ->assertSet('showShiftRequired', true)
+            ->assertSee('Abrir turno e caixa');
+    }
+
+    public function test_configuracao_pode_exigir_ficha_tecnica_no_prato(): void
+    {
+        RestaurantSettings::forTenant($this->tenant->id)->update(['require_recipe_for_products' => true]);
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('ficha técnica ativa');
+        $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+    }
+
     public function test_nao_abre_com_mesa_de_outro_tenant(): void
     {
         $other = \App\Models\Tenant::create([
@@ -211,6 +354,95 @@ class RestaurantOrderServiceTest extends TenantTestCase
         $this->assertSame('paid', $invoice->status);
         $this->assertDatabaseHas('treasury_transactions', ['tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id, 'amount' => $invoice->total]);
         $this->assertDatabaseMissing('invoicing_receipts', ['tenant_id' => $this->tenant->id, 'invoice_id' => $invoice->id]);
+    }
+
+    public function test_conta_de_consulta_e_imprimivel_mas_nao_e_documento_fiscal(): void
+    {
+        $this->comModulo('restaurant')->comPermissoes('restaurant.orders.view');
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+
+        $this->get(route('restaurant.orders.consultation-receipt', $order->id))
+            ->assertOk()
+            ->assertSee('CONTA PARA CONSULTA')
+            ->assertSee('NÃO É DOCUMENTO FISCAL')
+            ->assertSee($order->order_number);
+    }
+
+    public function test_emitir_fr_abre_modal_de_impressao_e_documento_fica_consultavel(): void
+    {
+        $this->comModulo('restaurant')->comPermissoes('restaurant.orders.view');
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+        $order->update(['status' => 'served']);
+        $method = \App\Models\Treasury\PaymentMethod::withoutGlobalScopes()->create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Dinheiro Restaurante',
+            'code' => 'RESTCASH'.uniqid(), 'type' => 'cash', 'is_active' => true,
+        ]);
+
+        $component = Livewire::actingAs($this->user)->test(OrderManagement::class)
+            ->set('order', $order->id)
+            ->call('openCheckout')
+            ->set('paymentMethodId', $method->id)
+            ->call('checkout')
+            ->assertSet('showCheckout', false)
+            ->assertSet('showPrintModal', true);
+
+        $invoiceId = $component->get('invoiceResultId');
+        $this->assertNotNull($invoiceId);
+        $this->get(route('restaurant.documents.print', $invoiceId))
+            ->assertOk()
+            ->assertSee($component->get('invoiceResult'))
+            ->assertSee('FACTURA RECIBO')
+            ->assertSee('size:80mm auto', false);
+    }
+
+    public function test_modal_do_restaurante_divide_pagamento_e_bloqueia_soma_incorreta(): void
+    {
+        $product = $this->produtoComStock(10, 1000);
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $this->service()->addItem($order, $product->id, 1, null, $this->tenant->id, $this->user->id);
+        $order->update(['status' => 'served']);
+        $cash = \App\Models\Treasury\PaymentMethod::withoutGlobalScopes()->create(['tenant_id'=>$this->tenant->id,'name'=>'Dinheiro','code'=>'RC'.uniqid(),'type'=>'cash','is_active'=>true]);
+        $card = \App\Models\Treasury\PaymentMethod::withoutGlobalScopes()->create(['tenant_id'=>$this->tenant->id,'name'=>'Multicaixa','code'=>'RM'.uniqid(),'type'=>'card','is_active'=>true]);
+
+        $component = Livewire::actingAs($this->user)->test(OrderManagement::class)
+            ->set('order', $order->id)->call('openCheckout')->call('toggleMultiPayment');
+        $total = (float) $component->get('checkoutTotal');
+        $component->set('payments', [
+            ['payment_method_id' => $cash->id, 'amount' => 600],
+            ['payment_method_id' => $card->id, 'amount' => $total - 600],
+        ]);
+
+        $this->assertEqualsWithDelta(0, $component->get('paymentRemaining'), .01);
+        $component->call('checkout')->assertSet('showPrintModal', true);
+        $invoiceId = $component->get('invoiceResultId');
+        $this->assertSame(2, \App\Models\Treasury\Transaction::withoutGlobalScopes()->where('invoice_id', $invoiceId)->count());
+    }
+
+    public function test_mesa_em_limpeza_nao_abre_modal_nem_causa_erro_500(): void
+    {
+        $this->table->update(['status' => 'cleaning']);
+
+        Livewire::actingAs($this->user)->test(FloorManagement::class)
+            ->call('prepareOpenOrder', $this->table->id)
+            ->assertSet('showOpenOrder', false)
+            ->assertDispatched('notify');
+    }
+
+    public function test_mesa_faturada_pode_ser_marcada_limpa_no_mapa(): void
+    {
+        $order = $this->service()->open(['venue_id' => $this->venue->id, 'table_id' => $this->table->id], $this->tenant->id, $this->user->id);
+        $order->update(['status' => 'billed', 'closed_at' => now(), 'closed_by' => $this->user->id]);
+        $this->table->update(['status' => 'cleaning']);
+
+        Livewire::actingAs($this->user)->test(FloorManagement::class)
+            ->call('markTableClean', $this->table->id)
+            ->assertDispatched('notify');
+
+        $this->assertSame('available', $this->table->fresh()->status);
     }
 
     public function test_reserva_bloqueia_conflito_e_liberta_mesa_no_cancelamento(): void

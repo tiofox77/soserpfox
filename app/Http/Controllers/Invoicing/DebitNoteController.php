@@ -30,7 +30,7 @@ class DebitNoteController extends Controller
                 ->get();
             
             // Gerar QR Code AGT
-            $qrCode = getAGTQRData($debitNote, 80);
+            $qrCode = getAGTQRData($debitNote, 140);
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.debit-note', [
@@ -87,7 +87,7 @@ class DebitNoteController extends Controller
             ->get();
         
         // Gerar QR Code AGT
-        $qrCode = getAGTQRData($debitNote, 80);
+        $qrCode = getAGTQRData($debitNote, 140);
         
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.debit-note', [

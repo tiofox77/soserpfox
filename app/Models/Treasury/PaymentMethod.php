@@ -23,6 +23,8 @@ class PaymentMethod extends Model
         'fee_percentage',
         'fee_fixed',
         'requires_account',
+        'default_account_id',
+        'default_cash_register_id',
         'is_active',
         'sort_order',
     ];
@@ -38,6 +40,16 @@ class PaymentMethod extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Tenant::class);
+    }
+
+    public function defaultAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'default_account_id');
+    }
+
+    public function defaultCashRegister(): BelongsTo
+    {
+        return $this->belongsTo(CashRegister::class, 'default_cash_register_id');
     }
 
     /**

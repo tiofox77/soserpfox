@@ -23,7 +23,8 @@ class PosSalesReportQuery
     /**
      * @param  array{
      *   start_date?:string, end_date?:string, search?:string, status?:string,
-     *   payment_method?:string, document_type?:string, only_user_id?:int|null
+     *   payment_method?:string, document_type?:string, only_user_id?:int|null,
+     *   source_module?:string
      * }  $filtros
      */
     public function __construct(
@@ -143,6 +144,7 @@ class PosSalesReportQuery
             'start_date'   => $this->filtro('start_date'),
             'end_date'     => $this->filtro('end_date'),
             'only_user_id' => $this->filtros['only_user_id'] ?? null,
+            'source_module' => $this->filtro('source_module'),
         ]);
     }
 
@@ -179,6 +181,9 @@ class PosSalesReportQuery
 
         $this->periodo($q, 'i.invoice_date');
         $this->autor($q, 'i.created_by');
+        if ($source = $this->filtro('source_module')) {
+            $q->where('i.source_module', $source);
+        }
 
         if ($estado = $this->filtro('status')) {
             $q->where('i.status', $estado);
@@ -231,6 +236,12 @@ class PosSalesReportQuery
 
         $this->periodo($q, 'n.issue_date');
         $this->autor($q, 'n.created_by');
+        if ($source = $this->filtro('source_module')) {
+            $q->whereExists(fn ($invoice) => $invoice->select(DB::raw(1))
+                ->from('invoicing_sales_invoices as source_invoice')
+                ->whereColumn('source_invoice.id', 'n.invoice_id')
+                ->where('source_invoice.source_module', $source));
+        }
 
         if ($termo = trim((string) $this->filtro('search'))) {
             $q->where(function ($q) use ($termo) {

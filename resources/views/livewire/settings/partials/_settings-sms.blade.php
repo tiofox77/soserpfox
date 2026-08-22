@@ -23,13 +23,40 @@
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     <option value="">Selecione o provedor</option>
                     <option value="twilio">Twilio</option>
+                    <option value="telcosms">TelcoSMS Angola</option>
                     <option value="d7networks">D7 Networks</option>
                     <option value="nexmo">Nexmo / Vonage</option>
                     <option value="other">Outro</option>
                 </select>
             </div>
 
-            @if($sms_provider === 'twilio')
+            @if($sms_provider === 'telcosms')
+                <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div class="flex items-start">
+                        <i class="fas fa-mobile-alt text-green-700 mt-1 mr-2"></i>
+                        <div class="text-sm text-green-900">
+                            <p class="font-semibold mb-1">TelcoSMS Angola</p>
+                            <p>Crie a aplicação na TelcoSMS e introduza a chave <code>api_key_app</code> PRD ou QAS. O sistema usa o endpoint oficial API v2.</p>
+                            <a href="https://www.telcosms.co.ao/" target="_blank" rel="noopener" class="underline font-semibold">Abrir TelcoSMS</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-900">
+                    <span class="font-semibold">Aplicação/remetente:</span> SOSERP.
+                    A chave deve ser da aplicação SOSERP criada e aprovada na TelcoSMS.
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Chave da aplicação (api_key_app)</label>
+                    <input type="password" autocomplete="new-password"
+                           placeholder="{{ ($segredosGuardados['sms_api_token'] ?? false) ? '•••••••• (guardada)' : 'prdcf3a0... ou chave QAS' }}"
+                           wire:model="sms_api_token"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-sm">
+                    @error('sms_api_token') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    <p class="text-xs text-gray-500 mt-1">A chave fica cifrada e nunca volta a ser exibida no navegador.</p>
+                </div>
+            @elseif($sms_provider === 'twilio')
                 {{-- Twilio Fields --}}
                 <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div class="flex items-start">

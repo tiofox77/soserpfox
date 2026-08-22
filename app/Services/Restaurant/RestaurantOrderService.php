@@ -3,6 +3,7 @@
 namespace App\Services\Restaurant;
 
 use App\Models\Product;
+use App\Models\Invoicing\PosShift;
 use App\Models\Restaurant\DiningTable;
 use App\Models\Restaurant\Order;
 use App\Models\Restaurant\OrderEvent;
@@ -69,6 +70,10 @@ class RestaurantOrderService
                     ->lockForUpdate()
                     ->firstOrFail();
             }
+            if (!PosShift::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)->where('user_id', $userId)->whereNull('deleted_at')->where('status', 'open')->exists()) {
+                throw new InvalidArgumentException('Abra o turno e o caixa antes de iniciar vendas no restaurante.');
+            }
             $number = (int) $settings->next_order_number;
             $settings->update(['next_order_number' => $number + 1]);
 
@@ -97,7 +102,7 @@ class RestaurantOrderService
 
     public function addItem(Order $order, int $productId, float $quantity, ?string $notes, int $tenantId, ?int $userId): OrderItem
     {
-        if ($order->tenant_id !== $tenantId || !in_array($order->status, ['draft', 'confirmed'], true)) {
+        if ($order->tenant_id !== $tenantId || !in_array($order->status, ['draft', 'confirmed', 'in_preparation', 'ready', 'served'], true)) {
             throw new InvalidArgumentException('A comanda já não permite adicionar artigos.');
         }
         if ($quantity <= 0) {
@@ -107,6 +112,11 @@ class RestaurantOrderService
         $product = Product::where('tenant_id', $tenantId)->where('is_active', true)->find($productId);
         if (!$product) {
             throw new InvalidArgumentException('Artigo inválido para esta empresa.');
+        }
+        $settings = RestaurantSettings::withoutGlobalScopes()->where('tenant_id', $tenantId)->first();
+        if ($settings?->require_recipe_for_products && !\App\Models\Restaurant\Recipe::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)->where('product_id', $product->id)->where('is_active', true)->exists()) {
+            throw new InvalidArgumentException('Este prato precisa de uma ficha técnica ativa antes de ser vendido.');
         }
 
         return DB::transaction(function () use ($order, $product, $quantity, $notes, $tenantId, $userId) {
@@ -126,6 +136,7 @@ class RestaurantOrderService
                 'tax_rate' => $tax['rate'],
                 'tax_amount' => $taxAmount,
                 'line_total' => $base + $taxAmount,
+                'kitchen_status' => 'draft',
                 'notes' => $notes,
                 'created_by' => $userId,
             ]);
@@ -144,7 +155,8 @@ class RestaurantOrderService
     public function removeItem(OrderItem $item, int $tenantId, ?int $userId, string $reason): void
     {
         $order = Order::withoutGlobalScopes()->where('tenant_id', $tenantId)->findOrFail($item->order_id);
-        if ($item->tenant_id !== $tenantId || $item->kitchen_status !== 'draft' || $order->status !== 'draft') {
+        if ($item->tenant_id !== $tenantId || $item->kitchen_status !== 'draft'
+            || !in_array($order->status, ['draft', 'confirmed', 'in_preparation', 'ready', 'served'], true)) {
             throw new InvalidArgumentException('O artigo já foi confirmado. Registe um cancelamento/desperdício em vez de o apagar.');
         }
 
@@ -156,18 +168,85 @@ class RestaurantOrderService
         });
     }
 
+    public function updateItemQuantity(OrderItem $item, float $quantity, int $tenantId, ?int $userId): OrderItem
+    {
+        $order = Order::withoutGlobalScopes()->where('tenant_id', $tenantId)->findOrFail($item->order_id);
+        if ($item->tenant_id !== $tenantId || $item->kitchen_status !== 'draft'
+            || !in_array($order->status, ['draft', 'confirmed', 'in_preparation', 'ready', 'served'], true)) {
+            throw new InvalidArgumentException('A quantidade só pode ser alterada antes do envio do artigo à cozinha.');
+        }
+        if ($quantity <= 0) {
+            throw new InvalidArgumentException('A quantidade deve ser superior a zero.');
+        }
+
+        return DB::transaction(function () use ($item, $quantity, $order, $tenantId, $userId) {
+            $tax = TaxResolver::forProductId($item->product_id, $tenantId);
+            $base = round($quantity * (float) $item->unit_price, 2);
+            $discount = round($base * ((float) $item->discount_percent / 100), 2);
+            $taxable = max(0, $base - $discount);
+            $taxAmount = round($taxable * ((float) $tax['rate'] / 100), 2);
+            $before = (float) $item->quantity;
+
+            $item->update([
+                'quantity' => $quantity,
+                'discount_amount' => $discount,
+                'tax_rate' => $tax['rate'],
+                'tax_amount' => $taxAmount,
+                'line_total' => $taxable + $taxAmount,
+            ]);
+            $this->recalculate($order, $tenantId);
+            $this->event($order, 'item_quantity_updated', $item, [
+                'from' => $before, 'to' => $quantity, 'tax_rate' => $tax['rate'],
+            ], $userId);
+
+            return $item->fresh();
+        });
+    }
+
+    public function changeTableStatus(DiningTable $table, string $status, int $tenantId): DiningTable
+    {
+        if ($table->tenant_id !== $tenantId || !in_array($status, ['available', 'reserved', 'cleaning', 'blocked'], true)) {
+            throw new InvalidArgumentException('Estado da mesa inválido.');
+        }
+
+        return DB::transaction(function () use ($table, $status, $tenantId) {
+            $table = DiningTable::withoutGlobalScopes()->where('tenant_id', $tenantId)->lockForUpdate()->findOrFail($table->id);
+            if ($table->activeOrder()->exists()) {
+                throw new InvalidArgumentException('A mesa possui uma comanda aberta e não pode mudar de estado manualmente.');
+            }
+            $table->update(['status' => $status]);
+            return $table->fresh();
+        });
+    }
+
     public function confirm(Order $order, int $tenantId, ?int $userId): Order
     {
-        if ($order->tenant_id !== $tenantId || $order->status !== 'draft') {
-            throw new InvalidArgumentException('Apenas comandas em rascunho podem ser confirmadas.');
+        if ($order->tenant_id !== $tenantId || !in_array($order->status, ['draft', 'confirmed', 'in_preparation', 'ready', 'served'], true)) {
+            throw new InvalidArgumentException('Esta comanda já não permite enviar artigos à cozinha.');
         }
-        if (!$order->items()->exists()) {
+        if (!$order->items()->where('kitchen_status', 'draft')->exists()) {
+            if ($order->status === 'confirmed') {
+                throw new InvalidArgumentException('Não existem novos artigos para enviar à cozinha.');
+            }
             throw new InvalidArgumentException('Adicione pelo menos um artigo antes de confirmar.');
         }
 
         return DB::transaction(function () use ($order, $tenantId, $userId) {
+            $settings = RestaurantSettings::withoutGlobalScopes()->where('tenant_id', $tenantId)->firstOrFail();
             $order->items()->where('kitchen_status', 'draft')->update(['kitchen_status' => 'queued']);
             $order->update(['status' => 'confirmed', 'confirmed_at' => now()]);
+            if (!(bool) ($settings->use_kitchen_workflow ?? true)) {
+                $order->items()->where('kitchen_status', 'queued')->update(['kitchen_status' => 'served']);
+                $order->update(['status' => 'served']);
+                if ($order->table_id) {
+                    DiningTable::withoutGlobalScopes()->where('tenant_id', $tenantId)->whereKey($order->table_id)->update(['status' => 'served']);
+                }
+                if ($settings->consume_stock_on_kitchen) {
+                    app(RestaurantStockService::class)->consume($order->fresh('venue'), $tenantId, $userId);
+                }
+                $this->event($order, 'order_fast_ready', null, ['kitchen' => false], $userId);
+                return $order->fresh(['items', 'table', 'venue']);
+            }
             if ($order->table_id) {
                 DiningTable::withoutGlobalScopes()
                     ->where('tenant_id', $tenantId)

@@ -222,21 +222,15 @@ class AgtProdutorAmbienteTest extends TenantTestCase
         );
     }
 
-    public function test_sem_chave_do_ambiente_recorre_a_legada(): void
+    public function test_os_dois_ambientes_podem_usar_a_chave_certificada_do_produtor(): void
     {
-        // Deliberado: o par legado pode ser o de produção — é o que hoje assina
-        // os documentos de todas as empresas. Assumir que é de testes e cortá-lo
-        // partia a facturação de quem já está a funcionar.
         Storage::disk('local')->put('saft/public_key.pem', '-- legada --');
         Storage::disk('local')->put('saft/private_key.pem', '-- legada --');
 
         foreach (['sandbox', 'production'] as $ambiente) {
             $this->assertSame('saft/public_key.pem', AGTProducerStore::publicKeyPath($ambiente));
             $this->assertTrue(AGTProducerStore::temChaves($ambiente));
-            $this->assertFalse(
-                AGTProducerStore::temChavesProprias($ambiente),
-                'tem de ficar claro que ainda não é a chave própria do ambiente'
-            );
+            $this->assertFalse(AGTProducerStore::temChavesProprias($ambiente));
         }
     }
 

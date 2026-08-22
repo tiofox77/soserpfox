@@ -55,13 +55,13 @@ class InvoiceCalculationHelper
         $descontoComercialLinhas = 0;
         
         foreach ($cartItems as $item) {
-            $valorBrutoLinha = $item->price * $item->quantity;
+            $valorBrutoLinha = round((float) $item->price * (float) $item->quantity, 2);
             $totalBruto += $valorBrutoLinha;
             
             // Desconto comercial da linha (aplicado PRIMEIRO)
             $attributes = static::atributos($item);
             $descontoPercent = $attributes['discount_percent'] ?? 0;
-            $descontoLinha = $valorBrutoLinha * ($descontoPercent / 100);
+            $descontoLinha = round($valorBrutoLinha * ($descontoPercent / 100), 2);
             $descontoComercialLinhas += $descontoLinha;
         }
         
@@ -90,12 +90,12 @@ class InvoiceCalculationHelper
         
         foreach ($cartItems as $item) {
             // Valor bruto da linha
-            $valorBrutoLinha = $item->price * $item->quantity;
+            $valorBrutoLinha = round((float) $item->price * (float) $item->quantity, 2);
             
             // Desconto comercial da linha
             $attributes = static::atributos($item);
             $descontoPercent = $attributes['discount_percent'] ?? 0;
-            $descontoLinha = $valorBrutoLinha * ($descontoPercent / 100);
+            $descontoLinha = round($valorBrutoLinha * ($descontoPercent / 100), 2);
             $valorLiquidoLinha = $valorBrutoLinha - $descontoLinha;
             
             // Proporção da linha no valor líquido
@@ -117,7 +117,7 @@ class InvoiceCalculationHelper
             // caissemos em 14 o documento cobrava IVA que nenhuma linha declara.
             // A taxa por linha vem do TaxResolver, a fonte unica; aqui so se le.
             $taxRate = $attributes['tax_rate'] ?? 0;
-            $taxAmountLinha = $baseIvaLinha * ($taxRate / 100);
+            $taxAmountLinha = round($baseIvaLinha * ($taxRate / 100), 2);
             $taxAmount += $taxAmountLinha;
         }
         

@@ -291,13 +291,14 @@ class QRCodeService
      */
     private function embedLogoInPng(string $pngBytes, int $size): string
     {
-        $logoPath = public_path('images/agt.png');
-        if (!file_exists($logoPath)) {
+        $markBytes = $this->agtMarkPngBytes();
+        if ($markBytes === null) {
+            Log::warning('QRCodeService: símbolo AGT não encontrado para compor o QR.');
             return $pngBytes;
         }
 
         $qrImage = @imagecreatefromstring($pngBytes);
-        $logoImage = @imagecreatefrompng($logoPath);
+        $logoImage = @imagecreatefromstring($markBytes);
         if (!$qrImage || !$logoImage) {
             if ($qrImage) imagedestroy($qrImage);
             if ($logoImage) imagedestroy($logoImage);
@@ -305,7 +306,10 @@ class QRCodeService
         }
 
         $qrWidth = imagesx($qrImage);
-        $logoSize = (int) round($qrWidth * 0.18);
+        // O ficheiro oficial contém o nome completo e, reduzido a 18%, parecia
+        // um quadrado vazio. Usamos apenas o símbolo e 30% do lado (9% da área),
+        // ainda bem abaixo do limite de 20% da área reservado ao logótipo.
+        $logoSize = (int) round($qrWidth * 0.30);
         $logoX = (int) (($qrWidth - $logoSize) / 2);
         $logoY = (int) (($qrWidth - $logoSize) / 2);
 
@@ -396,16 +400,13 @@ class QRCodeService
      */
     private function embedLogoInSvg(string $svg, int $size): string
     {
-        $logoPath = public_path('images/agt.png');
-        if (!file_exists($logoPath)) {
+        $logoData = $this->agtMarkPngBytes();
+        if ($logoData === null) {
             return $svg;
         }
-        
-        $logoData = file_get_contents($logoPath);
-        
-        // Logo deve ocupar < 20% da área total (doc AGT: "percentagem inferior a 20%")
-        // 20% da área = sqrt(0.20) ≈ 0.447 de cada lado → usamos 0.18 para segurança
-        $logoSize = $size * 0.18;
+
+        // 30% do lado = 9% da área do QR.
+        $logoSize = $size * 0.30;
         $logoX = ($size - $logoSize) / 2;
         $logoY = ($size - $logoSize) / 2;
         $bgRadius = $logoSize * 0.58;
@@ -423,6 +424,77 @@ class QRCodeService
         $svg = str_replace('</svg>', $logoOverlay . '</svg>', $svg);
         
         return $svg;
+    }
+
+    /**
+     * Recorta automaticamente o símbolo azul do ativo oficial AGT.
+     *
+     * O PNG disponível é um logótipo quadrado com muito espaço branco e o nome
+     * por extenso. Encolher a imagem inteira no centro de um QR de 100 px torna
+     * a marca invisível. Este recorte mantém apenas o símbolo, sem criar outro
+     * ativo divergente no projeto, e é usado igualmente em PNG e SVG.
+     */
+    private function agtMarkPngBytes(): ?string
+    {
+        if (!extension_loaded('gd')) {
+            return null;
+        }
+
+        $path = collect([
+            public_path('images/agt.png'),
+            public_path('images/agt-logo.png'),
+        ])->first(fn (string $candidate) => is_file($candidate));
+
+        if (!$path) {
+            return null;
+        }
+
+        $source = @imagecreatefrompng($path);
+        if (!$source) {
+            return null;
+        }
+
+        $width = imagesx($source);
+        $height = imagesy($source);
+        $scanWidth = max(1, (int) floor($width * 0.34));
+        $minX = $scanWidth; $minY = $height; $maxX = -1; $maxY = -1;
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $scanWidth; $x++) {
+                $rgba = imagecolorat($source, $x, $y);
+                $r = ($rgba >> 16) & 0xff;
+                $g = ($rgba >> 8) & 0xff;
+                $b = $rgba & 0xff;
+                if ($b > 70 && $b > $r * 1.18 && $b > $g * 1.05) {
+                    $minX = min($minX, $x); $maxX = max($maxX, $x);
+                    $minY = min($minY, $y); $maxY = max($maxY, $y);
+                }
+            }
+        }
+
+        if ($maxX < $minX || $maxY < $minY) {
+            imagedestroy($source);
+            return null;
+        }
+
+        $contentW = $maxX - $minX + 1;
+        $contentH = $maxY - $minY + 1;
+        $side = max($contentW, $contentH) + 8;
+        $cropX = max(0, (int) floor(($minX + $maxX - $side) / 2));
+        $cropY = max(0, (int) floor(($minY + $maxY - $side) / 2));
+        $side = min($side, $width - $cropX, $height - $cropY);
+        $mark = imagecrop($source, ['x' => $cropX, 'y' => $cropY, 'width' => $side, 'height' => $side]);
+        imagedestroy($source);
+        if (!$mark) {
+            return null;
+        }
+
+        ob_start();
+        imagepng($mark);
+        $bytes = ob_get_clean();
+        imagedestroy($mark);
+
+        return $bytes !== false ? $bytes : null;
     }
     
     /**

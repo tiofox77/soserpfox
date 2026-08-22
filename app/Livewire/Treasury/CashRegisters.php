@@ -50,7 +50,12 @@ class CashRegisters extends Component
                     ->where('tenant_id', activeTenantId()),
             ],
             'form.name' => 'required|string|max:255',
-            'form.code' => 'required|string|max:255|unique:treasury_cash_registers,code,' . ($this->cashRegisterId ?? 'NULL'),
+            'form.code' => [
+                'required', 'string', 'max:255',
+                \Illuminate\Validation\Rule::unique('treasury_cash_registers', 'code')
+                    ->where(fn ($q) => $q->where('tenant_id', activeTenantId()))
+                    ->ignore($this->cashRegisterId),
+            ],
             'form.opening_balance' => 'nullable|numeric|min:0',
             'form.opening_notes' => 'nullable|string',
             'form.is_active' => 'boolean',
@@ -109,8 +114,8 @@ class CashRegisters extends Component
             
             $this->dispatch('success', message: 'Caixa atualizado com sucesso!');
         } else {
-            $data['current_balance'] = 0;
-            $data['expected_balance'] = 0;
+            $data['current_balance'] = (float) ($data['opening_balance'] ?? 0);
+            $data['expected_balance'] = (float) ($data['opening_balance'] ?? 0);
             
             CashRegister::create($data);
             

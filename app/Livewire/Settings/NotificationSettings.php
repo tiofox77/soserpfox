@@ -84,6 +84,11 @@ class NotificationSettings extends Component
 
     public function mount()
     {
+        $requestedTab = request()->route('tab') ?? request()->query('tab');
+        if (in_array($requestedTab, ['dashboard', 'email', 'sms', 'whatsapp'], true)) {
+            $this->activeTab = $requestedTab;
+        }
+
         $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
         $settings = TenantNotificationSetting::getForTenant($tenantId);
 
@@ -92,7 +97,7 @@ class NotificationSettings extends Component
         }
 
         // Email
-        $this->email_enabled = $settings->email_enabled;
+        $this->email_enabled = (bool) $settings->email_enabled;
         $this->smtp_host = $settings->smtp_host;
         $this->smtp_port = $settings->smtp_port ?? 587;
         $this->smtp_username = $settings->smtp_username;
@@ -104,7 +109,7 @@ class NotificationSettings extends Component
         $this->email_notifications = $settings->email_notifications ?? TenantNotificationSetting::getDefaultEmailNotifications();
         
         // SMS
-        $this->sms_enabled = $settings->sms_enabled;
+        $this->sms_enabled = (bool) $settings->sms_enabled;
         $this->sms_provider = $settings->sms_provider ?? '';
         $this->sms_account_sid = $settings->sms_account_sid;
         $this->sms_auth_token = '';       // segredo: não sai do servidor
@@ -114,13 +119,13 @@ class NotificationSettings extends Component
         $this->sms_notifications = $settings->sms_notifications ?? TenantNotificationSetting::getDefaultSmsNotifications();
         
         // WhatsApp
-        $this->whatsapp_enabled = $settings->whatsapp_enabled;
+        $this->whatsapp_enabled = (bool) $settings->whatsapp_enabled;
         $this->whatsapp_provider = $settings->whatsapp_provider ?? 'twilio';
         $this->whatsapp_account_sid = $settings->whatsapp_account_sid;
         $this->whatsapp_auth_token = '';  // segredo: não sai do servidor
         $this->whatsapp_from_number = $settings->whatsapp_from_number;
         $this->whatsapp_business_account_id = $settings->whatsapp_business_account_id;
-        $this->whatsapp_sandbox = $settings->whatsapp_sandbox;
+        $this->whatsapp_sandbox = $settings->whatsapp_sandbox === null ? true : (bool) $settings->whatsapp_sandbox;
         $this->whatsapp_notifications = $settings->whatsapp_notifications ?? TenantNotificationSetting::getDefaultWhatsAppNotifications();
         $this->whatsapp_templates = $settings->whatsapp_templates ?? [];
         $this->whatsapp_notification_templates = $settings->whatsapp_notification_templates ?? [];
@@ -233,6 +238,12 @@ class NotificationSettings extends Component
     {
         $this->validate();
 
+        if ($this->sms_enabled && in_array($this->sms_provider, ['d7networks', 'telcosms'], true)
+            && blank($this->segredoEfectivo('sms_api_token'))) {
+            $this->addError('sms_api_token', 'Indique a chave da aplicação/API antes de ativar este fornecedor.');
+            return;
+        }
+
         $tenantId = auth()->user()->activeTenant()->id ?? session('active_tenant_id');
         $settings = TenantNotificationSetting::getForTenant($tenantId);
 
@@ -251,7 +262,7 @@ class NotificationSettings extends Component
             'sms_provider' => $this->sms_provider,
             'sms_account_sid' => $this->sms_account_sid,
             'sms_from_number' => $this->sms_from_number,
-            'sms_sender_id' => $this->sms_sender_id,
+            'sms_sender_id' => $this->sms_provider === 'telcosms' ? 'SOSERP' : $this->sms_sender_id,
             'sms_notifications' => $this->sms_notifications,
             'sms_notification_templates' => $this->sms_notification_templates,
             // WhatsApp
@@ -386,7 +397,28 @@ class NotificationSettings extends Component
 
     public function testSmsConnection()
     {
-        if ($this->sms_provider === 'd7networks') {
+        if ($this->sms_provider === 'telcosms') {
+            $token = $this->segredoEfectivo('sms_api_token');
+            if (blank($token)) {
+                $this->dispatch('show-toast', ['type' => 'error', 'message' => 'Escreva a chave da aplicação TelcoSMS antes de testar.']);
+                return;
+            }
+
+            $result = (new \App\Services\TelcoSmsService($token))->checkBalance();
+            if (($result['balance_unavailable'] ?? false) === true) {
+                $this->dispatch('show-toast', [
+                    'type' => 'warning',
+                    'message' => 'A TelcoSMS não disponibilizou o saldo neste momento (HTTP '
+                        . ($result['status'] ?? 500) . '). A chave deve ser validada enviando um SMS de teste.',
+                ]);
+                return;
+            }
+            $message = $result['message'];
+            if ($result['success'] && array_key_exists('balance', $result) && $result['balance'] !== null) {
+                $message .= ' Saldo: ' . $result['balance'];
+            }
+            $this->dispatch('show-toast', ['type' => $result['success'] ? 'success' : 'error', 'message' => $message]);
+        } elseif ($this->sms_provider === 'd7networks') {
             $token = $this->segredoEfectivo('sms_api_token');
 
             if (blank($token)) {

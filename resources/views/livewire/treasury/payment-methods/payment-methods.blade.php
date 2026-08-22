@@ -89,6 +89,7 @@
                         <th class="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Método</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Código</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Tipo</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Destino do dinheiro</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Taxas</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-green-700 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-4 text-right text-xs font-bold text-green-700 uppercase tracking-wider">Ações</th>
@@ -119,6 +120,15 @@
                                 <span class="px-3 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
                                     {{ ucfirst($method->type) }}
                                 </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm">
+                                @if($method->type === 'cash' && $method->defaultCashRegister)
+                                    <span class="font-semibold text-orange-700"><i class="fas fa-cash-register mr-1"></i>{{ $method->defaultCashRegister->name }}</span>
+                                @elseif($method->type !== 'cash' && $method->defaultAccount)
+                                    <span class="font-semibold text-blue-700"><i class="fas fa-university mr-1"></i>{{ $method->defaultAccount->account_name }}</span>
+                                @else
+                                    <span class="text-amber-700 bg-amber-50 px-2 py-1 rounded"><i class="fas fa-exclamation-triangle mr-1"></i>Por configurar</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                 @if($method->fee_percentage > 0 || $method->fee_fixed > 0)
@@ -152,7 +162,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-12 text-center">
+                            <td colspan="7" class="px-6 py-12 text-center">
                                 <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
                                 <p class="text-gray-500 font-medium">Nenhum método de pagamento encontrado</p>
                             </td>

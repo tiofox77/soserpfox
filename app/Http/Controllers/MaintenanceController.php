@@ -68,6 +68,7 @@ class MaintenanceController extends Controller
         // que emite credenciais, continua de fora de propósito — a resposta
         // desta rota é texto simples e ficaria com o segredo em claro.
         'agente:escopos',
+        'agente:responsavel-telefone',
         // Os erros do sistema, agrupados. Só lê (fechar e empurrar exigem
         // ?args=--resolver=N ou --empurrar, explícitos).
         'erros:ver',
@@ -127,6 +128,7 @@ class MaintenanceController extends Controller
         // Corrige nome/email/palavra-passe. A palavra-passe vem de ficheiro,
         // nunca de argumento: um argumento de URL fica nos registos.
         'utilizadores:actualizar',
+        'utilizadores:restaurar-acesso',
         // Periodo de teste de uma empresa. Simulacao por omissao: mexe em receita.
         'subscricao:trial',
         // Troca de plano pela mesma regra do ecra. Simulacao por omissao.
@@ -143,9 +145,15 @@ class MaintenanceController extends Controller
         // apenas quando há UMA com documentos emitidos — o resto fica listado
         // para decisão humana. Sem --aplicar é simulação.
         'series:corrigir-padrao',
+        // Só apaga redundâncias por estrear e sem qualquer registo AGT. Uma
+        // série usada/registada é sempre protegida. Simulação por omissão.
+        'series:limpar-invalidas',
         'agt:normalize',
         'agt:migrate-keys',
         'agt:producer-key',
+        // Uma série por vez; sem --aplicar só mostra os metadados assinados.
+        // Evita repetir em lote um erro global de certificação.
+        'agt:sync-series',
         'agt:seed-taxes',
         // Contabilidade: limpa integration_key mal atribuída pela importação do
         // plano (adiantamentos como Clientes, IVA dedutível como liquidado).

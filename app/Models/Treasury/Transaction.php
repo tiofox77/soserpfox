@@ -24,7 +24,9 @@ class Transaction extends Model
         'related_id',
         'transaction_number',
         'type',
+        'transaction_type_id',
         'category',
+        'transaction_category_id',
         'amount',
         'currency',
         'transaction_date',
@@ -67,6 +69,16 @@ class Transaction extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function transactionType(): BelongsTo
+    {
+        return $this->belongsTo(TransactionType::class, 'transaction_type_id');
+    }
+
+    public function transactionCategory(): BelongsTo
+    {
+        return $this->belongsTo(TransactionCategory::class, 'transaction_category_id');
     }
     
     public function salesInvoice(): BelongsTo

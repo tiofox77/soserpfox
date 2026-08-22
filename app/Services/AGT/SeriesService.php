@@ -47,7 +47,7 @@ class SeriesService
         //   - 16 a 31 de Dezembro: ano corrente ou seguinte
         $this->validateSeriesYearWindow($year);
 
-        $documentType = $series->document_type ?? 'FT';
+        $documentType = $this->agtDocumentType((string) ($series->document_type ?? 'FT'));
         $taxNumber    = $this->resolveTenantNif();
         $uuid         = (string) Str::uuid();
 
@@ -142,7 +142,7 @@ class SeriesService
         return $this->builder->buildSolicitarSerie(
             $this->resolveTenantNif(),
             (int) ($series->series_year ?? date('Y')),
-            $series->document_type ?? 'FT',
+            $this->agtDocumentType((string) ($series->document_type ?? 'FT')),
             $series->establishment_number ?? $this->settings->agt_establishment_number ?? 'SEDE',
             $series->series_contingency_indicator ?? 'N'
         );
@@ -188,5 +188,18 @@ class SeriesService
             ?? $this->settings->company_nif
             ?? ''
         );
+    }
+
+    /** Traduz os tipos internos do ERP para o catálogo fechado da DS.120. */
+    private function agtDocumentType(string $type): string
+    {
+        return match (strtolower(trim($type))) {
+            'invoice'     => 'FT',
+            'pos'         => 'FR',
+            'receipt'     => 'RC',
+            'credit_note' => 'NC',
+            'debit_note'  => 'ND',
+            default       => strtoupper(trim($type)),
+        };
     }
 }

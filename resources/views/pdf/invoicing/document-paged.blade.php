@@ -252,8 +252,9 @@
         }
         
         .qr-code img {
-            width: 65px;
-            height: 65px;
+            width: 88px;
+            height: 88px;
+            image-rendering: auto;
         }
         
         /* Document Title */

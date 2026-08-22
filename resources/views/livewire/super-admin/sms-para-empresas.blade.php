@@ -9,7 +9,7 @@
             </div>
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">{{ __('SMS às empresas') }}</h1>
-                <p class="text-sm text-gray-500">{{ __('Pela configuração D7 da plataforma') }}</p>
+                <p class="text-sm text-gray-500">Gateway padrão: {{ $gateway === 'telcosms' ? 'TelcoSMS Angola' : 'D7 Networks' }}</p>
             </div>
         </div>
 
@@ -45,6 +45,13 @@
 
                 {{-- ---- Mensagem ---- --}}
                 <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Usar template existente') }}</label>
+                    <select wire:model.live="template_id" class="mb-4 w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:outline-none">
+                        <option value="">{{ __('Mensagem manual') }}</option>
+                        @foreach($templates as $template)
+                            <option value="{{ $template->id }}">{{ $template->name }}</option>
+                        @endforeach
+                    </select>
                     <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Mensagem') }}</label>
                     {{-- O texto entre as etiquetas e não só o wire:model: num
                          textarea o valor não vem no HTML do servidor, e sem

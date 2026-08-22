@@ -62,13 +62,37 @@ class SmsService
             //
             // Só a D7 está implementada AQUI, ao nível da plataforma. Ao nível
             // da empresa há também Twilio, pelo ImmediateNotificationService.
-            $suportados = ['d7networks'];
+            $suportados = ['d7networks', 'telcosms'];
 
             if ($setting->provider && !in_array($setting->provider, $suportados, true)) {
                 throw new \Exception(
                     "Fornecedor de SMS '{$setting->provider}' não é suportado nas definições da plataforma. "
                     . 'Suportado: ' . implode(', ', $suportados) . '.'
                 );
+            }
+
+            if ($setting->provider === 'telcosms') {
+                $formatted = $this->formatPhoneNumber($recipient);
+                $result = (new TelcoSmsService($setting->telcoApiKey()))->send($formatted, $message);
+                $success = (bool) ($result['success'] ?? false);
+                $log = SmsLog::create([
+                    'recipient' => $formatted,
+                    'message' => $message,
+                    'sender_id' => $setting->sender_id ?: 'SOSERP',
+                    'gateway' => 'telcosms',
+                    'type' => $type,
+                    'status' => $success ? 'sent' : 'failed',
+                    'request_id' => $result['message_id'] ?? null,
+                    'api_response' => json_encode($result['data'] ?? [], JSON_UNESCAPED_UNICODE),
+                    'error_message' => $success ? null : ($result['message'] ?? 'Falha no envio TelcoSMS.'),
+                    'user_id' => ($userId && \App\Models\User::find($userId)) ? $userId : null,
+                    'tenant_id' => ($tenantId && \App\Models\Tenant::find($tenantId)) ? $tenantId : null,
+                    'sent_at' => now(),
+                ]);
+
+                return $success
+                    ? ['success' => true, 'log_id' => $log->id, 'request_id' => $result['message_id'] ?? null, 'response' => $result['data'] ?? null]
+                    : ['success' => false, 'log_id' => $log->id, 'error' => $result['message'] ?? 'Falha no envio TelcoSMS.'];
             }
 
             // Preparar payload
@@ -138,6 +162,7 @@ class SmsService
                 'recipient' => $this->formatPhoneNumber($recipient),
                 'message' => $message,
                 'sender_id' => $setting->sender_id,
+                'gateway' => 'd7networks',
                 'type' => $type,
                 'status' => ($httpCode >= 200 && $httpCode < 300) ? 'sent' : 'failed',
                 'request_id' => $responseData['request_id'] ?? null,
@@ -176,6 +201,7 @@ class SmsService
                     'recipient' => $this->formatPhoneNumber($recipient ?? ''),
                     'message' => $message ?? '',
                     'sender_id' => $setting->sender_id ?? null,
+                    'gateway' => $setting->provider ?? null,
                     'type' => $type,
                     'status' => 'failed',
                     'error_message' => $e->getMessage(),

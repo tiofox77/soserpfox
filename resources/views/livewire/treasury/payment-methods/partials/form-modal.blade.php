@@ -54,7 +54,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 <i class="fas fa-list mr-1 text-green-600"></i>Tipo*
                             </label>
-                            <select wire:model="form.type" 
+                            <select wire:model.live="form.type"
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200">
                                 {{-- Tipos REAIS: é por aqui que a venda decide a
                                      categoria em tesouraria e se entra na caixa --}}
@@ -115,6 +115,31 @@
                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200"
                                    placeholder="0.00">
                             @error('form.fee_fixed') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
+
+                        <!-- Descrição -->
+                        <div class="md:col-span-2 rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
+                            <p class="font-bold text-blue-900 mb-1"><i class="fas fa-route mr-2"></i>Destino automático do dinheiro</p>
+                            <p class="text-xs text-blue-700 mb-3">Cada recebimento da Facturação será lançado neste destino. O utilizador ainda pode escolher outro destino ao registar um pagamento.</p>
+                            @if(($form['type'] ?? 'cash') === 'cash')
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Caixa padrão</label>
+                                <select wire:model="form.default_cash_register_id" class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl bg-white">
+                                    <option value="">Usar o caixa aberto/padrão</option>
+                                    @foreach($cashRegisters as $cash)
+                                        <option value="{{ $cash->id }}">{{ $cash->name }}{{ $cash->is_default ? ' · Padrão' : '' }}</option>
+                                    @endforeach
+                                </select>
+                                @error('form.default_cash_register_id') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            @else
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Conta bancária padrão</label>
+                                <select wire:model="form.default_account_id" class="w-full px-4 py-3 border-2 border-blue-200 rounded-xl bg-white">
+                                    <option value="">Usar a conta bancária padrão</option>
+                                    @foreach($accounts as $account)
+                                        <option value="{{ $account->id }}">{{ $account->bank->name ?? 'Banco' }} · {{ $account->account_name }}{{ $account->is_default ? ' · Padrão' : '' }}</option>
+                                    @endforeach
+                                </select>
+                                @error('form.default_account_id') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            @endif
                         </div>
 
                         <!-- Descrição -->

@@ -72,6 +72,27 @@ class PosBarcodeTest extends TenantTestCase
         );
     }
 
+    public function test_carrinho_antigo_sincroniza_preco_e_iva_atuais_do_produto(): void
+    {
+        $p = $this->comCodigo('5607777777777', 10);
+        $p->update(['price' => 1800, 'tax_type' => 'iva', 'tax_rate_id' => null]);
+        $key = $this->chaveDoCarrinho();
+        $cart = \Darryldecode\Cart\Facades\CartFacade::session($key);
+        $cart->add([
+            'id' => $p->id, 'name' => $p->name, 'price' => 1799.98, 'quantity' => 2,
+            'attributes' => ['tax_rate' => 0, 'tax_type' => 'isento', 'discount_percent' => 0],
+        ]);
+
+        $component = Livewire::test(POSSystem::class);
+        $line = $cart->get($p->id);
+        $expectedTax = \App\Services\Invoicing\TaxResolver::forProduct($p->fresh(), $this->tenant->id);
+
+        $this->assertSame(1800.0, (float) $line->price);
+        $this->assertSame((float) $expectedTax['rate'], (float) $line->attributes->tax_rate);
+        $this->assertSame(3600.0, (float) $component->get('cartSubtotal'));
+        $this->assertSame(3600.0 + round(3600 * ((float) $expectedTax['rate'] / 100), 2), (float) $component->get('cartTotal'));
+    }
+
     public function test_um_artigo_esgotado_diz_porque_nao_entra(): void
     {
         // É este o caso que fazia parecer que a leitura não funcionava: a grelha

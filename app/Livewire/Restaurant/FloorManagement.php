@@ -4,6 +4,7 @@ namespace App\Livewire\Restaurant;
 
 use App\Models\Restaurant\Area;
 use App\Models\Restaurant\DiningTable;
+use App\Models\Restaurant\Order;
 use App\Models\Restaurant\Venue;
 use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Validation\Rule;
@@ -77,6 +78,14 @@ class FloorManagement extends Component
             $this->redirectRoute('restaurant.orders', ['order' => $table->activeOrder()->value('id')]);
             return;
         }
+        if ($table->status === 'cleaning') {
+            $this->dispatch('notify', type: 'warning', message: 'A mesa aguarda limpeza. Marque-a como limpa antes de abrir novo atendimento.');
+            return;
+        }
+        if ($table->status === 'blocked') {
+            $this->dispatch('notify', type: 'error', message: 'A mesa está bloqueada e não pode receber atendimento.');
+            return;
+        }
         $this->selectedTableId = $table->id;
         $this->guestCount = 1;
         $this->showOpenOrder = true;
@@ -90,14 +99,48 @@ class FloorManagement extends Component
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $order = $service->open([
-            'venue_id' => $this->venueId,
-            'table_id' => $this->selectedTableId,
-            'guest_count' => $this->guestCount,
-            'notes' => $this->notes,
-        ], activeTenantId(), auth()->id());
+        try {
+            $order = $service->open([
+                'venue_id' => $this->venueId,
+                'table_id' => $this->selectedTableId,
+                'guest_count' => $this->guestCount,
+                'notes' => $this->notes,
+            ], activeTenantId(), auth()->id());
 
-        $this->redirectRoute('restaurant.orders', ['order' => $order->id]);
+            $this->redirectRoute('restaurant.orders', ['order' => $order->id]);
+        } catch (\InvalidArgumentException $e) {
+            $this->showOpenOrder = false;
+            $this->selectedTableId = null;
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+        }
+    }
+
+    public function markTableClean(int $tableId, RestaurantOrderService $service): void
+    {
+        try {
+            $table = DiningTable::where('is_active', true)->findOrFail($tableId);
+            if ($table->status !== 'cleaning') {
+                throw new \InvalidArgumentException('A mesa já não está em limpeza. Atualize a sala.');
+            }
+
+            $lastBilled = Order::where('table_id', $table->id)->where('status', 'billed')->latest('closed_at')->first();
+            if ($lastBilled) {
+                $service->releaseTable($lastBilled, activeTenantId(), auth()->id());
+            } elseif (!$table->activeOrder()->exists()) {
+                // Recupera apenas um estado órfão antigo. Nunca liberta uma mesa
+                // que ainda tenha comanda aberta.
+                $table->update(['status' => 'available']);
+                \Log::warning('Estado de limpeza órfão corrigido no mapa do restaurante.', [
+                    'tenant_id' => activeTenantId(), 'table_id' => $table->id, 'user_id' => auth()->id(),
+                ]);
+            } else {
+                throw new \InvalidArgumentException('A mesa ainda possui uma comanda pendente.');
+            }
+
+            $this->dispatch('notify', type: 'success', message: 'Mesa limpa e disponível para novo atendimento.');
+        } catch (\InvalidArgumentException $e) {
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+        }
     }
 
     public function render()

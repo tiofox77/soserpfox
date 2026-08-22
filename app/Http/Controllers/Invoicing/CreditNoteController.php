@@ -30,7 +30,7 @@ class CreditNoteController extends Controller
                 ->get();
             
             // Gerar QR Code AGT
-            $qrCode = getAGTQRData($creditNote, 80);
+            $qrCode = getAGTQRData($creditNote, 140);
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.credit-note', [
@@ -85,7 +85,7 @@ class CreditNoteController extends Controller
             ->get();
         
         // Gerar QR Code AGT
-        $qrCode = getAGTQRData($creditNote, 80);
+        $qrCode = getAGTQRData($creditNote, 140);
         
         return view('pdf.invoicing.credit-note', [
             'creditNote' => $creditNote,

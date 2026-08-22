@@ -76,6 +76,12 @@ class CategoriasDeTesouraria
             return 'Sem categoria';
         }
 
+        if (\Illuminate\Support\Facades\Schema::hasTable('treasury_transaction_categories') && activeTenantId()) {
+            $personalizado = DB::table('treasury_transaction_categories')
+                ->where('tenant_id', activeTenantId())->where('code', $chave)->value('name');
+            if ($personalizado) return $personalizado;
+        }
+
         return self::todas()[$chave] ?? ucfirst(str_replace('_', ' ', $chave));
     }
 
@@ -94,6 +100,13 @@ class CategoriasDeTesouraria
 
         if (!$tenantId) {
             return $lista;
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('treasury_transaction_categories')) {
+            foreach (DB::table('treasury_transaction_categories')->where('tenant_id', $tenantId)
+                ->where('is_active', true)->orderBy('sort_order')->pluck('name', 'code') as $codigo => $nome) {
+                $lista[$codigo] = $nome;
+            }
         }
 
         $naBase = DB::table('treasury_transactions')

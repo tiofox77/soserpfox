@@ -30,7 +30,7 @@ class ProformaController extends Controller
                 ->get();
             
             // Gerar QR Code AGT
-            $qrCode = getAGTQRData($proforma, 80);
+            $qrCode = getAGTQRData($proforma, 140);
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.proforma', [
@@ -86,7 +86,7 @@ class ProformaController extends Controller
             ->get();
         
         // Gerar QR Code AGT
-        $qrCode = getAGTQRData($proforma, 80);
+        $qrCode = getAGTQRData($proforma, 140);
         
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.proforma', [

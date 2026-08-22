@@ -30,7 +30,7 @@ class ReceiptController extends Controller
                 ->get();
             
             // Gerar QR Code AGT
-            $qrCode = getAGTQRData($receipt, 80);
+            $qrCode = getAGTQRData($receipt, 140);
             
             // Configurar PDF com options
             $pdf = Pdf::loadView('pdf.invoicing.receipt', [
@@ -87,7 +87,7 @@ class ReceiptController extends Controller
             ->get();
         
         // Gerar QR Code AGT
-        $qrCode = getAGTQRData($receipt, 80);
+        $qrCode = getAGTQRData($receipt, 140);
         
         // Retornar view HTML diretamente (sem PDF)
         return view('pdf.invoicing.receipt', [

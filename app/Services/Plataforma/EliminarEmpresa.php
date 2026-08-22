@@ -115,6 +115,34 @@ class EliminarEmpresa
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
             try {
+                // Um utilizador pode pertencer a várias empresas. `users.tenant_id`
+                // guarda apenas a empresa principal; apagá-lo por essa coluna
+                // destruía também o login nas restantes empresas do pivô.
+                // Antes da limpeza, muda a empresa principal dos utilizadores
+                // partilhados para uma das empresas que vai continuar a existir.
+                if (Schema::hasTable('users') && Schema::hasTable('tenant_user')) {
+                    $partilhados = DB::table('users')->where('tenant_id', $id)->pluck('id');
+
+                    foreach ($partilhados as $userId) {
+                        $outroTenant = DB::table('tenant_user')
+                            ->where('user_id', $userId)
+                            ->where('tenant_id', '<>', $id)
+                            ->whereExists(fn ($q) => $q->selectRaw('1')->from('tenants')
+                                ->whereColumn('tenants.id', 'tenant_user.tenant_id')
+                                ->whereNull('tenants.deleted_at'))
+                            ->orderBy('tenant_id')
+                            ->value('tenant_id');
+
+                        if ($outroTenant) {
+                            DB::table('users')->where('id', $userId)->update([
+                                'tenant_id' => $outroTenant,
+                                'is_active' => true,
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                }
+
                 foreach ($this->tabelasDaEmpresa() as $tabela) {
                     $linhas += DB::table($tabela)->where('tenant_id', $id)->delete();
                 }

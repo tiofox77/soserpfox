@@ -62,6 +62,8 @@ class AgtCertificacaoAmbienteTest extends TenantTestCase
         [$pub, $priv] = $this->parRsa(0);
         Storage::disk('local')->put('saft/public_key.pem', $pub);
         Storage::disk('local')->put('saft/private_key.pem', $priv);
+        Storage::disk('local')->put("saft/{$ambiente}/public_key.pem", $pub);
+        Storage::disk('local')->put("saft/{$ambiente}/private_key.pem", $priv);
 
         [$pubE, $privE] = $this->parRsa(1);
         AGTKeyStore::store($this->tenant->id, $pubE, $privE, $ambiente);

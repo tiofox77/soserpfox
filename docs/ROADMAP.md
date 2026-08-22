@@ -4,6 +4,11 @@
 
 Sistema ERP Multi-tenant com arquitetura modular, construído em Laravel + Livewire + Tailwind CSS.
 
+> **Revisão 2026-08-20:** Contabilidade está em **50%**. Núcleo implementado,
+> mas a conclusão depende de validação PGC-AO, retenções, integração da folha e
+> testes contabilísticos de ponta a ponta. OpenClaw passou a gerente operacional
+> autenticado, com analytics, auditoria, alertas, filtros e controlos em allowlist.
+
 ### Stack Tecnológica
 - **Backend**: Laravel (PHP)
 - **Frontend**: Livewire + Tailwind CSS

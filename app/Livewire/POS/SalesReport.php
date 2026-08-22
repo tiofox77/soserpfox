@@ -13,6 +13,7 @@ use App\Models\Invoicing\CreditNoteItem;
 use App\Models\Invoicing\InvoicingSeries;
 use App\Helpers\InvoiceCalculationHelper;
 use Illuminate\Support\Facades\DB;
+use App\Models\Treasury\Transaction as TreasuryTransaction;
 
 #[Layout('layouts.app')]
 #[Title('Relatório de Vendas POS')]
@@ -25,6 +26,7 @@ class SalesReport extends Component
     public $search = '';
     public $status = '';
     public $paymentMethod = '';
+    public string $sourceModule = '';
 
     /**
      * Tipo de documento: '' (tudo), 'FR' (facturas) ou 'NC' (notas de crédito).
@@ -76,12 +78,31 @@ class SalesReport extends Component
     public $totalTax = 0;
     public $totalDiscount = 0;
 
-    public function mount()
+    public function mount(?string $sourceModule = null)
     {
-        abort_unless(auth()->user()?->can('invoicing.pos.reports'), 403, __('Sem permissão para ver relatórios POS.'));
+        $this->sourceModule = $sourceModule ?? '';
+        $creditTransactionId = request()->integer('credit_transaction');
+        $canOpenTreasuryCredit = $creditTransactionId
+            && auth()->user()?->can('treasury.transactions.view');
+        abort_unless(
+            auth()->user()?->can('invoicing.pos.reports')
+                || ($this->sourceModule === 'restaurant' && auth()->user()?->can('restaurant.reports.view'))
+                || $canOpenTreasuryCredit,
+            403,
+            __('Sem permissão para ver relatórios POS.')
+        );
         $this->startDate = now()->startOfMonth()->format('Y-m-d');
         $this->endDate = now()->format('Y-m-d');
         $this->loadStatistics();
+
+        if ($canOpenTreasuryCredit) {
+            $transaction = TreasuryTransaction::where('tenant_id', activeTenantId())
+                ->where('type', 'income')->where('status', 'completed')
+                ->whereNotNull('invoice_id')->findOrFail($creditTransactionId);
+            $invoice = SalesInvoice::with(['client', 'items.product'])
+                ->where('tenant_id', activeTenantId())->findOrFail($transaction->invoice_id);
+            $this->prepareCreditNote($invoice);
+        }
     }
 
     /**
@@ -171,6 +192,7 @@ class SalesReport extends Component
             'status'         => $this->status,
             'payment_method' => $this->paymentMethod,
             'document_type'  => $this->documentType,
+            'source_module'  => $this->sourceModule,
             // A restrição por operador vale também para as notas de crédito:
             // sem isso, o mapa restrito mostrava devoluções de colegas.
             //
@@ -273,6 +295,11 @@ class SalesReport extends Component
         $invoice = $query->find($invoiceId);
         abort_unless($invoice, 404, __('Fatura não encontrada ou sem acesso.'));
 
+        $this->prepareCreditNote($invoice);
+    }
+
+    private function prepareCreditNote(SalesInvoice $invoice): void
+    {
         if (in_array($invoice->status, ['cancelled', 'credited'])) {
             $this->dispatch('notify', [
                 'type' => 'error',

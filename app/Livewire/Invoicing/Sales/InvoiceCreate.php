@@ -1369,20 +1369,18 @@ class InvoiceCreate extends Component
             ? ($typeToCategory[$method->type] ?? 'cash')
             : ($codeToCategory[$code] ?? 'cash');
 
-        $isCash = $method ? ($method->type === 'cash') : ($code === 'cash');
-
-        $cashRegisterId = null;
-        if ($isCash) {
-            $cashRegisterId = \App\Models\Treasury\CashRegister::where('tenant_id', activeTenantId())
-                ->where('is_active', true)
-                ->where('status', 'open')
-                ->value('id');
+        if (!$method) {
+            throw new \RuntimeException('Método de pagamento sem correspondência na Tesouraria.');
         }
 
-        \App\Models\Treasury\Transaction::create([
+        $destination = app(\App\Services\Treasury\TreasuryMovementService::class)
+            ->destination($method, activeTenantId(), userId: auth()->id());
+
+        app(\App\Services\Treasury\TreasuryMovementService::class)->post([
             'tenant_id'          => activeTenantId(),
             'user_id'            => auth()->id(),
-            'cash_register_id'   => $cashRegisterId,
+            'account_id'         => $destination['account_id'],
+            'cash_register_id'   => $destination['cash_register_id'],
             'payment_method_id'  => $method?->id,
             'invoice_id'         => $invoice->id,
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),

@@ -544,24 +544,15 @@ class PosSaleService
             ? ($typeToCategory[$treasuryPaymentMethod->type] ?? 'cash')
             : ($codeToCategory[$code] ?? 'cash');
 
-        $isCash = $treasuryPaymentMethod ? ($treasuryPaymentMethod->type === 'cash') : ($code === 'cash');
+        $destination = $treasuryPaymentMethod
+            ? app(\App\Services\Treasury\TreasuryMovementService::class)->destination($treasuryPaymentMethod, $tenantId, userId: $userId)
+            : ['account_id' => null, 'cash_register_id' => null];
 
-        $cashRegisterId = null;
-        $activeCashRegister = null;
-        if ($isCash) {
-            $activeCashRegister = CashRegister::where('tenant_id', $tenantId)
-                ->where('is_active', true)
-                ->where('status', 'open')
-                ->first();
-            if ($activeCashRegister) {
-                $cashRegisterId = $activeCashRegister->id;
-            }
-        }
-
-        Transaction::create([
+        app(\App\Services\Treasury\TreasuryMovementService::class)->post([
             'tenant_id'          => $tenantId,
             'user_id'            => $userId,
-            'cash_register_id'   => $cashRegisterId,
+            'account_id'         => $destination['account_id'],
+            'cash_register_id'   => $destination['cash_register_id'],
             'payment_method_id'  => $treasuryPaymentMethod?->id,
             'invoice_id'         => $invoice->id,
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),
@@ -577,11 +568,6 @@ class PosSaleService
             'is_reconciled'      => false,
         ]);
 
-        // A caixa só sobe com a PARTE em numerário deste tender.
-        if ($cashRegisterId && $activeCashRegister) {
-            $activeCashRegister->current_balance += $amount;
-            $activeCashRegister->save();
-        }
     }
 
     /**

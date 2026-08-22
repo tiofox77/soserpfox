@@ -101,6 +101,7 @@ class POSSystem extends Component
     public $cartDiscount = 0;
     public $cartQuantity = 0;
     public $taxRate = 14;
+    public string $taxLabel = '14%';
     public $irtRate = 6.5;
     public $change = 0;
     
@@ -188,7 +189,35 @@ class POSSystem extends Component
 
     public function loadCart()
     {
-        $content = Cart::session($this->cartKey())->getContent();
+        $cart = Cart::session($this->cartKey());
+        $content = $cart->getContent();
+
+        // O carrinho vive na sessão e pode atravessar alterações de preço,
+        // imposto ou regime fiscal. Uma linha antiga conservava, por exemplo,
+        // preço 1.799,98 e IVA 0%, mesmo quando a ficha já dizia 1.800,00 e 14%.
+        // Antes de qualquer total, sincronizar sempre os dados CANÓNICOS.
+        $productIds = $content->keys()->filter(fn ($id) => is_numeric($id))->map(fn ($id) => (int) $id)->values();
+        $products = Product::where('tenant_id', activeTenantId())->whereIn('id', $productIds)->get()->keyBy('id');
+        foreach ($content as $id => $item) {
+            if (!is_numeric($id) || !($product = $products->get((int) $id))) continue;
+            $attrs = \App\Helpers\InvoiceCalculationHelper::atributos($item);
+            $tax = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
+            $canonicalPrice = round((float) $product->price, 2);
+            $canonicalAttrs = array_merge($attrs, [
+                'image' => $product->image,
+                'sku' => $product->sku,
+                'unit' => $product->unit ?: 'UN',
+                'tax_rate' => $tax['rate'],
+                'tax_type' => $tax['type'],
+                'exemption_reason' => $tax['exemption_code'],
+            ]);
+            if (round((float) $item->price, 2) !== $canonicalPrice
+                || (float) ($attrs['tax_rate'] ?? -1) !== (float) $tax['rate']
+                || ($attrs['tax_type'] ?? null) !== $tax['type']) {
+                $cart->update($id, ['price' => $canonicalPrice, 'attributes' => $canonicalAttrs]);
+            }
+        }
+        $content = $cart->getContent();
 
         // Ordem estável de inserção — a lib darryldecode/cart reordena (remove e
         // re-insere no fim) ao fazer update(), fazendo o item "saltar" para o final.
@@ -206,8 +235,10 @@ class POSSystem extends Component
         if ($changed) { session([$orderKey => $order]); }
 
         $this->cartItems = $content->sortBy(fn($item) => $order[$item->id] ?? PHP_INT_MAX)->values();
-        $this->cartSubtotal = Cart::session($this->cartKey())->getSubTotal();
-        $this->cartQuantity = Cart::session($this->cartKey())->getTotalQuantity();
+        // Soma monetária linha a linha. Evita que frações ocultas se acumulem
+        // enquanto a interface mostra cada linha arredondada.
+        $this->cartSubtotal = round($content->sum(fn ($item) => round((float) $item->price * (float) $item->quantity, 2)), 2);
+        $this->cartQuantity = $cart->getTotalQuantity();
         
         // Obter configurações de impostos
         $settings = InvoicingSettings::forTenant(activeTenantId());
@@ -219,6 +250,11 @@ class POSSystem extends Component
         
         // Guardar taxas para exibição
         $this->taxRate = $defaultTaxRate;
+        $rates = $content->map(fn ($item) => (float) (\App\Helpers\InvoiceCalculationHelper::atributos($item)['tax_rate'] ?? 0))
+            ->unique()->sort()->values();
+        $this->taxLabel = $rates->count() === 1
+            ? number_format((float) $rates->first(), 0).'%'
+            : ($rates->isEmpty() ? '0%' : 'misto');
         $this->irtRate = $defaultIrtRate;
         
         // Garantir que desconto seja numérico
@@ -1497,27 +1533,16 @@ class POSSystem extends Component
             ? ($typeToCategory[$treasuryPaymentMethod->type] ?? 'cash')
             : ($codeToCategory[$code] ?? 'cash');
 
-        // É dinheiro? (pelo tipo do método, ou pelo código em fallback)
-        $isCash = $treasuryPaymentMethod ? ($treasuryPaymentMethod->type === 'cash') : ($code === 'cash');
-
-        // Para pagamento em dinheiro, buscar caixa ativa
-        $cashRegisterId = null;
-        if ($isCash) {
-            $activeCashRegister = CashRegister::where('tenant_id', activeTenantId())
-                ->where('is_active', true)
-                ->where('status', 'open')
-                ->first();
-
-            if ($activeCashRegister) {
-                $cashRegisterId = $activeCashRegister->id;
-            }
-        }
+        $destination = $treasuryPaymentMethod
+            ? app(\App\Services\Treasury\TreasuryMovementService::class)->destination($treasuryPaymentMethod, activeTenantId(), userId: auth()->id())
+            : ['account_id' => null, 'cash_register_id' => null];
 
         // Criar transação de entrada (receita)
-        Transaction::create([
+        app(\App\Services\Treasury\TreasuryMovementService::class)->post([
             'tenant_id' => activeTenantId(),
             'user_id' => auth()->id(),
-            'cash_register_id' => $cashRegisterId,
+            'account_id' => $destination['account_id'],
+            'cash_register_id' => $destination['cash_register_id'],
             'payment_method_id' => $treasuryPaymentMethod?->id,
             'invoice_id' => $invoice->id,
             'transaction_number' => 'TRX-' . strtoupper(uniqid()),
@@ -1533,11 +1558,6 @@ class POSSystem extends Component
             'is_reconciled' => false,
         ]);
 
-        // Só a parte em numerário deste tender sobe ao saldo da caixa.
-        if ($cashRegisterId) {
-            $activeCashRegister->current_balance += $amount;
-            $activeCashRegister->save();
-        }
     }
 
     /**

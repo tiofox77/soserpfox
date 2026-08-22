@@ -11,6 +11,7 @@ class SmsLog extends Model
         'recipient',
         'message',
         'sender_id',
+        'gateway',
         'type',
         'status',
         'request_id',

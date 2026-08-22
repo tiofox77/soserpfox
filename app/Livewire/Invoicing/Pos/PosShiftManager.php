@@ -6,6 +6,8 @@ use App\Models\Invoicing\PosShift;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use App\Models\Treasury\CashRegister;
+use Illuminate\Support\Facades\DB;
 
 #[Layout('layouts.app')]
 #[Title('POS - Ponto de Venda')]
@@ -27,10 +29,24 @@ class PosShiftManager extends Component
     public $actual_cash = null;   // null → o operador tem de digitar o valor contado
     public $closing_notes = '';
     public $difference_reason = '';
+    public $assignedCashRegisterId = null;
+    public $assignedCashRegisterName = null;
+    public $assignedCashRegisterStatus = null;
 
     public function mount()
     {
         $this->loadCurrentShift();
+        $this->loadAssignedCashRegister();
+    }
+
+    private function loadAssignedCashRegister(): void
+    {
+        $cash = CashRegister::where('tenant_id', activeTenantId())
+            ->where('user_id', auth()->id())->where('is_active', true)
+            ->orderByDesc('is_default')->orderBy('id')->first();
+        $this->assignedCashRegisterId = $cash?->id;
+        $this->assignedCashRegisterName = $cash?->name;
+        $this->assignedCashRegisterStatus = $cash?->status;
     }
 
     public function loadCurrentShift()
@@ -66,18 +82,34 @@ class PosShiftManager extends Component
 
         try {
             $tenantId = activeTenantId();
-            $shift = PosShift::createSafely([
-                'tenant_id' => $tenantId,
-                'user_id' => auth()->id(),
-                'status' => 'open',
-                'opened_at' => now(),
-                'opening_balance' => $this->opening_balance,
-                'opening_notes' => $this->opening_notes,
-                'opened_ip' => request()->ip(),
-            ], $tenantId);
+            $shift = DB::transaction(function () use ($tenantId) {
+                $cash = $this->assignedCashRegisterId
+                    ? CashRegister::where('tenant_id', $tenantId)->lockForUpdate()->find($this->assignedCashRegisterId)
+                    : null;
+                if ($cash && $cash->status !== 'open') {
+                    $cash->update([
+                        'status' => 'open', 'opened_at' => now(), 'closed_at' => null,
+                        'opening_balance' => $this->opening_balance,
+                        'current_balance' => $this->opening_balance,
+                        'expected_balance' => $this->opening_balance,
+                        'opening_notes' => $this->opening_notes,
+                    ]);
+                }
+
+                return PosShift::createSafely([
+                    'tenant_id' => $tenantId,
+                    'user_id' => auth()->id(),
+                    'status' => 'open',
+                    'opened_at' => now(),
+                    'opening_balance' => $this->opening_balance,
+                    'opening_notes' => $this->opening_notes,
+                    'opened_ip' => request()->ip(),
+                ], $tenantId);
+            });
 
             $this->currentShift = $shift;
             $this->showOpenShiftModal = false;
+            $this->loadAssignedCashRegister();
             // O emoji fica FORA da cadeia traduzida: é decoração, igual nas três
             // línguas, e metê-lo dentro da chave obrigava cada tradutor a copiá-lo
             // à mão — um ✅ perdido bastaria para a tradução deixar de casar.
@@ -115,11 +147,26 @@ class PosShiftManager extends Component
 
         try {
             $closedShiftId = $this->currentShift->id;
-            $this->currentShift->close(
-                $this->actual_cash,
-                $this->closing_notes,
-                $this->difference_reason
-            );
+            DB::transaction(function () {
+                $this->currentShift->close(
+                    $this->actual_cash,
+                    $this->closing_notes,
+                    $this->difference_reason
+                );
+
+                if ($this->assignedCashRegisterId) {
+                    $cash = CashRegister::where('tenant_id', activeTenantId())
+                        ->lockForUpdate()->find($this->assignedCashRegisterId);
+                    if ($cash && $cash->status === 'open') {
+                        $cash->update([
+                            'status' => 'closed', 'closed_at' => now(),
+                            'current_balance' => $this->actual_cash,
+                            'expected_balance' => $this->currentShift->expected_cash,
+                            'closing_notes' => $this->closing_notes,
+                        ]);
+                    }
+                }
+            });
 
             $this->dispatch('success', message: '✅ ' . __('Turno fechado com sucesso!'));
             $this->showCloseShiftModal = false;
@@ -129,6 +176,7 @@ class PosShiftManager extends Component
             $this->showAfterCloseModal = true;
 
             $this->loadCurrentShift();
+            $this->loadAssignedCashRegister();
         } catch (\Exception $e) {
             $this->dispatch('error', message: '❌ ' . __('Erro ao fechar turno: :erro', ['erro' => $e->getMessage()]));
         }

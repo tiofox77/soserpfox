@@ -445,6 +445,36 @@ class OperacoesController extends Controller
         ]);
     }
 
+    /** Compatibilidade explícita com a spec v2. */
+    public function suspenderEmpresa(Request $request, Tenant $tenant)
+    {
+        return $this->mudarEstado($request, $tenant, false);
+    }
+
+    public function reactivarEmpresa(Request $request, Tenant $tenant)
+    {
+        return $this->mudarEstado($request, $tenant, true);
+    }
+
+    private function mudarEstado(Request $request, Tenant $tenant, bool $activo)
+    {
+        $dados = $request->validate(['motivo' => 'required|string|min:8|max:500']);
+        $antes = (bool) $tenant->is_active;
+        $tenant->forceFill(['is_active' => $activo])->save();
+
+        \Log::warning('Agente mudou o estado de uma empresa (spec v2)', [
+            'agente' => $this->agente()->nome(), 'tenant_id' => $tenant->id,
+            'de' => $antes ? 'activa' : 'suspensa', 'para' => $activo ? 'activa' : 'suspensa',
+            'motivo' => $dados['motivo'],
+        ]);
+
+        return response()->json([
+            'empresa' => ['id' => $tenant->id, 'nome' => $tenant->name, 'activa' => $activo,
+                'estado' => $activo ? 'Ativo' : 'Suspenso'],
+            'mudou' => $antes !== $activo,
+        ]);
+    }
+
     // ══════════════════════════════════════════════════════════════
     //  O resumo de hora a hora
     // ══════════════════════════════════════════════════════════════

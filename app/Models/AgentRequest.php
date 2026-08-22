@@ -13,4 +13,9 @@ class AgentRequest extends Model
     ];
 
     protected $casts = ['resposta' => 'array'];
+
+    public function token()
+    {
+        return $this->belongsTo(AgentToken::class, 'agent_token_id');
+    }
 }

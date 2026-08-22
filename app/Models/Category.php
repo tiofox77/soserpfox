@@ -68,6 +68,21 @@ class Category extends Model
         return $this->name;
     }
 
+    public static function seedRestaurantDefaults(int $tenantId): void
+    {
+        if (self::withoutGlobalScopes()->where('tenant_id', $tenantId)->whereNull('deleted_at')->exists()) return;
+        foreach ([
+            ['Geral', 'fa-layer-group', '#2563EB'], ['Entradas', 'fa-bowl-food', '#F59E0B'],
+            ['Pratos Principais', 'fa-utensils', '#EA580C'], ['Bebidas', 'fa-martini-glass-citrus', '#0891B2'],
+            ['Sobremesas', 'fa-ice-cream', '#DB2777'],
+        ] as $order => [$name, $icon, $color]) {
+            self::withoutGlobalScopes()->firstOrCreate(
+                ['tenant_id' => $tenantId, 'slug' => Str::slug($name)],
+                ['name' => $name, 'icon' => $icon, 'color' => $color, 'order' => $order, 'is_active' => true]
+            );
+        }
+    }
+
     // Scopes
     public function scopeMainCategories($query)
     {

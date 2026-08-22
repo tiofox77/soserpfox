@@ -2,8 +2,13 @@
 
 **Versão:** 5.0  
 **Data:** 13 de janeiro de 2025  
-**Status:** ✅ 99% IMPLEMENTADO (R0 98% + R1 100% + R2 100%! 🎉🎉🎉)  
+**Status real validado:** 🟡 **50% IMPLEMENTADO**  
 **Inspiração:** Primavera ERP (adaptado para Angola)
+
+> Revisão de 20 de Agosto de 2026: o valor antigo de 99% media ficheiros e
+> ecrãs existentes, não fluxos contabilísticos validados. Para produto e PRD,
+> o módulo fica em 50% até concluir validação PGC-AO, retenções, integração da
+> folha, testes de fecho/reabertura e reconciliação com casos reais.
 
 ---
 

@@ -127,6 +127,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/dashboard', \App\Livewire\SuperAdmin\Dashboard::class)->name('dashboard');
     Route::get('/analytics', \App\Livewire\SuperAdmin\Analytics::class)->name('analytics');
     Route::get('/tenants', \App\Livewire\SuperAdmin\Tenants::class)->name('tenants');
+    Route::get('/restaurant-venue-requests', \App\Livewire\SuperAdmin\RestaurantVenueRequests::class)->name('restaurant-venue-requests');
     Route::get('/modules', \App\Livewire\SuperAdmin\Modules::class)->name('modules');
     Route::get('/plans', \App\Livewire\SuperAdmin\Plans::class)->name('plans');
     Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
@@ -336,6 +337,9 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     
     // Configurações
     Route::middleware('permission:invoicing.settings.view')->get('/settings', \App\Livewire\Invoicing\Settings::class)->name('settings');
+    Route::middleware('permission:invoicing.settings.view')
+        ->get('/settings/notification-gateways', \App\Livewire\Settings\NotificationSettings::class)
+        ->defaults('tab', 'sms')->name('notification-gateways');
 
     // Trilha de auditoria. Protegida pela mesma permissão das definições: quem
     // pode ver a configuração fiscal da empresa pode ver quem lhe mexeu.
@@ -441,6 +445,10 @@ Route::middleware(['auth', 'tenant.module:treasury'])->prefix('treasury')->name(
     Route::get('/accounts', \App\Livewire\Treasury\Accounts::class)->name('accounts');
     Route::get('/cash-registers', \App\Livewire\Treasury\CashRegisters::class)->name('cash-registers');
     Route::get('/transactions', \App\Livewire\Treasury\Transactions::class)->name('transactions');
+    Route::get('/transaction-types', \App\Livewire\Treasury\TransactionClassifications::class)
+        ->defaults('kind', 'type')->name('transaction-types');
+    Route::get('/transaction-categories', \App\Livewire\Treasury\TransactionClassifications::class)
+        ->defaults('kind', 'category')->name('transaction-categories');
     Route::get('/transfers', \App\Livewire\Treasury\TransfersManagement::class)->name('transfers');
 });
 
@@ -714,6 +722,25 @@ Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->n
         ->get('/floor', \App\Livewire\Restaurant\FloorManagement::class)->name('floor');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/orders', \App\Livewire\Restaurant\OrderManagement::class)->name('orders');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/pos', \App\Livewire\Restaurant\RestaurantPos::class)->name('pos');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/products', \App\Livewire\Invoicing\Products::class)->name('products');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/contacts', \App\Livewire\Restaurant\ContactManagement::class)->name('contacts');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/categories', \App\Livewire\Restaurant\CategoryManagement::class)->name('categories');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/shifts', \App\Livewire\Invoicing\Pos\PosShiftManager::class)->name('shifts');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/shift-history', \App\Livewire\Invoicing\Pos\ShiftHistory::class)->name('shift-history');
+    Route::middleware('permission:restaurant.reports.view')
+        ->get('/sales-report', \App\Livewire\POS\SalesReport::class)
+        ->defaults('sourceModule', 'restaurant')->name('sales-report');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/orders/{id}/consultation-receipt', [\App\Http\Controllers\Restaurant\RestaurantDocumentController::class, 'consultationReceipt'])->name('orders.consultation-receipt');
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/documents/{id}/print', [\App\Http\Controllers\Restaurant\RestaurantDocumentController::class, 'fiscalDocument'])->name('documents.print');
     Route::middleware('permission:restaurant.kitchen.view')
         ->get('/kitchen', \App\Livewire\Restaurant\KitchenDisplay::class)->name('kitchen');
     Route::middleware('permission:restaurant.kitchen.view')->get('/kitchen/tickets/{ticket}/print', [\App\Http\Controllers\Restaurant\KitchenTicketController::class,'print'])->name('kitchen.print');

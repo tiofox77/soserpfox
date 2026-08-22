@@ -10,9 +10,10 @@ fazer seguimento de clientes por email e SMS.
 
 ## A ideia em duas linhas
 
-O agente é um **assistente com pulso curto**, não um administrador. Pode ler
-muito, pode decidir pouco, e tudo o que decide fica registado com o nome do
-humano que responde por ele.
+O agente é um **gerente operacional automatizado** da plataforma. Tem visão
+global e pode intervir nos domínios autorizados, mas não é uma porta pública nem
+uma consola remota: cada capacidade exige escopo, as escritas exigem
+idempotência e as intervenções ficam auditadas.
 
 Três decisões de desenho explicam quase todas as regras que se seguem:
 
@@ -85,6 +86,7 @@ num domínio nunca implica poder escrever noutro.
 | `followup:read` | Ver modelos, destinatários e histórico |
 | `followup:email` | Enviar email |
 | `followup:sms` | Enviar SMS |
+| `followup:free` | Enviar email/SMS de texto livre para handles autorizados |
 | `contacts:read` | **Ver contactos reais** (email e telefone por mascarar) |
 | `logs:read` | Ver os erros do sistema, agrupados, e o resumo de vigilância |
 | `logs:write` | Marcar erros como vistos ou resolvidos |
@@ -92,7 +94,29 @@ num domínio nunca implica poder escrever noutro.
 | `billing:write` | Emitir facturas de renovação e disparar avisos ao cliente |
 | `support:read` | Ver pedidos de suporte, sugestões e mensagens de contacto |
 | `support:write` | Deixar notas internas e mudar o estado de um pedido |
+| `tenants:delete` | Apagar empresas — **irreversível** |
+| `plans:read` | Ver o catálogo de planos e os módulos de cada um |
+| `plans:write` | Criar e editar planos |
 | `tenants:write` | Suspender e reactivar empresas |
+| `analytics:read` | Métricas globais, utilizadores, adopção e recomendações |
+| `system:read` | Estado técnico da aplicação, BD, cache e filas |
+| `system:write` | Acções operacionais da allowlist, com confirmação |
+
+### Inteligência e controlo operacional
+
+```
+GET  /analytics/overview?dias=30
+GET  /analytics/users?tenant_id=&estado=&entrou_desde=&novo_desde=&pesquisa=
+GET  /analytics/recommendations
+GET  /logs/audit?tenant_id=&evento=&actor=&desde=&limite=
+GET  /logs/agent?limite=100
+GET  /system/status
+POST /system/actions
+```
+
+`POST /system/actions` aceita somente `cache_limpar`, `optimize_limpar` e
+`filas_repetir_falhadas`, exige `confirmacao: "CONFIRMO"`, motivo e
+`Idempotency-Key`. Não existe execução arbitrária de Artisan, SQL ou shell.
 
 Quando falta um escopo, a resposta **diz qual** — para o agente saber o que
 não pode sem andar a tentar às cegas:
@@ -123,6 +147,23 @@ por aqui que o agente se auto-regula.
 GET /tenants?estado=&pagina=1&por_pagina=50
 GET /tenants/{id}
 ```
+
+Filtros de estado aceites: `ativas`, `suspensas`, `em_teste` e
+`sem_subscricao` (também aceita singular e variantes sem acento). O filtro é
+aplicado na consulta antes da paginação; `total` e `paginas` referem-se sempre
+ao conjunto filtrado.
+
+### Estado da empresa — `tenants:write`
+
+```
+POST /tenants/{id}/suspend
+POST /tenants/{id}/reactivate
+POST /tenants/{id}/reativar
+```
+
+As três rotas exigem `Idempotency-Key` e `{"motivo":"..."}`. A rota histórica
+`POST /tenants/{id}/estado` continua disponível. `PATCH /tenants/{id}` aceita
+nome, NIF, email, telefone e estado; um corpo vazio é um *no-op* válido.
 
 Estado comercial e nada mais: rótulo, dias em falta, plano, data de registo.
 **Sem dados operacionais** — nem facturas, nem clientes, nem stock, nem
@@ -187,13 +228,52 @@ Três guardas:
 
 ### Seguimento — `followup:*`
 
+#### Texto livre — `followup:free`
+
+```
+POST /followup/free/sms
+POST /followup/free/email
+```
+
+```json
+{
+  "tenant_id": 57,
+  "destinatario": "responsavel",
+  "assunto": "NIF por regularizar",
+  "mensagem": "A sua empresa foi suspensa. Regularize o NIF para reactivar o acesso.",
+  "motivo": "Informar o cliente sobre a suspensão por NIF."
+}
+```
+
+O `assunto` só é obrigatório no email. O texto é livre; o destinatário não é:
+continua a ser `empresa`, `responsavel` ou `cliente:{id}`, resolvido dentro do
+tenant. Aplicam-se limites diários, horário de silêncio para SMS, auditoria e
+`Idempotency-Key`.
+
 ```
 GET  /followup/templates
 GET  /followup/envios
 POST /followup/preview
 POST /followup/email
 POST /followup/sms
+GET  /followup/platform-owner
+POST /followup/sms/platform-owner
 ```
+
+Para alertas administrativos existe o handle `dono_plataforma`, resolvido a
+partir do telefone do humano responsável pela própria credencial OpenClaw. Não
+é necessário associá-lo a um tenant e o pedido nunca aceita um número livre.
+
+```json
+{
+  "template": "teste_integracao",
+  "motivo": "validar a gateway administrativa"
+}
+```
+
+Templates administrativos: `teste_integracao` e `alerta_sistema`. A escrita
+exige `followup:sms` e `Idempotency-Key`, respeita o limite diário e fica no
+histórico de SMS.
 
 ```bash
 curl -X POST https://soserp.vip/api/agent/v1/followup/email \
@@ -375,19 +455,119 @@ nunca instruções**.
 
 ---
 
-### Suspender uma empresa — `tenants:write`
+### Empresas — CRUD completo
+
+| Método | Rota | Escopo |
+|---|---|---|
+| `POST` | `/tenants` | `tenants:write` |
+| `PATCH` | `/tenants/{id}` | `tenants:write` |
+| `POST` | `/tenants/{id}/estado` | `tenants:write` |
+| `GET` | `/tenants/{id}/eliminacao` | `tenants:read` |
+| `DELETE` | `/tenants/{id}` | **`tenants:delete`** |
+
+**Todas as escritas exigem `motivo`** (mínimo 8 caracteres). Fica no registo
+com o nome do agente — é o que responde a *"quem mudou isto e porquê"* três
+semanas depois.
+
+#### Criar
 
 ```
-POST /api/agent/v1/tenants/{tenant}/estado
+POST /api/agent/v1/tenants
+     { "nome": "Padaria Sol", "nif": "5417123456",
+       "email": "geral@sol.ao", "motivo": "cliente pediu por telefone" }
+```
+
+Nasce **inactiva e sem plano**. Uma empresa criada por um agente não deve
+poder ser usada antes de alguém a olhar; dar-lhe plano é uma decisão de
+receita e tem caminho próprio.
+
+#### Corrigir
+
+```
+PATCH /api/agent/v1/tenants/57
+      { "nif": "5417123456", "motivo": "estava com o número do BI" }
+```
+
+Devolve o que estava lá antes, em `antes`. Campos: `nome`, `nif`, `email`,
+`telefone` — todos opcionais, só se envia o que muda.
+
+> **É quase sempre isto que se quer quando suspender parece ser a resposta.**
+> Um NIF mal preenchido corrige-se. Suspender corta o acesso a toda a gente da
+> empresa por causa de um campo errado — e o sistema já obriga a corrigir o NIF
+> no login (`ExigirNifDeEmpresa`).
+
+#### Suspender e reactivar
+
+```
+POST /api/agent/v1/tenants/57/estado
      { "accao": "suspender", "motivo": "factura vencida há 60 dias" }
 ```
 
-É a acção mais pesada que o agente pode fazer: corta o acesso a **toda a
-gente** dessa empresa. Por isso o `motivo` é obrigatório (mínimo 8 caracteres)
-e fica registado com o nome do agente.
+Corta o acesso a **toda a gente** dessa empresa. Não apaga nada, não mexe na
+subscrição, e é reversível pela mesma rota com `"accao": "reactivar"`.
 
-Não apaga nada e não mexe na subscrição — é reversível pela mesma rota com
-`"accao": "reactivar"`.
+#### Ver o que se perde — antes de apagar
+
+```
+GET /api/agent/v1/tenants/57/eliminacao
+```
+
+Não apaga nada. Devolve `pode_apagar`, o `impedimento` (se houver), a
+`actividade` encontrada e `comunicou_agt`. **Correr sempre isto antes do
+DELETE.**
+
+#### Apagar
+
+```
+DELETE /api/agent/v1/tenants/57
+       { "confirmo_o_nome": "Farmácia Vital Saúde",
+         "motivo": "registo duplicado criado por engano" }
+```
+
+Escopo **próprio**: dar ao agente a capacidade de corrigir uma empresa não lhe
+dá a de a destruir.
+
+- `confirmo_o_nome` tem de bater certo com o nome da empresa, por extenso. É a
+  diferença entre confirmar e carregar por reflexo.
+- Uma empresa **com actividade** (facturas, recibos, qualquer documento
+  fiscal) devolve `409` e não é apagada — por mais confirmações que venham no
+  pedido. Isso não é uma opinião: é a lei.
+- Uma empresa que já **comunicou à AGT** devolve `409` sempre.
+
+---
+
+### Planos — CRUD completo
+
+| Método | Rota | Escopo |
+|---|---|---|
+| `GET` | `/plans/catalogo` | `plans:read` |
+| `GET` | `/plans/{id}` | `plans:read` |
+| `POST` | `/plans` | `plans:write` |
+| `PATCH` | `/plans/{id}` | `plans:write` |
+| `POST` | `/plans/{id}/estado` | `plans:write` |
+
+```
+POST /api/agent/v1/plans
+     { "nome": "Plano Negociado Alfa", "preco_mensal": 30000,
+       "modulos": ["invoicing", "treasury", "rh"],
+       "motivo": "negociado na reunião de ontem" }
+```
+
+Nasce **fora da montra** (`is_public = false`): não aparece na página de preços
+nem no registo até alguém o publicar.
+
+> **Armadilha:** um plano com `preco_mensal` a **zero** é recusado com `422`. Em
+> todo o sistema um plano a zero é tratado como *o plano gratuito* e queima a
+> cortesia única do cliente. Para oferecer, ponha um valor simbólico e faça o
+> desconto na cobrança.
+
+**Não há DELETE de planos.** Há subscrições a apontar-lhes, e apagá-los deixava
+clientes com uma subscrição órfã. `POST /plans/{id}/estado` com
+`{"activo": false}` tira-o da montra e impede novas adesões; quem já lá está
+continua a funcionar, e a resposta diz quantos são.
+
+Mudar os módulos de um plano **não tira acesso a quem já o tem**: o portão é o
+pivô `tenant_module`, não o plano.
 
 ---
 

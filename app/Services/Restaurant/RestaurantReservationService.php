@@ -31,6 +31,7 @@ class RestaurantReservationService
             if (!$reservation) {
                 $next = Reservation::withoutGlobalScopes()->where('tenant_id', $tenantId)->lockForUpdate()->count() + 1;
                 $payload['reservation_number'] = sprintf('RES-%s-%05d', now()->format('Y'), $next);
+                $payload['status'] = 'pending';
                 return Reservation::withoutGlobalScopes()->create($payload);
             }
             $reservation->update($payload);

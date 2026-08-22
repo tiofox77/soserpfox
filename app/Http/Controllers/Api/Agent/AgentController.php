@@ -7,15 +7,20 @@ use App\Models\AgentMessage;
 use App\Models\AgentToken;
 use App\Models\Order;
 use App\Models\Tenant;
+use App\Models\SmsLog;
+use App\Services\SmsService;
 use App\Services\Agent\DecisaoDePedido;
 use App\Services\Agent\DestinatariosPermitidos;
 use App\Services\Agent\EnvioDeFollowUp;
+use App\Services\Agent\EnvioLivreDoAgente;
 use App\Services\Agent\SinaisDoTenant;
+use App\Services\Tenants\SinaisDeVida;
 use App\Services\Audit\AuditRecorder;
 use App\Services\Plataforma\Inconsistencias;
 use App\Support\AgenteAutenticado;
 use App\Support\EstadoDaSubscricao;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * API do agente externo (openclaw).
@@ -73,22 +78,60 @@ class AgentController extends Controller
     {
         $dados = $request->validate([
             'estado'   => 'nullable|string|max:40',
+            'pesquisa' => 'nullable|string|max:120',
+            'plano' => 'nullable|string|max:80',
+            'activa' => 'nullable|boolean',
+            'criada_desde' => 'nullable|date',
+            'criada_ate' => 'nullable|date|after_or_equal:criada_desde',
+            'ordenar' => 'nullable|in:id,nome,criada_em',
+            'direccao' => 'nullable|in:asc,desc',
             'pagina'   => 'nullable|integer|min:1',
             'por_pagina' => 'nullable|integer|min:1|max:100',
         ]);
 
         $porPagina = (int) ($dados['por_pagina'] ?? 50);
+        $estado = $this->normalizarEstado($dados['estado'] ?? null);
 
-        $pagina = Tenant::with('activeSubscription.plan')
-            ->orderBy('id')
+        if (!empty($dados['estado']) && $estado === null) {
+            return response()->json([
+                'erro' => 'estado_invalido',
+                'estados_permitidos' => ['ativas', 'suspensas', 'em_teste', 'sem_subscricao'],
+            ], 422);
+        }
+
+        $query = Tenant::with('activeSubscription.plan')
+            ->when(isset($dados['activa']), fn ($q) => $q->where('is_active', (bool) $dados['activa']))
+            ->when(!empty($dados['pesquisa']), function ($q) use ($dados) {
+                $termo = '%' . $dados['pesquisa'] . '%';
+                $q->where(fn ($w) => $w->where('name', 'like', $termo)->orWhere('nif', 'like', $termo));
+            })
+            ->when(!empty($dados['plano']), fn ($q) => $q->whereHas('activeSubscription.plan',
+                fn ($p) => $p->where('slug', $dados['plano'])->orWhere('name', 'like', '%' . $dados['plano'] . '%')))
+            ->when(!empty($dados['criada_desde']), fn ($q) => $q->whereDate('created_at', '>=', $dados['criada_desde']))
+            ->when(!empty($dados['criada_ate']), fn ($q) => $q->whereDate('created_at', '<=', $dados['criada_ate']));
+
+        match ($estado) {
+            'ativas' => $query->where('is_active', true)->whereHas('subscriptions', fn ($s) => $s
+                ->where('status', 'active')
+                ->where(fn ($w) => $w->whereNull('trial_ends_at')->orWhere('trial_ends_at', '<=', now()))
+                ->where(fn ($w) => $w->whereNull('current_period_end')->orWhere('current_period_end', '>=', now()))),
+            'suspensas' => $query->where('is_active', false),
+            'em_teste' => $query->where('is_active', true)->whereHas('subscriptions', fn ($s) => $s
+                ->where(fn ($w) => $w->where('status', 'trial')->orWhere('trial_ends_at', '>', now()))
+                ->whereNull('cancelled_at')),
+            'sem_subscricao' => $query->whereDoesntHave('activeSubscription'),
+            default => null,
+        };
+
+        $ordenar = match ($dados['ordenar'] ?? 'id') { 'nome' => 'name', 'criada_em' => 'created_at', default => 'id' };
+        $pagina = $query->orderBy($ordenar, $dados['direccao'] ?? 'asc')
             ->paginate($porPagina, ['*'], 'pagina', $dados['pagina'] ?? 1);
 
+        $sinais = SinaisDeVida::para($pagina->items());
         $linhas = collect($pagina->items())
-            ->map(fn (Tenant $t) => $this->resumoDoTenant($t))
-            ->when(
-                !empty($dados['estado']),
-                fn ($c) => $c->where('estado', $dados['estado'])->values()
-            );
+            ->map(fn (Tenant $t) => array_merge($this->resumoDoTenant($t), [
+                'utilizacao' => isset($sinais[$t->id]) ? (array) $sinais[$t->id] : null,
+            ]));
 
         return response()->json([
             'empresas' => $linhas,
@@ -112,6 +155,15 @@ class AgentController extends Controller
     /** Só estado comercial. Nada de dados operacionais das empresas. */
     private function resumoDoTenant(Tenant $t): array
     {
+        if (!$t->is_active) {
+            return [
+                'id' => $t->id, 'nome' => $t->name, 'estado' => 'Suspenso',
+                'dias_em_falta' => null, 'detalhe' => 'Acesso da empresa suspenso.',
+                'plano' => $t->activeSubscription?->plan?->name,
+                'criada_em' => $t->created_at?->toDateString(),
+            ];
+        }
+
         $estado = EstadoDaSubscricao::para($t);
 
         return [
@@ -124,6 +176,19 @@ class AgentController extends Controller
             'plano'   => $t->activeSubscription?->plan?->name,
             'criada_em' => $t->created_at?->toDateString(),
         ];
+    }
+
+    private function normalizarEstado(?string $estado): ?string
+    {
+        if ($estado === null || trim($estado) === '') return null;
+        $v = str_replace([' ', '-'], '_', Str::lower(Str::ascii(trim($estado))));
+        return match ($v) {
+            'ativa', 'ativas', 'ativo', 'ativos' => 'ativas',
+            'suspensa', 'suspensas', 'suspenso', 'suspensos' => 'suspensas',
+            'teste', 'em_teste', 'trial' => 'em_teste',
+            'sem_subscricao', 'sem_subscricoes', 'sem_plano' => 'sem_subscricao',
+            default => null,
+        };
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -414,6 +479,89 @@ class AgentController extends Controller
     public function enviarSms(Request $request, EnvioDeFollowUp $envio, AuditRecorder $auditoria)
     {
         return $this->enviar($request, 'sms', $envio, $auditoria);
+    }
+
+    /** Contacto humano responsável pela credencial, sem depender de um tenant. */
+    public function donoPlataforma()
+    {
+        $u = $this->agente()->token->owner;
+
+        return response()->json(['destinatario' => [
+            'handle' => 'dono_plataforma', 'nome' => $u?->name,
+            'email' => $u?->email, 'telefone' => $u?->phone,
+            'sms_disponivel' => !empty($u?->phone),
+        ]]);
+    }
+
+    /**
+     * SMS administrativo para o dono da plataforma.
+     * O número nunca vem no pedido: é o telefone do owner da credencial.
+     */
+    public function enviarSmsDonoPlataforma(Request $request, SmsService $sms)
+    {
+        $dados = $request->validate([
+            'template' => 'required|in:teste_integracao,alerta_sistema',
+            'motivo' => 'required|string|min:8|max:500',
+        ]);
+        $agente = $this->agente();
+        $dono = $agente->token->owner;
+        if (!$dono?->phone) {
+            return response()->json(['erro' => 'O responsável da credencial não tem telefone configurado.'], 422);
+        }
+
+        $hoje = SmsLog::where('type', 'agent_platform')->whereDate('created_at', today())->count();
+        if ($hoje >= (int) config('agent.followup.sms_por_dia', 10)) {
+            return response()->json(['erro' => 'Limite diário de SMS administrativos atingido.'], 429);
+        }
+
+        $texto = $dados['template'] === 'teste_integracao'
+            ? 'SOSERP: teste de integracao OpenClaw concluido. A gateway de notificacoes esta operacional.'
+            : 'SOSERP: o OpenClaw detetou alertas que precisam da sua atencao. Consulte o resumo do sistema.';
+
+        $resultado = $sms->send($dono->phone, $texto, 'agent_platform', $dono->id, null);
+        if (!($resultado['success'] ?? false)) {
+            return response()->json(['erro' => $resultado['error'] ?? 'A gateway recusou o SMS.'], 502);
+        }
+
+        \Log::warning('OpenClaw enviou SMS administrativo ao dono da plataforma', [
+            'agente' => $agente->nome(), 'template' => $dados['template'],
+            'motivo' => $dados['motivo'], 'sms_log_id' => $resultado['log_id'] ?? null,
+        ]);
+
+        return response()->json([
+            'enviado' => true, 'handle' => 'dono_plataforma',
+            'destinatario' => $dono->phone, 'template' => $dados['template'],
+            'sms_log_id' => $resultado['log_id'] ?? null,
+        ]);
+    }
+
+    public function enviarSmsLivre(Request $request, EnvioLivreDoAgente $envio)
+    {
+        return $this->enviarLivre($request, $envio, 'sms');
+    }
+
+    public function enviarEmailLivre(Request $request, EnvioLivreDoAgente $envio)
+    {
+        return $this->enviarLivre($request, $envio, 'email');
+    }
+
+    private function enviarLivre(Request $request, EnvioLivreDoAgente $envio, string $canal)
+    {
+        $dados = $request->validate([
+            'tenant_id' => 'required|integer|exists:tenants,id',
+            'destinatario' => ['required', 'string', 'max:60', 'regex:/^(empresa|responsavel|cliente:\d+)$/'],
+            'assunto' => ($canal === 'email' ? 'required' : 'nullable') . '|string|max:150',
+            'mensagem' => 'required|string|min:3|max:' . ($canal === 'sms' ? '612' : '10000'),
+            'motivo' => 'required|string|min:8|max:500',
+        ]);
+
+        $r = $envio->enviar(
+            $this->agente(), Tenant::findOrFail($dados['tenant_id']), $canal,
+            $dados['destinatario'], $dados['mensagem'], $dados['motivo'],
+            $dados['assunto'] ?? null, $request->header('Idempotency-Key')
+        );
+
+        return response()->json($r, ($r['ok'] ?? false) ? 200 : ($r['status'] ?? 422));
     }
 
     private function enviar(Request $request, string $canal, EnvioDeFollowUp $envio, AuditRecorder $auditoria)

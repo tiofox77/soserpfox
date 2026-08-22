@@ -40,7 +40,14 @@
                         default => 'border-slate-200 bg-slate-100 text-slate-700',
                     };
                 @endphp
-                <button wire:click="prepareOpenOrder({{ $table->id }})" class="group min-h-40 rounded-2xl border-2 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-200 {{ $styles }}">
+                <button
+                    @if($table->status === 'cleaning')
+                        wire:click="markTableClean({{ $table->id }})"
+                        wire:confirm="Confirmar que a mesa já está limpa?"
+                    @else
+                        wire:click="prepareOpenOrder({{ $table->id }})"
+                    @endif
+                    class="group min-h-40 rounded-2xl border-2 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-200 {{ $styles }}">
                     <div class="flex items-start justify-between gap-2">
                         <span class="grid h-11 w-11 place-items-center rounded-xl bg-white/70 text-lg shadow-sm"><i class="fas fa-chair"></i></span>
                         <span class="rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide">{{ $table->status_label }}</span>
@@ -49,6 +56,8 @@
                     <p class="mt-1 text-sm opacity-75"><i class="fas fa-user-group mr-1"></i>{{ $table->capacity }} lugares</p>
                     @if($table->activeOrder)
                         <p class="mt-2 truncate text-xs font-bold">{{ $table->activeOrder->order_number }}</p>
+                    @elseif($table->status === 'cleaning')
+                        <p class="mt-2 text-xs font-black"><i class="fas fa-sparkles mr-1"></i>Toque para marcar limpa</p>
                     @endif
                 </button>
             @empty
@@ -95,4 +104,3 @@
         </div>
     @endif
 </div>
-

@@ -344,7 +344,7 @@
                                 </button>
                             </div>
                             <div class="text-right">
-                                <p class="text-xs font-bold text-indigo-600">{{ number_format($item->price * $item->quantity, 0) }}</p>
+                                <p class="text-xs font-bold text-indigo-600">{{ number_format(round((float)$item->price * (float)$item->quantity, 2), 2, ',', '.') }}</p>
                             </div>
                         </div>
                     </div>
@@ -387,7 +387,7 @@
                     {{-- IVA --}}
                     <div class="flex justify-between items-center text-sm">
                         <span class="text-blue-600 flex items-center gap-1">
-                            <i class="fas fa-plus-circle text-xs"></i> IVA ({{ number_format($taxRate, 0) }}%)
+                            <i class="fas fa-plus-circle text-xs"></i> IVA ({{ $taxLabel }})
                         </span>
                         <span class="font-semibold text-blue-600">+{{ number_format($cartTax, 2, ',', '.') }} Kz</span>
                     </div>

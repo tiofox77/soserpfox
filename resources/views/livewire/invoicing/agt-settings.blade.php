@@ -727,7 +727,7 @@
                                             <div class="min-w-0">
                                                 <div class="font-mono font-bold text-gray-900">{{ $legalNumber }}</div>
                                                 <div class="text-[10px] text-gray-400 mt-0.5">
-                                                    apelido interno: {{ $friendlyNumber }} · não existe na AGT
+                                                    referência interna SOSERP: {{ $friendlyNumber }} · o número fiscal válido é o apresentado acima
                                                 </div>
                                             </div>
                                         </div>

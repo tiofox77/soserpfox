@@ -63,6 +63,60 @@ class ApiDoAgenteTest extends TenantTestCase
         ]);
     }
 
+    public function test_dono_da_plataforma_e_resolvido_sem_tenant(): void
+    {
+        $this->user->update(['phone' => '+244939729902']);
+
+        $this->getJson('/api/agent/v1/followup/platform-owner', $this->comToken())
+            ->assertOk()
+            ->assertJsonPath('destinatario.handle', 'dono_plataforma')
+            ->assertJsonPath('destinatario.telefone', '+244939729902');
+    }
+
+    public function test_sms_ao_dono_nao_aceita_numero_no_corpo(): void
+    {
+        $this->token->update(['scopes' => array_merge($this->token->scopes, ['followup:sms'])]);
+        $this->user->update(['phone' => '+244939729902']);
+        $mock = \Mockery::mock(\App\Services\SmsService::class);
+        $mock->shouldReceive('send')->once()->with(
+            '+244939729902', \Mockery::type('string'), 'agent_platform', $this->user->id, null
+        )->andReturn(['success' => true, 'log_id' => 99]);
+        $this->app->instance(\App\Services\SmsService::class, $mock);
+
+        $this->postJson('/api/agent/v1/followup/sms/platform-owner', [
+            'template' => 'teste_integracao', 'motivo' => 'Validar a gateway administrativa.',
+            'phone_number' => '+244900000000',
+        ], $this->comToken() + ['Idempotency-Key' => (string) Str::uuid()])
+            ->assertOk()->assertJsonPath('destinatario', '+244939729902');
+    }
+
+    public function test_texto_livre_exige_escopo_proprio(): void
+    {
+        $this->postJson('/api/agent/v1/followup/free/email', [
+            'tenant_id' => $this->tenant->id, 'destinatario' => 'responsavel',
+            'assunto' => 'Aviso', 'mensagem' => 'Mensagem livre.',
+            'motivo' => 'Comunicação operacional solicitada.',
+        ], $this->comToken() + ['Idempotency-Key' => (string) Str::uuid()])->assertForbidden();
+    }
+
+    public function test_email_livre_so_vai_para_handle_autorizado(): void
+    {
+        $this->token->update(['scopes' => array_merge($this->token->scopes, ['followup:free'])]);
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $this->postJson('/api/agent/v1/followup/free/email', [
+            'tenant_id' => $this->tenant->id, 'destinatario' => 'responsavel',
+            'assunto' => 'NIF por regularizar',
+            'mensagem' => 'A sua empresa foi suspensa. Regularize o NIF para reactivar o acesso.',
+            'motivo' => 'Informar o cliente sobre a suspensão por NIF.',
+            'email' => 'atacante@fora.example',
+        ], $this->comToken() + ['Idempotency-Key' => (string) Str::uuid()])
+            ->assertOk()->assertJsonPath('destinatario', $this->user->email);
+
+        // A garantia relevante fica também na resposta: o email livre do
+        // corpo foi ignorado e o destino veio do handle.
+    }
+
     // ══════════════ Autenticação ══════════════
 
     public function test_sem_credencial_nao_entra(): void

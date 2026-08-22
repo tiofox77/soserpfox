@@ -89,6 +89,10 @@ class TenantNotificationSetting extends Model
         return static::firstOrCreate(
             ['tenant_id' => $tenantId],
             [
+                'email_enabled' => false,
+                'sms_enabled' => false,
+                'whatsapp_enabled' => false,
+                'whatsapp_sandbox' => true,
                 'email_notifications' => static::getDefaultEmailNotifications(),
                 'sms_notifications' => static::getDefaultSmsNotifications(),
                 'whatsapp_notifications' => static::getDefaultWhatsAppNotifications(),

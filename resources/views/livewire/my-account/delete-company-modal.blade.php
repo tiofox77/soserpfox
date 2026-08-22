@@ -26,9 +26,9 @@
                     <div class="flex items-start">
                         <i class="fas fa-exclamation-circle text-red-500 text-2xl mr-3 mt-1"></i>
                         <div class="flex-1">
-                            <h3 class="text-lg font-bold text-red-900 mb-2">⚠️ ATENÇÃO - Ação Irreversível!</h3>
+                            <h3 class="text-lg font-bold text-red-900 mb-2">Remover empresa da conta</h3>
                             <p class="text-red-800 text-sm mb-3">
-                                Você está prestes a eliminar permanentemente a empresa:
+                                Você está prestes a arquivar e remover do seu acesso a empresa:
                             </p>
                             <div class="bg-white rounded-lg p-3 mb-3">
                                 <div class="flex items-center space-x-3">
@@ -37,7 +37,7 @@
                                     </div>
                                     <div>
                                         <p class="font-bold text-gray-900">{{ $companyToDeleteName }}</p>
-                                        <p class="text-xs text-gray-500">Esta ação não pode ser desfeita</p>
+                                        <p class="text-xs text-gray-500">Os dados permanecem guardados para recuperação administrativa</p>
                                     </div>
                                 </div>
                             </div>
@@ -48,28 +48,24 @@
                 <div class="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                     <h4 class="font-bold text-yellow-900 mb-3 flex items-center">
                         <i class="fas fa-list-check mr-2"></i>
-                        O que será eliminado:
+                        O que acontecerá:
                     </h4>
                     <ul class="space-y-2 text-sm text-yellow-800">
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Todos os dados</strong> da empresa</span>
+                            <span>A empresa deixa de aparecer na sua conta</span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Subscriptions e histórico</strong> de pagamentos</span>
+                            <span>Os dados, documentos e histórico ficam preservados</span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Módulos e configurações</strong></span>
+                            <span>Nenhuma linha de negócio é eliminada definitivamente</span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Clientes cadastrados</strong> (se houver)</span>
-                        </li>
-                        <li class="flex items-start">
-                            <i class="fas fa-times-circle text-red-500 mr-2 mt-0.5"></i>
-                            <span><strong>Vínculos com usuários</strong></span>
+                            <span>Apenas empresas sem documentos fiscais definitivos podem ser arquivadas pelo utilizador</span>
                         </li>
                     </ul>
                 </div>
@@ -79,9 +75,17 @@
                 <div class="flex items-start">
                     <i class="fas fa-shield-alt text-blue-500 text-xl mr-3 mt-1"></i>
                     <div class="text-sm text-blue-800">
-                        <strong>Nota de Segurança:</strong> Empresas com faturas registradas não podem ser eliminadas por motivos legais e de auditoria.
+                        <strong>Nota de Segurança:</strong> Empresas com FT, FR, NC, ND ou recibos definitivos não podem ser removidas pelo utilizador.
                     </div>
                 </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-800 mb-2">Escreva o nome da empresa para confirmar:</label>
+                <p class="mb-2 text-xs font-mono text-gray-500">{{ $companyToDeleteName }}</p>
+                <input type="text" wire:model="companyDeleteConfirmation" autocomplete="off"
+                       class="w-full rounded-xl border-2 border-gray-300 px-4 py-3 focus:border-red-500 focus:ring-red-500">
+                @error('companyDeleteConfirmation') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
             </div>
             
             <!-- Botões -->
@@ -92,7 +96,7 @@
                 </button>
                 <button type="button" wire:click="deleteCompany"
                         class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition shadow-lg">
-                    <i class="fas fa-trash-alt mr-2"></i>Sim, Eliminar Empresa
+                    <i class="fas fa-archive mr-2"></i>Sim, Arquivar Empresa
                 </button>
             </div>
         </div>

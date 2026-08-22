@@ -12,6 +12,7 @@ use App\Models\Treasury\Account;
 use App\Models\Treasury\CashRegister;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
+use App\Services\Treasury\TreasuryMovementService;
 
 class PaymentModal extends Component
 {
@@ -321,7 +322,7 @@ class PaymentModal extends Component
         'other'      => ['OTHER',      'Outro',                  'other'],
     ];
 
-    private function getTreasuryPaymentMethodId()
+    private function getTreasuryPaymentMethod(): PaymentMethod
     {
         [$code, $methodName, $type] = self::MAPA_METODOS[$this->payment_method]
             ?? self::MAPA_METODOS['cash'];
@@ -347,24 +348,18 @@ class PaymentModal extends Component
             ]);
         }
 
-        return $method->id;
+        return $method;
     }
 
-    private function getDefaultAccountOrCashRegisterId()
+    private function getDefaultAccountOrCashRegisterId(PaymentMethod $method)
     {
-        // Se for dinheiro, usar caixa selecionado ou padrão
-        if ($this->payment_method === 'cash') {
-            return [
-                'cash_register_id' => $this->selected_cash_register_id,
-                'account_id' => null,
-            ];
-        }
-
-        // Se for transferência/banco, usar conta selecionada ou padrão
-        return [
-            'cash_register_id' => null,
-            'account_id' => $this->selected_account_id,
-        ];
+        return app(TreasuryMovementService::class)->destination(
+            $method,
+            activeTenantId(),
+            $this->selected_account_id ? (int) $this->selected_account_id : null,
+            $this->selected_cash_register_id ? (int) $this->selected_cash_register_id : null,
+            auth()->id(),
+        );
     }
 
     private function createTreasuryTransaction($receiptId = null)
@@ -373,9 +368,10 @@ class PaymentModal extends Component
             return;
         }
 
-        $accountOrCash = $this->getDefaultAccountOrCashRegisterId();
+        $method = $this->getTreasuryPaymentMethod();
+        $accountOrCash = $this->getDefaultAccountOrCashRegisterId($method);
 
-        Transaction::create([
+        app(TreasuryMovementService::class)->post([
             'tenant_id' => activeTenantId(),
             'user_id' => auth()->id(),
             'transaction_number' => $this->generateTransactionNumber(),
@@ -384,7 +380,7 @@ class PaymentModal extends Component
             'amount' => $this->amount,
             'currency' => 'AOA',
             'transaction_date' => now(),
-            'payment_method_id' => $this->getTreasuryPaymentMethodId(),
+            'payment_method_id' => $method->id,
             'account_id' => $accountOrCash['account_id'],
             'cash_register_id' => $accountOrCash['cash_register_id'],
             'invoice_id' => $this->invoiceType === 'sale' ? $this->invoiceId : null,
@@ -396,8 +392,6 @@ class PaymentModal extends Component
             'is_reconciled' => false,
         ]);
 
-        // Atualizar saldo da conta bancária ou caixa
-        $this->updateAccountBalance($accountOrCash);
     }
 
     private function updateAccountBalance($accountOrCash)

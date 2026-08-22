@@ -36,6 +36,7 @@ return [
         'followup:read'   => 'Ver modelos, destinatários e histórico de envios',
         'followup:email'  => 'Enviar email de seguimento',
         'followup:sms'    => 'Enviar SMS de seguimento',
+        'followup:free'   => 'Enviar email e SMS com texto livre para destinatários autorizados',
 
         // Contactos REAIS, por mascarar. Existe para o agente poder mandar
         // WhatsApp, que sai do lado dele e precisa do número inteiro. Fica
@@ -51,7 +52,16 @@ return [
         'billing:write'   => 'Emitir facturas de renovação e disparar avisos ao cliente',
         'support:read'    => 'Ver pedidos de suporte, sugestões e mensagens de contacto',
         'support:write'   => 'Responder e mudar o estado de pedidos de suporte',
-        'tenants:write'   => 'Suspender e reactivar empresas',
+        'tenants:write'   => 'Criar, editar, suspender e reactivar empresas',
+        // Apagar é irreversível e leva os documentos fiscais com ela. Escopo
+        // PRÓPRIO, separado do `tenants:write`, para que dar ao agente a
+        // capacidade de editar não lhe dê a de destruir.
+        'tenants:delete'  => 'Apagar empresas — irreversível',
+        'plans:read'      => 'Ver o catálogo de planos e os módulos de cada um',
+        'plans:write'     => 'Criar e editar planos',
+        'analytics:read'  => 'Ver utilização, crescimento, adopção e recomendações',
+        'system:read'     => 'Ver o estado técnico da aplicação, filas, cache e base de dados',
+        'system:write'    => 'Executar apenas acções operacionais da lista segura',
     ],
 
     /*
