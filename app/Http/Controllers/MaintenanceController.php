@@ -52,6 +52,7 @@ class MaintenanceController extends Controller
         'farmaciadois:import',
         'permissions:sync-product-batches',
         'permissions:sync-pos-reports',
+        'permissions:sync-quotes',
         'tenant:set-tax-exclusion',
         'planos:trial-automatico',
         'planos:dias-de-teste',
