@@ -92,6 +92,32 @@ class VerRejeicaoAgt extends Command
                     $this->line($this->indenta(json_encode($s->response_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
                 }
 
+                // Linhas que ENVIÁMOS, com o imposto por linha vs. o que a AGT
+                // apura (base × %, arredondado normalmente). É aqui que se vê o
+                // E70 ao cêntimo.
+                $linhas = $this->encontraLinhas(is_array($s->request_payload) ? $s->request_payload : []);
+                if ($linhas) {
+                    $this->line('     linhas enviadas (base × % → apurado vs enviado):');
+                    foreach ($linhas as $ln) {
+                        $base = (float) ($ln['creditAmount'] ?? $ln['debitAmount'] ?? 0);
+                        foreach (($ln['taxes'] ?? []) as $t) {
+                            $pct = (float) ($t['taxPercentage'] ?? 0);
+                            $enviado = (float) ($t['taxContribution'] ?? 0);
+                            $apurado = round($base * $pct / 100, 2);
+                            $marca = (abs($apurado - $enviado) >= 0.005) ? '  <<< DIFERE' : '';
+                            $this->line(sprintf(
+                                '        linha %-3s base=%-16s %%=%-6s apurado=%-16s enviado=%-16s%s',
+                                (string) ($ln['lineNumber'] ?? '?'),
+                                number_format($base, 2, '.', ''),
+                                rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.'),
+                                number_format($apurado, 2, '.', ''),
+                                number_format($enviado, 2, '.', ''),
+                                $marca
+                            ));
+                        }
+                    }
+                }
+
                 // A última resposta crua da AGT — a fonte primária do motivo.
                 if (Schema::hasTable('agt_communication_logs')) {
                     $log = DB::table('agt_communication_logs')
@@ -123,5 +149,22 @@ class VerRejeicaoAgt extends Command
     private function indenta(string $txt): string
     {
         return collect(explode("\n", $txt))->map(fn ($l) => '        ' . $l)->implode("\n");
+    }
+
+    /** Procura recursivamente o primeiro array 'lines' no payload enviado. */
+    private function encontraLinhas(array $payload): array
+    {
+        if (isset($payload['lines']) && is_array($payload['lines'])) {
+            return $payload['lines'];
+        }
+        foreach ($payload as $v) {
+            if (is_array($v)) {
+                $r = $this->encontraLinhas($v);
+                if ($r) {
+                    return $r;
+                }
+            }
+        }
+        return [];
     }
 }
