@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -12,8 +13,14 @@ use Spatie\Permission\Models\Role;
  *
  * Uma permissão nova não pertence a role nenhuma: sem isto, ao publicar os
  * Orçamentos ninguém — nem o dono da empresa — via o menu nem entrava na
- * página. Espelha a distribuição das proformas de venda. Mesmo padrão do
- * permissions:sync-product-batches.
+ * página. Espelha a distribuição das proformas de venda.
+ *
+ * O trabalho é feito em INSERÇÃO EM MASSA no pivot role_has_permissions
+ * (colunas permission_id, role_id — sem coluna de equipa) em vez de um
+ * givePermissionTo por role. Com muitos tenants, o laço role-a-role
+ * ultrapassava o timeout HTTP da rota de manutenção e nunca terminava; assim
+ * são meia dúzia de queries e acaba em segundos. É idempotente
+ * (insertOrIgnore), por isso pode correr as vezes que forem precisas.
  */
 class SyncQuotePermissions extends Command
 {
@@ -31,42 +38,52 @@ class SyncQuotePermissions extends Command
         ];
 
         $this->info('Criando permissões de orçamentos…');
+        $ids = [];
         foreach ($permissions as $name => $description) {
-            Permission::firstOrCreate(
+            $perm = Permission::firstOrCreate(
                 ['name' => $name, 'guard_name' => 'web'],
                 ['description' => $description]
             );
+            $ids[$name] = $perm->id;
             $this->line(" ✓ {$name}");
         }
 
-        $allPerms = array_keys($permissions);
-        // Gerir = tudo menos apagar (view/create/edit/convert)
-        $manage = array_filter($allPerms, fn($p) => !str_ends_with($p, '.delete'));
-        $viewOnly = ['invoicing.sales.quotes.view'];
+        $all     = array_values($ids);
+        $manage  = [$ids['invoicing.sales.quotes.view'], $ids['invoicing.sales.quotes.create'], $ids['invoicing.sales.quotes.edit'], $ids['invoicing.sales.quotes.convert']];
+        $view    = [$ids['invoicing.sales.quotes.view']];
 
         // Quem faz proformas faz orçamentos.
-        $rolesWithFullAccess = ['Super Admin', 'Admin', 'Administrador Faturação'];
-        $rolesWithManage     = ['Gestor', 'Vendedor'];
-        $rolesWithViewOnly   = ['Utilizador', 'Contabilista'];
+        $mapa = [
+            'Super Admin'             => $all,
+            'Admin'                   => $all,
+            'Administrador Faturação' => $all,
+            'Gestor'                  => $manage,
+            'Vendedor'                => $manage,
+            'Utilizador'              => $view,
+            'Contabilista'            => $view,
+        ];
 
-        $assigned = 0;
-        foreach (Role::all() as $role) {
-            if (in_array($role->name, $rolesWithFullAccess, true)) {
-                $role->givePermissionTo($allPerms);
-                $assigned++;
-            } elseif (in_array($role->name, $rolesWithManage, true)) {
-                $role->givePermissionTo($manage);
-                $assigned++;
-            } elseif (in_array($role->name, $rolesWithViewOnly, true)) {
-                $role->givePermissionTo($viewOnly);
-                $assigned++;
+        // Uma query por NOME de role (não por role): traz os ids de todas as
+        // roles com esse nome em todos os tenants de uma vez.
+        $linhas = [];
+        foreach ($mapa as $nome => $perms) {
+            $roleIds = Role::where('name', $nome)->pluck('id');
+            foreach ($roleIds as $rid) {
+                foreach ($perms as $pid) {
+                    $linhas[] = ['permission_id' => $pid, 'role_id' => $rid];
+                }
             }
         }
 
-        // Limpar a cache de permissões, senão o menu só aparece no próximo deploy.
+        $inseridas = 0;
+        foreach (array_chunk($linhas, 1000) as $bloco) {
+            // insertOrIgnore: não duplica o que já lá esteja de uma corrida anterior.
+            $inseridas += DB::table('role_has_permissions')->insertOrIgnore($bloco);
+        }
+
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $this->info("✅ {$assigned} role(s) actualizada(s).");
+        $this->info("✅ " . count($linhas) . " ligação(ões) processada(s), {$inseridas} nova(s).");
 
         return self::SUCCESS;
     }
