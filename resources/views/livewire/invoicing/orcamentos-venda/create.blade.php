@@ -1,10 +1,10 @@
 <div class="p-6">
     @include("livewire.invoicing.partials.cabecalho-criar-documento", [
-        "titulo"    => $isEdit ? __("Editar Proforma de Venda") : __("Nova Proforma de Venda"),
-        "subtitulo" => __("Orçamento ou proposta comercial a cliente"),
-        "icone"     => "fa-file-alt",
+        "titulo"    => $isEdit ? __("Editar Orçamento") : __("Novo Orçamento"),
+        "subtitulo" => __("Proposta comercial detalhada a cliente"),
+        "icone"     => "fa-file-signature",
         "cor"       => "blue",
-        "voltar"    => route("invoicing.sales.proformas"),
+        "voltar"    => route("invoicing.sales.quotes"),
     ])
 
     {{-- Flash Messages --}}
@@ -34,7 +34,7 @@
                             </label>
                             <div class="flex gap-2" x-data="{ clientOpen: false }" x-init="$watch('clientOpen', v => { if(v) $nextTick(() => $refs.clientInput.focus()) })">
                                 <div class="relative flex-1">
-                                    <input type="search" 
+                                    <input type="search"
                                            x-ref="clientInput"
                                            wire:model.live.debounce.300ms="searchClient"
                                            placeholder="{{ __('Pesquisar Cliente por nome, email ou telefone...') }}"
@@ -61,7 +61,7 @@
                                     </div>
                                     @endif
                                 </div>
-                                <button type="button" 
+                                <button type="button"
                                         wire:click="$set('showQuickClientModal', true)"
                                         wire:loading.attr="disabled"
                                         wire:loading.class="opacity-70 scale-95"
@@ -114,7 +114,7 @@
                                 <i class="fas fa-warehouse mr-1 text-purple-600"></i>{{ __('Armazém') }}
                                 @if($this->hasPhysicalProducts()) <span class="text-red-500">*</span> @endif
                             </label>
-                            <select wire:model="warehouse_id" 
+                            <select wire:model="warehouse_id"
                                     class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
                                 <option value="">{{ __('Selecione o armazém...') }}</option>
                                 @foreach($warehouses as $warehouse)
@@ -143,15 +143,15 @@
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
                                     <i class="fas fa-calendar mr-1 text-purple-600"></i>{{ __('Data') }} *
                                 </label>
-                                <input type="date" wire:model="proforma_date" 
+                                <input type="date" wire:model="quote_date"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
-                                @error('proforma_date') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                                @error('quote_date') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">
                                     <i class="fas fa-hourglass-end mr-1 text-orange-600"></i>{{ __('Válido Até') }}
                                 </label>
-                                <input type="date" wire:model="valid_until" 
+                                <input type="date" wire:model="valid_until"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition">
                                 @error('valid_until') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
@@ -207,7 +207,7 @@
                                             @endif
                                         </div>
                                         <div class="text-xs text-gray-500">{{ $item->attributes['unit'] }}</div>
-                                        {{-- Descrição detalhada da linha: um serviço não cabe num nome.
+                                        {{-- Descrição detalhada da linha: a razão de ser do orçamento.
                                              O campo é TEXT na base; aqui é um textarea que cresce. --}}
                                         <textarea
                                             wire:change="updateDescription({{ $item->id }}, $event.target.value)"
@@ -222,25 +222,25 @@
                                                value="{{ $item->quantity }}"
                                                class="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-purple-500">
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 align-top">
                                         <input type="number" step="0.01" min="0"
                                                wire:change="updatePrice({{ $item->id }}, $event.target.value)"
                                                value="{{ $item->price }}"
                                                class="w-28 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-purple-500">
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 align-top">
                                         <input type="number" step="0.01" min="0" max="100"
                                                wire:change="updateDiscount({{ $item->id }}, $event.target.value)"
                                                value="{{ $item->attributes['discount_percent'] ?? 0 }}"
                                                class="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
                                                placeholder="0">
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-4 py-3 text-center align-top">
                                         @php
                                             $taxRate = $item->attributes['tax_rate'] ?? 0;
                                             $taxType = $item->attributes['tax_type'] ?? 'iva';
                                         @endphp
-                                        
+
                                         @if($taxType === 'isento' || $taxRate == 0)
                                             <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded inline-flex items-center">
                                                 <i class="fas fa-check-circle mr-1"></i>
@@ -253,14 +253,12 @@
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-right">
+                                    <td class="px-4 py-3 text-right align-top">
                                         @php
-                                            // Usar métodos do Cart para cálculos corretos
-                                            $itemPriceSum = $item->getPriceSum(); // Preço × Qtd com desconto aplicado
+                                            $itemPriceSum = $item->getPriceSum();
                                             $itemTax = $itemPriceSum * (($item->attributes['tax_rate'] ?? 0) / 100);
                                             $itemGrandTotal = $itemPriceSum + $itemTax;
-                                            
-                                            // Calcular desconto aplicado
+
                                             $itemSubtotalOriginal = $item->price * $item->quantity;
                                             $itemDiscountAmount = $itemSubtotalOriginal - $itemPriceSum;
                                         @endphp
@@ -270,7 +268,7 @@
                                         <div class="text-xs text-orange-600">-{{ number_format($itemDiscountAmount, 2) }} Kz {{ __('desc') }}</div>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-4 py-3 text-center align-top">
                                         <button type="button" wire:click="removeProduct({{ $item->id }})"
                                                 wire:loading.attr="disabled"
                                                 class="p-2 bg-red-100 hover:bg-red-600 text-red-600 hover:text-white rounded-lg transition-all duration-300 hover:scale-110 disabled:opacity-50">
@@ -374,7 +372,7 @@
                         {{-- Tipo de Documento --}}
                         <div class="pb-4 mb-4 border-b border-gray-200">
                             <label class="flex items-center cursor-pointer">
-                                <input type="checkbox" wire:model.live="is_service" 
+                                <input type="checkbox" wire:model.live="is_service"
                                        class="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
                                 <span class="ml-3 text-sm font-bold text-gray-700">
                                     <i class="fas fa-concierge-bell mr-1 text-purple-600"></i>
@@ -382,48 +380,41 @@
                                 </span>
                             </label>
                         </div>
-                        
+
                         {{-- Resumo Simplificado - MODELO AGT ANGOLA --}}
                         <div class="space-y-3">
-                            {{-- Total Líquido (Total Bruto) --}}
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-sm font-semibold text-gray-700">{{ __('Total líquido') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($subtotal_original, 2) }}</span>
                             </div>
-                            
-                            {{-- Desconto Comercial (Linhas + Adicional) --}}
+
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-sm font-semibold text-gray-700">{{ __('Desconto Comercial') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($desconto_comercial_total ?? 0, 2) }}</span>
                             </div>
-                            
-                            {{-- Desconto Financeiro --}}
+
                             <div class="flex justify-between items-center py-2 border-b border-gray-100">
                                 <span class="text-sm font-semibold text-gray-700">{{ __('Desconto Financeiro') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($discount_financial, 2) }}</span>
                             </div>
-                            
-                            {{-- IVA (14%) --}}
+
                             <div class="flex justify-between items-center py-2 border-b border-gray-100 bg-blue-50 px-2 rounded">
                                 <span class="text-sm font-semibold text-blue-700">
                                     <i class="fas fa-percentage mr-1"></i>IVA (14%)
                                 </span>
                                 <span class="text-base font-bold text-blue-700">{{ number_format($tax_amount, 2) }}</span>
                             </div>
-                            
-                            {{-- Retenção IRT (6,5% sobre Incidência IVA) --}}
+
                             <div class="flex justify-between items-center py-2 border-b-2 border-gray-300">
                                 <span class="text-sm font-semibold text-gray-700">{{ __('Retenção (6,5%)') }}</span>
                                 <span class="text-base font-bold text-gray-900">{{ number_format($irt_amount, 2) }}</span>
                             </div>
-                            
-                            {{-- Total (AOA) - Incidência + IVA - Retenção --}}
+
                             <div class="flex justify-between items-center pt-3">
                                 <span class="text-lg font-bold text-gray-700">{{ __('Total') }} (AOA)</span>
                                 <span class="text-3xl font-bold text-green-600">{{ number_format($total, 2) }}</span>
                             </div>
-                            
-                            {{-- Info Adicional --}}
+
                             <div class="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-gray-600">
                                 <div class="flex justify-between mb-1">
                                     <span>{{ __('Incidência IVA (Base):') }}</span>
@@ -431,7 +422,7 @@
                                 </div>
                                 <div class="text-gray-500 text-[10px] mt-2">
                                     <i class="fas fa-info-circle mr-1"></i>
-                                    {{ __('Cálculo conforme Decreto Presidencial 312/18 - AGT Angola') }}
+                                    {{ __('Documento não fiscal — não comunicado à AGT') }}
                                 </div>
                             </div>
                         </div>
@@ -574,8 +565,7 @@
                 const data = event[0] || event;
                 const type = data.type || 'info';
                 const message = data.message || @js(__('Ação realizada'));
-                
-                // Configure toastr
+
                 if (typeof toastr !== 'undefined') {
                     toastr.options = {
                         "closeButton": true,
@@ -585,7 +575,7 @@
                         "showDuration": "300",
                         "hideDuration": "1000"
                     };
-                    
+
                     switch(type) {
                         case 'success':
                             toastr.success(message, @js(__('Sucesso')));
@@ -602,15 +592,14 @@
                     }
                 }
             });
-            
-            // Abrir preview da proforma em nova aba para impressão
-            Livewire.on('openProformaPreview', (event) => {
+
+            // Abrir preview do orçamento em nova aba para impressão
+            Livewire.on('openQuotePreview', (event) => {
                 const data = event[0] || event;
-                const proformaId = data.proformaId;
-                
-                if (proformaId) {
-                    // Abrir preview em nova aba
-                    const previewUrl = '{{ url("/invoicing/sales/proformas") }}/' + proformaId + '/preview';
+                const quoteId = data.quoteId;
+
+                if (quoteId) {
+                    const previewUrl = '{{ url("/invoicing/sales/quotes") }}/' + quoteId + '/preview';
                     window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,location=yes');
                 }
             });

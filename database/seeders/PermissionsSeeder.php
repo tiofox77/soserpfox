@@ -78,6 +78,13 @@ class PermissionsSeeder extends Seeder
         $createPermission('invoicing.sales.proformas.delete', 'Eliminar Proformas de Venda');
         $createPermission('invoicing.sales.proformas.convert', 'Converter Proformas em Faturas');
 
+        // Orçamentos (documento comercial, não fiscal)
+        $createPermission('invoicing.sales.quotes.view', 'Ver Orçamentos');
+        $createPermission('invoicing.sales.quotes.create', 'Criar Orçamentos');
+        $createPermission('invoicing.sales.quotes.edit', 'Editar Orçamentos');
+        $createPermission('invoicing.sales.quotes.delete', 'Eliminar Orçamentos');
+        $createPermission('invoicing.sales.quotes.convert', 'Converter Orçamentos em Faturas');
+
         // Faturas de Compra
         $createPermission('invoicing.purchases.invoices.view', 'Ver Faturas de Compra');
         $createPermission('invoicing.purchases.invoices.create', 'Criar Faturas de Compra');
@@ -223,6 +230,8 @@ class PermissionsSeeder extends Seeder
             // Proformas
             'invoicing.sales.proformas.view', 'invoicing.sales.proformas.create', 'invoicing.sales.proformas.edit', 'invoicing.sales.proformas.delete', 'invoicing.sales.proformas.convert',
             'invoicing.purchases.proformas.view', 'invoicing.purchases.proformas.create', 'invoicing.purchases.proformas.edit', 'invoicing.purchases.proformas.delete',
+            // Orçamentos
+            'invoicing.sales.quotes.view', 'invoicing.sales.quotes.create', 'invoicing.sales.quotes.edit', 'invoicing.sales.quotes.delete', 'invoicing.sales.quotes.convert',
             // Recibos
             'invoicing.receipts.view', 'invoicing.receipts.create', 'invoicing.receipts.edit', 'invoicing.receipts.delete', 'invoicing.receipts.cancel',
             // Notas
@@ -262,6 +271,7 @@ class PermissionsSeeder extends Seeder
             'invoicing.products.view',
             'invoicing.sales.invoices.view', 'invoicing.sales.invoices.create', 'invoicing.sales.invoices.pdf',
             'invoicing.sales.proformas.view', 'invoicing.sales.proformas.create', 'invoicing.sales.proformas.convert',
+            'invoicing.sales.quotes.view', 'invoicing.sales.quotes.create', 'invoicing.sales.quotes.edit', 'invoicing.sales.quotes.convert',
             'invoicing.receipts.view', 'invoicing.receipts.create',
             'invoicing.pos.access', 'invoicing.pos.sell',
         ]);

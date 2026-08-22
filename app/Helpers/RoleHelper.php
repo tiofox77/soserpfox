@@ -45,6 +45,7 @@ if (!function_exists('getDefaultRolePermissionMap')) {
                     'products.view',
                     'invoicing.sales.invoices.create', 'invoicing.sales.invoices.view',
                     'invoicing.sales.proformas.create', 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.edit',
+                    'invoicing.sales.quotes.create', 'invoicing.sales.quotes.view', 'invoicing.sales.quotes.edit', 'invoicing.sales.quotes.convert',
                     'invoicing.pos.access', 'invoicing.pos.sell',
                     'invoicing.receipts.view', 'invoicing.receipts.create',
                     'invoicing.stock.view',

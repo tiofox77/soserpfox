@@ -243,6 +243,13 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->name('proformas.preview');
+
+        // Orçamentos (documento comercial, não fiscal)
+        Route::middleware('permission:invoicing.sales.quotes.view')->get('/quotes', \App\Livewire\Invoicing\Sales\Quotes::class)->name('quotes');
+        Route::get('/quotes/create', \App\Livewire\Invoicing\Sales\QuoteCreate::class)->name('quotes.create');
+        Route::get('/quotes/{id}/edit', \App\Livewire\Invoicing\Sales\QuoteCreate::class)->name('quotes.edit');
+        Route::get('/quotes/{id}/pdf', [\App\Http\Controllers\Invoicing\QuoteController::class, 'generatePdf'])->name('quotes.pdf');
+        Route::get('/quotes/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewHtml'])->name('quotes.preview');
         
         // Faturas de Venda
         Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');

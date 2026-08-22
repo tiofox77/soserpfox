@@ -721,10 +721,18 @@
                                          class="bg-blue-900/20">
                                         
                                         @can('invoicing.sales.proformas.view')
-                                        <a href="{{ route('invoicing.sales.proformas') }}" 
+                                        <a href="{{ route('invoicing.sales.proformas') }}"
                                            class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.proformas*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-invoice-dollar w-5 text-purple-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Proformas Venda') }}</span>
+                                        </a>
+                                        @endcan
+
+                                        @can('invoicing.sales.quotes.view')
+                                        <a href="{{ route('invoicing.sales.quotes') }}"
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.quotes*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-file-signature w-5 text-teal-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Orçamentos') }}</span>
                                         </a>
                                         @endcan
                                         

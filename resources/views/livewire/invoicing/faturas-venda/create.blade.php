@@ -314,8 +314,15 @@
                                             @endif
                                         </div>
                                         <div class="text-xs text-gray-500">{{ $item->attributes['unit'] }}</div>
+                                        {{-- Descrição detalhada da linha (TEXT). Um serviço não cabe num nome. --}}
+                                        <textarea
+                                            wire:change="updateDescription({{ $item->id }}, $event.target.value)"
+                                            rows="2"
+                                            placeholder="{{ __('Descrição detalhada do serviço/artigo (opcional)') }}"
+                                            class="mt-2 w-full text-xs px-2 py-1.5 border border-gray-200 rounded focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-y"
+                                        >{{ $item->attributes['description'] ?? '' }}</textarea>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 align-top">
                                         <input type="number" step="1" min="1"
                                                wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
                                                value="{{ $item->quantity }}"

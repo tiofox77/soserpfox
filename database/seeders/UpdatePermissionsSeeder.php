@@ -35,6 +35,7 @@ class UpdatePermissionsSeeder extends Seeder
                 'invoicing.sales.invoices.view', 'invoicing.sales.invoices.create', 'invoicing.sales.invoices.edit', 'invoicing.sales.invoices.delete', 'invoicing.sales.invoices.pdf', 'invoicing.sales.invoices.cancel',
                 'invoicing.purchases.invoices.view', 'invoicing.purchases.invoices.create', 'invoicing.purchases.invoices.edit', 'invoicing.purchases.invoices.delete',
                 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.create', 'invoicing.sales.proformas.edit', 'invoicing.sales.proformas.delete', 'invoicing.sales.proformas.convert',
+                'invoicing.sales.quotes.view', 'invoicing.sales.quotes.create', 'invoicing.sales.quotes.edit', 'invoicing.sales.quotes.delete', 'invoicing.sales.quotes.convert',
                 'invoicing.purchases.proformas.view', 'invoicing.purchases.proformas.create', 'invoicing.purchases.proformas.edit', 'invoicing.purchases.proformas.delete',
                 'invoicing.receipts.view', 'invoicing.receipts.create', 'invoicing.receipts.edit', 'invoicing.receipts.delete', 'invoicing.receipts.cancel',
                 'invoicing.credit-notes.view', 'invoicing.credit-notes.create', 'invoicing.credit-notes.edit', 'invoicing.credit-notes.delete',
@@ -56,6 +57,7 @@ class UpdatePermissionsSeeder extends Seeder
                 'invoicing.products.view',
                 'invoicing.sales.invoices.view', 'invoicing.sales.invoices.create', 'invoicing.sales.invoices.pdf',
                 'invoicing.sales.proformas.view', 'invoicing.sales.proformas.create', 'invoicing.sales.proformas.convert',
+                'invoicing.sales.quotes.view', 'invoicing.sales.quotes.create', 'invoicing.sales.quotes.edit', 'invoicing.sales.quotes.convert',
                 'invoicing.receipts.view', 'invoicing.receipts.create',
                 'invoicing.pos.access', 'invoicing.pos.sell',
             ]);

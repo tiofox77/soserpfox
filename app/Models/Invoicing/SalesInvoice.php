@@ -18,6 +18,7 @@ class SalesInvoice extends Model
     protected $fillable = [
         'tenant_id',
         'proforma_id',
+        'quote_id',
         'invoice_number',
         'local_uuid',
         'payment_method',
@@ -225,6 +226,11 @@ class SalesInvoice extends Model
     public function proforma()
     {
         return $this->belongsTo(SalesProforma::class, 'proforma_id');
+    }
+
+    public function quote()
+    {
+        return $this->belongsTo(SalesQuote::class, 'quote_id');
     }
 
     public function warehouse()

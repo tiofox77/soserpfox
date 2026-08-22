@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Invoicing\Sales;
 
-use App\Models\Invoicing\SalesProforma;
-use App\Models\Invoicing\SalesProformaItem;
+use App\Models\Invoicing\SalesQuote;
+use App\Models\Invoicing\SalesQuoteItem;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Client;
 use App\Models\Product;
@@ -16,11 +16,18 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Criar/editar um Orçamento de venda.
+ *
+ * É a mesma interface da proforma (por decisão de produto), mas o orçamento
+ * NÃO é documento fiscal: aqui não se gera série, nem hash SAFT-AO, nem se
+ * comunica nada à AGT. Cada linha ganha uma descrição longa do serviço.
+ */
 #[Layout('layouts.app')]
-#[Title('Nova Proforma de Venda')]
-class ProformaCreate extends Component
+#[Title('Novo Orçamento')]
+class QuoteCreate extends Component
 {
-    public $proformaId = null;
+    public $quoteId = null;
     public $isEdit = false;
 
     // Form fields
@@ -28,14 +35,11 @@ class ProformaCreate extends Component
 
     /**
      * Região fiscal do documento (AO ou AO-CAB).
-     *
-     * Vazio = deriva da província do cliente. Existe como escolha própria
-     * porque o regime de Cabinda depende do local da OPERAÇÃO: a mesma
-     * entidade pode comprar em Luanda e em Cabinda.
+     * Vazio = deriva da província do cliente.
      */
     public $tax_country_region = '';
     public $warehouse_id = '';
-    public $proforma_date;
+    public $quote_date;
     public $valid_until;
     public $notes = '';
     public $terms = '';
@@ -48,53 +52,10 @@ class ProformaCreate extends Component
     public $showProductModal = false;
     public $searchProduct = '';
     public $selectedCategory = '';
-    
+
     // Client search
     public $searchClient = '';
-    
-    public function selectClient($clientId)
-    {
-        $this->client_id = $clientId;
-        $this->searchClient = '';
-        $this->reset('searchClient');
-        
-        // Salvar na sessão para persistir entre reloads
-        $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
-        session([$sessionKey => $clientId]);
-        
-        // Get client name
-        $client = Client::find($clientId);
-        
-        // Force clear input visually
-        $this->dispatch('client-selected');
-        
-        // Toast notification
-        $this->dispatch('notify', [
-            'type' => 'success',
-            'message' => __('Cliente selecionado: :nome', ['nome' => $client ? $client->name : ''])
-        ]);
-    }
-    
-    public function clearClient()
-    {
-        $this->client_id = '';
-        $this->searchClient = '';
-        
-        // Remover da sessão
-        $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
-        session()->forget($sessionKey);
-        
-        // Restaurar cliente padrão
-        $defaultClient = Client::where('tenant_id', activeTenantId())
-            ->where('nif', '999999999')
-            ->first();
-        
-        if ($defaultClient) {
-            $this->client_id = $defaultClient->id;
-            session([$sessionKey => $defaultClient->id]);
-        }
-    }
-    
+
     // Quick client creation
     public $showQuickClientModal = false;
     public $quickClientName = '';
@@ -109,14 +70,51 @@ class ProformaCreate extends Component
     protected $rules = [
         'client_id' => 'required|exists:invoicing_clients,id',
         'warehouse_id' => 'nullable|exists:invoicing_warehouses,id',
-        'proforma_date' => 'required|date',
-        'valid_until' => 'nullable|date|after:proforma_date',
+        'quote_date' => 'required|date',
+        'valid_until' => 'nullable|date|after:quote_date',
         'discount_amount' => 'nullable|numeric|min:0',
         'discount_commercial' => 'nullable|numeric|min:0',
         'discount_financial' => 'nullable|numeric|min:0',
         'notes' => 'nullable|string|max:65535',
         'terms' => 'nullable|string|max:65535',
     ];
+
+    public function selectClient($clientId)
+    {
+        $this->client_id = $clientId;
+        $this->searchClient = '';
+        $this->reset('searchClient');
+
+        $sessionKey = 'quote_client_' . activeTenantId() . '_' . auth()->id();
+        session([$sessionKey => $clientId]);
+
+        $client = Client::find($clientId);
+
+        $this->dispatch('client-selected');
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => __('Cliente selecionado: :nome', ['nome' => $client ? $client->name : ''])
+        ]);
+    }
+
+    public function clearClient()
+    {
+        $this->client_id = '';
+        $this->searchClient = '';
+
+        $sessionKey = 'quote_client_' . activeTenantId() . '_' . auth()->id();
+        session()->forget($sessionKey);
+
+        $defaultClient = Client::where('tenant_id', activeTenantId())
+            ->where('nif', '999999999')
+            ->first();
+
+        if ($defaultClient) {
+            $this->client_id = $defaultClient->id;
+            session([$sessionKey => $defaultClient->id]);
+        }
+    }
 
     /**
      * Verifica se o carrinho contém produtos físicos (não serviços)
@@ -132,16 +130,14 @@ class ProformaCreate extends Component
         }
         return false;
     }
-    
+
     public function updated($propertyName)
     {
-        // Quando client_id é alterado, salvar na sessão
         if ($propertyName === 'client_id' && $this->client_id) {
-            $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
+            $sessionKey = 'quote_client_' . activeTenantId() . '_' . auth()->id();
             session([$sessionKey => $this->client_id]);
         }
-        
-        // Validar desconto comercial
+
         if ($propertyName === 'discount_commercial' && $this->discount_commercial > 0) {
             $validation = DiscountHelper::validateDiscount($this->discount_commercial, 'commercial');
             if (!$validation['valid']) {
@@ -149,8 +145,7 @@ class ProformaCreate extends Component
                 $this->discount_commercial = 0;
             }
         }
-        
-        // Validar desconto financeiro
+
         if ($propertyName === 'discount_financial' && $this->discount_financial > 0) {
             $validation = DiscountHelper::validateDiscount($this->discount_financial, 'financial');
             if (!$validation['valid']) {
@@ -162,68 +157,63 @@ class ProformaCreate extends Component
 
     public function mount($id = null)
     {
-        $this->proforma_date = now()->format('Y-m-d');
-        // Usar configuração de dias para validade
+        $this->quote_date = now()->format('Y-m-d');
+        // Mesma janela de validade da proforma (config da empresa).
         $this->valid_until = DocumentConfigHelper::getProformaValidUntil()->format('Y-m-d');
-        
-        // Unique cart instance per user and tenant (persiste entre reloads)
-        $this->cartInstance = 'sales_proforma_' . activeTenantId() . '_' . auth()->id();
-        
-        // Set default warehouse
+
+        $this->cartInstance = 'sales_quote_' . activeTenantId() . '_' . auth()->id();
+
         $defaultWarehouse = Warehouse::where('tenant_id', activeTenantId())
             ->where('is_default', true)
             ->first();
-        
+
         if ($defaultWarehouse) {
             $this->warehouse_id = $defaultWarehouse->id;
         }
-        
+
         if ($id) {
             $this->isEdit = true;
-            $this->proformaId = $id;
-            $this->loadProforma($id);
+            $this->quoteId = $id;
+            $this->loadQuote($id);
         } else {
-            // Restaurar cliente da sessão se existir
-            $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
+            $sessionKey = 'quote_client_' . activeTenantId() . '_' . auth()->id();
             $savedClientId = session($sessionKey);
-            
+
             if ($savedClientId && Client::where('id', $savedClientId)->where('tenant_id', activeTenantId())->exists()) {
                 $this->client_id = $savedClientId;
             } else {
-                // Set default client (Consumidor Final)
                 $defaultClient = Client::where('tenant_id', activeTenantId())
                     ->where('nif', '999999999')
                     ->first();
-                
+
                 if ($defaultClient) {
                     $this->client_id = $defaultClient->id;
                 }
             }
         }
-        
+
         $this->searchClient = '';
     }
 
-    public function loadProforma($id)
+    public function loadQuote($id)
     {
-        $proforma = SalesProforma::where('tenant_id', activeTenantId())
+        $quote = SalesQuote::where('tenant_id', activeTenantId())
             ->with('items.product')
             ->findOrFail($id);
 
-        $this->client_id = $proforma->client_id;
-        $this->warehouse_id = $proforma->warehouse_id;
-        $this->proforma_date = $proforma->proforma_date->format('Y-m-d');
-        $this->valid_until = $proforma->valid_until?->format('Y-m-d');
-        $this->notes = $proforma->notes;
-        $this->terms = $proforma->terms;
-        $this->discount_amount = $proforma->discount_amount;
-        $this->discount_commercial = $proforma->discount_commercial ?? 0;
-        $this->discount_financial = $proforma->discount_financial ?? 0;
-        $this->is_service = $proforma->is_service ?? false;
+        $this->client_id = $quote->client_id;
+        $this->warehouse_id = $quote->warehouse_id;
+        $this->quote_date = $quote->quote_date->format('Y-m-d');
+        $this->valid_until = $quote->valid_until?->format('Y-m-d');
+        $this->notes = $quote->notes;
+        $this->terms = $quote->terms;
+        $this->discount_amount = $quote->discount_amount;
+        $this->discount_commercial = $quote->discount_commercial ?? 0;
+        $this->discount_financial = $quote->discount_financial ?? 0;
+        $this->is_service = $quote->is_service ?? false;
 
-        // Load items into cart
         Cart::session($this->cartInstance)->clear();
-        foreach ($proforma->items as $item) {
+        foreach ($quote->items as $item) {
             Cart::session($this->cartInstance)->add([
                 'id' => $item->product_id,
                 'name' => $item->product->name,
@@ -241,10 +231,9 @@ class ProformaCreate extends Component
 
     public function render()
     {
-        // Get clients - always load (with optional search filter)
         $clientsQuery = Client::where('tenant_id', activeTenantId())
             ->where('is_active', true);
-            
+
         if ($this->searchClient) {
             $clientsQuery->where(function ($q) {
                 $q->where('name', 'like', '%' . $this->searchClient . '%')
@@ -252,17 +241,15 @@ class ProformaCreate extends Component
                   ->orWhere('phone', 'like', '%' . $this->searchClient . '%');
             });
         }
-        
+
         $clients = $clientsQuery->orderBy('name')->limit(50)->get();
 
         $warehouses = Warehouse::where('tenant_id', activeTenantId())
             ->where('is_active', true)
             ->get();
 
-        // Get cart items
         $cartItems = Cart::session($this->cartInstance)->getContent();
-        
-        // 🎩 CÁLCULO MODELO AGT ANGOLA usando Helper centralizado
+
         $totals = InvoiceCalculationHelper::calculateTotals(
             $cartItems,
             $this->discount_commercial,
@@ -271,7 +258,6 @@ class ProformaCreate extends Component
             $this->is_service
         );
 
-        // Get products for modal with stock info
         $products = [];
         if ($this->showProductModal) {
             $query = Product::where('tenant_id', activeTenantId())
@@ -285,27 +271,21 @@ class ProformaCreate extends Component
             }
 
             $products = $query->orderBy('name')->limit(50)->get()->map(function($product) {
-                // Calculate total stock from all warehouses
                 $totalStock = \App\Models\Invoicing\Stock::where('tenant_id', activeTenantId())
                     ->where('product_id', $product->id)
                     ->sum('quantity');
-                    
+
                 $product->stock_quantity = $totalStock;
                 return $product;
             });
         }
 
-        // Região fiscal do adquirente: Cabinda tem regime de IVA próprio
-        // (AO-CAB). Faltava aqui — a proforma calculava sempre à taxa
-        // continental, e uma proposta feita em Cabinda saía com o imposto
-        // errado. Depende do LOCAL DA OPERAÇÃO, não só da sede do cliente, por
-        // isso escolhe-se no documento e só na falta se deriva da província.
         $cliente = $this->client_id ? Client::find($this->client_id) : null;
         $regiaoFiscal = in_array($this->tax_country_region, ['AO', 'AO-CAB'], true)
             ? $this->tax_country_region
             : \App\Services\Invoicing\TaxResolver::regionForClient($cliente);
 
-        return view('livewire.invoicing.proformas-venda.create', array_merge([
+        return view('livewire.invoicing.orcamentos-venda.create', array_merge([
             'clients' => $clients,
             'warehouses' => $warehouses,
             'cartItems' => $cartItems,
@@ -314,98 +294,25 @@ class ProformaCreate extends Component
             'clienteProvincia' => $cliente->province ?? null,
         ], $totals));
     }
+
     public function addProduct($productId)
     {
         $product = Product::with('taxRate')->where('tenant_id', activeTenantId())->findOrFail($productId);
 
-        // Verificar se produto rastreia lotes e se exige lote na venda
-        if ($product->track_batches && $product->require_batch_on_sale) {
-            // Verificar se há lotes disponíveis
-            $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
-                ->where('product_id', $productId)
-                ->where('warehouse_id', $this->warehouse_id)
-                ->where('status', 'active')
-                ->where('quantity_available', '>', 0)
-                ->orderBy('expiry_date', 'asc')
-                ->get();
-            
-            if ($availableBatches->isEmpty()) {
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => '❌ ' . __('Produto exige lote na venda mas não há lotes disponíveis: :produto', ['produto' => $product->name])
-                ]);
-                return;
-            }
-            
-            // Verificar se há lotes expirados
-            $expiredBatches = $availableBatches->filter(fn($b) => $b->is_expired);
-            if ($expiredBatches->isNotEmpty()) {
-                $expiredNumbers = $expiredBatches->pluck('batch_number')->filter()->join(', ');
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => '⚠️ ' . __('Lotes expirados encontrados: :lotes', ['lotes' => $expiredNumbers ?: __('Sem número')])
-                ]);
-                return;
-            }
-            
-            // Verificar se há lotes expirando em breve
-            $expiringSoon = $availableBatches->filter(fn($b) => $b->is_expiring_soon && !$b->is_expired);
-            if ($expiringSoon->isNotEmpty()) {
-                $expiringNumbers = $expiringSoon->pluck('batch_number')->filter()->join(', ');
-                $days = $expiringSoon->first()->days_until_expiry ?? 0;
-                // Dois plurais na mesma frase — o dos dias e o dos lotes — por isso
-                // o prazo é montado à parte e entra como marcador.
-                $prazo = trans_choice(':n dia|:n dias', $days, ['n' => $days]);
-                $this->dispatch('notify', [
-                    'type' => 'warning',
-                    'message' => '⚠️ ' . trans_choice(
-                        'Atenção: lote a expirar em :prazo: :lotes|Atenção: lotes a expirar em :prazo: :lotes',
-                        $expiringSoon->count(),
-                        ['prazo' => $prazo, 'lotes' => $expiringNumbers ?: __('Sem número')]
-                    )
-                ]);
-            }
-        }
-
-        // Verificar se produto já existe no carrinho
         $existingItem = Cart::session($this->cartInstance)->get($productId);
-        
+
         if ($existingItem) {
-            // Se produto rastreia lotes, verificar disponibilidade antes de incrementar
-            if ($product->track_batches) {
-                $newQuantity = $existingItem->quantity + 1;
-                $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
-                    ->where('product_id', $productId)
-                    ->where('warehouse_id', $this->warehouse_id)
-                    ->where('status', 'active')
-                    ->where('quantity_available', '>', 0)
-                    ->get();
-                
-                $totalAvailable = $availableBatches->sum('quantity_available');
-                
-                if ($newQuantity > $totalAvailable) {
-                    $this->dispatch('notify', [
-                        'type' => 'error',
-                        'message' => '❌ ' . __('Quantidade insuficiente em lotes. Disponível: :quantidade', ['quantidade' => $totalAvailable])
-                    ]);
-                    return;
-                }
-            }
-            
-            // Se já existe, incrementa quantidade
             Cart::session($this->cartInstance)->update($productId, [
-                'quantity' => 1 // Incrementa 1
+                'quantity' => 1
             ]);
-            
+
             $this->dispatch('notify', [
                 'type' => 'info',
                 'message' => __('Quantidade incrementada: :produto', ['produto' => $product->name])
             ]);
         } else {
-            // Imposto pela fonte única (regime do tenant + produto)
             $tx = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
 
-            // Adiciona novo item
             Cart::session($this->cartInstance)->add([
                 'id' => $product->id,
                 'name' => $product->name,
@@ -420,25 +327,11 @@ class ProformaCreate extends Component
                     'exemption_reason' => $tx['exemption_code'],
                 ]
             ]);
-            
-            // Frase inteira por tipo, e não "rótulo + resto": noutras línguas o
-            // adjectivo concorda com o nome e a ordem das palavras muda.
+
             $message = $product->type === 'servico'
                 ? __('Serviço adicionado: :produto (IVA: :taxa%)', ['produto' => $product->name, 'taxa' => $tx['rate']])
                 : __('Produto adicionado: :produto (IVA: :taxa%)', ['produto' => $product->name, 'taxa' => $tx['rate']]);
-            
-            // Se rastreia lotes, adicionar info
-            if ($product->track_batches) {
-                $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
-                    ->where('product_id', $productId)
-                    ->where('warehouse_id', $this->warehouse_id)
-                    ->where('status', 'active')
-                    ->where('quantity_available', '>', 0)
-                    ->get();
-                $totalAvailable = $availableBatches->sum('quantity_available');
-                $message .= ' | ' . __('Lotes: :contagem (Total disponível: :disponivel)', ['contagem' => $availableBatches->count(), 'disponivel' => $totalAvailable]);
-            }
-            
+
             $this->dispatch('notify', [
                 'type' => 'success',
                 'message' => $message
@@ -448,11 +341,11 @@ class ProformaCreate extends Component
         $this->showProductModal = false;
         $this->searchProduct = '';
     }
-    
+
     public function clearCart()
     {
         Cart::session($this->cartInstance)->clear();
-        
+
         $this->dispatch('notify', [
             'type' => 'info',
             'message' => __('Carrinho limpo com sucesso!')
@@ -463,9 +356,9 @@ class ProformaCreate extends Component
     {
         $item = Cart::session($this->cartInstance)->get($productId);
         $productName = $item ? $item->name : __('Produto');
-        
+
         Cart::session($this->cartInstance)->remove($productId);
-        
+
         $this->dispatch('notify', [
             'type' => 'warning',
             'message' => __('Produto removido: :produto', ['produto' => $productName])
@@ -475,35 +368,13 @@ class ProformaCreate extends Component
     public function updateQuantity($productId, $quantity)
     {
         if ($quantity > 0) {
-            // Verificar se produto rastreia lotes
-            $product = Product::where('tenant_id', activeTenantId())->find($productId);
-            
-            if ($product && $product->track_batches) {
-                $availableBatches = \App\Models\Invoicing\ProductBatch::where('tenant_id', activeTenantId())
-                    ->where('product_id', $productId)
-                    ->where('warehouse_id', $this->warehouse_id)
-                    ->where('status', 'active')
-                    ->where('quantity_available', '>', 0)
-                    ->get();
-                
-                $totalAvailable = $availableBatches->sum('quantity_available');
-                
-                if ($quantity > $totalAvailable) {
-                    $this->dispatch('notify', [
-                        'type' => 'error',
-                        'message' => '❌ ' . __('Quantidade insuficiente em lotes. Disponível: :quantidade', ['quantidade' => $totalAvailable])
-                    ]);
-                    return;
-                }
-            }
-            
             Cart::session($this->cartInstance)->update($productId, [
                 'quantity' => [
                     'relative' => false,
                     'value' => $quantity
                 ]
             ]);
-            
+
             $this->dispatch('notify', [
                 'type' => 'info',
                 'message' => __('Quantidade atualizada para: :quantidade', ['quantidade' => $quantity])
@@ -523,10 +394,8 @@ class ProformaCreate extends Component
     public function updateDiscount($productId, $discountPercent)
     {
         if ($discountPercent >= 0 && $discountPercent <= 100) {
-            // Remover condition anterior se existir
             Cart::session($this->cartInstance)->clearItemConditions($productId);
-            
-            // Aplicar novo desconto usando conditions
+
             if ($discountPercent > 0) {
                 $condition = new \Darryldecode\Cart\CartCondition([
                     'name' => 'DESCONTO',
@@ -534,11 +403,10 @@ class ProformaCreate extends Component
                     'target' => 'item',
                     'value' => '-' . $discountPercent . '%',
                 ]);
-                
+
                 Cart::session($this->cartInstance)->addItemCondition($productId, $condition);
             }
-            
-            // Atualizar atributos
+
             $item = Cart::session($this->cartInstance)->get($productId);
             if ($item) {
                 // MERGE (não substituir): substituir os attributes deitava fora
@@ -558,11 +426,9 @@ class ProformaCreate extends Component
     /**
      * Descrição detalhada da linha (abaixo do nome do produto).
      *
-     * Um serviço não cabe num nome de artigo: "Instalação eléctrica" precisa
-     * das horas, do material e das condições por baixo. O campo já existia na
-     * tabela (…_items.description, TEXT); faltava a via para o preencher. MERGE
-     * dos attributes, como o updateDiscount — um update directo deitava fora o
-     * tax_rate e o motivo de isenção da linha.
+     * É a razão de ser do orçamento: um serviço não cabe num nome de artigo.
+     * MERGE dos attributes, como o updateDiscount — um update directo deitava
+     * fora o tax_rate e o motivo de isenção da linha.
      */
     public function updateDescription($productId, $description)
     {
@@ -602,12 +468,10 @@ class ProformaCreate extends Component
         $this->client_id = $client->id;
         $this->searchClient = '';
         $this->showQuickClientModal = false;
-        
-        // Salvar na sessão
-        $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
+
+        $sessionKey = 'quote_client_' . activeTenantId() . '_' . auth()->id();
         session([$sessionKey => $client->id]);
-        
-        // Reset form
+
         $this->quickClientName = '';
         $this->quickClientTaxId = '';
         $this->quickClientEmail = '';
@@ -629,12 +493,11 @@ class ProformaCreate extends Component
         if ($cartItems->isEmpty()) {
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => __('Adicione pelo menos um produto à proforma.')
+                'message' => __('Adicione pelo menos um produto ao orçamento.')
             ]);
             return;
         }
 
-        // Armazém obrigatório apenas se existem produtos físicos (não serviços)
         if ($this->hasPhysicalProducts() && empty($this->warehouse_id)) {
             $this->dispatch('notify', [
                 'type' => 'error',
@@ -643,81 +506,57 @@ class ProformaCreate extends Component
             return;
         }
 
-        // Validar descontos antes de salvar
         if ($this->discount_commercial > 0) {
             $validation = DiscountHelper::validateDiscount($this->discount_commercial, 'commercial');
             if (!$validation['valid']) {
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => $validation['message']
-                ]);
+                $this->dispatch('notify', ['type' => 'error', 'message' => $validation['message']]);
                 return;
             }
         }
-        
+
         if ($this->discount_financial > 0) {
             $validation = DiscountHelper::validateDiscount($this->discount_financial, 'financial');
             if (!$validation['valid']) {
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => $validation['message']
-                ]);
+                $this->dispatch('notify', ['type' => 'error', 'message' => $validation['message']]);
                 return;
-            }
-        }
-        
-        // Validar descontos por linha nos itens
-        foreach ($cartItems as $item) {
-            if (isset($item->attributes->discount) && $item->attributes->discount > 0) {
-                $validation = DiscountHelper::validateDiscount($item->attributes->discount, 'line');
-                if (!$validation['valid']) {
-                    $this->dispatch('notify', [
-                        'type' => 'error',
-                        'message' => __('Item ":artigo": :erro', ['artigo' => $item->name, 'erro' => $validation['message']])
-                    ]);
-                    return;
-                }
             }
         }
 
         DB::beginTransaction();
         try {
             if ($this->isEdit) {
-                $proforma = SalesProforma::where('tenant_id', activeTenantId())
-                    ->findOrFail($this->proformaId);
-                
-                if ($proforma->status === 'converted') {
-                    throw new \Exception(__('Não é possível editar uma proforma já convertida.'));
+                $quote = SalesQuote::where('tenant_id', activeTenantId())
+                    ->findOrFail($this->quoteId);
+
+                if ($quote->status === 'converted') {
+                    throw new \Exception(__('Não é possível editar um orçamento já convertido.'));
                 }
 
-                // Delete old items
-                $proforma->items()->delete();
+                $quote->items()->delete();
             } else {
-                $proforma = new SalesProforma();
-                $proforma->tenant_id = activeTenantId();
-                $proforma->created_by = auth()->id();
+                $quote = new SalesQuote();
+                $quote->tenant_id = activeTenantId();
+                $quote->created_by = auth()->id();
             }
 
-            $proforma->client_id = $this->client_id;
-            $proforma->warehouse_id = $this->warehouse_id;
-            $proforma->proforma_date = $this->proforma_date;
-            $proforma->valid_until = $this->valid_until;
-            $proforma->status = $status;
-            $proforma->is_service = $this->is_service;
-            $proforma->discount_amount = $this->discount_amount;
-            $proforma->discount_commercial = $this->discount_commercial;
-            $proforma->discount_financial = $this->discount_financial;
-            $proforma->notes = $this->notes;
-            $proforma->terms = $this->terms;
-            $proforma->save();
+            $quote->client_id = $this->client_id;
+            $quote->warehouse_id = $this->warehouse_id;
+            $quote->quote_date = $this->quote_date;
+            $quote->valid_until = $this->valid_until;
+            $quote->status = $status;
+            $quote->is_service = $this->is_service;
+            $quote->discount_amount = $this->discount_amount;
+            $quote->discount_commercial = $this->discount_commercial;
+            $quote->discount_financial = $this->discount_financial;
+            $quote->notes = $this->notes;
+            $quote->terms = $this->terms;
+            $quote->save();
 
-            // Add items e calcular totais conforme AGT Angola
             $order = 0;
-            $proforma_subtotal = 0;
-            $proforma_tax_amount = 0;
-            
+            $quote_subtotal = 0;
+            $quote_tax_amount = 0;
+
             foreach ($cartItems as $item) {
-                // Calcular valores do item conforme AGT Angola
                 $valorBrutoLinha = $item->price * $item->quantity;
                 $descontoPercent = $item->attributes['discount_percent'] ?? 0;
                 $descontoAmount = $valorBrutoLinha * ($descontoPercent / 100);
@@ -725,13 +564,12 @@ class ProformaCreate extends Component
                 $valorAposDesconto = $valorBrutoLinha - $descontoAmount;
                 $taxAmount = $valorAposDesconto * (($item->attributes["tax_rate"] ?? 0) / 100);
                 $total = $valorAposDesconto + $taxAmount;
-                
-                // Acumular totais
-                $proforma_subtotal += $valorBrutoLinha;
-                $proforma_tax_amount += $taxAmount;
-                
-                SalesProformaItem::create([
-                    'sales_proforma_id' => $proforma->id,
+
+                $quote_subtotal += $valorBrutoLinha;
+                $quote_tax_amount += $taxAmount;
+
+                SalesQuoteItem::create([
+                    'sales_quote_id' => $quote->id,
                     'product_id' => $item->id,
                     'product_name' => $item->name,
                     'description' => $item->attributes['description'] ?? null,
@@ -745,15 +583,8 @@ class ProformaCreate extends Component
                     'tax_amount' => $taxAmount,
                     'total' => $total,
                     'order' => ++$order,
-                    // Persistir os campos AGT já na proforma, para a conversão em
-                    // fatura não perder o motivo de isenção.
-                    //
-                    // A região era 'AO' FIXO. Cabinda tem regime próprio
-                    // (AO-CAB) e o que o determina é o local da operação: uma
-                    // proposta feita lá saía com a taxa continental, e a
-                    // factura que dela nascesse herdava o erro. Segue a
-                    // escolha do documento e, na falta dela, a província do
-                    // cliente — a mesma regra da factura de venda.
+                    // Campos AGT persistidos já no orçamento, para a conversão em
+                    // factura não perder o motivo de isenção nem a região fiscal.
                     'tax_country_region'   => in_array($this->tax_country_region, ['AO', 'AO-CAB'], true)
                         ? $this->tax_country_region
                         : \App\Services\Invoicing\TaxResolver::regionForClient(
@@ -767,77 +598,50 @@ class ProformaCreate extends Component
                 ]);
             }
 
-            // Calcular total da proforma conforme AGT Angola
-            $desconto_comercial_total = $proforma->discount_commercial + $proforma->discount_amount;
-            $valor_apos_desc_comercial = $proforma_subtotal - $desconto_comercial_total;
-            $incidencia_iva = $valor_apos_desc_comercial - $proforma->discount_financial;
-            $irt_amount = $proforma->is_service ? $incidencia_iva * 0.065 : 0;
-            $total_final = $incidencia_iva + $proforma_tax_amount - $irt_amount;
-            
-            // Atualizar totais do proforma
-            $proforma->subtotal = $proforma_subtotal;
-            $proforma->tax_amount = $proforma_tax_amount;
-            $proforma->irt_amount = $irt_amount;
-            $proforma->total = $total_final;
-            $proforma->save();
-            
-            // Gerar HASH SAFT-AO conforme regulamento Angola
-            $previousProforma = SalesProforma::where('tenant_id', activeTenantId())
-                ->where('id', '<', $proforma->id)
-                ->whereNotNull('saft_hash')
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            $hash = \App\Helpers\SAFTHelper::generateHash(
-                $proforma->proforma_date->format('Y-m-d'),
-                $proforma->created_at->format('Y-m-d H:i:s'),
-                $proforma->proforma_number,
-                $proforma->total,
-                $previousProforma->saft_hash ?? null
-            );
-            
-            if ($hash) {
-                $proforma->saft_hash = $hash;
-                $proforma->save();
-            }
-            
+            $desconto_comercial_total = $quote->discount_commercial + $quote->discount_amount;
+            $valor_apos_desc_comercial = $quote_subtotal - $desconto_comercial_total;
+            $incidencia_iva = $valor_apos_desc_comercial - $quote->discount_financial;
+            $irt_amount = $quote->is_service ? $incidencia_iva * 0.065 : 0;
+            $total_final = $incidencia_iva + $quote_tax_amount - $irt_amount;
+
+            $quote->subtotal = $quote_subtotal;
+            $quote->tax_amount = $quote_tax_amount;
+            $quote->irt_amount = $irt_amount;
+            $quote->total = $total_final;
+            $quote->save();
+
+            // Sem hash SAFT-AO nem série: o orçamento não é documento fiscal.
+
             DB::commit();
 
-            // Clear cart
             Cart::session($this->cartInstance)->clear();
-            
-            // Clear session
-            $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
+
+            $sessionKey = 'quote_client_' . activeTenantId() . '_' . auth()->id();
             session()->forget($sessionKey);
 
             $this->dispatch('notify', [
                 'type' => 'success',
-                // Frase inteira e não "Proforma " . verbo: o particípio concorda
-                // com o nome e a ordem das palavras muda noutras línguas.
                 'message' => $this->isEdit
-                    ? __('Proforma atualizada com sucesso!')
-                    : __('Proforma criada com sucesso!')
+                    ? __('Orçamento atualizado com sucesso!')
+                    : __('Orçamento criado com sucesso!')
             ]);
-            
-            // Verificar se deve imprimir automaticamente
+
             if (DocumentConfigHelper::shouldAutoPrint()) {
-                // Abrir PDF automaticamente em nova aba
                 $this->dispatch('auto-print-pdf', [
-                    'url' => route('invoicing.sales.proforma.pdf', $proforma->id)
+                    'url' => route('invoicing.sales.quotes.pdf', $quote->id)
                 ]);
             }
-            
-            // Disparar evento para abrir preview em nova aba
-            $this->dispatch('openProformaPreview', ['proformaId' => $proforma->id]);
-            
-            return redirect()->route('invoicing.sales.proformas');
+
+            $this->dispatch('openQuotePreview', ['quoteId' => $quote->id]);
+
+            return redirect()->route('invoicing.sales.quotes');
 
         } catch (\Exception $e) {
             DB::rollback();
-            
+
             $this->dispatch('notify', [
                 'type' => 'error',
-                'message' => __('Erro ao salvar proforma: :erro', ['erro' => $e->getMessage()])
+                'message' => __('Erro ao salvar orçamento: :erro', ['erro' => $e->getMessage()])
             ]);
         }
     }

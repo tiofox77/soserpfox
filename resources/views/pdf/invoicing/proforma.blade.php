@@ -220,8 +220,27 @@
         .items-table .discriminacao {
             text-align: left;
             padding-left: 5px;
+            /* A descrição de um serviço pode ser longa: parte a palavra em vez de
+               esticar a coluna e desalinhar o resto da tabela. */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            max-width: 220px;
         }
-        
+
+        .items-table .discriminacao .item-nome {
+            font-weight: bold;
+        }
+
+        .items-table .discriminacao .item-descricao {
+            display: block;
+            margin-top: 1px;
+            font-size: 7px;
+            line-height: 1.25;
+            color: #666;
+            white-space: pre-line; /* respeita as quebras de linha que o utilizador escreveu */
+        }
+
         .items-table .currency {
             text-align: right;
             padding-right: 5px;
@@ -654,9 +673,9 @@
                     <tr>
                         <td>{{ $item->product->code ?? '-' }}</td>
                         <td class="discriminacao">
-                            {{ $item->product_name }}
+                            <span class="item-nome">{{ $item->product_name }}</span>
                             @if($item->description)
-                                <br><small>{{ $item->description }}</small>
+                                <span class="item-descricao">{{ $item->description }}</span>
                             @endif
                         </td>
                         <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>

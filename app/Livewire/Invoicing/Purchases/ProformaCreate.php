@@ -111,8 +111,8 @@ class ProformaCreate extends Component
         'discount_amount' => 'nullable|numeric|min:0',
         'discount_commercial' => 'nullable|numeric|min:0',
         'discount_financial' => 'nullable|numeric|min:0',
-        'notes' => 'nullable|string|max:1000',
-        'terms' => 'nullable|string|max:1000',
+        'notes' => 'nullable|string|max:65535',
+        'terms' => 'nullable|string|max:65535',
     ];
     
     public function updated($propertyName)

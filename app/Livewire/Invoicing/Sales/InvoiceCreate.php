@@ -157,8 +157,8 @@ class InvoiceCreate extends Component
         'discount_amount' => 'nullable|numeric|min:0',
         'discount_commercial' => 'nullable|numeric|min:0',
         'discount_financial' => 'nullable|numeric|min:0',
-        'notes' => 'nullable|string|max:1000',
-        'terms' => 'nullable|string|max:1000',
+        'notes' => 'nullable|string|max:65535',
+        'terms' => 'nullable|string|max:65535',
         'invoice_type' => 'required|in:FT,FR',
         'series_id' => 'nullable|integer',
     ];
@@ -351,6 +351,7 @@ class InvoiceCreate extends Component
                     'tax_rate' => $item->tax_rate,
                     'discount_percent' => $item->discount_percent,
                     'unit' => $item->unit,
+                    'description' => $item->description,
                 ]
             ]);
         }
@@ -803,6 +804,28 @@ class InvoiceCreate extends Component
         }
     }
 
+    /**
+     * Descrição detalhada da linha (abaixo do nome do produto).
+     *
+     * O mesmo campo que a proforma e o orçamento usam: um serviço não cabe num
+     * nome de artigo. Já existia na tabela (…_items.description, TEXT); faltava
+     * a via para o preencher.
+     */
+    public function updateDescription($productId, $description)
+    {
+        $item = Cart::session($this->cartInstance)->get($productId);
+        if (!$item) {
+            return;
+        }
+
+        $attrs = \App\Helpers\InvoiceCalculationHelper::atributos($item);
+        Cart::session($this->cartInstance)->update($productId, [
+            'attributes' => array_merge($attrs, [
+                'description' => mb_substr((string) $description, 0, 5000),
+            ]),
+        ]);
+    }
+
     public function createQuickClient()
     {
         $this->validate([
@@ -1054,6 +1077,7 @@ class InvoiceCreate extends Component
                     'sales_invoice_id' => $invoice->id,
                     'product_id' => $item->id,
                     'product_name' => $item->name,
+                    'description' => $item->attributes['description'] ?? null,
                     'quantity' => $item->quantity,
                     'unit' => $item->attributes['unit'] ?? 'UN',
                     'unit_price' => $item->price,
