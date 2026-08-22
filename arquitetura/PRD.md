@@ -429,6 +429,34 @@ Aliases legados: `regime_isencao` → `regime_nao_sujeicao`,
   e produtos quando o regime muda.
 - **Nunca escrevas `14` nem `0.14` no código.** Já houve regressões por isso.
 
+> **Invariante — todo o documento fiscal que sincroniza com a AGT constrói-se por
+> `DocumentMapper::mapLine`.** Há um só caminho de emissão: cada ecrã chama
+> `AutoSubmissao::enfileirar($doc)` → `DespachoPendentes` →
+> `AGTService::submitToAGT` → `RegisterService` → `DocumentMapper::map`, e cada
+> linha passa por `mapLine`. É aí — e só aí — que vive a lógica correcta: base
+> líquida (+ IEC), taxa do `TaxResolver`, código de isenção e o **arredondamento
+> do imposto por linha**. Não construir payloads de documento à mão noutro sítio
+> nem enviar por outra via. O mapa inline legado do `AGTClient`
+> (`processDocument`/`processForAGT`) não tem chamadores e não deve voltar a ter.
+> Cobre por este ponto único: **FT** (facturação), **FR/FT** (POS e PWA), **NC**,
+> **ND** e os documentos de **oficina, hotel e salão** (`ModuleInvoiceService`).
+> O **recibo** não tem linhas de imposto (payload `paymentReceipt`), logo não
+> passa por `mapLine`.
+
+> **Imposto por linha — `taxContribution` é CEIL ao cêntimo (DS.120 §4.1).**
+> A AGT apura o IVA da linha por arredondamento ao cêntimo **por excesso** sobre
+> `base × taxa` e recusa com **E70** («taxContribution … não corresponde ao
+> imposto apurado») quando não bate. O `tax_amount` gravado já vem a 2 casas, pelo
+> que `mapLine` **recalcula** de `base × taxa` a precisão plena e só então faz
+> `ceilCents`. Os totais derivam da soma das linhas
+> (`taxPayable = Σ taxContribution`, `grossTotal = netTotal + taxPayable`), por
+> isso fecham sozinhos; sem hash SAF-T no payload e com a assinatura JWS
+> recalculada, mudar o cêntimo não tem efeito colateral. Diagnóstico só-leitura:
+> `agt:ver-rejeicao --empresa=<nome>` (e `--simular` mostra o que seria enviado
+> sem comunicar nada). **Residual:** IEC e Imposto de Selo por linha
+> (`LineTax::toAgtTax`) ainda enviam o `tax_amount` arredondado — a tabela não
+> guarda a base; o ceil correcto exige a base no momento da emissão.
+
 ### Integração AGT
 
 - Serviços em `app/Services/AGT/` — assinatura JWS, construção de payload,

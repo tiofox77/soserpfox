@@ -696,6 +696,41 @@ o código SAFT e se as linhas saem isentas.</p>
   <code>regime_nao_sujeicao</code>, <code>regime_misto</code> → <code>regime_geral</code>.</p>
 </div>
 
+<div class="note danger">
+  <b>Todo o documento fiscal que vai à AGT constrói-se por <code>DocumentMapper::mapLine</code></b>
+  <p>Há <strong>um só</strong> caminho de emissão: cada ecrã de emissão chama
+  <code>AutoSubmissao::enfileirar($doc)</code> → <code>DespachoPendentes</code> →
+  <code>AGTService::submitToAGT</code> → <code>RegisterService</code> → <code>DocumentMapper::map</code>,
+  que mapeia <strong>cada linha</strong> por <code>mapLine</code>. É aí — e só aí — que vive a lógica
+  correcta: base líquida (+ IEC), taxa do <code>TaxResolver</code>, código de isenção, e o
+  <strong>arredondamento do imposto por linha</strong>. Nunca construir um payload de documento à mão
+  noutro sítio nem enviar por outra via; o mapa inline legado do <code>AGTClient</code>
+  (<code>processDocument</code>/<code>processForAGT</code>) não tem chamadores e não deve voltar a ter.</p>
+  <p style="margin-bottom:0">Cobertura verificada por este ponto único: <strong>FT</strong> (facturação),
+  <strong>FR/FT</strong> (POS e PWA), <strong>NC</strong>, <strong>ND</strong> e os documentos de
+  <strong>oficina, hotel e salão</strong> (via <code>ModuleInvoiceService</code>). O <strong>recibo</strong>
+  não tem linhas de imposto (o payload é <code>paymentReceipt</code>), logo não passa por <code>mapLine</code>
+  e não está sujeito a esta validação de imposto por linha.</p>
+</div>
+
+<div class="note warn">
+  <b>Imposto por linha: <code>taxContribution</code> é CEIL ao cêntimo (DS.120 §4.1)</b>
+  <p>A AGT apura o IVA da linha por arredondamento ao cêntimo <strong>por excesso</strong> sobre
+  <code>base × taxa</code>, e recusa com <strong>E70</strong> («taxContribution … não corresponde ao
+  imposto apurado») quando não bate. O <code>tax_amount</code> gravado já vem a 2 casas — aplicar-lhe o
+  ceil não sobe nada. Por isso <code>mapLine</code> <strong>recalcula</strong> o imposto de
+  <code>base × taxa</code> a precisão plena e só então faz <code>ceilCents</code>. Os
+  <code>documentTotals</code> derivam da soma das linhas (<code>taxPayable = Σ taxContribution</code>,
+  <code>grossTotal = netTotal + taxPayable</code>), pelo que fecham sozinhos; não se envia hash SAF-T no
+  payload e a assinatura JWS é recalculada no build, logo mudar o cêntimo não tem efeito colateral.
+  Diagnóstico só-leitura em produção: <code>agt:ver-rejeicao --empresa=&lt;nome&gt;</code> (e
+  <code>--simular</code> mostra o que seria enviado sem comunicar nada).</p>
+  <p style="margin-bottom:0"><strong>Residual por resolver:</strong> o IEC e o Imposto de Selo por linha
+  (<code>LineTax::toAgtTax</code>) ainda enviam o <code>tax_amount</code> arredondado — a tabela não guarda
+  a base, por isso o ceil correcto exige a base no momento da emissão. Raro, mas pode dar E70 numa linha
+  com IEC/Selo de cêntimo fraccionado.</p>
+</div>
+
 <h3>Faturação dos módulos — um só emissor</h3>
 <p class="lead">Oficina, hotel e salão <b>não emitem faturas por conta própria</b>. Descrevem o que
 venderam; a fiscalidade decide-se num só sítio.</p>
