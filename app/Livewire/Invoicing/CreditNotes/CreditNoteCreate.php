@@ -409,40 +409,17 @@ class CreditNoteCreate extends Component
 
             DB::commit();
 
-            // Auto-submeter à AGT se habilitado.
-            // A nota já está gravada (commit acima): uma falha da AGT nunca a
-            // pode desfazer nem impedir o utilizador de seguir em frente.
-            $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
-            if (!empty($settings->agt_auto_submit)) {
-                try {
-                    $agtResult = $creditNote->fresh()->submitToAGT();
-                } catch (\Throwable $e) {
-                    $agtResult = ['success' => false, 'error' => $e->getMessage()];
-                }
+            // À AGT em SEGUNDO passo: a nota já está gravada, e comunicá-la
+            // não prende o utilizador à espera do fisco. Só se ENFILEIRA; o
+            // DespacharAgtPendentes envia à boleia do tráfego.
+            $fila = \App\Services\AGT\AutoSubmissao::enfileirar($creditNote);
 
-                if ($agtResult['success'] ?? false) {
-                    $this->dispatch('notify', [
-                        'type' => 'success',
-                        // Sem concatenação: em inglês/francês a ordem das palavras
-                        // à volta do requestID não é a mesma.
-                        'message' => __('NC criada e submetida à AGT (requestID: :ref)', [
-                            'ref' => $agtResult['requestID'] ?? '—',
-                        ]),
-                    ]);
-                } else {
-                    $this->dispatch('notify', [
-                        'type' => 'warning',
-                        'message' => __('NC criada. Por comunicar à AGT: :erro', [
-                            'erro' => $agtResult['error'] ?? __('erro desconhecido'),
-                        ]),
-                    ]);
-                }
-            } else {
-                $this->dispatch('notify', [
-                    'type' => 'success',
-                    'message' => __('Nota de Crédito criada com sucesso!')
-                ]);
-            }
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'message' => $fila['enfileirado']
+                    ? __('Nota de Crédito criada — a comunicar à AGT.')
+                    : __('Nota de Crédito criada com sucesso!'),
+            ]);
 
             return redirect()->route('invoicing.credit-notes.index');
 

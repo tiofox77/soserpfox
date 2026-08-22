@@ -2693,5 +2693,7 @@
     "Referência: :reference": "Reference: :reference",
     "Pedido: :request": "Request: :request",
     "Enviada em: :date": "Sent on: :date",
-    "Gateways de Notificação": "Notification Gateways"
+    "Gateways de Notificação": "Notification Gateways",
+    "Nota de Crédito criada — a comunicar à AGT.": "Credit Note created — reporting to AGT.",
+    "Nota de Débito criada — a comunicar à AGT.": "Debit Note created — reporting to AGT."
 }

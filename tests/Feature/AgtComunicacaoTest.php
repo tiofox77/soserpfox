@@ -148,7 +148,11 @@ class AgtComunicacaoTest extends TenantTestCase
         $codigo  = file_get_contents($servico->getFileName());
 
         $this->assertStringContainsString('comunicarAGT', $codigo);
-        $this->assertStringContainsString('submitToAGT', $codigo);
+        // Comunicar deixou de ser enviar no mesmo pedido: agora ENFILEIRA,
+        // e o DespacharAgtPendentes envia à boleia do tráfego.
+        $this->assertStringContainsString('AutoSubmissao::enfileirar', $codigo);
+        $this->assertStringNotContainsString('submitToAGT', $codigo,
+            'o emissor não pode enviar à AGT durante o atendimento — só enfileirar');
     }
 
     public function test_artigo_criado_pelo_modulo_nasce_com_regime_fiscal(): void
@@ -195,7 +199,10 @@ class AgtComunicacaoTest extends TenantTestCase
 
         $codigo = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
 
-        $this->assertStringContainsString('submitToAGT', $codigo,
-            'nenhum caminho submetia a Nota de Débito à AGT');
+        // O ecrã ENFILEIRA (não envia no mesmo pedido). O submitToAGT do
+        // trait continua a existir — é o que o DespacharAgtPendentes usa
+        // depois, à boleia do tráfego.
+        $this->assertStringContainsString('AutoSubmissao::enfileirar', $codigo,
+            'a Nota de Débito tem de ser enfileirada para a AGT');
     }
 }

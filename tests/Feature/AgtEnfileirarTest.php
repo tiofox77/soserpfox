@@ -161,6 +161,44 @@ class AgtEnfileirarTest extends TenantTestCase
 
     // ── o tráfego é que envia ──────────────────────────────────────────────
 
+    /**
+     * A emissão automática NÃO pode enviar à AGT no mesmo pedido.
+     *
+     * Guarda contra a reincidência: os ecrãs que EMITEM um documento têm de
+     * enfileirar (AutoSubmissao::enfileirar) e nunca chamar submitToAGT() — que
+     * faz a chamada de rede na hora e prende o utilizador. O envio é do
+     * DespacharAgtPendentes, à boleia do tráfego.
+     *
+     * Os botões manuais de "enviar agora" (TransportGuides::submitAgt,
+     * AGTSettings) ficam de fora de propósito: aí o utilizador escolheu enviar
+     * e quer o resultado à frente.
+     */
+    public function test_nenhum_ecra_de_emissao_envia_a_agt_no_mesmo_pedido(): void
+    {
+        $emissores = [
+            'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
+            'app/Livewire/POS/POSSystem.php',
+            'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
+            'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
+            'app/Services/Invoicing/ModuleInvoiceService.php',
+        ];
+
+        foreach ($emissores as $ficheiro) {
+            $codigo = file_get_contents(base_path($ficheiro));
+
+            $this->assertStringNotContainsString(
+                'submitToAGT(',
+                $codigo,
+                basename($ficheiro) . ' voltou a enviar à AGT no mesmo pedido — deve enfileirar.'
+            );
+            $this->assertStringContainsString(
+                'AutoSubmissao::enfileirar(',
+                $codigo,
+                basename($ficheiro) . ' tem de enfileirar o documento para a AGT.'
+            );
+        }
+    }
+
     public function test_o_que_foi_enfileirado_fica_visivel_ao_despacho(): void
     {
         $this->definicoes(true);

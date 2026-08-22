@@ -316,15 +316,9 @@ class ModuleInvoiceService
                 return;
             }
 
-            $resultado = $invoice->fresh()->submitToAGT();
-
-            if (!($resultado['success'] ?? false)) {
-                Log::warning('Factura de módulo por comunicar à AGT', [
-                    'invoice_number' => $invoice->invoice_number,
-                    'tenant_id'      => $invoice->tenant_id,
-                    'erro'           => $resultado['error'] ?? 'desconhecido',
-                ]);
-            }
+            // ENFILEIRA, não envia: o atendimento não espera pela AGT. O
+            // DespacharAgtPendentes envia à boleia do tráfego.
+            \App\Services\AGT\AutoSubmissao::enfileirar($invoice);
         } catch (\Throwable $e) {
             Log::error('Falha ao comunicar factura de módulo à AGT', [
                 'invoice_number' => $invoice->invoice_number,

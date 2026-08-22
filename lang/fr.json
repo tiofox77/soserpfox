@@ -2693,5 +2693,7 @@
     "Referência: :reference": "Référence : :reference",
     "Pedido: :request": "Demande : :request",
     "Enviada em: :date": "Envoyée le : :date",
-    "Gateways de Notificação": "Passerelles de notification"
+    "Gateways de Notificação": "Passerelles de notification",
+    "Nota de Crédito criada — a comunicar à AGT.": "Note de crédit créée — transmission à l’AGT en cours.",
+    "Nota de Débito criada — a comunicar à AGT.": "Note de débit créée — transmission à l’AGT en cours."
 }

@@ -1386,29 +1386,12 @@ class POSSystem extends Component
                 ]);
             }
 
-            // Auto-submeter à AGT se habilitado nas configurações
-            try {
-                $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
-                if (!empty($settings->agt_auto_submit)) {
-                    // fresh(): este $invoice já teve a colecção `items` lida
-                    // pelo observer que corre na criação — quando ainda não
-                    // havia linhas nenhumas. O Eloquent guarda essa colecção
-                    // vazia e nunca mais a consulta, e o documento seguia para
-                    // a AGT com os totais preenchidos e ZERO linhas.
-                    $agtResult = $invoice->fresh()->submitToAGT();
-                    \Log::info('POS: Fatura submetida à AGT', [
-                        'invoice'   => $invoice->invoice_number,
-                        'requestID' => $agtResult['requestID'] ?? null,
-                        'success'   => $agtResult['success'] ?? false,
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                \Log::error('POS: Erro ao submeter para AGT', [
-                    'invoice' => $invoice->invoice_number,
-                    'error'   => $e->getMessage(),
-                ]);
-                // Não bloqueia a venda — AGT pode ser re-submetida manualmente
-            }
+            // À AGT NUNCA durante a venda: só se ENFILEIRA. O operador tem o
+            // cliente à frente, e uma AGT lenta ou em baixo transformava a
+            // venda em algo que parecia encravado. A factura fica gravada e
+            // numerada; quem a envia é o DespacharAgtPendentes, à boleia do
+            // tráfego, depois de a resposta já ter seguido para o ecrã.
+            \App\Services\AGT\AutoSubmissao::enfileirar($invoice);
 
             // Guardar factura para o talão. É libertada em closePrintModal().
             $this->lastInvoice = $invoice->fresh()->load(['client', 'items.product', 'tenant']);

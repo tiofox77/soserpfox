@@ -455,29 +455,15 @@ class DebitNoteCreate extends Component
             //
             // Depois do commit: a nota já está gravada e uma AGT em baixo não
             // a pode desfazer nem prender o utilizador.
-            $mensagem = __('Nota de Débito criada com sucesso!');
-            $tipo = 'success';
+            // À AGT em segundo passo: enfileira, não envia. O
+            // DespacharAgtPendentes trata do envio à boleia do tráfego.
+            $fila = \App\Services\AGT\AutoSubmissao::enfileirar($debitNote);
 
-            $settings = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
+            $mensagem = $fila['enfileirado']
+                ? __('Nota de Débito criada — a comunicar à AGT.')
+                : __('Nota de Débito criada com sucesso!');
 
-            if (!empty($settings->agt_auto_submit)) {
-                try {
-                    $agtResult = $debitNote->fresh()->submitToAGT();
-                } catch (\Throwable $e) {
-                    $agtResult = ['success' => false, 'error' => $e->getMessage()];
-                }
-
-                if ($agtResult['success'] ?? false) {
-                    $mensagem .= ' ' . __('Submetida à AGT (requestID: :pedido).', ['pedido' => $agtResult['requestID'] ?? '—']);
-                } else {
-                    $tipo = 'warning';
-                    $mensagem .= ' ' . __('POR COMUNICAR à AGT: :erro. Pode reenviar no ecrã de Submissões.', [
-                        'erro' => $agtResult['error'] ?? __('erro desconhecido'),
-                    ]);
-                }
-            }
-
-            $this->dispatch('notify', ['type' => $tipo, 'message' => $mensagem]);
+            $this->dispatch('notify', ['type' => 'success', 'message' => $mensagem]);
 
             return redirect()->route('invoicing.debit-notes.index');
 
