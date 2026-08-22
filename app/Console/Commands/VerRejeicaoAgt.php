@@ -27,6 +27,7 @@ class VerRejeicaoAgt extends Command
         {--nif= : NIF exacto da empresa}
         {--doc= : parte do número do documento (LIKE)}
         {--todos : mostra todos os estados, não só as rejeitadas}
+        {--simular : re-mapeia o documento agora (DocumentMapper) e mostra o que SERIA enviado — não envia nada}
         {--n=10 : quantas submissões por empresa}';
 
     protected $description = 'Mostra a razão da recusa da AGT por empresa/documento (só lê)';
@@ -115,6 +116,44 @@ class VerRejeicaoAgt extends Command
                                 $marca
                             ));
                         }
+                    }
+                }
+
+                // Dry-run: re-mapeia o documento AGORA e mostra o que seria
+                // enviado com o código actual — para confirmar a correcção sem
+                // comunicar nada à AGT.
+                if ($this->option('simular') && $s->document_type && $s->document_id) {
+                    try {
+                        $doc = $s->document_type::withoutGlobalScopes()->find($s->document_id);
+                        if ($doc) {
+                            $novo = (new \App\Services\AGT\DocumentMapper())->map($doc);
+                            $this->line('     SIMULAÇÃO (o que seria enviado agora):');
+                            foreach (($novo['lines'] ?? []) as $ln) {
+                                $base = (float) ($ln['creditAmount'] ?? $ln['debitAmount'] ?? 0);
+                                foreach (($ln['taxes'] ?? []) as $t) {
+                                    $pct = (float) ($t['taxPercentage'] ?? 0);
+                                    $env = (float) ($t['taxContribution'] ?? 0);
+                                    $ap  = round($base * $pct / 100, 2);
+                                    $ceil = ceil($base * $pct) / 100 === $env; // já vem ceil?
+                                    $this->line(sprintf(
+                                        '        linha %-3s base=%-16s %%=%-6s apurado(round)=%-16s enviaria=%-16s',
+                                        (string) ($ln['lineNumber'] ?? '?'),
+                                        number_format($base, 2, '.', ''),
+                                        rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.'),
+                                        number_format($ap, 2, '.', ''),
+                                        number_format($env, 2, '.', '')
+                                    ));
+                                }
+                            }
+                            $t = $novo['documentTotals'] ?? [];
+                            $this->line(sprintf('        totais: net=%s taxPayable=%s gross=%s',
+                                number_format((float) ($t['netTotal'] ?? 0), 2, '.', ''),
+                                number_format((float) ($t['taxPayable'] ?? 0), 2, '.', ''),
+                                number_format((float) ($t['grossTotal'] ?? 0), 2, '.', '')
+                            ));
+                        }
+                    } catch (\Throwable $e) {
+                        $this->line('     SIMULAÇÃO falhou: ' . $e->getMessage());
                     }
                 }
 
