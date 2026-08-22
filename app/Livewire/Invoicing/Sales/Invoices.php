@@ -53,7 +53,7 @@ class Invoices extends Component
     public function render()
     {
         $query = SalesInvoice::where('tenant_id', activeTenantId())
-            ->with(['Client', 'warehouse', 'creator']);
+            ->with(['Client', 'warehouse', 'creator', 'series']);
 
         // Search
         if ($this->search) {
@@ -61,6 +61,14 @@ class Invoices extends Component
                 $q->where('invoice_number', 'like', '%' . $this->search . '%')
                   ->orWhereHas('Client', function ($q2) {
                       $q2->where('name', 'like', '%' . $this->search . '%');
+                  })
+                  // Procurar também pela SÉRIE — interna (series_code, ex.: SOSFT)
+                  // ou a registada na AGT (agt_series_id). Assim encontra-se a
+                  // factura pelo número que a empresa reconhece, não só pelo
+                  // código críptico da AGT que aparece no invoice_number.
+                  ->orWhereHas('series', function ($q3) {
+                      $q3->where('series_code', 'like', '%' . $this->search . '%')
+                         ->orWhere('agt_series_id', 'like', '%' . $this->search . '%');
                   });
 
                 // Pelo número provisório do talão offline.

@@ -483,7 +483,12 @@
             </div>
 
             <div class="doc-header">
+                {{-- O número FISCAL (série da AGT quando registada) é o do documento. --}}
                 <div class="doc-title" style="text-align: left;">Fatura de Venda n.º {{ $invoice->invoice_number }}</div>
+                {{-- Numeração interna (série gravada) para consulta/procura interna. --}}
+                <div style="text-align:left; font-size:8px; color:#555; margin-top:2px;">
+                    Numeração interna: {{ $invoice->numeroInterno() }}
+                </div>
             </div>
 
             <table class="doc-info-table">
@@ -504,7 +509,7 @@
                         <td>{{ $invoice->created_at->format('H:i') }}</td>
                         <td>{{ $invoice->due_date ? $invoice->due_date->format('d/m/Y') : 'N/A' }}</td>
                         <td>{{ $invoice->creator->name ?? 'Sistema' }}</td>
-                        <td>{{ $invoice->reference ?? $invoice->invoice_number }}</td>
+                        <td>{{ $invoice->reference ?: $invoice->numeroInterno() }}</td>
                     </tr>
                 </tbody>
             </table>

@@ -4,10 +4,19 @@
     <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 animate-scale-in">
         {{-- Header --}}
         <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-            <h3 class="text-xl font-bold text-white flex items-center">
-                <i class="fas fa-file-invoice mr-2"></i>
-                {{ __('Fatura :numero', ['numero' => $selectedInvoice->invoice_number]) }}
-            </h3>
+            <div class="min-w-0">
+                <h3 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-file-invoice mr-2"></i>
+                    {{ __('Fatura :numero', ['numero' => $selectedInvoice->numeroInterno()]) }}
+                </h3>
+                @if($selectedInvoice->numeroAgt())
+                    <p class="text-xs text-purple-100 mt-0.5 font-mono">
+                        <i class="fas fa-landmark mr-1"></i>{{ __('AGT') }}: {{ $selectedInvoice->numeroAgt() }}
+                    </p>
+                @else
+                    <p class="text-xs text-purple-200/80 mt-0.5">{{ __('Série ainda não registada na AGT') }}</p>
+                @endif
+            </div>
             <button wire:click="closeViewModal" class="text-white hover:text-gray-200 transition">
                 <i class="fas fa-times text-2xl"></i>
             </button>

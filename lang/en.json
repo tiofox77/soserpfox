@@ -2719,5 +2719,10 @@
     "Orçamento :numero": "Quote :numero",
     "Data do Orçamento:": "Quote Date:",
     "Válido Até:": "Valid Until:",
-    "Orçamento: :numero": "Quote: :numero"
+    "Orçamento: :numero": "Quote: :numero",
+    "Numeração interna": "Internal numbering",
+    "Numeração AGT": "AGT numbering",
+    "Série ainda não registada na AGT": "Series not yet registered with AGT",
+    "AGT: não registada": "AGT: not registered",
+    "AGT": "AGT"
 }

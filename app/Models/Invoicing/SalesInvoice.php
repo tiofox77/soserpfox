@@ -274,6 +274,45 @@ class SalesInvoice extends Model
         return $this->belongsTo(InvoicingSeries::class, 'series_id');
     }
 
+    // ── Numeração: interna (série gravada) vs AGT ────────────────────────────
+    //
+    // O `invoice_number` guarda UM número — o que foi emitido/assinado, que
+    // depois do registo da série passa a usar o código da AGT (ex.: FT
+    // FT0426S72207N/000001). A série interna (series_code, ex.: SOSFT) fica na
+    // série ligada. Para as listagens e o preview mostramos as DUAS: a interna
+    // primeiro, por ser a que a empresa reconhece e procura, e a da AGT a
+    // seguir. O número fiscal a valer continua a ser o `invoice_number`.
+
+    /** Parte sequencial do número (ex.: "000001"), comum às duas séries. */
+    public function numeroSequencia(): ?string
+    {
+        return preg_match('~/(\d+)\s*$~', (string) $this->invoice_number, $m) ? $m[1] : null;
+    }
+
+    /** Número na SÉRIE INTERNA gravada, ex.: "FT SOSFT/000001". */
+    public function numeroInterno(): string
+    {
+        $serie = $this->series;
+        $seq = $this->numeroSequencia();
+        if (!$serie || !$serie->series_code || !$seq) {
+            return (string) $this->invoice_number;
+        }
+
+        return trim(($serie->prefix ?: '') . ' ' . $serie->series_code) . '/' . $seq;
+    }
+
+    /** Número na SÉRIE DA AGT, ex.: "FT FT0426S72207N/000001"; null se a série não está registada. */
+    public function numeroAgt(): ?string
+    {
+        $serie = $this->series;
+        $seq = $this->numeroSequencia();
+        if (!$serie || empty($serie->agt_series_id) || !$seq) {
+            return null;
+        }
+
+        return trim(($serie->prefix ?: '') . ' ' . $serie->agt_series_id) . '/' . $seq;
+    }
+
     // Métodos
     public function calculateTotals()
     {

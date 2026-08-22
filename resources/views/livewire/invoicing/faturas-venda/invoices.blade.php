@@ -253,11 +253,25 @@
                     @forelse($invoices as $invoice)
                     <tr class="hover:bg-purple-50 transition-all duration-200">
                         <td class="px-4 py-3 whitespace-nowrap">
-                            <span class="text-sm font-bold text-purple-600">{{ $invoice->invoice_number }}</span>
-                            @if(($invoice->invoice_type ?? 'FT') === 'FR')
-                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700" title="{{ __('Fatura-Recibo — paga no acto') }}">FR</span>
+                            {{-- Série INTERNA primeiro (a que a empresa reconhece e
+                                 procura), com a AGT logo abaixo. O número fiscal a
+                                 valer é o da AGT quando a série está registada. --}}
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-sm font-bold text-purple-600" title="{{ __('Numeração interna') }}">{{ $invoice->numeroInterno() }}</span>
+                                @if(($invoice->invoice_type ?? 'FT') === 'FR')
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700" title="{{ __('Fatura-Recibo — paga no acto') }}">FR</span>
+                                @else
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700" title="{{ __('Fatura') }}">FT</span>
+                                @endif
+                            </div>
+                            @if($invoice->numeroAgt())
+                                <div class="text-[10px] text-gray-400 font-mono mt-0.5" title="{{ __('Numeração AGT') }}">
+                                    <i class="fas fa-landmark mr-0.5"></i>{{ $invoice->numeroAgt() }}
+                                </div>
                             @else
-                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700" title="{{ __('Fatura') }}">FT</span>
+                                <div class="text-[10px] text-gray-300 mt-0.5" title="{{ __('Série ainda não registada na AGT') }}">
+                                    {{ __('AGT: não registada') }}
+                                </div>
                             @endif
                         </td>
                         <td class="px-4 py-3">

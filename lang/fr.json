@@ -2719,5 +2719,10 @@
     "Orçamento :numero": "Devis :numero",
     "Data do Orçamento:": "Date du devis :",
     "Válido Até:": "Valide jusqu'au :",
-    "Orçamento: :numero": "Devis : :numero"
+    "Orçamento: :numero": "Devis : :numero",
+    "Numeração interna": "Numérotation interne",
+    "Numeração AGT": "Numérotation AGT",
+    "Série ainda não registada na AGT": "Série pas encore enregistrée auprès de l'AGT",
+    "AGT: não registada": "AGT : non enregistrée",
+    "AGT": "AGT"
 }
