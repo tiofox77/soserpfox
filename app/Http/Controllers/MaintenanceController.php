@@ -138,6 +138,9 @@ class MaintenanceController extends Controller
         'empresas:nome-documentos',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
         'agt:diagnostico-fila',
+        // Porque é que a AGT recusou um documento (código, mensagem e resposta
+        // crua). Só lê.
+        'agt:ver-rejeicao',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
         // emitiram documentos só mudam com --forcar (mudar o prefixo a meio
         // deixa a série com números de duas formas diferentes).
