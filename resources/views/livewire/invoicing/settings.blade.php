@@ -606,6 +606,23 @@
                                 </select>
                             </div>
                         </div>
+
+                        {{-- Máscara de preços --}}
+                        <div class="mt-4">
+                            <label class="flex items-start gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-purple-300 cursor-pointer transition">
+                                <input type="checkbox" wire:model="price_mask_enabled"
+                                       class="mt-0.5 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                                <span>
+                                    <span class="block text-sm font-semibold text-gray-800">
+                                        <i class="fas fa-wand-magic-sparkles mr-1 text-purple-500"></i>
+                                        {{ __('Máscara de preços nos documentos e POS') }}
+                                    </span>
+                                    <span class="block text-xs text-gray-500 mt-1">
+                                        {{ __('Formata os campos de preço e valores enquanto se escreve (ex.: :exemplo), usando os separadores e casas acima. O número que fica gravado é o mesmo — isto é só a forma de escrever e ler.', ['exemplo' => moeda_fmt(1234.56)]) }}
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 

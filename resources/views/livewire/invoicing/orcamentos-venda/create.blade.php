@@ -223,10 +223,9 @@
                                                class="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-purple-500">
                                     </td>
                                     <td class="px-4 py-3 align-top">
-                                        <input type="number" step="0.01" min="0"
+                                        <x-moeda-input :value="$item->price"
                                                wire:change="updatePrice({{ $item->id }}, $event.target.value)"
-                                               value="{{ $item->price }}"
-                                               class="w-28 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-purple-500">
+                                               class="w-28 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-purple-500" />
                                     </td>
                                     <td class="px-4 py-3 align-top">
                                         <input type="number" step="0.01" min="0" max="100"
@@ -306,17 +305,17 @@
                                     <i class="fas fa-tags mr-1 text-orange-600"></i>
                                     {{ __('Desconto Comercial (antes IVA):') }}
                                 </label>
-                                <input type="number" step="0.01" min="0" wire:model.live="discount_commercial"
+                                <x-moeda-input :value="$discount_commercial" x-on:change="$wire.set('discount_commercial', $event.target.value)"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition text-right"
-                                       placeholder="0">
+                                       placeholder="0" />
                             </div>
 
                             {{-- Desconto Legado --}}
                             <div>
                                 <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Desconto (legado):') }}</label>
-                                <input type="number" step="0.01" min="0" wire:model.live="discount_amount"
+                                <x-moeda-input :value="$discount_amount" x-on:change="$wire.set('discount_amount', $event.target.value)"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition text-right"
-                                       placeholder="0">
+                                       placeholder="0" />
                             </div>
 
                             {{-- Desconto Financeiro --}}
@@ -325,9 +324,9 @@
                                     <i class="fas fa-hand-holding-usd mr-1 text-green-600"></i>
                                     {{ __('Desconto Financeiro (após IVA):') }}
                                 </label>
-                                <input type="number" step="0.01" min="0" wire:model.live="discount_financial"
+                                <x-moeda-input :value="$discount_financial" x-on:change="$wire.set('discount_financial', $event.target.value)"
                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 transition text-right"
-                                       placeholder="0">
+                                       placeholder="0" />
                             </div>
                         </div>
                     </div>

@@ -2245,7 +2245,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-    
+
+    {{-- Máscara de dinheiro (1.234,56) nos inputs de preço/valores. Delegada,
+         sobrevive aos re-render do Livewire. --}}
+    <script src="{{ asset('js/mascara-dinheiro.js') }}?v=1" defer></script>
+
     <script>
         // Configuração do Toastr
         toastr.options = {

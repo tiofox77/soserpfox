@@ -40,6 +40,7 @@ class InvoicingSettings extends Model
         'default_payment_method',
         'number_format',
         'decimal_places',
+        'price_mask_enabled',
         'rounding_mode',
         'proforma_series',
         'invoice_series',
@@ -105,6 +106,7 @@ class InvoicingSettings extends Model
         'default_irt_rate' => 'decimal:2',
         'max_discount_percent' => 'decimal:2',
         'decimal_places' => 'integer',
+        'price_mask_enabled' => 'boolean',
         'apply_irt_services' => 'boolean',
         'allow_line_discounts' => 'boolean',
         'allow_commercial_discount' => 'boolean',
@@ -255,6 +257,7 @@ class InvoicingSettings extends Model
                 // Formato de Números
                 'number_format' => 'angola',
                 'decimal_places' => 2,
+                'price_mask_enabled' => true,
                 'rounding_mode' => 'normal',
                 
                 // Séries

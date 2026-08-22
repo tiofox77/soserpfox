@@ -133,6 +133,27 @@ if (!function_exists('posPaymentMethodLabel')) {
     }
 }
 
+if (!function_exists('moeda_config')) {
+    /**
+     * Configuração da máscara de dinheiro do tenant activo:
+     * ['on'=>bool, 'milhar'=>'.', 'decimal'=>',', 'casas'=>2].
+     */
+    function moeda_config(): array
+    {
+        return \App\Helpers\MoneyHelper::config();
+    }
+}
+
+if (!function_exists('moeda_fmt')) {
+    /**
+     * Formata um número segundo a máscara do tenant, ex.: 10000.23 → "10.000,23".
+     */
+    function moeda_fmt($valor): string
+    {
+        return \App\Helpers\MoneyHelper::format($valor);
+    }
+}
+
 if (!function_exists('app_name')) {
     /**
      * Get application name

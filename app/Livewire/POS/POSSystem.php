@@ -257,8 +257,10 @@ class POSSystem extends Component
             : ($rates->isEmpty() ? '0%' : 'misto');
         $this->irtRate = $defaultIrtRate;
         
-        // Garantir que desconto seja numérico
-        $discount = is_numeric($this->discount) ? floatval($this->discount) : 0;
+        // Garantir que desconto seja numérico — o desconto fixo pode vir
+        // mascarado (10.000,23); a percentagem é um número simples. O parse
+        // lê os dois.
+        $discount = \App\Helpers\MoneyHelper::parse($this->discount);
         
         // Calcular desconto
         if ($this->discountType === 'percentage') {
@@ -382,16 +384,17 @@ class POSSystem extends Component
     
     public function updatedDiscount()
     {
-        // Normalizar desconto (se vazio ou inválido, definir como 0)
-        if (!is_numeric($this->discount) || $this->discount === '' || $this->discount === null) {
-            $this->discount = 0;
-        }
-        
+        // O desconto fixo pode chegar mascarado (10.000,23); normalizar para
+        // float. Vazio/invalido → 0.
+        $this->discount = \App\Helpers\MoneyHelper::parse($this->discount);
+
         $this->loadCart();
     }
     
     public function updatedDiscountType()
     {
+        // Trocar de tipo limpa o valor: 10.000 Kz não é 10.000%.
+        $this->discount = 0;
         $this->loadCart();
     }
     

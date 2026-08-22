@@ -2724,5 +2724,7 @@
     "Numeração AGT": "AGT numbering",
     "Série ainda não registada na AGT": "Series not yet registered with AGT",
     "AGT: não registada": "AGT: not registered",
-    "AGT": "AGT"
+    "AGT": "AGT",
+    "Máscara de preços nos documentos e POS": "Price mask in documents and POS",
+    "Formata os campos de preço e valores enquanto se escreve (ex.: :exemplo), usando os separadores e casas acima. O número que fica gravado é o mesmo — isto é só a forma de escrever e ler.": "Formats the price and amount fields as you type (e.g. :exemplo), using the separators and decimals above. The stored number is the same — this is only how you write and read it."
 }

@@ -135,6 +135,12 @@ class ProformaCreate extends Component
     
     public function updated($propertyName)
     {
+        // Os campos de dinheiro chegam mascarados (10.000,23) do input; ler
+        // sempre para float antes de validar/calcular.
+        if (in_array($propertyName, ['discount_commercial', 'discount_amount', 'discount_financial'], true)) {
+            $this->{$propertyName} = \App\Helpers\MoneyHelper::parse($this->{$propertyName});
+        }
+
         // Quando client_id é alterado, salvar na sessão
         if ($propertyName === 'client_id' && $this->client_id) {
             $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
@@ -513,6 +519,9 @@ class ProformaCreate extends Component
 
     public function updatePrice($productId, $price)
     {
+        // O input pode vir mascarado (10.000,23) ou simples — o preço tem de
+        // ser lido sempre certo, é dinheiro num documento.
+        $price = \App\Helpers\MoneyHelper::parse($price);
         if ($price >= 0) {
             Cart::session($this->cartInstance)->update($productId, [
                 'price' => $price
@@ -622,6 +631,11 @@ class ProformaCreate extends Component
 
     public function save($status = 'draft')
     {
+        // Blindagem: os valores de dinheiro podem chegar mascarados.
+        $this->discount_commercial = \App\Helpers\MoneyHelper::parse($this->discount_commercial);
+        $this->discount_amount     = \App\Helpers\MoneyHelper::parse($this->discount_amount);
+        $this->discount_financial  = \App\Helpers\MoneyHelper::parse($this->discount_financial);
+
         $this->validate();
 
         $cartItems = Cart::session($this->cartInstance)->getContent();

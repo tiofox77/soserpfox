@@ -32,6 +32,7 @@ class Settings extends Component
     // Formato de Números
     public $number_format = 'angola';
     public $decimal_places = 2;
+    public $price_mask_enabled = true;
     public $rounding_mode = 'normal';
     
     // Séries (deprecated - agora usa invoicing_series table)
@@ -190,6 +191,7 @@ class Settings extends Component
             // fora da lista rebentava com "Data too long" em vez de avisar.
             'number_format' => 'nullable|string|max:20',
             'decimal_places' => 'nullable|integer|min:0|max:4',
+            'price_mask_enabled' => 'boolean',
             'rounding_mode' => 'nullable|string|max:20',
         ]);
         
@@ -206,6 +208,7 @@ class Settings extends Component
             // sucesso!" e ao recarregar a página estava tudo como antes.
             'number_format' => $this->number_format,
             'decimal_places' => $this->decimal_places,
+            'price_mask_enabled' => (bool) $this->price_mask_enabled,
             'rounding_mode' => $this->rounding_mode,
             'proforma_series' => $this->proforma_series,
             'invoice_series' => $this->invoice_series,

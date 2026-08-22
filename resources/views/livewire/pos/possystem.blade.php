@@ -362,8 +362,17 @@
                         <option value="percentage">%</option>
                         <option value="fixed">Kz</option>
                     </select>
-                    <input type="number" wire:model.live="discount" placeholder="0" step="0.01"
-                           class="flex-1 px-2 py-1 border border-orange-300 rounded text-sm font-bold text-center">
+                    @if($discountType === 'fixed')
+                        {{-- Desconto em Kz: máscara de dinheiro (1.234,56). --}}
+                        <x-moeda-input :value="$discount"
+                               x-on:change="$wire.set('discount', $event.target.value)"
+                               placeholder="0"
+                               class="flex-1 px-2 py-1 border border-orange-300 rounded text-sm font-bold text-center" />
+                    @else
+                        {{-- Desconto em %: número simples 0–100. --}}
+                        <input type="number" wire:model.live="discount" placeholder="0" step="0.01" min="0" max="100"
+                               class="flex-1 px-2 py-1 border border-orange-300 rounded text-sm font-bold text-center">
+                    @endif
                 </div>
 
                 {{-- Resumo Financeiro --}}

@@ -2724,5 +2724,7 @@
     "Numeração AGT": "Numérotation AGT",
     "Série ainda não registada na AGT": "Série pas encore enregistrée auprès de l'AGT",
     "AGT: não registada": "AGT : non enregistrée",
-    "AGT": "AGT"
+    "AGT": "AGT",
+    "Máscara de preços nos documentos e POS": "Masque de prix dans les documents et le POS",
+    "Formata os campos de preço e valores enquanto se escreve (ex.: :exemplo), usando os separadores e casas acima. O número que fica gravado é o mesmo — isto é só a forma de escrever e ler.": "Met en forme les champs de prix et de montants pendant la saisie (ex. : :exemplo), avec les séparateurs et décimales ci-dessus. Le nombre enregistré est le même — ce n'est que la façon de l'écrire et de le lire."
 }
