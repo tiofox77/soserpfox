@@ -2,8 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoicing\CreditNote;
+use App\Models\Invoicing\CreditNoteItem;
+use App\Models\Invoicing\DebitNote;
+use App\Models\Invoicing\DebitNoteItem;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesInvoiceItem;
+use App\Models\Product;
 use App\Services\AGT\DocumentMapper;
 use Tests\TenantTestCase;
 
@@ -97,5 +102,64 @@ class AgtImpostoPorLinhaTest extends TenantTestCase
         $doc = (new DocumentMapper())->map($factura);
 
         $this->assertSame(0.0, (float) $doc['lines'][0]['taxes'][0]['taxContribution']);
+    }
+
+    // ── NC e ND passam pelo MESMO mapLine, logo herdam o ceil ────────────────
+
+    public function test_nota_de_credito_tambem_arredonda_por_excesso(): void
+    {
+        $produto = Product::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Serviço', 'sku' => 'S-' . uniqid(),
+            'price' => 0, 'type' => 'servico', 'manage_stock' => false,
+        ]);
+
+        $nc = CreditNote::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->cliente->id,
+            // Número explícito: o hook de creating() só procura série se estiver
+            // vazio, e o tenant de teste não tem série de NC. Aqui só interessa
+            // o mapeamento do imposto.
+            'credit_note_number' => 'NC TESTE/000001',
+            'issue_date' => now()->toDateString(),
+            'subtotal' => 20006581.89, 'tax_amount' => 0, 'total' => 20006581.89,
+            'status' => 'issued',
+        ]);
+        CreditNoteItem::create([
+            'credit_note_id' => $nc->id, 'product_id' => $produto->id, 'description' => 'Serviço',
+            'quantity' => 1, 'unit' => 'UN', 'unit_price' => 20006581.89, 'unit_price_base' => 20006581.89,
+            'subtotal' => 20006581.89, 'tax_rate' => 14, 'debit_amount' => 20006581.89, 'credit_amount' => 0,
+            'total' => 22807503.36, 'order' => 1, 'tax_country_region' => 'AO', 'tax_code' => 'NOR',
+        ]);
+
+        $doc = (new DocumentMapper())->map($nc->fresh());
+
+        $this->assertSame(2800921.47, (float) $doc['lines'][0]['taxes'][0]['taxContribution']);
+    }
+
+    public function test_nota_de_debito_tambem_arredonda_por_excesso(): void
+    {
+        $produto = Product::create([
+            'tenant_id' => $this->tenant->id, 'name' => 'Serviço', 'sku' => 'S-' . uniqid(),
+            'price' => 0, 'type' => 'servico', 'manage_stock' => false,
+        ]);
+
+        $nd = DebitNote::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->cliente->id,
+            'debit_note_number' => 'ND TESTE/000001',
+            'issue_date' => now()->toDateString(),
+            'subtotal' => 20006581.89, 'tax_amount' => 0, 'total' => 20006581.89,
+            'status' => 'issued',
+        ]);
+        DebitNoteItem::create([
+            'debit_note_id' => $nd->id, 'product_id' => $produto->id, 'description' => 'Serviço',
+            'quantity' => 1, 'unit' => 'UN', 'unit_price' => 20006581.89, 'unit_price_base' => 20006581.89,
+            'subtotal' => 20006581.89, 'tax_rate' => 14, 'debit_amount' => 0, 'credit_amount' => 20006581.89,
+            'total' => 22807503.36, 'order' => 1, 'tax_country_region' => 'AO', 'tax_code' => 'NOR',
+        ]);
+
+        $doc = (new DocumentMapper())->map($nd->fresh());
+
+        $this->assertSame(2800921.47, (float) $doc['lines'][0]['taxes'][0]['taxContribution']);
     }
 }
