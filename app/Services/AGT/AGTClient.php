@@ -419,6 +419,15 @@ class AGTClient
             'customerCountry' => $client->country ?? 'AO',
             'companyName' => $client->name ?? '',
             'lines' => collect($items)->map(function ($item, $idx) {
+                $credit = round(($item->unit_price ?? 0) * $item->quantity, 2);
+                $rate   = (float) ($item->tax_rate ?? 0);
+                // A AGT apura o IVA por CEIL ao cêntimo (DS.120 §4.1) sobre
+                // base × taxa. Enviar o tax_amount gravado (já a 2 casas) dava
+                // menos um cêntimo e a recusa E70. Recalcula-se a partir da base
+                // que vai no payload.
+                $taxContribution = $rate > 0
+                    ? AGTPayloadBuilder::ceilCents(($credit * $rate) / 100)
+                    : 0.0;
                 return [
                     'lineNumber' => $idx + 1,
                     'productCode' => $item->product?->sku ?? $item->product_id ?? 'ITEM',
@@ -428,16 +437,16 @@ class AGTClient
                     'unitPrice' => round($item->unit_price ?? 0, 2),
                     'unitPriceBase' => round($item->unit_price ?? 0, 2),
                     'debitAmount' => 0,
-                    'creditAmount' => round(($item->unit_price ?? 0) * $item->quantity, 2),
+                    'creditAmount' => $credit,
                     'taxes' => [[
                         'taxType' => 'IVA',
                         'taxCountryRegion' => 'AO',
                         // Uma linha sem taxa NAO se declara a 14% a AGT: isso
                         // inventa imposto num documento que nao o cobrou e parte
                         // a igualdade netTotal + taxPayable = grossTotal.
-                        'taxCode' => ((float) ($item->tax_rate ?? 0)) > 0 ? 'NOR' : 'ISE',
-                        'taxPercentage' => (float) ($item->tax_rate ?? 0),
-                        'taxContribution' => round($item->tax_amount ?? 0, 2),
+                        'taxCode' => $rate > 0 ? 'NOR' : 'ISE',
+                        'taxPercentage' => $rate,
+                        'taxContribution' => $taxContribution,
                     ]],
                     'settlementAmount' => 0,
                 ];

@@ -312,13 +312,35 @@ class DocumentMapper
             $line['creditAmount'] = round($creditCol > 0 ? $creditCol : $netLine, 2);
         }
 
+        // taxContribution: a AGT APURA o IVA por arredondamento ao cêntimo por
+        // EXCESSO (CEIL, DS.120 §4.1) sobre base × taxa a precisão plena. O
+        // tax_amount gravado já vem arredondado a 2 casas — aplicar-lhe o ceil
+        // depois não tem fracção para subir e sai MENOS UM CÊNTIMO do que a AGT
+        // apura (recusa E70: «taxContribution … não corresponde ao imposto
+        // apurado»). Recalcula-se aqui a partir da MESMA base do
+        // calculateTotals (líquido de desconto + IEC) e faz-se o ceil sobre o
+        // produto a precisão plena, para bater ao cêntimo com a AGT.
+        $iecLine = 0.0;
+        if ($item instanceof Model && $item->getKey()) {
+            $iecLine = (float) \App\Models\Invoicing\LineTax::where('line_type', get_class($item))
+                ->where('line_id', $item->getKey())
+                ->where('tax_type', \App\Models\Invoicing\LineTax::TIPO_IEC)
+                ->sum('tax_amount');
+        }
+        // A base é o líquido tal como vai no payload (creditAmount/debitAmount =
+        // round($netLine, 2)) mais o IEC da linha — a AGT apura sobre o que lê.
+        $baseIva = round($netLine, 2) + $iecLine;
+        $taxContribution = $taxRate > 0
+            ? AGTPayloadBuilder::ceilCents(($baseIva * $taxRate) / 100)
+            : 0.0;
+
         // taxes (array)
         $tax = [
             'taxType'          => 'IVA',
             'taxCountryRegion' => $item->tax_country_region ?? 'AO',
             'taxCode'          => $item->tax_code ?? ($taxRate > 0 ? 'NOR' : 'ISE'),
             'taxPercentage'    => round($taxRate, 2),
-            'taxContribution'  => round($taxAmount, 2),
+            'taxContribution'  => $taxContribution,
         ];
         if (!empty($item->tax_exemption_code)) {
             $tax['taxExemptionCode'] = $item->tax_exemption_code;
