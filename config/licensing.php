@@ -1,0 +1,88 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chave PÚBLICA do emissor (vendor)
+    |--------------------------------------------------------------------------
+    |
+    | Ed25519, em Base64 (32 bytes). É a ÚNICA metade do par que vive na
+    | máquina do cliente. A chave PRIVADA (que assina as licenças) nunca sai
+    | de quem gere a plataforma — sem ela, ninguém forja uma licença válida.
+    |
+    | Gera-se o par uma vez com `php artisan licenca:chaves`. A pública vai
+    | aqui (ou no .env do cliente); a privada guarda-se em cofre, fora do repo.
+    |
+    */
+    'public_key' => env('LICENSE_PUBLIC_KEY', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Onde a licença e o estado vivem na máquina do cliente
+    |--------------------------------------------------------------------------
+    |
+    | `license_path`  — o ficheiro com o token da licença (texto).
+    | `state_path`    — estado local: último check-in e o relógio-máximo já
+    |                    visto (para apanhar quem recua a data do PC).
+    | `inline_token`  — alternativa ao ficheiro: a licença no próprio .env.
+    |
+    */
+    'license_path' => env('LICENSE_PATH', storage_path('app/license/license.key')),
+    'state_path'   => env('LICENSE_STATE_PATH', storage_path('app/license/state.json')),
+    'inline_token' => env('LICENSE_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Barreira offline (dias sem "ligar a casa")
+    |--------------------------------------------------------------------------
+    |
+    | Valor por omissão. A própria licença pode sobrepor por-tenant (campo
+    | `graca`), porque um cliente numa zona sem rede fiável precisa de mais
+    | folga do que um na cidade.
+    |
+    */
+    'offline_grace_days' => (int) env('LICENSE_OFFLINE_GRACE_DAYS', 15),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Escada de degradação (fração da graça → estado)
+    |--------------------------------------------------------------------------
+    |
+    | Bloquear em seco no dia 15 apanha o cliente de surpresa. Isto avisa
+    | primeiro, depois trava a escrita, e só no fim tranca. Ex.: graça=15 →
+    | avisa ao 8º dia, banner ao 12º, só-leitura ao 15º… antes do bloqueio.
+    |
+    */
+    'degradacao' => [
+        'aviso'      => (float) env('LICENSE_STEP_AVISO', 0.5),
+        'banner'     => (float) env('LICENSE_STEP_BANNER', 0.8),
+        'so_leitura' => (float) env('LICENSE_STEP_SO_LEITURA', 0.95),
+        // 1.0 (100%) = bloqueio total, tratado no verificador.
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prender a licença a UMA máquina (fingerprint de hardware)
+    |--------------------------------------------------------------------------
+    |
+    | Quando ligado, uma licença emitida com fingerprint só corre nessa
+    | máquina: copiá-la para outra máquina invalida-a. Emitir sem fingerprint
+    | (licença "flutuante") continua a funcionar em qualquer lado.
+    |
+    */
+    'bind_machine' => (bool) env('LICENSE_BIND_MACHINE', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tolerância de recuo do relógio (segundos)
+    |--------------------------------------------------------------------------
+    |
+    | Se o relógio do sistema andar para trás mais do que isto face ao maior
+    | instante já observado, a verificação suspende-se (batota de data). Uns
+    | minutos de folga para acertos de fuso/NTP legítimos.
+    |
+    */
+    'clock_skew_tolerance' => (int) env('LICENSE_CLOCK_SKEW', 120),
+
+];
