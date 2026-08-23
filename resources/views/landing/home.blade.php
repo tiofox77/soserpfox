@@ -412,6 +412,7 @@
                         </a>
                         <a href="#modulos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Módulos</a>
                         <a href="#planos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Planos</a>
+                        <a href="#servicos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Serviços</a>
                         <a href="#roadmap" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Roadmap</a>
                         <a href="#contacto" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Contacto</a>
                     </div>
@@ -442,6 +443,7 @@
                     <a href="#certificacao" class="text-green-700 hover:bg-green-50 px-3 py-2 rounded-lg"><i class="fas fa-shield-alt text-xs mr-1"></i>Certificação AGT</a>
                     <a href="#modulos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Módulos</a>
                     <a href="#planos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Planos</a>
+                    <a href="#servicos" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Serviços</a>
                     <a href="#roadmap" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Roadmap</a>
                     <a href="#contacto" class="text-gray-700 hover:bg-blue-50 hover:text-blue-600 px-3 py-2 rounded-lg">Contacto</a>
                     <a href="{{ route('client.login') }}" class="text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg"><i class="fas fa-users mr-1"></i>Área Cliente</a>
@@ -1500,6 +1502,62 @@
                         <i class="fas fa-headset text-2xl mr-2"></i>
                         <span class="text-sm">Suporte 24/7</span>
                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Serviços Profissionais Section -->
+    <section id="servicos" class="py-20 bg-white relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl"></div>
+            <div class="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500 rounded-full filter blur-3xl"></div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-16">
+                <span class="inline-block px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-600 text-white text-sm font-bold rounded-full mb-4">
+                    <i class="fas fa-hands-helping mr-2"></i>SERVIÇOS
+                </span>
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Serviços Profissionais</h2>
+                <p class="text-xl text-gray-600">Formação e suporte cobrados à hora, quando precisar deles.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                {{-- Formação --}}
+                <div class="group relative bg-white rounded-3xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 border-2 border-gray-200 hover:border-blue-500">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-2xl mb-6 shadow-lg">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Formação</h3>
+                    <div class="flex items-end gap-2 mb-4">
+                        <span class="text-4xl font-extrabold text-gray-900">25.000 Kz</span>
+                        <span class="text-gray-500 font-medium mb-1">/ hora</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">
+                        Formação personalizada ao ritmo da sua equipa: aprenda a tirar o máximo do SOS ERP com um formador dedicado, no seu negócio ou à distância.
+                    </p>
+                    <a href="#contacto" class="inline-flex items-center justify-center w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-calendar-check mr-2"></i>Marcar formação
+                    </a>
+                </div>
+
+                {{-- Suporte --}}
+                <div class="group relative bg-white rounded-3xl shadow-xl p-8 hover:shadow-2xl transition-all duration-300 border-2 border-gray-200 hover:border-emerald-500">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-2xl mb-6 shadow-lg">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Suporte</h3>
+                    <div class="flex items-end gap-2 mb-4">
+                        <span class="text-4xl font-extrabold text-gray-900">20.000 Kz</span>
+                        <span class="text-gray-500 font-medium mb-1">/ hora</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">
+                        Suporte técnico dedicado por hora: resolvemos problemas, configuramos o sistema e acompanhamos a sua equipa quando mais precisa.
+                    </p>
+                    <a href="#contacto" class="inline-flex items-center justify-center w-full px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl shadow-lg hover:scale-105 transition-all duration-300">
+                        <i class="fas fa-life-ring mr-2"></i>Pedir suporte
+                    </a>
                 </div>
             </div>
         </div>
