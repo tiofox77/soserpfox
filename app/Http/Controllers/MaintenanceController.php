@@ -510,6 +510,12 @@ class MaintenanceController extends Controller
     {
         $this->ensureToken($token);
 
+        // Hardening: bloquear o acesso directo aos ficheiros da aplicação e
+        // limpar os logs já expostos. Corre com ?security=1.
+        if ($request->query('security') === '1') {
+            return $this->aplicarSegurancaHtaccess();
+        }
+
         $rootHtaccess = base_path('.htaccess');
         $publicHtaccess = public_path('.htaccess');
 
@@ -582,6 +588,88 @@ class MaintenanceController extends Controller
         }
 
         return response(implode("\n", $report), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    /**
+     * Fecha a exposição pública de ficheiros da aplicação.
+     *
+     * A raiz do documento é a raiz do projecto (public_html), e o .htaccess só
+     * reencaminha para o Laravel os ficheiros que NÃO existem — pelo que
+     * qualquer ficheiro real do projecto (storage/logs, storage/app/private,
+     * database/*.sqlite, vendor/*, …) era servido directamente pelo Apache.
+     *
+     * A correcção acrescenta, DEPOIS da regra que serve /public (logo os
+     * uploads públicos via symlink public/storage continuam a funcionar),
+     * regras que devolvem 403 ao acesso directo às pastas da aplicação; e
+     * trunca os logs que já continham dados pessoais. Faz backup e é
+     * idempotente.
+     */
+    private function aplicarSegurancaHtaccess()
+    {
+        $root = base_path('.htaccess');
+        $log = [];
+        $log[] = '=== HARDENING DE SEGURANCA ===';
+
+        if (!is_file($root)) {
+            $log[] = 'Root .htaccess nao existe — abortado.';
+        } elseif (!is_writable($root)) {
+            $log[] = 'Root .htaccess sem permissao de escrita — abortado.';
+        } else {
+            $content = file_get_contents($root);
+
+            if (str_contains($content, 'SEGURANCA SOSERP FILES')) {
+                $log[] = 'Root .htaccess ja tem o bloco de seguranca (nada a fazer).';
+            } else {
+                $backup = $root . '.bak.' . date('YmdHis');
+                @copy($root, $backup);
+                $log[] = 'Backup: ' . basename($backup);
+
+                $bloco = "\n"
+                    . "    # === SEGURANCA SOSERP FILES (docroot = raiz do projecto) ===\n"
+                    . "    # Servir /public ja foi tratado acima; aqui bloqueia-se o acesso\n"
+                    . "    # directo aos ficheiros da aplicacao (logs, sessoes, chaves,\n"
+                    . "    # sqlite, dependencias, codigo-fonte).\n"
+                    . '    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|vendor|lang|node_modules|storage)(/|$) - [F,L]' . "\n"
+                    . '    RewriteRule ^(artisan|server\.php|phpunit\.xml|vite\.config\.js|webpack\.mix\.js|package(-lock)?\.json)$ - [F,L]' . "\n";
+
+                $anchor = 'RewriteRule ^(.*)$ public/$1 [L]';
+                if (str_contains($content, $anchor)) {
+                    $content = str_replace($anchor, $anchor . "\n" . $bloco, $content);
+                    $log[] = 'Bloco RewriteRule inserido apos a regra de /public.';
+                } else {
+                    $content = rtrim($content) . "\n\n<IfModule mod_rewrite.c>\n    RewriteEngine On\n" . $bloco . "</IfModule>\n";
+                    $log[] = 'Ancora /public nao encontrada — bloco acrescentado ao fim.';
+                }
+
+                // Defesa em profundidade: bloquear por extensao onde quer que esteja.
+                if (!str_contains($content, 'SEGURANCA SOSERP EXT')) {
+                    $content .= "\n# === SEGURANCA SOSERP EXT ===\n"
+                        . '<FilesMatch "\.(log|sqlite|sql|bak|ya?ml|ini|sh)$">' . "\n"
+                        . "    Order allow,deny\n    Deny from all\n</FilesMatch>\n";
+                    $log[] = 'FilesMatch por extensao acrescentado.';
+                }
+
+                $log[] = file_put_contents($root, $content) !== false
+                    ? 'Root .htaccess actualizado.'
+                    : 'FALHA ao escrever o root .htaccess.';
+            }
+        }
+
+        // Truncar os logs ja expostos (remove o PII que ja esta no ficheiro).
+        $limpos = 0;
+        $bytes = 0;
+        foreach (glob(storage_path('logs') . '/*.log') ?: [] as $f) {
+            $bytes += @filesize($f) ?: 0;
+            if (@file_put_contents($f, '') !== false) {
+                $limpos++;
+            }
+        }
+        $log[] = "Logs truncados: {$limpos} ficheiro(s), " . round($bytes / 1048576, 1) . ' MB libertados.';
+
+        $log[] = '';
+        $log[] = 'DONE.';
+
+        return response(implode("\n", $log), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
     /**
