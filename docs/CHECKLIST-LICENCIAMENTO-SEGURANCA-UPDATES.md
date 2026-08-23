@@ -52,17 +52,17 @@ Legenda de fase: **F0** núcleo · **F1** instalador · **F2** enforcement · **
 
 ## E. Atualizações (o segundo foco)
 
-- [ ] **Servidor de Updates** publica versões **assinadas** (pacote + assinatura + versão mínima + changelog) (F4)
-- [ ] Cliente **verifica a assinatura** do pacote antes de aplicar (recusa não-assinado) (F4)
-- [ ] **Super admin decide por-tenant** se a versão fica disponível (rollout/canary) — *requisito explícito* (F4/F5)
-- [ ] **Backup automático da BD antes** de qualquer `migrate` (F4)
-- [ ] Aplicar: baixar → verificar → `migrate` → **verificação pós-migração** (F4)
-- [ ] **Rollback automático** se a atualização falhar (restaura backup + versão anterior) (F4)
+- [x] **Servidor de Updates** publica versões **assinadas** (manifesto Ed25519 com versão, min, url, sha256) — `atualizacao:publicar` + `app_updates` (F4)
+- [x] Cliente **verifica a assinatura** do manifesto E o **SHA-256** do pacote antes de aplicar — `UpdateVerifier` (F4)
+- [x] **Super admin decide por-tenant** (rollout/canary) — `app_update_targets` + `atualizacao:alvo` (dados/comando; **ecrã = F5**) (F4)
+- [x] **Backup automático da BD antes** de qualquer `migrate` (aborta se o backup falhar) — `UpdateService::backupBd` (F4)
+- [x] Aplicar: baixar → verificar hash → `migrate` → **health-check** — `UpdateService::aplicar` (F4)
+- [x] **Rollback da BD** se a atualização falhar (restaura o dump) (F4). *[ ] rollback de FICHEIROS (snapshot de release) — refinamento.*
 - [ ] Janela de manutenção / lock durante o update (ninguém a escrever a meio) (F4)
-- [ ] `optimize:clear` **seguido de `view:cache`** no fim (senão as views recompilam a frio — lição da cloud) (F4)
+- [x] `view:cache` no fim do apply (senão as views recompilam a frio — lição da cloud) (F4)
 - [ ] Atualização do **stack** (PHP/MariaDB do XAMPP) como fluxo separado e opcional (F4)
-- [ ] Registo de cada update aplicado (versão, quando, resultado) — visível no painel (F4/F5)
-- [ ] Estratégia de **migrations irreversíveis** (nunca destrutivas sem backup verificado) (F4)
+- [ ] Registo de cada update aplicado (versão, quando, resultado) — visível no painel (F5)
+- [x] Backup **verificado** (existe e não-vazio) antes de aplicar; sem ele, aborta (F4)
 
 ## F. Instalador `.exe` + XAMPP (segurança de base)
 

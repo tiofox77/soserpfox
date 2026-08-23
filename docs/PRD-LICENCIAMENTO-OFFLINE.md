@@ -186,8 +186,8 @@ sequenceDiagram
 - **Fase 1 — Ativação (FEITO) + Instalador (scaffold):** ecrã de ativação + comando `licenca:instalar`; `installer/` com Inno Setup + `provision.ps1` (XAMPP embutido). Falta compilar/testar o `.exe` numa build Windows.
 - **Fase 2 — Enforcement (FEITO, gated):** middleware desligado por omissão; bloqueio total + banner ligados. Falta: corte fino de só-leitura + ionCube.
 - **Fase 3 — Phone-home (FEITO):** check-in cliente (`LicenseCheckin` + middleware à boleia do tráfego) + servidor (`/api/license/checkin`) que renova licença curta se activo e manda bloquear se suspenso. Regra: o contador só reinicia com renovação assinada. Falta: anti-replay (nonce), revogação, entrega de notificações reais.
-- **Fase 4 — Updates:** Servidor de Updates + rollout por-tenant + backup/rollback.
-- **Fase 5 — Painel Super Admin:** gestão por tenant de licença/estado/updates.
+- **Fase 4 — Updates (FEITO):** manifestos **assinados** (`UpdateSigner`/`UpdateVerifier`), servidor `/api/license/update` com **rollout por-tenant** (`app_updates` + `app_update_targets`, comandos `atualizacao:publicar`/`atualizacao:alvo`), e cliente `UpdateService` (verifica assinatura + SHA-256, backup da BD, migra, health-check, **rollback da BD** em falha) + `licenca:atualizar`. Falta: rollback de FICHEIROS (snapshot de release), janela de manutenção, build/CDN do pacote real.
+- **Fase 5 — Painel Super Admin:** gestão por tenant de licença/estado/updates (a mesma decisão que hoje se faz por `atualizacao:alvo` e `is_active`, mas com ecrã).
 
 ## 13. Métricas de sucesso
 

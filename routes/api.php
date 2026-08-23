@@ -22,3 +22,8 @@ Route::post('/facturacaoelectronica/callback', [AGTCallbackController::class, 'h
 // chave privada (LICENSE_SIGNING_KEY) não estiver configurada: não renova.
 Route::post('/license/checkin', [\App\Http\Controllers\Api\LicenseServerController::class, 'checkin'])
     ->name('api.license.checkin');
+
+// Servidor de atualizações: "há update para mim?". Mesma confiança pela
+// assinatura do token; a versão-alvo vem do rollout por-tenant (super admin).
+Route::post('/license/update', [\App\Http\Controllers\Api\UpdateServerController::class, 'check'])
+    ->name('api.license.update');

@@ -151,4 +151,32 @@ return [
     'signing_key' => env('LICENSE_SIGNING_KEY'),
     'renew_days'  => (int) env('LICENSE_RENEW_DAYS', 30),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Atualizações (F4)
+    |--------------------------------------------------------------------------
+    |
+    | Manifesto de atualização = descritor ASSINADO (Ed25519) de uma versão:
+    | versão, versão mínima, URL do pacote e o seu SHA-256. O cliente NUNCA
+    | aplica nada sem verificar a assinatura do manifesto E o hash do pacote —
+    | e qualquer falha ao aplicar faz rollback (restaura backup).
+    |
+    | Chaves: por omissão reutilizam as da licença; podem ser separadas.
+    |   - `public_key`  (cliente verifica)  ← vendor
+    |   - `signing_key` (vendor assina)     ← NUNCA no cliente
+    |
+    | Rollout é decidido POR-TENANT pelo super admin (tabela app_update_targets
+    | ou rollout='all' na versão). `current` é a versão instalada nesta máquina.
+    |
+    */
+    'update' => [
+        'check_url'   => env('LICENSE_UPDATE_URL', ''),
+        'public_key'  => env('LICENSE_UPDATE_PUBLIC_KEY', env('LICENSE_PUBLIC_KEY', '')),
+        'signing_key' => env('LICENSE_UPDATE_SIGNING_KEY', env('LICENSE_SIGNING_KEY')),
+        'current'     => env('APP_VERSION', '1.0.0'),
+        'backup_dir'  => env('LICENSE_UPDATE_BACKUP_DIR', storage_path('app/updates/backups')),
+        'work_dir'    => env('LICENSE_UPDATE_WORK_DIR', storage_path('app/updates/work')),
+        'auto_apply'  => (bool) env('LICENSE_UPDATE_AUTO_APPLY', false),
+    ],
+
 ];
