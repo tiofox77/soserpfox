@@ -354,6 +354,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         ->get('/auditoria', \App\Livewire\Invoicing\AuditTrailViewer::class)->name('audit');
     Route::middleware('permission:invoicing.series.view')->get('/series', \App\Livewire\Invoicing\SeriesManagement::class)->name('series');
     Route::middleware('permission:invoicing.taxes.view')->get('/taxes', \App\Livewire\Invoicing\TaxManagement::class)->name('taxes');
+    Route::middleware('permission:invoicing.settings.view')->get('/payment-terms', \App\Livewire\Invoicing\PaymentTerms::class)->name('payment-terms');
     Route::middleware('permission:invoicing.agt.view')->get('/agt-settings', \App\Livewire\Invoicing\AGTSettings::class)->name('agt-settings');
     Route::middleware('permission:invoicing.agt.view')->get('/agt-credentials', \App\Livewire\Invoicing\AGTCredentials::class)->name('agt-credentials');
     

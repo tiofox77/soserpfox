@@ -50,6 +50,13 @@ class Clients extends Component
     public $address, $city, $province, $postal_code, $country = 'AO'; // ISO 3166-1-alpha-2
     public $logo; // Upload file
     public $currentLogo; // Existing logo path
+    public $payment_term_id = null; // Condição de pagamento
+
+    public function mount()
+    {
+        // Garante que a empresa tem as condições de pagamento padrão.
+        \App\Models\Invoicing\PaymentTerm::provisionarPadroes(activeTenantId());
+    }
 
     protected function rules()
     {
@@ -165,6 +172,7 @@ class Clients extends Component
         $this->province = $client->province;
         $this->postal_code = $client->postal_code;
         $this->country = $client->country ?? 'Angola';
+        $this->payment_term_id = $client->payment_term_id;
         $this->showModal = true;
     }
 
@@ -198,7 +206,16 @@ class Clients extends Component
             'province' => $this->province,
             'postal_code' => $this->postal_code,
             'country' => $this->country,
+            'payment_term_id' => $this->payment_term_id ?: null,
         ];
+
+        // Manter payment_term_days em sincronia com a condição escolhida
+        // (código legado ainda lê os dias directamente da coluna).
+        if ($this->payment_term_id) {
+            $term = \App\Models\Invoicing\PaymentTerm::where('tenant_id', activeTenantId())
+                ->find($this->payment_term_id);
+            $data['payment_term_days'] = $term->days ?? 0;
+        }
 
         if ($this->editingClientId) {
             $client = Client::findOrFail($this->editingClientId);
@@ -398,9 +415,15 @@ class Clients extends Component
 
     private function resetForm()
     {
-        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'postal_code', 'editingClientId']);
+        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'postal_code', 'editingClientId', 'payment_term_id']);
         $this->type = 'pessoa_juridica';
         $this->country = 'Angola';
+        // Cliente novo nasce com a condição padrão da empresa (se houver).
+        $this->payment_term_id = \App\Models\Invoicing\PaymentTerm::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->value('id');
     }
 
     public function render()
@@ -436,6 +459,12 @@ class Clients extends Component
             ->pluck('city')
             ->sort();
 
-        return view('livewire.invoicing.clients.clients', compact('clients', 'cities'));
+        $paymentTerms = \App\Models\Invoicing\PaymentTerm::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return view('livewire.invoicing.clients.clients', compact('clients', 'cities', 'paymentTerms'));
     }
 }

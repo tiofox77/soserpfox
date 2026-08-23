@@ -105,14 +105,22 @@ class InvoiceCreate extends Component
         $sessionKey = 'invoice_client_' . activeTenantId() . '_' . auth()->id();
         session([$sessionKey => $clientId]);
         
-        // Get client name
-        $client = Client::find($clientId);
-        
+        // Get client name (+ condição de pagamento)
+        $client = Client::with('paymentTerm')->find($clientId);
+
+        // Vencimento a partir da condição de pagamento do cliente (pronto
+        // pagamento = mesma data; 30 dias = +30). É só um valor por omissão —
+        // o utilizador pode alterá-lo.
+        $dias = $client?->paymentTerm?->days;
+        if ($dias !== null) {
+            $base = $this->invoice_date ? \Illuminate\Support\Carbon::parse($this->invoice_date) : now();
+            $this->due_date = $base->copy()->addDays((int) $dias)->format('Y-m-d');
+        }
+
         // Force clear input visually
         $this->dispatch('client-selected');
-        
+
         // Toast notification
-        $client = Client::find($clientId);
         $this->dispatch('notify', [
             'type' => 'success',
             'message' => __('Cliente selecionado: :nome', ['nome' => $client ? $client->name : ''])

@@ -29,7 +29,7 @@ class Client extends Authenticatable
     protected $fillable = [
         'tenant_id', 'type', 'name', 'nif', 'logo', 'email', 'phone', 'mobile',
         'address', 'city', 'province', 'postal_code', 'country',
-        'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days',
+        'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days', 'payment_term_id',
         'website', 'notes', 'is_active', 'password', 'portal_access',
         'last_login_at', 'password_changed_at',
         // Hotel guest fields
@@ -59,6 +59,11 @@ class Client extends Authenticatable
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function paymentTerm()
+    {
+        return $this->belongsTo(\App\Models\Invoicing\PaymentTerm::class, 'payment_term_id');
     }
 
     public function invoices()

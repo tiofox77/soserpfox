@@ -956,10 +956,18 @@
                                 @endcan
                                 
                                 @can('invoicing.series.view')
-                                <a href="{{ route('invoicing.series') }}" 
+                                <a href="{{ route('invoicing.series') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.series') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-hashtag w-5 text-pink-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Séries de Documentos') }}</span>
+                                </a>
+                                @endcan
+
+                                @can('invoicing.settings.view')
+                                <a href="{{ route('invoicing.payment-terms') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.payment-terms') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-calendar-check w-5 text-indigo-300 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Condições de Pagamento') }}</span>
                                 </a>
                                 @endcan
                                 

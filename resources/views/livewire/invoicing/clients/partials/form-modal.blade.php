@@ -156,7 +156,25 @@
                             <input wire:model="postal_code" type="text" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition">
                         </div>
                     </div>
-                    
+
+                    {{-- Condição de pagamento (catálogo por empresa, gerível) --}}
+                    <div class="mt-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <i class="fas fa-calendar-check text-indigo-500 mr-2"></i>{{ __('Condição de Pagamento') }}
+                        </label>
+                        <select wire:model="payment_term_id" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+                            <option value="">{{ __('— Sem condição —') }}</option>
+                            @foreach($paymentTerms as $term)
+                                <option value="{{ $term->id }}">{{ $term->name }}@if($term->days > 0) ({{ $term->days }} {{ __('dias') }})@endif</option>
+                            @endforeach
+                        </select>
+                        @can('invoicing.settings.view')
+                        <a href="{{ route('invoicing.payment-terms') }}" target="_blank" class="mt-1 inline-block text-xs text-indigo-600 hover:underline">
+                            <i class="fas fa-gear mr-1"></i>{{ __('Gerir condições de pagamento') }}
+                        </a>
+                        @endcan
+                    </div>
+
                     <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
                         <button type="button" wire:click="closeModal" class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
                             <i class="fas fa-times mr-2"></i>{{ __('Cancelar') }}
