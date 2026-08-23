@@ -284,6 +284,7 @@
                         ['route' => 'superadmin.plans', 'icon' => 'fas fa-tags', 'color' => 'text-pink-400', 'label' => 'Planos'],
                         ['route' => 'superadmin.modules', 'icon' => 'fas fa-puzzle-piece', 'color' => 'text-purple-400', 'label' => 'Módulos'],
                         ['route' => 'superadmin.billing', 'icon' => 'fas fa-file-invoice-dollar', 'color' => 'text-emerald-400', 'label' => 'Faturação / Billing'],
+                        ['route' => 'superadmin.licenciamento', 'icon' => 'fas fa-key', 'color' => 'text-indigo-400', 'label' => 'Licenciamento Offline'],
                     ],
                     'Comunicação' => [
                         ['route' => 'superadmin.mensagens', 'icon' => 'fas fa-bullhorn', 'color' => 'text-indigo-400', 'label' => 'Mensagens às Empresas'],

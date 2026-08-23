@@ -187,7 +187,7 @@ sequenceDiagram
 - **Fase 2 — Enforcement (FEITO, gated):** middleware desligado por omissão; bloqueio total + banner ligados. Falta: corte fino de só-leitura + ionCube.
 - **Fase 3 — Phone-home (FEITO):** check-in cliente (`LicenseCheckin` + middleware à boleia do tráfego) + servidor (`/api/license/checkin`) que renova licença curta se activo e manda bloquear se suspenso. Regra: o contador só reinicia com renovação assinada. Falta: anti-replay (nonce), revogação, entrega de notificações reais.
 - **Fase 4 — Updates (FEITO):** manifestos **assinados** (`UpdateSigner`/`UpdateVerifier`), servidor `/api/license/update` com **rollout por-tenant** (`app_updates` + `app_update_targets`, comandos `atualizacao:publicar`/`atualizacao:alvo`), e cliente `UpdateService` (verifica assinatura + SHA-256, backup da BD, migra, health-check, **rollback da BD** em falha) + `licenca:atualizar`. Falta: rollback de FICHEIROS (snapshot de release), janela de manutenção, build/CDN do pacote real.
-- **Fase 5 — Painel Super Admin:** gestão por tenant de licença/estado/updates (a mesma decisão que hoje se faz por `atualizacao:alvo` e `is_active`, mas com ecrã).
+- **Fase 5 — Painel Super Admin (FEITO):** `App\Livewire\SuperAdmin\Licenciamento` em `/superadmin/licenciamento` (gated a super admin) — emitir licenças, publicar versões (assina o manifesto) e **rollout por-tenant** com cliques (all/none + canary). Avisa se as chaves privadas não estiverem configuradas. Falta: revogação de licenças + histórico de updates aplicados no ecrã.
 
 ## 13. Métricas de sucesso
 

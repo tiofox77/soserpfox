@@ -137,6 +137,7 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/modules', \App\Livewire\SuperAdmin\Modules::class)->name('modules');
     Route::get('/plans', \App\Livewire\SuperAdmin\Plans::class)->name('plans');
     Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
+    Route::get('/licenciamento', \App\Livewire\SuperAdmin\Licenciamento::class)->name('licenciamento');
     Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
     Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
     Route::get('/script-runner', \App\Livewire\SuperAdmin\ScriptRunner::class)->name('script-runner');
