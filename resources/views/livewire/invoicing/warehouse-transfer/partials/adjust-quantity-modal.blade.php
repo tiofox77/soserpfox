@@ -38,7 +38,7 @@
                     Quantidade a Ajustar *
                 </label>
                 <input type="number" 
-                       wire:model="adjustProductQuantity" 
+                       wire:model.blur="adjustProductQuantity"
                        step="0.01" 
                        min="0"
                        class="w-full px-6 py-4 rounded-xl border-2 border-gray-300 focus:border-yellow-500 focus:ring-4 focus:ring-yellow-200 transition text-3xl font-bold text-center"

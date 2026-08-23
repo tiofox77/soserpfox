@@ -93,7 +93,7 @@
                             step="1" 
                             min="0"
                             max="{{ $transferMaxQty }}"
-                            wire:model="transferQuantity" 
+                            wire:model.blur="transferQuantity"
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition text-2xl font-bold text-center"
                             placeholder="0">
                         @error('transferQuantity') 

@@ -48,7 +48,7 @@
                     Quantidade a Transferir *
                 </label>
                 <input type="number" 
-                       wire:model="productQuantity" 
+                       wire:model.blur="productQuantity"
                        step="0.01" 
                        min="0.01" 
                        max="{{ $availableStock }}"

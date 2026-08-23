@@ -453,7 +453,7 @@
 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-3">{{ __('Quantidade a Transferir *') }}</label>
-                    <input type="number" wire:model="productQuantity" step="0.01" min="0.01" max="{{ $availableStock }}"
+                    <input type="number" wire:model.blur="productQuantity" step="0.01" min="0.01" max="{{ $availableStock }}"
                            class="w-full px-6 py-4 rounded-xl border-2 border-gray-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition text-3xl font-bold text-center"
                            placeholder="0.00" autofocus>
 
