@@ -616,14 +616,10 @@ class MaintenanceController extends Controller
             $log[] = 'Root .htaccess sem permissao de escrita — abortado.';
         } else {
             $content = file_get_contents($root);
+            $original = $content;
 
-            if (str_contains($content, 'SEGURANCA SOSERP FILES')) {
-                $log[] = 'Root .htaccess ja tem o bloco de seguranca (nada a fazer).';
-            } else {
-                $backup = $root . '.bak.' . date('YmdHis');
-                @copy($root, $backup);
-                $log[] = 'Backup: ' . basename($backup);
-
+            // ── Bloco 1: bloquear acesso directo aos ficheiros da aplicacao ──
+            if (!str_contains($content, 'SEGURANCA SOSERP FILES')) {
                 $bloco = "\n"
                     . "    # === SEGURANCA SOSERP FILES (docroot = raiz do projecto) ===\n"
                     . "    # Servir /public ja foi tratado acima; aqui bloqueia-se o acesso\n"
@@ -635,23 +631,64 @@ class MaintenanceController extends Controller
                 $anchor = 'RewriteRule ^(.*)$ public/$1 [L]';
                 if (str_contains($content, $anchor)) {
                     $content = str_replace($anchor, $anchor . "\n" . $bloco, $content);
-                    $log[] = 'Bloco RewriteRule inserido apos a regra de /public.';
+                    $log[] = 'Bloco FILES inserido apos a regra de /public.';
                 } else {
                     $content = rtrim($content) . "\n\n<IfModule mod_rewrite.c>\n    RewriteEngine On\n" . $bloco . "</IfModule>\n";
-                    $log[] = 'Ancora /public nao encontrada — bloco acrescentado ao fim.';
+                    $log[] = 'Ancora /public nao encontrada — bloco FILES acrescentado ao fim.';
+                }
+            } else {
+                $log[] = 'Bloco FILES ja presente.';
+            }
+
+            // ── Bloco 2: bloquear por extensao (defesa em profundidade) ──
+            if (!str_contains($content, 'SEGURANCA SOSERP EXT')) {
+                $content .= "\n# === SEGURANCA SOSERP EXT ===\n"
+                    . '<FilesMatch "\.(log|sqlite|sql|bak|ya?ml|ini|sh)$">' . "\n"
+                    . "    Order allow,deny\n    Deny from all\n</FilesMatch>\n";
+                $log[] = 'Bloco EXT (FilesMatch) acrescentado.';
+            } else {
+                $log[] = 'Bloco EXT ja presente.';
+            }
+
+            // ── Bloco 3: forcar HTTPS + remover X-Powered-By + headers estaticos ──
+            if (!str_contains($content, 'SEGURANCA SOSERP NET')) {
+                // Redireccionar HTTP -> HTTPS logo no inicio do rewrite.
+                $redirect = "\n"
+                    . "    # === SEGURANCA SOSERP NET (forcar HTTPS) ===\n"
+                    . "    RewriteCond %{HTTPS} !=on\n"
+                    . "    RewriteCond %{HTTP:X-Forwarded-Proto} !=https\n"
+                    . '    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]' . "\n";
+                if (str_contains($content, 'RewriteBase /')) {
+                    $content = str_replace('RewriteBase /', 'RewriteBase /' . $redirect, $content);
+                    $log[] = 'Redireccionamento HTTPS inserido apos RewriteBase.';
+                } else {
+                    $content = str_replace('RewriteEngine On', 'RewriteEngine On' . $redirect, $content);
+                    $log[] = 'Redireccionamento HTTPS inserido apos RewriteEngine On.';
                 }
 
-                // Defesa em profundidade: bloquear por extensao onde quer que esteja.
-                if (!str_contains($content, 'SEGURANCA SOSERP EXT')) {
-                    $content .= "\n# === SEGURANCA SOSERP EXT ===\n"
-                        . '<FilesMatch "\.(log|sqlite|sql|bak|ya?ml|ini|sh)$">' . "\n"
-                        . "    Order allow,deny\n    Deny from all\n</FilesMatch>\n";
-                    $log[] = 'FilesMatch por extensao acrescentado.';
-                }
+                // Headers ao nivel do servidor (cobre tambem as respostas estaticas).
+                $content .= "\n# === SEGURANCA SOSERP NET HEADERS ===\n"
+                    . "<IfModule mod_headers.c>\n"
+                    . "    Header always unset X-Powered-By\n"
+                    . "    Header unset X-Powered-By\n"
+                    . '    Header always set X-Content-Type-Options "nosniff"' . "\n"
+                    . '    Header always set Strict-Transport-Security "max-age=31536000"' . "\n"
+                    . "</IfModule>\n"
+                    . "<IfModule mod_security.c>\n</IfModule>\n";
+                $log[] = 'Headers de servidor (NET) acrescentados.';
+            } else {
+                $log[] = 'Bloco NET ja presente.';
+            }
 
+            if ($content !== $original) {
+                $backup = $root . '.bak.' . date('YmdHis');
+                @copy($root, $backup);
+                $log[] = 'Backup: ' . basename($backup);
                 $log[] = file_put_contents($root, $content) !== false
                     ? 'Root .htaccess actualizado.'
                     : 'FALHA ao escrever o root .htaccess.';
+            } else {
+                $log[] = 'Nada a alterar no .htaccess.';
             }
         }
 

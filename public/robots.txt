@@ -1,33 +1,16 @@
 # SOSERP — Software de Gestão Empresarial em Angola
 # https://soserp.vip
+#
+# Nota: não se listam caminhos internos (admin, superadmin, api, maintenance…).
+# Estão todos atrás de autenticação/token e o robots.txt não os protege — só os
+# anunciaria a quem estivesse à procura.
 
 User-agent: *
 Allow: /
 Allow: /modulos
 Allow: /modulos/*
 
-Disallow: /admin/
-Disallow: /superadmin/
-Disallow: /api/
-Disallow: /livewire/
-Disallow: /storage/
-Disallow: /maintenance/
-Disallow: /password/
-Disallow: /email/verify
-
-# Bots especiais — full access
-User-agent: Googlebot
-Allow: /
-Disallow: /admin/
-Disallow: /superadmin/
-Disallow: /api/
-
-User-agent: Bingbot
-Allow: /
-Disallow: /admin/
-Disallow: /superadmin/
-
-# Bloquear scrapers agressivos
+# Aliviar carga de scrapers agressivos
 User-agent: AhrefsBot
 Crawl-delay: 10
 

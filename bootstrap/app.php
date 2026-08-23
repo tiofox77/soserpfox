@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Cabeçalhos de segurança em todas as respostas (HSTS, CSP, X-Frame,
+        // nosniff, Referrer-Policy, Permissions-Policy; remove X-Powered-By).
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         // Que língua fala este pedido (utilizador → empresa → cookie → pt).
         // Em append e não prepend: precisa da sessão iniciada (auth) e dos
         // cookies decifrados, e isso só existe depois do miolo do grupo web.
