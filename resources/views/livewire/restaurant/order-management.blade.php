@@ -53,7 +53,7 @@
                         <div class="border-b border-slate-100 bg-slate-50 p-4">
                             <div class="flex flex-col gap-3 sm:flex-row">
                                 <div class="relative min-w-0 flex-1"><i class="fas fa-bowl-food absolute left-3 top-3.5 text-slate-400"></i><input wire:model.live.debounce.250ms="productSearch" class="w-full rounded-xl border-slate-300 py-3 pl-10 focus:border-orange-500 focus:ring-orange-500" placeholder="Pesquisar prato, bebida ou código"></div>
-                                <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-600">Qtd.<input type="number" step="0.001" min="0.001" wire:model="quantity" class="w-20 border-0 p-2 text-center font-black focus:ring-0" aria-label="Quantidade"></label>
+                                <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-bold text-slate-600">Qtd.<input type="number" step="0.001" min="0.001" wire:model.blur="quantity" class="w-20 border-0 p-2 text-center font-black focus:ring-0" aria-label="Quantidade"></label>
                             </div>
                             @if($products->isNotEmpty())
                                 <p class="mt-3 text-xs font-bold uppercase tracking-wide text-slate-500">Toque num artigo para adicionar imediatamente</p>

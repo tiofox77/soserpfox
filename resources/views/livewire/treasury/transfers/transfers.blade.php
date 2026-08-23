@@ -139,7 +139,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Valor (Kz) *</label>
-                        <input wire:model="amount" type="number" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <input wire:model.blur="amount" type="number" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                         @error('amount')<span class="text-red-500 text-xs">{{ $message }}</span>@enderror
                     </div>
                     <div>

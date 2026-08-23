@@ -86,7 +86,7 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <div class="relative flex-1"><i class="fas fa-search absolute left-4 top-3.5 text-slate-400"></i><input wire:model.live.debounce.250ms="productSearch" class="w-full rounded-xl border-slate-300 py-3 pl-11 focus:border-orange-500 focus:ring-orange-500" placeholder="Pesquisar prato, bebida, código ou barras"></div>
                     <select wire:model.live="categoryId" class="rounded-xl border-slate-300 py-3 text-sm font-bold xl:hidden"><option value="">Todas as categorias</option>@foreach($categories as $category)<option value="{{$category->id}}">{{$category->name}}</option>@endforeach</select>
-                    <label class="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold text-slate-600">Qtd.<input type="number" min="0.001" step="0.001" wire:model="quantity" class="w-20 border-0 bg-transparent text-center font-black focus:ring-0"></label>
+                    <label class="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 font-bold text-slate-600">Qtd.<input type="number" min="0.001" step="0.001" wire:model.blur="quantity" class="w-20 border-0 bg-transparent text-center font-black focus:ring-0"></label>
                 </div>
                 <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                     @forelse($products as $product)

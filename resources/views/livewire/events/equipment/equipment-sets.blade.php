@@ -195,7 +195,7 @@
                             </select>
                         </div>
                         <div class="w-24">
-                            <input type="number" wire:model="quantity" min="1" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg" placeholder="Qtd">
+                            <input type="number" wire:model.blur="quantity" min="1" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg" placeholder="Qtd">
                         </div>
                         <button wire:click="addEquipment"
                                 wire:loading.attr="disabled"

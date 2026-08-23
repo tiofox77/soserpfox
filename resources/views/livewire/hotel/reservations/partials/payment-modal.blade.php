@@ -42,7 +42,7 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Valor a Pagar (Kz)</label>
-                    <input type="number" wire:model="payment_amount" step="0.01" min="0"
+                    <input type="number" wire:model.blur="payment_amount" step="0.01" min="0"
                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-bold text-center">
                     @error('payment_amount') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                 </div>

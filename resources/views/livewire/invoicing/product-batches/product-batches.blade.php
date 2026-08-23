@@ -319,14 +319,14 @@
 
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Quantidade *') }}</label>
-                        <input type="number" wire:model="quantity" step="0.01" placeholder="0.00"
+                        <input type="number" wire:model.blur="quantity" step="0.01" placeholder="0.00"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition text-lg font-semibold">
                         @error('quantity') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Preço de Custo') }}</label>
-                        <input type="number" wire:model="cost_price" step="0.01" placeholder="0.00"
+                        <input type="number" wire:model.blur="cost_price" step="0.01" placeholder="0.00"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition">
                         @error('cost_price') <span class="text-red-600 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
