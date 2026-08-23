@@ -44,7 +44,8 @@
             "app/Helpers/NumberToWordsHelper.php",
             "app/Helpers/SoftwareSettingsHelper.php",
             "app/Helpers/AngolanTaxHelper.php",
-            "app/Helpers/QRCodeHelper.php"
+            "app/Helpers/QRCodeHelper.php",
+            "app/Helpers/LicenseHelper.php"
         ]
     },
     "autoload-dev": {

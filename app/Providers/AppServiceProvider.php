@@ -52,6 +52,17 @@ class AppServiceProvider extends ServiceProvider
         // venda ao pedido que as gerou.
         $this->app->singleton(\App\Services\Audit\AuditRecorder::class);
 
+        // Licenciamento offline: uma porta única, cacheada por processo. É
+        // inofensivo na cloud — só o middleware age, e só com LICENSE_ENFORCE.
+        $this->app->singleton(\App\Services\Licensing\LicenseManager::class, function () {
+            $cfg = config('licensing', []);
+
+            return new \App\Services\Licensing\LicenseManager(
+                new \App\Services\Licensing\LicenseStore($cfg),
+                $cfg
+            );
+        });
+
         // Defensive: garantir que helpers globais estão carregados em produção
         // (necessário se composer dump-autoload não foi executado após FTP)
         $helpers = [
@@ -63,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
             'numberToWords'               => app_path('Helpers/NumberToWordsHelper.php'),
             'softwareSetting'             => app_path('Helpers/SoftwareSettingsHelper.php'),
             'calculateIRT'                => app_path('Helpers/AngolanTaxHelper.php'),
+            'licenca_estado'              => app_path('Helpers/LicenseHelper.php'),
         ];
         foreach ($helpers as $fn => $path) {
             if (!function_exists($fn) && is_file($path)) {

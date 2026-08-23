@@ -22,6 +22,12 @@ Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\Maintenan
     Route::get('/diag-roles', 'diagRoles')->name('maintenance.diag-roles');
 });
 
+// Licença offline (build on-premise): ecrã de activação e estado. Sempre
+// acessível (o middleware da licença deixa `licenca*` passar) — é a porta para
+// instalar uma licença nova com o sistema bloqueado. Inofensivo na cloud.
+Route::get('/licenca', [\App\Http\Controllers\LicencaController::class, 'index'])->name('licenca.index');
+Route::post('/licenca', [\App\Http\Controllers\LicencaController::class, 'guardar'])->name('licenca.guardar');
+
 // Analytics tracking (sem auth, sem CSRF — público)
 Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::class, 'track'])->name('analytics.track');
 

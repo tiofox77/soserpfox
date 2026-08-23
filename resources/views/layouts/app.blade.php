@@ -474,6 +474,9 @@
     </style>
 </head>
 <body class="bg-gray-50">
+    {{-- Banner de licença (só na build offline; no-op na cloud). --}}
+    @includeWhen(!empty($licencaEstado), 'partials.licenca-banner')
+
     @auth
         <!-- Layout with Sidebar -->
         <div x-data="{

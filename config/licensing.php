@@ -85,4 +85,33 @@ return [
     */
     'clock_skew_tolerance' => (int) env('LICENSE_CLOCK_SKEW', 120),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Enforcement — ligar/desligar o bloqueio
+    |--------------------------------------------------------------------------
+    |
+    | INTERRUPTOR MESTRE. Falso por omissão: na CLOUD o middleware de licença é
+    | um no-op total (nem lê a licença). SÓ a build offline/on-premise põe
+    | LICENSE_ENFORCE=true. Nunca ligar isto na cloud — trancaria a plataforma
+    | inteira (não há licença instalada).
+    |
+    */
+    'enforce' => (bool) env('LICENSE_ENFORCE', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rotas sempre livres (mesmo com o sistema bloqueado)
+    |--------------------------------------------------------------------------
+    |
+    | O ecrã de activação, o login/logout, o health-check e a manutenção têm
+    | de responder mesmo quando a licença bloqueia — senão o cliente fica sem
+    | forma de instalar uma licença nova. Padrões do Laravel `Request::is()`.
+    |
+    */
+    'rotas_livres' => [
+        'licenca', 'licenca/*',
+        'login', 'logout',
+        'up', 'maintenance/*',
+    ],
+
 ];

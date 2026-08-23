@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Licença — soserp</title>
+    <style>
+        /* Página autónoma de propósito: tem de funcionar com o sistema
+           bloqueado, sem depender do CSS/nav da aplicação. */
+        :root { --fg:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc; --card:#fff; --brand:#0ea5e9; }
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+        .wrap { max-width:680px; margin:6vh auto; padding:0 20px; }
+        .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:28px; box-shadow:0 10px 30px rgba(2,8,23,.06); }
+        h1 { margin:0 0 4px; font-size:22px; }
+        .sub { color:var(--muted); margin:0 0 20px; font-size:14px; }
+        table { width:100%; border-collapse:collapse; margin:8px 0 20px; font-size:14px; }
+        td { padding:8px 10px; border-bottom:1px solid var(--line); }
+        td:first-child { color:var(--muted); width:42%; }
+        .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+        .b-ativa { background:#dcfce7; color:#166534; }
+        .b-aviso { background:#fef9c3; color:#854d0e; }
+        .b-bloq  { background:#fee2e2; color:#991b1b; }
+        .fp { font-family:ui-monospace,Consolas,monospace; font-size:12px; background:#f1f5f9; padding:6px 10px; border-radius:8px; display:inline-block; }
+        textarea { width:100%; min-height:120px; padding:12px; border:1px solid var(--line); border-radius:10px; font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical; }
+        label { display:block; font-size:13px; font-weight:600; margin:16px 0 6px; }
+        button { margin-top:14px; background:var(--brand); color:#fff; border:0; padding:11px 20px; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px; }
+        button:hover { filter:brightness(.95); }
+        .flash { padding:12px 14px; border-radius:10px; margin-bottom:16px; font-size:14px; }
+        .flash-ok  { background:#dcfce7; color:#166534; }
+        .flash-err { background:#fee2e2; color:#991b1b; }
+        .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <h1>Licença do soserp</h1>
+        <p class="sub">Estado da instalação e activação de licença.</p>
+
+        @if (session('ok'))   <div class="flash flash-ok">{{ session('ok') }}</div>   @endif
+        @if (session('erro')) <div class="flash flash-err">{{ session('erro') }}</div> @endif
+
+        @php
+            $classe = match($estado->estado) {
+                \App\Services\Licensing\LicenseState::ATIVA => 'b-ativa',
+                \App\Services\Licensing\LicenseState::AVISO,
+                \App\Services\Licensing\LicenseState::BANNER,
+                \App\Services\Licensing\LicenseState::SO_LEITURA => 'b-aviso',
+                default => 'b-bloq',
+            };
+        @endphp
+
+        <table>
+            <tr><td>Estado</td><td><span class="badge {{ $classe }}">{{ strtoupper($estado->estado) }}</span></td></tr>
+            <tr><td>Detalhe</td><td>{{ $estado->motivo }}</td></tr>
+            @if($estado->payload)
+                <tr><td>Empresa</td><td>{{ $estado->payload->empresa() ?? '—' }}</td></tr>
+                <tr><td>Plano</td><td>{{ $estado->payload->plano() ?? '—' }}</td></tr>
+                <tr><td>Módulos</td><td>{{ implode(', ', $estado->payload->modulos()) ?: '—' }}</td></tr>
+                <tr><td>Dias para expirar</td><td>{{ $estado->diasParaExpirar ?? '—' }}</td></tr>
+                <tr><td>Dias offline</td><td>{{ $estado->diasOffline ?? '—' }} / {{ $estado->gracaDias ?? '—' }}</td></tr>
+            @endif
+            <tr><td>Esta máquina</td><td><span class="fp">{{ $fingerprint }}</span></td></tr>
+        </table>
+
+        <form method="POST" action="{{ route('licenca.guardar') }}">
+            @csrf
+            <label for="token">Instalar / substituir licença</label>
+            <textarea id="token" name="token" placeholder="Cole aqui o token da licença (SOSERP-LIC.v1....)">{{ old('token') }}</textarea>
+            @error('token') <div class="hint" style="color:#991b1b">{{ $message }}</div> @enderror
+            <button type="submit">Instalar licença</button>
+            <p class="hint">A licença é verificada localmente, sem internet. Envie a "impressão desta máquina" ao fornecedor para receber uma licença presa a este computador.</p>
+        </form>
+    </div>
+</div>
+</body>
+</html>

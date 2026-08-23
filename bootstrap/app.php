@@ -26,6 +26,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Continua a correr antes de qualquer controlador.
         $middleware->appendToGroup('web', \App\Http\Middleware\DefinirLingua::class);
 
+        // Licença offline (build on-premise). No grupo web e, por dentro, um
+        // no-op TOTAL enquanto LICENSE_ENFORCE não estiver ligado — na cloud
+        // não lê sequer a licença. Cedo no grupo para trancar antes do miolo.
+        $middleware->appendToGroup('web', \App\Http\Middleware\VerificarLicenca::class);
+
         // Middleware global para identificar tenant
         $middleware->append(\App\Http\Middleware\IdentifyTenant::class);
         
