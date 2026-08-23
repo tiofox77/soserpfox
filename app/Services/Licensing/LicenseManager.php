@@ -52,10 +52,11 @@ class LicenseManager
         $agora = CarbonImmutable::now();
 
         $resultado = (new LicenseVerifier($pub, $this->cfg))->verificar($token, [
-            'agora'          => $agora,
-            'fingerprint'    => MachineFingerprint::atual(),
-            'ultimo_checkin' => $estadoLocal['ultimo_checkin'] ?? null,
-            'relogio_max'    => $estadoLocal['relogio_max'] ?? null,
+            'agora'           => $agora,
+            'fingerprint'     => MachineFingerprint::atual(),
+            'ultimo_checkin'  => $estadoLocal['ultimo_checkin'] ?? null,
+            'relogio_max'     => $estadoLocal['relogio_max'] ?? null,
+            'remote_bloqueio' => $estadoLocal['remote_bloqueio'] ?? null,
         ]);
 
         // Sobe a fasquia do relógio DEPOIS de verificar (a verificação usou o

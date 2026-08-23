@@ -183,9 +183,9 @@ sequenceDiagram
 ## 12. Faseamento
 
 - **Fase 0 — Núcleo de licença (FEITO):** cripto, verificador offline, fingerprint, comandos, testes.
-- **Fase 1 — Instalador + ativação:** `.exe` com XAMPP embutido, configuração automática de BD, ecrã de ativação, verificação inerte visível (banner), **sem bloqueio ainda**.
-- **Fase 2 — Enforcement:** middleware/banner ligados à escada; modo só-leitura e bloqueio; ionCube.
-- **Fase 3 — Phone-home:** Servidor de Licenças + check-in + suspender/notificar remoto.
+- **Fase 1 — Ativação (FEITO) + Instalador (scaffold):** ecrã de ativação + comando `licenca:instalar`; `installer/` com Inno Setup + `provision.ps1` (XAMPP embutido). Falta compilar/testar o `.exe` numa build Windows.
+- **Fase 2 — Enforcement (FEITO, gated):** middleware desligado por omissão; bloqueio total + banner ligados. Falta: corte fino de só-leitura + ionCube.
+- **Fase 3 — Phone-home (FEITO):** check-in cliente (`LicenseCheckin` + middleware à boleia do tráfego) + servidor (`/api/license/checkin`) que renova licença curta se activo e manda bloquear se suspenso. Regra: o contador só reinicia com renovação assinada. Falta: anti-replay (nonce), revogação, entrega de notificações reais.
 - **Fase 4 — Updates:** Servidor de Updates + rollout por-tenant + backup/rollback.
 - **Fase 5 — Painel Super Admin:** gestão por tenant de licença/estado/updates.
 

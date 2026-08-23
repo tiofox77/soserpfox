@@ -78,6 +78,16 @@ class LicenseVerifier
             }
         }
 
+        // 5b. bloqueio remoto (o servidor de licenças mandou suspender no último
+        // check-in). Só se limpa quando chegar uma renovação assinada válida.
+        if (!empty($contexto['remote_bloqueio'])) {
+            return new LicenseState(
+                LicenseState::BLOQUEADA, false,
+                'Bloqueada pelo fornecedor: ' . $contexto['remote_bloqueio'],
+                null, null, null, $p
+            );
+        }
+
         $expira = $p->expiraEm();
         $diasExp = $expira ? (int) floor($agora->diffInSeconds($expira, false) / 86400) : null;
 
@@ -134,6 +144,29 @@ class LicenseVerifier
         }
 
         return new LicenseState($estado, true, $motivo, $diasExp, $diasOffline, $graca, $p);
+    }
+
+    /**
+     * Lê o payload de um token SÓ se a assinatura for válida — sem olhar a
+     * vigência, máquina ou relógio. É o que o SERVIDOR de licenças usa no
+     * check-in: quer confiar em QUEM é o token (o tenant), e decide o resto
+     * pela subscrição na base, não pelo estado local do cliente.
+     */
+    public function payloadAssinado(string $token): ?LicensePayload
+    {
+        try {
+            [$payloadB64, $sigB64] = $this->partir($token);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!$this->assinaturaOk($payloadB64, $sigB64)) {
+            return null;
+        }
+
+        $claims = json_decode(Base64Url::decode($payloadB64), true);
+
+        return is_array($claims) ? new LicensePayload($claims) : null;
     }
 
     /** @return array{0:string,1:string} [payloadB64, sigB64] */

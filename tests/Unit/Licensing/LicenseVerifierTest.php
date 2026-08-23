@@ -186,6 +186,33 @@ class LicenseVerifierTest extends TestCase
         $this->assertStringContainsString('elógio', $estado->motivo);
     }
 
+    public function test_bloqueio_remoto_bloqueia_mesmo_valida(): void
+    {
+        $estado = $this->verifier()->verificar($this->token(), [
+            'agora'           => CarbonImmutable::now(),
+            'fingerprint'     => 'x',
+            'ultimo_checkin'  => CarbonImmutable::now(),
+            'remote_bloqueio' => 'subscricao_suspensa',
+        ]);
+
+        $this->assertFalse($estado->valida);
+        $this->assertSame(LicenseState::BLOQUEADA, $estado->estado);
+        $this->assertStringContainsString('fornecedor', $estado->motivo);
+    }
+
+    public function test_payload_assinado_le_so_com_assinatura_boa(): void
+    {
+        $token = $this->token(['tenant_id' => 99]);
+
+        $p = $this->verifier()->payloadAssinado($token);
+        $this->assertNotNull($p);
+        $this->assertSame(99, $p->tenantId());
+
+        // chave errada → não lê
+        $outra = LicenseIssuer::gerarParDeChaves()['publica'];
+        $this->assertNull($this->verifier($outra)->payloadAssinado($token));
+    }
+
     public function test_formato_invalido_cai_invalida(): void
     {
         foreach (['', 'lixo', 'a.b.c', 'OUTRO-PREFIXO.v1.aaa.bbb'] as $mau) {

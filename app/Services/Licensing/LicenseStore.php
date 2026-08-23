@@ -91,6 +91,22 @@ class LicenseStore
         $this->guardarEstado($estado);
     }
 
+    /** Marca um bloqueio ordenado pelo servidor no último check-in. */
+    public function marcarBloqueioRemoto(string $motivo): void
+    {
+        $estado = $this->estado();
+        $estado['remote_bloqueio'] = $motivo;
+        $this->guardarEstado($estado);
+    }
+
+    /** Levanta o bloqueio remoto — só ao instalar uma renovação assinada. */
+    public function limparBloqueioRemoto(): void
+    {
+        $estado = $this->estado();
+        unset($estado['remote_bloqueio']);
+        $this->guardarEstado($estado);
+    }
+
     private function maiorRelogio(CarbonImmutable $agora): CarbonImmutable
     {
         $estado = $this->estado();

@@ -41,13 +41,13 @@ Legenda de fase: **F0** núcleo · **F1** instalador · **F2** enforcement · **
 
 ## D. Phone-home & controlo remoto (segurança operacional)
 
-- [ ] **Servidor de Licenças** (emite/renova/revoga; estado por tenant) (F3)
-- [ ] Endpoint de **check-in** autenticado e **assinado** (anti-replay: nonce/timestamp) (F3)
-- [ ] Check-in no **arranque + intervalo**; regista último sucesso (zera contador offline) (F3)
-- [ ] Suspender / bloquear / reativar aplicados no próximo check-in (F3)
-- [ ] **Notificações** entregues no check-in + email/SMS (reusa subscrições/openclaw) (F3)
-- [ ] **Dias de graça configuráveis por tenant** (campo `graca` na licença) (F0 base / F5 UI)
-- [ ] Escada de bloqueio **gradual** ligada (aviso→banner→só-leitura→bloqueio) (F2)
+- [x] **Servidor de Licenças** — endpoint `/api/license/checkin` que renova (emite) por tenant — `LicenseServerController` (F3). *Falta revogação explícita.*
+- [x] Check-in **confia na assinatura** do token para identificar o tenant; renovação **assinada** de volta (F3). *Falta anti-replay (nonce/timestamp).*
+- [x] Check-in à boleia do tráfego (middleware `CheckinDeLicenca`, terminate + tranca por intervalo); **contador só reinicia com renovação assinada válida** — `LicenseCheckin` (F3)
+- [x] Suspender aplicado no próximo check-in (`is_active` na cloud → `acao:bloquear` → bloqueio remoto local) (F3)
+- [ ] **Notificações** entregues no check-in + email/SMS (reusa subscrições/openclaw) — hook pronto, entrega por fazer (F3)
+- [x] **Dias de graça configuráveis por tenant** (campo `graca` na licença) (F0)
+- [x] Escada de bloqueio **gradual** (aviso→banner→só-leitura→bloqueio) — bloqueio total ligado; só-leitura ainda só banner (F2)
 - [ ] Telemetria mínima no check-in (versão, último erro, saúde) para suporte (F3)
 
 ## E. Atualizações (o segundo foco)

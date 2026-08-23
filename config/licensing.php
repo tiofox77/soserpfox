@@ -114,4 +114,41 @@ return [
         'up', 'maintenance/*',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Check-in / phone-home — CLIENTE (build offline)
+    |--------------------------------------------------------------------------
+    |
+    | `checkin_url` — para onde a instalação liga para "dar sinal de vida" e
+    |                 receber uma licença renovada. Vazio = nunca liga (fica só
+    |                 na graça offline; usa-se em demos ou air-gapped).
+    | `checkin_interval_hours` — de quanto em quanto tempo tenta (à boleia do
+    |                 tráfego, com tranca).
+    |
+    | REGRA DE OURO: o contador offline SÓ reinicia quando o cliente recebe uma
+    | licença renovada com ASSINATURA VÁLIDA. Um servidor falso ou um
+    | man-in-the-middle não consegue manter uma cópia pirata viva.
+    |
+    */
+    'checkin_url'            => env('LICENSE_CHECKIN_URL', ''),
+    'checkin_interval_hours' => (int) env('LICENSE_CHECKIN_INTERVAL', 12),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Renovação — SERVIDOR de licenças (vendor)
+    |--------------------------------------------------------------------------
+    |
+    | `signing_key` — a chave PRIVADA que assina as licenças renovadas no
+    |                 check-in. Vive SÓ na infra do vendor (env), NUNCA numa
+    |                 build de cliente. Sem ela, o servidor não renova.
+    | `renew_days`  — validade de cada licença renovada. Curta de propósito:
+    |                 obriga a instalação a continuar a ligar-se.
+    |
+    | Idealmente isto corre num serviço próprio e endurecido, separado da app
+    | web — ter a chave privada na app é um risco a mitigar (ver PRD §6/§7).
+    |
+    */
+    'signing_key' => env('LICENSE_SIGNING_KEY'),
+    'renew_days'  => (int) env('LICENSE_RENEW_DAYS', 30),
+
 ];

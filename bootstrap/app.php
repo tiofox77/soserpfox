@@ -31,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // não lê sequer a licença. Cedo no grupo para trancar antes do miolo.
         $middleware->appendToGroup('web', \App\Http\Middleware\VerificarLicenca::class);
 
+        // Check-in de licença à boleia do tráfego (build offline). Corre em
+        // terminate, uma vez por intervalo, e é no-op na cloud (enforce off).
+        $middleware->appendToGroup('web', \App\Http\Middleware\CheckinDeLicenca::class);
+
         // Middleware global para identificar tenant
         $middleware->append(\App\Http\Middleware\IdentifyTenant::class);
         
