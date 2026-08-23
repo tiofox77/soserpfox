@@ -39,9 +39,9 @@ class StockWasteManagement extends Component
     {
         $tenantId = activeTenantId();
         return view('livewire.restaurant.stock-waste-management', [
-            'stocks'=>Stock::with(['product','warehouse'])->where('tenant_id',$tenantId)->orderBy('available_quantity')->get(),
+            'stocks'=>Stock::with(['product','warehouse'])->where('tenant_id',$tenantId)->orderBy('available_quantity')->limit(200)->get(),
             'wastes'=>StockMovement::with('product')->where('tenant_id',$tenantId)->where('reference_type','restaurant_waste')->latest()->limit(50)->get(),
-            'productionWastes'=>Waste::with(['order','orderItem','user'])->where('tenant_id',$tenantId)->latest()->limit(50)->get(),
+            'productionWastes'=>Waste::with(['order','orderItem'])->where('tenant_id',$tenantId)->latest()->limit(50)->get(),
             'products'=>Product::where('tenant_id',$tenantId)->where('manage_stock',true)->where('is_active',true)->orderBy('name')->get(),
             'warehouses'=>Warehouse::where('tenant_id',$tenantId)->where('is_active',true)->get(),
         ]);

@@ -132,7 +132,7 @@ class RecipeManagement extends Component
         $recipes = Recipe::with(['product', 'items.ingredient'])
             ->where('tenant_id', $tenantId)
             ->when(trim($this->search), fn ($query) => $query->whereHas('product', fn ($product) => $product->where('name', 'like', '%'.trim($this->search).'%')->orWhere('code', 'like', '%'.trim($this->search).'%')))
-            ->latest()->get();
+            ->latest()->limit(100)->get();
         $selected = $this->recipeId ? Recipe::with(['product', 'items.ingredient'])->where('tenant_id', $tenantId)->find($this->recipeId) : null;
         $stats = [
             'total' => Recipe::where('tenant_id', $tenantId)->count(),

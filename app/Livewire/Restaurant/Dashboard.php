@@ -20,7 +20,7 @@ class Dashboard extends Component
             'tablesTotal' => DiningTable::where('is_active', true)->count(),
             'tablesOccupied' => DiningTable::whereIn('status', ['occupied', 'waiting_kitchen', 'served', 'billing'])->count(),
             'openOrders' => Order::open()->count(),
-            'todaySales' => Order::whereDate('created_at', today())
+            'todaySales' => Order::whereBetween('created_at', [today()->startOfDay(), today()->endOfDay()])
                 ->whereNotIn('status', ['cancelled'])
                 ->sum('grand_total'),
             'recentOrders' => Order::with(['table', 'waiter'])

@@ -32,7 +32,8 @@ class KitchenDisplay extends Component
         $tickets = KitchenTicket::withoutGlobalScopes()->where('tenant_id', $tenantId)
             ->when($this->stationId, fn ($q) => $q->where('station_id', $this->stationId))
             ->whereIn('status', ['queued', 'accepted', 'preparing', 'ready'])
-            ->with(['station', 'order.table', 'items.orderItem'])->orderByDesc('priority')->orderBy('queued_at')->get();
+            ->with(['station', 'order.table', 'items.orderItem'])->orderByDesc('priority')->orderBy('queued_at')
+            ->limit(50)->get(); // teto de segurança: o poll de 15s não pode arrastar centenas de bilhetes
         return view('livewire.restaurant.kitchen-display', compact('stations', 'tickets'));
     }
 }

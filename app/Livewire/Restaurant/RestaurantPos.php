@@ -200,6 +200,7 @@ class RestaurantPos extends OrderManagement
         $categories = Category::where('tenant_id', $tenantId)->where('is_active', true)
             ->whereHas('products', fn ($q) => $q->where('is_active', true))->orderBy('order')->get();
         $products = Product::where('tenant_id', $tenantId)->where('is_active', true)
+            ->with('category:id,name') // sem isto, a grelha do POS fazia 1 query por produto (N+1)
             ->when($restaurantSettings->require_recipe_for_products, fn ($q) => $q->whereExists(fn ($recipe) => $recipe
                 ->selectRaw('1')->from('restaurant_recipes')
                 ->whereColumn('restaurant_recipes.product_id', 'invoicing_products.id')
@@ -211,7 +212,10 @@ class RestaurantPos extends OrderManagement
             })->orderBy('name')->limit(60)->get();
         $clients = Client::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->limit(100)->get();
         $paymentMethods = PaymentMethod::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('sort_order')->get();
-        $taxes = Tax::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('rate')->get();
+        // Só é preciso no modal de produto rápido — não em cada render do POS.
+        $taxes = $this->showQuickProduct
+            ? Tax::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('rate')->get()
+            : collect();
         $availableTables = collect();
         $mergeOrders = collect();
         if ($selectedOrder && in_array($selectedOrder->status, Order::OPEN_STATUSES, true)) {
