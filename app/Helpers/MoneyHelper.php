@@ -85,15 +85,18 @@ class MoneyHelper
     }
 
     /**
-     * Lê um valor escrito pelo utilizador e devolve um float. Tolerante a
-     * qualquer combinação de separadores.
+     * Lê um valor escrito pelo utilizador e devolve um float, CIENTE do formato
+     * da empresa.
      *
-     * Regra: o ÚLTIMO separador que aparece (vírgula ou ponto) é o decimal; o
-     * outro é de milhares. Assim "10.000,23", "10,000.23", "1.234.567,89" e
-     * "10000.23" leem-se todos correctamente. Um valor sem separadores fica
-     * inteiro.
+     * O separador decimal é o configurado (a vírgula, no formato Angola); tudo o
+     * resto — o separador de milhares (o ponto), espaços, "Kz", apóstrofo — é
+     * ruído e desaparece. Assim "100.000" lê-se 100000 (não 100), "10.000,23" lê
+     * 10000.23, e "100,50" lê 100,5. É esta a regra que casa com a máscara: o
+     * ponto que o utilizador escreve são milhares, não decimais.
+     *
+     * @param array{milhar:string,decimal:string,casas:int}|null $cfg
      */
-    public static function parse($valor): float
+    public static function parse($valor, ?array $cfg = null): float
     {
         if ($valor === null || $valor === '') {
             return 0.0;
@@ -103,33 +106,30 @@ class MoneyHelper
             return (float) $valor;
         }
 
-        $s = trim((string) $valor);
-        // Fora dígitos, ponto, vírgula e sinal, nada interessa (Kz, espaços,
-        // apóstrofo da Suíça, etc.).
-        $s = preg_replace('/[^\d.,\-]/', '', $s);
+        $cfg = $cfg ?: self::config();
+        $dec = $cfg['decimal'];
 
-        if ($s === '' || $s === '-') {
-            return 0.0;
+        $s = (string) $valor;
+        $out = '';
+        $len = strlen($s);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $s[$i];
+            if ($ch >= '0' && $ch <= '9') {
+                $out .= $ch;
+            } elseif ($ch === $dec) {
+                $out .= '.'; // decimal -> ponto
+            } elseif ($ch === '-') {
+                $out .= '-';
+            }
+            // separador de milhares e tudo o resto: ignorado
         }
 
-        $ultimoPonto   = strrpos($s, '.');
-        $ultimaVirgula = strrpos($s, ',');
-
-        if ($ultimoPonto === false && $ultimaVirgula === false) {
-            return (float) $s;
+        // Garantir um só ponto decimal.
+        $p = strpos($out, '.');
+        if ($p !== false) {
+            $out = substr($out, 0, $p + 1) . str_replace('.', '', substr($out, $p + 1));
         }
 
-        // O separador decimal é o que aparece mais à direita.
-        $decimalEhVirgula = ($ultimaVirgula !== false)
-            && ($ultimoPonto === false || $ultimaVirgula > $ultimoPonto);
-
-        if ($decimalEhVirgula) {
-            $s = str_replace('.', '', $s);   // tira milhares
-            $s = str_replace(',', '.', $s);  // vírgula → ponto decimal
-        } else {
-            $s = str_replace(',', '', $s);   // tira milhares
-        }
-
-        return is_numeric($s) ? (float) $s : 0.0;
+        return is_numeric($out) ? (float) $out : 0.0;
     }
 }

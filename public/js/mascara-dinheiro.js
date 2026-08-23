@@ -26,24 +26,39 @@
         return intStr.replace(/\B(?=(\d{3})+(?!\d))/g, milhar);
     }
 
-    /** Formata enquanto se escreve: agrupa milhares, respeita o decimal já digitado. */
+    /**
+     * Formata enquanto se escreve: agrupa milhares e só aceita como decimais o
+     * separador decimal CONFIGURADO (a vírgula, no formato Angola).
+     *
+     * O separador de MILHARES que o utilizador escreva (o ponto) é IGNORADO — a
+     * máscara agrupa sozinha. Era aqui o bug: escrever "100." era lido como
+     * "100," (decimais) e a partir das 2 casas os dígitos eram recusados, o que
+     * dava a sensação de o campo travar.
+     */
     function mascara(valor, cfg) {
         if (valor == null) return '';
-        var s = String(valor).replace(/[^\d.,]/g, '');
-        if (s === '') return '';
+        var dec = cfg.decimal;
 
-        // O último separador escrito (. ou ,) é o decimal.
-        var ultPonto = s.lastIndexOf('.');
-        var ultVirg = s.lastIndexOf(',');
-        var sepPos = Math.max(ultPonto, ultVirg);
+        // Manter só dígitos e o separador decimal; tudo o resto (milhar, espaço,
+        // moeda, o outro separador) desaparece.
+        var limpo = '';
+        var s = String(valor);
+        for (var i = 0; i < s.length; i++) {
+            var ch = s[i];
+            if (ch >= '0' && ch <= '9') limpo += ch;
+            else if (ch === dec) limpo += dec;
+        }
+        if (limpo === '') return '';
 
+        // A PRIMEIRA ocorrência do decimal separa a parte inteira das casas.
+        var idx = limpo.indexOf(dec);
         var inteiro, decimal = '', temSep = false;
-        if (sepPos >= 0) {
+        if (idx >= 0) {
             temSep = true;
-            inteiro = s.slice(0, sepPos).replace(/[.,]/g, '');
-            decimal = s.slice(sepPos + 1).replace(/[.,]/g, '').slice(0, cfg.casas);
+            inteiro = limpo.slice(0, idx);
+            decimal = limpo.slice(idx + 1).split(dec).join('').slice(0, cfg.casas);
         } else {
-            inteiro = s.replace(/[.,]/g, '');
+            inteiro = limpo;
         }
 
         inteiro = inteiro.replace(/^0+(?=\d)/, '');
@@ -56,21 +71,22 @@
         return out;
     }
 
-    /** Lê um valor mascarado e devolve Number (mesma regra do MoneyHelper::parse). */
+    /** Lê um valor mascarado e devolve Number, ciente do formato (mesma regra do MoneyHelper::parse). */
     function parse(valor, cfg) {
         if (valor == null || valor === '') return 0;
-        var s = String(valor).replace(/[^\d.,\-]/g, '');
-        if (s === '' || s === '-') return 0;
-        var ultPonto = s.lastIndexOf('.');
-        var ultVirg = s.lastIndexOf(',');
-        if (ultPonto < 0 && ultVirg < 0) return parseFloat(s) || 0;
-        var decEhVirgula = ultVirg > ultPonto;
-        if (decEhVirgula) {
-            s = s.replace(/\./g, '').replace(',', '.');
-        } else {
-            s = s.replace(/,/g, '');
+        var dec = cfg.decimal;
+        var s = String(valor), out = '';
+        for (var i = 0; i < s.length; i++) {
+            var ch = s[i];
+            if (ch >= '0' && ch <= '9') out += ch;
+            else if (ch === dec) out += '.';   // decimal -> ponto
+            else if (ch === '-') out += '-';
+            // milhar e tudo o resto: ignorado
         }
-        var n = parseFloat(s);
+        // garantir um só ponto decimal
+        var p = out.indexOf('.');
+        if (p >= 0) out = out.slice(0, p + 1) + out.slice(p + 1).replace(/\./g, '');
+        var n = parseFloat(out);
         return isNaN(n) ? 0 : n;
     }
 

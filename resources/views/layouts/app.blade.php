@@ -2256,7 +2256,7 @@
 
     {{-- Máscara de dinheiro (1.234,56) nos inputs de preço/valores. Delegada,
          sobrevive aos re-render do Livewire. --}}
-    <script src="{{ asset('js/mascara-dinheiro.js') }}?v=1" defer></script>
+    <script src="{{ asset('js/mascara-dinheiro.js') }}?v=2" defer></script>
 
     <script>
         // Configuração do Toastr
