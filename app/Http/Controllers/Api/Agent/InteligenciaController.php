@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Models\AGT\AGTSubmission;
 use App\Models\AgentRequest;
 use App\Models\AuditTrail;
 use App\Models\ErroDoSistema;
@@ -132,6 +133,122 @@ class InteligenciaController extends Controller
             'id', 'tenant_id', 'event', 'actor_type', 'actor_name', 'channel',
             'ip_address', 'metadata', 'created_at',
         ])]);
+    }
+
+    /**
+     * Documentos que FALHARAM na AGT, por tenant — para diagnóstico.
+     *
+     * A fonte é `agt_submissions` (uma linha por tentativa de comunicação de um
+     * documento): tem o `error_code`, o `error_message` e a resposta crua da
+     * AGT. É aqui que se vê o "porquê" de uma rejeição — foi assim que se
+     * apanhou o E70.
+     *
+     * Segue a filosofia dos erros_do_sistema: agrupa por problema (`por_erro`),
+     * para que "169 documentos com o mesmo código" seja UMA linha e não 169.
+     * A lista detalhada vem ao lado, e `?documento=<id>` devolve a resposta
+     * crua da AGT de um só documento, para o diagnóstico fino.
+     *
+     * Sem `tenant_id` varre a plataforma inteira (o agente é o dono); com ele,
+     * fica só numa empresa. `AGTSubmission` não tem global scope de tenant.
+     */
+    public function agtFalhas(Request $request)
+    {
+        $d = $request->validate([
+            'tenant_id' => 'nullable|integer',
+            'tipo'      => 'nullable|string|max:6',   // FT, FR, NC, ND, RC…
+            'estado'    => 'nullable|in:falhas,rejeitadas,por_confirmar,todas',
+            'desde'     => 'nullable|date',
+            'limite'    => 'nullable|integer|min:1|max:200',
+            'documento' => 'nullable|integer',        // deep-dive: 1 submissão crua
+        ]);
+
+        // Deep-dive: uma submissão por inteiro, com a resposta crua da AGT.
+        if (!empty($d['documento'])) {
+            $s = AGTSubmission::find($d['documento']);
+            if (!$s) {
+                return response()->json(['erro' => 'nao_encontrado'], 404);
+            }
+
+            return response()->json(['documento' => [
+                'id'            => $s->id,
+                'tenant_id'     => $s->tenant_id,
+                'numero'        => $s->document_number,
+                'tipo'          => $s->document_type_code,
+                'estado'        => $s->status,
+                'error_code'    => $s->error_code,
+                'error_message' => $s->error_message,
+                'tentativas'    => (int) $s->retry_count,
+                'submetido_em'  => $s->submitted_at,
+                'rejeitado_em'  => $s->rejected_at,
+                'agt_reference' => $s->agt_reference,
+                'resposta_agt'  => $s->response_payload,   // crua, para diagnóstico fino
+            ]]);
+        }
+
+        $estado = $d['estado'] ?? 'falhas';
+
+        // Filtros comuns (tenant/tipo/janela) — clonados a cada agregação.
+        $base = AGTSubmission::query()
+            ->when(isset($d['tenant_id']), fn ($q) => $q->where('tenant_id', $d['tenant_id']))
+            ->when(!empty($d['tipo']), fn ($q) => $q->where('document_type_code', strtoupper($d['tipo'])))
+            ->when(!empty($d['desde']), fn ($q) => $q->where('created_at', '>=', $d['desde']));
+
+        // O que conta como "o que interessa ver" segundo o estado pedido.
+        $aplicarEstado = fn ($q) => match ($estado) {
+            'rejeitadas'    => $q->where('status', AGTSubmission::STATUS_REJECTED),
+            'por_confirmar' => $q->where('status', AGTSubmission::STATUS_SUBMITTED),
+            'todas'         => $q,
+            // 'falhas' (padrão): rejeitadas + pendentes que já registaram erro
+            // (ex.: COMMS — a comunicação nem chegou a ir).
+            default => $q->where(fn ($w) => $w->where('status', AGTSubmission::STATUS_REJECTED)
+                ->orWhere(fn ($e) => $e->where('status', AGTSubmission::STATUS_PENDING)->whereNotNull('error_code'))),
+        };
+
+        $resumo = [
+            'rejeitadas'        => (clone $base)->where('status', AGTSubmission::STATUS_REJECTED)->count(),
+            'por_confirmar'     => (clone $base)->where('status', AGTSubmission::STATUS_SUBMITTED)->count(),
+            'validadas'         => (clone $base)->where('status', AGTSubmission::STATUS_VALIDATED)->count(),
+            'tenants_afectados' => (clone $base)->where('status', AGTSubmission::STATUS_REJECTED)
+                ->distinct()->count('tenant_id'),
+        ];
+
+        // Agrupado por código de erro — "um problema, N documentos".
+        $porErro = $aplicarEstado(clone $base)
+            ->selectRaw('COALESCE(error_code, "sem_codigo") code,
+                COUNT(*) documentos, COUNT(DISTINCT tenant_id) tenants, MAX(error_message) exemplo')
+            ->groupBy('code')->orderByDesc('documentos')->get()
+            ->map(fn ($r) => [
+                'error_code' => $r->code,
+                'documentos' => (int) $r->documentos,
+                'tenants'    => (int) $r->tenants,
+                'exemplo'    => $r->exemplo,
+            ]);
+
+        $documentos = $aplicarEstado(clone $base)->orderByDesc('id')
+            ->limit((int) ($d['limite'] ?? 100))
+            ->get(['id', 'tenant_id', 'document_number', 'document_type_code', 'status',
+                'error_code', 'error_message', 'retry_count', 'submitted_at', 'rejected_at', 'agt_reference'])
+            ->map(fn ($s) => [
+                'id'            => $s->id,
+                'tenant_id'     => $s->tenant_id,
+                'numero'        => $s->document_number,
+                'tipo'          => $s->document_type_code,
+                'estado'        => $s->status,
+                'error_code'    => $s->error_code,
+                'error_message' => $s->error_message,
+                'tentativas'    => (int) $s->retry_count,
+                'submetido_em'  => $s->submitted_at,
+                'rejeitado_em'  => $s->rejected_at,
+                'agt_reference' => $s->agt_reference,
+            ]);
+
+        return response()->json([
+            'estado_filtrado' => $estado,
+            'resumo'          => $resumo,
+            'por_erro'        => $porErro,
+            'documentos'      => $documentos,
+            'dica'            => 'Resposta crua da AGT de um documento: ?documento=<id>.',
+        ]);
     }
 
     public function pedidosDoAgente(Request $request)

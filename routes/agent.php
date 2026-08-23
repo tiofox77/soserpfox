@@ -84,6 +84,9 @@ Route::prefix('api/agent/v1')
                 // Entradas/saídas (login/logout/login_falhado): "quem esteve
                 // dentro e a que horas" e sinal de força-bruta.
                 Route::get('logs/acessos', [InteligenciaController::class, 'acessos']);
+                // Documentos que falharam na AGT, agrupados por erro — para
+                // diagnóstico (foi assim que se apanhou o E70).
+                Route::get('logs/agt-falhas', [InteligenciaController::class, 'agtFalhas']);
                 Route::get('logs/agent', [InteligenciaController::class, 'pedidosDoAgente']);
             });
 

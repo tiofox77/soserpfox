@@ -110,6 +110,7 @@ GET  /analytics/users?tenant_id=&estado=&entrou_desde=&novo_desde=&pesquisa=
 GET  /analytics/recommendations
 GET  /logs/audit?tenant_id=&evento=&actor=&desde=&limite=
 GET  /logs/acessos?tenant_id=&tipo=&actor=&desde=&limite=
+GET  /logs/agt-falhas?tenant_id=&tipo=&estado=&desde=&limite=&documento=
 GET  /logs/agent?limite=100
 GET  /system/status
 POST /system/actions
@@ -367,6 +368,45 @@ GET /logs/agent?limite=100                                  o que o próprio age
 - **`/logs/agent`** — o registo dos pedidos do próprio agente (rota, estado
   HTTP, idempotência): há sempre resposta para "o que é que o agente andou a
   fazer".
+
+#### Documentos que falharam na AGT — `logs:read`
+
+O diagnóstico de facturação. A fonte é `agt_submissions` (uma linha por
+tentativa de comunicação de um documento), onde ficam o `error_code`, o
+`error_message` e a **resposta crua da AGT** — foi aqui que se apanhou o E70.
+
+```
+GET /logs/agt-falhas?tenant_id=&tipo=&estado=&desde=&limite=&documento=
+```
+
+- Sem `tenant_id` varre a **plataforma inteira**; com ele, fica numa empresa.
+- `estado`: `falhas` (padrão — rejeitadas + pendentes com erro), `rejeitadas`,
+  `por_confirmar` (enviadas à espera da AGT) ou `todas`. `tipo` filtra por
+  documento (`FT`, `FR`, `NC`, `ND`, `RC`).
+- Devolve três coisas: `resumo` (contagens por estado + `tenants_afectados`),
+  `por_erro` (**agrupado por código — "um problema, N documentos"**, à
+  maneira dos erros do sistema) e `documentos` (a lista detalhada, com número,
+  tipo, `error_code`, `error_message` e nº de tentativas).
+- `?documento=<id>` faz o *deep-dive*: devolve UMA submissão com a
+  `resposta_agt` **crua** (o JSON que a AGT respondeu), para o diagnóstico fino.
+
+```json
+{
+  "resumo":   { "rejeitadas": 184, "por_confirmar": 2, "validadas": 16, "tenants_afectados": 1 },
+  "por_erro": [
+    { "error_code": "AGT_ESTADO", "documentos": 163, "tenants": 1,
+      "exemplo": "E27: Utilização incorrecta do campo «paymentReceipt»…" }
+  ],
+  "documentos": [
+    { "id": 5012, "tenant_id": 11, "numero": "FR …/000048", "tipo": "FR",
+      "estado": "rejected", "error_code": "AGT_ESTADO", "error_message": "E27: …",
+      "tentativas": 1, "rejeitado_em": "2026-08-20T…" }
+  ]
+}
+```
+
+As contagens já aparecem no detalhe de cada empresa (`GET /tenants/{id}` →
+`faturas.agt_rejeitadas` / `agt_por_comunicar`); este endpoint dá o **porquê**.
 
 #### `status/resumo` — a chamada de hora a hora
 
