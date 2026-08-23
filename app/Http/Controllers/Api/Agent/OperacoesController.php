@@ -151,6 +151,30 @@ class OperacoesController extends Controller
     {
         $c = $contactos->para($tenant);
 
+        // Os logins REAIS desta empresa: quem entra, com que email (o email É
+        // o login), que papel, se está activo e quando foi a última entrada.
+        // Isto é contacto real — por isso vive aqui, no escopo contacts:read,
+        // e cada leitura fica no registo de pedidos do agente. Password nunca
+        // sai: não está sequer na query.
+        $utilizadores = DB::table('tenant_user')
+            ->join('users', 'users.id', '=', 'tenant_user.user_id')
+            ->leftJoin('roles', 'roles.id', '=', 'tenant_user.role_id')
+            ->where('tenant_user.tenant_id', $tenant->id)
+            ->whereNull('users.deleted_at')
+            ->orderByDesc('users.last_login_at')
+            ->get([
+                'users.id', 'users.name', 'users.email', 'users.last_login_at',
+                'tenant_user.is_active', 'roles.name as papel',
+            ])
+            ->map(fn ($u) => [
+                'id'            => (int) $u->id,
+                'nome'          => $u->name,
+                'login'         => $u->email,       // o email é o login
+                'papel'         => $u->papel,
+                'activo'        => (bool) $u->is_active,
+                'ultimo_acesso' => $u->last_login_at,
+            ]);
+
         return response()->json([
             'empresa' => [
                 'id'   => $tenant->id,
@@ -169,6 +193,8 @@ class OperacoesController extends Controller
                 'email'    => $tenant->email,
                 'telefone' => $tenant->phone,
             ],
+            // Todos os logins da empresa (não só o responsável de facturação).
+            'utilizadores' => $utilizadores,
             'aviso' => 'Contactos reais. Usar só para contactar esta empresa sobre a conta dela.',
         ]);
     }

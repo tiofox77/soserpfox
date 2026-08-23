@@ -41,7 +41,7 @@ class SeedTokenOpenclawSeeder extends Seeder
             'prefix'        => $prefixo,
             'token_hash'    => $hash,
             'owner_user_id' => $responsavel->id,
-            'scopes'        => ['tenants:read', 'health:read', 'orders:read', 'orders:note'],
+            'scopes'        => ['tenants:read', 'health:read', 'orders:read', 'orders:note', 'logs:read', 'contacts:read'],
             'allowed_ips'   => ['154.71.160.227'],
             'expires_at'    => now()->addDays(30),
             'created_by'    => $responsavel->id,

@@ -81,6 +81,9 @@ Route::prefix('api/agent/v1')
                 Route::get('logs/errors', [OperacoesController::class, 'erros']);
                 Route::get('logs/errors/{erro}', [OperacoesController::class, 'erro']);
                 Route::get('logs/audit', [InteligenciaController::class, 'auditoria']);
+                // Entradas/saídas (login/logout/login_falhado): "quem esteve
+                // dentro e a que horas" e sinal de força-bruta.
+                Route::get('logs/acessos', [InteligenciaController::class, 'acessos']);
                 Route::get('logs/agent', [InteligenciaController::class, 'pedidosDoAgente']);
             });
 

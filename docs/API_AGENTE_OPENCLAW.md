@@ -109,6 +109,7 @@ GET  /analytics/overview?dias=30
 GET  /analytics/users?tenant_id=&estado=&entrou_desde=&novo_desde=&pesquisa=
 GET  /analytics/recommendations
 GET  /logs/audit?tenant_id=&evento=&actor=&desde=&limite=
+GET  /logs/acessos?tenant_id=&tipo=&actor=&desde=&limite=
 GET  /logs/agent?limite=100
 GET  /system/status
 POST /system/actions
@@ -165,12 +166,24 @@ As três rotas exigem `Idempotency-Key` e `{"motivo":"..."}`. A rota histórica
 `POST /tenants/{id}/estado` continua disponível. `PATCH /tenants/{id}` aceita
 nome, NIF, email, telefone e estado; um corpo vazio é um *no-op* válido.
 
-Estado comercial e nada mais: rótulo, dias em falta, plano, data de registo.
-**Sem dados operacionais** — nem facturas, nem clientes, nem stock, nem
-salários. O mandato é o estado da subscrição, não os dados dos clientes dos
-clientes.
+`GET /tenants` (lista) devolve só o estado comercial: rótulo, dias em falta,
+plano, data de registo, e um resumo de utilização.
 
-Contactos e NIF vão **por inteiro** — ver *Contactos* mais abaixo.
+`GET /tenants/{id}` (detalhe) acrescenta **sinais agregados** da conta, sempre
+em contagens — nunca o nome de um artigo, um valor ou um email:
+
+- `produtos` — saúde do catálogo (total, activos, sem preço, sem stock, …).
+- `faturas` — se a conta já emitiu (`total`, `emitidas`, `este_mes`,
+  `ultima_em`, `conta_sem_faturas`) e se está a comunicar à AGT
+  (`agt_aceites`, `agt_rejeitadas`, `agt_por_comunicar`).
+- `acessos` — se há alguém a entrar e há quanto tempo (`utilizadores`,
+  `activos`, `entraram_30d`, `ultimo_acesso`, `nunca_entraram`, `ninguem_entra`).
+  Aqui **não** saem emails: os logins reais estão em *Contactos*.
+- `envios`, `nif`, `destinatarios` — como antes.
+
+O NIF vai **por inteiro**; os contactos e logins reais vão em *Contactos*
+(escopo próprio). Continua **sem dados operacionais em bruto** — nem o valor de
+uma factura, nem clientes, nem stock, nem salários: só contagens.
 
 ### Saúde — `health:read`
 
@@ -334,6 +347,27 @@ POST /api/agent/v1/logs/empurrar             força o envio ao webhook
 `reabrir`. Um erro dado por resolvido que **volte a acontecer** é reaberto
 sozinho e volta a merecer aviso — não fica calado para sempre.
 
+#### Trilha, acessos e comandos — `logs:read`
+
+Além dos erros, o mesmo escopo abre três feeds de leitura:
+
+```
+GET /logs/audit?tenant_id=&evento=&actor=&desde=&limite=    o que se fez (trilha append-only)
+GET /logs/acessos?tenant_id=&tipo=&actor=&desde=&limite=    quem entrou/saiu/falhou a entrar
+GET /logs/agent?limite=100                                  o que o próprio agente pediu
+```
+
+- **`/logs/audit`** — a trilha de auditoria: alterações a modelos da allowlist,
+  com `actor_name`, `event`, `ip_address`, `route` e `metadata`. É o "quem fez
+  o quê"; filtra-se por empresa, evento, autor e data.
+- **`/logs/acessos`** — entradas e saídas, tiradas da trilha: eventos `login`,
+  `logout` e `login_falhado`. `tipo` filtra um deles. Numa falha, o email
+  tentado vem em `metadata` (a password nunca é registada) — é o sinal de
+  força-bruta e de credenciais partilhadas.
+- **`/logs/agent`** — o registo dos pedidos do próprio agente (rota, estado
+  HTTP, idempotência): há sempre resposta para "o que é que o agente andou a
+  fazer".
+
 #### `status/resumo` — a chamada de hora a hora
 
 Uma chamada, não sete. Devolve `precisa_atencao` (booleano) e `porque` (uma
@@ -402,13 +436,24 @@ GET /api/agent/v1/tenants/{tenant}/contacts
 {
   "empresa":     { "id": 17, "nome": "Farmácia Neves Bendinha" },
   "responsavel": { "nome": "Ana Miguel", "email": "ana@…", "telefone": "+244923456789" },
-  "empresa_contactos": { "email": "geral@…", "telefone": "+244222…" }
+  "empresa_contactos": { "email": "geral@…", "telefone": "+244222…" },
+  "utilizadores": [
+    { "id": 42, "nome": "Ana Miguel", "login": "ana@…", "papel": "Administrador",
+      "activo": true, "ultimo_acesso": "2026-08-22T14:03:11Z" }
+  ]
 }
 ```
 
 O telefone vem **já normalizado** para `+244XXXXXXXXX`, que é o formato que o
 WhatsApp e as operadoras aceitam — ou a `null` quando o número gravado não é
 marcável. `null` quer dizer *não vale a pena tentar*, não *tenta em bruto*.
+
+`utilizadores` lista **todos os logins da empresa** (não só o responsável de
+facturação): quem entra, com que email (o email **é** o login), que papel, se
+está activo e quando foi a última entrada. A password nunca sai — não está
+sequer na consulta. É a resposta a "qual é o login desta empresa" e "quem tem
+acesso a esta conta". Para o histórico de entradas ao longo do tempo, ver
+`/logs/acessos`.
 
 Cada leitura fica no registo de pedidos do agente: há sempre resposta para
 "quem viu o número deste cliente e quando".

@@ -46,7 +46,7 @@ return [
         'contacts:read'   => 'Ver contactos reais (email e telefone) para contacto directo',
 
         // Operação da plataforma.
-        'logs:read'       => 'Ver os erros do sistema, agrupados',
+        'logs:read'       => 'Ver erros, auditoria, acessos (login/logout) e pedidos do agente',
         'logs:write'      => 'Marcar erros como vistos ou resolvidos',
         'billing:read'    => 'Ver subscrições, facturas e o estado do ciclo',
         'billing:write'   => 'Emitir facturas de renovação e disparar avisos ao cliente',

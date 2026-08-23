@@ -113,4 +113,81 @@ class SinaisDoTenant
             'motivo' => $c['motivo'],
         ];
     }
+
+    /**
+     * Facturação da empresa: existe? comunica à AGT? — só contagens e datas.
+     *
+     * Responde a "esta conta já emitiu alguma factura?" e "as facturas estão
+     * a chegar à AGT ou há uma pilha por comunicar?". Nunca sai daqui o número
+     * de uma factura, o cliente, nem um valor — só quantos e de que estado.
+     */
+    public function faturas(int $tenantId): array
+    {
+        // invoicing_sales_invoices tem SoftDeletes e BelongsToTenant, mas o
+        // DB::table cru não aplica o global scope: o where(tenant_id) e o
+        // whereNull(deleted_at) são obrigatórios, senão soma-se tudo.
+        $r = DB::table('invoicing_sales_invoices')
+            ->where('tenant_id', $tenantId)
+            ->whereNull('deleted_at')
+            ->selectRaw('COUNT(*) total,
+                SUM(status = "draft") rascunhos,
+                SUM(status = "cancelled") anuladas,
+                SUM(status NOT IN ("draft","cancelled")) emitidas,
+                SUM(agt_status = "validated") agt_aceites,
+                SUM(agt_status = "rejected") agt_rejeitadas,
+                SUM(status NOT IN ("draft","cancelled")
+                    AND (agt_status IS NULL OR agt_status IN ("pending","submitted"))) agt_por_comunicar,
+                MAX(invoice_date) ultima_data')
+            ->first();
+
+        $esteMes = DB::table('invoicing_sales_invoices')
+            ->where('tenant_id', $tenantId)
+            ->whereNull('deleted_at')
+            ->whereYear('invoice_date', now()->year)
+            ->whereMonth('invoice_date', now()->month)
+            ->count();
+
+        return [
+            'total'             => (int) $r->total,
+            'emitidas'          => (int) $r->emitidas,
+            'rascunhos'         => (int) $r->rascunhos,
+            'anuladas'          => (int) $r->anuladas,
+            'este_mes'          => $esteMes,
+            'ultima_em'         => $r->ultima_data,       // data, não o documento
+            'agt_aceites'       => (int) $r->agt_aceites,
+            'agt_rejeitadas'    => (int) $r->agt_rejeitadas,
+            'agt_por_comunicar' => (int) $r->agt_por_comunicar,
+            'conta_sem_faturas' => ((int) $r->total) === 0,
+        ];
+    }
+
+    /**
+     * Quem tem acesso e há quanto tempo entrou — agregado.
+     *
+     * O login (email) de cada pessoa NÃO sai daqui: isso é contacto real e
+     * vive no /contacts (escopo contacts:read), registado a cada leitura.
+     * Aqui fica só "há alguém a entrar nesta conta, e quando foi a última vez".
+     */
+    public function acessos(int $tenantId): array
+    {
+        $r = DB::table('tenant_user')
+            ->join('users', 'users.id', '=', 'tenant_user.user_id')
+            ->where('tenant_user.tenant_id', $tenantId)
+            ->whereNull('users.deleted_at')
+            ->selectRaw('COUNT(*) total,
+                SUM(tenant_user.is_active = 1) activos,
+                SUM(users.last_login_at IS NULL) nunca_entraram,
+                SUM(users.last_login_at >= ?) entraram_30d,
+                MAX(users.last_login_at) ultimo_acesso', [now()->subDays(30)])
+            ->first();
+
+        return [
+            'utilizadores'   => (int) $r->total,
+            'activos'        => (int) $r->activos,
+            'nunca_entraram' => (int) $r->nunca_entraram,
+            'entraram_30d'   => (int) $r->entraram_30d,
+            'ultimo_acesso'  => $r->ultimo_acesso,   // timestamp, não o email
+            'ninguem_entra'  => ((int) $r->entraram_30d) === 0,
+        ];
+    }
 }

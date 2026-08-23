@@ -147,6 +147,8 @@ class AgentController extends Controller
             'empresa'       => $this->resumoDoTenant($tenant),
             'nif'           => $sinais->nif($tenant),        // classificado, por inteiro
             'produtos'      => $sinais->produtos($tenant->id), // só contagens
+            'faturas'       => $sinais->faturas($tenant->id),  // só contagens + datas
+            'acessos'       => $sinais->acessos($tenant->id),  // agregado, sem emails
             'envios'        => $sinais->envios($tenant->id),   // relatório de email/SMS
             'destinatarios' => $destinatarios->paraTenant($tenant),
         ]);

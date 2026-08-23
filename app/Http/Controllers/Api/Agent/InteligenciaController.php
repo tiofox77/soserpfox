@@ -100,6 +100,40 @@ class InteligenciaController extends Controller
         ])]);
     }
 
+    /**
+     * Registo de ENTRADAS e SAÍDAS: quem entrou, quem falhou a entrar, quem
+     * saiu — tirado da trilha de auditoria (eventos login/logout/login_falhado,
+     * gravados em AppServiceProvider).
+     *
+     * Responde a duas perguntas que um dono de plataforma faz sempre: "quem
+     * esteve dentro desta conta e a que horas" e "há alguém a martelar a porta"
+     * (uma corrida de login_falhado do mesmo email/IP). O email tentado numa
+     * falha vem em `metadata`; a password nunca é registada.
+     */
+    public function acessos(Request $request)
+    {
+        $d = $request->validate([
+            'tenant_id' => 'nullable|integer',
+            'tipo'      => 'nullable|in:login,logout,login_falhado',
+            'actor'     => 'nullable|string|max:120',
+            'desde'     => 'nullable|date',
+            'limite'    => 'nullable|integer|min:1|max:200',
+        ]);
+
+        $eventos = isset($d['tipo']) ? [$d['tipo']] : ['login', 'logout', 'login_falhado'];
+
+        $q = AuditTrail::query()->orderByDesc('id')
+            ->whereIn('event', $eventos)
+            ->when(isset($d['tenant_id']), fn ($w) => $w->where('tenant_id', $d['tenant_id']))
+            ->when(!empty($d['actor']), fn ($w) => $w->where('actor_name', 'like', '%' . $d['actor'] . '%'))
+            ->when(!empty($d['desde']), fn ($w) => $w->where('created_at', '>=', $d['desde']));
+
+        return response()->json(['acessos' => $q->limit((int) ($d['limite'] ?? 100))->get([
+            'id', 'tenant_id', 'event', 'actor_type', 'actor_name', 'channel',
+            'ip_address', 'metadata', 'created_at',
+        ])]);
+    }
+
     public function pedidosDoAgente(Request $request)
     {
         $limite = max(1, min((int) $request->integer('limite', 100), 200));
