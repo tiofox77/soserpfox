@@ -4,12 +4,13 @@ namespace App\Models\Treasury;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\QueryException;
 use App\Traits\BelongsToTenant;
 
 class Transaction extends Model
 {
     use BelongsToTenant;
-    
+
     protected $table = 'treasury_transactions';
     
     protected $fillable = [
@@ -46,6 +47,66 @@ class Transaction extends Model
         'reconciled_at' => 'datetime',
     ];
     
+    /**
+     * Próximo número de transação, por empresa e ano — à prova de colisões.
+     *
+     * O bug antigo: cada ecrã fazia `orderBy('id')->first()` + `substr(-4)+1`.
+     * Quando a última transação vinha de um gerador `uniqid()` (POS, factura,
+     * restaurante), o `substr(-4)` dava lixo, o contador reiniciava e chocava
+     * com um número já existente (erro 1062 no índice único por tenant).
+     *
+     * Aqui olha-se SÓ para os números no formato canónico deste ano
+     * (`TRX-AAAA-####`), tira-se o MAIOR sufixo numérico (CAST, não a última
+     * linha por id) e soma-se 1. Os números antigos/uniqid são ignorados e já
+     * não envenenam a sequência.
+     */
+    public static function gerarNumero(int $tenantId, string $prefixo = 'TRX'): string
+    {
+        $ano = date('Y');
+        $inicio = "{$prefixo}-{$ano}-";
+
+        $ultimo = static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('transaction_number', 'like', $inicio . '%')
+            ->orderByRaw('CAST(SUBSTRING_INDEX(transaction_number, "-", -1) AS UNSIGNED) DESC')
+            ->value('transaction_number');
+
+        $seq = $ultimo ? ((int) substr($ultimo, strrpos($ultimo, '-') + 1)) + 1 : 1;
+
+        return $inicio . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Cria uma transação com número gerado, repetindo se houver colisão.
+     *
+     * Duas caixas a registar ao mesmo tempo podem calcular o mesmo número; em
+     * vez de rebentar na cara do utilizador (o que estava a acontecer), apanha
+     * o 1062 e tenta o número seguinte. Ao fim de várias tentativas cai num
+     * sufixo aleatório — nunca falha o registo por causa do número.
+     */
+    public static function criar(array $attrs, string $prefixo = 'TRX'): self
+    {
+        $tenantId = (int) ($attrs['tenant_id'] ?? activeTenantId());
+
+        for ($tentativa = 0; $tentativa < 6; $tentativa++) {
+            $attrs['transaction_number'] = static::gerarNumero($tenantId, $prefixo);
+            try {
+                return static::create($attrs);
+            } catch (QueryException $e) {
+                // 23000/1062 = entrada duplicada: tentar o número seguinte.
+                if (($e->getCode() === '23000' || str_contains($e->getMessage(), '1062')) && $tentativa < 5) {
+                    usleep(random_int(1000, 6000));
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        // Último recurso: número único garantido, para nunca prender a operação.
+        $attrs['transaction_number'] = $prefixo . '-' . date('Y') . '-' . strtoupper(bin2hex(random_bytes(4)));
+        return static::create($attrs);
+    }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Tenant::class);

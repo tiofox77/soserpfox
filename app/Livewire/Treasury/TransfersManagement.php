@@ -88,12 +88,6 @@ class TransfersManagement extends Component
         return 'TRF-' . date('Y') . '-' . str_pad($n, 4, '0', STR_PAD_LEFT);
     }
 
-    private function nextTransactionBase(int $tenantId): int
-    {
-        $last = Transaction::where('tenant_id', $tenantId)->whereYear('created_at', date('Y'))->orderByDesc('id')->first();
-        return $last ? ((int) substr($last->transaction_number, -4)) + 1 : 1;
-    }
-
     public function save()
     {
         $this->validate();
@@ -125,14 +119,13 @@ class TransfersManagement extends Component
                 'status' => 'completed',
             ]);
 
-            $base = $this->nextTransactionBase($tenantId);
-            $mkTx = function (array $target, string $type, float $amt, string $desc, string $category) use ($tenantId, $transfer, &$base) {
-                Transaction::create([
+            $mkTx = function (array $target, string $type, float $amt, string $desc, string $category) use ($tenantId, $transfer) {
+                Transaction::criar([
                     'tenant_id' => $tenantId,
                     'user_id' => auth()->id(),
                     'account_id' => $target['account_id'] ?? null,
                     'cash_register_id' => $target['cash_register_id'] ?? null,
-                    'transaction_number' => 'TRX-' . date('Y') . '-' . str_pad($base++, 4, '0', STR_PAD_LEFT),
+                    // O número é gerado (à prova de colisão) por Transaction::criar.
                     'type' => $type,
                     'category' => $category,
                     'amount' => $amt,

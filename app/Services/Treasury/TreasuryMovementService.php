@@ -57,7 +57,33 @@ class TreasuryMovementService
             $data['transaction_category_id'] = \App\Models\Treasury\TransactionCategory::withoutGlobalScopes()
                 ->where('tenant_id', $tenantId)->where('code', $data['category'])->where('is_active', true)->value('id');
         }
-        return DB::transaction(function () use ($data) {
+        // Número robusto e à prova de colisões: ignora o que o chamador mandou
+        // (uniqid, sequência calculada à mão — que reiniciava e chocava) e gera
+        // pelo MAX real da sequência do ano. Cada tentativa é uma transação
+        // NOVA: sob concorrência, quem perde relê já com a linha vencedora
+        // gravada e apanha o número seguinte, em vez de rebentar com 1062.
+        for ($tentativa = 0; $tentativa < 6; $tentativa++) {
+            try {
+                return DB::transaction(function () use ($data, $tenantId) {
+                    $data['transaction_number'] = Transaction::gerarNumero($tenantId);
+                    $transaction = Transaction::withoutGlobalScopes()->create($data);
+                    if (($transaction->status ?? 'completed') === 'completed') {
+                        $this->apply($transaction, 1);
+                    }
+                    return $transaction;
+                });
+            } catch (\Illuminate\Database\QueryException $e) {
+                if (($e->getCode() === '23000' || str_contains($e->getMessage(), '1062')) && $tentativa < 5) {
+                    usleep(random_int(1000, 6000));
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
+        // Último recurso: sufixo aleatório único, para nunca prender a operação.
+        return DB::transaction(function () use ($data, $tenantId) {
+            $data['transaction_number'] = 'TRX-' . date('Y') . '-' . strtoupper(bin2hex(random_bytes(4)));
             $transaction = Transaction::withoutGlobalScopes()->create($data);
             if (($transaction->status ?? 'completed') === 'completed') {
                 $this->apply($transaction, 1);

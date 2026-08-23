@@ -439,16 +439,10 @@ class PaymentModal extends Component
 
     private function generateTransactionNumber()
     {
-        $year = date('Y');
-        
-        $lastTransaction = Transaction::where('tenant_id', activeTenantId())
-            ->whereYear('created_at', $year)
-            ->orderBy('id', 'desc')
-            ->first();
-
-        $nextNumber = $lastTransaction ? ((int) substr($lastTransaction->transaction_number, -4)) + 1 : 1;
-
-        return sprintf('TRX-%s-%04d', $year, $nextNumber);
+        // Delega no gerador robusto do modelo (MAX real + à prova de colisão).
+        // O TreasuryMovementService::post() volta a gerar o número na hora, por
+        // isto é só defensivo caso o valor seja usado noutro sítio.
+        return Transaction::gerarNumero(activeTenantId());
     }
 
     public function render()

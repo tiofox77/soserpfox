@@ -388,7 +388,7 @@ class Transactions extends Component
             ];
             
             // Criar transação de crédito
-            $creditTransaction = Transaction::create($creditData);
+            $creditTransaction = Transaction::criar($creditData);
             
             // Atualizar saldo
             $this->updateBalance($creditData);
