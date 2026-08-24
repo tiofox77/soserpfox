@@ -97,6 +97,8 @@ Filename: "{app}\soserp-tray.exe"; Parameters: "--dir ""{app}"" --port {#MyPort}
 Filename: "http://localhost:{#MyPort}"; Description: "Abrir o soserp"; Flags: postinstall shellexec
 
 [UninstallRun]
+; O agente da bandeja segura ficheiros — fechar primeiro
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM soserp-tray.exe /F"; Flags: runhidden; RunOnceId: "KillTray"
 ; Remove as tarefas de vigilancia
 Filename: "schtasks"; Parameters: "/delete /tn ""soserp-vigia"" /f"; Flags: runhidden; RunOnceId: "DelVigia"
 Filename: "schtasks"; Parameters: "/delete /tn ""soserp-integridade"" /f"; Flags: runhidden; RunOnceId: "DelInteg"
@@ -107,6 +109,72 @@ Filename: "{app}\xampp\apache\bin\httpd.exe"; Parameters: "-k uninstall -n ""sos
 Filename: "sc"; Parameters: "delete soserp-mysql"; Flags: runhidden; RunOnceId: "DelMysql"
 
 [Code]
+// ---------------------------------------------------------------------------
+//  Actualizar por cima de uma instalação a trabalhar
+// ---------------------------------------------------------------------------
+//  Sem isto, o Apache/MySQL ficam a correr e o Windows recusa substituir o
+//  httpd.exe ("DeleteFile falhou; código 5"). Param-se os serviços e o agente
+//  da bandeja ANTES de copiar, e o provision.ps1 volta a arrancá-los no fim.
+
+var
+  EraActualizacao: Boolean;
+
+function InstalacaoExistente(): Boolean;
+begin
+  Result := FileExists(ExpandConstant('{app}\xampp\apache\bin\httpd.exe'))
+         or FileExists(ExpandConstant('{app}\app\.env'));
+end;
+
+procedure PararTudo();
+var
+  RC: Integer;
+begin
+  // O agente da bandeja segura o soserp.ico e o próprio .exe
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM soserp-tray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  Exec(ExpandConstant('{sys}\net.exe'), 'stop soserp-apache', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  Exec(ExpandConstant('{sys}\net.exe'), 'stop soserp-mysql', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  // O Windows leva um instante a largar os ficheiros depois de o serviço parar
+  Sleep(4000);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  EraActualizacao := False;
+end;
+
+// Corre depois de o utilizador escolher a pasta e ANTES de copiar ficheiros.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Resp: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+
+  if not InstalacaoExistente() then
+    Exit;
+
+  EraActualizacao := True;
+
+  Resp := MsgBox(
+    'Já existe uma instalação do soserp nesta pasta.' + #13#10#13#10 +
+    'ACTUALIZAR mantém a base de dados, a licença e as configurações — ' +
+    'é feito um backup da base de dados antes de qualquer alteração.' + #13#10#13#10 +
+    'Os serviços (Apache e MySQL) vão ser parados durante a actualização e ' +
+    'reiniciados no fim.' + #13#10#13#10 +
+    'Continuar com a actualização?',
+    mbConfirmation, MB_YESNO);
+
+  if Resp <> IDYES then
+  begin
+    Result := 'Actualização cancelada pelo utilizador.';
+    Exit;
+  end;
+
+  WizardForm.StatusLabel.Caption := 'A parar os serviços do soserp...';
+  PararTudo();
+end;
+
 // Oferece backup da BD (mysqldump) antes de desinstalar.
 function InitializeUninstall(): Boolean;
 var

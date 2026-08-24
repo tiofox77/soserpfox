@@ -85,6 +85,19 @@ if (Test-Path (Join-Path $phpDir "ext\php_opcache.dll")) {
 }
 Add-Content -Path $phpIni -Value ($linhasIni -join "`r`n") -Encoding ascii
 
+# 2b) Isto é uma instalação NOVA ou uma ACTUALIZAÇÃO?
+#
+# A diferença não é cosmética: o install-schema.sql traz DROP TABLE em todas as
+# tabelas (é um dump), por isso importá-lo por cima de uma instalação a
+# trabalhar APAGAVA os dados do cliente. Numa actualização não se toca na base
+# — faz-se backup e corre-se migrate.
+$eActualizacao = (Test-Path (Join-Path $dataDir "mysql")) -and (Test-Path (Join-Path $app ".env"))
+if ($eActualizacao) {
+    Log "INSTALACAO EXISTENTE detectada -> modo ACTUALIZACAO (dados preservados)."
+} else {
+    Log "Instalacao nova."
+}
+
 # 3) MySQL: my.ini limpo + inicializar data + criar BD
 Log "A gerar my.ini e inicializar a base de dados..."
 $myIni = Join-Path $mysqlDir "my.ini"
@@ -117,9 +130,14 @@ if ($LASTEXITCODE -ne 0) { Fail "Falha ao criar a base de dados." }
 Log "A gerar .env..."
 $envPath = Join-Path $app ".env"
 if (-not (Test-Path $envPath)) { Copy-Item (Join-Path $app ".env.example") $envPath }
+# Numa ACTUALIZAÇÃO o .env é do cliente: pode ter portas, credenciais e
+# afinações próprias. Só se acrescentam chaves NOVAS (as que versões futuras
+# passem a precisar); nunca se reescreve o que já lá está.
 function Set-Env($k, $v) {
     $c = Get-Content $envPath
-    if ($c -match "^$k=") { $c = $c -replace "^$k=.*", "$k=$v" } else { $c += "$k=$v" }
+    $existe = ($c -match "^$k=").Count -gt 0
+    if ($existe -and $eActualizacao) { return }
+    if ($existe) { $c = $c -replace "^$k=.*", "$k=$v" } else { $c += "$k=$v" }
     $c | Set-Content $envPath -Encoding utf8
 }
 Set-Env "APP_ENV" "production"; Set-Env "APP_DEBUG" "false"; Set-Env "APP_URL" "http://localhost:$Port"
@@ -135,12 +153,39 @@ Set-Env "LICENSE_UPDATE_URL" "https://soserp.vip/api/license/update"
 # 5) App
 Log "A preparar a aplicacao (key, esquema, seed, caches)..."
 Push-Location $app
-& $phpExe artisan key:generate --force
+# A APP_KEY NUNCA se regenera numa actualização: é ela que decifra o que já
+# está gravado (sessões e qualquer coluna encriptada). Regenerá-la deixava os
+# dados do cliente ilegíveis.
+if (-not $eActualizacao) {
+    & $phpExe artisan key:generate --force
+} else {
+    Log "  APP_KEY preservada (actualizacao)."
+}
 # As migracoes do soserp NAO correm de raiz (ordem de FKs). Importa-se o
 # esquema por dump (o mysql desliga FK checks na importacao) e depois semeiam-se
 # os dados de referencia (permissoes, modulos, planos, super admin, AGT).
 $schema = Join-Path $app "database\install-schema.sql"
-if (Test-Path $schema) {
+
+if ($eActualizacao) {
+    # ACTUALIZAR: a base é do cliente. Backup primeiro, migrar depois. O
+    # install-schema.sql NUNCA entra aqui — tem DROP TABLE em tudo.
+    $dump = Join-Path $mysqlDir "bin\mysqldump.exe"
+    if (Test-Path $dump) {
+        $pasta = Join-Path $InstallDir "backups"
+        New-Item -ItemType Directory -Force $pasta | Out-Null
+        $ficheiro = Join-Path $pasta ("antes-da-actualizacao-" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".sql")
+        Log "  backup da base de dados -> $ficheiro"
+        cmd /c "`"$dump`" --host=127.0.0.1 --port=$DbPort --user=root $DbName > `"$ficheiro`""
+        if (-not (Test-Path $ficheiro) -or (Get-Item $ficheiro).Length -lt 1000) {
+            Fail "O backup da base de dados falhou - actualizacao abortada para nao arriscar os dados."
+        }
+    } else {
+        Fail "mysqldump nao encontrado - sem backup nao se actualiza."
+    }
+
+    Log "  a aplicar migracoes..."
+    & $phpExe artisan migrate --force
+} elseif (Test-Path $schema) {
     Log "  a importar esquema (install-schema.sql)..."
     cmd /c "`"$mysqlExe`" --host=127.0.0.1 --port=$DbPort --user=root $DbName < `"$schema`""
     if ($LASTEXITCODE -ne 0) { Fail "Falha ao importar o esquema." }
