@@ -128,8 +128,18 @@ $iscc = @(
 
 if ($iscc) {
     Log "Inno Setup encontrado. A compilar o .exe..."
+    $saida = Join-Path $dist "soserp-setup-$Version.exe"
+    Remove-Item $saida -Force -EA SilentlyContinue   # o ISCC falha se estiver preso
     & $iscc "/DMyVersion=$Version" "/DMyPort=$Port" "/DMyDbPort=$DbPort" "/DMyPublicKey=$PublicKey" (Join-Path $PSScriptRoot "soserp.iss")
-    Log "Feito: $dist\soserp-setup-$Version.exe"
+
+    # Verificar A SERIO: o ISCC pode abortar (ex.: antivirus a segurar o
+    # ficheiro no passo do icone) e antes disto o script dizia "Feito" na
+    # mesma, mandando para producao um instalador que nao existia.
+    if (Test-Path $saida) {
+        Log ("Feito: $saida (" + [math]::Round((Get-Item $saida).Length/1MB) + " MB)")
+    } else {
+        throw "O ISCC nao produziu $saida. Se o erro foi 'Resource update error ... antivirus', excluir a pasta installer\dist do antivirus e repetir."
+    }
 } else {
     Log "Inno Setup NAO instalado. A produzir o pacote PORTATIL (sem compilador)..."
     Copy-Item (Join-Path $PSScriptRoot "provision.ps1")   $build -Force
