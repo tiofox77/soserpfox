@@ -1,8 +1,16 @@
 # Instalador Windows do soserp (offline / on-premise)
 
-Scaffold para construir o `.exe` que instala o soserp com **XAMPP embutido** —
-Apache + MariaDB + PHP — configura a base de dados, regista os serviços com
-arranque automático e activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OFFLINE.md) (RF1).
+Scaffold para construir o `.exe` que instala o soserp com **Apache + MariaDB +
+PHP**, configura a base de dados, regista os serviços com arranque automático e
+activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OFFLINE.md) (RF1).
+
+> **Abordagem — Opção B (decidida):** empacotamos os **binários portáteis** e
+> **registamos nós os serviços Windows**. **NÃO** corremos o instalador GUI do
+> XAMPP por dentro, nem os MSI oficiais. Os binários podem sair do **zip
+> portátil do XAMPP** (curadoria já casada de Apache+MariaDB+PHP) — usa-se o
+> conteúdo, não o *instalador*. Ganha-se: instalação silenciosa, footprint
+> mínimo (sem phpMyAdmin/Mercury/Tomcat/FileZilla), config endurecida (o XAMPP
+> é "só para desenvolvimento"), versões fixas e arranque automático.
 
 > **Estado:** scaffold. Os ficheiros aqui são reais e usáveis, mas o `.exe`
 > compila-se numa **máquina de build Windows** com o payload do XAMPP e o
@@ -14,7 +22,8 @@ arranque automático e activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OF
 |---|---|
 | `soserp.iss` | Script do **Inno Setup** — empacota tudo num `.exe` |
 | `provision.ps1` | Corre no fim da instalação: BD, `.env`, migrations, serviços, licença |
-| `payload/xampp/` | *(a criar no build)* XAMPP portátil na versão de PHP certa |
+| `payload/xampp/` | *(a criar no build)* **binários portáteis** Apache+MariaDB+PHP (só isto — tirados do zip portátil do XAMPP, sem os extras) |
+| `payload/vc_redist.x64.exe` | *(a criar no build)* VC++ Redistributable (Apache/PHP precisam) |
 | `payload/app/` | *(a criar no build)* o soserp exportado (sem `.env`, sem `node_modules`) |
 | `license.key` | *(opcional)* licença colada ao lado do instalador para activação automática |
 
@@ -29,8 +38,10 @@ arranque automático e activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OF
    # (opcional, recomendado) encriptar o PHP com ionCube/SourceGuardian aqui
    rm -f .env                       # o .env é gerado na máquina do cliente
    ```
-2. **Preparar o XAMPP portátil** em `payload/xampp/` (versão de PHP compatível;
-   se usar ionCube, incluir o loader para essa versão em `php\ext` + `php.ini`).
+2. **Preparar os binários portáteis** em `payload/xampp/` — do **zip portátil do
+   XAMPP**, mantendo só `apache/`, `mysql/` e `php/` (apagar phpMyAdmin, Mercury,
+   Tomcat, FileZilla). Versão de PHP compatível; se usar ionCube, incluir o
+   loader para essa versão em `php\ext` + `php.ini`. Juntar o `vc_redist.x64.exe`.
 3. **Definir a chave pública da licença**: editar o `-PublicKey` na secção
    `[Run]` do `soserp.iss` (ou deixar o `provision.ps1` lê-la do `.env.example`).
    A **chave privada nunca entra no instalador**.
@@ -40,19 +51,22 @@ arranque automático e activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OF
 
 ## O que o instalador faz na máquina do cliente
 
-1. Copia XAMPP + app para `C:\soserp`.
-2. `provision.ps1`: gera password de BD aleatória, cria a BD, escreve o `.env`
+1. Copia os binários portáteis + a app para `C:\soserp` (portas próprias, ex.: 8080/3307).
+2. Instala o **VC++ Redistributable** (Apache/PHP precisam dele).
+3. `provision.ps1`: gera password de BD aleatória, cria a BD, escreve o `.env`
    (`APP_KEY` única, ligação à BD, `LICENSE_ENFORCE=true`), corre
    `migrate --seed`, faz `view:cache`.
-3. Configura o Apache (docroot → `app\public`, escuta em `localhost:8080`).
-4. Regista `soserp-apache` e `soserp-mysql` como **serviços com arranque
-   automático**.
-5. Activa a licença (`licenca:instalar`) se `license.key` estiver presente.
-6. Abre `http://localhost:8080`.
+4. Configura o Apache (docroot → `app\public`, `AllowOverride All`, escuta só em `localhost:<porta>`).
+5. Regista `soserp-apache` e `soserp-mysql` como **serviços com arranque
+   automático**, sob **conta dedicada de baixo privilégio**.
+6. Activa a licença (`licenca:instalar`) se `license.key` estiver presente.
+7. Abre `http://localhost:<porta>`.
 
 ## Por afinar (TODO no build)
 
 - Vhost do Apache escrito por `provision.ps1` (secção 5) — hoje é um TODO.
+- Passo do **VC++ Redistributable** no `provision.ps1`/`[Run]`.
+- Serviços sob **conta dedicada** (não LocalSystem).
 - Backup automático da BD no desinstalador (mysqldump) antes de remover.
-- Deteção de portas ocupadas (se 8080/3306 já estiverem em uso).
+- Deteção de **portas ocupadas** (se as portas escolhidas já estiverem em uso).
 - Fluxo de **actualização** do stack e da app (ver PRD RF5 / checklist secção E).

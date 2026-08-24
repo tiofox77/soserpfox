@@ -64,16 +64,20 @@ Legenda de fase: **F0** núcleo · **F1** instalador · **F2** enforcement · **
 - [ ] Registo de cada update aplicado (versão, quando, resultado) — visível no painel (F5)
 - [x] Backup **verificado** (existe e não-vazio) antes de aplicar; sem ele, aborta (F4)
 
-## F. Instalador `.exe` + XAMPP (segurança de base)
+## F. Instalador `.exe` (segurança de base)
 
-- [ ] `.exe` (Inno Setup/NSIS) com **XAMPP embutido** (Apache+MariaDB+PHP) (F1)
-- [ ] Instala XAMPP em pasta dedicada, **portas próprias** (não colide com XAMPP existente) (F1)
-- [ ] Regista **serviços Windows com arranque automático** (Apache + MariaDB) (F1)
-- [ ] Cria BD + utilizador + corre migrations/seeders no 1.º arranque (F1)
-- [ ] Gera `.env` (APP_KEY, BD, `LICENSE_PUBLIC_KEY`, ambiente=prod) (F1)
-- [ ] Ecrã de **ativação de licença** (`licenca:ver` por trás) (F1)
-- [ ] Desinstalador que pára serviços e **oferece backup da BD** antes de remover (F1)
-- [ ] Instalador **assinado** (Authenticode) para o Windows não marcar como suspeito (F1)
+> **DECISÃO — Opção B:** empacotar **binários portáteis** (Apache+MariaDB+PHP, podem sair do zip portátil do XAMPP) e **registar os serviços nós próprios**. NÃO correr o instalador GUI do XAMPP nem os MSI oficiais. Motivos: silencioso, mínimo, endurecido, versões fixas, arranque automático.
+
+- [ ] `.exe` (Inno Setup/NSIS) com payload de **binários portáteis** (Apache+MariaDB+PHP), sem os extras do XAMPP (phpMyAdmin/Mercury/Tomcat/FileZilla) (F1)
+- [ ] Instala em pasta dedicada, **portas próprias** (ex.: 8080/3307) — não colide com XAMPP/IIS existente (F1)
+- [ ] Instala o **VC++ Redistributable** (⚠️ Apache/PHP no Windows precisam dele) (F1)
+- [ ] Escreve o **vhost do Apache** (`DocumentRoot`→`app\public`, `AllowOverride All`, escuta só `localhost`) + `php.ini`/`my.ini` de produção (F1)
+- [ ] Regista **serviços Windows com arranque automático** (Apache + MariaDB), sob **conta dedicada de baixo privilégio** (não LocalSystem) (F1)
+- [ ] Cria BD + utilizador (password aleatória) + corre migrations/seeders no 1.º arranque (F1)
+- [ ] Gera `.env` (APP_KEY, BD, `LICENSE_PUBLIC_KEY`, `LICENSE_ENFORCE=true`, ambiente=prod) (F1)
+- [ ] Ecrã de **ativação de licença** (`licenca:ver`/`licenca:instalar` por trás) (F1)
+- [ ] Desinstalador que pára/remove serviços e **oferece backup da BD** (`mysqldump`) antes de remover (F1)
+- [ ] Instalador **assinado** (Authenticode) para o Windows/SmartScreen não marcar como suspeito (F1)
 
 ## G. Enforcement (ligar a lógica à app)
 

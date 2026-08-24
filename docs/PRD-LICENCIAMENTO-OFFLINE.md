@@ -43,18 +43,23 @@ Há procura por uma versão **offline / on-premise**: o cliente corre o soserp *
 
 ## 5. Requisitos funcionais
 
-### RF1 — Instalador `.exe` para Windows (XAMPP embutido)
-- **Um único `.exe`** (Inno Setup ou NSIS) que traz **o XAMPP embutido** (Apache + MariaDB/MySQL + PHP na versão certa) — o instalador leva o XAMPP, instala-o e configura-o para o cliente não ter de fazer nada.
+### RF1 — Instalador `.exe` para Windows (binários portáteis + serviços)
+
+**DECISÃO (Opção B):** o instalador **empacota os binários portáteis** (Apache + MariaDB + PHP) e **regista ELE PRÓPRIO os serviços Windows** — **não** corre o instalador GUI do XAMPP por dentro, nem os MSI oficiais. Os binários podem ser **tirados do zip portátil do XAMPP** (boa curadoria já casada), mas quem instala e configura é o nosso instalador. Razões: instalação **silenciosa e reproduzível**, footprint **mínimo** (sem phpMyAdmin/Mercury/Tomcat/FileZilla), **config endurecida** (o XAMPP é assumidamente "só para desenvolvimento"), **versões fixas** e **arranque automático** sem depender do painel do XAMPP.
+
+- **Um único `.exe`** (Inno Setup ou NSIS) com o payload `xampp/` (só Apache+MariaDB+PHP portáteis) e `app/`.
 - No 1.º arranque, de forma automática:
-  1. Instala o XAMPP numa pasta dedicada (ex.: `C:\soserp\`), sem colidir com um XAMPP já existente (portas próprias).
-  2. Regista **Apache e MariaDB como serviços Windows com arranque automático** (sobem sozinhos ao ligar o PC).
-  3. **Cria a base de dados**, o utilizador de BD com password aleatória, e corre as **migrations + seeders** iniciais.
-  4. Gera o `.env` (APP_KEY nova, ligação à BD, `LICENSE_PUBLIC_KEY` embutida, ambiente).
-  5. Pede/instala o **ficheiro de licença** e valida-o (ecrã de ativação).
-  6. Cria atalho/serviço que abre o soserp no browser em `http://localhost:<porta>`.
-- **Desinstalador** que pára serviços e (opcionalmente) faz backup da BD antes de remover.
+  1. Copia para pasta dedicada (ex.: `C:\soserp\`), com **portas próprias** (ex.: 8080/3307) para não colidir com um XAMPP/IIS existente.
+  2. Instala o **VC++ Redistributable** (⚠️ o Apache e o PHP no Windows precisam dele — pegadinha nº1 de montar o stack à mão; o instalador GUI do XAMPP trazia-o, aqui somos nós).
+  3. Escreve a **config**: vhost do Apache (`DocumentRoot` → `app\public`, `AllowOverride All` para o `.htaccess`), Apache a escutar **só `localhost`**, `php.ini`/`my.ini` de produção.
+  4. Regista **Apache e MariaDB como serviços Windows com arranque automático**, sob **conta dedicada de baixo privilégio** (não LocalSystem).
+  5. **Cria a base de dados**, o utilizador de BD com password aleatória, e corre as **migrations + seeders** iniciais.
+  6. Gera o `.env` (APP_KEY nova, ligação à BD, `LICENSE_PUBLIC_KEY` embutida, `LICENSE_ENFORCE=true`, ambiente).
+  7. Pede/instala o **ficheiro de licença** e valida-o (ecrã de ativação).
+  8. Abre o soserp no browser em `http://localhost:<porta>`.
+- **Desinstalador** que pára/remove serviços e (opcionalmente) faz backup da BD (`mysqldump`) antes de remover.
 - **Atualização do próprio stack** (PHP/MariaDB) tratada como caso especial do RF5.
-- *Nota técnica:* empacotar o soserp como binário PHP único (com Livewire) é frágil hoje; **XAMPP embutido + serviços é o caminho pragmático** para a 1.ª fase.
+- *Nota técnica:* empacotar o soserp como binário PHP único (com Livewire) é frágil hoje. **Apache mantém-se** (o soserp depende de `.htaccess`); nginx/Caddy/FrankenPHP obrigariam a reescrever essas regras — fica como estudo futuro, não para a v1.
 
 ### RF2 — Licença assinada
 - Licença = **token assinado (Ed25519)** pela chave privada do vendor; o cliente traz só a **chave pública** e verifica.
