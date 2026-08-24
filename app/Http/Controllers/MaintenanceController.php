@@ -53,6 +53,7 @@ class MaintenanceController extends Controller
         'permissions:sync-product-batches',
         'permissions:sync-pos-reports',
         'permissions:sync-quotes',
+        'permissoes:conceder',
         'tenant:set-tax-exclusion',
         'planos:trial-automatico',
         'planos:dias-de-teste',
