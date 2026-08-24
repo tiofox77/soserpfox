@@ -137,7 +137,7 @@ class Licenciamento extends Component
 
         try {
             $this->licToken = (new LicenseIssuer())->emitir($claims, $this->chaveLicencas());
-            $this->registarInstalacao($tenant, $claims);
+            $this->registarInstalacao($tenant, $claims, null, $this->licToken);
             session()->flash('ok', 'Licença emitida para ' . $tenant->name . '. Copie o token abaixo.');
         } catch (\Throwable $e) {
             $this->addError('licToken', 'Falha ao emitir: ' . $e->getMessage());
@@ -149,7 +149,7 @@ class Licenciamento extends Component
      * poder listar os clientes offline. Uma instalação = empresa + máquina; uma
      * renovação actualiza a mesma linha.
      */
-    private function registarInstalacao(Tenant $tenant, array $claims, ?int $pedidoId = null): void
+    private function registarInstalacao(Tenant $tenant, array $claims, ?int $pedidoId = null, ?string $token = null): void
     {
         LicencaEmitida::updateOrCreate(
             ['tenant_id' => $tenant->id, 'fingerprint' => $claims['fp'] ?? null],
@@ -158,10 +158,74 @@ class Licenciamento extends Component
                 'plano'      => $claims['plano'] ?? null,
                 'modulos'    => $claims['modulos'] ?? null,
                 'max_users'  => $claims['max_users'] ?? null,
+                // Guardado para se poder reenviar a quem a perdeu, sem emitir
+                // outra. É assinado e só vale na máquina a que se destina.
+                'token'      => $token,
                 'emitida_em' => now(),
                 'expira_em'  => isset($claims['exp']) ? CarbonImmutable::createFromTimestamp($claims['exp']) : null,
             ]
         );
+    }
+
+    // ── Clientes offline: ver e renovar ─────────────────────────────────
+    public $instalacaoId = null;
+
+    /** Abre a ficha de uma instalação (licença, máquina, contactos, histórico). */
+    public function verInstalacao(int $id): void
+    {
+        $this->instalacaoId = $id;
+    }
+
+    public function fecharInstalacao(): void
+    {
+        $this->instalacaoId = null;
+    }
+
+    /**
+     * Renova a licença de uma instalação já conhecida, sem obrigar a repetir
+     * escolhas: reaproveita plano, módulos, tecto e a máquina a que está presa.
+     */
+    public function renovarInstalacao(int $id, int $dias = 365): void
+    {
+        if ($problema = $this->problemaDaChave()) {
+            session()->flash('erro', $problema);
+
+            return;
+        }
+
+        $i = LicencaEmitida::with('tenant')->findOrFail($id);
+        if (!$i->tenant) {
+            session()->flash('erro', 'A empresa desta instalação já não existe.');
+
+            return;
+        }
+
+        $claims = array_filter([
+            'tenant_id' => $i->tenant_id,
+            'empresa'   => $i->tenant->name,
+            'nif'       => $i->tenant->nif,
+            'plano'     => $i->plano ?? $i->tenant->activeSubscription?->plan?->name,
+            'modulos'   => $i->modulos ?: ['*'],
+            'max_users' => $i->max_users ?: null,
+            'fp'        => $i->fingerprint ?: null,
+            'exp'       => CarbonImmutable::now()->addDays($dias)->getTimestamp(),
+            'env'       => 'prod',
+        ], fn ($v) => $v !== null && $v !== []);
+
+        try {
+            $token = (new LicenseIssuer())->emitir($claims, $this->chaveLicencas());
+            $i->forceFill([
+                'token'      => $token,
+                'emitida_em' => now(),
+                'expira_em'  => CarbonImmutable::now()->addDays($dias),
+            ])->save();
+
+            $this->instalacaoId = $i->id;
+            session()->flash('ok', 'Licença renovada por ' . $dias . ' dias. '
+                . 'A instalação recebe-a no próximo check-in — ou copie o token abaixo.');
+        } catch (\Throwable $e) {
+            session()->flash('erro', 'Falha ao renovar: ' . $e->getMessage());
+        }
     }
 
     /** Abre o painel de aprovação de um pedido, pré-preenchido. */
@@ -242,12 +306,16 @@ class Licenciamento extends Component
                 'env'       => 'prod',
             ], fn ($v) => $v !== null && $v !== []);
 
-                        $this->registarInstalacao($tenant, $claims, $p->id);
+            // Assinada UMA vez e reutilizada: assinar duas vezes dava dois
+            // tokens diferentes (o `iat` muda), e o que o cliente ia buscar
+            // deixava de ser o que ficou registado na instalação.
+            $token = (new LicenseIssuer())->emitir($claims, $this->chaveLicencas());
+            $this->registarInstalacao($tenant, $claims, $p->id, $token);
 
-$p->forceFill([
+            $p->forceFill([
                 'estado'      => LicenseRequest::APROVADO,
                 'tenant_id'   => $tenant->id,
-                'licenca'     => (new LicenseIssuer())->emitir($claims, $this->chaveLicencas()),
+                'licenca'     => $token,
                 'aprovado_em' => now(),
             ])->save();
         });
@@ -355,9 +423,21 @@ $p->forceFill([
             'chaveUpdOk'    => (bool) $this->chaveUpdates(),
             'criptoOk'      => LicenseIssuer::criptoDisponivel(),
             'problemaChave' => $this->problemaDaChave(),
-            'instalacoes'   => LicencaEmitida::with('tenant:id,name,is_active')
+            'instalacoes'   => $instalacoes = LicencaEmitida::with('tenant:id,name,is_active,nif,email,phone')
                                   ->orderByRaw('ultimo_checkin IS NULL DESC')
                                   ->orderByDesc('ultimo_checkin')->limit(50)->get(),
+            'instalacao'    => $this->instalacaoId
+                                  ? LicencaEmitida::with('tenant', 'pedido')->find($this->instalacaoId)
+                                  : null,
+            // Números de topo: o que se quer saber num relance é quantas
+            // instalações há e quantas estão em apuros.
+            'resumo'        => [
+                'total'       => $instalacoes->count(),
+                'activas'     => $instalacoes->filter(fn ($i) => $i->situacao() === 'activa')->count(),
+                'silenciosas' => $instalacoes->filter(fn ($i) => $i->situacao() === 'silenciosa')->count(),
+                'expiradas'   => $instalacoes->filter(fn ($i) => $i->situacao() === 'expirada')->count(),
+                'por_ligar'   => $instalacoes->filter(fn ($i) => $i->situacao() === 'nunca_ligou')->count(),
+            ],
             'pedidos'       => LicenseRequest::orderByRaw("FIELD(estado,'pendente','aprovado','recusado')")
                                   ->orderByDesc('id')->limit(30)->get(),
             'planos'        => Plan::orderBy('name')->get(['id', 'name']),

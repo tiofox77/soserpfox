@@ -42,6 +42,36 @@
         </div>
     @endif
 
+    @if (session('erro'))
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">
+            <i class="fas fa-circle-exclamation mr-2"></i>{{ session('erro') }}
+        </div>
+    @endif
+
+    {{-- ── Números de topo ────────────────────────────────────────── --}}
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        @php
+            $cartoes = [
+                ['Instalações', $resumo['total'], 'fa-server', 'indigo'],
+                ['Activas', $resumo['activas'], 'fa-circle-check', 'green'],
+                ['Silenciosas', $resumo['silenciosas'], 'fa-volume-xmark', 'amber'],
+                ['Expiradas', $resumo['expiradas'], 'fa-hourglass-end', 'red'],
+                ['Por ligar', $resumo['por_ligar'], 'fa-plug-circle-xmark', 'slate'],
+            ];
+        @endphp
+        @foreach($cartoes as [$rotulo, $valor, $icone, $cor])
+            <div class="bg-white rounded-2xl shadow p-4 border-l-4 border-{{ $cor }}-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase">{{ $rotulo }}</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ $valor }}</p>
+                    </div>
+                    <i class="fas {{ $icone }} text-{{ $cor }}-400 text-xl"></i>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
     {{-- ── Clientes offline (instalações on-premise) ──────────────── --}}
     <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
         <div class="flex items-center justify-between mb-5">
@@ -62,6 +92,7 @@
                         <th class="py-3 pr-4">Versão</th>
                         <th class="py-3 pr-4">Último contacto</th>
                         <th class="py-3 pr-4">Licença</th>
+                        <th class="py-3 pr-4"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -104,9 +135,19 @@
                                     <div class="text-xs text-gray-400 mt-1">expira {{ $i->expira_em->format('d/m/Y') }}</div>
                                 @endif
                             </td>
+                            <td class="py-3 pr-4 text-right whitespace-nowrap">
+                                <button wire:click="verInstalacao({{ $i->id }})"
+                                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-lg text-xs font-semibold">
+                                    <i class="fas fa-eye mr-1"></i>Detalhes
+                                </button>
+                                <button wire:click="renovarInstalacao({{ $i->id }})" wire:loading.attr="disabled"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold ml-1">
+                                    <i class="fas fa-rotate mr-1"></i>Renovar
+                                </button>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="py-10 text-center text-gray-400">
+                        <tr><td colspan="7" class="py-10 text-center text-gray-400">
                             <i class="fas fa-server text-3xl mb-2 block"></i>
                             Nenhuma instalação offline ainda. Aparecem aqui assim que emitir uma licença.
                         </td></tr>
@@ -119,6 +160,127 @@
             máquina do cliente; aqui vê-se o que o servidor sabe.
         </p>
     </div>
+
+    {{-- Ficha da instalação --}}
+    @if($instalacao)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">{{ $instalacao->tenant->name ?? '—' }}</h3>
+                        <p class="text-xs text-gray-500">Instalação on-premise</p>
+                    </div>
+                    <button wire:click="fecharInstalacao" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    {{-- Empresa --}}
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Empresa</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div><span class="text-gray-500 block text-xs">NIF</span>{{ $instalacao->tenant->nif ?: '—' }}</div>
+                            <div><span class="text-gray-500 block text-xs">Email</span>{{ $instalacao->tenant->email ?: '—' }}</div>
+                            <div><span class="text-gray-500 block text-xs">Telefone</span>{{ $instalacao->tenant->phone ?: '—' }}</div>
+                            <div>
+                                <span class="text-gray-500 block text-xs">Subscrição</span>
+                                @if($instalacao->tenant?->is_active)
+                                    <span class="text-green-700 font-semibold">activa</span>
+                                @else
+                                    <span class="text-red-700 font-semibold">suspensa</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Licença --}}
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-3">Licença</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div><span class="text-gray-500 block text-xs">Plano</span>{{ $instalacao->plano ?: '—' }}</div>
+                            <div><span class="text-gray-500 block text-xs">Máx. utilizadores</span>{{ $instalacao->max_users ?: 'sem limite' }}</div>
+                            <div><span class="text-gray-500 block text-xs">Emitida</span>{{ $instalacao->emitida_em?->format('d/m/Y') ?: '—' }}</div>
+                            <div>
+                                <span class="text-gray-500 block text-xs">Expira</span>
+                                {{ $instalacao->expira_em?->format('d/m/Y') ?: '—' }}
+                                @if($instalacao->expira_em)
+                                    <span class="text-xs {{ $instalacao->expira_em->isPast() ? 'text-red-600' : 'text-gray-400' }}">
+                                        ({{ $instalacao->expira_em->diffForHumans() }})
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="text-gray-500 block text-xs mb-1">Módulos</span>
+                            @if(in_array('*', (array) $instalacao->modulos, true))
+                                <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-2 py-1 rounded-full">todos os módulos</span>
+                            @else
+                                @foreach((array) $instalacao->modulos as $m)
+                                    <span class="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full mr-1">{{ $m }}</span>
+                                @endforeach
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Máquina e comunicação --}}
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Máquina e comunicação</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div class="md:col-span-2">
+                                <span class="text-gray-500 block text-xs">Impressão da máquina</span>
+                                <span class="font-mono text-xs">{{ $instalacao->fingerprint ?: 'licença flutuante' }}</span>
+                            </div>
+                            <div><span class="text-gray-500 block text-xs">Versão</span>{{ $instalacao->versao_instalada ?: '—' }}</div>
+                            <div><span class="text-gray-500 block text-xs">Último IP</span>{{ $instalacao->ultimo_ip ?: '—' }}</div>
+                            <div class="md:col-span-2">
+                                <span class="text-gray-500 block text-xs">Último contacto</span>
+                                @if($instalacao->ultimo_checkin)
+                                    {{ $instalacao->ultimo_checkin->format('d/m/Y H:i') }}
+                                    <span class="text-gray-400 text-xs">({{ $instalacao->ultimo_checkin->diffForHumans() }})</span>
+                                @else
+                                    <span class="text-gray-400">nunca ligou</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    @if($instalacao->pedido)
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-inbox mr-1"></i>Veio do pedido
+                            <span class="font-mono">{{ $instalacao->pedido->codigo }}</span>
+                            @if($instalacao->pedido->responsavel) · {{ $instalacao->pedido->responsavel }} @endif
+                        </div>
+                    @endif
+
+                    {{-- Token --}}
+                    @if($instalacao->token)
+                        <div>
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Token da licença (reenviar ao cliente)</h4>
+                            <textarea readonly rows="3" onclick="this.select()"
+                                class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-xs text-green-300 font-mono">{{ $instalacao->token }}</textarea>
+                        </div>
+                    @else
+                        <p class="text-xs text-gray-400">
+                            Token não guardado (licença emitida antes desta funcionalidade). Renove para obter um novo.
+                        </p>
+                    @endif
+                </div>
+
+                <div class="px-6 py-4 border-t flex justify-between items-center sticky bottom-0 bg-white rounded-b-2xl">
+                    <div class="flex gap-2">
+                        <button wire:click="renovarInstalacao({{ $instalacao->id }}, 365)"
+                            class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
+                            <i class="fas fa-rotate mr-1"></i>Renovar 1 ano
+                        </button>
+                        <button wire:click="renovarInstalacao({{ $instalacao->id }}, 30)"
+                            class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold">
+                            +30 dias
+                        </button>
+                    </div>
+                    <button wire:click="fecharInstalacao" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">Fechar</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ── Pedidos de licença ─────────────────────────────────────── --}}
     @php $pendentes = $pedidos->where('estado', 'pendente'); @endphp

@@ -181,6 +181,35 @@ class PedidoDeLicencaTest extends TenantTestCase
         $this->assertSame('activa', $inst->situacao());
     }
 
+    public function test_renovar_instalacao_mantem_modulos_maquina_e_tecto(): void
+    {
+        $inst = \App\Models\LicencaEmitida::create([
+            'tenant_id'   => $this->tenant->id,
+            'fingerprint' => 'fp-renovar',
+            'plano'       => 'Business',
+            'modulos'     => ['invoicing', 'rh'],
+            'max_users'   => 4,
+            'expira_em'   => CarbonImmutable::now()->subDay(),   // já expirada
+        ]);
+
+        Livewire::actingAs($this->super)->test(Licenciamento::class)
+            ->call('renovarInstalacao', $inst->id, 365)
+            ->assertHasNoErrors();
+
+        $inst->refresh();
+        $this->assertNotNull($inst->token, 'a renovação devia guardar o token');
+        $this->assertTrue($inst->expira_em->isFuture(), 'a validade devia ter sido estendida');
+
+        // O que estava definido não se perde ao renovar.
+        $estado = (new LicenseVerifier($this->publica, config('licensing')))
+            ->verificar($inst->token, ['fingerprint' => 'fp-renovar', 'ultimo_checkin' => CarbonImmutable::now()]);
+
+        $this->assertTrue($estado->valida);
+        $this->assertSame(4, $estado->payload->maxUtilizadores());
+        $this->assertTrue($estado->payload->temModulo('rh'));
+        $this->assertFalse($estado->payload->temModulo('hotel'));
+    }
+
     public function test_pedido_recusado_diz_o_motivo(): void
     {
         $pedido = LicenseRequest::create([

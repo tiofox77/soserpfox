@@ -14,7 +14,7 @@ class LicencaEmitida extends Model
 
     protected $fillable = [
         'tenant_id', 'license_request_id', 'fingerprint', 'plano', 'modulos',
-        'max_users', 'emitida_em', 'expira_em', 'ultimo_checkin',
+        'max_users', 'token', 'emitida_em', 'expira_em', 'ultimo_checkin',
         'versao_instalada', 'ultimo_ip',
     ];
 
