@@ -27,6 +27,150 @@
         </div>
     @endif
 
+    {{-- ── Pedidos de licença (clientes offline) ──────────────────── --}}
+    @php $pendentes = $pedidos->where('estado', 'pendente'); @endphp
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center">
+                <i class="fas fa-inbox text-amber-600 text-lg mr-2"></i>
+                <h3 class="text-lg font-bold text-gray-900">Pedidos de licença</h3>
+            </div>
+            @if($pendentes->count())
+                <span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
+                    {{ $pendentes->count() }} por aprovar
+                </span>
+            @endif
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr class="text-left text-xs font-bold text-gray-500 uppercase">
+                        <th class="py-3 pr-4">Empresa</th>
+                        <th class="py-3 pr-4">Contacto</th>
+                        <th class="py-3 pr-4">Util.</th>
+                        <th class="py-3 pr-4">Máquina</th>
+                        <th class="py-3 pr-4">Estado</th>
+                        <th class="py-3 pr-4"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($pedidos as $p)
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-3 pr-4">
+                                <div class="font-semibold text-gray-900">{{ $p->empresa }}</div>
+                                <div class="text-xs text-gray-500">NIF {{ $p->nif ?: '—' }} · {{ $p->created_at?->format('d/m/Y H:i') }}</div>
+                            </td>
+                            <td class="py-3 pr-4 text-sm text-gray-600">
+                                {{ $p->responsavel ?: '—' }}<div class="text-xs text-gray-400">{{ $p->email ?: $p->telefone ?: '' }}</div>
+                            </td>
+                            <td class="py-3 pr-4 text-sm text-gray-700">{{ $p->utilizadores }}</td>
+                            <td class="py-3 pr-4"><span class="font-mono text-xs text-gray-400">{{ Str::limit($p->fingerprint, 12) }}</span></td>
+                            <td class="py-3 pr-4">
+                                @if($p->estado === 'pendente')
+                                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full">pendente</span>
+                                @elseif($p->estado === 'aprovado')
+                                    <span class="bg-green-100 text-green-800 text-xs font-bold px-2.5 py-1 rounded-full">aprovado</span>
+                                    @if($p->entregue_em)<div class="text-xs text-gray-400 mt-1">entregue</div>@endif
+                                @else
+                                    <span class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full">recusado</span>
+                                @endif
+                            </td>
+                            <td class="py-3 pr-4 text-right">
+                                @if($p->estado === 'pendente')
+                                    <button wire:click="abrirPedido({{ $p->id }})"
+                                        class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-semibold">
+                                        Analisar
+                                    </button>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="py-10 text-center text-gray-400"><i class="fas fa-inbox text-3xl mb-2 block"></i>Nenhum pedido de licença.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {{-- Modal de aprovação --}}
+    @if($pedidoId)
+        @php $pd = $pedidos->firstWhere('id', $pedidoId); @endphp
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-gray-900">Aprovar pedido — {{ $pd?->empresa }}</h3>
+                    <button wire:click="fecharPedido" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-600">
+                        NIF {{ $pd?->nif ?: '—' }} · {{ $pd?->email ?: '—' }} · {{ $pd?->telefone ?: '—' }}<br>
+                        Máquina: <span class="font-mono text-xs">{{ $pd?->fingerprint ?: '—' }}</span>
+                        @if($pd?->observacoes)<div class="mt-2 italic">"{{ $pd->observacoes }}"</div>@endif
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Plano *</label>
+                            <select wire:model="pedPlanoId" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+                                @foreach($planos as $pl)<option value="{{ $pl->id }}">{{ $pl->name }}</option>@endforeach
+                            </select>
+                            @error('pedPlanoId') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Validade (dias)</label>
+                            <input type="number" wire:model="pedDias" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Máx. utilizadores</label>
+                            <input type="number" wire:model="pedMaxUsers" placeholder="sem limite" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+                            @error('pedMaxUsers') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="flex items-center gap-2 mb-2">
+                            <input type="checkbox" wire:model.live="pedTodosModulos" class="w-4 h-4 rounded border-gray-300 text-indigo-600">
+                            <span class="text-sm font-medium text-gray-700">Todos os módulos</span>
+                        </label>
+                        @if(!$pedTodosModulos)
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 bg-gray-50 rounded-xl p-4">
+                                @foreach($modulos as $m)
+                                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                                        <input type="checkbox" wire:model="pedModulos" value="{{ $m->slug }}" class="w-4 h-4 rounded border-gray-300 text-indigo-600">
+                                        {{ $m->name }}
+                                    </label>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" wire:model="pedPrenderMaquina" class="w-4 h-4 rounded border-gray-300 text-indigo-600">
+                        <span class="text-sm text-gray-700">Prender a licença a esta máquina (recomendado)</span>
+                    </label>
+
+                    <div class="border-t pt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ou recusar, com motivo</label>
+                        <input type="text" wire:model="pedMotivoRecusa" placeholder="Motivo da recusa..." class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-400 text-sm">
+                        @error('pedMotivoRecusa') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                    </div>
+                    @error('pedidoId') <p class="text-red-500 text-sm">{{ $message }}</p> @enderror
+                </div>
+                <div class="px-6 py-4 border-t flex justify-between">
+                    <button wire:click="recusarPedido" class="px-5 py-2.5 bg-red-50 text-red-700 rounded-xl text-sm font-semibold hover:bg-red-100">Recusar</button>
+                    <div class="flex gap-2">
+                        <button wire:click="fecharPedido" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">Cancelar</button>
+                        <button wire:click="aprovarPedido" wire:loading.attr="disabled"
+                            class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-lg disabled:opacity-50">
+                            <i class="fas fa-check mr-1"></i>Aprovar e emitir licença
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- ── Emitir licença ─────────────────────────────────────────── --}}
     <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
         <div class="flex items-center mb-5">
@@ -53,9 +197,29 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Graça offline (dias)</label>
                 <input type="number" wire:model="licGraca" placeholder="padrão" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
             </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Máx. utilizadores</label>
+                <input type="number" wire:model="licMaxUsers" placeholder="sem limite" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm">
+            </div>
             <div class="md:col-span-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Prender à máquina (fingerprint) — opcional</label>
                 <input type="text" wire:model="licBindFp" placeholder="deixe vazio para licença flutuante" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono">
+            </div>
+            <div class="md:col-span-4">
+                <label class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" wire:model.live="licTodosModulos" class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-sm font-medium text-gray-700">Todos os módulos</span>
+                </label>
+                @if(!$licTodosModulos)
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50 rounded-xl p-4">
+                        @foreach($modulos as $m)
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" wire:model="licModulos" value="{{ $m->slug }}" class="w-4 h-4 rounded border-gray-300 text-indigo-600">
+                                {{ $m->name }}
+                            </label>
+                        @endforeach
+                    </div>
+                @endif
             </div>
             <div class="flex items-end">
                 <button wire:click="emitirLicenca" wire:loading.attr="disabled"

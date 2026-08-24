@@ -30,6 +30,15 @@
         .flash-ok  { background:#dcfce7; color:#166534; }
         .flash-err { background:#fee2e2; color:#991b1b; }
         .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+        input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:14px; }
+        .grelha { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .col2 { grid-column:1 / -1; }
+        @media (max-width:560px) { .grelha { grid-template-columns:1fr; } }
+        .abas { display:flex; gap:8px; margin:22px 0 14px; border-bottom:1px solid var(--line); }
+        .aba { background:none; color:var(--muted); border:0; border-bottom:2px solid transparent;
+               padding:10px 4px; margin:0 14px 0 0; font-weight:600; font-size:14px; cursor:pointer; border-radius:0; }
+        .aba.activa { color:var(--brand); border-bottom-color:var(--brand); }
+        .pedido { background:#f1f5f9; border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:6px; font-size:14px; }
     </style>
 </head>
 <body>
@@ -64,14 +73,99 @@
             <tr><td>Esta máquina</td><td><span class="fp">{{ $fingerprint }}</span></td></tr>
         </table>
 
-        <form method="POST" action="{{ route('licenca.guardar') }}">
-            @csrf
-            <label for="token">Instalar / substituir licença</label>
-            <textarea id="token" name="token" placeholder="Cole aqui o token da licença (SOSERP-LIC.v1....)">{{ old('token') }}</textarea>
-            @error('token') <div class="hint" style="color:#991b1b">{{ $message }}</div> @enderror
-            <button type="submit">Instalar licença</button>
-            <p class="hint">A licença é verificada localmente, sem internet. Envie a "impressão desta máquina" ao fornecedor para receber uma licença presa a este computador.</p>
-        </form>
+        @if(session('aviso'))
+            <div class="flash" style="background:#fef9c3;color:#854d0e">{{ session('aviso') }}</div>
+        @endif
+
+        {{-- Estado do pedido já feito --}}
+        @if($pedido)
+            <div class="pedido">
+                @if(!empty($pedido['codigo']))
+                    <p><strong>Pedido enviado ao fornecedor.</strong><br>
+                       Código: <span class="fp">{{ $pedido['codigo'] }}</span></p>
+                    <form method="POST" action="{{ route('licenca.verificar') }}" style="margin-top:10px">
+                        @csrf
+                        <button type="submit">Já foi aprovado? Verificar agora</button>
+                    </form>
+                @elseif(!empty($pedido['pacote']))
+                    <p><strong>Sem ligação ao fornecedor.</strong> Envie este código por email ou WhatsApp
+                       para receber a licença:</p>
+                    <textarea readonly onclick="this.select()" style="min-height:80px">{{ $pedido['pacote'] }}</textarea>
+                @endif
+            </div>
+        @endif
+
+        {{-- Separadores: pedir vs instalar --}}
+        <div class="abas">
+            <button type="button" class="aba activa" onclick="mostrar('pedir', this)">Solicitar licença</button>
+            <button type="button" class="aba" onclick="mostrar('instalar', this)">Já tenho uma licença</button>
+        </div>
+
+        <div id="pedir">
+            <form method="POST" action="{{ route('licenca.solicitar') }}">
+                @csrf
+                <div class="grelha">
+                    <div class="col2">
+                        <label for="empresa">Nome da empresa *</label>
+                        <input id="empresa" name="empresa" value="{{ old('empresa') }}" required>
+                        @error('empresa') <div class="hint" style="color:#991b1b">{{ $message }}</div> @enderror
+                    </div>
+                    <div>
+                        <label for="nif">NIF</label>
+                        <input id="nif" name="nif" value="{{ old('nif') }}">
+                    </div>
+                    <div>
+                        <label for="utilizadores">Nº de utilizadores</label>
+                        <input id="utilizadores" name="utilizadores" type="number" min="1" value="{{ old('utilizadores', 5) }}">
+                    </div>
+                    <div>
+                        <label for="responsavel">Responsável</label>
+                        <input id="responsavel" name="responsavel" value="{{ old('responsavel') }}">
+                    </div>
+                    <div>
+                        <label for="telefone">Telefone</label>
+                        <input id="telefone" name="telefone" value="{{ old('telefone') }}">
+                    </div>
+                    <div class="col2">
+                        <label for="email">Email</label>
+                        <input id="email" name="email" type="email" value="{{ old('email') }}">
+                    </div>
+                    <div class="col2">
+                        <label for="observacoes">Observações</label>
+                        <textarea id="observacoes" name="observacoes" style="min-height:60px">{{ old('observacoes') }}</textarea>
+                    </div>
+                </div>
+                <button type="submit">Solicitar licença ao fornecedor</button>
+                <p class="hint">
+                    @if($temServidor)
+                        O pedido segue para o fornecedor com a impressão desta máquina. Se não houver internet,
+                        é gerado um código para enviar por outra via.
+                    @else
+                        Sem servidor configurado: será gerado um código para enviar ao fornecedor.
+                    @endif
+                </p>
+            </form>
+        </div>
+
+        <div id="instalar" style="display:none">
+            <form method="POST" action="{{ route('licenca.guardar') }}">
+                @csrf
+                <label for="token">Instalar / substituir licença</label>
+                <textarea id="token" name="token" placeholder="Cole aqui o token da licença (SOSERP-LIC.v1....)">{{ old('token') }}</textarea>
+                @error('token') <div class="hint" style="color:#991b1b">{{ $message }}</div> @enderror
+                <button type="submit">Instalar licença</button>
+                <p class="hint">A licença é verificada localmente, sem internet.</p>
+            </form>
+        </div>
+
+        <script>
+            function mostrar(qual, botao) {
+                document.getElementById('pedir').style.display = (qual === 'pedir') ? '' : 'none';
+                document.getElementById('instalar').style.display = (qual === 'instalar') ? '' : 'none';
+                document.querySelectorAll('.aba').forEach(function (b) { b.classList.remove('activa'); });
+                botao.classList.add('activa');
+            }
+        </script>
     </div>
 </div>
 </body>

@@ -30,6 +30,9 @@ Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\Maintenan
 if (config('licensing.enforce')) {
     Route::get('/licenca', [\App\Http\Controllers\LicencaController::class, 'index'])->name('licenca.index');
     Route::post('/licenca', [\App\Http\Controllers\LicencaController::class, 'guardar'])->name('licenca.guardar');
+    // O cliente pede a licença ao fornecedor (online, ou gera código offline)
+    Route::post('/licenca/solicitar', [\App\Http\Controllers\LicencaController::class, 'solicitar'])->name('licenca.solicitar');
+    Route::post('/licenca/verificar', [\App\Http\Controllers\LicencaController::class, 'verificarPedido'])->name('licenca.verificar');
     // Assistente de 1.ª utilização: cria empresa + admin a partir da licença.
     Route::get('/setup', \App\Livewire\Setup\SetupWizard::class)->name('setup');
 }

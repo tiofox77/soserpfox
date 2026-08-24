@@ -4,9 +4,13 @@ namespace App\Livewire\SuperAdmin;
 
 use App\Models\AppUpdate;
 use App\Models\AppUpdateTarget;
+use App\Models\LicenseRequest;
+use App\Models\Module;
+use App\Models\Plan;
 use App\Models\Tenant;
 use App\Services\Licensing\LicenseIssuer;
 use App\Services\Licensing\UpdateSigner;
+use Illuminate\Support\Facades\DB;
 use Carbon\CarbonImmutable;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -27,7 +31,20 @@ class Licenciamento extends Component
     public $licDias = 365;
     public $licGraca = '';
     public $licBindFp = '';
+    public $licMaxUsers = '';
+    public array $licModulos = [];
+    public bool $licTodosModulos = true;
     public ?string $licToken = null;
+
+    // Aprovação de pedidos
+    public $pedidoId = null;
+    public $pedPlanoId = '';
+    public $pedDias = 365;
+    public $pedMaxUsers = '';
+    public array $pedModulos = [];
+    public bool $pedTodosModulos = true;
+    public bool $pedPrenderMaquina = true;
+    public $pedMotivoRecusa = '';
 
     // Publicar versão
     public $verVersao = '';
@@ -79,7 +96,8 @@ class Licenciamento extends Component
             'empresa'   => $tenant->name,
             'nif'       => $tenant->nif,
             'plano'     => $tenant->activeSubscription?->plan?->name,
-            'modulos'   => ['*'],
+            'modulos'   => $this->licTodosModulos ? ['*'] : array_values($this->licModulos),
+            'max_users' => $this->licMaxUsers !== '' ? (int) $this->licMaxUsers : null,
             'exp'       => CarbonImmutable::now()->addDays((int) $this->licDias)->getTimestamp(),
             'graca'     => $this->licGraca !== '' ? (int) $this->licGraca : null,
             'fp'        => $this->licBindFp ?: null,
@@ -92,6 +110,110 @@ class Licenciamento extends Component
         } catch (\Throwable $e) {
             $this->addError('licToken', 'Falha ao emitir: ' . $e->getMessage());
         }
+    }
+
+    /** Abre o painel de aprovação de um pedido, pré-preenchido. */
+    public function abrirPedido(int $id): void
+    {
+        $p = LicenseRequest::findOrFail($id);
+        $this->pedidoId = $p->id;
+        $this->pedMaxUsers = $p->utilizadores ?: '';
+        $this->pedPlanoId = Plan::query()->value('id');
+        $this->pedTodosModulos = true;
+        $this->pedModulos = [];
+        $this->pedMotivoRecusa = '';
+    }
+
+    public function fecharPedido(): void
+    {
+        $this->reset(['pedidoId', 'pedMotivoRecusa']);
+    }
+
+    /**
+     * Aprova o pedido: cria a EMPRESA (billing) na cloud, dá-lhe o plano, e
+     * emite a licença já com módulos e tecto de utilizadores. A instalação vai
+     * buscá-la sozinha na próxima verificação.
+     */
+    public function aprovarPedido(): void
+    {
+        $this->validate([
+            'pedPlanoId'  => 'required|exists:plans,id',
+            'pedDias'     => 'required|integer|min:1|max:3650',
+            'pedMaxUsers' => 'nullable|integer|min:1|max:500',
+        ]);
+
+        if (!$this->chaveLicencas()) {
+            $this->addError('pedidoId', 'LICENSE_SIGNING_KEY não configurada no servidor.');
+
+            return;
+        }
+
+        $p = LicenseRequest::findOrFail($this->pedidoId);
+        $plano = Plan::find($this->pedPlanoId);
+
+        DB::transaction(function () use ($p, $plano) {
+            // Reaproveita a empresa se o pedido já tiver uma; senão cria.
+            $tenant = $p->tenant_id ? Tenant::find($p->tenant_id) : null;
+
+            if (!$tenant) {
+                $tenant = Tenant::create([
+                    'name'      => $p->empresa,
+                    'nif'       => $p->nif,
+                    'email'     => $p->email,
+                    'phone'     => $p->telefone,
+                    'is_active' => true,
+                    'max_users' => $this->pedMaxUsers !== '' ? (int) $this->pedMaxUsers : null,
+                ]);
+
+                $fim = CarbonImmutable::now()->addDays((int) $this->pedDias);
+                $tenant->subscriptions()->create([
+                    'plan_id'              => $plano->id,
+                    'status'               => 'active',
+                    'current_period_start' => CarbonImmutable::now(),
+                    'current_period_end'   => $fim,
+                    'ends_at'              => $fim,
+                    'amount'               => $plano->price_monthly ?? 0,  // NOT NULL
+                    'billing_cycle'        => 'monthly',
+                ]);
+            }
+
+            $claims = array_filter([
+                'tenant_id' => $tenant->id,
+                'empresa'   => $tenant->name,
+                'nif'       => $tenant->nif,
+                'plano'     => $plano->name,
+                'modulos'   => $this->pedTodosModulos ? ['*'] : array_values($this->pedModulos),
+                'max_users' => $this->pedMaxUsers !== '' ? (int) $this->pedMaxUsers : null,
+                // Prende à máquina que fez o pedido — é para ela que é.
+                'fp'        => $this->pedPrenderMaquina ? $p->fingerprint : null,
+                'exp'       => CarbonImmutable::now()->addDays((int) $this->pedDias)->getTimestamp(),
+                'env'       => 'prod',
+            ], fn ($v) => $v !== null && $v !== []);
+
+            $p->forceFill([
+                'estado'      => LicenseRequest::APROVADO,
+                'tenant_id'   => $tenant->id,
+                'licenca'     => (new LicenseIssuer())->emitir($claims, $this->chaveLicencas()),
+                'aprovado_em' => now(),
+            ])->save();
+        });
+
+        $this->fecharPedido();
+        session()->flash('ok', 'Pedido aprovado: empresa criada e licença emitida. '
+            . 'A instalação vai buscá-la na próxima verificação.');
+    }
+
+    public function recusarPedido(): void
+    {
+        $this->validate(['pedMotivoRecusa' => 'required|string|min:5|max:255']);
+
+        LicenseRequest::whereKey($this->pedidoId)->update([
+            'estado'        => LicenseRequest::RECUSADO,
+            'motivo_recusa' => $this->pedMotivoRecusa,
+        ]);
+
+        $this->fecharPedido();
+        session()->flash('ok', 'Pedido recusado.');
     }
 
     public function publicarVersao(): void
@@ -177,6 +299,10 @@ class Licenciamento extends Component
             'versoes'       => AppUpdate::with('targets.tenant:id,name')->orderByDesc('id')->get(),
             'chaveLicOk'    => (bool) $this->chaveLicencas(),
             'chaveUpdOk'    => (bool) $this->chaveUpdates(),
+            'pedidos'       => LicenseRequest::orderByRaw("FIELD(estado,'pendente','aprovado','recusado')")
+                                  ->orderByDesc('id')->limit(30)->get(),
+            'planos'        => Plan::orderBy('name')->get(['id', 'name']),
+            'modulos'       => Module::orderBy('name')->get(['slug', 'name']),
         ]);
     }
 }
