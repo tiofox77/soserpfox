@@ -28,6 +28,18 @@
 #define MyName "soserp"
 #define MyPublisher "Softec Angola"
 
+; Compressao: o build.ps1 passa estes. Por omissao ficam os valores de RELEASE
+; (maxima compressao) para quem compile o .iss a mao.
+#ifndef MyCompression
+  #define MyCompression "lzma2/max"
+#endif
+#ifndef MySolid
+  #define MySolid "yes"
+#endif
+#ifndef MyThreads
+  #define MyThreads "4"
+#endif
+
 [Setup]
 ; AppId FIXO (nao mudar entre versoes - e o que liga upgrades e desinstalacao)
 AppId={{8F3B2A10-9C4D-4E77-B2A1-5E6F7A8B9C0D}
@@ -48,8 +60,15 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 OutputDir=dist
 OutputBaseFilename=soserp-setup-{#MyVersion}
-Compression=lzma2/max
-SolidCompression=yes
+Compression={#MyCompression}
+SolidCompression={#MySolid}
+; O LZMA2 do Inno comprime com UMA thread por omissao — numa maquina de 32
+; threads isso deixa 31 paradas a olhar. Comprimir por blocos em paralelo custa
+; uns pontos percentuais de tamanho e poupa a maior fatia do tempo de build.
+LZMANumBlockThreads={#MyThreads}
+; Processo separado: sem isto o compilador (32 bits) fica limitado na memoria
+; que pode dar ao dicionario de compressao.
+LZMAUseSeparateProcess=yes
 WizardStyle=modern
 UninstallDisplayName={#MyName} {#MyVersion}
 LicenseFile=EULA.txt

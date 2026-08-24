@@ -20,8 +20,19 @@ param(
     # PHP tem de ser THREAD-SAFE (TS) para o Apache mod_php. O default e o
     # 8.3.16 TS do Laragon; os "-nts" NAO servem.
     [string]$PhpDir = "C:\laragon2\bin\php\php-8.3.16-Win32-vs16-x64",
-    [switch]$SkipAssets
+    [switch]$SkipAssets,
+    # Saltar a copia dos binarios Apache/MySQL/PHP (527 MB) — mudam raramente.
+    # Util quando so se muda a app ou os scripts do instalador.
+    [switch]$SkipStack,
+    # Build de ITERACAO: comprime pouco e depressa. O .exe fica maior mas sai
+    # em muito menos tempo. Para entregar ao cliente, NAO usar.
+    [switch]$Rapido
 )
+
+# Quantas threads dar a compressao e a copia. Deixa-se um par de nucleos ao
+# sistema para a maquina nao ficar surda durante o build.
+$nucleos = [Environment]::ProcessorCount
+$threads = [Math]::Max(2, [Math]::Min(16, $nucleos - 2))
 
 $ErrorActionPreference = "Stop"
 $root   = Split-Path $PSScriptRoot -Parent
@@ -37,7 +48,7 @@ function Newest($dir) { Get-ChildItem $dir -Directory -EA SilentlyContinue | Sor
 Log "A montar payload/app..."
 if (Test-Path $appOut) { Remove-Item $appOut -Recurse -Force }
 New-Item -ItemType Directory -Force $appOut | Out-Null
-robocopy $root $appOut /E /NFL /NDL /NJH /NJS /XD "$root\node_modules" "$root\.git" "$root\tests" "$root\installer" "$root\storage\logs" "$root\.idea" /XF "$root\.env" | Out-Null
+robocopy $root $appOut /E /MT:$threads /NFL /NDL /NJH /NJS /XD "$root\node_modules" "$root\.git" "$root\tests" "$root\installer" "$root\storage\logs" "$root\.idea" /XF "$root\.env" | Out-Null
 
 Push-Location $appOut
 Log "composer install --no-dev..."
@@ -71,6 +82,9 @@ if ($dump -and (Test-Path $dump)) {
 } else { throw "mysqldump nao encontrado em $mysqlSrc" }
 
 # 2) Stack portatil (so apache/mysql/php)
+if ($SkipStack -and (Test-Path (Join-Path $stkOut "php\php.exe"))) {
+    Log "A reaproveitar payload/xampp (-SkipStack)."
+} else {
 Log "A montar payload/xampp (binarios portateis)..."
 if (Test-Path $stkOut) { Remove-Item $stkOut -Recurse -Force }
 New-Item -ItemType Directory -Force $stkOut | Out-Null
@@ -83,7 +97,8 @@ foreach ($svc in @("apache","mysql","php")) {
     else { $n = Newest $srcRoot; if ($n) { $src = $n.FullName } else { $src = $null } }
     if (-not $src) { throw "Nao resolvi os binarios de $svc em $srcRoot." }
     Log ("  " + $svc + "  <-  " + $src)
-    robocopy $src (Join-Path $stkOut $svc) /E /NFL /NDL /NJH /NJS | Out-Null
+    robocopy $src (Join-Path $stkOut $svc) /E /MT:$threads /NFL /NDL /NJH /NJS | Out-Null
+}
 }
 
 # 2b) Certificados raiz para o PHP.
@@ -158,7 +173,14 @@ if ($iscc) {
     Log "Inno Setup encontrado. A compilar o .exe..."
     $saida = Join-Path $dist "soserp-setup-$Version.exe"
     Remove-Item $saida -Force -EA SilentlyContinue   # o ISCC falha se estiver preso
-    & $iscc "/DMyVersion=$Version" "/DMyPort=$Port" "/DMyDbPort=$DbPort" "/DMyPublicKey=$PublicKey" (Join-Path $PSScriptRoot "soserp.iss")
+    # Compressao: em modo -Rapido troca-se tamanho por tempo (iteracao); em
+    # release comprime-se ao maximo, mas SEMPRE em varias threads.
+    if ($Rapido) { $comp = "lzma2/fast"; $solid = "no" } else { $comp = "lzma2/max"; $solid = "yes" }
+    Log ("Compressao: $comp, solid=$solid, $threads threads (de $nucleos logicos)")
+
+    & $iscc "/DMyVersion=$Version" "/DMyPort=$Port" "/DMyDbPort=$DbPort" "/DMyPublicKey=$PublicKey" `
+        "/DMyCompression=$comp" "/DMySolid=$solid" "/DMyThreads=$threads" `
+        (Join-Path $PSScriptRoot "soserp.iss")
 
     # Verificar A SERIO: o ISCC pode abortar (ex.: antivirus a segurar o
     # ficheiro no passo do icone) e antes disto o script dizia "Feito" na
