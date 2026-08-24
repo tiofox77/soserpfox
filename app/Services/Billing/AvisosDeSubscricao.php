@@ -51,7 +51,8 @@ use Illuminate\Support\Facades\Log;
 class AvisosDeSubscricao
 {
     /** Contagem desta passagem. */
-    private array $conta = ['email' => 0, 'sms' => 0, 'repetidos' => 0, 'falhados' => 0, 'sem_contacto' => 0];
+    private array $conta = ['email' => 0, 'sms' => 0, 'repetidos' => 0, 'falhados' => 0,
+        'sem_contacto' => 0, 'nao_activada' => 0];
 
     public function __construct(
         private ContactoDeFacturacao $contactos,
@@ -290,6 +291,20 @@ class AvisosDeSubscricao
     private function avisar(string $aviso, ?Tenant $empresa, string $referencia, array $dados): bool
     {
         if (!$empresa) {
+            return false;
+        }
+
+        // Empresa que ainda não foi activada não recebe avisos.
+        //
+        // Aprovar um pedido de licença cria a empresa com o email do
+        // formulário e sem ninguém lá dentro; o contacto de facturação recorre
+        // a esse email, pelo que quem nunca instalou nada começava a receber
+        // "a sua factura está a vencer". Contado à parte para isto aparecer no
+        // relatório da varredura — saltar em silêncio esconderia empresas que
+        // não estão a ser cobradas.
+        if (!$empresa->activacaoConcluida()) {
+            $this->conta['nao_activada']++;
+
             return false;
         }
 

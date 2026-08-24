@@ -17,6 +17,9 @@
     @endphp
     <div style="{{ $cor }} padding:10px 16px; text-align:center; font-size:14px; font-weight:600;">
         {{ $e->motivo }}
-        <a href="{{ route('licenca.index') }}" style="text-decoration:underline; margin-left:8px;">Gerir licença</a>
+        {{-- ?ver=1: sem isto o ecrã da licença reencaminhava para o login
+             (só se mostra sozinho quando há problema), e o link não levava
+             a lado nenhum justamente em estados de aviso. --}}
+        <a href="{{ route('licenca.index') }}?ver=1" style="text-decoration:underline; margin-left:8px;">Gerir licença</a>
     </div>
 @endif

@@ -116,13 +116,34 @@
             </div>
         @endif
 
+        @php
+            // Com uma licença a funcionar não se pede outra: mostra-se só a
+            // substituição (renovação) e o caminho para entrar.
+            $licencaBoa = !$estado->bloqueiaTudo();
+        @endphp
+
+        @if($licencaBoa)
+            <div class="pedido" style="background:#dcfce7;border-color:#bbf7d0">
+                <p style="margin:0"><strong>Esta instalação está licenciada.</strong>
+                   Pode entrar no sistema — este ecrã serve agora só para substituir a licença.</p>
+                <p style="margin:10px 0 0">
+                    <a href="/login" style="display:inline-block;background:var(--brand);color:#fff;
+                       padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700">Entrar no soserp</a>
+                </p>
+            </div>
+        @endif
+
         {{-- Separadores: pedir vs instalar --}}
         <div class="abas">
-            <button type="button" class="aba activa" onclick="mostrar('pedir', this)">Solicitar licença</button>
-            <button type="button" class="aba" onclick="mostrar('instalar', this)">Já tenho uma licença</button>
+            @unless($licencaBoa)
+                <button type="button" class="aba activa" onclick="mostrar('pedir', this)">Solicitar licença</button>
+            @endunless
+            <button type="button" class="aba {{ $licencaBoa ? 'activa' : '' }}" onclick="mostrar('instalar', this)">
+                {{ $licencaBoa ? 'Substituir licença' : 'Já tenho uma licença' }}
+            </button>
         </div>
 
-        <div id="pedir">
+        <div id="pedir" @if($licencaBoa) style="display:none" @endif>
             <form method="POST" action="{{ route('licenca.solicitar') }}">
                 @csrf
                 <div class="grelha">
@@ -168,7 +189,7 @@
             </form>
         </div>
 
-        <div id="instalar" style="display:none">
+        <div id="instalar" @unless($licencaBoa) style="display:none" @endunless>
             <form method="POST" action="{{ route('licenca.guardar') }}">
                 @csrf
                 <label for="token">Instalar / substituir licença</label>

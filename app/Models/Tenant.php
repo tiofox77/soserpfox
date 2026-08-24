@@ -899,6 +899,38 @@ class Tenant extends Model
         return $limite;
     }
 
+    /**
+     * A empresa chegou a ser ACTIVADA, ou é só um registo à espera?
+     *
+     * Isto existe por causa dos avisos de facturação. Aprovar um pedido de
+     * licença cria a empresa com o email do formulário e sem ninguém lá dentro
+     * — e o contacto de facturação recorre a esse email. Sem este travão, uma
+     * empresa que nunca instalou nada começava a receber "a sua factura está a
+     * vencer" no dia seguinte.
+     *
+     * Conta como activada de duas formas, porque há dois mundos:
+     *  - NUVEM: alguém se registou e pode entrar (utilizador activo);
+     *  - LOCAL: a instalação já falou connosco, ou já levou a licença — sinal
+     *    de que existe mesmo uma máquina a usar isto. (Os utilizadores de uma
+     *    instalação local vivem na base de dados DELA, nunca aparecem aqui.)
+     */
+    public function activacaoConcluida(): bool
+    {
+        if ($this->users()->where('users.is_active', true)->exists()) {
+            return true;
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('licencas_emitidas')
+            && \App\Models\LicencaEmitida::where('tenant_id', $this->id)
+                ->whereNotNull('ultimo_checkin')->exists()) {
+            return true;
+        }
+
+        return \Illuminate\Support\Facades\Schema::hasTable('license_requests')
+            && \App\Models\LicenseRequest::where('tenant_id', $this->id)
+                ->whereNotNull('entregue_em')->exists();
+    }
+
     /** A ficha está a prometer menos do que o plano dá? */
     public function fichaAbaixoDoPlano(): bool
     {

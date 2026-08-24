@@ -19,10 +19,26 @@ class LicencaController extends Controller
     {
     }
 
-    public function index()
+    public function index(Request $request)
     {
+        $estado = $this->licencas->estado(true);
+
+        // Licença boa? Então este ecrã já cumpriu o seu papel e não deve ficar
+        // no caminho. Segue-se para onde falta trabalho: criar a empresa, ou
+        // entrar. Quem quiser mesmo gerir a licença chega aqui por /licenca?ver=1
+        // (e o banner de aviso continua a apontar para cá).
+        if (!$estado->bloqueiaTudo() && !$request->boolean('ver')) {
+            // Pedido já cumprido: apagar para não ficar a oferecer "verificar
+            // aprovação" de uma licença que já está instalada.
+            $this->esquecerPedido();
+
+            return \App\Models\Tenant::query()->exists()
+                ? redirect('/login')
+                : redirect('/setup');
+        }
+
         return view('licenca.index', [
-            'estado'      => $this->licencas->estado(true),
+            'estado'      => $estado,
             'fingerprint' => MachineFingerprint::atual(),
             'pedido'      => $this->pedidoGuardado(),
             'temServidor' => trim((string) config('licensing.checkin_url')) !== '',
@@ -191,8 +207,12 @@ class LicencaController extends Controller
         }
 
         $this->licencas->store()->guardarToken($token);
+        $this->esquecerPedido();
 
-        return redirect()->route('licenca.index')->with('ok', 'Licença instalada com sucesso.');
+        // Instalada: seguir para o passo que falta em vez de voltar a este ecrã.
+        return \App\Models\Tenant::query()->exists()
+            ? redirect('/login')->with('ok', 'Licença instalada. Já pode entrar.')
+            : redirect('/setup')->with('ok', 'Licença instalada. Vamos criar a sua empresa.');
     }
 
     private function urlDoServidor(string $caminho): ?string
@@ -222,6 +242,12 @@ class LicencaController extends Controller
         return is_array($j) ? $j : null;
     }
 
+    /** Esquece o pedido: cumpriu-se, e um pedido velho só confunde. */
+    private function esquecerPedido(): void
+    {
+        @unlink($this->caminhoDoPedido());
+    }
+
     private function guardarPedido(array $dados): void
     {
         $f = $this->caminhoDoPedido();
@@ -249,8 +275,16 @@ class LicencaController extends Controller
         }
 
         $this->licencas->store()->guardarToken($token);
+        $this->esquecerPedido();
 
-        return redirect()->route('licenca.index')
-            ->with('ok', 'Licença instalada. Estado: ' . $estado->estado . '.');
+        // Mesma regra do caminho online: seguir para o passo em falta.
+        if ($estado->bloqueiaTudo()) {
+            return redirect()->route('licenca.index')
+                ->with('erro', 'Licença instalada mas não activa: ' . $estado->motivo);
+        }
+
+        return \App\Models\Tenant::query()->exists()
+            ? redirect('/login')->with('ok', 'Licença instalada. Já pode entrar.')
+            : redirect('/setup')->with('ok', 'Licença instalada. Vamos criar a sua empresa.');
     }
 }
