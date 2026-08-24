@@ -18,6 +18,14 @@
         </div>
     @endif
 
+    @if (!$criptoOk)
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">
+            <i class="fas fa-circle-exclamation mr-2"></i>
+            <strong>Cripto indisponível neste servidor.</strong> Falta a extensão PHP <code class="font-mono">sodium</code>
+            (ou o pacote <code class="font-mono">paragonie/sodium_compat</code>). Sem ela não é possível assinar licenças.
+        </div>
+    @endif
+
     @if (!$chaveLicOk || !$chaveUpdOk)
         <div class="mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm">
             <i class="fas fa-triangle-exclamation mr-2"></i>
@@ -27,7 +35,85 @@
         </div>
     @endif
 
-    {{-- ── Pedidos de licença (clientes offline) ──────────────────── --}}
+    {{-- ── Clientes offline (instalações on-premise) ──────────────── --}}
+    <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center">
+                <i class="fas fa-server text-indigo-600 text-lg mr-2"></i>
+                <h3 class="text-lg font-bold text-gray-900">Clientes offline</h3>
+            </div>
+            <span class="text-xs text-gray-500">{{ $instalacoes->count() }} instalação(ões)</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr class="text-left text-xs font-bold text-gray-500 uppercase">
+                        <th class="py-3 pr-4">Empresa</th>
+                        <th class="py-3 pr-4">Plano / Módulos</th>
+                        <th class="py-3 pr-4">Util.</th>
+                        <th class="py-3 pr-4">Versão</th>
+                        <th class="py-3 pr-4">Último contacto</th>
+                        <th class="py-3 pr-4">Licença</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($instalacoes as $i)
+                        <tr class="hover:bg-gray-50">
+                            <td class="py-3 pr-4">
+                                <div class="font-semibold text-gray-900">{{ $i->tenant->name ?? ('#'.$i->tenant_id) }}</div>
+                                <div class="text-xs text-gray-400 font-mono">
+                                    {{ $i->fingerprint ? Str::limit($i->fingerprint, 16) : 'licença flutuante' }}
+                                </div>
+                            </td>
+                            <td class="py-3 pr-4 text-sm text-gray-700">
+                                {{ $i->plano ?? '—' }}
+                                <div class="text-xs text-gray-400">
+                                    {{ in_array('*', (array) $i->modulos, true) ? 'todos os módulos' : (count((array) $i->modulos) . ' módulo(s)') }}
+                                </div>
+                            </td>
+                            <td class="py-3 pr-4 text-sm text-gray-700">{{ $i->max_users ?: '∞' }}</td>
+                            <td class="py-3 pr-4 text-sm text-gray-600">{{ $i->versao_instalada ?: '—' }}</td>
+                            <td class="py-3 pr-4 text-sm">
+                                @if($i->ultimo_checkin)
+                                    <span class="text-gray-700">{{ $i->ultimo_checkin->diffForHumans() }}</span>
+                                    <div class="text-xs text-gray-400">{{ $i->ultimo_checkin->format('d/m/Y H:i') }}</div>
+                                @else
+                                    <span class="text-gray-400">nunca ligou</span>
+                                @endif
+                            </td>
+                            <td class="py-3 pr-4">
+                                @php $sit = $i->situacao(); @endphp
+                                @if($sit === 'activa')
+                                    <span class="bg-green-100 text-green-800 text-xs font-bold px-2.5 py-1 rounded-full">activa</span>
+                                @elseif($sit === 'silenciosa')
+                                    <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full">silenciosa</span>
+                                @elseif($sit === 'expirada')
+                                    <span class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full">expirada</span>
+                                @else
+                                    <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full">nunca ligou</span>
+                                @endif
+                                @if($i->expira_em)
+                                    <div class="text-xs text-gray-400 mt-1">expira {{ $i->expira_em->format('d/m/Y') }}</div>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="py-10 text-center text-gray-400">
+                            <i class="fas fa-server text-3xl mb-2 block"></i>
+                            Nenhuma instalação offline ainda. Aparecem aqui assim que emitir uma licença.
+                        </td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">
+            "Silenciosa" = sem contacto há 15 dias ou mais. O estado real da licença é calculado na própria
+            máquina do cliente; aqui vê-se o que o servidor sabe.
+        </p>
+    </div>
+
+    {{-- ── Pedidos de licença ─────────────────────────────────────── --}}
     @php $pendentes = $pedidos->where('estado', 'pendente'); @endphp
     <div class="mb-6 bg-white rounded-2xl shadow-lg p-6">
         <div class="flex items-center justify-between mb-5">

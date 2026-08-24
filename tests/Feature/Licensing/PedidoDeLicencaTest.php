@@ -135,6 +135,52 @@ class PedidoDeLicencaTest extends TenantTestCase
         $this->assertNotNull($pedido->fresh()->entregue_em);
     }
 
+    public function test_aprovacao_regista_a_instalacao_para_a_lista(): void
+    {
+        $pedido = LicenseRequest::create([
+            'codigo' => LicenseRequest::gerarCodigo(),
+            'empresa' => 'Mercearia Central',
+            'utilizadores' => 2,
+            'fingerprint' => 'fp-mercearia',
+            'estado' => LicenseRequest::PENDENTE,
+        ]);
+
+        Livewire::actingAs($this->super)->test(Licenciamento::class)
+            ->call('abrirPedido', $pedido->id)
+            ->set('pedMaxUsers', 2)
+            ->call('aprovarPedido')
+            ->assertHasNoErrors();
+
+        // A instalação passa a existir na lista de clientes offline
+        $inst = \App\Models\LicencaEmitida::where('fingerprint', 'fp-mercearia')->first();
+        $this->assertNotNull($inst, 'a instalação devia ter ficado registada');
+        $this->assertSame(2, $inst->max_users);
+        $this->assertSame($pedido->fresh()->tenant_id, $inst->tenant_id);
+        // Ainda não ligou — é o que a lista deve mostrar
+        $this->assertNull($inst->ultimo_checkin);
+        $this->assertSame('nunca_ligou', $inst->situacao());
+    }
+
+    public function test_checkin_actualiza_o_ultimo_contacto(): void
+    {
+        $token = (new LicenseIssuer())->emitir([
+            'tenant_id' => $this->tenant->id,
+            'fp'        => 'fp-checkin',
+            'exp'       => CarbonImmutable::now()->addDays(10)->getTimestamp(),
+        ], config('licensing.signing_key'));
+
+        $this->semMiddlewareDeTenant()->postJson('/api/license/checkin', [
+            'token'  => $token,
+            'versao' => '1.1.0',
+        ])->assertOk();
+
+        $inst = \App\Models\LicencaEmitida::where('tenant_id', $this->tenant->id)->first();
+        $this->assertNotNull($inst, 'o check-in devia registar a instalação');
+        $this->assertNotNull($inst->ultimo_checkin);
+        $this->assertSame('1.1.0', $inst->versao_instalada);
+        $this->assertSame('activa', $inst->situacao());
+    }
+
     public function test_pedido_recusado_diz_o_motivo(): void
     {
         $pedido = LicenseRequest::create([

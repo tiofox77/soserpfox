@@ -4,6 +4,7 @@ namespace App\Livewire\SuperAdmin;
 
 use App\Models\AppUpdate;
 use App\Models\AppUpdateTarget;
+use App\Models\LicencaEmitida;
 use App\Models\LicenseRequest;
 use App\Models\Module;
 use App\Models\Plan;
@@ -106,10 +107,31 @@ class Licenciamento extends Component
 
         try {
             $this->licToken = (new LicenseIssuer())->emitir($claims, $this->chaveLicencas());
+            $this->registarInstalacao($tenant, $claims);
             session()->flash('ok', 'Licença emitida para ' . $tenant->name . '. Copie o token abaixo.');
         } catch (\Throwable $e) {
             $this->addError('licToken', 'Falha ao emitir: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Deixa registada a instalação a que esta licença se destina, para o painel
+     * poder listar os clientes offline. Uma instalação = empresa + máquina; uma
+     * renovação actualiza a mesma linha.
+     */
+    private function registarInstalacao(Tenant $tenant, array $claims, ?int $pedidoId = null): void
+    {
+        LicencaEmitida::updateOrCreate(
+            ['tenant_id' => $tenant->id, 'fingerprint' => $claims['fp'] ?? null],
+            [
+                'license_request_id' => $pedidoId,
+                'plano'      => $claims['plano'] ?? null,
+                'modulos'    => $claims['modulos'] ?? null,
+                'max_users'  => $claims['max_users'] ?? null,
+                'emitida_em' => now(),
+                'expira_em'  => isset($claims['exp']) ? CarbonImmutable::createFromTimestamp($claims['exp']) : null,
+            ]
+        );
     }
 
     /** Abre o painel de aprovação de um pedido, pré-preenchido. */
@@ -190,7 +212,9 @@ class Licenciamento extends Component
                 'env'       => 'prod',
             ], fn ($v) => $v !== null && $v !== []);
 
-            $p->forceFill([
+                        $this->registarInstalacao($tenant, $claims, $p->id);
+
+$p->forceFill([
                 'estado'      => LicenseRequest::APROVADO,
                 'tenant_id'   => $tenant->id,
                 'licenca'     => (new LicenseIssuer())->emitir($claims, $this->chaveLicencas()),
@@ -299,6 +323,10 @@ class Licenciamento extends Component
             'versoes'       => AppUpdate::with('targets.tenant:id,name')->orderByDesc('id')->get(),
             'chaveLicOk'    => (bool) $this->chaveLicencas(),
             'chaveUpdOk'    => (bool) $this->chaveUpdates(),
+            'criptoOk'      => LicenseIssuer::criptoDisponivel(),
+            'instalacoes'   => LicencaEmitida::with('tenant:id,name,is_active')
+                                  ->orderByRaw('ultimo_checkin IS NULL DESC')
+                                  ->orderByDesc('ultimo_checkin')->limit(50)->get(),
             'pedidos'       => LicenseRequest::orderByRaw("FIELD(estado,'pendente','aprovado','recusado')")
                                   ->orderByDesc('id')->limit(30)->get(),
             'planos'        => Plan::orderBy('name')->get(['id', 'name']),

@@ -79,6 +79,27 @@ class LicenseServerController extends Controller
             return response()->json(['erro' => 'falha_ao_renovar'], 500);
         }
 
+        // Regista o contacto desta instalação: é o que alimenta a lista de
+        // clientes offline no painel ("quem falou connosco, quando, e com que
+        // versão"). Nunca pode partir a renovação — daí o try.
+        try {
+            \App\Models\LicencaEmitida::updateOrCreate(
+                ['tenant_id' => $tenant->id, 'fingerprint' => $payload->fingerprint()],
+                [
+                    'plano'            => $tenant->activeSubscription?->plan?->name,
+                    'max_users'        => $payload->maxUtilizadores() ?: null,
+                    'modulos'          => $payload->modulos(),
+                    'emitida_em'       => now(),
+                    'expira_em'        => CarbonImmutable::now()->addDays((int) ($cfg['renew_days'] ?? 30)),
+                    'ultimo_checkin'   => now(),
+                    'versao_instalada' => $dados['versao'] ?? null,
+                    'ultimo_ip'        => $request->ip(),
+                ]
+            );
+        } catch (\Throwable $e) {
+            // registo é secundário; a licença renovada é que interessa
+        }
+
         return response()->json([
             'licenca'      => $novo,
             'notificacoes' => [],

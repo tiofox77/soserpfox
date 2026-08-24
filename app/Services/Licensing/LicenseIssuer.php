@@ -46,8 +46,26 @@ class LicenseIssuer
      *                                 exp (unix), fp (fingerprint), graca…
      * @param string $chavePrivadaB64 a chave privada Ed25519 em Base64
      */
+    /** A cripto Ed25519 está disponível? (extensão sodium ou o polyfill) */
+    public static function criptoDisponivel(): bool
+    {
+        return function_exists('sodium_crypto_sign_detached')
+            && defined('SODIUM_CRYPTO_SIGN_SECRETKEYBYTES');
+    }
+
     public function emitir(array $claims, string $chavePrivadaB64): string
     {
+        // Sem isto, a falta da extensão sodium rebentava com um
+        // "Undefined constant" no meio de um pedido — erro que não diz a
+        // ninguém o que fazer. O alojamento pode não ter a extensão; nesse
+        // caso vale o polyfill paragonie/sodium_compat.
+        if (!self::criptoDisponivel()) {
+            throw new \RuntimeException(
+                'Cripto Ed25519 indisponível: falta a extensão PHP "sodium" '
+                . '(ou o pacote paragonie/sodium_compat) neste servidor.'
+            );
+        }
+
         $secret = base64_decode($chavePrivadaB64, true);
 
         if ($secret === false || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
