@@ -36,6 +36,12 @@ class Products extends Component
     // Filters
     public $typeFilter = '';
     public $stockFilter = '';
+    public $categoryFilter = '';
+    public $statusFilter = '';
+    // Filtros de qualidade do catálogo: encontram o que está por preencher.
+    // "300 artigos sem preço" é uma pergunta que se faz muito e que antes só
+    // se respondia a olho, linha a linha.
+    public $qualidadeFilter = '';
 
     // Filtros de catálogo especializado. Só estes quatro porque são os que se
     // usam ao balcão e no armazém: "isto precisa de receita?", "há este modelo
@@ -257,6 +263,21 @@ class Products extends Component
         $this->resetPage();
     }
 
+    public function updatingCategoryFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingQualidadeFilter()
+    {
+        $this->resetPage();
+    }
+
     public function updatingDateFrom()
     {
         $this->resetPage();
@@ -290,7 +311,8 @@ class Products extends Component
     public function clearFilters()
     {
         $this->reset([
-            'typeFilter', 'stockFilter', 'dateFrom', 'dateTo', 'search',
+            'typeFilter', 'stockFilter', 'categoryFilter', 'statusFilter', 'qualidadeFilter',
+            'dateFrom', 'dateTo', 'search',
             'filterPrescricao', 'filterTamanho', 'filterCor', 'filterConservacao',
         ]);
         $this->resetPage();
@@ -966,8 +988,32 @@ class Products extends Component
                     $query->where('manage_stock', true)->where('stock_quantity', '>', 0);
                 } elseif ($this->stockFilter === 'sem_stock') {
                     $query->where('manage_stock', true)->where('stock_quantity', '<=', 0);
+                } elseif ($this->stockFilter === 'gerenciado') {
+                    // Todos os que gerem stock, tenham ou não existência. Era o
+                    // oposto do "não gerenciado" e faltava: não havia forma de
+                    // ver de uma vez o universo que conta para inventário.
+                    $query->where('manage_stock', true);
                 } elseif ($this->stockFilter === 'nao_gerenciado') {
                     $query->where('manage_stock', false);
+                } elseif ($this->stockFilter === 'stock_baixo') {
+                    // Abaixo do mínimo definido — só faz sentido para quem gere
+                    // stock e tem mínimo configurado (>0).
+                    $query->where('manage_stock', true)
+                          ->whereNotNull('stock_min')->where('stock_min', '>', 0)
+                          ->whereColumn('stock_quantity', '<=', 'stock_min');
+                }
+            })
+            ->when($this->categoryFilter, fn ($q) => $q->where('category_id', $this->categoryFilter))
+            ->when($this->statusFilter !== '', function ($query) {
+                $query->where('is_active', $this->statusFilter === 'activo');
+            })
+            ->when($this->qualidadeFilter, function ($query) {
+                if ($this->qualidadeFilter === 'sem_preco') {
+                    $query->where(fn ($q) => $q->whereNull('price')->orWhere('price', '<=', 0));
+                } elseif ($this->qualidadeFilter === 'sem_codigo_barras') {
+                    $query->where(fn ($q) => $q->whereNull('barcode')->orWhere('barcode', ''));
+                } elseif ($this->qualidadeFilter === 'sem_categoria') {
+                    $query->whereNull('category_id');
                 }
             })
             // Comparação explícita com '': "não filtrar" é a string vazia, e
@@ -1037,6 +1083,10 @@ class Products extends Component
         // bloco @php da vista o $this nem sempre é o componente.
         $variantes = $this->variantesCatalogo;
 
-        return view('livewire.invoicing.products.products', compact('products', 'taxRates', 'exemptionCodes', 'estatisticas', 'rastreio', 'variantes'));
+        // Categorias para o filtro (só as do tenant, por nome).
+        $categorias = \App\Models\Category::where('tenant_id', activeTenantId())
+            ->orderBy('name')->get(['id', 'name']);
+
+        return view('livewire.invoicing.products.products', compact('products', 'taxRates', 'exemptionCodes', 'estatisticas', 'rastreio', 'variantes', 'categorias'));
     }
 }

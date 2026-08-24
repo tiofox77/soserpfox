@@ -140,9 +140,49 @@
                 </label>
                 <select wire:model.live="stockFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
                     <option value="">{{ __('Todos') }}</option>
+                    <option value="gerenciado">{{ __('Gere stock') }}</option>
+                    <option value="nao_gerenciado">{{ __('Não gere stock') }}</option>
                     <option value="com_stock">{{ __('Com Stock') }}</option>
                     <option value="sem_stock">{{ __('Sem Stock') }}</option>
-                    <option value="nao_gerenciado">{{ __('Não Gerenciado') }}</option>
+                    <option value="stock_baixo">{{ __('Stock abaixo do mínimo') }}</option>
+                </select>
+            </div>
+
+            <!-- Categoria -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-folder mr-1"></i>{{ __('Categoria') }}
+                </label>
+                <select wire:model.live="categoryFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todas') }}</option>
+                    @foreach($categorias as $cat)
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Estado -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-toggle-on mr-1"></i>{{ __('Estado') }}
+                </label>
+                <select wire:model.live="statusFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="activo">{{ __('Activos') }}</option>
+                    <option value="inactivo">{{ __('Inactivos') }}</option>
+                </select>
+            </div>
+
+            <!-- Por preencher (qualidade do catálogo) -->
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    <i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Por preencher') }}
+                </label>
+                <select wire:model.live="qualidadeFilter" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 appearance-none bg-white text-sm">
+                    <option value="">{{ __('Todos') }}</option>
+                    <option value="sem_preco">{{ __('Sem preço') }}</option>
+                    <option value="sem_codigo_barras">{{ __('Sem código de barras') }}</option>
+                    <option value="sem_categoria">{{ __('Sem categoria') }}</option>
                 </select>
             </div>
 
@@ -275,7 +315,7 @@
         </div>
 
         <!-- Active Filters Display -->
-        @if($search || $typeFilter || $stockFilter || $dateFrom || $dateTo || $filterPrescricao || $filterTamanho || $filterCor || $filterConservacao)
+        @if($search || $typeFilter || $stockFilter || $categoryFilter || $statusFilter || $qualidadeFilter || $dateFrom || $dateTo || $filterPrescricao || $filterTamanho || $filterCor || $filterConservacao)
             <div class="mt-4 pt-4 border-t border-gray-200">
                 <div class="flex flex-wrap gap-2">
                     <span class="text-xs font-semibold text-gray-600">{{ __('Filtros ativos:') }}</span>
@@ -298,11 +338,41 @@
                     @if($stockFilter)
                         <span class="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
                             <i class="fas fa-boxes mr-1"></i>
-                            @if($stockFilter === 'com_stock') Com Stock
-                            @elseif($stockFilter === 'sem_stock') Sem Stock
-                            @else Não Gerenciado
+                            @if($stockFilter === 'com_stock') {{ __('Com Stock') }}
+                            @elseif($stockFilter === 'sem_stock') {{ __('Sem Stock') }}
+                            @elseif($stockFilter === 'gerenciado') {{ __('Gere stock') }}
+                            @elseif($stockFilter === 'stock_baixo') {{ __('Stock abaixo do mínimo') }}
+                            @else {{ __('Não gere stock') }}
                             @endif
                             <button wire:click="$set('stockFilter', '')" class="ml-2 hover:text-green-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($categoryFilter)
+                        <span class="inline-flex items-center px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-folder mr-1"></i>{{ $categorias->firstWhere('id', $categoryFilter)?->name ?? __('Categoria') }}
+                            <button wire:click="$set('categoryFilter', '')" class="ml-2 hover:text-amber-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($statusFilter)
+                        <span class="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-toggle-on mr-1"></i>{{ $statusFilter === 'activo' ? __('Activos') : __('Inactivos') }}
+                            <button wire:click="$set('statusFilter', '')" class="ml-2 hover:text-slate-900">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    @endif
+                    @if($qualidadeFilter)
+                        <span class="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
+                            <i class="fas fa-triangle-exclamation mr-1"></i>
+                            @if($qualidadeFilter === 'sem_preco') {{ __('Sem preço') }}
+                            @elseif($qualidadeFilter === 'sem_codigo_barras') {{ __('Sem código de barras') }}
+                            @else {{ __('Sem categoria') }}
+                            @endif
+                            <button wire:click="$set('qualidadeFilter', '')" class="ml-2 hover:text-orange-900">
                                 <i class="fas fa-times"></i>
                             </button>
                         </span>
@@ -631,7 +701,8 @@
                          leva o utilizador a criar duplicados. --}}
                     @php
                         $haCatalogo = ($estatisticas['produtos'] + $estatisticas['servicos']) > 0;
-                        $haFiltro = $search || $typeFilter || $stockFilter || $dateFrom || $dateTo
+                        $haFiltro = $search || $typeFilter || $stockFilter || $categoryFilter
+                            || $statusFilter || $qualidadeFilter || $dateFrom || $dateTo
                             || $filterPrescricao || $filterTamanho || $filterCor || $filterConservacao;
                     @endphp
 
