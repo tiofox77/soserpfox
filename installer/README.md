@@ -27,6 +27,32 @@ activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OFFLINE.md) (RF1).
 | `payload/app/` | *(a criar no build)* o soserp exportado (sem `.env`, sem `node_modules`) |
 | `license.key` | *(opcional)* licença colada ao lado do instalador para activação automática |
 
+## O que o utilizador recebe (é um .exe compilado)
+
+O produto final é um **`soserp-setup-<versão>.exe`** — um executável Windows
+**compilado** pelo Inno Setup 6, com assistente, página de licença, ícone,
+barra de progresso, entrada em *Adicionar/Remover Programas*, desinstalador e
+**assinatura Authenticode**. O utilizador faz **duplo-clique** e segue o
+assistente; **nunca vê PowerShell nem `.bat`** — esses são a lógica interna do
+instalador (como em qualquer produto Windows profissional). O `soserp.iss` é o
+código-fonte desse `.exe`.
+
+> **Para compilar o `.exe` é preciso o Inno Setup 6** (gratuito) na máquina de
+> build. Sem ele, o `build.ps1` produz o pacote portátil (ZIP) como alternativa.
+
+## Código compilado / encriptado (ionCube)
+
+"Tudo compilado" no mundo PHP faz-se com **ionCube** (ou SourceGuardian): o PHP
+é transformado em **bytecode encriptado** — o cliente **não lê nem altera** o
+código-fonte, e corre com o *loader* do ionCube (incluído no `php\ext` do
+payload). É o standard da indústria para produtos PHP comerciais e a peça que
+protege o soserp de ser copiado/adulterado. Encode-se o `payload\app\` no build,
+**antes** de empacotar, com o encoder do ionCube (ferramenta licenciada à parte;
+os flags dependem da versão). Nota: uma app Laravel **não** se transforma num
+único binário nativo — o "compilado" que importa é o installer (.exe) + o
+bytecode encriptado (ionCube). Um único binário com a app embutida só via
+FrankenPHP, imaturo em Windows (ver PRD, estudo futuro).
+
 ## Construir com um comando (recomendado)
 
 O `build.ps1` faz tudo — monta o payload (app + binários + `vc_redist`) e produz

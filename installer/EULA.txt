@@ -1,0 +1,27 @@
+CONTRATO DE LICENCA DE UTILIZACAO - soserp
+===========================================
+
+Este software (soserp) e licenciado, nao vendido. A sua utilizacao esta
+sujeita a uma licenca valida, emitida por Softec Angola.
+
+1. LICENCA
+   A instalacao inclui uma licenca digital assinada, ligada a esta empresa e,
+   opcionalmente, a esta maquina. O software verifica a licenca localmente e
+   liga-se periodicamente ao servidor de licencas para a renovar.
+
+2. RESTRICOES
+   E proibido copiar, redistribuir, alugar, descompilar ou alterar o software,
+   ou tentar contornar os mecanismos de licenca.
+
+3. ATUALIZACOES
+   O software pode receber atualizacoes assinadas. As atualizacoes ficam
+   sujeitas a este contrato.
+
+4. DADOS
+   Os dados introduzidos sao do cliente. Recomenda-se a realizacao de copias de
+   seguranca regulares.
+
+5. GARANTIA
+   O software e fornecido "tal como esta", sem garantias implicitas.
+
+Ao continuar a instalacao, o utilizador aceita estes termos.
