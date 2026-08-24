@@ -38,8 +38,16 @@ class AvisoDePagamentoPendente
     /** O número que recebe os avisos, se ninguém tiver configurado outro. */
     public const NUMERO_POR_OMISSAO = '939729902';
 
-    /** Uma janela curta chega para apanhar duplo-clique e reenvios. */
-    private const MINUTOS_SEM_REPETIR = 10;
+    /**
+     * Cada aviso sai UMA VEZ, e a memória disso vive na base de dados.
+     *
+     * Era uma chave em cache com 10 minutos de validade. Passados esses
+     * minutos — ou a qualquer `cache:clear`, que corre em cada actualização —
+     * a memória desaparecia e o mesmo aviso voltava a sair. Com o comprovativo
+     * a ser reanexado, eram vários SMS pelo mesmo pedido, e o saldo da
+     * operadora ia atrás.
+     */
+    private const TABELA_MEMORIA = "avisos_de_subscricao";
 
     /** Está ligado? */
     public static function ligado(): bool
@@ -95,9 +103,10 @@ class AvisoDePagamentoPendente
             return;
         }
 
-        $chave = "aviso-registo:{$empresa->id}";
-
-        if (!\Cache::add($chave, true, now()->addHours(6))) {
+        // Mesma razão do aviso de pagamento: memória permanente, não uma chave
+        // de cache que expira (e que qualquer `cache:clear` apagava). Uma
+        // empresa regista-se uma vez; o aviso sai uma vez.
+        if (!$this->reservarEmpresa($empresa, self::numero())) {
             return;
         }
 
@@ -163,10 +172,7 @@ class AvisoDePagamentoPendente
             return;
         }
 
-        $chave = "aviso-pagamento:{$ocasiao}:{$order->id}";
-
-        // Cache::add é atómico: dois pedidos em simultâneo, um só aviso.
-        if (!\Cache::add($chave, true, now()->addMinutes(self::MINUTOS_SEM_REPETIR))) {
+        if (!$this->reservar($order, $ocasiao, self::numero())) {
             return;
         }
 
@@ -187,6 +193,73 @@ class AvisoDePagamentoPendente
      * pagar não perde a compra porque a operadora está em baixo, e quem se
      * está a registar não perde a conta.
      */
+    /**
+     * Marca este aviso como enviado — de forma PERMANENTE.
+     *
+     * Devolve false se já tinha saído, e aí não se envia nada. A chave única
+     * da tabela é (tenant, aviso, referência, canal, destinatário, data): a
+     * data usada é a da criação do pedido, que nunca muda, pelo que a memória
+     * vale para sempre e não só para o dia de hoje.
+     *
+     * Falha FECHADO: se a memória não aceitar o registo, não se envia. Entre
+     * perder um aviso e gastar o saldo da operadora a repetir o mesmo SMS, o
+     * erro barato é o primeiro.
+     */
+    /** Como o reservar() dos pedidos, mas para o aviso de empresa nova. */
+    private function reservarEmpresa(\App\Models\Tenant $empresa, string $numero): bool
+    {
+        try {
+            \Illuminate\Support\Facades\DB::table(self::TABELA_MEMORIA)->insert([
+                'tenant_id'    => $empresa->id,
+                'aviso'        => 'pag_pend_empresa_nova',
+                'referencia'   => 'tenant:' . $empresa->id,
+                'canal'        => 'sms',
+                'destinatario' => mb_substr($numero, 0, 190),
+                'window_date'  => ($empresa->created_at ?? now())->toDateString(),
+                'status'       => 'sent',
+                'tentativas'   => 1,
+                'created_at'   => now(),
+            ]);
+
+            return true;
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return false;
+        } catch (\Throwable $e) {
+            Log::error('Aviso de empresa nova: a memoria nao aceitou o registo; SMS nao enviado', [
+                'tenant_id' => $empresa->id, 'erro' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+    private function reservar(Order $order, string $ocasiao, string $numero): bool
+    {
+        try {
+            \Illuminate\Support\Facades\DB::table(self::TABELA_MEMORIA)->insert([
+                'tenant_id'    => $order->tenant_id ?? 0,
+                'aviso'        => mb_substr('pag_pend_' . $ocasiao, 0, 40),
+                'referencia'   => 'order:' . $order->id,
+                'canal'        => 'sms',
+                'destinatario' => mb_substr($numero, 0, 190),
+                // Data do PEDIDO, não de hoje: é o que torna a memória
+                // permanente em vez de válida só para o dia.
+                'window_date'  => ($order->created_at ?? now())->toDateString(),
+                'status'       => 'sent',
+                'tentativas'   => 1,
+                'created_at'   => now(),
+            ]);
+
+            return true;
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return false;   // já saiu: o caso normal
+        } catch (\Throwable $e) {
+            Log::error('Aviso de pagamento: a memoria nao aceitou o registo; SMS nao enviado', [
+                'order_id' => $order->id, 'ocasiao' => $ocasiao, 'erro' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
     private function enviar(string $numero, string $texto, string $tipo, array $contexto = []): void
     {
         defer(function () use ($numero, $texto, $tipo, $contexto) {
