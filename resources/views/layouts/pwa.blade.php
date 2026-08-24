@@ -11,18 +11,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     @include('partials.favicon')
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/vendor/js/tailwind.js"></script>
+    <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
 
     {{-- Dexie (IndexedDB wrapper) --}}
-    <script src="https://unpkg.com/dexie@4.0.10/dist/dexie.min.js"></script>
+    <script src="/vendor/js/dexie.min.js"></script>
 
     {{-- bcryptjs — verifica o PIN de turno offline. Servido pelo próprio
          domínio e pré-cacheado no Service Worker, para funcionar sem rede. --}}
     <script src="/js/vendor/bcrypt.min.js?v=1"></script>
 
     {{-- Alpine.js --}}
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="/vendor/js/alpine.min.js"></script>
 
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }

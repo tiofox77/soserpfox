@@ -6,8 +6,8 @@
     <title>@yield('titulo') — SOSERP</title>
     <meta name="description" content="@yield('descricao')">
     <link rel="icon" href="/favicon.ico">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/vendor/js/tailwind.js"></script>
+    <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     <style>
         /* Tipografia de documento: linha larga e respiração entre secções —
            estes textos são para ler, não para varrer. */

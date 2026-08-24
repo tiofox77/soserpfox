@@ -14,16 +14,16 @@
     <meta name="apple-mobile-web-app-title" content="SOS ERP">
     
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/vendor/js/tailwind.js"></script>
     
     <!-- Font Awesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
     <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/vendor/js/chart.min.js"></script>
     
     <!-- Toastr CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <link rel="stylesheet" href="/vendor/css/toastr.min.css">
     
     @livewireStyles
     
@@ -395,10 +395,10 @@
     @livewireScripts
     
     <!-- jQuery (required for Toastr) -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="/vendor/js/jquery.min.js"></script>
     
     <!-- Toastr JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="/vendor/js/toastr.min.js"></script>
     
     <script>
         // Configuração do Toastr

@@ -31,10 +31,10 @@
     <meta name="apple-mobile-web-app-title" content="SOS ERP">
     
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/vendor/js/tailwind.js"></script>
     
     <!-- Font Awesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/vendor/css/fontawesome.min.css">
     
     <style>
         [x-cloak] { display: none !important; }

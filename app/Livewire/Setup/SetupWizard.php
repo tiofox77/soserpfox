@@ -80,6 +80,10 @@ class SetupWizard extends Component
             ? (Plan::where('slug', $this->plano)->orWhere('name', $this->plano)->first() ?? Plan::query()->first())
             : Plan::query()->first();
 
+        // Um 500 anónimo no último passo do assistente deixa o cliente sem
+        // saber se a empresa ficou criada ou não. A transacção garante que não
+        // fica nada a meio; a mensagem diz o que falhou.
+        try {
         DB::transaction(function () use ($plano) {
             $tenant = Tenant::create([
                 'name'         => $this->empresa,
@@ -115,12 +119,17 @@ class SetupWizard extends Component
 
             if ($plano) {
                 $tenant->subscriptions()->create([
-                    'plan_id'            => $plano->id,
-                    'status'             => 'active',
+                    'plan_id'              => $plano->id,
+                    'status'               => 'active',
                     // O prazo real é imposto pela LICENÇA (renova por check-in);
                     // a subscrição local só satisfaz o CheckSubscription.
-                    'current_period_end' => now()->addYears(10),
-                    'ends_at'            => now()->addYears(10),
+                    'current_period_start' => now(),
+                    'current_period_end'   => now()->addYears(10),
+                    'ends_at'              => now()->addYears(10),
+                    // NOT NULL sem default — sem isto a criação da empresa
+                    // rebentava com erro 500 no fim do assistente.
+                    'amount'               => $plano->price_monthly ?? 0,
+                    'billing_cycle'        => 'monthly',
                 ]);
 
                 $sync = new TenantModuleSyncService();
@@ -129,6 +138,12 @@ class SetupWizard extends Component
                 }
             }
         });
+        } catch (\Throwable $e) {
+            \Log::error('Setup on-premise falhou', ['erro' => $e->getMessage()]);
+            $this->addError('empresa', 'Não foi possível criar a empresa: ' . $e->getMessage());
+
+            return null;
+        }
 
         session()->flash('ok', 'Empresa criada. Já pode entrar com o administrador.');
 
