@@ -80,6 +80,12 @@ class LicensePayload
         return isset($this->claims['graca']) ? (int) $this->claims['graca'] : null;
     }
 
+    /** Tecto de utilizadores desta licença. 0/null = sem tecto. */
+    public function maxUtilizadores(): int
+    {
+        return (int) ($this->claims['max_users'] ?? 0);
+    }
+
     public function ambiente(): string
     {
         return $this->claims['env'] ?? 'prod';

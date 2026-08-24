@@ -95,6 +95,29 @@ if (-not (Test-Path $vc)) {
     } catch { Log "AVISO: nao consegui descarregar o vc_redist. Coloque-o em payload a mao." }
 }
 
+# 3b) Icone da marca + agente da bandeja (compilado com o csc.exe do .NET
+# Framework, que existe em qualquer Windows - nao precisa de Visual Studio).
+Log "A gerar icone da marca..."
+$icone = Join-Path $PSScriptRoot "soserp.ico"
+& php (Join-Path $PSScriptRoot "gerar-icone.php") | Out-Null
+if (-not (Test-Path $icone)) { Log "AVISO: soserp.ico nao gerado (o instalador fica com o icone por omissao)." }
+
+Log "A compilar o agente da bandeja (soserp-tray.exe)..."
+$csc = @(
+    "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
+    "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+$trayExe = Join-Path $PSScriptRoot "soserp-tray.exe"
+if ($csc) {
+    $refs = "/r:System.dll","/r:System.Drawing.dll","/r:System.Windows.Forms.dll","/r:System.ServiceProcess.dll"
+    $args = @("/target:winexe","/optimize+","/nologo","/out:$trayExe") + $refs
+    if (Test-Path $icone) { $args += "/win32icon:$icone" }
+    $args += (Join-Path $PSScriptRoot "tray\SoserpTray.cs")
+    & $csc $args 2>&1 | ForEach-Object { if ($_ -match "error") { Log "  csc: $_" } }
+    if (Test-Path $trayExe) { Log ("  soserp-tray.exe: " + [math]::Round((Get-Item $trayExe).Length/1KB) + " KB") }
+    else { Log "AVISO: o agente da bandeja NAO compilou." }
+} else { Log "AVISO: csc.exe nao encontrado - sem agente da bandeja." }
+
 # 4) Produzir o instalador
 New-Item -ItemType Directory -Force $dist | Out-Null
 $iscc = @(

@@ -2,7 +2,7 @@
 #  soserp - vigia (watchdog). Corre em tarefa agendada (arranque + cada 2 min).
 #  Garante Apache + MySQL a correr e a app a responder; reinicia o que cair.
 # ==========================================================================
-param([int]$Port = 8080)
+param([int]$Port = 8080, [string]$AppDir = "")
 $ErrorActionPreference = "Continue"
 $log = Join-Path $PSScriptRoot "vigia.log"
 function L($m) { try { ("{0}  {1}" -f (Get-Date -Format s), $m) | Add-Content -Path $log } catch {} }
@@ -21,4 +21,21 @@ try {
 } catch {
     L "app nao responde ($($_.Exception.Message)); a reiniciar Apache"
     Restart-Service soserp-apache -Force -ErrorAction SilentlyContinue
+}
+
+# 3) Estado da licenca para o agente da bandeja ler (icone junto ao relogio).
+# `licenca:ver --json` corre offline: valida assinatura, validade, maquina,
+# relogio recuado e dias sem ligar a casa.
+if (-not $AppDir) { $AppDir = Join-Path $PSScriptRoot "app" }
+$php = Join-Path $PSScriptRoot "xampp\php\php.exe"
+if ((Test-Path $php) -and (Test-Path $AppDir)) {
+    try {
+        Push-Location $AppDir
+        $json = & $php artisan licenca:ver --json 2>$null
+        Pop-Location
+        if ($json) {
+            $destino = Join-Path $AppDir "storage\app\estado-licenca.json"
+            Set-Content -Path $destino -Value ($json -join "`n") -Encoding ascii
+        }
+    } catch { L "falha ao gravar estado da licenca: $($_.Exception.Message)" }
 }

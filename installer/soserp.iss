@@ -53,8 +53,9 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#MyName} {#MyVersion}
 LicenseFile=EULA.txt
-; Descomentar quando houver um icone/imagens:
-; SetupIconFile=soserp.ico
+; Ícone da marca (gerado por installer\gerar-icone.php a partir do logo)
+SetupIconFile=soserp.ico
+UninstallDisplayIcon={app}\soserp.ico
 ; WizardImageFile=wizard.bmp
 ; WizardSmallImageFile=wizard-small.bmp
 ; Assinatura Authenticode (SmartScreen): configurar uma ferramenta 'signtool':
@@ -73,18 +74,26 @@ Source: "payload\vc_redist.x64.exe"; DestDir: "{app}"; Flags: skipifsourcedoesnt
 Source: "provision.ps1";   DestDir: "{app}"; Flags: ignoreversion
 Source: "vigia.ps1";       DestDir: "{app}"; Flags: ignoreversion
 Source: "integridade.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "soserp.ico";      DestDir: "{app}"; Flags: ignoreversion
+Source: "soserp-tray.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "license.key";     DestDir: "{app}"; Flags: skipifsourcedoesntexist
 
 [Icons]
-Name: "{group}\soserp"; Filename: "http://localhost:{#MyPort}"
+Name: "{group}\soserp"; Filename: "http://localhost:{#MyPort}"; IconFilename: "{app}\soserp.ico"
 Name: "{group}\Desinstalar soserp"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\soserp"; Filename: "http://localhost:{#MyPort}"; Tasks: desktopicon
+Name: "{autodesktop}\soserp"; Filename: "http://localhost:{#MyPort}"; IconFilename: "{app}\soserp.ico"; Tasks: desktopicon
+; Agente da bandeja arranca com o Windows (todos os utilizadores)
+Name: "{commonstartup}\soserp (agente)"; Filename: "{app}\soserp-tray.exe"; \
+  Parameters: "--dir ""{app}"" --port {#MyPort}"; IconFilename: "{app}\soserp.ico"
 
 [Run]
 Filename: "powershell.exe"; \
   Parameters: "-ExecutionPolicy Bypass -File ""{app}\provision.ps1"" -InstallDir ""{app}"" -Port {#MyPort} -DbPort {#MyDbPort} -LicenseFile ""{app}\license.key"" -PublicKey ""{#MyPublicKey}"""; \
   StatusMsg: "A configurar o soserp (base de dados, servicos, licenca)..."; \
   Flags: runhidden waituntilterminated
+; Arranca já o agente da bandeja (sem esperar pelo próximo login)
+Filename: "{app}\soserp-tray.exe"; Parameters: "--dir ""{app}"" --port {#MyPort}"; \
+  Flags: nowait postinstall skipifsilent runasoriginaluser; Description: "Iniciar o agente na bandeja"
 Filename: "http://localhost:{#MyPort}"; Description: "Abrir o soserp"; Flags: postinstall shellexec
 
 [UninstallRun]

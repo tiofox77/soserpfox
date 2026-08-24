@@ -46,6 +46,21 @@ if (!function_exists('licenca_so_leitura')) {
     }
 }
 
+if (!function_exists('licenca_max_utilizadores')) {
+    /**
+     * Tecto de utilizadores imposto pela licença. 0 = sem tecto (é o que
+     * devolve na cloud, com o enforce desligado).
+     */
+    function licenca_max_utilizadores(): int
+    {
+        if (!licenca_enforce()) {
+            return 0;
+        }
+
+        return licenca_estado()->payload?->maxUtilizadores() ?? 0;
+    }
+}
+
 if (!function_exists('licenca_tem_modulo')) {
     /**
      * Este módulo está licenciado? Com enforce desligado devolve sempre true

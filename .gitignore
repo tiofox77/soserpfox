@@ -55,3 +55,5 @@ Thumbs.db
 # Build do instalador offline (payload/output — nunca versionar)
 /installer/payload/
 /installer/dist/
+/installer/soserp-tray.exe
+/installer/soserp.ico

@@ -754,6 +754,14 @@ class Tenant extends Model
             return false;
         }
 
+        // Build OFFLINE: a licença manda nos módulos. Isto é o funil único por
+        // onde passam rotas, menu e código de negócio — chega aqui uma linha.
+        // Na cloud é sempre `true` (o helper devolve true com LICENSE_ENFORCE
+        // desligado), portanto não muda nada do que já corre.
+        if (function_exists('licenca_tem_modulo') && !licenca_tem_modulo($moduleSlug)) {
+            return false;
+        }
+
         // Regra de negócio: a TESOURARIA acompanha sempre a FATURAÇÃO.
         // Os métodos de pagamento/caixas dependem da tesouraria, logo qualquer
         // tenant com faturação ativa tem também acesso à tesouraria, mesmo que
@@ -872,10 +880,23 @@ class Tenant extends Model
      */
     public function limiteDeUtilizadores(): int
     {
-        return max(
+        $limite = max(
             (int) ($this->max_users ?? 0),
             (int) ($this->activeSubscription?->plan?->max_users ?? 0)
         );
+
+        // Build OFFLINE: a licença é um TETO, não um chão. O que o cliente
+        // comprou não pode ser alargado mexendo na ficha da empresa — por isso
+        // aqui é mínimo, ao contrário do max() acima. Na cloud devolve 0
+        // (sem tecto) e nada muda.
+        if (function_exists('licenca_max_utilizadores')) {
+            $daLicenca = licenca_max_utilizadores();
+            if ($daLicenca > 0) {
+                return $limite > 0 ? min($limite, $daLicenca) : $daLicenca;
+            }
+        }
+
+        return $limite;
     }
 
     /** A ficha está a prometer menos do que o plano dá? */

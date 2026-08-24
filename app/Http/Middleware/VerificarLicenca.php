@@ -65,7 +65,11 @@ class VerificarLicenca
                 return response()->json(['message' => $estado->motivo], 423);
             }
 
-            return redirect()->route('licenca.index');
+            // URL directo e não route(): as rotas de licença só se registam
+            // com o enforce ligado (ver routes/web.php) e um route() faria
+            // explodir com RouteNotFoundException justamente quando o sistema
+            // já está em apuros.
+            return redirect('/licenca');
         }
 
         // Instalação fresca: licença válida, mas ainda NÃO há empresa. Obriga o

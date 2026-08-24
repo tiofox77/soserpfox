@@ -27,3 +27,13 @@ Route::post('/license/checkin', [\App\Http\Controllers\Api\LicenseServerControll
 // assinatura do token; a versão-alvo vem do rollout por-tenant (super admin).
 Route::post('/license/update', [\App\Http\Controllers\Api\UpdateServerController::class, 'check'])
     ->name('api.license.update');
+
+// Pedidos de licença de instalações novas. Públicos por necessidade (ainda não
+// têm licença nem credenciais) mas com limite de chamadas: só criam um pedido,
+// e nada sai sem aprovação humana no painel.
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/license/request', [\App\Http\Controllers\Api\LicenseRequestController::class, 'criar'])
+        ->name('api.license.request');
+    Route::get('/license/request/{codigo}', [\App\Http\Controllers\Api\LicenseRequestController::class, 'consultar'])
+        ->name('api.license.request.check');
+});
