@@ -25,13 +25,14 @@ Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\Maintenan
 // Licença offline (build on-premise): ecrã de activação e estado. Sempre
 // acessível (o middleware da licença deixa `licenca*` passar) — é a porta para
 // instalar uma licença nova com o sistema bloqueado. Inofensivo na cloud.
-Route::get('/licenca', [\App\Http\Controllers\LicencaController::class, 'index'])->name('licenca.index');
-Route::post('/licenca', [\App\Http\Controllers\LicencaController::class, 'guardar'])->name('licenca.guardar');
-
-// Assistente de 1.ª utilização do on-premise (build offline). Cria a empresa +
-// admin a partir da licença. O middleware VerificarLicenca encaminha para aqui
-// quando a licença é válida mas ainda não há empresa. Inofensivo na cloud.
-Route::get('/setup', \App\Livewire\Setup\SetupWizard::class)->name('setup');
+// Rotas do CLIENTE on-premise (ativação + 1.ª utilização). Só existem quando o
+// enforce está ligado (a build offline) — na cloud nem sequer se registam.
+if (config('licensing.enforce')) {
+    Route::get('/licenca', [\App\Http\Controllers\LicencaController::class, 'index'])->name('licenca.index');
+    Route::post('/licenca', [\App\Http\Controllers\LicencaController::class, 'guardar'])->name('licenca.guardar');
+    // Assistente de 1.ª utilização: cria empresa + admin a partir da licença.
+    Route::get('/setup', \App\Livewire\Setup\SetupWizard::class)->name('setup');
+}
 
 // Analytics tracking (sem auth, sem CSRF — público)
 Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::class, 'track'])->name('analytics.track');
