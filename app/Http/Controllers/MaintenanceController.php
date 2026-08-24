@@ -74,6 +74,7 @@ class MaintenanceController extends Controller
         // Os erros do sistema, agrupados. Só lê (fechar e empurrar exigem
         // ?args=--resolver=N ou --empurrar, explícitos).
         'erros:ver',
+        'sms:ver',
         // Liga o "Gerenciar Stock" nos artigos que o deviam ter. Simulação
         // por omissão: sem ?args=--aplicar não grava nada. Nunca toca em
         // serviços nem na quantidade.

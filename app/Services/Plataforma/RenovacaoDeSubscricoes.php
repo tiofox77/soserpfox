@@ -132,12 +132,28 @@ class RenovacaoDeSubscricoes
     /**
      * Já saiu a factura do período que se segue a este?
      *
-     * Reconhece-se pela data de emissão: uma factura desta subscrição criada
-     * DEPOIS do início do período em curso só pode ser a do seguinte — a
-     * deste período foi emitida no início dele ou antes.
+     * Reconhece-se pelo VENCIMENTO, não pela data de emissão: a factura de
+     * renovação nasce sempre com `due_date` igual ao fim do período em curso
+     * (ver o comentário em emitir()). É uma marca exacta e única.
+     *
+     * Antes inferia-se pela data de emissão — "uma factura criada depois do
+     * início do período só pode ser a do seguinte", com um dia de margem para
+     * excluir a factura inicial. A margem partia o caso em que a renovação é
+     * emitida NO MESMO DIA em que o período começou: a factura acabada de
+     * criar ficava fora da janela, a varredura concluía que não havia factura
+     * nenhuma e emitia OUTRA. Como a varredura corre de hora a hora, era uma
+     * factura duplicada por hora — cada uma com o seu SMS e email ao cliente.
+     * Acontece com períodos curtos e sempre que o período começa hoje.
      */
     private function jaTemFacturaDoProximoPeriodo(Subscription $sub): bool
     {
+        if ($sub->current_period_end) {
+            return Invoice::where('subscription_id', $sub->id)
+                ->whereDate('due_date', $sub->current_period_end->toDateString())
+                ->exists();
+        }
+
+        // Sem fim de período não há marca exacta; fica a regra antiga.
         $inicio = $sub->current_period_start ?? $sub->created_at;
 
         return Invoice::where('subscription_id', $sub->id)
