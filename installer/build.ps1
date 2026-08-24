@@ -86,6 +86,34 @@ foreach ($svc in @("apache","mysql","php")) {
     robocopy $src (Join-Path $stkOut $svc) /E /NFL /NDL /NJH /NJS | Out-Null
 }
 
+# 2b) Certificados raiz para o PHP.
+# O PHP do Windows nao traz CA bundle e o Laragon guarda o dele FORA da pasta
+# php/ (em etc\ssl), pelo que nao vinha no payload. Sem ele, todo o HTTPS do
+# cliente falha em silencio (licenca, check-in, updates).
+$sslDir = Join-Path $stkOut "php\extras\ssl"
+New-Item -ItemType Directory -Force $sslDir | Out-Null
+$cacert = Join-Path $sslDir "cacert.pem"
+$origemCa = @(
+    (Join-Path (Split-Path $SourceStack -Parent) "etc\ssl\cacert.pem"),
+    "C:\laragon2\etc\ssl\cacert.pem",
+    "C:\laragon\etc\ssl\cacert.pem"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if ($origemCa) {
+    Copy-Item $origemCa $cacert -Force
+    Log ("  cacert.pem <- " + $origemCa)
+} else {
+    try {
+        Log "  a descarregar cacert.pem (curl.se)..."
+        Invoke-WebRequest "https://curl.se/ca/cacert.pem" -OutFile $cacert -UseBasicParsing
+    } catch { }
+}
+if (Test-Path $cacert) {
+    Log ("  cacert.pem: " + [math]::Round((Get-Item $cacert).Length/1KB) + " KB")
+} else {
+    throw "Sem cacert.pem: o cliente nao conseguiria fazer pedidos HTTPS (licenca/updates)."
+}
+
 # 3) VC++ Redistributable
 $vc = Join-Path $build "vc_redist.x64.exe"
 if (-not (Test-Path $vc)) {

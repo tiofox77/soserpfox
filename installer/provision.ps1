@@ -71,6 +71,18 @@ $phpIni = Join-Path $phpDir "php.ini"
 if (Test-Path (Join-Path $phpDir "php.ini-production")) { Copy-Item (Join-Path $phpDir "php.ini-production") $phpIni -Force }
 $exts = @('pdo_mysql','mysqli','mbstring','openssl','curl','fileinfo','gd','zip','sodium','intl','bcmath','exif')
 $linhasIni = @("", "; --- soserp ---", ('extension_dir = "' + (Fwd (Join-Path $phpDir 'ext')) + '"'), "memory_limit = 512M", "upload_max_filesize = 64M", "post_max_size = 64M", "max_execution_time = 120", 'date.timezone = "Africa/Luanda"')
+
+# CERTIFICADOS RAIZ. Sem isto NENHUM pedido HTTPS sai desta maquina: o pedido
+# de licenca, o check-in e as actualizacoes falhavam todos com "unable to get
+# local issuer certificate" — e o ecra so dizia "sem ligacao ao fornecedor".
+# O PHP do Windows nao traz CA bundle; tem de se apontar um.
+$cacert = Join-Path $phpDir "extras\ssl\cacert.pem"
+if (Test-Path $cacert) {
+    $linhasIni += ('curl.cainfo = "' + (Fwd $cacert) + '"')
+    $linhasIni += ('openssl.cafile = "' + (Fwd $cacert) + '"')
+} else {
+    Log "AVISO: cacert.pem nao encontrado - pedidos HTTPS (licenca/updates) vao falhar."
+}
 foreach ($e in $exts) { if (Test-Path (Join-Path $phpDir ("ext\php_" + $e + ".dll"))) { $linhasIni += ("extension=" + $e) } }
 # opcache: ZEND extension. Em Apache/Windows o ASLR torna os opcode handlers
 # inutilizaveis sem file_cache_fallback - senao o Apache nem arranca.

@@ -54,8 +54,35 @@ class LicencaController extends Controller
                    'mensagem' => 'O servidor do fornecedor respondeu com erro (HTTP ' . $r->status() . ').'];
         } catch (\Throwable $e) {
             return ['ok' => false, 'estado' => 'sem_rede', 'url' => $url,
-                'mensagem' => 'Sem acesso ao servidor do fornecedor (verifique a internet ou a firewall).'];
+                'mensagem' => self::explicarFalhaDeRede($e, $url)];
         }
+    }
+
+    /**
+     * Traduz a excepção para algo accionável. Um erro de certificado manda o
+     * cliente investigar a firewall se a mensagem for genérica — e o problema
+     * está na instalação, não na rede dele.
+     */
+    private static function explicarFalhaDeRede(\Throwable $e, string $url): string
+    {
+        $m = $e->getMessage();
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (stripos($m, 'SSL cert') !== false || stripos($m, 'certificate') !== false
+            || stripos($m, 'cURL error 60') !== false) {
+            return 'Falha de certificado (SSL) — faltam os certificados raiz nesta instalação. '
+                . 'É um problema da instalação, não da sua internet: contacte o fornecedor.';
+        }
+
+        if (stripos($m, 'Could not resolve host') !== false || stripos($m, 'cURL error 6') !== false) {
+            return 'Não foi possível resolver o endereço ' . $host . ' (DNS/internet).';
+        }
+
+        if (stripos($m, 'timed out') !== false || stripos($m, 'cURL error 28') !== false) {
+            return 'O servidor ' . $host . ' não respondeu a tempo.';
+        }
+
+        return 'Não foi possível contactar ' . $host . ' (verifique a internet ou a firewall).';
     }
 
     /**
@@ -105,8 +132,7 @@ class LicencaController extends Controller
                 $motivo = 'O servidor respondeu HTTP ' . $resp->status()
                     . ($erro ? ' — ' . (is_string($erro) ? $erro : json_encode($erro)) : '') . '.';
             } catch (\Throwable $e) {
-                $motivo = 'Não foi possível contactar ' . parse_url($url, PHP_URL_HOST)
-                    . ' (verifique a internet ou a firewall).';
+                $motivo = self::explicarFalhaDeRede($e, $url);
             }
         }
 
