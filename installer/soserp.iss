@@ -1,57 +1,61 @@
 ; ============================================================================
-; soserp — instalador Windows (Inno Setup)  [SCAFFOLD]
+; soserp — instalador Windows (Inno Setup)  — Opção B
 ; ============================================================================
 ;
-; Empacota o soserp + XAMPP embutido num único .exe que instala tudo e corre o
-; provision.ps1. Compilar com o Inno Setup Compiler numa máquina de build, com:
-;   - payload\xampp\   → XAMPP portátil (Apache + MariaDB + PHP na versão certa)
-;   - payload\app\      → o soserp (git export, SEM .env, SEM node_modules)
-;   - a chave PÚBLICA da licença passada ao provision.ps1
+; Empacota o soserp + binários portáteis (Apache+MariaDB+PHP, SEM o instalador
+; do XAMPP) num único .exe que corre o provision.ps1. Compila-se pelo
+; installer\build.ps1 (que passa os /D... abaixo) ou à mão no Inno Setup.
+;
+; Payload esperado (montado pelo build.ps1):
+;   payload\xampp\   -> binários portáteis (apache, mysql, php)
+;   payload\app\     -> o soserp (sem .env, sem node_modules)
+;   payload\vc_redist.x64.exe
 ;
 ; NÃO incluir a chave privada. NÃO incluir .env real.
 
-#define AppName "soserp"
-#define AppVersion "1.0.0"
-#define AppPublisher "Softec Angola"
-#define InstallDir "C:\soserp"
-#define Port "8080"
+#ifndef MyVersion
+  #define MyVersion "1.0.0"
+#endif
+#ifndef MyPort
+  #define MyPort "8080"
+#endif
+#ifndef MyDbPort
+  #define MyDbPort "3307"
+#endif
+#ifndef MyPublicKey
+  #define MyPublicKey ""
+#endif
 
 [Setup]
-AppName={#AppName}
-AppVersion={#AppVersion}
-AppPublisher={#AppPublisher}
-DefaultDirName={#InstallDir}
-DefaultGroupName={#AppName}
+AppName=soserp
+AppVersion={#MyVersion}
+AppPublisher=Softec Angola
+DefaultDirName=C:\soserp
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
-OutputBaseFilename=soserp-setup-{#AppVersion}
+OutputDir=dist
+OutputBaseFilename=soserp-setup-{#MyVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-; Assinar o instalador (Authenticode) para o Windows não o marcar como suspeito:
+; Assinar o instalador (Authenticode) para o SmartScreen não o marcar:
 ; SignTool=signtool $f
 
 [Files]
-; XAMPP embutido → {app}\xampp
 Source: "payload\xampp\*"; DestDir: "{app}\xampp"; Flags: recursesubdirs ignoreversion
-; A aplicação → {app}\app
-Source: "payload\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs ignoreversion
-; Scripts de provisionamento
+Source: "payload\app\*";   DestDir: "{app}\app";   Flags: recursesubdirs ignoreversion
+Source: "payload\vc_redist.x64.exe"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
 Source: "provision.ps1"; DestDir: "{app}"; Flags: ignoreversion
-; Licença opcional colocada ao lado do instalador
-Source: "license.key"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
+Source: "license.key";   DestDir: "{app}"; Flags: skipifsourcedoesntexist
 
 [Run]
-; Provisionamento pós-instalação (elevado). Ajustar -PublicKey no build.
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -File ""{app}\provision.ps1"" -InstallDir ""{app}"" -Port {#Port} -LicenseFile ""{app}\license.key"""; \
+  Parameters: "-ExecutionPolicy Bypass -File ""{app}\provision.ps1"" -InstallDir ""{app}"" -Port {#MyPort} -DbPort {#MyDbPort} -LicenseFile ""{app}\license.key"" -PublicKey ""{#MyPublicKey}"""; \
   StatusMsg: "A configurar o soserp (base de dados, serviços, licença)..."; \
   Flags: runhidden waituntilterminated
-; Abrir no browser no fim
-Filename: "http://localhost:{#Port}"; Flags: postinstall shellexec
+Filename: "http://localhost:{#MyPort}"; Flags: postinstall shellexec
 
 [UninstallRun]
-; Parar e remover serviços antes de apagar
 Filename: "{app}\xampp\apache\bin\httpd.exe"; Parameters: "-k uninstall -n ""soserp-apache"""; Flags: runhidden
 Filename: "sc.exe"; Parameters: "delete soserp-mysql"; Flags: runhidden
 ; TODO(build): oferecer backup da BD (mysqldump) antes de remover.

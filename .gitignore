@@ -51,3 +51,7 @@ Thumbs.db
 
 # Sessões e worktrees do Claude Code
 /.claude
+
+# Build do instalador offline (payload/output — nunca versionar)
+/installer/payload/
+/installer/dist/

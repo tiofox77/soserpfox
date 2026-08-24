@@ -27,7 +27,28 @@ activa a licença. Ver [PRD](../docs/PRD-LICENCIAMENTO-OFFLINE.md) (RF1).
 | `payload/app/` | *(a criar no build)* o soserp exportado (sem `.env`, sem `node_modules`) |
 | `license.key` | *(opcional)* licença colada ao lado do instalador para activação automática |
 
-## Como construir (máquina de build)
+## Construir com um comando (recomendado)
+
+O `build.ps1` faz tudo — monta o payload (app + binários + `vc_redist`) e produz
+o instalador. **Se o Inno Setup estiver instalado**, sai um `.exe`; **senão**,
+sai um **ZIP portátil que se instala sem compilador** (extrair + `instalar.bat`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\build.ps1 `
+    -Version 1.0.0 -PublicKey "<base64 da chave publica>" -SourceStack "C:\laragon2\bin"
+```
+
+- `-SourceStack` = onde estão os binários (o `bin` do Laragon serve, ou um zip
+  portátil do XAMPP). O script copia só `apache/`, `mysql/`, `php/`.
+- Saída em `installer\dist\` — `soserp-setup-<versão>.exe` **ou** `soserp-portable-<versão>.zip`.
+- Requer, na máquina de build: `composer`, `npm`, e rede (para o `composer install`,
+  `npm run build` e descarregar o `vc_redist`).
+
+**Instalar o ZIP portátil no cliente:** extrair para uma pasta (ex.: `C:\soserp`)
+e correr **`instalar.bat` como Administrador** — pede UAC, corre o `provision.ps1`,
+regista os serviços e abre o soserp. Para remover: `desinstalar.bat`.
+
+## Construir à mão (passo a passo)
 
 1. **Preparar o payload da app** (git export, dependências de produção, assets):
    ```bash
