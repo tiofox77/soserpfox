@@ -66,10 +66,27 @@ class LicenseIssuer
             );
         }
 
-        $secret = base64_decode($chavePrivadaB64, true);
+        $secret = base64_decode(trim($chavePrivadaB64), true);
 
-        if ($secret === false || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
-            throw new \InvalidArgumentException('Chave privada inválida (esperado Ed25519 em Base64).');
+        // Diagnóstico em vez de "chave inválida": o erro mais comum é colar a
+        // chave PÚBLICA no lugar da privada (são as duas base64 e parecem-se).
+        // Dizer o tamanho encontrado poupa meia hora a quem está a configurar.
+        if ($secret === false) {
+            throw new \InvalidArgumentException(
+                'LICENSE_SIGNING_KEY não é Base64 válido. Copie a chave PRIVADA inteira '
+                . '(88 caracteres), sem espaços nem quebras de linha.'
+            );
+        }
+
+        if (strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
+            $pista = strlen($secret) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
+                ? ' Isto é a chave PÚBLICA (32 bytes / 44 caracteres) — o LICENSE_SIGNING_KEY precisa da chave PRIVADA (64 bytes / 88 caracteres).'
+                : ' Verifique se a chave foi copiada por inteiro.';
+
+            throw new \InvalidArgumentException(
+                'LICENSE_SIGNING_KEY inválida: tem ' . strlen($secret) . ' bytes, esperados '
+                . SODIUM_CRYPTO_SIGN_SECRETKEYBYTES . ' (Ed25519).' . $pista
+            );
         }
 
         $claims['v']   = 1;

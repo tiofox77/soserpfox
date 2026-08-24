@@ -70,6 +70,36 @@ class Licenciamento extends Component
         return config('licensing.signing_key');
     }
 
+    /**
+     * A chave configurada é mesmo uma chave privada Ed25519?
+     * Devolve null se estiver boa, ou a explicação do que está errado — para o
+     * painel avisar ANTES de alguém carregar em Emitir e levar um erro 500.
+     */
+    private function problemaDaChave(): ?string
+    {
+        $k = $this->chaveLicencas();
+        if (!$k) {
+            return 'LICENSE_SIGNING_KEY não está definida no .env do servidor.';
+        }
+
+        $b = base64_decode(trim($k), true);
+        if ($b === false) {
+            return 'LICENSE_SIGNING_KEY não é Base64 válido (copie a chave privada inteira, sem espaços).';
+        }
+
+        $n = strlen($b);
+        if ($n === 32) {
+            return 'LICENSE_SIGNING_KEY tem a chave PÚBLICA (32 bytes). É preciso a chave PRIVADA — '
+                . 'a linha de 88 caracteres do ficheiro de chaves.';
+        }
+        if ($n !== 64) {
+            return 'LICENSE_SIGNING_KEY tem ' . $n . ' bytes; uma chave privada Ed25519 tem 64 '
+                . '(88 caracteres em Base64). Parece truncada.';
+        }
+
+        return null;
+    }
+
     private function chaveUpdates(): ?string
     {
         return config('licensing.update.signing_key');
@@ -324,6 +354,7 @@ $p->forceFill([
             'chaveLicOk'    => (bool) $this->chaveLicencas(),
             'chaveUpdOk'    => (bool) $this->chaveUpdates(),
             'criptoOk'      => LicenseIssuer::criptoDisponivel(),
+            'problemaChave' => $this->problemaDaChave(),
             'instalacoes'   => LicencaEmitida::with('tenant:id,name,is_active')
                                   ->orderByRaw('ultimo_checkin IS NULL DESC')
                                   ->orderByDesc('ultimo_checkin')->limit(50)->get(),

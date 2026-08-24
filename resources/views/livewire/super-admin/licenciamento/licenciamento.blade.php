@@ -26,6 +26,13 @@
         </div>
     @endif
 
+    @if ($problemaChave)
+        <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm">
+            <i class="fas fa-key mr-2"></i>
+            <strong>Chave de assinatura por corrigir:</strong> {{ $problemaChave }}
+        </div>
+    @endif
+
     @if (!$chaveLicOk || !$chaveUpdOk)
         <div class="mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm">
             <i class="fas fa-triangle-exclamation mr-2"></i>
