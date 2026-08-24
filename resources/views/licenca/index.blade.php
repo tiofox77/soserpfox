@@ -71,6 +71,24 @@
                 <tr><td>Dias offline</td><td>{{ $estado->diasOffline ?? '—' }} / {{ $estado->gracaDias ?? '—' }}</td></tr>
             @endif
             <tr><td>Esta máquina</td><td><span class="fp">{{ $fingerprint }}</span></td></tr>
+            <tr>
+                <td>Ligação ao fornecedor</td>
+                <td>
+                    @if($ligacao['ok'])
+                        <span class="badge b-ativa">LIGADO</span>
+                    @elseif($ligacao['estado'] === 'sem_configuracao')
+                        <span class="badge b-bloq">NÃO CONFIGURADO</span>
+                    @else
+                        <span class="badge b-aviso">SEM LIGAÇÃO</span>
+                    @endif
+                    <div class="hint" style="margin-top:4px">
+                        {{ $ligacao['mensagem'] }}
+                        @if($ligacao['url'])
+                            <br><span class="fp" style="font-size:11px">{{ parse_url($ligacao['url'], PHP_URL_HOST) }}</span>
+                        @endif
+                    </div>
+                </td>
+            </tr>
         </table>
 
         @if(session('aviso'))
@@ -88,8 +106,11 @@
                         <button type="submit">Já foi aprovado? Verificar agora</button>
                     </form>
                 @elseif(!empty($pedido['pacote']))
-                    <p><strong>Sem ligação ao fornecedor.</strong> Envie este código por email ou WhatsApp
-                       para receber a licença:</p>
+                    <p><strong>O pedido não foi enviado automaticamente.</strong>
+                       @if(!empty($pedido['motivo']))
+                           <br><span style="color:#854d0e">Motivo: {{ $pedido['motivo'] }}</span>
+                       @endif
+                       <br>Envie este código por email ou WhatsApp para receber a licença:</p>
                     <textarea readonly onclick="this.select()" style="min-height:80px">{{ $pedido['pacote'] }}</textarea>
                 @endif
             </div>

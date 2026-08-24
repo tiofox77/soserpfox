@@ -2136,7 +2136,12 @@
             </div>
             
             <div class="border-t border-gray-800 pt-8 text-center text-sm">
-                <p>&copy; 2025 SOSERP. Todos os direitos reservados.</p>
+                <p class="mb-3">
+                    <a href="{{ route('legal.termos') }}" class="hover:text-white">Termos de Utilização</a>
+                    <span class="mx-2 text-gray-600">·</span>
+                    <a href="{{ route('legal.privacidade') }}" class="hover:text-white">Política de Privacidade</a>
+                </p>
+                <p>&copy; {{ date('Y') }} SOSERP. Todos os direitos reservados.</p>
                 <p class="mt-2">
                     Desenvolvido por 
                     <a href="https://softecangola.net" target="_blank" class="text-blue-400 hover:text-blue-300 font-semibold">

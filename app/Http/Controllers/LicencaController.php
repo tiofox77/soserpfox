@@ -26,7 +26,36 @@ class LicencaController extends Controller
             'fingerprint' => MachineFingerprint::atual(),
             'pedido'      => $this->pedidoGuardado(),
             'temServidor' => trim((string) config('licensing.checkin_url')) !== '',
+            'ligacao'     => $this->diagnosticarLigacao(),
         ]);
+    }
+
+    /**
+     * Estado da ligação ao fornecedor, para o ecrã mostrar em vez de deixar o
+     * cliente a adivinhar. Distingue os três casos que se confundiam num só
+     * "sem ligação": sem URL configurado, sem internet, e servidor a recusar.
+     */
+    private function diagnosticarLigacao(): array
+    {
+        $url = $this->urlDoServidor('request');
+
+        if (!$url) {
+            return ['ok' => false, 'estado' => 'sem_configuracao', 'url' => null,
+                'mensagem' => 'Servidor do fornecedor não configurado nesta instalação.'];
+        }
+
+        try {
+            // HEAD ao servidor: só queremos saber se responde, não o conteúdo.
+            $r = Http::timeout(6)->get(preg_replace('#/api/license/request$#', '/up', $url));
+
+            return $r->successful()
+                ? ['ok' => true, 'estado' => 'ligado', 'url' => $url, 'mensagem' => 'Ligado ao fornecedor.']
+                : ['ok' => false, 'estado' => 'servidor_erro', 'url' => $url,
+                   'mensagem' => 'O servidor do fornecedor respondeu com erro (HTTP ' . $r->status() . ').'];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'estado' => 'sem_rede', 'url' => $url,
+                'mensagem' => 'Sem acesso ao servidor do fornecedor (verifique a internet ou a firewall).'];
+        }
     }
 
     /**
@@ -50,10 +79,15 @@ class LicencaController extends Controller
         $dados['versao'] = (string) config('licensing.update.current');
 
         $url = $this->urlDoServidor('request');
+        // Porque é que não deu — para o cliente e o suporte não ficarem a
+        // adivinhar. Antes dizia sempre "sem ligação", mesmo quando o problema
+        // era outro (URL em falta, ou o servidor a responder com erro).
+        $motivo = 'Servidor do fornecedor não configurado nesta instalação.';
 
         if ($url) {
             try {
                 $resp = Http::timeout(15)->acceptJson()->post($url, $dados);
+
                 if ($resp->successful() && $resp->json('codigo')) {
                     $this->guardarPedido([
                         'codigo'  => $resp->json('codigo'),
@@ -65,25 +99,32 @@ class LicencaController extends Controller
                     return back()->with('ok', 'Pedido enviado. Código: ' . $resp->json('codigo')
                         . '. Assim que for aprovado, a licença é instalada automaticamente.');
                 }
+
+                // Respondeu, mas não como esperávamos: mostrar o que disse.
+                $erro = $resp->json('message') ?? $resp->json('erro') ?? '';
+                $motivo = 'O servidor respondeu HTTP ' . $resp->status()
+                    . ($erro ? ' — ' . (is_string($erro) ? $erro : json_encode($erro)) : '') . '.';
             } catch (\Throwable $e) {
-                // Sem rede: cai no modo offline em baixo.
+                $motivo = 'Não foi possível contactar ' . parse_url($url, PHP_URL_HOST)
+                    . ' (verifique a internet ou a firewall).';
             }
         }
 
-        // Sem internet (ou sem servidor): gera um código que o cliente envia ao
-        // fornecedor por outra via (email, WhatsApp, telefone). É só um
-        // transporte de dados — quem emite a licença continua a ser o vendor.
+        // Não deu online: gera um código que o cliente envia ao fornecedor por
+        // outra via (email, WhatsApp). É só um transporte de dados — quem emite
+        // a licença continua a ser o fornecedor.
         $offline = base64_encode(json_encode($dados, JSON_UNESCAPED_UNICODE));
         $this->guardarPedido([
-            'codigo'   => null,
-            'estado'   => 'offline',
-            'empresa'  => $dados['empresa'],
-            'enviado'  => false,
-            'pacote'   => $offline,
+            'codigo'  => null,
+            'estado'  => 'offline',
+            'empresa' => $dados['empresa'],
+            'enviado' => false,
+            'pacote'  => $offline,
+            'motivo'  => $motivo,
         ]);
 
-        return back()->with('aviso', 'Sem ligação ao fornecedor. Foi gerado um código de pedido '
-            . 'para enviar por email ou WhatsApp.');
+        return back()->with('aviso', 'Não foi possível enviar o pedido: ' . $motivo
+            . ' Foi gerado um código para enviar por email ou WhatsApp.');
     }
 
     /** Vai ver se o pedido já foi aprovado — e se sim, instala a licença. */

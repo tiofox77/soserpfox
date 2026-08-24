@@ -53,6 +53,11 @@ Route::middleware(['auth'])->get('/changelog', [\App\Http\Controllers\ChangelogC
 // Landing Page
 Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('landing.home');
 
+// Documentos legais — públicos e sem dependências (têm de abrir mesmo a
+// alguém que ainda não é cliente, e são referenciados no registo).
+Route::view('/termos', 'legal.termos')->name('legal.termos');
+Route::view('/privacidade', 'legal.privacidade')->name('legal.privacidade');
+
 // Páginas de módulos (marketing)
 Route::get('/modulos', [\App\Http\Controllers\ModulePagesController::class, 'index'])->name('modules.index');
 Route::get('/modulos/{slug}', [\App\Http\Controllers\ModulePagesController::class, 'show'])->name('modules.show');

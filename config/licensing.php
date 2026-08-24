@@ -130,7 +130,11 @@ return [
     | man-in-the-middle não consegue manter uma cópia pirata viva.
     |
     */
-    'checkin_url'            => env('LICENSE_CHECKIN_URL', ''),
+    // Com um valor por omissão: instalações feitas por versões antigas do
+    // instalador não têm esta chave no .env e ficavam sem forma de pedir
+    // licença online, sem dizerem porquê. Inofensivo na cloud — nada disto é
+    // usado com o `enforce` desligado.
+    'checkin_url'            => env('LICENSE_CHECKIN_URL', 'https://soserp.vip/api/license/checkin'),
     'checkin_interval_hours' => (int) env('LICENSE_CHECKIN_INTERVAL', 12),
 
     /*
