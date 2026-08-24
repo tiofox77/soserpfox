@@ -41,6 +41,22 @@ class VerificarLicenca
             }
         }
 
+        // Integridade dos ficheiros PHP: o serviço `soserp-integridade` levanta
+        // esta flag se algum ficheiro da app foi adulterado. Bloqueia tudo.
+        if (is_file(storage_path('app/integridade-falha.flag'))) {
+            if ($this->ehLivewireOuJson($request)) {
+                return response()->json(['message' => 'Integridade dos ficheiros comprometida.'], 423);
+            }
+
+            return response(
+                '<!doctype html><meta charset="utf-8"><title>soserp</title>'
+                . '<body style="font-family:system-ui;max-width:640px;margin:12vh auto;padding:0 20px;color:#0f172a">'
+                . '<h1>Integridade comprometida</h1><p>Os ficheiros da aplicação foram alterados desde a instalação. '
+                . 'Por segurança, o acesso está bloqueado. Contacte o fornecedor.</p></body>',
+                423
+            );
+        }
+
         $estado = $this->licencas->estado();
 
         if ($estado->bloqueiaTudo()) {

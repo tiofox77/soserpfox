@@ -17,6 +17,9 @@ param(
     [int]$Port = 8080,
     [int]$DbPort = 3307,
     [string]$SourceStack = "C:\laragon2\bin",
+    # PHP tem de ser THREAD-SAFE (TS) para o Apache mod_php. O default e o
+    # 8.3.16 TS do Laragon; os "-nts" NAO servem.
+    [string]$PhpDir = "C:\laragon2\bin\php\php-8.3.16-Win32-vs16-x64",
     [switch]$SkipAssets
 )
 
@@ -51,14 +54,31 @@ if (Test-Path (Join-Path $appOut "bootstrap\cache")) {
 }
 Pop-Location
 
+# 1b) Esquema de instalacao (estrutura + migrations, SEM dados de negocio).
+# As migracoes do soserp nao correm de raiz; o cliente importa este dump e faz
+# db:seed. Requer o MySQL de dev (BD 'soserp') a correr em 127.0.0.1:3306.
+Log "A gerar install-schema.sql (do MySQL de dev)..."
+$dump = $null
+$mysqlSrc = Join-Path $SourceStack "mysql"
+if (Test-Path (Join-Path $mysqlSrc "bin\mysqldump.exe")) { $dump = Join-Path $mysqlSrc "bin\mysqldump.exe" }
+else { $n = Newest $mysqlSrc; if ($n) { $dump = Join-Path $n.FullName "bin\mysqldump.exe" } }
+$schemaOut = Join-Path $appOut "database\install-schema.sql"
+if ($dump -and (Test-Path $dump)) {
+    cmd /c "`"$dump`" --host=127.0.0.1 --port=3306 --user=root --no-data --skip-comments --skip-triggers soserp > `"$schemaOut`" 2>nul"
+    cmd /c "`"$dump`" --host=127.0.0.1 --port=3306 --user=root --no-create-info --skip-comments soserp migrations >> `"$schemaOut`" 2>nul"
+    if ((Test-Path $schemaOut) -and ((Get-Item $schemaOut).Length -gt 10000)) { Log ("  esquema: " + [math]::Round((Get-Item $schemaOut).Length/1KB) + " KB") }
+    else { throw "install-schema.sql vazio - o MySQL de dev (BD soserp) esta a correr em 3306?" }
+} else { throw "mysqldump nao encontrado em $mysqlSrc" }
+
 # 2) Stack portatil (so apache/mysql/php)
 Log "A montar payload/xampp (binarios portateis)..."
 if (Test-Path $stkOut) { Remove-Item $stkOut -Recurse -Force }
 New-Item -ItemType Directory -Force $stkOut | Out-Null
 foreach ($svc in @("apache","mysql","php")) {
     $srcRoot = Join-Path $SourceStack $svc
-    if (-not (Test-Path $srcRoot)) { throw "Nao encontrei $srcRoot. Ajuste -SourceStack." }
-    if (Test-Path (Join-Path $srcRoot "bin")) { $src = $srcRoot }
+    if ($svc -eq "php" -and $PhpDir -and (Test-Path $PhpDir)) { $src = $PhpDir }
+    elseif (-not (Test-Path $srcRoot)) { throw "Nao encontrei $srcRoot. Ajuste -SourceStack." }
+    elseif (Test-Path (Join-Path $srcRoot "bin")) { $src = $srcRoot }
     elseif ($svc -eq "php" -and (Test-Path (Join-Path $srcRoot "php.exe"))) { $src = $srcRoot }
     else { $n = Newest $srcRoot; if ($n) { $src = $n.FullName } else { $src = $null } }
     if (-not $src) { throw "Nao resolvi os binarios de $svc em $srcRoot." }
@@ -90,6 +110,8 @@ if ($iscc) {
 } else {
     Log "Inno Setup NAO instalado. A produzir o pacote PORTATIL (sem compilador)..."
     Copy-Item (Join-Path $PSScriptRoot "provision.ps1")   $build -Force
+    Copy-Item (Join-Path $PSScriptRoot "vigia.ps1")       $build -Force
+    Copy-Item (Join-Path $PSScriptRoot "integridade.ps1") $build -Force
     Copy-Item (Join-Path $PSScriptRoot "instalar.bat")    $build -Force
     Copy-Item (Join-Path $PSScriptRoot "desinstalar.bat") $build -Force
     Set-Content -Path (Join-Path $build "public_key.txt") -Value $PublicKey -Encoding ascii

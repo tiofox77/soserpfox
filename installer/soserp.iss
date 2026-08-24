@@ -70,8 +70,10 @@ Name: "desktopicon"; Description: "Criar um atalho no Ambiente de Trabalho"; Gro
 Source: "payload\xampp\*"; DestDir: "{app}\xampp"; Flags: recursesubdirs ignoreversion
 Source: "payload\app\*";   DestDir: "{app}\app";   Flags: recursesubdirs ignoreversion
 Source: "payload\vc_redist.x64.exe"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
-Source: "provision.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "license.key";   DestDir: "{app}"; Flags: skipifsourcedoesntexist
+Source: "provision.ps1";   DestDir: "{app}"; Flags: ignoreversion
+Source: "vigia.ps1";       DestDir: "{app}"; Flags: ignoreversion
+Source: "integridade.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "license.key";     DestDir: "{app}"; Flags: skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\soserp"; Filename: "http://localhost:{#MyPort}"
@@ -86,6 +88,9 @@ Filename: "powershell.exe"; \
 Filename: "http://localhost:{#MyPort}"; Description: "Abrir o soserp"; Flags: postinstall shellexec
 
 [UninstallRun]
+; Remove as tarefas de vigilancia
+Filename: "schtasks"; Parameters: "/delete /tn ""soserp-vigia"" /f"; Flags: runhidden; RunOnceId: "DelVigia"
+Filename: "schtasks"; Parameters: "/delete /tn ""soserp-integridade"" /f"; Flags: runhidden; RunOnceId: "DelInteg"
 ; Para e remove os servicos antes de apagar os ficheiros
 Filename: "net"; Parameters: "stop soserp-apache"; Flags: runhidden; RunOnceId: "StopApache"
 Filename: "net"; Parameters: "stop soserp-mysql";  Flags: runhidden; RunOnceId: "StopMysql"

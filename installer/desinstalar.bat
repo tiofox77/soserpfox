@@ -27,6 +27,10 @@ if /I "%BACKUP%"=="S" (
     )
 )
 
+echo A remover tarefas de vigilancia...
+schtasks /delete /tn "soserp-vigia" /f 2>nul
+schtasks /delete /tn "soserp-integridade" /f 2>nul
+
 echo A parar e remover servicos...
 net stop soserp-apache 2>nul
 net stop soserp-mysql 2>nul
