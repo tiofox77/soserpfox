@@ -127,6 +127,10 @@ Set-Env "DB_CONNECTION" "mysql"; Set-Env "DB_HOST" "127.0.0.1"; Set-Env "DB_PORT
 Set-Env "DB_DATABASE" $DbName; Set-Env "DB_USERNAME" $DbUser; Set-Env "DB_PASSWORD" ('"' + $DbUser + '_pw!"')
 Set-Env "LICENSE_ENFORCE" "true"; Set-Env "LICENSE_BIND_MACHINE" "true"
 if ($PublicKey) { Set-Env "LICENSE_PUBLIC_KEY" ('"' + $PublicKey + '"') }
+# Validacao online / billing: liga ao servidor de licencas na cloud (renova a
+# licenca e recebe suspensoes). Inofensivo se o endpoint ainda nao existir.
+Set-Env "LICENSE_CHECKIN_URL" "https://soserp.vip/api/license/checkin"
+Set-Env "LICENSE_UPDATE_URL" "https://soserp.vip/api/license/update"
 
 # 5) App
 Log "A preparar a aplicacao (key, esquema, seed, caches)..."

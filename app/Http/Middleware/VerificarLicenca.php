@@ -68,6 +68,21 @@ class VerificarLicenca
             return redirect()->route('licenca.index');
         }
 
+        // Instalação fresca: licença válida, mas ainda NÃO há empresa. Obriga o
+        // assistente de setup. O próprio /setup e o Livewire dele passam — nesta
+        // fase não há dados a proteger; assim que existir empresa, o Livewire
+        // volta a seguir o enforcement normal.
+        if (!\App\Models\Tenant::query()->exists()) {
+            if ($request->is('setup') || $request->is('livewire/*')) {
+                return $next($request);
+            }
+            if ($this->ehLivewireOuJson($request)) {
+                return response()->json(['message' => 'Configuração inicial necessária.'], 409);
+            }
+
+            return redirect('/setup');
+        }
+
         // Estados brandos: deixa passar, mas dá o banner ao layout.
         view()->share('licencaEstado', $estado);
 

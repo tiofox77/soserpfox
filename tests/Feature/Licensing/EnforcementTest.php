@@ -6,14 +6,17 @@ use App\Http\Middleware\VerificarLicenca;
 use App\Services\Licensing\LicenseManager;
 use App\Services\Licensing\LicenseState;
 use Illuminate\Http\Request;
-use Tests\TestCase;
+use Tests\TenantTestCase;
 
 /**
  * O enforcement é a parte perigosa: se disparar na cloud, tranca a plataforma
  * inteira. Estes testes fixam o contrato — DESLIGADO por omissão, e só a agir
  * quando `licensing.enforce` está ligado.
+ *
+ * Estende TenantTestCase para EXISTIR uma empresa — senão o gate de setup
+ * (licença válida + sem empresa → /setup) desviava o caso ATIVA.
  */
-class EnforcementTest extends TestCase
+class EnforcementTest extends TenantTestCase
 {
     private function correr(
         ?LicenseState $estado = null,

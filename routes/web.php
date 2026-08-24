@@ -28,6 +28,11 @@ Route::prefix('maintenance/{token}')->controller(\App\Http\Controllers\Maintenan
 Route::get('/licenca', [\App\Http\Controllers\LicencaController::class, 'index'])->name('licenca.index');
 Route::post('/licenca', [\App\Http\Controllers\LicencaController::class, 'guardar'])->name('licenca.guardar');
 
+// Assistente de 1.ª utilização do on-premise (build offline). Cria a empresa +
+// admin a partir da licença. O middleware VerificarLicenca encaminha para aqui
+// quando a licença é válida mas ainda não há empresa. Inofensivo na cloud.
+Route::get('/setup', \App\Livewire\Setup\SetupWizard::class)->name('setup');
+
 // Analytics tracking (sem auth, sem CSRF — público)
 Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::class, 'track'])->name('analytics.track');
 
