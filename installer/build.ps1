@@ -77,7 +77,11 @@ if (-not (Test-Path $vc)) {
 
 # 4) Produzir o instalador
 New-Item -ItemType Directory -Force $dist | Out-Null
-$iscc = @("C:\Program Files (x86)\Inno Setup 6\ISCC.exe","C:\Program Files\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+$iscc = @(
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+    "C:\Program Files\Inno Setup 6\ISCC.exe",
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if ($iscc) {
     Log "Inno Setup encontrado. A compilar o .exe..."
