@@ -51,9 +51,22 @@ class AvisarSubscricoes extends Command
         }
 
         $this->info(sprintf(
-            '%d email(s), %d SMS, %d repetido(s), %d falhado(s), %d sem contacto.',
-            $r['email'], $r['sms'], $r['repetidos'], $r['falhados'], $r['sem_contacto']
+            '%d email(s), %d SMS, %d repetido(s), %d falhado(s), %d sem contacto, %d por activar.',
+            $r['email'], $r['sms'], $r['repetidos'], $r['falhados'], $r['sem_contacto'],
+            $r['nao_activada'] ?? 0
         ));
+
+        // "Por activar" merece ser dito em voz alta: são empresas com
+        // subscrição que ninguém está a usar — ou o cliente desistiu, ou a
+        // instalação nunca chegou a arrancar. Nenhuma das duas se resolve
+        // sozinha, e nenhuma aparece se isto ficar num contador silencioso.
+        if (($r['nao_activada'] ?? 0) > 0) {
+            $this->warn(sprintf(
+                '%d empresa(s) não receberam avisos por nunca terem sido activadas '
+                . '(sem utilizador e sem instalação a comunicar). Verifique-as no painel.',
+                $r['nao_activada']
+            ));
+        }
 
         if (!empty($r['avariou'])) {
             // Um resumo a zeros por avaria lê-se exactamente como um resumo
