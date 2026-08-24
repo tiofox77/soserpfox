@@ -85,8 +85,20 @@ class InviteUser extends Component
                 return;
             }
             
+            // Não convidar quem não vai caber: o limite é verificado outra vez
+            // ao aceitar (é lá que a conta nasce), mas avisar agora poupa ao
+            // convidado descobrir a porta fechada depois de escolher password.
+            $empresa = \App\Models\Tenant::find(activeTenantId());
+            if ($empresa && !$empresa->cabeMaisUmUtilizador()) {
+                $this->dispatch('error', message: 'Limite de utilizadores atingido ('
+                    . $empresa->limiteDeUtilizadores() . '). Liberte uma conta ou aumente o plano.');
+                $this->sending = false;
+
+                return;
+            }
+
             DB::beginTransaction();
-            
+
             // Criar convite
             $invitation = UserInvitation::create([
                 'tenant_id' => activeTenantId(),

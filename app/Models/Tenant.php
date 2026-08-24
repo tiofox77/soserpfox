@@ -728,23 +728,23 @@ class Tenant extends Model
         return $this->activeSubscription()->exists();
     }
 
+    /**
+     * Cabe mais um utilizador? ALIAS de cabeMaisUmUtilizador().
+     *
+     * Estes dois viviam com regras próprias e davam respostas DIFERENTES à
+     * mesma pergunta: este olhava só para o plano, o outro para o maior entre
+     * plano e ficha. O ecrã de utilizadores e o de super-admin discordavam um
+     * do outro sobre a mesma empresa. Agora há uma regra só.
+     */
     public function canAddUser()
     {
-        $maxUsers = $this->getMaxUsers();
-        return $this->users()->count() < $maxUsers;
+        return $this->cabeMaisUmUtilizador();
     }
-    
+
+    /** Tecto de utilizadores. ALIAS de limiteDeUtilizadores(). 0 = ilimitado. */
     public function getMaxUsers()
     {
-        // Buscar do plano ativo através da subscription
-        $subscription = $this->activeSubscription;
-        
-        if ($subscription && $subscription->plan) {
-            return $subscription->plan->max_users;
-        }
-        
-        // Fallback para o valor do tenant
-        return $this->max_users ?? 3;
+        return $this->limiteDeUtilizadores();
     }
 
     public function hasModule($moduleSlug)
@@ -912,7 +912,25 @@ class Tenant extends Model
     {
         $limite = $this->limiteDeUtilizadores();
 
-        return $limite <= 0 || $this->users()->count() < $limite;
+        // 0 = ILIMITADO. Um campo por preencher não pode trancar a porta a
+        // quem paga — entre deixar entrar um a mais e bloquear a empresa
+        // inteira, o erro barato é o primeiro.
+        return $limite <= 0 || $this->utilizadoresQueContam() < $limite;
+    }
+
+    /**
+     * Quantos utilizadores contam para o limite: só os ACTIVOS.
+     *
+     * Contava-se toda a gente ligada à empresa, incluindo quem já lá não
+     * trabalha — desactivar alguém não libertava vaga e a única saída era
+     * apagar a conta, perdendo o rasto de quem fez o quê.
+     */
+    public function utilizadoresQueContam(): int
+    {
+        return $this->users()
+            ->wherePivot('is_active', true)
+            ->where('users.is_active', true)
+            ->count();
     }
 
     /**

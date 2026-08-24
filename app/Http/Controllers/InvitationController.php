@@ -61,8 +61,25 @@ class InvitationController extends Controller
         ]);
         
         DB::beginTransaction();
-        
+
         try {
+            // O limite de utilizadores TEM de ser verificado AQUI, e não só ao
+            // emitir o convite: N convites emitidos com uma vaga livre eram N
+            // pessoas a entrar. Este é o último ponto antes de a conta existir.
+            //
+            // lockForUpdate para dois convites aceites ao mesmo segundo não
+            // passarem ambos pela mesma vaga.
+            $tenant = \App\Models\Tenant::whereKey($invitation->tenant_id)->lockForUpdate()->first();
+
+            if ($tenant && !$tenant->cabeMaisUmUtilizador()) {
+                DB::rollBack();
+
+                return redirect()->route('login')->with('error',
+                    'A empresa atingiu o limite de utilizadores do seu plano ('
+                    . $tenant->limiteDeUtilizadores() . '). Peça ao administrador para '
+                    . 'libertar uma conta ou aumentar o plano.');
+            }
+
             // Criar usuário
             $user = User::create([
                 'name' => $invitation->name,

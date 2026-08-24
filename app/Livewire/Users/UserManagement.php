@@ -515,11 +515,20 @@ class UserManagement extends Component
                 return;
             }
             
+            // Mesmo motivo do InviteUser: não convidar quem não vai caber.
+            $empresa = \App\Models\Tenant::find(activeTenantId());
+            if ($empresa && !$empresa->cabeMaisUmUtilizador()) {
+                $this->dispatch('error', message: 'Limite de utilizadores atingido ('
+                    . $empresa->limiteDeUtilizadores() . '). Liberte uma conta ou aumente o plano.');
+
+                return;
+            }
+
             DB::beginTransaction();
-            
+
             // Buscar nome do role
             $role = \Spatie\Permission\Models\Role::find($this->inviteRole);
-            
+
             // Criar convite
             $invitation = \App\Models\UserInvitation::create([
                 'tenant_id' => activeTenantId(),
