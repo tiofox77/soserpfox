@@ -175,24 +175,95 @@ begin
   PararTudo();
 end;
 
-// Oferece backup da BD (mysqldump) antes de desinstalar.
+// ---------------------------------------------------------------------------
+//  Desinstalar: parcial (guarda os dados) ou COMPLETA (apaga tudo)
+// ---------------------------------------------------------------------------
+//  Por omissão o Inno só remove o que instalou — a base de dados, a licença e
+//  os backups nasceram DEPOIS e ficavam para trás, ocupando espaço e deixando
+//  dados do cliente no disco sem ninguém saber. Aqui pergunta-se, com o aviso
+//  de que a remoção completa não tem volta.
+
+var
+  RemocaoCompleta: Boolean;
+
 function InitializeUninstall(): Boolean;
 var
   Resp: Integer;
-  Dump, BackupFile, Cmd: String;
+  Dump, Pasta, BackupFile, Cmd: String;
   RC: Integer;
 begin
   Result := True;
+  RemocaoCompleta := False;
+
+  Resp := MsgBox(
+    'Como quer desinstalar o soserp?' + #13#10#13#10 +
+    'SIM  —  REMOÇÃO COMPLETA: apaga também a BASE DE DADOS, a licença e as ' +
+    'configurações. Não há volta.' + #13#10#13#10 +
+    'NÃO  —  Remover só o programa e guardar a base de dados, a licença e os ' +
+    'backups (para reinstalar mais tarde).' + #13#10#13#10 +
+    'CANCELAR  —  Não desinstalar nada.',
+    mbConfirmation, MB_YESNOCANCEL);
+
+  if Resp = IDCANCEL then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  RemocaoCompleta := (Resp = IDYES);
+
+  // Backup: oferecido sempre, mas ESPECIALMENTE antes de uma remoção completa.
   Dump := ExpandConstant('{app}\xampp\mysql\bin\mysqldump.exe');
   if FileExists(Dump) then
   begin
-    Resp := MsgBox('Fazer backup da base de dados antes de remover?', mbConfirmation, MB_YESNO);
+    if RemocaoCompleta then
+      Resp := MsgBox('Vai apagar TUDO. Guardar antes uma cópia da base de dados?', mbError, MB_YESNO)
+    else
+      Resp := MsgBox('Fazer backup da base de dados antes de remover?', mbConfirmation, MB_YESNO);
+
     if Resp = IDYES then
     begin
-      BackupFile := ExpandConstant('{app}\backup-soserp.sql');
+      Pasta := ExpandConstant('{userdocs}\soserp-backups');
+      ForceDirectories(Pasta);
+      BackupFile := Pasta + '\soserp-' + GetDateTimeString('yyyymmdd_hhnnss', #0, #0) + '.sql';
+      // Guardado nos Documentos, não em {app}: numa remoção completa a pasta
+      // da aplicação desaparece, e levaria o backup com ela.
       Cmd := '/C ""' + Dump + '" --host=127.0.0.1 --port=3307 --user=root soserp > "' + BackupFile + '""';
       Exec(ExpandConstant('{cmd}'), Cmd, '', SW_HIDE, ewWaitUntilTerminated, RC);
-      MsgBox('Backup em: ' + BackupFile, mbInformation, MB_OK);
+      if FileExists(BackupFile) then
+        MsgBox('Backup guardado em:' + #13#10 + BackupFile, mbInformation, MB_OK)
+      else
+        MsgBox('Não foi possível criar o backup (a base de dados pode estar parada).', mbError, MB_OK);
     end;
+  end;
+end;
+
+// Depois de o Inno remover o que instalou, limpa o que nasceu em uso.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Base: String;
+begin
+  if CurUninstallStep <> usPostUninstall then
+    Exit;
+
+  Base := ExpandConstant('{app}');
+
+  if RemocaoCompleta then
+  begin
+    // Tudo o que nasceu depois da instalação e o Inno não conhece.
+    DelTree(Base + '\data', True, True, True);        // base de dados
+    DelTree(Base + '\cache', True, True, True);
+    DelTree(Base + '\app\storage', True, True, True); // licença, logs, uploads
+    DelTree(Base + '\backups', True, True, True);
+    DeleteFile(Base + '\app\.env');
+    DelTree(Base, True, True, True);                  // e a pasta em si
+  end
+  else
+  begin
+    // Parcial: só o que não é dado do cliente.
+    DelTree(Base + '\cache', True, True, True);
+    MsgBox('O programa foi removido.' + #13#10#13#10 +
+           'A base de dados, a licença e os backups ficaram em:' + #13#10 + Base,
+           mbInformation, MB_OK);
   end;
 end;
