@@ -172,15 +172,29 @@ $iscc = @(
 if ($iscc) {
     Log "Inno Setup encontrado. A compilar o .exe..."
     $saida = Join-Path $dist "soserp-setup-$Version.exe"
-    Remove-Item $saida -Force -EA SilentlyContinue   # o ISCC falha se estiver preso
     # Compressao: em modo -Rapido troca-se tamanho por tempo (iteracao); em
     # release comprime-se ao maximo, mas SEMPRE em varias threads.
     if ($Rapido) { $comp = "lzma2/fast"; $solid = "no" } else { $comp = "lzma2/max"; $solid = "yes" }
     Log ("Compressao: $comp, solid=$solid, $threads threads (de $nucleos logicos)")
 
-    & $iscc "/DMyVersion=$Version" "/DMyPort=$Port" "/DMyDbPort=$DbPort" "/DMyPublicKey=$PublicKey" `
-        "/DMyCompression=$comp" "/DMySolid=$solid" "/DMyThreads=$threads" `
-        (Join-Path $PSScriptRoot "soserp.iss")
+    # O passo final do ISCC ("Updating icons") escreve recursos num .exe de
+    # ~260 MB acabado de gravar. O antivirus costuma estar a analisa-lo nesse
+    # instante e o Windows devolve "EndUpdateResource failed (110)". E
+    # transitorio: repetir resolve, e vale mais isso do que mandar alguem
+    # mexer nas definicoes do antivirus.
+    for ($tentativa = 1; $tentativa -le 3; $tentativa++) {
+        Remove-Item $saida -Force -EA SilentlyContinue   # o ISCC falha se estiver preso
+        if ($tentativa -gt 1) {
+            Log "Tentativa $tentativa de 3 (a anterior falhou a gravar o icone)..."
+            Start-Sleep -Seconds 15
+        }
+
+        & $iscc "/DMyVersion=$Version" "/DMyPort=$Port" "/DMyDbPort=$DbPort" "/DMyPublicKey=$PublicKey" `
+            "/DMyCompression=$comp" "/DMySolid=$solid" "/DMyThreads=$threads" `
+            (Join-Path $PSScriptRoot "soserp.iss")
+
+        if (Test-Path $saida) { break }
+    }
 
     # Verificar A SERIO: o ISCC pode abortar (ex.: antivirus a segurar o
     # ficheiro no passo do icone) e antes disto o script dizia "Feito" na
