@@ -185,20 +185,20 @@
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                             <div class="md:col-span-2">
                                 <label class="block text-xs text-gray-500 mb-1">Nome da empresa</label>
-                                <input type="text" wire:model="edNome" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                <input type="text" wire:model.blur="edNome" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                                 @error('edNome') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">NIF</label>
-                                <input type="text" wire:model="edNif" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                <input type="text" wire:model.blur="edNif" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Telefone</label>
-                                <input type="text" wire:model="edTelefone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                <input type="text" wire:model.blur="edTelefone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-xs text-gray-500 mb-1">Email</label>
-                                <input type="email" wire:model="edEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                <input type="email" wire:model.blur="edEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                                 @error('edEmail') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                             </div>
                             <div class="md:col-span-2 flex items-end">
@@ -249,6 +249,28 @@
                                 @endforeach
                             @endif
                         </div>
+
+                        {{-- Renovar fica JUNTO da licença, não no fundo do modal:
+                             é aqui que se olha para a data de expiração e se
+                             decide dar mais tempo. --}}
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <span class="text-gray-500 block text-xs mb-2">Renovar por</span>
+                            <div class="flex flex-wrap items-end gap-2">
+                                <input type="number" wire:model.blur="edDias" min="1" max="3650"
+                                    class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="dias">
+                                <button wire:click="renovarComDias({{ $instalacao->id }})"
+                                    wire:loading.attr="disabled"
+                                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                                    <i class="fas fa-rotate mr-1"></i>Renovar
+                                </button>
+                                <span class="text-gray-300">|</span>
+                                @foreach([365 => '1 ano', 30 => '30 dias', 7 => '7 dias', 1 => '1 dia'] as $d => $rotulo)
+                                    <button wire:click="renovarInstalacao({{ $instalacao->id }}, {{ $d }})"
+                                        class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">{{ $rotulo }}</button>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Máquina e comunicação --}}
@@ -298,29 +320,9 @@
                 {{-- Acções --}}
                 <div class="px-6 pb-6 space-y-4">
                     <div class="border-t pt-4">
-                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Renovar licença</h4>
-                        <div class="flex flex-wrap items-end gap-2">
-                            <div>
-                                <label class="block text-xs text-gray-500 mb-1">Dias</label>
-                                <input type="number" wire:model="edDias" min="1" max="3650"
-                                    class="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <button wire:click="renovarInstalacao({{ $instalacao->id }}, (int) $edDias)"
-                                class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
-                                <i class="fas fa-rotate mr-1"></i>Renovar
-                            </button>
-                            <span class="text-gray-300">|</span>
-                            @foreach([365 => '1 ano', 30 => '30 dias', 7 => '7 dias', 1 => '1 dia'] as $d => $rotulo)
-                                <button wire:click="renovarInstalacao({{ $instalacao->id }}, {{ $d }})"
-                                    class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">{{ $rotulo }}</button>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <div class="border-t pt-4">
                         <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Avisar o cliente (SMS)</h4>
                         <div class="flex gap-2">
-                            <input type="text" wire:model="msgTexto" maxlength="300"
+                            <input type="text" wire:model.blur="msgTexto" maxlength="300"
                                 placeholder="{{ $instalacao->tenant?->phone ? 'Mensagem para ' . $instalacao->tenant->phone : 'Esta empresa não tem telefone na ficha' }}"
                                 class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
                             <button wire:click="enviarAviso" wire:loading.attr="disabled"

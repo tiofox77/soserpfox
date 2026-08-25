@@ -185,8 +185,52 @@ class Licenciamento extends Component
         $this->edNif      = $i?->tenant?->nif ?? '';
         $this->edEmail    = $i?->tenant?->email ?? '';
         $this->edTelefone = $i?->tenant?->phone ?? '';
-        $this->edDias     = 365;
+        $this->edDias     = $this->diasDaLicenca($i);
         $this->msgTexto   = '';
+    }
+
+    /**
+     * Quantos dias mostrar na caixa "Renovar por": o que ainda falta desta
+     * licenca. So cai para 365 quando nao ha nada de onde tirar - abrir sempre
+     * em 365 escondia que o cliente so tinha 1 dia.
+     */
+    private function diasDaLicenca(?LicencaEmitida $i): int
+    {
+        if (!$i || !$i->expira_em) {
+            return 365;
+        }
+
+        $faltam = (int) ceil(now()->floatDiffInDays($i->expira_em, false));
+        if ($faltam >= 1) {
+            return min($faltam, 3650);
+        }
+
+        // Ja expirou: propor o mesmo periodo que lhe foi vendido da ultima vez.
+        if ($i->emitida_em) {
+            $periodo = (int) ceil($i->emitida_em->floatDiffInDays($i->expira_em, false));
+            if ($periodo >= 1) {
+                return min($periodo, 3650);
+            }
+        }
+
+        return 365;
+    }
+
+    /**
+     * Renovar com o numero de dias escrito na caixa. Existe porque wire:click
+     * so aceita valores literais - nao consegue ler $edDias sozinho.
+     */
+    public function renovarComDias(int $id): void
+    {
+        $dias = (int) $this->edDias;
+
+        if ($dias < 1 || $dias > 3650) {
+            session()->flash('erro', 'Indique entre 1 e 3650 dias.');
+
+            return;
+        }
+
+        $this->renovarInstalacao($id, $dias);
     }
 
     /** Corrigir a ficha da empresa sem sair daqui. */
