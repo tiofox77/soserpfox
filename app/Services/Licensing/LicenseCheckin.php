@@ -46,7 +46,9 @@ class LicenseCheckin
             $resp = Http::timeout(10)->acceptJson()->post($url, [
                 'token'       => $token,
                 'fingerprint' => MachineFingerprint::atual(),
-                'versao'      => config('app.version'),
+                // config('app.version') NAO existe no Laravel — ia sempre nulo,
+                // e no painel a versao instalada aparecia a traco.
+                'versao'      => (string) ($this->cfg['update']['current'] ?? ''),
             ]);
         } catch (\Throwable $e) {
             // Sem rede: não é erro, é o caso normal offline. O contador anda.

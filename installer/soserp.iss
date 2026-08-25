@@ -107,7 +107,7 @@ Name: "{commonstartup}\soserp (agente)"; Filename: "{app}\soserp-tray.exe"; \
 
 [Run]
 Filename: "powershell.exe"; \
-  Parameters: "-ExecutionPolicy Bypass -File ""{app}\provision.ps1"" -InstallDir ""{app}"" -Port {#MyPort} -DbPort {#MyDbPort} -LicenseFile ""{app}\license.key"" -PublicKey ""{#MyPublicKey}"""; \
+  Parameters: "-ExecutionPolicy Bypass -File ""{app}\provision.ps1"" -InstallDir ""{app}"" -Port {#MyPort} -DbPort {#MyDbPort} -LicenseFile ""{app}\license.key"" -PublicKey ""{#MyPublicKey}"" -Versao ""{#MyVersion}"""; \
   StatusMsg: "A configurar o soserp (base de dados, servicos, licenca)..."; \
   Flags: runhidden waituntilterminated
 ; Arranca já o agente da bandeja (sem esperar pelo próximo login)

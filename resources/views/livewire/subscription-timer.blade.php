@@ -34,6 +34,10 @@
                         Expirado!
                     @elseif(($data['subscription_type'] ?? 'plan') === 'trial')
                         🎁 Trial
+                    @elseif(($data['subscription_type'] ?? 'plan') === 'licenca')
+                        {{-- Instalação local: o prazo é o da licença, não o da
+                             subscrição. Dizer "Plano" aqui induzia em erro. --}}
+                        Licença
                     @else
                         Plano
                     @endif
@@ -42,7 +46,7 @@
                     @if($data['expired'])
                         0d
                     @else
-                        {{ $data['days'] }}d {{ $data['hours'] }}h
+                        {{ $data['resumo'] ?? ($data['days'].'d '.$data['hours'].'h') }}
                     @endif
                 </div>
             </div>

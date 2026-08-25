@@ -52,6 +52,23 @@ class SubscriptionTimer extends Component
             $subscriptionType = 'plan';
         }
         
+        // BUILD OFFLINE: quem manda no prazo é a LICENÇA, não a subscrição.
+        //
+        // A subscrição local é longa de propósito (o assistente cria-a com
+        // anos) só para satisfazer o CheckSubscription — o prazo verdadeiro
+        // vem da licença e renova-se por check-in. Sem isto, o contador do
+        // topo mostrava os anos da subscrição local: uma licença de 1 dia
+        // aparecia como "999d 23h" (999 é o tecto de exibição), que é o
+        // oposto do que o cliente precisa de ver.
+        if (function_exists('licenca_enforce') && licenca_enforce()) {
+            $expiraLicenca = licenca_estado()->payload?->expiraEm();
+
+            if ($expiraLicenca) {
+                $endsAt = \Carbon\Carbon::instance($expiraLicenca->toDateTime());
+                $subscriptionType = 'licenca';
+            }
+        }
+
         // Se não há data definida
         if (!$endsAt) {
             return null;
@@ -72,10 +89,23 @@ class SubscriptionTimer extends Component
         
         $daysRemaining = abs((int) $endsAt->diffInDays($now));
         $hoursRemaining = abs((int) ($endsAt->diffInHours($now) % 24));
-        
+        $minutesRemaining = abs((int) ($endsAt->diffInMinutes($now) % 60));
+
+        // Texto curto para o crachá do topo. Faltando menos de um dia, dizer
+        // "0d 5h" esconde a urgência — mostra-se as horas, e no último dia
+        // até os minutos.
+        if ($daysRemaining >= 1) {
+            $resumo = $daysRemaining . 'd ' . $hoursRemaining . 'h';
+        } elseif ($hoursRemaining >= 1) {
+            $resumo = $hoursRemaining . 'h ' . $minutesRemaining . 'm';
+        } else {
+            $resumo = $minutesRemaining . 'm';
+        }
+
         // Limitar a 999 dias máximo para exibição
         if ($daysRemaining > 999) {
             $daysRemaining = 999;
+            $resumo = '999d+';
         }
         
         // Determinar cor e status baseado nos dias restantes
@@ -97,6 +127,8 @@ class SubscriptionTimer extends Component
             'expired' => false,
             'days' => $daysRemaining,
             'hours' => $hoursRemaining,
+            'minutes' => $minutesRemaining,
+            'resumo' => $resumo,
             'status' => $status,
             'color' => $color,
             'ends_at' => $endsAt->format('d/m/Y H:i'),

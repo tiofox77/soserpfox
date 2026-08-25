@@ -16,7 +16,10 @@ param(
     [string]$DbName = "soserp",
     [string]$DbUser = "soserp",
     [string]$LicenseFile = "",
-    [string]$PublicKey = ""
+    [string]$PublicKey = "",
+    # Versao instalada: vai para o .env e e o que a instalacao reporta no
+    # check-in. Sem isto o painel mostrava a versao a traco.
+    [string]$Versao = ""
 )
 
 # Continue (nao Stop): os exes nativos (mysqld, httpd) escrevem informacao no
@@ -155,6 +158,7 @@ function Set-Env($k, $v) {
 Set-Env "APP_ENV" "production"; Set-Env "APP_DEBUG" "false"; Set-Env "APP_URL" "http://localhost:$Port"
 Set-Env "DB_CONNECTION" "mysql"; Set-Env "DB_HOST" "127.0.0.1"; Set-Env "DB_PORT" "$DbPort"
 Set-Env "DB_DATABASE" $DbName; Set-Env "DB_USERNAME" $DbUser; Set-Env "DB_PASSWORD" ('"' + $DbUser + '_pw!"')
+if ($Versao) { Set-Env "APP_VERSION" $Versao }
 Set-Env "LICENSE_ENFORCE" "true"; Set-Env "LICENSE_BIND_MACHINE" "true"
 if ($PublicKey) { Set-Env "LICENSE_PUBLIC_KEY" ('"' + $PublicKey + '"') }
 # Validacao online / billing: liga ao servidor de licencas na cloud (renova a
