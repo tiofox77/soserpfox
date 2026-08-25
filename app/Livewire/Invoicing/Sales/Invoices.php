@@ -15,6 +15,7 @@ use Livewire\Attributes\Title;
 class Invoices extends Component
 {
     use WithPagination;
+    use \App\Traits\ResolveDocumentoDaEmpresa;
 
     // Filters
     public $search = '';
@@ -155,8 +156,8 @@ class Invoices extends Component
                 return;
             }
 
-            $invoice = SalesInvoice::where('tenant_id', activeTenantId())
-                ->findOrFail($this->invoiceToDelete);
+            $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\SalesInvoice::class, $this->invoiceToDelete);
+                if (!$invoice) { return; }
 
             // Documento fiscal emitido (finalizado/assinado) NUNCA pode ser
             // eliminado — Decreto 71/25 exige rectificação por Nota de Crédito.
@@ -197,8 +198,8 @@ class Invoices extends Component
 
     public function markAsPaid($invoiceId)
     {
-        $invoice = SalesInvoice::where('tenant_id', activeTenantId())
-            ->findOrFail($invoiceId);
+        $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\SalesInvoice::class, $invoiceId);
+        if (!$invoice) { return; }
 
         // A Fatura-Recibo é liquidada no acto da venda: marcá-la como paga de
         // novo (ou registar outro recebimento) duplicaria o valor recebido. O
@@ -297,9 +298,8 @@ class Invoices extends Component
     
     public function viewInvoice($invoiceId)
     {
-        $this->selectedInvoice = SalesInvoice::where('tenant_id', activeTenantId())
-            ->with(['Client', 'warehouse', 'items.product', 'creator'])
-            ->findOrFail($invoiceId);
+        $this->selectedInvoice = $this->documentoDaEmpresa(\App\Models\Invoicing\SalesInvoice::class, $invoiceId, ['Client', 'warehouse', 'items.product', 'creator']);
+        if (!$this->selectedInvoice) { return; }
         $this->showViewModal = true;
     }
     
@@ -311,8 +311,8 @@ class Invoices extends Component
     
     public function downloadPdf($invoiceId)
     {
-        $invoice = SalesInvoice::where('tenant_id', activeTenantId())
-            ->findOrFail($invoiceId);
+        $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\SalesInvoice::class, $invoiceId);
+        if (!$invoice) { return; }
         
         // Redirecionar para rota de PDF
         return redirect()->route('invoicing.sales.invoices.pdf', $invoice->id);

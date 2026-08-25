@@ -1,4 +1,22 @@
-<div class="relative" x-data="{ open: false }" @tenant-switched-reload.window="setTimeout(() => window.location.reload(), 500)">
+{{-- A troca de empresa TAPA o ecrã e recarrega já.
+     Antes esperava 500ms antes de recarregar: nesse intervalo o ecrã ainda
+     mostrava a lista da empresa ANTERIOR, com os botões vivos e a carregar
+     ids que já não pertencem à empresa activa. Bastava um clique nessa
+     meia janela para o servidor não encontrar o registo (o filtro por
+     empresa está a fazer o seu trabalho) e o utilizador levar com
+     "No query results for model ... 35" à cara. --}}
+<div class="relative" x-data="{ open: false, aTrocar: false }"
+     @tenant-switched-reload.window="aTrocar = true; window.location.reload()">
+
+    <template x-if="aTrocar">
+        <div class="fixed inset-0 z-[9999] bg-white/85 backdrop-blur-sm flex items-center justify-center cursor-wait">
+            <div class="text-center">
+                <i class="fas fa-circle-notch fa-spin text-3xl text-indigo-600"></i>
+                <p class="mt-3 text-sm font-semibold text-gray-700">A mudar de empresa…</p>
+            </div>
+        </div>
+    </template>
+
     <!-- Botão de Seletor -->
     <button @click="open = !open" 
             type="button"

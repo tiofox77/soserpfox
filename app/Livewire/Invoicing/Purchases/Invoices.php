@@ -15,6 +15,7 @@ use Livewire\Attributes\Title;
 class Invoices extends Component
 {
     use WithPagination;
+    use \App\Traits\ResolveDocumentoDaEmpresa;
 
     // Filters
     public $search = '';
@@ -146,8 +147,8 @@ class Invoices extends Component
      */
     public function cancelInvoice($invoiceId)
     {
-        $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
-            ->findOrFail($invoiceId);
+        $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\PurchaseInvoice::class, $invoiceId);
+        if (!$invoice) { return; }
 
         if ($invoice->status === 'cancelled') {
             $this->dispatch('notify', ['type' => 'error', 'message' => __('Esta fatura já está anulada.')]);
@@ -175,8 +176,8 @@ class Invoices extends Component
 
     public function markAsPaid($invoiceId)
     {
-        $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
-            ->findOrFail($invoiceId);
+        $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\PurchaseInvoice::class, $invoiceId);
+        if (!$invoice) { return; }
 
         if (in_array($invoice->status, ['paid', 'cancelled'])) {
             $this->dispatch('notify', [
@@ -217,9 +218,8 @@ class Invoices extends Component
     
     public function viewInvoice($invoiceId)
     {
-        $this->selectedInvoice = PurchaseInvoice::where('tenant_id', activeTenantId())
-            ->with(['supplier', 'warehouse', 'items.product', 'creator'])
-            ->findOrFail($invoiceId);
+        $this->selectedInvoice = $this->documentoDaEmpresa(\App\Models\Invoicing\PurchaseInvoice::class, $invoiceId, ['supplier', 'warehouse', 'items.product', 'creator']);
+        if (!$this->selectedInvoice) { return; }
         $this->showViewModal = true;
     }
     
@@ -231,8 +231,8 @@ class Invoices extends Component
     
     public function downloadPdf($invoiceId)
     {
-        $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
-            ->findOrFail($invoiceId);
+        $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\PurchaseInvoice::class, $invoiceId);
+        if (!$invoice) { return; }
         
         // Redirecionar para rota de PDF
         return redirect()->route('invoicing.purchases.invoices.pdf', $invoice->id);

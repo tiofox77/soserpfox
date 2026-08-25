@@ -1,4 +1,7 @@
-<div>
+{{-- Recarrega quando o documento pedido já não é da empresa activa: o ecrã
+     ficou de uma empresa anterior e não há nada de útil a fazer com ele. O
+     atraso é só para o aviso ser lido antes de a página saltar. --}}
+<div @recarregar-pagina.window="setTimeout(() => window.location.reload(), 1200)">
 @if($show)
 <div class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4 animate-fade-in">
     <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl transform animate-scale-in">

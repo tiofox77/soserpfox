@@ -66,6 +66,23 @@ class PaymentModal extends Component
                 'type' => 'info',
                 'message' => __('💰 Modal de pagamento aberto')
             ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            // Quase sempre é o mesmo caso: o ecrã ficou de uma empresa
+            // anterior e este id já não lhe pertence. Atirar o erro do
+            // Eloquent à cara do utilizador ("No query results for model
+            // [App\Models\...] 35") não lhe diz nada — e o que ele precisa é
+            // de recarregar, não de perceber Eloquent.
+            \Log::warning('Pagamento: documento fora da empresa activa', [
+                'tipo'      => $invoiceType,
+                'id'        => $invoiceId,
+                'tenant_id' => activeTenantId(),
+            ]);
+
+            $this->dispatch('notify', [
+                'type'    => 'error',
+                'message' => __('Este documento não pertence à empresa activa. A actualizar a lista…'),
+            ]);
+            $this->dispatch('recarregar-pagina');
         } catch (\Exception $e) {
             \Log::error('Erro ao abrir modal', ['error' => $e->getMessage()]);
             $this->dispatch('notify', [
