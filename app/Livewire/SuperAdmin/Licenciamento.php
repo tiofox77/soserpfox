@@ -167,13 +167,91 @@ class Licenciamento extends Component
         );
     }
 
-    // ── Clientes offline: ver e renovar ─────────────────────────────────
+    // ── Clientes offline: ver, editar e renovar ─────────────────────────
     public $instalacaoId = null;
+    public $edNome = '';
+    public $edNif = '';
+    public $edEmail = '';
+    public $edTelefone = '';
+    public $edDias = 365;
+    public $msgTexto = '';
 
     /** Abre a ficha de uma instalação (licença, máquina, contactos, histórico). */
     public function verInstalacao(int $id): void
     {
         $this->instalacaoId = $id;
+        $i = LicencaEmitida::with('tenant')->find($id);
+        $this->edNome     = $i?->tenant?->name ?? '';
+        $this->edNif      = $i?->tenant?->nif ?? '';
+        $this->edEmail    = $i?->tenant?->email ?? '';
+        $this->edTelefone = $i?->tenant?->phone ?? '';
+        $this->edDias     = 365;
+        $this->msgTexto   = '';
+    }
+
+    /** Corrigir a ficha da empresa sem sair daqui. */
+    public function guardarEmpresa(): void
+    {
+        $this->validate([
+            'edNome'     => 'required|string|min:2|max:255',
+            'edNif'      => 'nullable|string|max:30',
+            'edEmail'    => 'nullable|email|max:255',
+            'edTelefone' => 'nullable|string|max:30',
+        ]);
+
+        $i = LicencaEmitida::with('tenant')->findOrFail($this->instalacaoId);
+        if (!$i->tenant) { session()->flash('erro', 'A empresa já não existe.'); return; }
+
+        $i->tenant->update([
+            'name'  => $this->edNome,
+            'nif'   => $this->edNif ?: null,
+            'email' => $this->edEmail ?: null,
+            'phone' => $this->edTelefone ?: null,
+        ]);
+
+        session()->flash('ok', 'Ficha da empresa actualizada. O nome novo entra na próxima licença emitida.');
+    }
+
+    /**
+     * Suspender corta o acesso a TODA a gente desta empresa: o check-in
+     * seguinte manda a instalação bloquear. Reactivar devolve-o.
+     */
+    public function alternarSuspensao(): void
+    {
+        $i = LicencaEmitida::with('tenant')->findOrFail($this->instalacaoId);
+        if (!$i->tenant) { session()->flash('erro', 'A empresa já não existe.'); return; }
+
+        $activa = !$i->tenant->is_active;
+        $i->tenant->update(['is_active' => $activa]);
+
+        session()->flash('ok', $activa
+            ? 'Empresa reactivada. A instalação volta a funcionar no próximo check-in.'
+            : 'Empresa suspensa. A instalação bloqueia no próximo check-in.');
+    }
+
+    /** Aviso ao cliente por SMS (usa o contacto da empresa). */
+    public function enviarAviso(): void
+    {
+        $this->validate(['msgTexto' => 'required|string|min:5|max:300']);
+
+        $i = LicencaEmitida::with('tenant')->findOrFail($this->instalacaoId);
+        $telefone = $i->tenant?->phone;
+
+        if (!$telefone) { session()->flash('erro', 'Esta empresa não tem telefone na ficha.'); return; }
+
+        try {
+            // tenantId nulo: credenciais da PLATAFORMA. Com o id da empresa, o
+            // aviso que lhe mandamos saía da conta dela.
+            $r = app(\App\Services\SmsService::class)
+                ->send($telefone, $this->msgTexto, 'aviso_licenca', null, null);
+
+            if (!($r['success'] ?? false)) { throw new \RuntimeException($r['error'] ?? 'recusado'); }
+
+            $this->msgTexto = '';
+            session()->flash('ok', 'Aviso enviado para ' . $telefone . '.');
+        } catch (\Throwable $e) {
+            session()->flash('erro', 'Não foi possível enviar: ' . $e->getMessage());
+        }
     }
 
     public function fecharInstalacao(): void

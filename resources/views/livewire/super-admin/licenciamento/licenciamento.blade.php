@@ -176,7 +176,37 @@
                 <div class="p-6 space-y-5">
                     {{-- Empresa --}}
                     <div>
-                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Empresa</h4>
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase">Empresa</h4>
+                            <button wire:click="guardarEmpresa" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                                <i class="fas fa-floppy-disk mr-1"></i>Guardar ficha
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-xs text-gray-500 mb-1">Nome da empresa</label>
+                                <input type="text" wire:model="edNome" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                @error('edNome') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">NIF</label>
+                                <input type="text" wire:model="edNif" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Telefone</label>
+                                <input type="text" wire:model="edTelefone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs text-gray-500 mb-1">Email</label>
+                                <input type="email" wire:model="edEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
+                                @error('edEmail') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+                            <div class="md:col-span-2 flex items-end">
+                                <p class="text-xs text-gray-400">O nome novo entra na próxima licença emitida.</p>
+                            </div>
+                        </div>
+
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Resumo</h4>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                             <div><span class="text-gray-500 block text-xs">NIF</span>{{ $instalacao->tenant->nif ?: '—' }}</div>
                             <div><span class="text-gray-500 block text-xs">Email</span>{{ $instalacao->tenant->email ?: '—' }}</div>
@@ -265,17 +295,57 @@
                     @endif
                 </div>
 
-                <div class="px-6 py-4 border-t flex justify-between items-center sticky bottom-0 bg-white rounded-b-2xl">
-                    <div class="flex gap-2">
-                        <button wire:click="renovarInstalacao({{ $instalacao->id }}, 365)"
-                            class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
-                            <i class="fas fa-rotate mr-1"></i>Renovar 1 ano
-                        </button>
-                        <button wire:click="renovarInstalacao({{ $instalacao->id }}, 30)"
-                            class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold">
-                            +30 dias
-                        </button>
+                {{-- Acções --}}
+                <div class="px-6 pb-6 space-y-4">
+                    <div class="border-t pt-4">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Renovar licença</h4>
+                        <div class="flex flex-wrap items-end gap-2">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Dias</label>
+                                <input type="number" wire:model="edDias" min="1" max="3650"
+                                    class="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <button wire:click="renovarInstalacao({{ $instalacao->id }}, (int) $edDias)"
+                                class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">
+                                <i class="fas fa-rotate mr-1"></i>Renovar
+                            </button>
+                            <span class="text-gray-300">|</span>
+                            @foreach([365 => '1 ano', 30 => '30 dias', 7 => '7 dias', 1 => '1 dia'] as $d => $rotulo)
+                                <button wire:click="renovarInstalacao({{ $instalacao->id }}, {{ $d }})"
+                                    class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">{{ $rotulo }}</button>
+                            @endforeach
+                        </div>
                     </div>
+
+                    <div class="border-t pt-4">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Avisar o cliente (SMS)</h4>
+                        <div class="flex gap-2">
+                            <input type="text" wire:model="msgTexto" maxlength="300"
+                                placeholder="{{ $instalacao->tenant?->phone ? 'Mensagem para ' . $instalacao->tenant->phone : 'Esta empresa não tem telefone na ficha' }}"
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                            <button wire:click="enviarAviso" wire:loading.attr="disabled"
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                                <i class="fas fa-paper-plane mr-1"></i>Enviar
+                            </button>
+                        </div>
+                        @error('msgTexto') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        <p class="text-xs text-gray-400 mt-1">Sai da conta da plataforma, não da do cliente.</p>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t flex justify-between items-center sticky bottom-0 bg-white rounded-b-2xl">
+                    @if($instalacao->tenant?->is_active)
+                        <button wire:click="alternarSuspensao"
+                            wire:confirm="Suspender corta o acesso a TODA a gente desta empresa no próximo check-in. Continuar?"
+                            class="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-sm font-semibold">
+                            <i class="fas fa-ban mr-1"></i>Suspender empresa
+                        </button>
+                    @else
+                        <button wire:click="alternarSuspensao"
+                            class="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold">
+                            <i class="fas fa-circle-check mr-1"></i>Reactivar empresa
+                        </button>
+                    @endif
                     <button wire:click="fecharInstalacao" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">Fechar</button>
                 </div>
             </div>
