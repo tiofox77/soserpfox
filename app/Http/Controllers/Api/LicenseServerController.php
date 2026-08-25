@@ -81,16 +81,25 @@ class LicenseServerController extends Controller
 
         $linha = $this->linhaDaInstalacao($tenant->id, $fpToken);
 
-        // O painel decidiu um prazo? Então é esse. Só quando não há linha
-        // nenhuma (primeiro contacto de sempre) é que se usa `renew_days`.
-        $painelMandou = $linha && $linha->expira_em;
-        $expira = $painelMandou
-            ? CarbonImmutable::instance($linha->expira_em->toDateTime())
-            : CarbonImmutable::now()->addDays((int) ($cfg['renew_days'] ?? 30));
+        // ── UM SÓ NÚMERO, NOS DOIS SENTIDOS ──────────────────────────────
+        //
+        // O prazo offline tem de ser exactamente o da cloud. Como as duas
+        // pontas só guardam valores ASSINADOS pelo fornecedor, a regra pode
+        // ser simples e segura: ganha a decisão MAIS RECENTE.
+        //
+        //   painel mexeu depois  → a instalação recebe o número do painel
+        //   licença instalada à  → a cloud adopta o número da licença (é uma
+        //   mão, sem internet      decisão do fornecedor na mesma: veio
+        //                          assinada, o cliente não a podia forjar)
+        //
+        // Sem isto, renovar um cliente sem rede por telefone era desfeito no
+        // primeiro dia em que ele voltasse a ter internet.
+        $decisao = $this->decidirPrazo($linha, $payload, (int) ($cfg['renew_days'] ?? 30));
 
-        $modulos  = $linha && $linha->modulos ? (array) $linha->modulos : ($payload->modulos() ?: ['*']);
-        $maxUsers = $linha && $linha->max_users ? (int) $linha->max_users : ($payload->maxUtilizadores() ?: null);
-        $plano    = $linha?->plano ?: $tenant->activeSubscription?->plan?->name;
+        $expira   = $decisao['expira'];
+        $modulos  = $decisao['modulos'] ?: ['*'];
+        $maxUsers = $decisao['max_users'];
+        $plano    = $decisao['plano'] ?: $tenant->activeSubscription?->plan?->name;
 
         try {
             $novo = (new LicenseIssuer())->emitir(array_filter([
@@ -108,27 +117,23 @@ class LicenseServerController extends Controller
             return response()->json(['erro' => 'falha_ao_renovar'], 500);
         }
 
-        // Regista o contacto: é o que alimenta a lista de clientes offline no
-        // painel. NUNCA mexe no `expira_em` quando foi o painel a decidi-lo.
+        // Regista o contacto e FIXA o número decidido. Escrever sempre o
+        // `expira_em` é o que garante que o painel mostra exactamente o que a
+        // instalação passa a contar — quer tenha ganho um lado, quer o outro.
         try {
-            $mudancas = [
-                'plano'            => $plano,
-                'max_users'        => $maxUsers,
-                'modulos'          => $modulos,
-                'token'            => $novo,
-                'emitida_em'       => now(),
-                'ultimo_checkin'   => now(),
-                'versao_instalada' => ($dados['versao'] ?? null) ?: null,
-                'ultimo_ip'        => $request->ip(),
-            ];
-
-            if (!$painelMandou) {
-                $mudancas['expira_em'] = $expira;
-            }
-
             LicencaEmitida::updateOrCreate(
                 ['tenant_id' => $tenant->id, 'fingerprint' => $fpToken],
-                $mudancas
+                [
+                    'plano'            => $plano,
+                    'max_users'        => $maxUsers,
+                    'modulos'          => $modulos,
+                    'token'            => $novo,
+                    'expira_em'        => $expira,
+                    'emitida_em'       => now(),
+                    'ultimo_checkin'   => now(),
+                    'versao_instalada' => ($dados['versao'] ?? null) ?: null,
+                    'ultimo_ip'        => $request->ip(),
+                ]
             );
         } catch (\Throwable $e) {
             // O registo é secundário — a licença renovada é que interessa e já
@@ -145,6 +150,63 @@ class LicenseServerController extends Controller
             'proximo_checkin_minutos' => $this->cadencia($expira),
             'notificacoes'            => [],
         ]);
+    }
+
+    /**
+     * Qual dos dois lados tem a decisão mais recente do fornecedor.
+     *
+     * Ambos os valores são vendor-signed: o da linha foi escrito pelo painel,
+     * o do token foi assinado com a chave privada. Por isso dá para comparar
+     * `iat` (quando a licença foi emitida) com `emitida_em` (quando o painel
+     * mexeu) e deixar ganhar o mais novo — sem abrir a porta a ninguém: o
+     * cliente não consegue forjar nem um `iat` mais recente nem um `exp` maior.
+     *
+     * Empate ou dúvida → manda a linha (o lado que o fornecedor controla).
+     *
+     * @return array{expira:CarbonImmutable, modulos:array, max_users:?int, plano:?string}
+     */
+    private function decidirPrazo(?LicencaEmitida $linha, $payload, int $renewDays): array
+    {
+        $expToken = $payload->expiraEm();
+        $iatToken = $payload->emitidaEm();
+
+        $temLinha = $linha && $linha->expira_em;
+
+        // Só se dá a vitória ao cliente quando dá para PROVAR que é mais novo.
+        // Sem `emitida_em` na linha não há prova — e nesse caso manda a cloud.
+        $clienteMaisRecente = $expToken
+            && $temLinha
+            && $iatToken
+            && $linha->emitida_em
+            && $iatToken->gt(CarbonImmutable::instance($linha->emitida_em->toDateTime())->addSeconds(5));
+
+        if ($temLinha && !$clienteMaisRecente) {
+            return [
+                'expira'    => CarbonImmutable::instance($linha->expira_em->toDateTime()),
+                'modulos'   => $linha->modulos ? (array) $linha->modulos : ($payload->modulos() ?: []),
+                'max_users' => $linha->max_users ? (int) $linha->max_users : ($payload->maxUtilizadores() ?: null),
+                'plano'     => $linha->plano,
+            ];
+        }
+
+        if ($expToken) {
+            // O cliente traz a decisão mais recente (ou é o primeiro contacto
+            // de uma licença emitida fora do painel): a cloud adopta-a.
+            return [
+                'expira'    => $expToken,
+                'modulos'   => $payload->modulos(),
+                'max_users' => $payload->maxUtilizadores() ?: null,
+                'plano'     => $payload->plano(),
+            ];
+        }
+
+        // Licença sem prazo e sem linha: só resta a validade por omissão.
+        return [
+            'expira'    => CarbonImmutable::now()->addDays($renewDays),
+            'modulos'   => $payload->modulos(),
+            'max_users' => $payload->maxUtilizadores() ?: null,
+            'plano'     => $payload->plano(),
+        ];
     }
 
     /**

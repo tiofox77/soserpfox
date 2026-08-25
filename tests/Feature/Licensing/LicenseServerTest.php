@@ -162,22 +162,118 @@ class LicenseServerTest extends TenantTestCase
             ->assertJson(['proximo_checkin_minutos' => 720]);
     }
 
-    /** Sem linha nenhuma (primeiro contacto de sempre): cai em renew_days. */
-    public function test_primeiro_contacto_usa_renew_days(): void
+    /**
+     * Sem linha nenhuma (licença emitida fora do painel, ou primeiro contacto
+     * de sempre): a cloud adopta o prazo que o cliente traz. É uma licença
+     * assinada pelo fornecedor — logo, é uma decisão do fornecedor.
+     */
+    public function test_primeiro_contacto_adopta_a_licenca_do_cliente(): void
     {
-        $resp = $this->checkin($this->tokenDoTenant());
+        $resp = $this->checkin($this->tokenDoTenant());   // token de 3 dias
         $resp->assertOk();
 
         $payload = (new LicenseVerifier($this->publica, config('licensing')))
             ->payloadAssinado($resp->json('licenca'));
 
         $this->assertEqualsWithDelta(
-            30,
+            3,
             CarbonImmutable::now()->diffInDays($payload->expiraEm(), false),
             0.05
         );
 
-        $this->assertDatabaseHas('licencas_emitidas', ['tenant_id' => $this->tenant->id]);
+        // E a cloud passa a mostrar o MESMO número.
+        $linha = LicencaEmitida::where('tenant_id', $this->tenant->id)->firstOrFail();
+        $this->assertEqualsWithDelta(3, now()->floatDiffInDays($linha->expira_em), 0.05);
+    }
+
+    /**
+     * OFFLINE → ONLINE. O cliente ficou sem rede, renovou-se por telefone com
+     * um token que lhe demos, e só dias depois voltou a ter internet. A cloud
+     * tem de ADOPTAR esse prazo — não empurrá-lo de volta para o antigo.
+     */
+    public function test_licenca_instalada_a_mao_actualiza_a_cloud(): void
+    {
+        $linha = LicencaEmitida::create([
+            'tenant_id'  => $this->tenant->id,
+            'modulos'    => ['*'],
+            'token'      => 'SOSERP-LIC.v1.antigo',
+            'emitida_em' => now()->subDays(10),
+            'expira_em'  => now()->addDay(),        // a cloud ainda pensa: 1 dia
+        ]);
+
+        // O que lhe demos por telefone ONTEM: 90 dias, emitido depois do painel.
+        $tokenNovo = (new LicenseIssuer())->emitir([
+            'tenant_id' => $this->tenant->id,
+            'iat'       => CarbonImmutable::now()->subDay()->getTimestamp(),
+            'exp'       => CarbonImmutable::now()->addDays(90)->getTimestamp(),
+        ], $this->privada);
+
+        $resp = $this->checkin($tokenNovo);
+        $resp->assertOk();
+
+        $payload = (new LicenseVerifier($this->publica, config('licensing')))
+            ->payloadAssinado($resp->json('licenca'));
+
+        $this->assertEqualsWithDelta(90, CarbonImmutable::now()->diffInDays($payload->expiraEm(), false), 0.05);
+        $this->assertEqualsWithDelta(90, now()->floatDiffInDays($linha->refresh()->expira_em), 0.05);
+    }
+
+    /**
+     * ONLINE → OFFLINE. Token mais VELHO que a decisão do painel não ganha —
+     * senão bastava guardar uma licença antiga e longa para ignorar cortes.
+     */
+    public function test_token_mais_velho_nao_ganha_ao_painel(): void
+    {
+        $linha = LicencaEmitida::create([
+            'tenant_id'  => $this->tenant->id,
+            'modulos'    => ['*'],
+            'token'      => 'SOSERP-LIC.v1.x',
+            'emitida_em' => now(),               // o painel mexeu agora
+            'expira_em'  => now()->addDay(),     // e disse: 1 dia
+        ]);
+
+        // Uma licença de 2 anos que lhe demos o ano passado.
+        $tokenVelho = (new LicenseIssuer())->emitir([
+            'tenant_id' => $this->tenant->id,
+            'iat'       => CarbonImmutable::now()->subYear()->getTimestamp(),
+            'exp'       => CarbonImmutable::now()->addYears(2)->getTimestamp(),
+        ], $this->privada);
+
+        $resp = $this->checkin($tokenVelho);
+
+        $payload = (new LicenseVerifier($this->publica, config('licensing')))
+            ->payloadAssinado($resp->json('licenca'));
+
+        $this->assertEqualsWithDelta(1, CarbonImmutable::now()->diffInDays($payload->expiraEm(), false), 0.05);
+        $this->assertEqualsWithDelta(1, now()->floatDiffInDays($linha->refresh()->expira_em), 0.05);
+    }
+
+    /** Depois de sincronizar, os dois lados mostram o MESMO número. */
+    public function test_os_dois_lados_ficam_com_o_mesmo_numero(): void
+    {
+        LicencaEmitida::create([
+            'tenant_id'  => $this->tenant->id,
+            'modulos'    => ['*'],
+            'token'      => 'SOSERP-LIC.v1.x',
+            'emitida_em' => now(),
+            'expira_em'  => now()->addDays(45),
+        ]);
+
+        $resp = $this->checkin($this->tokenDoTenant());
+
+        $payload = (new LicenseVerifier($this->publica, config('licensing')))
+            ->payloadAssinado($resp->json('licenca'));
+
+        $linha = LicencaEmitida::where('tenant_id', $this->tenant->id)->firstOrFail();
+
+        // Ao segundo, o que o cliente conta e o que o painel mostra são o mesmo
+        // INSTANTE. Compara-se o timestamp, não a hora de parede: o payload vem
+        // em UTC e a coluna no fuso da app — a mesma data escrita de duas
+        // maneiras. Comparar strings dava uma hora de diferença que não existe.
+        $this->assertSame(
+            $linha->expira_em->getTimestamp(),
+            $payload->expiraEm()->getTimestamp()
+        );
     }
 
     /** O painel também manda nos módulos e no tecto de utilizadores. */

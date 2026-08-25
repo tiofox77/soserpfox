@@ -64,7 +64,12 @@ class SubscriptionTimer extends Component
             $expiraLicenca = licenca_estado()->payload?->expiraEm();
 
             if ($expiraLicenca) {
-                $endsAt = \Carbon\Carbon::instance($expiraLicenca->toDateTime());
+                // setTimezone: a licença guarda o prazo em UTC. A contagem
+                // sairia certa na mesma (é o mesmo instante), mas a data que
+                // se MOSTRA ao cliente aparecia uma hora atrás da que o painel
+                // mostra ao fornecedor — dois números para a mesma coisa.
+                $endsAt = \Carbon\Carbon::instance($expiraLicenca->toDateTime())
+                    ->setTimezone(config('app.timezone', 'UTC'));
                 $subscriptionType = 'licenca';
             }
         }

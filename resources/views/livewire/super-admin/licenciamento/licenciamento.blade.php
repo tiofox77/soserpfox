@@ -231,10 +231,26 @@
                             <div><span class="text-gray-500 block text-xs">Emitida</span>{{ $instalacao->emitida_em?->format('d/m/Y') ?: '—' }}</div>
                             <div>
                                 <span class="text-gray-500 block text-xs">Expira</span>
-                                {{ $instalacao->expira_em?->format('d/m/Y') ?: '—' }}
+                                {{ $instalacao->expira_em?->format('d/m/Y H:i') ?: '—' }}
                                 @if($instalacao->expira_em)
-                                    <span class="text-xs {{ $instalacao->expira_em->isPast() ? 'text-red-600' : 'text-gray-400' }}">
-                                        ({{ $instalacao->expira_em->diffForHumans() }})
+                                    {{-- O MESMO número que o crachá da instalação
+                                         conta. Se aqui diz 1d 3h, lá diz 1d 3h —
+                                         é para se poder comparar de olho. --}}
+                                    @php
+                                        $faltam = $instalacao->expira_em->isPast()
+                                            ? null
+                                            : now()->diff($instalacao->expira_em);
+                                    @endphp
+                                    <span class="block text-xs font-semibold {{ $faltam ? 'text-emerald-600' : 'text-red-600' }}">
+                                        @if(!$faltam)
+                                            expirada {{ $instalacao->expira_em->diffForHumans() }}
+                                        @elseif($faltam->days >= 1)
+                                            faltam {{ $faltam->days }}d {{ $faltam->h }}h
+                                        @elseif($faltam->h >= 1)
+                                            faltam {{ $faltam->h }}h {{ $faltam->i }}m
+                                        @else
+                                            faltam {{ $faltam->i }}m
+                                        @endif
                                     </span>
                                 @endif
                             </div>

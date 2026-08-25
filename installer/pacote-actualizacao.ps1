@@ -45,6 +45,12 @@ foreach ($f in $ficheiros) {
 }
 Log ("$($ficheiros.Count) ficheiro(s) recolhidos.")
 
+# O selador vai DENTRO do pacote. Sem ele, a actualizacao muda os ficheiros, os
+# hashes deixam de bater com o manifesto da instalacao, e o vigia de
+# integridade bloqueia o sistema todo a acusar adulteracao - com a
+# actualizacao oficial a fazer-se passar por ataque.
+Copy-Item (Join-Path $PSScriptRoot "selar-integridade.ps1") (Join-Path $temp "selar-integridade.ps1") -Force
+
 # Migracoes que vao no pacote — se houver, o aplicar.bat corre-as.
 $temMigracoes = [bool]($ficheiros | Where-Object { $_ -like 'database/migrations/*' })
 
@@ -86,6 +92,9 @@ $bat = @(
     $(if ($temMigracoes) { '"%DESTINO%\xampp\php\php.exe" artisan migrate --force' } else { 'REM sem migracoes neste pacote' }),
     '"%DESTINO%\xampp\php\php.exe" artisan view:cache',
     'popd',
+    '',
+    'echo A selar a integridade (senao o vigia acusa esta actualizacao de adulteracao)...',
+    'powershell -NoProfile -File "%AQUI%\selar-integridade.ps1" -AppDir "%DESTINO%\app"',
     '',
     'echo A arrancar servicos...',
     'net start soserp-apache >nul 2>&1',
