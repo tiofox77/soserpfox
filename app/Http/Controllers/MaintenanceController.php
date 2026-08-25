@@ -75,6 +75,9 @@ class MaintenanceController extends Controller
         // ?args=--resolver=N ou --empurrar, explícitos).
         'erros:ver',
         'sms:ver',
+        // Facturas de subscricao duplicadas do mesmo periodo. Simulacao por
+        // omissao: so trata com ?args=--aplicar. Nunca toca numa factura paga.
+        'facturas:duplicadas',
         // Liga o "Gerenciar Stock" nos artigos que o deviam ter. Simulação
         // por omissão: sem ?args=--aplicar não grava nada. Nunca toca em
         // serviços nem na quantidade.
