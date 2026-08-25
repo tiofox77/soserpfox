@@ -28,7 +28,7 @@ class LicenseCheckin
     }
 
     /**
-     * @return array{ok:bool, acao?:string, motivo?:string, notificacoes?:array}
+     * @return array{ok:bool, acao?:string, motivo?:string, notificacoes?:array, proximo_minutos?:int|null}
      */
     public function executar(): array
     {
@@ -76,7 +76,17 @@ class LicenseCheckin
             $this->manager->store()->registarCheckin();     // reinicia o contador
             $this->manager->store()->limparBloqueioRemoto(); // e levanta bloqueios
 
-            return ['ok' => true, 'acao' => 'renovada', 'notificacoes' => $dados['notificacoes'] ?? []];
+            return [
+                'ok'           => true,
+                'acao'         => 'renovada',
+                'notificacoes' => $dados['notificacoes'] ?? [],
+                // É o servidor que sabe quanto tempo falta a esta licença, por
+                // isso é ele que manda quando voltar a ligar: quem tem horas
+                // volta em minutos, quem tem meses só volta daqui a meio dia.
+                'proximo_minutos' => isset($dados['proximo_checkin_minutos'])
+                    ? max(5, min(1440, (int) $dados['proximo_checkin_minutos']))
+                    : null,
+            ];
         }
 
         // 2) Bloqueio explícito do fornecedor (via painel). Marca já — mesmo

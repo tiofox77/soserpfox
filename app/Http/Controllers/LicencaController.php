@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Licensing\LicenseCheckin;
 use App\Services\Licensing\LicenseManager;
 use App\Services\Licensing\LicenseState;
 use App\Services\Licensing\MachineFingerprint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -253,6 +255,44 @@ class LicencaController extends Controller
         $f = $this->caminhoDoPedido();
         @mkdir(dirname($f), 0775, true);
         @file_put_contents($f, json_encode($dados, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * "Sincronizar agora": liga ao fornecedor JÁ, sem esperar pela cadência.
+     *
+     * Existe porque o caminho normal é o cliente a puxar (esta máquina está
+     * numa rede local, atrás de router — a cloud não lhe consegue bater à
+     * porta). Quando o fornecedor mexe na licença e o cliente quer o efeito no
+     * segundo seguinte, é este botão que o dá.
+     */
+    public function sincronizar()
+    {
+        if (trim((string) config('licensing.checkin_url')) === '') {
+            return back()->with('erro', 'Não há servidor de licenças configurado nesta instalação.');
+        }
+
+        // Deitar a tranca abaixo: senão este clique não fazia nada enquanto a
+        // janela do check-in automático não expirasse.
+        Cache::forget('licenca:checkin:janela');
+
+        $r = LicenseCheckin::apartirDaConfig()->executar();
+
+        if (($r['ok'] ?? false) && ($r['acao'] ?? null) === 'renovada') {
+            return redirect()->route('licenca.index', ['ver' => 1])
+                ->with('ok', 'Licença actualizada a partir do fornecedor.');
+        }
+
+        if (($r['acao'] ?? null) === 'bloquear') {
+            return back()->with('erro', 'O fornecedor bloqueou esta instalação: ' . ($r['motivo'] ?? 'sem motivo'));
+        }
+
+        return back()->with('erro', 'Não foi possível sincronizar: ' . match ($r['motivo'] ?? '') {
+            'sem_rede'               => 'sem ligação à internet.',
+            'sem_licenca'            => 'ainda não há licença instalada nesta máquina.',
+            'renovacao_invalida'     => 'a resposta do servidor não tinha assinatura válida.',
+            'renovacao_indisponivel' => 'o fornecedor não tem a chave de renovação configurada.',
+            default                  => (string) ($r['motivo'] ?? 'erro desconhecido'),
+        });
     }
 
     /** Instala um token colado no formulário, depois de o verificar. */

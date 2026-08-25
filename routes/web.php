@@ -33,6 +33,8 @@ if (config('licensing.enforce')) {
     // O cliente pede a licença ao fornecedor (online, ou gera código offline)
     Route::post('/licenca/solicitar', [\App\Http\Controllers\LicencaController::class, 'solicitar'])->name('licenca.solicitar');
     Route::post('/licenca/verificar', [\App\Http\Controllers\LicencaController::class, 'verificarPedido'])->name('licenca.verificar');
+    // Puxar já o que o fornecedor mudou, sem esperar pela cadência automática.
+    Route::post('/licenca/sincronizar', [\App\Http\Controllers\LicencaController::class, 'sincronizar'])->name('licenca.sincronizar');
     // Assistente de 1.ª utilização: cria empresa + admin a partir da licença.
     Route::get('/setup', \App\Livewire\Setup\SetupWizard::class)->name('setup');
 }

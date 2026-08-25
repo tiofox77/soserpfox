@@ -190,6 +190,19 @@
         </div>
 
         <div id="instalar" @unless($licencaBoa) style="display:none" @endunless>
+            @if($temServidor)
+                {{-- O fornecedor não consegue bater à porta desta máquina (está
+                     numa rede local). Quem puxa é ela — este botão puxa já. --}}
+                <form method="POST" action="{{ route('licenca.sincronizar') }}" style="margin-bottom:14px">
+                    @csrf
+                    <button type="submit">Sincronizar com o fornecedor agora</button>
+                    <p class="hint">
+                        Vai buscar a licença mais recente (prazo, módulos, bloqueios). É o mesmo que a
+                        instalação faz sozinha de tempos a tempos — este botão não espera.
+                    </p>
+                </form>
+            @endif
+
             <form method="POST" action="{{ route('licenca.guardar') }}">
                 @csrf
                 <label for="token">Instalar / substituir licença</label>
