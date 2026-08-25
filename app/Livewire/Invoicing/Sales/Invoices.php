@@ -157,7 +157,13 @@ class Invoices extends Component
             }
 
             $invoice = $this->documentoDaEmpresa(\App\Models\Invoicing\SalesInvoice::class, $this->invoiceToDelete);
-                if (!$invoice) { return; }
+            if (!$invoice) {
+                // Fechar também: deixar o modal de confirmação aberto sobre uma
+                // factura que já não é desta empresa só convida a insistir.
+                $this->showDeleteModal = false;
+
+                return;
+            }
 
             // Documento fiscal emitido (finalizado/assinado) NUNCA pode ser
             // eliminado — Decreto 71/25 exige rectificação por Nota de Crédito.
