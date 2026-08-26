@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Invoicing;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoicing\QuoteTemplate;
 use App\Models\Invoicing\SalesQuote;
+use App\Services\Invoicing\Propostas\RenderizadorDeProposta;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class QuoteController extends Controller
@@ -25,12 +27,19 @@ class QuoteController extends Controller
                 ->limit(4)
                 ->get();
 
-            $pdf = Pdf::loadView('pdf.invoicing.quote', [
-                'paraPdf' => true,
-                'quote' => $quote,
-                'tenant' => $tenant,
-                'bankAccounts' => $bankAccounts,
-            ]);
+            // Modelo de proposta escolhido para este orçamento (ou o padrão da
+            // empresa). Sem nenhum, sai o desenho antigo — nenhum orçamento
+            // já feito muda de aspecto só porque este módulo passou a existir.
+            $modelo = $this->modeloDoOrcamento($quote);
+
+            $pdf = $modelo
+                ? Pdf::loadHTML(app(RenderizadorDeProposta::class)->render($modelo, $quote, $tenant))
+                : Pdf::loadView('pdf.invoicing.quote', [
+                    'paraPdf' => true,
+                    'quote' => $quote,
+                    'tenant' => $tenant,
+                    'bankAccounts' => $bankAccounts,
+                ]);
 
             $pdf->setPaper('A4', 'portrait');
             $pdf->setOptions([
@@ -68,10 +77,53 @@ class QuoteController extends Controller
             ->limit(4)
             ->get();
 
+        if ($modelo = $this->modeloDoOrcamento($quote)) {
+            return response(app(RenderizadorDeProposta::class)->render($modelo, $quote, $tenant));
+        }
+
         return view('pdf.invoicing.quote', [
             'quote' => $quote,
             'tenant' => $tenant,
             'bankAccounts' => $bankAccounts,
         ]);
+    }
+
+    /**
+     * Pré-visualizar um MODELO sozinho, sem orçamento — é o botão "Ver PDF" da
+     * lista e do editor. Sai com dados de exemplo.
+     */
+    public function previewModelo($id)
+    {
+        $modelo = QuoteTemplate::where('tenant_id', activeTenantId())->findOrFail($id);
+
+        $html = app(RenderizadorDeProposta::class)
+            ->renderExemplo($modelo, \App\Models\Tenant::find(activeTenantId()));
+
+        $pdf = Pdf::loadHTML($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->setOptions(['isHtml5ParserEnabled' => true, 'isRemoteEnabled' => true, 'defaultFont' => 'Arial']);
+
+        return $pdf->stream('modelo_' . \Str::slug($modelo->nome) . '.pdf');
+    }
+
+    /**
+     * O modelo a usar: o que foi escolhido no orçamento, senão o padrão da
+     * empresa, senão nenhum (e sai o desenho antigo).
+     */
+    private function modeloDoOrcamento(SalesQuote $quote): ?QuoteTemplate
+    {
+        if ($quote->quote_template_id) {
+            $escolhido = QuoteTemplate::where('tenant_id', $quote->tenant_id)
+                ->find($quote->quote_template_id);
+
+            if ($escolhido) {
+                return $escolhido;
+            }
+        }
+
+        return QuoteTemplate::where('tenant_id', $quote->tenant_id)
+            ->where('is_active', true)
+            ->where('is_default', true)
+            ->first();
     }
 }

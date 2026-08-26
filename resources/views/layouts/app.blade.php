@@ -732,10 +732,18 @@
                                         @endcan
 
                                         @can('invoicing.sales.quotes.view')
+                                        {{-- routeIs('...quotes') exacto: com `quotes*`, estar nos
+                                             Modelos acendia também os Orçamentos. --}}
                                         <a href="{{ route('invoicing.sales.quotes') }}"
-                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.quotes*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.quotes') || request()->routeIs('invoicing.sales.quotes.*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
                                             <i class="fas fa-file-signature w-5 text-teal-400 text-sm"></i>
                                             <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Orçamentos') }}</span>
+                                        </a>
+
+                                        <a href="{{ route('invoicing.sales.quote-templates') }}"
+                                           class="flex items-center pl-4 pr-4 py-2.5 {{ request()->routeIs('invoicing.sales.quote-templates*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-pen-ruler w-5 text-violet-400 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-xs">{{ __('Modelos de Proposta') }}</span>
                                         </a>
                                         @endcan
                                         

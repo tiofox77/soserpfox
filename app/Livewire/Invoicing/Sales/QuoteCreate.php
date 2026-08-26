@@ -43,6 +43,10 @@ class QuoteCreate extends Component
     public $valid_until;
     public $notes = '';
     public $terms = '';
+
+    // Modelo de proposta e os campos livres que ele pede.
+    public $quote_template_id = null;
+    public array $campos_proposta = [];
     public $discount_amount = 0;
     public $discount_commercial = 0; // Desconto Comercial (antes IVA)
     public $discount_financial = 0;  // Desconto Financeiro (após IVA)
@@ -169,6 +173,11 @@ class QuoteCreate extends Component
 
         $this->cartInstance = 'sales_quote_' . activeTenantId() . '_' . auth()->id();
 
+        // Orcamento novo nasce com o modelo padrao da empresa (se houver):
+        // ninguem se lembra de o escolher, e sem ele saia o desenho antigo.
+        $this->quote_template_id = \App\Models\Invoicing\QuoteTemplate::where('tenant_id', activeTenantId())
+            ->where('is_active', true)->where('is_default', true)->value('id');
+
         $defaultWarehouse = Warehouse::where('tenant_id', activeTenantId())
             ->where('is_default', true)
             ->first();
@@ -213,6 +222,8 @@ class QuoteCreate extends Component
         $this->valid_until = $quote->valid_until?->format('Y-m-d');
         $this->notes = $quote->notes;
         $this->terms = $quote->terms;
+        $this->quote_template_id = $quote->quote_template_id;
+        $this->campos_proposta = (array) ($quote->campos_proposta ?? []);
         $this->discount_amount = $quote->discount_amount;
         $this->discount_commercial = $quote->discount_commercial ?? 0;
         $this->discount_financial = $quote->discount_financial ?? 0;
@@ -298,7 +309,46 @@ class QuoteCreate extends Component
             'products' => $products,
             'regiaoFiscal' => $regiaoFiscal,
             'clienteProvincia' => $cliente->province ?? null,
+            'modelosDeProposta' => \App\Models\Invoicing\QuoteTemplate::where('tenant_id', activeTenantId())
+                ->where('is_active', true)->orderByDesc('is_default')->orderBy('nome')->get(),
+            'camposLivres' => $this->camposLivresDoModelo(),
         ], $totals));
+    }
+
+    /** Os campos que o modelo escolhido pede a quem faz este orcamento. */
+    private function camposLivresDoModelo(): array
+    {
+        if (!$this->quote_template_id) {
+            return [];
+        }
+
+        $modelo = \App\Models\Invoicing\QuoteTemplate::where('tenant_id', activeTenantId())
+            ->find($this->quote_template_id);
+
+        return $modelo ? $modelo->camposLivres() : [];
+    }
+
+    /**
+     * So os campos que o modelo ESCOLHIDO pede. Trocar de modelo a meio
+     * deixava aqui textos orfaos de um modelo antigo, que voltariam a
+     * aparecer se alguem voltasse a escolhe-lo.
+     */
+    private function camposDoModeloEscolhido(): ?array
+    {
+        $pedidos = $this->camposLivresDoModelo();
+        if (!$pedidos) {
+            return null;
+        }
+
+        $guardar = [];
+        foreach (array_keys($pedidos) as $chave) {
+            $valor = trim((string) ($this->campos_proposta[$chave] ?? ''));
+            if ($valor !== '') {
+                $guardar[$chave] = $valor;
+            }
+        }
+
+        return $guardar ?: null;
     }
 
     public function addProduct($productId)
@@ -564,6 +614,10 @@ class QuoteCreate extends Component
             $quote->discount_financial = $this->discount_financial;
             $quote->notes = $this->notes;
             $quote->terms = $this->terms;
+            $quote->quote_template_id = $this->quote_template_id ?: null;
+            // Guarda so os campos que o modelo escolhido pede: trocar de
+            // modelo deixava aqui textos orfaos de um modelo antigo.
+            $quote->campos_proposta = $this->camposDoModeloEscolhido();
             $quote->save();
 
             $order = 0;

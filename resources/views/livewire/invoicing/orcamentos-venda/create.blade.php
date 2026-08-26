@@ -332,6 +332,59 @@
                     </div>
                 </div>
 
+                {{-- Modelo de proposta e os campos que ele pede --}}
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                        <h3 class="text-white font-bold text-lg flex items-center">
+                            <i class="fas fa-file-invoice mr-2"></i>
+                            {{ __('Proposta') }}
+                        </h3>
+                        <a href="{{ route('invoicing.sales.quote-templates') }}" target="_blank"
+                           class="text-violet-100 hover:text-white text-xs font-semibold">
+                            <i class="fas fa-pen-ruler mr-1"></i>{{ __('Gerir modelos') }}
+                        </a>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Modelo') }}</label>
+                            <select wire:model.live="quote_template_id"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition">
+                                <option value="">{{ __('Sem modelo — documento simples') }}</option>
+                                @foreach($modelosDeProposta as $m)
+                                    <option value="{{ $m->id }}">{{ $m->nome }}@if($m->is_default) · {{ __('padrão') }}@endif</option>
+                                @endforeach
+                            </select>
+                            @if($modelosDeProposta->isEmpty())
+                                <p class="text-xs text-gray-500 mt-1.5">
+                                    {{ __('Ainda não há modelos.') }}
+                                    <a href="{{ route('invoicing.sales.quote-templates') }}" target="_blank"
+                                       class="text-violet-600 font-semibold hover:underline">{{ __('Criar o primeiro') }}</a>
+                                </p>
+                            @endif
+                        </div>
+
+                        {{-- Os campos que o modelo escolhido deixou por preencher.
+                             É aqui que a proposta deixa de ser genérica. --}}
+                        @forelse($camposLivres as $chave => $campo)
+                            <div wire:key="cl-{{ $chave }}">
+                                <label class="block text-sm font-bold text-gray-700 mb-1">{{ $campo['rotulo'] }}</label>
+                                @if($campo['ajuda'])
+                                    <p class="text-xs text-gray-500 mb-1.5">{{ $campo['ajuda'] }}</p>
+                                @endif
+                                <textarea wire:model.blur="campos_proposta.{{ $chave }}" rows="{{ $campo['linhas'] }}"
+                                          class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition"
+                                          placeholder="{{ $campo['ajuda'] ?: $campo['rotulo'] }}"></textarea>
+                            </div>
+                        @empty
+                            @if($quote_template_id)
+                                <p class="text-xs text-gray-500">
+                                    {{ __('Este modelo não tem campos a preencher — sai sempre igual.') }}
+                                </p>
+                            @endif
+                        @endforelse
+                    </div>
+                </div>
+
                 {{-- Notes & Terms --}}
                 <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">

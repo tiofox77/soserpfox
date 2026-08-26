@@ -43,6 +43,8 @@ class SalesQuote extends Model
         'notes',
         'terms',
         'created_by',
+        'quote_template_id',
+        'campos_proposta',
     ];
 
     protected $casts = [
@@ -57,7 +59,14 @@ class SalesQuote extends Model
         'discount_financial' => 'decimal:2',
         'total' => 'decimal:2',
         'exchange_rate' => 'decimal:4',
+        // O que quem fez o orçamento escreveu nos campos livres do modelo.
+        'campos_proposta' => 'array',
     ];
+
+    public function modelo()
+    {
+        return $this->belongsTo(QuoteTemplate::class, 'quote_template_id');
+    }
 
     protected static function boot()
     {

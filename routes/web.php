@@ -273,7 +273,20 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         Route::get('/quotes/{id}/edit', \App\Livewire\Invoicing\Sales\QuoteCreate::class)->name('quotes.edit');
         Route::get('/quotes/{id}/pdf', [\App\Http\Controllers\Invoicing\QuoteController::class, 'generatePdf'])->name('quotes.pdf');
         Route::get('/quotes/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewHtml'])->name('quotes.preview');
-        
+
+        // Modelos de proposta: o desenho do orçamento, separado dos números.
+        // Vive sob as permissões de orçamento — quem faz orçamentos é quem
+        // precisa de mexer nos modelos.
+        Route::middleware('permission:invoicing.sales.quotes.view')
+            ->get('/quote-templates', \App\Livewire\Invoicing\Propostas\ModelosDeProposta::class)
+            ->name('quote-templates');
+        Route::middleware('permission:invoicing.sales.quotes.edit')
+            ->get('/quote-templates/{id}/edit', \App\Livewire\Invoicing\Propostas\EditorDeModelo::class)
+            ->name('quote-templates.edit');
+        Route::middleware('permission:invoicing.sales.quotes.view')
+            ->get('/quote-templates/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewModelo'])
+            ->name('quote-templates.preview');
+
         // Faturas de Venda
         Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
         Route::get('/invoices/create', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.create');
