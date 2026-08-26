@@ -1,4 +1,34 @@
 <div>
+    {{-- A senha aparece UMA vez, aqui. É a única forma de a empresa a poder
+         dizer a um cliente que não tem email (ou a quem o email não chegou):
+         na base só fica o hash, e daqui a um minuto já ninguém a consegue ler. --}}
+    @if($senhaGerada)
+        <div class="mb-6 bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <h4 class="text-sm font-bold text-indigo-900 mb-1">
+                        <i class="fas fa-key mr-1"></i>Senha de acesso de {{ $clienteDaSenha }}
+                    </h4>
+                    <p class="text-xs text-indigo-700 mb-3">
+                        Anote-a agora — assim que fechar isto, não há forma de a voltar a ver.
+                        Pode sempre gerar outra em "Repor senha".
+                    </p>
+                    <div class="inline-flex items-center gap-3 bg-white border border-indigo-200 rounded-xl px-4 py-2.5">
+                        <span class="font-mono text-xl font-bold text-gray-900 tracking-wider select-all">{{ $senhaGerada }}</span>
+                        <button type="button"
+                                onclick="navigator.clipboard.writeText('{{ $senhaGerada }}'); this.innerHTML='<i class=\'fas fa-check\'></i> Copiada'"
+                                class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+                            <i class="fas fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                </div>
+                <button wire:click="fecharSenha" class="text-indigo-400 hover:text-indigo-700 p-1" title="Fechar">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+        </div>
+    @endif
+
     <!-- Header -->
     <div class="mb-6 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
         <div class="flex items-center justify-between">
@@ -53,11 +83,24 @@
                                 @if($client->phone)
                                 <span><i class="fas fa-phone text-purple-600 mr-1"></i>{{ $client->phone }}</span>
                                 @endif
+                                @if($client->portal_access)
+                                <span class="text-indigo-700"><i class="fas fa-user-lock mr-1"></i>Portal activo{{ $client->last_login_at ? ' · entrou ' . $client->last_login_at->diffForHumans() : ' · nunca entrou' }}</span>
+                                @endif
                             </div>
                         </div>
-                        
+
                         <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             @can('invoicing.clients.edit')
+                            {{-- "Perdi a senha" é o pedido mais comum: não devia
+                                 obrigar a abrir a ficha do cliente. --}}
+                            @if($client->portal_access)
+                            <button wire:click="reporSenhaDoPortal({{ $client->id }})"
+                                    wire:confirm="Gerar uma senha nova para {{ $client->name }}? A antiga deixa de funcionar."
+                                    class="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-xs font-semibold transition">
+                                <i class="fas fa-key mr-1"></i>Repor senha
+                            </button>
+                            @endif
+
                             <button wire:click="edit({{ $client->id }})" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition">
                                 <i class="fas fa-edit mr-1"></i>Editar
                             </button>
@@ -200,7 +243,57 @@
                                 </select>
                             </div>
                         </div>
-                        
+
+                        {{-- Acesso ao portal do cliente --}}
+                        <div class="mt-6 pt-5 border-t border-gray-200">
+                            <label class="flex items-start gap-3 cursor-pointer">
+                                <input type="checkbox" wire:model.live="portal_access"
+                                       class="mt-0.5 w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span>
+                                    <span class="block text-sm font-semibold text-gray-800">
+                                        <i class="fas fa-user-lock text-indigo-600 mr-1"></i>Dar acesso ao portal do cliente
+                                    </span>
+                                    <span class="block text-xs text-gray-500 mt-0.5">
+                                        O cliente passa a poder ver as suas facturas, proformas e extracto de conta em
+                                        <span class="font-mono">{{ route('client.login') }}</span>
+                                    </span>
+                                </span>
+                            </label>
+
+                            @if($portal_access)
+                                <div class="mt-4 pl-8 space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Senha
+                                            <span class="font-normal text-gray-400">— deixe vazio para gerar uma</span>
+                                        </label>
+                                        <input type="text" wire:model.blur="portal_password" maxlength="64"
+                                               placeholder="Gerada automaticamente"
+                                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
+                                        @error('portal_password') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                                        @if($editingClientId)
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                A guardar sem escrever nada, a senha actual do cliente mantém-se.
+                                            </p>
+                                        @endif
+                                    </div>
+
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" wire:model="portal_avisar"
+                                               class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                        <span class="text-sm text-gray-700">Enviar email de boas-vindas com os dados de acesso</span>
+                                    </label>
+
+                                    @error('email')
+                                        <p class="text-xs text-red-600">
+                                            <i class="fas fa-circle-exclamation mr-1"></i>{{ $message }}
+                                            — o portal autentica pelo email, por isso é preciso um.
+                                        </p>
+                                    @enderror
+                                </div>
+                            @endif
+                        </div>
+
                         <div class="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
                             <button type="button" wire:click="closeModal" class="px-6 py-2.5 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">
                                 <i class="fas fa-times mr-2"></i>Cancelar

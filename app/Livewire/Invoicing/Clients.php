@@ -52,6 +52,13 @@ class Clients extends Component
     public $currentLogo; // Existing logo path
     public $payment_term_id = null; // Condição de pagamento
 
+    // Acesso ao portal do cliente
+    public bool $portal_access = false;
+    public $portal_password = '';       // vazio = gerada automaticamente
+    public bool $portal_avisar = true;  // mandar email de boas-vindas
+    public $senhaGerada = null;         // mostrada UMA vez a quem a criou
+    public $clienteDaSenha = '';
+
     public function mount()
     {
         // Garante que a empresa tem as condições de pagamento padrão.
@@ -71,6 +78,9 @@ class Clients extends Component
             'province' => 'nullable|string',
             'postal_code' => 'nullable|string',
             'country' => 'required|string',
+            // O portal autentica pelo email: sem email nao ha por onde entrar.
+            'email' => $this->portal_access ? 'required|email' : 'nullable|email',
+            'portal_password' => 'nullable|string|min:6|max:64',
         ];
         
         if ($this->editingClientId) {
@@ -173,6 +183,9 @@ class Clients extends Component
         $this->postal_code = $client->postal_code;
         $this->country = $client->country ?? 'Angola';
         $this->payment_term_id = $client->payment_term_id;
+        $this->portal_access = (bool) $client->portal_access;
+        $this->portal_password = '';
+        $this->portal_avisar = true;
         $this->showModal = true;
     }
 
@@ -238,6 +251,7 @@ class Clients extends Component
             }
             
             $client->update($data);
+            $this->aplicarAcessoAoPortal($client);
             $this->dispatch('success', message: __('Cliente atualizado com sucesso!'));
         } else {
             // Create client first to get ID
@@ -250,11 +264,93 @@ class Clients extends Component
                 $logoPath = $this->logo->storeAs($clientFolder, $fileName, 'public');
                 $newClient->update(['logo' => $logoPath]);
             }
-            
+
+            $this->aplicarAcessoAoPortal($newClient);
             $this->dispatch('success', message: __('Cliente criado com sucesso!'));
         }
 
         $this->closeModal();
+    }
+
+    /**
+     * Liga (ou desliga) o acesso do cliente ao portal, conforme o formulário.
+     *
+     * Só cria senha nova quando é preciso: ligar o acesso pela primeira vez, ou
+     * o utilizador ter escrito uma senha. Guardar a ficha de um cliente que já
+     * tinha acesso não lhe pode trocar a senha por baixo dos pés.
+     */
+    private function aplicarAcessoAoPortal(Client $cliente): void
+    {
+        $servico = app(\App\Services\Clientes\AcessoAoPortal::class);
+
+        if (!$this->portal_access) {
+            if ($cliente->portal_access) {
+                $servico->revogar($cliente);
+                $this->dispatch('success', message: __('Acesso ao portal desactivado.'));
+            }
+
+            return;
+        }
+
+        $senhaEscrita = trim((string) $this->portal_password);
+        $precisaDeSenha = $senhaEscrita !== '' || !$cliente->password || !$cliente->portal_access;
+
+        if (!$precisaDeSenha) {
+            return;   // já tinha acesso e ninguém pediu senha nova
+        }
+
+        $r = $servico->conceder($cliente, $senhaEscrita ?: null, $this->portal_avisar);
+
+        // Mostrada UMA vez a quem a criou: sem email (ou com email a falhar),
+        // é a única forma de a empresa a poder dizer ao cliente.
+        $this->senhaGerada = $r['senha'];
+        $this->clienteDaSenha = $cliente->name;
+
+        if ($r['email_enviado']) {
+            $this->dispatch('success', message: __('Acesso criado. Email enviado para :email', ['email' => $cliente->email]));
+        } elseif ($r['erro_email']) {
+            $this->dispatch('error', message: __('Acesso criado, mas o email não saiu: :erro', ['erro' => $r['erro_email']]));
+        }
+    }
+
+    /**
+     * Repor a senha a partir da lista, sem abrir a ficha — é o pedido mais
+     * comum ("perdi a senha") e não devia obrigar a editar o cliente.
+     */
+    public function reporSenhaDoPortal($id)
+    {
+        if (!auth()->user()->can('invoicing.clients.edit')) {
+            $this->dispatch('error', message: __('Sem permissão para editar clientes'));
+
+            return;
+        }
+
+        $cliente = Client::where('tenant_id', activeTenantId())->find($id);
+        if (!$cliente) {
+            $this->dispatch('error', message: __('Este cliente não pertence à empresa activa.'));
+
+            return;
+        }
+
+        $r = app(\App\Services\Clientes\AcessoAoPortal::class)->conceder($cliente, null, true);
+
+        $this->senhaGerada = $r['senha'];
+        $this->clienteDaSenha = $cliente->name;
+
+        $this->dispatch(
+            $r['erro_email'] ? 'error' : 'success',
+            message: $r['email_enviado']
+                ? __('Senha nova enviada para :email', ['email' => $cliente->email])
+                : ($r['erro_email']
+                    ? __('Senha reposta, mas o email não saiu: :erro', ['erro' => $r['erro_email']])
+                    : __('Senha reposta. Este cliente não tem email — passe-lhe a senha abaixo.'))
+        );
+    }
+
+    public function fecharSenha(): void
+    {
+        $this->senhaGerada = null;
+        $this->clienteDaSenha = '';
     }
 
     public function viewClient($id)
@@ -415,7 +511,11 @@ class Clients extends Component
 
     private function resetForm()
     {
-        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'postal_code', 'editingClientId', 'payment_term_id']);
+        // senhaGerada/clienteDaSenha ficam de FORA: são mostradas depois de o
+        // modal fechar, e o save() fecha o modal — limpá-las aqui apagava a
+        // senha antes de alguém a conseguir ler.
+        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'postal_code', 'editingClientId', 'payment_term_id', 'portal_access', 'portal_password']);
+        $this->portal_avisar = true;
         $this->type = 'pessoa_juridica';
         $this->country = 'Angola';
         // Cliente novo nasce com a condição padrão da empresa (se houver).

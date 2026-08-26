@@ -386,6 +386,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {{-- Sem isto o menu "Mais" aparece aberto durante o instante em que o
+         Alpine ainda não arrancou (o script é `defer`). --}}
+    <style>[x-cloak]{display:none !important}</style>
 </head>
 <body class="bg-white">
     
@@ -396,7 +399,9 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0 flex items-center">
                         @if(app_logo())
-                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" style="height: 80px; max-height: 80px;" class="w-auto object-contain">
+                            {{-- Altura fixa de 80px roubava largura ao menu nos
+                                 ecrãs médios. Cresce só onde há espaço. --}}
+                            <img src="{{ app_logo() }}" alt="{{ app_name() }}" class="h-12 sm:h-14 lg:h-16 xl:h-20 w-auto object-contain">
                         @else
                             <div class="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                                 <i class="fas fa-chart-line text-white text-2xl"></i>
@@ -404,7 +409,11 @@
                             <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{{ app_name() }}</span>
                         @endif
                     </div>
-                    <div class="hidden lg:ml-8 lg:flex lg:space-x-1 xl:space-x-3">
+                    {{-- Oito links, três botões e um logo de 80px não cabem numa
+                         linha: "Contacto" e "Área Cliente" ficavam por cima um
+                         do outro. Ficam à vista os cinco que trazem gente ao
+                         produto; o resto vai para "Mais". --}}
+                    <div class="hidden lg:ml-8 lg:flex lg:items-center lg:space-x-1 xl:space-x-2">
                         <a href="#recursos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Recursos</a>
                         <a href="#sectores" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Sectores</a>
                         <a href="#certificacao" class="text-green-700 hover:text-green-600 px-2 py-2 text-sm font-medium transition inline-flex items-center gap-1 whitespace-nowrap">
@@ -412,15 +421,32 @@
                         </a>
                         <a href="#modulos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Módulos</a>
                         <a href="#planos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Planos</a>
-                        <a href="#servicos" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Serviços</a>
-                        <a href="#roadmap" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Roadmap</a>
-                        <a href="#contacto" class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition whitespace-nowrap">Contacto</a>
+
+                        {{-- click.outside vai no invólucro, não no botão: no
+                             botão, carregar num link do próprio painel contava
+                             como "fora" e fechava-o antes do clique valer. --}}
+                        <div class="relative" x-data="{ aberto: false }"
+                             @click.outside="aberto = false"
+                             @keydown.escape.window="aberto = false">
+                            <button type="button" @click="aberto = !aberto"
+                                    class="text-gray-700 hover:text-blue-600 px-2 py-2 text-sm font-medium transition inline-flex items-center gap-1 whitespace-nowrap">
+                                Mais
+                                <i class="fas fa-chevron-down text-[10px] transition-transform" :class="aberto && 'rotate-180'"></i>
+                            </button>
+                            <div x-show="aberto" x-cloak x-transition.opacity
+                                 class="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-2">
+                                <a href="#servicos" @click="aberto = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">Serviços</a>
+                                <a href="#roadmap" @click="aberto = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">Roadmap</a>
+                                <a href="#contacto" @click="aberto = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">Contacto</a>
+                                <div class="my-1 border-t border-gray-100"></div>
+                                <a href="{{ route('client.login') }}" class="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50">
+                                    <i class="fas fa-users mr-2"></i>Área Cliente
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <a href="{{ route('client.login') }}" class="hidden xl:inline-flex items-center text-purple-700 hover:text-purple-800 text-sm font-medium transition px-2 py-2 whitespace-nowrap" title="Portal do Cliente">
-                        <i class="fas fa-users mr-1"></i>Área Cliente
-                    </a>
                     <a href="{{ route('login') }}" class="hidden sm:inline-flex items-center text-gray-700 hover:text-blue-600 text-sm font-medium transition px-2 py-2 whitespace-nowrap">
                         <i class="fas fa-sign-in-alt mr-1"></i>Entrar
                     </a>
