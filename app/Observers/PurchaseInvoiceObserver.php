@@ -10,9 +10,10 @@ use App\Models\Invoicing\ProductBatch;
 class PurchaseInvoiceObserver
 {
     /**
-     * Statuses que devem gerar stock (mercadoria recebida)
+     * Statuses que devem gerar stock (mercadoria recebida). A lista vive no
+     * modelo — o formulário de compras também precisa dela.
      */
-    private array $stockStatuses = ['sent', 'pending', 'paid', 'partially_paid'];
+    private array $stockStatuses = PurchaseInvoice::ESTADOS_COM_STOCK;
 
     /**
      * Handle the PurchaseInvoice "created" event.
@@ -57,6 +58,19 @@ class PurchaseInvoiceObserver
     {
         $invoice->loadMissing(['items.product', 'supplier']);
 
+        // O preço a que se comprou passa a ser o custo do artigo. Fica aqui —
+        // no momento em que a mercadoria entra — e não ao gravar o rascunho:
+        // um rascunho ainda pode ser corrigido ou deitado fora. Nunca pode
+        // partir a entrada de stock, daí o try.
+        try {
+            app(\App\Services\Invoicing\ActualizarCustoDeCompra::class)->aplicar($invoice);
+        } catch (\Throwable $e) {
+            \Log::error('Falhou a actualização do custo pela compra', [
+                'factura' => $invoice->id,
+                'erro'    => $e->getMessage(),
+            ]);
+        }
+
         foreach ($invoice->items as $item) {
             if (!$item->product_id) {
                 continue;
@@ -75,7 +89,10 @@ class PurchaseInvoiceObserver
                 'unit_cost' => $item->unit_price,
                 'total_cost' => $item->unit_price * $item->quantity,
                 'notes' => "Compra - Fatura {$invoice->invoice_number}",
-                'user_id' => $invoice->created_by,
+                // user_id é NOT NULL. Uma compra sem `created_by` (importação,
+                // API) rebentava aqui e a mercadoria não entrava — o mesmo
+                // fallback que o removeStock() já usava.
+                'user_id' => $invoice->created_by ?? auth()->id(),
             ]);
 
             // Criar/Atualizar lote se produto rastreia lotes

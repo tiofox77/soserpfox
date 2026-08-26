@@ -723,7 +723,19 @@ class InvoiceCreate extends Component
             // O observer vai detectar a mudança draft→$status e criar stock + lotes
             $invoice->status = $status;
             $invoice->save();
-            
+
+            // O preço de compra novo passa a ser o custo do artigo.
+            //
+            // Numa factura NOVA o observer já o fez ao dar entrada do stock e
+            // isto não faz nada (só escreve quando o valor muda). Numa EDIÇÃO
+            // é o único caminho: o estado não muda, por isso o observer não
+            // corre — e corrigir o preço de uma compra já recebida tem de
+            // corrigir o custo, senão a margem fica presa ao valor errado.
+            if (in_array($status, PurchaseInvoice::ESTADOS_COM_STOCK, true)) {
+                app(\App\Services\Invoicing\ActualizarCustoDeCompra::class)
+                    ->aplicar($invoice->fresh(['items.product']));
+            }
+
             DB::commit();
 
             // Clear cart

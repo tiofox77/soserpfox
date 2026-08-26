@@ -12,6 +12,15 @@ class PurchaseInvoice extends Model
 {
     use SoftDeletes, BelongsToTenant;
 
+    /**
+     * Estados em que a mercadoria já entrou — ou seja, em que a compra é real.
+     * É o que decide se se dá entrada de stock e se o custo do artigo é
+     * actualizado. Vive aqui e não em cada sítio que precisa dela: são pelo
+     * menos três, e duas listas a divergir davam stock sem custo (ou o
+     * contrário).
+     */
+    public const ESTADOS_COM_STOCK = ['sent', 'pending', 'paid', 'partially_paid'];
+
     protected $table = 'invoicing_purchase_invoices';
 
     protected $fillable = [
