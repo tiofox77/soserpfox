@@ -28,10 +28,11 @@ class RenderizadorDeProposta
         $this->variaveis = $this->montarVariaveis($orcamento, $empresa);
         $this->numeroDeSeccao = 0;
 
-        $corpo = '';
-        foreach ((array) $modelo->blocos as $bloco) {
-            $corpo .= $this->renderBloco($modelo, (array) $bloco, $orcamento, $empresa);
-        }
+        $corpo = $modelo->estilo('editor_visual')
+            ? $this->renderVisual($modelo, $orcamento, $empresa)
+            : collect((array) $modelo->blocos)
+                ->map(fn ($bloco) => $this->renderBloco($modelo, (array) $bloco, $orcamento, $empresa))
+                ->implode('');
 
         return $this->envolver($modelo, $corpo, $empresa);
     }
@@ -67,6 +68,37 @@ class RenderizadorDeProposta
             'quebra'        => '<div style="page-break-after:always"></div>',
             default         => '',
         };
+    }
+
+    /** Desenha páginas A4 com a geometria exacta guardada pelo editor. */
+    private function renderVisual(QuoteTemplate $modelo, ?SalesQuote $q, ?Tenant $t): string
+    {
+        $blocos = collect((array) $modelo->blocos)->groupBy(
+            fn ($b) => max(1, (int) data_get($b, 'layout.pagina', 1))
+        );
+        $paginas = max((int) ($modelo->estilo('paginas') ?: 1), (int) ($blocos->keys()->max() ?: 1));
+        $html = '';
+
+        for ($pagina = 1; $pagina <= $paginas; $pagina++) {
+            $html .= '<section class="proposal-page">';
+            foreach ($blocos->get($pagina, collect())->sortBy(fn ($b) => (int) data_get($b, 'layout.z', 1)) as $b) {
+                $l = (array) ($b['layout'] ?? []);
+                $x = max(0, min(794, (int) ($l['x'] ?? 28)));
+                $y = max(0, min(1123, (int) ($l['y'] ?? 28)));
+                $w = max(40, min(794 - $x, (int) ($l['largura'] ?? 738)));
+                $h = max(28, min(1123 - $y, (int) ($l['altura'] ?? 120)));
+                $z = max(1, min(999, (int) ($l['z'] ?? 1)));
+                $conteudo = $this->renderBloco($modelo, (array) $b, $q, $t);
+                // A paginação é controlada pelo canvas; uma quebra interna
+                // herdada do editor antigo não pode criar uma folha fantasma.
+                $conteudo = str_replace('page-break-after:always', 'page-break-after:auto', $conteudo);
+                $html .= '<div class="proposal-element" style="left:' . $x . 'px;top:' . $y
+                    . 'px;width:' . $w . 'px;height:' . $h . 'px;z-index:' . $z . '">' . $conteudo . '</div>';
+            }
+            $html .= '</section>';
+        }
+
+        return $html;
     }
 
     private function capa(array $b, string $cor, ?Tenant $t): string
@@ -324,10 +356,12 @@ class RenderizadorDeProposta
 
         return '<!DOCTYPE html><html><head><meta charset="utf-8">'
             . '<style>'
-            . '@page{margin:26mm 16mm 22mm 16mm}'
+            . ($modelo->estilo('editor_visual') ? '@page{size:A4;margin:0}' : '@page{margin:26mm 16mm 22mm 16mm}')
             . 'body{font-family:' . e($fonte) . ',sans-serif;font-size:' . $tam . 'px;color:' . e($corTx) . ';margin:0}'
             . 'p{margin:0 0 9px}ul,ol{margin:0 0 9px;padding-left:20px}li{margin-bottom:4px}'
             . 'table{border-collapse:collapse}'
+            . '.proposal-page{position:relative;width:794px;height:1123px;overflow:hidden;page-break-after:always;background:#fff}'
+            . '.proposal-page:last-child{page-break-after:auto}.proposal-element{position:absolute;overflow:hidden;box-sizing:border-box}'
             . '</style></head><body>'
             . $rodape
             . $corpo

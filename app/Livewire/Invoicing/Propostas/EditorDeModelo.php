@@ -48,6 +48,7 @@ class EditorDeModelo extends Component
         $this->blocos    = (array) $modelo->blocos;
         $this->estilos   = array_merge(QuoteTemplate::ESTILOS_PADRAO, (array) $modelo->estilos);
 
+        $this->normalizarLayout();
         $this->blocoSeleccionado = $this->blocos[0]['id'] ?? null;
     }
 
@@ -60,6 +61,7 @@ class EditorDeModelo extends Component
         }
 
         $novo = array_merge(['tipo' => $tipo, 'id' => $this->novoId($tipo)], TiposDeBloco::padroesDe($tipo));
+        $novo['layout'] = $this->proximaPosicao();
 
         // Entra a seguir ao bloco em que se está a trabalhar, não no fim: quem
         // está a meio do documento quer acrescentar ali, e arrastar da última
@@ -73,6 +75,7 @@ class EditorDeModelo extends Component
 
         $this->blocoSeleccionado = $novo['id'];
         $this->guardar(false);
+        $this->sincronizarCanvas();
     }
 
     public function removerBloco(string $id): void
@@ -89,6 +92,7 @@ class EditorDeModelo extends Component
         }
 
         $this->guardar(false);
+        $this->sincronizarCanvas();
     }
 
     public function duplicarBloco(string $id): void
@@ -110,6 +114,7 @@ class EditorDeModelo extends Component
         array_splice($this->blocos, $pos + 1, 0, [$copia]);
         $this->blocoSeleccionado = $copia['id'];
         $this->guardar(false);
+        $this->sincronizarCanvas();
     }
 
     public function moverBloco(string $id, int $direccao): void
@@ -170,6 +175,46 @@ class EditorDeModelo extends Component
 
         $this->blocos[$pos][$campo] = $valor;
         $this->guardar(false);
+        $this->sincronizarCanvas();
+    }
+
+    /**
+     * Persiste uma alteração geométrica feita no canvas. Os limites são
+     * validados no servidor: o browser nunca pode gravar um bloco fora da
+     * folha A4 nem injectar propriedades arbitrárias no JSON.
+     */
+    public function actualizarLayout(string $id, array $layout): void
+    {
+        $pos = $this->indiceDe($id);
+        if ($pos === null) {
+            return;
+        }
+
+        $pagina = max(1, min(50, (int) ($layout['pagina'] ?? 1)));
+        $largura = max(40, min(754, (int) ($layout['largura'] ?? 300)));
+        $altura = max(28, min(1083, (int) ($layout['altura'] ?? 100)));
+
+        $this->blocos[$pos]['layout'] = [
+            'pagina'  => $pagina,
+            'x'       => max(0, min(794 - $largura, (int) ($layout['x'] ?? 20))),
+            'y'       => max(0, min(1123 - $altura, (int) ($layout['y'] ?? 20))),
+            'largura' => $largura,
+            'altura'  => $altura,
+            'z'       => max(1, min(999, (int) ($layout['z'] ?? ($pos + 1)))),
+            'bloqueado' => (bool) ($layout['bloqueado'] ?? false),
+        ];
+
+        $this->blocoSeleccionado = $id;
+        $this->estilos['editor_visual'] = true;
+        $this->guardar(false);
+    }
+
+    public function adicionarPagina(): void
+    {
+        $this->estilos['editor_visual'] = true;
+        $this->estilos['paginas'] = min(50, $this->numeroPaginas() + 1);
+        $this->guardar(false);
+        $this->sincronizarCanvas();
     }
 
     // ── Estilos ──────────────────────────────────────────────────────────
@@ -223,6 +268,57 @@ class EditorDeModelo extends Component
     private function novoId(string $tipo): string
     {
         return substr($tipo, 0, 3) . '_' . substr(md5(uniqid('', true)), 0, 8);
+    }
+
+    private function normalizarLayout(): void
+    {
+        $pagina = 1;
+        $y = 28;
+
+        foreach ($this->blocos as $i => &$bloco) {
+            if (isset($bloco['layout']) && is_array($bloco['layout'])) {
+                continue;
+            }
+
+            $altura = match ($bloco['tipo'] ?? '') {
+                'capa' => 1040, 'itens' => 300, 'texto', 'campo_livre', 'condicoes' => 180,
+                'dados_cliente', 'assinaturas' => 145, 'totais' => 125, 'imagem' => 240,
+                'quebra' => 35, default => 75,
+            };
+
+            if ($y + $altura > 1090) {
+                $pagina++;
+                $y = 28;
+            }
+
+            $bloco['layout'] = ['pagina' => $pagina, 'x' => 28, 'y' => $y,
+                'largura' => 738, 'altura' => $altura, 'z' => $i + 1, 'bloqueado' => false];
+            $y += $altura + 14;
+        }
+        unset($bloco);
+
+        $this->estilos['paginas'] = max((int) ($this->estilos['paginas'] ?? 1), $pagina);
+    }
+
+    private function proximaPosicao(): array
+    {
+        $pagina = $this->numeroPaginas();
+
+        return ['pagina' => $pagina, 'x' => 40, 'y' => 60, 'largura' => 714,
+            'altura' => 120, 'z' => count($this->blocos) + 1, 'bloqueado' => false];
+    }
+
+    private function numeroPaginas(): int
+    {
+        $maior = collect($this->blocos)->max(fn ($b) => (int) data_get($b, 'layout.pagina', 1)) ?: 1;
+
+        return max($maior, (int) ($this->estilos['paginas'] ?? 1));
+    }
+
+    private function sincronizarCanvas(): void
+    {
+        $this->dispatch('canvas-atualizado', blocos: $this->blocos,
+            paginas: $this->numeroPaginas(), seleccionado: $this->blocoSeleccionado);
     }
 
     private function chaveLivre(string $base): string

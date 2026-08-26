@@ -30,6 +30,23 @@ class ModelosDePropostaTest extends TenantTestCase
         }
     }
 
+    /**
+     * As rotas vivem atrás de `tenant.module:invoicing`. Um teste que só chama
+     * Livewire::test() salta o middleware e nunca dá por isso — mas quem abre
+     * o ecrã no browser leva 403 se o módulo não estiver ligado.
+     */
+    private function ligarModuloDeFacturacao(): void
+    {
+        $modulo = \App\Models\Module::firstOrCreate(
+            ['slug' => 'invoicing'],
+            ['name' => 'Faturação', 'is_active' => true]
+        );
+
+        $this->tenant->modules()->syncWithoutDetaching([
+            $modulo->id => ['is_active' => true, 'trial_ends_at' => null],
+        ]);
+    }
+
     private function modelo(array $blocos = null, array $estilos = []): QuoteTemplate
     {
         return QuoteTemplate::create([
@@ -279,6 +296,34 @@ class ModelosDePropostaTest extends TenantTestCase
             ->call('actualizarCampo', 'chave', 'Âmbito do Trabalho!!');
 
         $this->assertSame('ambito_do_trabalho', $c->get('blocos')[0]['chave']);
+    }
+
+    /**
+     * O ecrã do editor tem de abrir por HTTP, não só em Livewire::test().
+     *
+     * O QUE ISTO APANHA: um `<style>` (ou qualquer coisa) fora do elemento de
+     * raiz faz o Livewire rebentar com "Multiple root elements detected" — e o
+     * service worker do PWA responde com a página de "Sem ligação à internet",
+     * que faz parecer falha de rede e esconde o erro por completo. O
+     * Livewire::test() não apanhava isto; só o pedido inteiro apanha.
+     */
+    public function test_o_ecra_do_editor_abre_por_http(): void
+    {
+        $this->ligarModuloDeFacturacao();
+        $modelo = $this->modelo();
+
+        $resposta = $this->get(route('invoicing.sales.quote-templates.edit', $modelo->id));
+
+        $resposta->assertOk();
+        $resposta->assertDontSee('Multiple root elements', false);
+    }
+
+    public function test_a_lista_de_modelos_abre_por_http(): void
+    {
+        $this->ligarModuloDeFacturacao();
+        $this->modelo();
+
+        $this->get(route('invoicing.sales.quote-templates'))->assertOk();
     }
 
     public function test_editor_recusa_modelo_de_outra_empresa(): void

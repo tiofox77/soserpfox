@@ -4,7 +4,9 @@
      document.execCommand, e a reordenação usa o arrastar nativo do HTML5.
      Uma dependência de CDN aqui deixaria este ecrã inútil na versão
      on-premise, que corre sem internet. --}}
-<div x-data="editorProposta()" class="pb-6">
+<div x-data="editorProposta(@js($blocos), @js($catalogo), @js($blocoSeleccionado), @js((int)($estilos['paginas'] ?? 1)))"
+     class="pb-6" @keydown.window="atalho($event)"
+     @canvas-atualizado.window="sincronizarDoServidor($event.detail)">
 
     {{-- Barra de topo --}}
     <div class="mb-5 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl shadow-lg p-5 text-white">
@@ -158,20 +160,58 @@
             </div>
         </div>
 
-        {{-- ── CENTRO: a folha, como vai sair ──────────────────────────── --}}
-        <div class="xl:col-span-6">
-            <div class="bg-gray-200 rounded-2xl p-4 sticky top-4">
-                <div class="flex items-center justify-between mb-3 px-1">
-                    <span class="text-xs font-bold text-gray-600 uppercase">Pré-visualização</span>
-                    <span class="text-[11px] text-gray-500">
-                        <i class="fas fa-circle-info mr-1"></i>É o mesmo desenho que sai no PDF
-                    </span>
+        {{-- ── CENTRO: editor A4 livre ─────────────────────────────────── --}}
+        <div class="xl:col-span-6 min-w-0">
+            <div class="bg-slate-200 rounded-2xl overflow-hidden sticky top-4 border border-slate-300 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 bg-white border-b border-slate-200 px-3 py-2">
+                    <div class="flex items-center gap-1">
+                        <button type="button" @click="desfazer" :disabled="historico.length < 2" class="editor-tool" title="Desfazer (Ctrl+Z)"><i class="fas fa-rotate-left"></i></button>
+                        <button type="button" @click="refazer" :disabled="futuro.length === 0" class="editor-tool" title="Refazer"><i class="fas fa-rotate-right"></i></button>
+                        <span class="h-5 w-px bg-slate-200 mx-1"></span>
+                        <button type="button" @click="zoom = Math.max(.45, zoom - .1)" class="editor-tool" title="Diminuir zoom"><i class="fas fa-minus"></i></button>
+                        <span class="text-[11px] font-semibold text-slate-600 w-12 text-center" x-text="Math.round(zoom*100)+'%'"></span>
+                        <button type="button" @click="zoom = Math.min(1.35, zoom + .1)" class="editor-tool" title="Aumentar zoom"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-600">
+                        <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" x-model="grelha" class="rounded text-violet-600"> Grelha</label>
+                        <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" x-model="encaixar" class="rounded text-violet-600"> Encaixar</label>
+                        <button type="button" wire:click="adicionarPagina" class="px-2.5 py-1.5 rounded-lg bg-violet-50 text-violet-700 font-bold hover:bg-violet-100"><i class="fas fa-file-circle-plus mr-1"></i>Página</button>
+                    </div>
                 </div>
-                {{-- Num iframe: o HTML da proposta traz o seu próprio CSS (e
-                     regras sobre body) que estragaria o resto do ecrã. --}}
-                <iframe srcdoc="{{ $previa }}"
-                        class="w-full bg-white rounded-xl shadow-inner border border-gray-300"
-                        style="height: 78vh; min-height: 560px"></iframe>
+
+                <div class="max-h-[78vh] min-h-[620px] overflow-auto p-6" wire:ignore>
+                    <div class="mx-auto origin-top" :style="`width:${794*zoom}px`">
+                        <template x-for="pagina in totalPaginas" :key="pagina">
+                            <div class="mb-6 relative bg-white shadow-xl border border-slate-300 overflow-hidden"
+                                 :class="grelha ? 'editor-grid' : ''"
+                                 :style="`width:${794*zoom}px;height:${1123*zoom}px`">
+                                <div class="absolute top-2 left-2 z-[1000] px-2 py-1 rounded bg-slate-900/60 text-white text-[10px] pointer-events-none" x-text="'Página '+pagina"></div>
+                                <div class="absolute inset-0 origin-top-left" :style="`width:794px;height:1123px;transform:scale(${zoom})`">
+                                    <template x-for="item in blocos.filter(b => Number(b.layout?.pagina || 1) === pagina)" :key="item.id">
+                                        <div class="proposal-node group" :class="{'is-selected': seleccionado === item.id, 'opacity-70': item.layout?.bloqueado}"
+                                             :style="estilo(item)" @pointerdown.stop="iniciarMover($event,item)" @click.stop="seleccionarCanvas(item)">
+                                            <div class="h-full w-full overflow-hidden pointer-events-none p-2 text-slate-800 bg-white/95">
+                                                <div class="text-[10px] uppercase tracking-wide text-violet-500 font-bold mb-1" x-text="nomeTipo(item.tipo)"></div>
+                                                <div class="text-sm font-semibold leading-tight" x-text="resumo(item)"></div>
+                                                <div x-show="item.tipo === 'itens'" class="mt-2 space-y-1"><div class="h-2 bg-slate-100 rounded"></div><div class="h-2 bg-slate-100 rounded"></div><div class="h-2 bg-slate-100 rounded"></div></div>
+                                            </div>
+                                            <div x-show="seleccionado === item.id" class="node-actions">
+                                                <button type="button" @pointerdown.stop @click.stop="alternarBloqueio(item)" :title="item.layout?.bloqueado ? 'Desbloquear' : 'Bloquear'"><i :class="item.layout?.bloqueado ? 'fas fa-lock' : 'fas fa-lock-open'"></i></button>
+                                                <button type="button" @pointerdown.stop @click.stop="$wire.duplicarBloco(item.id)" title="Duplicar"><i class="fas fa-copy"></i></button>
+                                                <button type="button" @pointerdown.stop @click.stop="$wire.removerBloco(item.id)" class="!bg-red-500" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                            </div>
+                                            <button x-show="seleccionado === item.id && !item.layout?.bloqueado" type="button" class="resize-handle" @pointerdown.stop.prevent="iniciarResize($event,item)" aria-label="Redimensionar"></button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="bg-white border-t border-slate-200 px-3 py-2 flex justify-between text-[11px] text-slate-500">
+                    <span><i class="fas fa-arrows-up-down-left-right mr-1"></i>Arraste livremente; setas movem 1 px, Shift + setas movem 10 px</span>
+                    <a href="{{ route('invoicing.sales.quote-templates.preview', $modeloId) }}" target="_blank" class="font-bold text-violet-700">Pré-visualizar PDF</a>
+                </div>
             </div>
         </div>
 
@@ -190,6 +230,24 @@
                     </div>
 
                     @php $chaveBloco = $bloco['id']; @endphp
+
+                    <div class="mb-4 rounded-xl border border-violet-200 bg-violet-50 p-3 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold uppercase text-violet-700">Posição e tamanho</span>
+                            <span class="text-[10px] text-violet-500">px · A4 794 × 1123</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            @foreach(['pagina' => 'Página', 'x' => 'X', 'y' => 'Y', 'largura' => 'Largura', 'altura' => 'Altura', 'z' => 'Camada'] as $campoGeo => $rotuloGeo)
+                                <label class="text-[10px] font-semibold text-slate-600">{{ $rotuloGeo }}
+                                    <input type="number" value="{{ data_get($bloco, 'layout.'.$campoGeo, $campoGeo === 'pagina' ? 1 : 0) }}"
+                                           min="{{ in_array($campoGeo, ['pagina','z']) ? 1 : 0 }}"
+                                           @change="actualizarGeometria('{{ $chaveBloco }}','{{ $campoGeo }}',$event.target.value)"
+                                           class="mt-1 w-full rounded-lg border-violet-200 bg-white px-2 py-1.5 text-xs focus:border-violet-500 focus:ring-violet-500">
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-[10px] leading-relaxed text-violet-600">Use os campos para precisão absoluta. No canvas pode arrastar e redimensionar visualmente.</p>
+                    </div>
 
                     {{-- ---- CAPA ---- --}}
                     @if($bloco['tipo'] === 'capa')
@@ -360,15 +418,125 @@
             </div>
         </div>
     </div>
+
+{{-- O <style> vive DENTRO da raiz. Fora dela era um segundo elemento de topo,
+     e o Livewire só aceita um: o componente rebentava com "Multiple root
+     elements detected" e o ecrã caía na página de offline do PWA — que
+     esconde o erro e faz parecer falha de rede. --}}
+<style>
+    .editor-tool{width:32px;height:32px;border-radius:8px;color:#475569;transition:.15s}.editor-tool:hover:not(:disabled){background:#f1f5f9;color:#6d28d9}.editor-tool:disabled{opacity:.3}
+    .editor-grid{background-image:linear-gradient(to right,rgba(99,102,241,.10) 1px,transparent 1px),linear-gradient(to bottom,rgba(99,102,241,.10) 1px,transparent 1px);background-size:10px 10px}
+    .proposal-node{position:absolute;border:1px dashed #cbd5e1;box-sizing:border-box;cursor:move;touch-action:none;user-select:none}
+    .proposal-node:hover{border-color:#8b5cf6}.proposal-node.is-selected{border:2px solid #6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.18)}
+    .resize-handle{position:absolute;right:-6px;bottom:-6px;width:13px;height:13px;border:2px solid white;background:#6366f1;border-radius:3px;cursor:nwse-resize}
+    .node-actions{position:absolute;left:50%;bottom:-42px;transform:translateX(-50%);display:flex;gap:5px;z-index:1100}
+    .node-actions button{width:30px;height:30px;border-radius:999px;background:#334155;color:white;box-shadow:0 3px 10px rgba(15,23,42,.25)}
+</style>
 </div>
 
 @script
 <script>
-    Alpine.data('editorProposta', () => ({
+    Alpine.data('editorProposta', (blocosIniciais, catalogo, seleccionadoInicial, paginasIniciais) => ({
         varsAbertas: false,
         activo: null,
         aArrastar: null,
         alvo: null,
+        blocos: JSON.parse(JSON.stringify(blocosIniciais || [])),
+        catalogo,
+        seleccionado: seleccionadoInicial,
+        totalPaginas: Math.max(1, paginasIniciais || 1),
+        zoom: .68,
+        grelha: true,
+        encaixar: true,
+        historico: [],
+        futuro: [],
+        gesto: null,
+        timerGuardar: null,
+
+        init() {
+            this.guardarEstado();
+            window.addEventListener('pointermove', e => this.moverPonteiro(e));
+            window.addEventListener('pointerup', () => this.terminarGesto());
+        },
+
+        sincronizarDoServidor(detalhe) {
+            const d=Array.isArray(detalhe) ? detalhe[0] : detalhe;
+            if(!d?.blocos) return;
+            this.blocos=JSON.parse(JSON.stringify(d.blocos));
+            this.totalPaginas=Math.max(1,Number(d.paginas||1));
+            this.seleccionado=d.seleccionado||null;
+            this.guardarEstado();
+        },
+
+        nomeTipo(tipo) { return this.catalogo?.[tipo]?.nome || tipo; },
+        resumo(item) {
+            if (item.tipo === 'imagem') return item.legenda || item.url || 'Imagem por escolher';
+            if (item.tipo === 'dados_cliente') return 'Cliente exemplo, Lda · NIF 5000000000';
+            if (item.tipo === 'itens') return item.titulo || 'Tabela de itens do orçamento';
+            if (item.tipo === 'totais') return 'Subtotal · Imposto · Total';
+            if (item.tipo === 'assinaturas') return 'Assinaturas';
+            if (item.tipo === 'quebra') return 'Quebra de página';
+            return String(item.titulo || item.texto || item.rotulo || (item.html || '').replace(/<[^>]*>/g,' ') || this.nomeTipo(item.tipo)).trim();
+        },
+        estilo(item) {
+            const l = item.layout || {};
+            return `left:${l.x||0}px;top:${l.y||0}px;width:${l.largura||300}px;height:${l.altura||100}px;z-index:${l.z||1}`;
+        },
+        seleccionarCanvas(item) { this.seleccionado = item.id; this.$wire.seleccionar(item.id); },
+        snap(v) { return this.encaixar ? Math.round(v / 10) * 10 : Math.round(v); },
+        iniciarMover(e,item) {
+            this.seleccionarCanvas(item);
+            if (item.layout?.bloqueado) return;
+            this.gesto={tipo:'mover',item,sx:e.clientX,sy:e.clientY,x:item.layout.x,y:item.layout.y};
+        },
+        iniciarResize(e,item) {
+            this.gesto={tipo:'resize',item,sx:e.clientX,sy:e.clientY,w:item.layout.largura,h:item.layout.altura};
+        },
+        moverPonteiro(e) {
+            if (!this.gesto) return;
+            const g=this.gesto, dx=(e.clientX-g.sx)/this.zoom, dy=(e.clientY-g.sy)/this.zoom;
+            if (g.tipo==='mover') {
+                g.item.layout.x=Math.max(0,Math.min(794-g.item.layout.largura,this.snap(g.x+dx)));
+                g.item.layout.y=Math.max(0,Math.min(1123-g.item.layout.altura,this.snap(g.y+dy)));
+            } else {
+                g.item.layout.largura=Math.max(40,Math.min(794-g.item.layout.x,this.snap(g.w+dx)));
+                g.item.layout.altura=Math.max(28,Math.min(1123-g.item.layout.y,this.snap(g.h+dy)));
+            }
+        },
+        terminarGesto() {
+            if (!this.gesto) return;
+            const item=this.gesto.item; this.gesto=null; this.persistir(item); this.guardarEstado();
+        },
+        persistir(item) {
+            clearTimeout(this.timerGuardar);
+            this.timerGuardar=setTimeout(()=>this.$wire.actualizarLayout(item.id,item.layout),180);
+        },
+        actualizarGeometria(id,campo,valor) {
+            const item=this.blocos.find(b=>b.id===id); if(!item) return;
+            item.layout[campo]=campo==='bloqueado' ? !!valor : Number(valor);
+            if(campo==='pagina') this.totalPaginas=Math.max(this.totalPaginas,item.layout.pagina);
+            this.persistir(item); this.guardarEstado();
+        },
+        alternarBloqueio(item) { item.layout.bloqueado=!item.layout.bloqueado; this.persistir(item); },
+        guardarEstado() {
+            const estado=JSON.stringify(this.blocos.map(b=>({id:b.id,layout:b.layout})));
+            if(this.historico.at(-1)!==estado) this.historico.push(estado);
+            if(this.historico.length>60) this.historico.shift();
+        },
+        aplicarEstado(estado) {
+            const layouts=JSON.parse(estado); layouts.forEach(s=>{const b=this.blocos.find(x=>x.id===s.id);if(b)b.layout=s.layout});
+            layouts.forEach(s=>{const b=this.blocos.find(x=>x.id===s.id);if(b)this.$wire.actualizarLayout(b.id,b.layout)});
+        },
+        desfazer() { if(this.historico.length<2)return;this.futuro.push(this.historico.pop());this.aplicarEstado(this.historico.at(-1)); },
+        refazer() { if(!this.futuro.length)return;const s=this.futuro.pop();this.historico.push(s);this.aplicarEstado(s); },
+        atalho(e) {
+            if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)||e.target.isContentEditable)return;
+            if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();return e.shiftKey?this.refazer():this.desfazer()}
+            const item=this.blocos.find(b=>b.id===this.seleccionado);if(!item||item.layout?.bloqueado)return;
+            const d=e.shiftKey?10:1; let mudou=true;
+            if(e.key==='ArrowLeft')item.layout.x=Math.max(0,item.layout.x-d);else if(e.key==='ArrowRight')item.layout.x=Math.min(794-item.layout.largura,item.layout.x+d);else if(e.key==='ArrowUp')item.layout.y=Math.max(0,item.layout.y-d);else if(e.key==='ArrowDown')item.layout.y=Math.min(1123-item.layout.altura,item.layout.y+d);else mudou=false;
+            if(mudou){e.preventDefault();this.persistir(item)}
+        },
 
         // Texto rico sem biblioteca. execCommand está marcado como obsoleto
         // mas continua a ser o único caminho que todos os browsers suportam
