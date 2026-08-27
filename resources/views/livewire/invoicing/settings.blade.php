@@ -407,6 +407,33 @@
                             </select>
                         </div>
 
+                        {{-- Condição de pagamento dos clientes novos.
+
+                             Escreve o `is_default` da condição escolhida, e não
+                             uma cópia noutra tabela: duas definições para a
+                             mesma coisa acabam sempre a discordar, e depois
+                             este ecrã diz uma e o das Condições diz outra. --}}
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-calendar-check mr-1 text-blue-500"></i>
+                                {{ __('Condição de pagamento dos clientes novos') }}
+                            </label>
+                            <select wire:model="default_payment_term_id"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200">
+                                <option value="">{{ __('Sem condição definida') }}</option>
+                                @foreach($paymentTerms as $term)
+                                    <option value="{{ $term->id }}">
+                                        {{ $term->name }}{{ $term->days ? ' — ' . trans_choice(':n dia|:n dias', $term->days, ['n' => $term->days]) : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                {{ __('Vale para todos os clientes novos — do sistema, do PWA e das importações. É dela que sai o vencimento da factura.') }}
+                                <a href="{{ route('invoicing.payment-terms') }}" class="text-purple-600 hover:underline font-semibold">{{ __('Gerir condições') }}</a>
+                            </p>
+                        </div>
+
                         {{-- Fornecedor Padrão --}}
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">

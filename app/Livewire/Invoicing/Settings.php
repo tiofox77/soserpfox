@@ -90,6 +90,15 @@ class Settings extends Component
     public $pos_default_payment_method_id = null;
 
     /**
+     * A condição de pagamento com que os clientes novos nascem.
+     *
+     * Não é uma coluna das definições: é o `is_default` da própria condição.
+     * Guardar aqui uma cópia daria duas definições para a mesma coisa, e
+     * duas definições acabam sempre a discordar.
+     */
+    public $default_payment_term_id = null;
+
+    /**
      * As entradas do PWA que a empresa quer no aparelho.
      *
      * Sem tipo declarado de propósito: a coluna vem `null` em quem nunca a
@@ -145,6 +154,18 @@ class Settings extends Component
         $this->pwa_menu = \App\Support\MenuDoPwa::escolhidasPelaEmpresa(
             auth()->user()?->activeTenant()
         );
+
+        // O catálogo é provisionado à primeira vista: uma empresa sem
+        // condições nenhumas via um select vazio e não tinha por onde começar.
+        //
+        // A guarda ao tenant não é defensiva por hábito: este ecrã ABRE sem
+        // empresa resolvida — mostra a página "sem empresa" — e sem ela o
+        // provisionamento rebentava com um erro de tipo, deitando abaixo o
+        // único ecrã que explicava o que se passava.
+        if ($empresaId = activeTenantId()) {
+            \App\Models\Invoicing\PaymentTerm::provisionarPadroes($empresaId);
+            $this->default_payment_term_id = \App\Models\Invoicing\PaymentTerm::padraoDe($empresaId)?->id;
+        }
     }
 
     /**
@@ -214,7 +235,22 @@ class Settings extends Component
             // se guarda numa coluna que decide portas fechadas.
             'pwa_menu' => 'array',
             'pwa_menu.*' => 'string|in:' . implode(',', array_keys(\App\Support\MenuDoPwa::ENTRADAS)),
+            // Tem de ser uma condição DESTA empresa: sem o `exists` com o
+            // tenant, o navegador podia apontar os clientes novos para uma
+            // condição de outra.
+            'default_payment_term_id' => [
+                'nullable', 'integer',
+                \Illuminate\Validation\Rule::exists('invoicing_payment_terms', 'id')
+                    ->where('tenant_id', activeTenantId()),
+            ],
         ]);
+
+        // A condição dos clientes novos vive no `is_default` da própria
+        // condição — não numa cópia aqui. Ver PaymentTerm::padraoDe().
+        \App\Models\Invoicing\PaymentTerm::definirPadrao(
+            activeTenantId(),
+            $this->default_payment_term_id ? (int) $this->default_payment_term_id : null
+        );
 
         $this->settings->update([
             // As fixas entram sempre: uma lista sem o Início deixava o PWA sem
@@ -589,8 +625,15 @@ class Settings extends Component
             ->orderBy('name')
             ->get();
         
+        $paymentTerms = \App\Models\Invoicing\PaymentTerm::where('tenant_id', activeTenantId())
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
         return view('livewire.invoicing.settings', [
             'warehouses' => $warehouses,
+            'paymentTerms' => $paymentTerms,
             'clients' => $clients,
             'suppliers' => $suppliers,
             'taxes' => $taxes,

@@ -2811,5 +2811,9 @@
     "A sua conta não tem permissão para esta área, ou a empresa desligou-a nas definições da aplicação móvel.": "Votre compte n'a pas la permission pour cette zone, ou l'entreprise l'a désactivée dans les paramètres de l'application mobile.",
     "Permissão em falta": "Permission manquante",
     "Peça ao administrador da empresa.": "Demandez à l'administrateur de votre entreprise.",
-    "Mesas": "Tables"
+    "Mesas": "Tables",
+    "Condição de pagamento dos clientes novos": "Conditions de paiement des nouveaux clients",
+    "Sem condição definida": "Aucune condition définie",
+    "Vale para todos os clientes novos — do sistema, do PWA e das importações. É dela que sai o vencimento da factura.": "S'applique à tous les nouveaux clients — du système, du PWA et des imports. C'est de là que vient l'échéance de la facture.",
+    "Gerir condições": "Gérer les conditions"
 }

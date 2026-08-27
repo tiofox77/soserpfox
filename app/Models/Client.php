@@ -66,6 +66,51 @@ class Client extends Authenticatable
         return $this->belongsTo(\App\Models\Invoicing\PaymentTerm::class, 'payment_term_id');
     }
 
+    /**
+     * Um cliente novo nasce com a condição de pagamento da empresa.
+     *
+     * ESTÁ AQUI, E NÃO NOS ECRÃS, DE PROPÓSITO. O formulário de clientes já a
+     * pré-seleccionava, mas era o único: o PWA, a API, as importações e o
+     * "Consumidor Final" do POS criavam clientes sem condição nenhuma — e sem
+     * condição a factura sai sem vencimento. Nesta base estavam 67 clientes em
+     * 67 sem condição atribuída, com o catálogo de condições montado desde
+     * sempre. Um sítio que se pode esquecer acaba sempre esquecido; num
+     * modelo, não há como criar um cliente por fora.
+     *
+     * Só preenche o que vier VAZIO: quem escolher uma condição no formulário
+     * fica com a que escolheu.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $cliente) {
+            if ($cliente->payment_term_id) {
+                return;
+            }
+
+            try {
+                $padrao = \App\Models\Invoicing\PaymentTerm::padraoDe($cliente->tenant_id);
+            } catch (\Throwable $e) {
+                // Nunca impedir a criação de um cliente por causa disto: sem
+                // condição perde-se o vencimento por omissão, com excepção
+                // perde-se a venda.
+                return;
+            }
+
+            if (!$padrao) {
+                return;
+            }
+
+            $cliente->payment_term_id = $padrao->id;
+
+            // `payment_term_days` é o valor legado que o cálculo do vencimento
+            // ainda lê. Fica em sincronia à nascença, como o formulário já
+            // fazia ao gravar.
+            if (!$cliente->payment_term_days) {
+                $cliente->payment_term_days = $padrao->days;
+            }
+        });
+    }
+
     public function invoices()
     {
         return $this->hasMany(Invoice::class, 'client_id');

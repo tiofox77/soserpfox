@@ -2811,5 +2811,9 @@
     "A sua conta não tem permissão para esta área, ou a empresa desligou-a nas definições da aplicação móvel.": "Your account does not have permission for this area, or the company turned it off in the mobile app settings.",
     "Permissão em falta": "Missing permission",
     "Peça ao administrador da empresa.": "Ask your company administrator.",
-    "Mesas": "Tables"
+    "Mesas": "Tables",
+    "Condição de pagamento dos clientes novos": "Payment terms for new clients",
+    "Sem condição definida": "No terms set",
+    "Vale para todos os clientes novos — do sistema, do PWA e das importações. É dela que sai o vencimento da factura.": "Applies to every new client — from the system, the PWA and imports. The invoice due date comes from it.",
+    "Gerir condições": "Manage terms"
 }

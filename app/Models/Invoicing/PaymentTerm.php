@@ -47,6 +47,53 @@ class PaymentTerm extends Model
     }
 
     /**
+     * A condição com que um cliente novo desta empresa nasce.
+     *
+     * UMA SÓ AUTORIDADE, e é a coluna `is_default`. Podia ter-se guardado a
+     * escolha em `invoicing_settings` e ficariam duas — que é como se acaba
+     * com o ecrã das condições a dizer uma coisa e o das definições a dizer
+     * outra. O ecrã de Configurações escreve aqui; toda a gente lê daqui.
+     *
+     * Sem nenhuma marcada, vale a primeira activa por ordem de apresentação:
+     * um cliente sem condição nenhuma fica sem vencimento na factura, e mais
+     * vale um prazo razoável do que nenhum.
+     */
+    public static function padraoDe(?int $tenantId): ?self
+    {
+        if (!$tenantId) {
+            return null;
+        }
+
+        return static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->first();
+    }
+
+    /**
+     * Marca esta condição como a dos clientes novos, tirando a marca à
+     * anterior. Uma empresa com duas condições "por omissão" não tem nenhuma.
+     */
+    public static function definirPadrao(int $tenantId, ?int $termId): void
+    {
+        static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('is_default', true)
+            ->update(['is_default' => false]);
+
+        if (!$termId) {
+            return;
+        }
+
+        static::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->whereKey($termId)
+            ->update(['is_default' => true, 'is_active' => true]);
+    }
+
+    /**
      * Semeia as condições padrão numa empresa. Idempotente e aditivo: quem já
      * as tem não recebe duplicados; quem não tem nenhuma recebe as que faltam.
      */
