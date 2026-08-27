@@ -81,18 +81,30 @@ test.describe('PWA — Documentos', () => {
 
             // A rede volta.
             await context.setOffline(false);
-            await sincronizar(page);
 
             // O servidor devolveu um id: o documento existe lá.
+            //
+            // A espera volta a pedir sincronização a cada volta, em vez de
+            // sincronizar uma vez e ficar à espera. Uma sincronização que
+            // apanhe a fila a meio devolve sem levar este trabalho, e o ensaio
+            // ficava 45 segundos à espera de uma coisa que já ninguém ia
+            // buscar — passava umas vezes e falhava outras, que é o pior que um
+            // ensaio pode fazer.
             await expect
                 .poll(
                     async () => {
                         const guardados = await lerBase(page, 'draft_documents');
                         const meu = guardados.find((d) => d.local_uuid === doc.local_uuid);
 
-                        return meu?._server_id ?? null;
+                        if (meu?._server_id) {
+                            return meu._server_id;
+                        }
+
+                        await sincronizar(page).catch(() => {});
+
+                        return null;
                     },
-                    { message: `${nome} tem de existir no servidor`, timeout: 45_000 }
+                    { message: `${nome} tem de existir no servidor`, timeout: 60_000, intervals: [1000] }
                 )
                 .not.toBeNull();
         });

@@ -1,6 +1,17 @@
 @extends('layouts.pwa', ['title' => __('POS Offline')])
 
 @section('content')
+@php
+    // O ícone do PWA, e NÃO o logótipo da empresa.
+    //
+    // O logótipo do tenant não está na lista de pré-guardados do service
+    // worker: offline daria um quadrado partido em cada um dos cartões, que é
+    // precisamente onde isto tem de funcionar. Este ícone está pré-guardado na
+    // instalação e aparece sempre.
+    //
+    // Resolve-se aqui e não dentro do ciclo: são dezenas de cartões.
+    $logoDoPos = asset('pwa/icon-192x192.png');
+@endphp
 <div x-data="posOffline()" x-init="init()" x-cloak class="-mx-4 -my-4">
     <div class="lg:grid lg:grid-cols-12 lg:h-[calc(100vh-116px)]">
 
@@ -64,8 +75,29 @@
                                 :disabled="p.type !== 'servico' && p.manage_stock !== false && p.stock_quantity <= 0"
                                 :class="p.type !== 'servico' && p.manage_stock !== false && p.stock_quantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''"
                                 class="relative bg-white rounded-2xl shadow-sm p-2.5 text-left flex flex-col border border-gray-100 hover:border-blue-300 hover:shadow-md active:scale-95 transition">
-                            <div class="relative w-full aspect-square rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center mb-2">
-                                <i :class="p.type === 'servico' ? 'fas fa-concierge-bell text-purple-500' : 'fas fa-box text-blue-500'" class="text-3xl"></i>
+                            {{-- A miniatura tem ALTURA FIXA e baixa.
+
+                                 Era `aspect-square`: num ecrã largo, com cinco
+                                 colunas, dava 250px de altura para mostrar um
+                                 ícone — cinco artigos enchiam o ecrã todo e
+                                 parecia que o catálogo estava vazio. Com 80px
+                                 cabem três vezes mais artigos e o preço, que é
+                                 o que se procura, fica sempre à vista.
+
+                                 O logótipo em marca de água em vez de um ícone
+                                 genérico: os artigos não trazem fotografia
+                                 (o sync não a envia, e offline não haveria como
+                                 a ir buscar), portanto o espaço é sempre
+                                 placeholder — mais vale que seja o da casa. --}}
+                            <div class="relative w-full h-20 sm:h-24 rounded-xl bg-gradient-to-br from-slate-50 to-blue-50 border border-slate-100 flex items-center justify-center mb-2 overflow-hidden">
+                                <img src="{{ $logoDoPos }}" alt=""
+                                     class="h-8 sm:h-10 w-auto object-contain opacity-25 select-none pointer-events-none" draggable="false">
+
+                                <span class="absolute bottom-1 left-1 w-5 h-5 rounded-full bg-white/85 flex items-center justify-center shadow-sm">
+                                    <i :class="p.type === 'servico' ? 'fas fa-concierge-bell text-purple-500' : 'fas fa-box text-blue-500'"
+                                       class="text-[10px]"></i>
+                                </span>
+
                                 <span x-show="qtyInCart(p) > 0"
                                       class="absolute top-1 right-1 bg-emerald-600 text-white text-[11px] font-bold min-w-[24px] h-6 px-1 rounded-full flex items-center justify-center shadow"
                                       x-text="qtyInCart(p)" x-cloak></span>
@@ -180,8 +212,14 @@
                 </button>
             </div>
 
-            {{-- Aviso: sem turno aberto --}}
-            <div x-show="!shift.open" x-cloak class="shrink-0 mx-4 mb-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2 text-xs flex items-center gap-2">
+            {{-- Aviso: sem turno aberto.
+
+                 Só com o carrinho JÁ CHEIO. Vazio, quem manda a mensagem é o
+                 cartão grande no meio do painel — dizer a mesma coisa duas
+                 vezes no mesmo ecrã não a torna mais clara, torna o ecrã mais
+                 confuso. Com artigos no carrinho a história é outra: a pessoa
+                 já escolheu e precisa de saber, ali mesmo, porque não avança. --}}
+            <div x-show="!shift.open && cart.length" x-cloak class="shrink-0 mx-4 mb-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2 text-xs flex items-center gap-2">
                 <i class="fas fa-triangle-exclamation"></i>
                 <span class="flex-1">{{ __('Sem turno aberto — abra um turno para poder vender.') }}</span>
                 <button @click="openOpenShiftModal()" class="underline font-bold whitespace-nowrap">{{ __('Abrir') }}</button>
@@ -213,7 +251,26 @@
                         </div>
                     </div>
                 </template>
-                <div x-show="!cart.length" class="text-center py-10 text-gray-300">
+                {{-- O vazio do carrinho diz o que FALTA FAZER, não que está vazio.
+
+                     Sem turno, o ecrã dizia três coisas ao mesmo tempo: um
+                     crachá vermelho "S/ turno" no topo, um aviso a meio, e no
+                     fundo um botão verde de finalizar venda. Quem chega ao
+                     balcão não sabe por onde começar. Aqui o espaço maior e
+                     mais vazio passa a ter a única acção que interessa. --}}
+                <div x-show="!cart.length && !shift.open" x-cloak class="text-center py-10 px-4">
+                    <div class="w-16 h-16 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-lock text-red-400 text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-bold text-gray-800 mb-1">{{ __('Turno fechado') }}</p>
+                    <p class="text-xs text-gray-500 mb-4">{{ __('Abra o turno para começar a vender.') }}</p>
+                    <button @click="openOpenShiftModal()"
+                            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow transition">
+                        <i class="fas fa-lock-open mr-1.5"></i>{{ __('Abrir turno') }}
+                    </button>
+                </div>
+
+                <div x-show="!cart.length && shift.open" x-cloak class="text-center py-10 text-gray-300">
                     <i class="fas fa-shopping-basket text-5xl mb-2 block"></i>
                     <p class="text-sm font-medium">{{ __('Carrinho vazio') }}</p>
                     <p class="text-xs">{{ __('Toca num produto para adicionar') }}</p>
