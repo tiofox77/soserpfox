@@ -58,6 +58,10 @@ class MaintenanceController extends Controller
         'planos:trial-automatico',
         'planos:dias-de-teste',
         'planos:coerencia',
+        // Preço de um plano. Corre-se SEMPRE com ?args=--so-ver primeiro: do
+        // outro lado está o que os clientes novos vão pagar. Não repreça
+        // subscrições em vigor — essas guardam o valor com que foram feitas.
+        'plano:preco',
         // Preço de CATÁLOGO de um módulo. Só toca em `modules.default_price`:
         // as empresas que já têm o módulo guardam o preço acordado no pivot e
         // não são reescritas. O mesmo se faz em /superadmin/modules — isto
