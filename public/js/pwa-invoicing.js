@@ -261,6 +261,12 @@
 
     window.addEventListener('offline', () => {
         state.online = false;
+        // `realOnline` também. Ficava com o valor do último ping bem-sucedido,
+        // ou seja, a dizer que havia rede depois de o sistema operativo avisar
+        // que não há — e quem lê `realOnline` para decidir se tenta enviar
+        // acreditava nele. O navegador a dizer "offline" é definitivo: não há
+        // caso em que o aparelho reporte offline e exista ligação.
+        state.realOnline = false;
         updateStatusBar();
     });
 

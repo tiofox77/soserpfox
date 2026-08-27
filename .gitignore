@@ -57,3 +57,9 @@ Thumbs.db
 /installer/dist/
 /installer/soserp-tray.exe
 /installer/soserp.ico
+
+# Bancada do PWA (Playwright)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

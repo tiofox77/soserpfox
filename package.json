@@ -4,9 +4,15 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "pwa:bancada": "php artisan bancada:pwa",
+        "pwa:limpar": "php artisan bancada:pwa --limpar",
+        "pwa:test": "playwright test --project=pwa",
+        "pwa:test:ver": "playwright test --project=pwa --headed",
+        "pwa:relatorio": "playwright show-report"
     },
     "devDependencies": {
+        "@playwright/test": "^1.62.1",
         "@popperjs/core": "^2.11.6",
         "@tailwindcss/vite": "^4.0.0",
         "axios": "^1.11.0",
