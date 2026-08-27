@@ -61,9 +61,14 @@ class VersaoLegivelDoPwaTest extends TestCase
         // As duas dizem coisas diferentes: a versão é o que foi lançado, a
         // data é o que este aparelho tem. Quem reporta um problema precisa
         // de dar as duas.
+        //
+        // A versão passou a ser a DO PWA (2.0.4), que sobe sozinha a cada
+        // alteração do próprio PWA, e já não a do changelog da aplicação
+        // inteira — que subia com coisas que nada têm a ver com o aparelho e
+        // por isso não respondia à pergunta "já tenho a correcção de hoje?".
         $html = view('layouts.pwa', ['title' => 'x'])->render();
 
-        $this->assertStringContainsString('v' . config('changelog.current', '1.0'), $html);
+        $this->assertStringContainsString('v' . (new PwaController)->numeroDeVersao(), $html);
         $this->assertStringContainsString((new PwaController)->buildLabel(), $html);
     }
 }

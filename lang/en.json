@@ -2787,5 +2787,17 @@
     "Sem permissão para eliminar modelos.": "No permission to delete templates.",
     "Modelo eliminado.": "Template deleted.",
     "\":nome\" passa a ser o modelo padrão.": "\":nome\" is now the default template.",
-    "Este documento não pertence à empresa activa. A actualizar a lista…": "This document does not belong to the active company. Refreshing the list…"
+    "Este documento não pertence à empresa activa. A actualizar a lista…": "This document does not belong to the active company. Refreshing the list…",
+    "Turno fechado": "Shift closed",
+    "Abra o turno para começar a vender.": "Open the shift to start selling.",
+    ":n operação(ões) da empresa anterior ficaram por enviar. Volte a entrar nessa empresa para as sincronizar.": ":n operation(s) from the previous company were never sent. Sign in to that company again to sync them.",
+    "Comanda já não existe no aparelho": "The order no longer exists on this device",
+    "Escolha o estabelecimento antes de abrir a comanda.": "Choose the venue before opening the order.",
+    "Esta comanda já não recebe artigos.": "This order can no longer take items.",
+    "O artigo já foi para a cozinha — anule-o com motivo.": "The item has already gone to the kitchen — void it with a reason.",
+    "Não há artigos novos para enviar.": "There are no new items to send.",
+    "Comanda não encontrada.": "Order not found.",
+    "Uma comanda vazia não se factura.": "An empty order cannot be invoiced.",
+    "Só se descarta uma comanda vazia e por enviar.": "Only an empty, unsent order can be discarded.",
+    "O armazém escolhido já não existe nesta empresa.": "The chosen warehouse no longer exists in this company."
 }

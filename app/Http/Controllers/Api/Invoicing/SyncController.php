@@ -263,7 +263,26 @@ class SyncController extends Controller
                              ->where('invoicing_stocks.tenant_id', $tenantId)
                              ->where('invoicing_stocks.warehouse_id', $whId);
                     })
-                    ->whereRaw("invoicing_products.type <> 'servico' AND {$stockExpr} <= 0", [$tenantId])
+                    // A CONDIÇÃO TEM DE SER O ESPELHO EXACTO DA QUE ESCONDE.
+                    //
+                    // Faltava aqui o `manage_stock`. O filtro lá em cima deixa
+                    // passar tudo o que não controla stock — um prato de
+                    // restaurante, um serviço facturado como produto, um artigo
+                    // à consignação — e esta lista mandava-os APAGAR na mesma,
+                    // por terem zero em armazém. O dispositivo recebia-os no
+                    // bulkPut e apagava-os a seguir no bulkDelete, na mesma
+                    // sincronização.
+                    //
+                    // Efeito no balcão: a primeira sincronização (completa)
+                    // trazia o catálogo todo e as seguintes iam-no despindo. Um
+                    // restaurante ficava sem menu offline e ninguém percebia
+                    // porquê — os pratos estavam lá, activos, no sistema.
+                    ->whereRaw(
+                        "invoicing_products.type <> 'servico'
+                         AND invoicing_products.manage_stock <> 0
+                         AND {$stockExpr} <= 0",
+                        [$tenantId]
+                    )
                     ->pluck('invoicing_products.id')
                     ->all();
 
@@ -440,6 +459,10 @@ class SyncController extends Controller
             ] : null,
             'shift' => $shiftInfo,
             'modules' => $modules,
+            // A sala do restaurante — mesas, zonas e regras — para o POS de
+            // restaurante abrir sem rede. Vem null quando a empresa não tem o
+            // módulo, e é isso que apaga a entrada do restaurante no PWA.
+            'restaurant' => app(\App\Services\Restaurant\SnapshotDoRestaurante::class)->paraTenant($tenant),
             'data' => [
                 'products' => $products,
                 'clients' => $clients,

@@ -152,6 +152,8 @@ class PrepararBancadaPwa extends Command
             $artigos++;
         }
 
+        $mesas = $this->montarORestaurante($tenant, $armazem, $imposto);
+
         $this->newLine();
         $this->info('Bancada do PWA montada.');
         $this->table(['', ''], [
@@ -161,11 +163,103 @@ class PrepararBancadaPwa extends Command
             ['Password', self::PASSWORD],
             ['PIN',      self::PIN],
             ['Artigos',  $artigos],
+            ['Mesas',    $mesas],
             ['Cliente',  $cliente->name],
             ['Armazém',  $armazem->name],
         ]);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * A sala do restaurante: estabelecimento, zona, mesas e pratos.
+     *
+     * Sem isto o POS de restaurante abre com a planta vazia, e um ensaio que
+     * corre numa sala sem mesas não mede nada — passa por não haver nada que
+     * possa falhar.
+     *
+     * Os pratos são artigos normais com categoria: é assim que o restaurante
+     * funciona no sistema, e é assim que o POS offline os há-de encontrar.
+     *
+     * @return int quantas mesas ficaram montadas
+     */
+    private function montarORestaurante(Tenant $tenant, Warehouse $armazem, $imposto): int
+    {
+        \App\Models\Restaurant\RestaurantSettings::forTenant($tenant->id)->update([
+            'default_warehouse_id' => $armazem->id,
+            'use_kitchen_workflow' => true,
+            // Exigir ficha técnica esconderia todos os pratos da bancada e o
+            // ensaio morria num menu vazio, sem dizer porquê.
+            'require_recipe_for_products' => false,
+        ]);
+
+        $sala = \App\Models\Restaurant\Venue::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'BANC-SALA'],
+            ['name' => 'Salão da Bancada', 'warehouse_id' => $armazem->id, 'is_active' => true]
+        );
+
+        $zona = \App\Models\Restaurant\Area::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'venue_id' => $sala->id, 'name' => 'Esplanada'],
+            ['sort_order' => 1, 'is_active' => true]
+        );
+
+        $mesas = 0;
+
+        foreach (range(1, 6) as $n) {
+            \App\Models\Restaurant\DiningTable::firstOrCreate(
+                ['tenant_id' => $tenant->id, 'venue_id' => $sala->id, 'code' => 'MESA-' . $n],
+                [
+                    'area_id'  => $zona->id,
+                    'name'     => 'Mesa ' . $n,
+                    'capacity' => 4,
+                    // As mesas voltam sempre a LIVRE ao montar a bancada. Uma
+                    // corrida anterior deixa-as ocupadas, e o ensaio seguinte
+                    // não teria onde sentar ninguém.
+                    'status'   => 'available',
+                    'is_active' => true,
+                ]
+            )->update(['status' => 'available']);
+
+            $mesas++;
+        }
+
+        // As comandas da corrida anterior também saem: uma comanda aberta
+        // ocupa a mesa outra vez assim que o servidor a devolve.
+        \App\Models\Restaurant\Order::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('status', \App\Models\Restaurant\Order::OPEN_STATUSES)
+            ->update(['status' => 'cancelled', 'closed_at' => now()]);
+
+        $categoria = \App\Models\Category::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => 'Cozinha'],
+            ['is_active' => true, 'order' => 1]
+        );
+
+        foreach ([
+            ['BANC-P1', 'Muamba de Galinha', 5500],
+            ['BANC-P2', 'Calulu de Peixe', 6200],
+            ['BANC-P3', 'Funge de Bombó', 1500],
+            ['BANC-P4', 'Cerveja 33cl', 800],
+        ] as [$codigo, $nome, $preco]) {
+            Product::firstOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => $codigo],
+                [
+                    'category_id'  => $categoria->id,
+                    'name'         => $nome,
+                    'price'        => $preco,
+                    'cost'         => round($preco * 0.4),
+                    'tax_id'       => $imposto->id,
+                    'tax_rate'     => 14,
+                    'is_active'    => true,
+                    // Um prato não desconta stock de si próprio: quem desconta
+                    // é a ficha técnica, pelos ingredientes. Com gestão de
+                    // stock ligada e zero em armazém, o sync escondia-os todos.
+                    'manage_stock' => false,
+                ]
+            );
+        }
+
+        return $mesas;
     }
 
     private function limpar(): int
@@ -180,6 +274,16 @@ class PrepararBancadaPwa extends Command
 
         // Sem softDeletes aqui: uma bancada meio-apagada dá ensaios que
         // dependem do lixo da corrida anterior.
+        // O restaurante sai primeiro: as comandas apontam para artigos e mesas,
+        // e apagar por outra ordem deixa chaves estrangeiras penduradas.
+        \App\Models\Restaurant\OrderItem::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+        \App\Models\Restaurant\OrderEvent::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+        \App\Models\Restaurant\Order::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+        \App\Models\Restaurant\DiningTable::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+        \App\Models\Restaurant\Area::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+        \App\Models\Restaurant\Venue::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+        \App\Models\Restaurant\RestaurantSettings::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+
         Stock::where('tenant_id', $tenant->id)->forceDelete();
         Product::where('tenant_id', $tenant->id)->forceDelete();
         Client::where('tenant_id', $tenant->id)->forceDelete();
@@ -206,7 +310,11 @@ class PrepararBancadaPwa extends Command
 
     private function ligarModulos(Tenant $tenant): void
     {
-        foreach (['invoicing', 'treasury'] as $slug) {
+        // O restaurante entra na bancada: é ele que faz aparecer a entrada
+        // das Mesas no PWA e que traz a sala na sincronização. Sem o módulo, o
+        // ensaio do restaurante não teria como distinguir "não implementado"
+        // de "não contratado".
+        foreach (['invoicing', 'treasury', 'restaurant'] as $slug) {
             $modulo = Module::firstOrCreate(
                 ['slug' => $slug],
                 ['name' => ucfirst($slug), 'is_active' => true]

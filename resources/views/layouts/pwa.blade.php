@@ -236,8 +236,18 @@
     </main>
 
     {{-- Bottom navigation --}}
+    @php
+        // A ENTRADA DO RESTAURANTE SÓ EXISTE PARA QUEM TEM O MÓDULO.
+        //
+        // Resolve-se no servidor, quando a página é gerada, e fica assim na
+        // cópia que o service worker guarda — que é o que se vê offline. Um
+        // módulo desligado desaparece na próxima vez que a página for buscada
+        // com rede, que é quando a subscrição muda de qualquer forma.
+        $temRestaurante = auth()->check()
+            && optional(auth()->user()->activeTenant())->hasModule('restaurant');
+    @endphp
     <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 shadow-2xl z-40">
-        <div class="grid grid-cols-5 text-center">
+        <div class="grid {{ $temRestaurante ? 'grid-cols-6' : 'grid-cols-5' }} text-center">
             <a href="{{ route('invoicing.offline.index') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.index') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
                 <i class="fas fa-home block text-lg"></i>
                 <span class="text-[10px] font-semibold">Início</span>
@@ -246,6 +256,12 @@
                 <i class="fas fa-box block text-lg"></i>
                 <span class="text-[10px] font-semibold">Catálogo</span>
             </a>
+            @if($temRestaurante)
+                <a href="{{ route('invoicing.offline.restaurant') }}" class="py-3 hover:bg-orange-50 {{ request()->routeIs('invoicing.offline.restaurant') ? 'text-orange-700 bg-orange-50' : 'text-gray-600' }}">
+                    <i class="fas fa-utensils block text-lg"></i>
+                    <span class="text-[10px] font-semibold">Mesas</span>
+                </a>
+            @endif
             <a href="{{ route('invoicing.offline.pos') }}" class="py-2 -mt-4">
                 <div class="w-12 h-12 mx-auto bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-lg text-white">
                     <i class="fas fa-cash-register text-lg"></i>
@@ -281,7 +297,7 @@
         window.SOS_USER_NAME = @json(auth()->user()?->name);
     </script>
 
-    <script src="/js/pwa-invoicing.js?v=19"></script>
+    <script src="/js/pwa-invoicing.js?v=20"></script>
     <script src="/js/pos-offline-ticket.js?v=3"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
@@ -304,7 +320,7 @@
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=19',
+            '/js/pwa-invoicing.js?v=20',
             '/js/vendor/bcrypt.min.js?v=1',
             '/js/pos-offline-ticket.js?v=3',
             '/manifest.webmanifest',

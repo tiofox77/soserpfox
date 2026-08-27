@@ -201,6 +201,21 @@
                 <i class="fas fa-cash-register text-3xl opacity-80"></i>
             </div>
         </a>
+        {{-- O restaurante só aparece a quem tem o módulo. A verificação é do
+             servidor e fica gravada na cópia que o service worker guarda, que
+             é a que se vê sem rede. --}}
+        @if(auth()->check() && optional(auth()->user()->activeTenant())->hasModule('restaurant'))
+            <a href="{{ route('invoicing.offline.restaurant') }}" class="block bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90 uppercase font-bold">{{ __('Sala') }}</p>
+                        <p class="text-lg font-bold">{{ __('POS Restaurante') }}</p>
+                        <p class="text-xs opacity-80">{{ __('Mesas, comandas e conta — funciona sem rede') }}</p>
+                    </div>
+                    <i class="fas fa-utensils text-3xl opacity-80"></i>
+                </div>
+            </a>
+        @endif
         <a href="{{ route('invoicing.offline.draft-new') }}" class="block bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
             <div class="flex items-center justify-between">
                 <div>

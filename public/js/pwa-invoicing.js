@@ -42,6 +42,17 @@
     db.version(5).stores({
         employees: 'email, id',
     });
+    // v6 — a sala do restaurante e as comandas feitas sem rede.
+    //
+    // Aditiva: não toca em nada do que já cá está. Um aparelho de uma empresa
+    // sem o módulo cria estas tabelas e deixa-as vazias — não custa nada e
+    // poupa uma migração no dia em que a empresa contratar o restaurante.
+    db.version(6).stores({
+        rest_venues: 'id, name',
+        rest_areas: 'id, venue_id',
+        rest_tables: 'id, venue_id, area_id, status',
+        rest_orders: 'local_uuid, table_id, venue_id, status, created_at, _synced, _server_id',
+    });
 
     // ========================
     // STATE
@@ -140,6 +151,38 @@
      * código) ou só com o EAN-13 de dentro, e o leitor tanto manda um como
      * o outro.
      */
+    /**
+     * Um identificador em forma de UUID, feito no aparelho.
+     *
+     * A comanda e cada um dos seus artigos nascem sem rede e sem id do
+     * servidor; é este identificador que os liga quando sobem, e é ele que
+     * impede um reenvio de lançar a mesma comanda duas vezes. Tem de ser UUID
+     * a sério: a coluna é char(36) e a validação do servidor exige o formato.
+     *
+     * O `crypto.randomUUID` só existe em contexto seguro — que é onde o PWA
+     * corre, porque sem HTTPS não há service worker. O ramo de reserva existe
+     * para browsers antigos, e usa `getRandomValues`, que existe há muito mais
+     * tempo; um identificador tirado do Math.random é a diferença entre uma
+     * colisão improvável e uma colisão que acontece numa sala com dez tablets.
+     */
+    function uuidV4() {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return crypto.randomUUID();
+        }
+
+        const b = new Uint8Array(16);
+        crypto.getRandomValues(b);
+        b[6] = (b[6] & 0x0f) | 0x40;
+        b[8] = (b[8] & 0x3f) | 0x80;
+
+        const hex = [...b].map((n) => n.toString(16).padStart(2, '0')).join('');
+
+        return [
+            hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16),
+            hex.slice(16, 20), hex.slice(20),
+        ].join('-');
+    }
+
     function formasDeCodigo(lido) {
         const t = String(lido || '').trim();
         const d = t.replace(/\D/g, '');
@@ -436,6 +479,14 @@
                 await db.draft_documents.clear();
                 await db.pos_sales.clear();
                 await db.employees.clear();
+                // A sala do restaurante é tão da empresa como o catálogo: as
+                // mesas da anterior não podem ficar cá. As comandas por subir
+                // ficam, como a fila — ver o aviso dos retidos mais abaixo.
+                await db.rest_venues.clear();
+                await db.rest_areas.clear();
+                await db.rest_tables.clear();
+                await db.meta.delete('modules');
+                await db.meta.delete('restaurant_settings');
                 // sync_queue é preservada intencionalmente
                 await db.meta.delete('shift');
                 await db.meta.delete('last_sync');
@@ -512,6 +563,34 @@
                 await db.meta.put({ key: 'warehouse', value: json.warehouse });
             }
 
+            // ---- Os MÓDULOS da empresa ----
+            //
+            // O servidor já os mandava e o aparelho deitava-os fora. Sem eles,
+            // o PWA não tem como saber offline se esta empresa tem restaurante
+            // — e a activação de um módulo não pode depender de haver rede no
+            // momento em que se abre a aplicação.
+            //
+            // Substitui-se a lista inteira: um módulo que a empresa deixe de
+            // ter desaparece na sincronização seguinte, que é o que se espera
+            // de quem deixou de o pagar.
+            if (Array.isArray(json.modules)) {
+                await db.meta.put({ key: 'modules', value: json.modules.map(m => m.slug) });
+            }
+
+            // ---- Métodos de pagamento da TESOURARIA ----
+            //
+            // O servidor mandava-os desde sempre e o aparelho deitava-os fora.
+            // O balcão safava-se com "dinheiro/multicaixa" por nome, mas o
+            // fecho de uma comanda precisa do ID do método para lançar o
+            // recebimento na caixa certa — sem esta lista, offline não há por
+            // onde escolher.
+            if (Array.isArray(json.data.payment_methods)) {
+                await db.meta.put({ key: 'payment_methods', value: json.data.payment_methods });
+            }
+
+            // ---- A SALA DO RESTAURANTE ----
+            await guardarSalaDoRestaurante(json.restaurant);
+
             state.lastSync = json.server_time;
 
             // dispatch evento para páginas atualizarem
@@ -545,6 +624,88 @@
         } finally {
             state.syncing = false;
             await refreshPendingCount();
+        }
+    }
+
+    /**
+     * A comanda local traduzida para o que o servidor espera.
+     *
+     * Vai o preço que o aparelho cobrou (`unit_price`) mesmo sabendo que o
+     * servidor usa o do catálogo: é a comparação entre os dois que produz o
+     * aviso de preço alterado. Sem o mandar, uma diferença entre o talão do
+     * cliente e a factura passava despercebida.
+     */
+    function cargaDaComanda(comanda, doTrabalho = {}) {
+        return {
+            local_uuid:  comanda.local_uuid,
+            venue_id:    comanda.venue_id,
+            table_id:    comanda.table_id || null,
+            channel:     comanda.channel || (comanda.table_id ? 'table' : 'counter'),
+            guest_count: comanda.guest_count || 1,
+            client_id:   comanda.client_id || null,
+            notes:       comanda.notes || null,
+            confirmar:   !!comanda.enviada_cozinha,
+            operator_id:    doTrabalho.operator_id ?? null,
+            operator_email: doTrabalho.operator_email ?? null,
+            items: (comanda.items || []).map((i) => ({
+                local_uuid: i.local_uuid,
+                product_id: i.product_id,
+                quantity:   parseFloat(i.quantity) || 0,
+                unit_price: parseFloat(i.unit_price) || 0,
+                notes:      i.notes || null,
+            })),
+            checkout: comanda.checkout || null,
+        };
+    }
+
+    /**
+     * A sala do restaurante, guardada para funcionar sem rede.
+     *
+     * O estado das mesas que vem do servidor é o ponto de partida, não a
+     * verdade final: uma mesa que este aparelho abriu offline continua ocupada
+     * aqui, mesmo que o servidor ainda não saiba dela. Sem esta reposição, uma
+     * sincronização a meio do serviço punha as mesas todas livres no ecrã do
+     * empregado enquanto os clientes estavam sentados nelas.
+     */
+    async function guardarSalaDoRestaurante(sala) {
+        // `null` é resposta legítima: a empresa não tem o módulo. Nesse caso a
+        // sala local vai-se embora — é isso que faz a entrada do restaurante
+        // desaparecer do menu no dia em que o módulo é desligado.
+        if (!sala) {
+            await db.rest_venues.clear();
+            await db.rest_areas.clear();
+            await db.rest_tables.clear();
+            await db.meta.delete('restaurant_settings');
+            return;
+        }
+
+        // Listas fechadas: substituem-se, não se juntam. Uma mesa apagada no
+        // servidor tem de sair daqui, senão continua a ser oferecida.
+        await db.rest_venues.clear();
+        await db.rest_areas.clear();
+        await db.rest_tables.clear();
+
+        if (sala.venues?.length) { await db.rest_venues.bulkPut(sala.venues); }
+        if (sala.areas?.length) { await db.rest_areas.bulkPut(sala.areas); }
+        if (sala.tables?.length) { await db.rest_tables.bulkPut(sala.tables); }
+
+        await db.meta.put({
+            key: 'restaurant_settings',
+            value: {
+                ...(sala.settings || {}),
+                recipe_product_ids: sala.recipe_product_ids || null,
+            },
+        });
+
+        // As mesas que ESTE aparelho tem ocupadas por comandas ainda não
+        // sincronizadas voltam a ficar ocupadas.
+        const porSubir = await db.rest_orders
+            .where('status').notEqual('fechada')
+            .filter((c) => !c._synced && c.table_id)
+            .toArray();
+
+        for (const comanda of porSubir) {
+            await db.rest_tables.update(comanda.table_id, { status: 'occupied' });
         }
     }
 
@@ -695,6 +856,58 @@
                             detail: { action: 'close', shift: result.shift || null },
                         }));
                     }
+                } else if (job.op === 'sync_restaurant_order') {
+                    // A COMANDA INTEIRA numa só viagem.
+                    //
+                    // O payload guardado no trabalho podia já estar velho: o
+                    // empregado juntou mais dois pratos depois de a comanda ter
+                    // entrado na fila. Lê-se o estado ACTUAL da comanda e é
+                    // esse que sobe — o servidor repõe tudo por identificador e
+                    // ignora o que já lá está, portanto mandar a mais nunca
+                    // duplica, e mandar a menos deixava artigos por facturar.
+                    const comanda = await db.rest_orders.get(job.payload.local_uuid);
+
+                    if (!comanda) {
+                        // Nada para enviar, e nunca haverá: repetir cinco
+                        // vezes só serve para pôr este trabalho à frente das
+                        // vendas boas que estão atrás na fila.
+                        const sumiu = new Error(__('Comanda já não existe no aparelho'));
+                        sumiu.definitivo = true;
+
+                        throw sumiu;
+                    }
+
+                    result = await fetchJson('/api/v1/restaurant/offline/comanda', {
+                        method: 'POST',
+                        body: JSON.stringify(cargaDaComanda(comanda, job.payload)),
+                    });
+
+                    if (result.success) {
+                        await db.rest_orders.update(comanda.local_uuid, {
+                            _synced: 1,
+                            _server_id: result.id,
+                            _server_number: result.order_number,
+                            _server_status: result.status,
+                            _avisos: result.avisos || [],
+                            _invoice_number: result.invoice?.invoice_number || null,
+                        });
+
+                        // A mesa pode ter mudado de dono no servidor: quando a
+                        // comanda abriu ao balcão, a mesa que o aparelho tinha
+                        // por ocupada é de outra pessoa e tem de o mostrar.
+                        if (comanda.table_id && result.table_id !== comanda.table_id) {
+                            await db.rest_tables.update(comanda.table_id, { status: 'occupied' });
+                        }
+
+                        window.dispatchEvent(new CustomEvent('pwa:comanda-sincronizada', {
+                            detail: {
+                                local_uuid: comanda.local_uuid,
+                                order_number: result.order_number,
+                                invoice_number: result.invoice?.invoice_number || null,
+                                avisos: result.avisos || [],
+                            },
+                        }));
+                    }
                 } else if (job.op === 'logout') {
                     // A saída pedida sem rede. O servidor fecha a sessão
                     // agora; se ela já tiver caído, responde na mesma que
@@ -805,7 +1018,7 @@
         // do último a sincronizar. Sem isto, a venda de B (entrou por PIN) era
         // comunicada à AGT em nome de A. O servidor valida este operador antes
         // de o aceitar (ver ResolveOperadorOffline).
-        const OPS_COM_OPERADOR = ['create_pos_sale', 'open_pos_shift', 'close_pos_shift'];
+        const OPS_COM_OPERADOR = ['create_pos_sale', 'open_pos_shift', 'close_pos_shift', 'sync_restaurant_order'];
         if (OPS_COM_OPERADOR.includes(op) && payload && payload.operator_id === undefined) {
             try {
                 const u = (await db.meta.get('user'))?.value;
@@ -1184,6 +1397,355 @@
             return m ? m.value : null;
         },
 
+        /** Os módulos que a empresa tem, lidos do aparelho (funciona sem rede). */
+        async modulos() {
+            return (await db.meta.get('modules'))?.value || [];
+        },
+
+        async temModulo(slug) {
+            return ((await db.meta.get('modules'))?.value || []).includes(slug);
+        },
+
+        // ================================================================
+        // RESTAURANTE
+        // ================================================================
+        /**
+         * O POS de restaurante, sem rede.
+         *
+         * A diferença para o balcão é a MESA: aqui a venda não acaba quando o
+         * artigo entra: fica aberta enquanto as pessoas comem, pode receber
+         * mais pratos, e só no fim é que vira documento. Por isso a comanda
+         * vive no aparelho como um registo com estado, e não como uma venda
+         * que se dispara e esquece.
+         *
+         * Nada aqui fala com o servidor. O que sobe é sempre a comanda inteira
+         * pela fila — ver `sync_restaurant_order` — e sobe idempotente, para
+         * uma rede aos soluços não lançar a mesma mesa duas vezes.
+         */
+        restaurante: {
+            async activo() {
+                return window.SosPwa.temModulo('restaurant');
+            },
+
+            async definicoes() {
+                return (await db.meta.get('restaurant_settings'))?.value || {};
+            },
+
+            async salas() {
+                return db.rest_venues.toArray();
+            },
+
+            async zonas(venueId = null) {
+                const todas = await db.rest_areas.toArray();
+                const filtradas = venueId ? todas.filter((z) => z.venue_id === venueId) : todas;
+
+                return filtradas.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+            },
+
+            /**
+             * As mesas, com o que ESTE aparelho sabe por cima do que o servidor
+             * disse. Uma mesa aberta offline aparece ocupada mesmo antes de a
+             * comanda subir — senão dois empregados sentavam gente na mesma.
+             */
+            async mesas(venueId = null, areaId = null) {
+                let mesas = await db.rest_tables.toArray();
+
+                if (venueId) { mesas = mesas.filter((m) => m.venue_id === venueId); }
+                if (areaId) { mesas = mesas.filter((m) => m.area_id === areaId); }
+
+                const abertas = await db.rest_orders.where('status').notEqual('fechada').toArray();
+                const porMesa = new Map(abertas.filter((c) => c.table_id).map((c) => [c.table_id, c]));
+
+                return mesas
+                    .map((m) => {
+                        const comanda = porMesa.get(m.id);
+
+                        return {
+                            ...m,
+                            status: comanda ? 'occupied' : m.status,
+                            comanda: comanda
+                                ? {
+                                    local_uuid: comanda.local_uuid,
+                                    numero: comanda._server_number || null,
+                                    total: comanda.total || 0,
+                                    artigos: (comanda.items || []).length,
+                                    enviada_cozinha: !!comanda.enviada_cozinha,
+                                }
+                                : null,
+                        };
+                    })
+                    .sort((a, b) => String(a.code || a.name).localeCompare(String(b.code || b.name), undefined, { numeric: true }));
+            },
+
+            /**
+             * Os pratos que se podem vender.
+             *
+             * Quando a empresa exige ficha técnica, o servidor recusa qualquer
+             * artigo que não a tenha — e uma comanda recusada depois de a
+             * comida ter saído é dinheiro parado numa fila. Filtra-se aqui, no
+             * ecrã, para o prato nem chegar a ser oferecido.
+             */
+            async pratos(filtro = {}) {
+                const artigos = await window.SosPwa.getProducts(filtro);
+                const definicoes = (await db.meta.get('restaurant_settings'))?.value || {};
+                const permitidos = definicoes.recipe_product_ids;
+
+                if (!Array.isArray(permitidos)) {
+                    return artigos;
+                }
+
+                const conjunto = new Set(permitidos);
+
+                return artigos.filter((a) => conjunto.has(a.id));
+            },
+
+            async comandas(incluirFechadas = false) {
+                const todas = await db.rest_orders.orderBy('created_at').reverse().toArray();
+
+                return incluirFechadas ? todas : todas.filter((c) => c.status !== 'fechada');
+            },
+
+            async comanda(uuid) {
+                return db.rest_orders.get(uuid);
+            },
+
+            /**
+             * Abre a comanda. Só no aparelho: o número CMD- é do servidor e só
+             * chega quando a comanda subir.
+             */
+            async abrir({ venue_id, table_id = null, guest_count = 1, channel = null, notes = null } = {}) {
+                if (!venue_id) {
+                    throw new Error(__('Escolha o estabelecimento antes de abrir a comanda.'));
+                }
+
+                if (table_id) {
+                    const jaAberta = (await db.rest_orders.where('status').notEqual('fechada').toArray())
+                        .find((c) => c.table_id === table_id);
+
+                    if (jaAberta) {
+                        return jaAberta;   // a mesa já é dela: continua-se a mesma
+                    }
+                }
+
+                const comanda = {
+                    local_uuid: uuidV4(),
+                    venue_id,
+                    table_id,
+                    channel: channel || (table_id ? 'table' : 'counter'),
+                    guest_count: Math.max(1, parseInt(guest_count, 10) || 1),
+                    notes,
+                    client_id: null,
+                    items: [],
+                    enviada_cozinha: false,
+                    checkout: null,
+                    status: 'aberta',
+                    subtotal: 0,
+                    tax: 0,
+                    total: 0,
+                    created_at: new Date().toISOString(),
+                    _synced: 0,
+                    _server_id: null,
+                    _server_number: null,
+                    _avisos: [],
+                };
+
+                await db.rest_orders.put(comanda);
+
+                if (table_id) {
+                    await db.rest_tables.update(table_id, { status: 'occupied' });
+                }
+
+                return comanda;
+            },
+
+            async juntar(uuid, artigo) {
+                const comanda = await db.rest_orders.get(uuid);
+
+                if (!comanda || comanda.status === 'fechada') {
+                    throw new Error(__('Esta comanda já não recebe artigos.'));
+                }
+
+                const itens = [...(comanda.items || [])];
+
+                // O mesmo prato pedido outra vez SOMA-SE ao que já lá está,
+                // desde que ainda não tenha ido para a cozinha e não leve
+                // observação própria — uma comanda com "Cerveja 1" seis vezes
+                // seguidas não se lê.
+                const igual = itens.find((i) =>
+                    i.product_id === artigo.product_id && !i.enviado && !i.notes && !artigo.notes
+                );
+
+                if (igual) {
+                    igual.quantity = (parseFloat(igual.quantity) || 0) + (parseFloat(artigo.quantity) || 1);
+                } else {
+                    itens.push({
+                        local_uuid: uuidV4(),
+                        product_id: artigo.product_id,
+                        product_name: artigo.product_name,
+                        quantity: parseFloat(artigo.quantity) || 1,
+                        unit_price: parseFloat(artigo.unit_price) || 0,
+                        tax_rate: Number.isFinite(parseFloat(artigo.tax_rate)) ? parseFloat(artigo.tax_rate) : 0,
+                        notes: artigo.notes || null,
+                        enviado: false,
+                    });
+                }
+
+                return this._guardar(comanda, itens);
+            },
+
+            async alterarQuantidade(uuid, itemUuid, delta) {
+                const comanda = await db.rest_orders.get(uuid);
+
+                if (!comanda) { return null; }
+
+                const itens = (comanda.items || []).map((i) => ({ ...i }));
+                const item = itens.find((i) => i.local_uuid === itemUuid);
+
+                if (!item) { return comanda; }
+
+                // Um artigo já enviado à cozinha não se mexe: foi cozinhado. O
+                // servidor recusa o mesmo, e anular exige motivo e desperdício.
+                if (item.enviado) {
+                    throw new Error(__('O artigo já foi para a cozinha — anule-o com motivo.'));
+                }
+
+                item.quantity = Math.round(((parseFloat(item.quantity) || 0) + delta) * 1000) / 1000;
+
+                return this._guardar(
+                    comanda,
+                    item.quantity > 0 ? itens : itens.filter((i) => i.local_uuid !== itemUuid)
+                );
+            },
+
+            async removerArtigo(uuid, itemUuid) {
+                const comanda = await db.rest_orders.get(uuid);
+
+                if (!comanda) { return null; }
+
+                const item = (comanda.items || []).find((i) => i.local_uuid === itemUuid);
+
+                if (item?.enviado) {
+                    throw new Error(__('O artigo já foi para a cozinha — anule-o com motivo.'));
+                }
+
+                return this._guardar(comanda, (comanda.items || []).filter((i) => i.local_uuid !== itemUuid));
+            },
+
+            /**
+             * Manda os artigos novos à cozinha.
+             *
+             * Sem rede a cozinha não recebe nada — o ecrã da cozinha é outro
+             * aparelho, e sem rede não se falam. O que isto faz é fixar a
+             * intenção: os artigos deixam de poder ser alterados, e quando a
+             * rede voltar a comanda sobe já confirmada, com as senhas a serem
+             * emitidas nessa altura.
+             */
+            async mandarParaCozinha(uuid) {
+                const comanda = await db.rest_orders.get(uuid);
+
+                if (!comanda) { return null; }
+
+                const porEnviar = (comanda.items || []).filter((i) => !i.enviado);
+
+                if (!porEnviar.length) {
+                    throw new Error(__('Não há artigos novos para enviar.'));
+                }
+
+                const itens = (comanda.items || []).map((i) => ({ ...i, enviado: true }));
+
+                await this._guardar(comanda, itens, { enviada_cozinha: true, status: 'na_cozinha' });
+                await window.SosPwa.enqueue('sync_restaurant_order', { local_uuid: uuid });
+
+                return db.rest_orders.get(uuid);
+            },
+
+            /**
+             * Fecha a conta: guarda a forma de pagamento e põe a comanda a
+             * caminho. O documento fiscal é emitido pelo servidor — offline
+             * não há numeração da AGT que se possa inventar.
+             */
+            async receber(uuid, pagamento = {}) {
+                const comanda = await db.rest_orders.get(uuid);
+
+                if (!comanda) {
+                    throw new Error(__('Comanda não encontrada.'));
+                }
+
+                if (!(comanda.items || []).length) {
+                    throw new Error(__('Uma comanda vazia não se factura.'));
+                }
+
+                await db.rest_orders.update(uuid, {
+                    status: 'fechada',
+                    // Sem rede a comanda nunca passou pela cozinha, mas foi
+                    // servida e paga; sobe confirmada para o servidor a repor
+                    // pela ordem certa.
+                    enviada_cozinha: true,
+                    items: (comanda.items || []).map((i) => ({ ...i, enviado: true })),
+                    checkout: {
+                        document_type: pagamento.document_type || 'FR',
+                        client_id: pagamento.client_id || null,
+                        payment_method_id: pagamento.payment_method_id || null,
+                        payments: pagamento.payments || null,
+                    },
+                    closed_at: new Date().toISOString(),
+                });
+
+                // A mesa fica em limpeza, como no POS online depois do fecho.
+                if (comanda.table_id) {
+                    await db.rest_tables.update(comanda.table_id, { status: 'cleaning' });
+                }
+
+                await window.SosPwa.enqueue('sync_restaurant_order', { local_uuid: uuid });
+
+                return db.rest_orders.get(uuid);
+            },
+
+            /** Descarta uma comanda que nunca chegou a ter nada nem a subir. */
+            async descartar(uuid) {
+                const comanda = await db.rest_orders.get(uuid);
+
+                if (!comanda) { return; }
+
+                if ((comanda.items || []).length || comanda.enviada_cozinha) {
+                    throw new Error(__('Só se descarta uma comanda vazia e por enviar.'));
+                }
+
+                await db.rest_orders.delete(uuid);
+
+                if (comanda.table_id) {
+                    await db.rest_tables.update(comanda.table_id, { status: 'available' });
+                }
+            },
+
+            /** Grava a comanda com os totais refeitos. Uso interno. */
+            async _guardar(comanda, itens, extra = {}) {
+                let subtotal = 0;
+                let imposto = 0;
+
+                for (const i of itens) {
+                    const base = (parseFloat(i.quantity) || 0) * (parseFloat(i.unit_price) || 0);
+                    subtotal += base;
+                    imposto += base * ((parseFloat(i.tax_rate) || 0) / 100);
+                }
+
+                const alteracao = {
+                    // Os itens vêm do Alpine, que os embrulha num Proxy — e o
+                    // IndexedDB não sabe clonar Proxies. Passar por JSON deixa
+                    // só os valores. Mesmo motivo que em createDraftOffline.
+                    items: JSON.parse(JSON.stringify(itens)),
+                    subtotal: Math.round(subtotal * 100) / 100,
+                    tax: Math.round(imposto * 100) / 100,
+                    total: Math.round((subtotal + imposto) * 100) / 100,
+                    ...extra,
+                };
+
+                await db.rest_orders.update(comanda.local_uuid, alteracao);
+
+                return db.rest_orders.get(comanda.local_uuid);
+            },
+        },
+
         /**
          * A fila de envio, em linguagem de quem está ao balcão.
          *
@@ -1198,6 +1760,7 @@
                 create_draft: 'Documento',
                 open_pos_shift: 'Abertura de turno',
                 close_pos_shift: 'Fecho de turno',
+                sync_restaurant_order: 'Comanda',
                 logout: 'Saída de sessão',
             };
 
@@ -1210,6 +1773,16 @@
             const itens = await db.sync_queue
                 .where('status').anyOf('pending', 'failed')
                 .sortBy('created_at');
+
+            // As comandas referidas na fila, lidas de uma vez: o map abaixo é
+            // síncrono e não pode ir à base linha a linha.
+            const comandasNaFila = new Map(
+                (await db.rest_orders.bulkGet(
+                    itens.filter((j) => j.op === 'sync_restaurant_order')
+                        .map((j) => j.payload?.local_uuid)
+                        .filter(Boolean)
+                )).filter(Boolean).map((c) => [c.local_uuid, c])
+            );
 
             return itens.map(j => {
                 const p = j.payload || {};
@@ -1225,6 +1798,13 @@
                     detalhe = p.name || '';
                 } else if (j.op === 'create_draft') {
                     detalhe = (p.doc_type || '').toUpperCase();
+                } else if (j.op === 'sync_restaurant_order') {
+                    // O trabalho só guarda o identificador: a comanda muda
+                    // depois de entrar na fila e é a comanda que manda.
+                    const c = comandasNaFila.get(p.local_uuid);
+                    detalhe = c
+                        ? `${(c.items || []).length} artigo(s) · ${(c.total || 0).toFixed(2)} Kz`
+                        : '';
                 }
 
                 return {

@@ -2787,5 +2787,17 @@
     "Sem permissão para eliminar modelos.": "Pas d'autorisation pour supprimer des modèles.",
     "Modelo eliminado.": "Modèle supprimé.",
     "\":nome\" passa a ser o modelo padrão.": "« :nome » devient le modèle par défaut.",
-    "Este documento não pertence à empresa activa. A actualizar a lista…": "Ce document n'appartient pas à l'entreprise active. Actualisation de la liste…"
+    "Este documento não pertence à empresa activa. A actualizar a lista…": "Ce document n'appartient pas à l'entreprise active. Actualisation de la liste…",
+    "Turno fechado": "Poste fermé",
+    "Abra o turno para começar a vender.": "Ouvrez le poste pour commencer à vendre.",
+    ":n operação(ões) da empresa anterior ficaram por enviar. Volte a entrar nessa empresa para as sincronizar.": ":n opération(s) de l'entreprise précédente n'ont jamais été envoyées. Reconnectez-vous à cette entreprise pour les synchroniser.",
+    "Comanda já não existe no aparelho": "La commande n'existe plus sur cet appareil",
+    "Escolha o estabelecimento antes de abrir a comanda.": "Choisissez l'établissement avant d'ouvrir la commande.",
+    "Esta comanda já não recebe artigos.": "Cette commande n'accepte plus d'articles.",
+    "O artigo já foi para a cozinha — anule-o com motivo.": "L'article est déjà parti en cuisine — annulez-le avec un motif.",
+    "Não há artigos novos para enviar.": "Il n'y a pas de nouveaux articles à envoyer.",
+    "Comanda não encontrada.": "Commande introuvable.",
+    "Uma comanda vazia não se factura.": "Une commande vide ne peut pas être facturée.",
+    "Só se descarta uma comanda vazia e por enviar.": "Seule une commande vide et non envoyée peut être supprimée.",
+    "O armazém escolhido já não existe nesta empresa.": "L'entrepôt choisi n'existe plus dans cette entreprise."
 }

@@ -54,7 +54,7 @@ const PRECACHE_URLS = [
 
     // ── O código da aplicação offline. É ISTO que faz o trabalho: sem
     //    ele o ecrã carrega e não sabe fazer nada. ──────────────────────
-    '/js/pwa-invoicing.js?v=19',
+    '/js/pwa-invoicing.js?v=20',
     '/js/pos-offline-ticket.js?v=3',
 ];
 
@@ -71,6 +71,10 @@ const PRECACHE_URLS = [
 const PRECACHE_PAGINAS = [
     '/invoicing/offline',
     '/invoicing/offline/pos',
+    // O POS de restaurante. Responde 403 a quem não tem o módulo, e o
+    // guardarPagina() só guarda respostas OK — a empresa sem restaurante não
+    // fica com um ecrã de restaurante escondido no aparelho.
+    '/invoicing/offline/restaurant',
     '/invoicing/offline/catalog',
     '/invoicing/offline/clients',
     '/invoicing/offline/drafts',
@@ -118,6 +122,7 @@ const PWA_OFFLINE_FALLBACKS = [
     // voltar a entrar no aparelho.
     '/invoicing/offline/login',
     '/invoicing/offline/pos',
+    '/invoicing/offline/restaurant',
     '/invoicing/offline/catalog',
     '/invoicing/offline/clients',
     '/invoicing/offline/drafts',

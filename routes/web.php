@@ -199,6 +199,14 @@ Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offlin
     Route::get('/drafts', fn() => view('invoicing.offline.drafts'))->name('drafts');
     Route::get('/drafts/new', fn() => view('invoicing.offline.draft-form'))->name('draft-new');
     Route::get('/pos', fn() => view('invoicing.offline.pos'))->name('pos');
+
+    // POS de Restaurante offline. O módulo é a chave: sem ele isto responde
+    // 403 e o service worker, que só guarda respostas OK, nem sequer chega a
+    // pré-guardar a página — a empresa que não tem restaurante não fica com um
+    // ecrã de restaurante escondido no telemóvel.
+    Route::middleware('tenant.module:restaurant')
+        ->get('/restaurant', fn() => view('invoicing.offline.restaurant'))
+        ->name('restaurant');
     // Saída do PWA → redireciona para a 1ª área a que o utilizador tem permissão
     Route::get('/exit', \App\Http\Controllers\Invoicing\PwaExitController::class)->name('exit');
 });
@@ -225,6 +233,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/restaurant')->n
     Route::post('/orders/{order}/merge', [\App\Http\Controllers\Api\RestaurantController::class, 'merge']);
     Route::post('/orders/{order}/items/{item}/void', [\App\Http\Controllers\Api\RestaurantController::class, 'voidItem']);
     Route::post('/orders/{order}/checkout', [\App\Http\Controllers\Api\RestaurantController::class, 'checkout']);
+
+    // A comanda feita sem rede, reposta de uma vez: mesa, artigos, cozinha e
+    // recebimento. As rotas acima encadeiam-se por id do servidor e por isso
+    // não servem offline — ver ComandaOfflineController.
+    Route::post('/offline/comanda', [\App\Http\Controllers\Api\Restaurant\ComandaOfflineController::class, 'store'])
+        ->name('offline.comanda');
 });
 
 Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->name('api.invoicing.')->group(function () {

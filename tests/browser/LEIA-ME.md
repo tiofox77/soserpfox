@@ -70,8 +70,9 @@ apanha um `ERR_CONNECTION_REFUSED` que não tem nada a ver com o produto.
 ## A bancada
 
 `php artisan bancada:pwa` monta uma empresa completa: utilizador com todas as
-permissões, módulos ligados, subscrição activa, armazém, imposto, cliente e
-cinco artigos com stock.
+permissões, módulos ligados, subscrição activa, armazém, imposto, cliente,
+cinco artigos com stock e — para o restaurante — um salão com seis mesas,
+uma zona e quatro pratos.
 
 | | |
 |---|---|
@@ -115,6 +116,25 @@ fixas e conhecidas — num servidor a sério seriam uma porta aberta. A verifica
 
 > **O PWA nao faz documentos de COMPRA.** So de venda. Facturas e proformas
 > de compra fazem-se no sistema online.
+
+**Restaurante** (`pwa-restaurante.spec.js`)
+- **o módulo e a sala descem na sincronização** — é a activação: sem o módulo
+  não há mesas, sem mesas não há entrada no menu, e o endereço escrito à mão
+  leva 403
+- **a sala abre sem rede** — se isto falhar, o resto não interessa
+- sentar uma mesa sem rede ocupa-a já no aparelho, antes de a comanda subir
+- a conta soma sem rede, com imposto
+- o mesmo prato pedido outra vez soma na mesma linha
+- o que já foi para a cozinha não se altera
+- mandar à cozinha põe a comanda na fila, carimbada com a empresa
+- a comanda sobrevive a recarregar sem rede
+- **a conta fechada sem rede sobe e recebe número fiscal** — o ciclo completo
+- **reenviar a mesma comanda não cria uma segunda** (idempotência)
+- o ecrã não corta nada em telemóvel, tablet nem portátil
+
+> A comanda sobe **inteira, numa só viagem** — mesa, artigos, cozinha e
+> recebimento. O POS online faz isto em quatro chamadas encadeadas por id do
+> servidor, e sem rede não há id nenhum para encadear.
 
 **A rede volta** (`pwa-reconexao.spec.js`)
 - o que ficou por enviar sobe

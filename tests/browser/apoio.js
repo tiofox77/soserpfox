@@ -144,6 +144,38 @@ export async function empresaLocal(page) {
     return avaliar(page, async () => (await window.SosPwa.db.meta.get('tenant_id'))?.value ?? null);
 }
 
+/**
+ * Garante que há turno aberto — e aberto NO SERVIDOR, não só no aparelho.
+ *
+ * O restaurante recusa abrir comandas sem turno, e recusa-o do lado do
+ * servidor: uma comanda que suba com o turno ainda por sincronizar leva 422 e
+ * o ensaio falha por uma razão que não tem nada a ver com o que mede.
+ */
+export async function garantirTurno(page) {
+    const jaAberto = await avaliar(page, async () => {
+        const t = (await window.SosPwa.db.meta.get('shift'))?.value;
+
+        return !!(t?.open && !t._local);
+    });
+
+    if (jaAberto) {
+        return;
+    }
+
+    await avaliar(page, () => window.SosPwa.openShiftOffline({ opening_balance: 0 }));
+    await sincronizar(page);
+
+    await page.waitForFunction(
+        async () => {
+            const t = (await window.SosPwa.db.meta.get('shift'))?.value;
+
+            return !!(t?.open && !t._local);
+        },
+        null,
+        { timeout: 45_000 }
+    );
+}
+
 /** Força uma sincronização e espera que termine. */
 export async function sincronizar(page) {
     await avaliar(page, () => window.SosPwa.sync());
