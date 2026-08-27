@@ -63,6 +63,20 @@ class Warehouse extends Model
         return $this->getStockQuantity($productId) >= $quantity;
     }
 
+    /**
+     * Torna este o armazém padrão da empresa — nos DOIS sítios que o guardam.
+     *
+     * `invoicing_warehouses.is_default` é o que todos os formulários lêem
+     * (facturas, orçamentos, compras, POS, SAFT). `invoicing_settings.
+     * default_warehouse_id` é o que o ecrã de definições mostra e o que o
+     * módulo de restaurante usa. Enquanto viveram separados, mudar um deixava
+     * o outro a mentir: escolher o armazém principal nas definições não fazia
+     * efeito nenhum, e marcá-lo em Armazéns deixava as definições a mostrar o
+     * anterior.
+     *
+     * Os dois passam por aqui. Um dia a coluna das definições pode
+     * desaparecer; até lá, é este método que as mantém a dizer o mesmo.
+     */
     public function setAsDefault()
     {
         // Remove default de outros armazéns do mesmo tenant
@@ -71,6 +85,19 @@ class Warehouse extends Model
             ->update(['is_default' => false]);
 
         $this->update(['is_default' => true]);
+
+        // Nunca pode partir a marcação do armazém: o `is_default` acima é o
+        // que faz o sistema funcionar, e é esse que tem de ficar de pé.
+        try {
+            InvoicingSettings::where('tenant_id', $this->tenant_id)
+                ->update(['default_warehouse_id' => $this->id]);
+        } catch (\Throwable $e) {
+            \Log::warning('Armazém padrão: falhou a sincronia com as definições', [
+                'armazem'   => $this->id,
+                'tenant_id' => $this->tenant_id,
+                'erro'      => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

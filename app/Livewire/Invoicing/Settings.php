@@ -248,11 +248,55 @@ class Settings extends Component
             'profile_cosmetics' => (bool) $this->profile_cosmetics,
             'profile_grocery' => (bool) $this->profile_grocery,
         ]);
-        
+
+        $this->fixarArmazemPrincipal();
+
         $this->dispatch('notify', [
             'type' => 'success',
             'message' => __('Configurações salvas com sucesso!')
         ]);
+    }
+
+    /**
+     * O armazém escolhido aqui passa a ser MESMO o padrão.
+     *
+     * Havia duas verdades a competir: `invoicing_settings.default_warehouse_id`,
+     * escrito por este ecrã, e `invoicing_warehouses.is_default`, que é o que
+     * TODOS os formulários lêem (facturas, orçamentos, compras, POS, SAFT).
+     * Resultado: escolher o armazém principal nas definições não fazia nada, e
+     * só marcá-lo em Armazéns é que pegava — exactamente o que o utilizador
+     * reportou.
+     *
+     * Em vez de mais um sítio a ler duas colunas, este ecrã passa a escrever
+     * nas duas: a coluna das definições continua a existir (o módulo de
+     * restaurante lê-a) e o `is_default` é acertado por arrasto.
+     */
+    private function fixarArmazemPrincipal(): void
+    {
+        if (!$this->default_warehouse_id) {
+            return;
+        }
+
+        $armazem = \App\Models\Invoicing\Warehouse::where('tenant_id', activeTenantId())
+            ->find($this->default_warehouse_id);
+
+        if (!$armazem) {
+            // Armazém de outra empresa (ou apagado entretanto): limpa-se a
+            // definição em vez de a deixar a apontar para o nada.
+            $this->settings->update(['default_warehouse_id' => null]);
+            $this->default_warehouse_id = null;
+
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => __('O armazém escolhido já não existe nesta empresa.'),
+            ]);
+
+            return;
+        }
+
+        if (!$armazem->is_default) {
+            $armazem->setAsDefault();   // desmarca os outros da mesma empresa
+        }
     }
     
     /**
