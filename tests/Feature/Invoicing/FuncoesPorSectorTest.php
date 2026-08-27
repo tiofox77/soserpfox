@@ -321,6 +321,25 @@ class FuncoesPorSectorTest extends TenantTestCase
         );
     }
 
+    /**
+     * "Conteúdo líquido e TOM".
+     *
+     * O tom não tem coluna própria de propósito — é a mesma coisa que a cor,
+     * que já existe, e dois sítios a gravar o mesmo davam duas respostas
+     * diferentes à mesma pergunta. O formulário diz isso a quem preenche.
+     * O que este teste fixa é que o tom É registável e filtrável.
+     */
+    public function test_cosmetica_o_tom_regista_se_na_cor_e_e_filtravel(): void
+    {
+        $this->artigo(['name' => 'Batom mate', 'color' => 'Vermelho rubi', 'net_content' => '4 g']);
+        $this->artigo(['name' => 'Batom cremoso', 'color' => 'Rosa velho', 'net_content' => '4 g']);
+
+        Livewire::test(Products::class)
+            ->set('filterCor', 'Vermelho rubi')
+            ->assertSee('Batom mate')
+            ->assertDontSee('Batom cremoso');
+    }
+
     /** "Validades e lotes, como na farmácia" */
     public function test_cosmetica_lotes_e_validades_funcionam_igual(): void
     {
@@ -344,6 +363,26 @@ class FuncoesPorSectorTest extends TenantTestCase
             ->set('filterConservacao', 'refrigerado')
             ->assertSee('Leite fresco')
             ->assertDontSee('Arroz');
+    }
+
+    /**
+     * "Conservação à vista NA LISTA DE STOCK — onde quem arruma a mercadoria
+     * olha, e não escondido dentro da ficha."
+     *
+     * O ecrã de stock é outro que não a lista de artigos: a promessa é sobre
+     * ESTE, que é o que se tem aberto durante uma descarga.
+     */
+    public function test_mercearia_conservacao_aparece_na_lista_de_stock(): void
+    {
+        $leite = $this->comStock($this->artigo([
+            'name' => 'Leite fresco', 'storage_conditions' => 'refrigerado',
+        ]));
+
+        Livewire::test(\App\Livewire\Invoicing\StockManagement::class)
+            ->assertSee('Leite fresco')
+            ->assertSee('Conservação');
+
+        $this->assertSame('refrigerado', $leite->refresh()->storage_conditions);
     }
 
     /** "Alergénios e país de origem — o que o rótulo alimentar obriga a ter" */
