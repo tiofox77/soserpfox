@@ -145,6 +145,51 @@
         <canvas id="salesChart" height="80"></canvas>
     </div>
 
+    {{-- Os dados dos gráficos novos, num nó que o Livewire actualiza quando se
+         muda o período. Dentro do <script> ficariam presos ao primeiro render. --}}
+    <script type="application/json" id="dadosPainel">@json($graficos ?? [])</script>
+
+    {{-- Gráficos do período escolhido --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-2xl shadow-lg p-5">
+            <h3 class="text-sm font-bold text-gray-800 mb-1">
+                <i class="fas fa-clipboard-check text-rose-600 mr-2"></i>{{ __('Estado das Faturas') }}
+            </h3>
+            <p class="text-xs text-gray-500 mb-3">{{ __('Vencidas contadas à parte') }}</p>
+            <div style="height:250px"><canvas id="pEstados"></canvas></div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg p-5">
+            <h3 class="text-sm font-bold text-gray-800 mb-1">
+                <i class="fas fa-money-check-dollar text-cyan-600 mr-2"></i>{{ __('Como Recebemos') }}
+            </h3>
+            <p class="text-xs text-gray-500 mb-3">{{ __('Recebimentos por forma de pagamento') }}</p>
+            <div style="height:250px"><canvas id="pMeios"></canvas></div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-lg p-5">
+            <h3 class="text-sm font-bold text-gray-800 mb-1">
+                <i class="fas fa-star text-violet-600 mr-2"></i>{{ __('Top Produtos') }}
+            </h3>
+            <p class="text-xs text-gray-500 mb-3">{{ __('Por valor vendido') }}</p>
+            <div style="height:250px"><canvas id="pProdutos"></canvas></div>
+        </div>
+
+        <div class="lg:col-span-3 bg-white rounded-2xl shadow-lg p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <h3 class="text-sm font-bold text-gray-800">
+                    <i class="fas fa-scale-balanced text-orange-600 mr-2"></i>{{ __('Vendas vs. Compras') }}
+                </h3>
+                <a href="{{ route('invoicing.reports.charts') }}"
+                   class="text-xs font-semibold text-blue-600 hover:text-blue-800">
+                    {{ __('Ver todos os gráficos') }} <i class="fas fa-arrow-right ml-1"></i>
+                </a>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">{{ __('A folga entre o que entra e o que sai') }}</p>
+            <div style="height:260px"><canvas id="pVendasCompras"></canvas></div>
+        </div>
+    </div>
+
     {{-- Documentos e Gráfico --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {{-- Documentos por Tipo --}}
@@ -419,7 +464,9 @@
 
 {{-- Scripts --}}
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{{-- Chart.js LOCAL, não de CDN: a versão on-premise corre sem internet e o
+     painel ficava com um quadrado branco no lugar do gráfico. --}}
+<script src="{{ asset('vendor/js/chart.min.js') }}"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
@@ -614,5 +661,91 @@ document.addEventListener('livewire:initialized', () => {
         location.reload();
     });
 });
+
+// ── Gráficos do período ─────────────────────────────────────────────────
+(function () {
+    let feitos = [];
+
+    const kzCurto = v => Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + 'M'
+                       : Math.abs(v) >= 1e3 ? Math.round(v / 1e3) + 'k'
+                       : v;
+    const kz = v => new Intl.NumberFormat(SOS_INTL, { maximumFractionDigits: 0 }).format(v) + ' Kz';
+
+    function desenharPainel() {
+        // Destruir antes de redesenhar: sem isto o Chart.js queixa-se de
+        // "Canvas is already in use" ao mudar de período.
+        feitos.forEach(c => { try { c.destroy(); } catch (e) {} });
+        feitos = [];
+
+        const no = document.getElementById('dadosPainel');
+        if (!no || !window.Chart) return;
+
+        let d;
+        try { d = JSON.parse(no.textContent); } catch (e) { return; }
+        if (!d || !d.estados) return;
+
+        const novo = (id, cfg) => {
+            const el = document.getElementById(id);
+            if (el) feitos.push(new Chart(el, cfg));
+        };
+
+        const rosca = (id, fonte) => {
+            if (!fonte || !fonte.valores || !fonte.valores.length) return;
+            novo(id, {
+                type: 'doughnut',
+                data: { labels: fonte.rotulos, datasets: [{ data: fonte.valores, backgroundColor: fonte.cores, borderWidth: 0 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '58%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10, font: { size: 10 } } },
+                        tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + kz(c.parsed) } },
+                    },
+                },
+            });
+        };
+
+        rosca('pEstados', d.estados);
+        rosca('pMeios', d.meiosPagamento);
+
+        if (d.topProdutos && d.topProdutos.valores.length) {
+            novo('pProdutos', {
+                type: 'bar',
+                data: { labels: d.topProdutos.rotulos, datasets: [{ data: d.topProdutos.valores, backgroundColor: d.topProdutos.cores }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    scales: { x: { beginAtZero: true, ticks: { callback: kzCurto } } },
+                    plugins: { legend: { display: false },
+                        tooltip: { callbacks: { label: c => ' ' + kz(c.parsed.x) } } },
+                },
+            });
+        }
+
+        if (d.vendasCompras && d.vendasCompras.rotulos.length) {
+            novo('pVendasCompras', {
+                type: 'bar',
+                data: {
+                    labels: d.vendasCompras.rotulos,
+                    datasets: [
+                        { label: @json(__('Vendas')), data: d.vendasCompras.vendas, backgroundColor: '#4f46e5' },
+                        { label: @json(__('Compras')), data: d.vendasCompras.compras, backgroundColor: '#ea580c' },
+                    ],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ticks: { callback: kzCurto } } },
+                    plugins: { legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + kz(c.parsed.y) } } },
+                },
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', desenharPainel);
+
+    // Trocar de período (semana/mês/ano) troca o HTML: redesenhar a seguir.
+    document.addEventListener('livewire:initialized', () => {
+        Livewire.hook('morph.updated', () => requestAnimationFrame(desenharPainel));
+    });
+})();
 </script>
 @endpush

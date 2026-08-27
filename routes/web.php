@@ -422,6 +422,11 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     
     Route::prefix('reports')->name('reports.')->middleware('permission:invoicing.reports.view')->group(function () {
         Route::get('/', \App\Livewire\Invoicing\Reports\ReportsHub::class)->name('hub');
+
+        // Relatório em gráficos: a mesma facturação dos outros mapas, mas
+        // vista de relance — serve a pergunta anterior a "quanto exactamente".
+        Route::get('/charts', \App\Livewire\Invoicing\Reports\GraficosReport::class)->name('charts');
+
         Route::get('/sales', \App\Livewire\Invoicing\Reports\SalesReport::class)->name('sales');
         Route::get('/purchases', \App\Livewire\Invoicing\Reports\PurchasesReport::class)->name('purchases');
         Route::get('/top-clients', \App\Livewire\Invoicing\Reports\TopClientsReport::class)->name('top-clients');

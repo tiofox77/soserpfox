@@ -22,7 +22,16 @@ trait BelongsToTenant
         // Global scope para filtrar sempre pelo tenant ativo
         static::addGlobalScope('tenant', function (Builder $builder) {
             if (auth()->check() && activeTenantId()) {
-                $builder->where('tenant_id', activeTenantId());
+                // Coluna QUALIFICADA com a tabela do modelo. Sem isto, qualquer
+                // consulta com join a outra tabela que também tenha `tenant_id`
+                // (clientes, fornecedores, produtos — quase todas) rebentava com
+                // "Column 'tenant_id' in where clause is ambiguous". O filtro
+                // por empresa fica exactamente igual; só passa a dizer de que
+                // tabela é que fala.
+                $builder->where(
+                    $builder->getModel()->getTable() . '.tenant_id',
+                    activeTenantId()
+                );
             }
         });
     }

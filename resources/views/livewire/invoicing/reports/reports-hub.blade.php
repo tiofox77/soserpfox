@@ -19,6 +19,7 @@
                 'icon' => 'fa-coins',
                 'color' => 'emerald',
                 'reports' => [
+                    ['name' => __('Relatório em Gráficos'), 'desc' => __('Evolução, rankings e cobrança num relance'), 'icon' => 'fa-chart-area', 'route' => 'invoicing.reports.charts'],
                     ['name' => __('Lucros e Perdas (DRE)'), 'desc' => __('Demonstração de resultados completa'), 'icon' => 'fa-chart-line', 'route' => 'invoicing.reports.profit-loss'],
                     ['name' => __('Análise de Margem'), 'desc' => __('Lucro e margem por produto'), 'icon' => 'fa-percentage', 'route' => 'invoicing.reports.margin'],
                     ['name' => __('Desempenho de Produtos'), 'desc' => __('Vendas, stock, lucro e rotação'), 'icon' => 'fa-chart-pie', 'route' => 'invoicing.reports.product-performance'],

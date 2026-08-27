@@ -11,6 +11,7 @@ use App\Models\Invoicing\Advance;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use App\Services\Invoicing\Analytics\GraficosDeFacturacao;
 use Carbon\Carbon;
 
 #[Layout('layouts.app')]
@@ -19,6 +20,14 @@ class InvoicingDashboard extends Component
 {
     public $selectedPeriod = 'month'; // week, month, year
     public $chartData = [];
+
+    /**
+     * Os restantes graficos do painel. Saem do MESMO servico que alimenta
+     * o Relatorio em Graficos: duas consultas escritas a parte acabam
+     * sempre por divergir num filtro, e depois o painel diz um total e o
+     * relatorio diz outro.
+     */
+    public array $graficos = [];
 
     public function updatedSelectedPeriod()
     {
@@ -48,6 +57,15 @@ class InvoicingDashboard extends Component
                 $endDate = Carbon::now()->endOfMonth();
                 break;
         }
+
+        $analise = GraficosDeFacturacao::para($tenantId, $startDate, $endDate);
+
+        $this->graficos = [
+            'estados'        => $analise->estadoDasFacturas(),
+            'topProdutos'    => $analise->topProdutos(6),
+            'vendasCompras'  => $analise->vendasContraCompras(),
+            'meiosPagamento' => $analise->recebimentosPorMeio(),
+        ];
 
         $this->chartData = SalesInvoice::where('tenant_id', $tenantId)
             ->whereBetween('invoice_date', [$startDate, $endDate])
