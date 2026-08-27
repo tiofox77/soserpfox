@@ -103,6 +103,19 @@ fixas e conhecidas — num servidor a sério seriam uma porta aberta. A verifica
   empresa**
 - a fila sobrevive a recarregar
 
+**Documentos** (`pwa-documentos.spec.js`)
+- **Fatura, Fatura-Recibo e Proforma**: cada uma criada sem rede, guardada,
+  sincronizada e com numero atribuido pelo servidor
+- o total calculado sem rede esta certo — e o numero que o vendedor diz ao
+  cliente antes de haver rede
+- a lista mostra os documentos sem rede, e sobrevive a recarregar
+- a Nota de Credito NAO e oferecida (saiu de proposito: o servidor escrevia-a
+  na tabela das vendas e nascia uma factura que nao estornava nada)
+- o servidor recusa tipos que nao sao de venda
+
+> **O PWA nao faz documentos de COMPRA.** So de venda. Facturas e proformas
+> de compra fazem-se no sistema online.
+
 **A rede volta** (`pwa-reconexao.spec.js`)
 - o que ficou por enviar sobe
 - **reenviar a mesma operação não cria dois registos** (idempotência)

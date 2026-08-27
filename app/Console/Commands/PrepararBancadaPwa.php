@@ -111,6 +111,13 @@ class PrepararBancadaPwa extends Command
             ]
         );
 
+        // SÉRIES FISCAIS. Sem elas, uma fatura ou fatura-recibo criada no PWA
+        // sobe e o servidor recusa-a com "Nenhuma série activa de homologação
+        // para este tipo de documento" — um 500, e o documento fica na fila
+        // para sempre. A proforma passava, porque não é documento fiscal e não
+        // precisa de série; foi essa diferença que denunciou o que faltava.
+        $this->call('series:create-defaults', ['--tenant' => $tenant->id]);
+
         $cliente = Client::firstOrCreate(
             ['tenant_id' => $tenant->id, 'nif' => '5000000098'],
             ['name' => 'Cliente da Bancada', 'type' => 'pessoa_juridica', 'is_active' => true]
