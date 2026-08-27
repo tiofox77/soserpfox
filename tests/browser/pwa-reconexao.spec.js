@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, lerBase, sincronizar } from './apoio.js';
+import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, lerBase, sincronizar, irPara, avaliar } from './apoio.js';
 
 /**
  * O ciclo completo: vender sem rede, voltar a ter rede, e o que foi vendido
@@ -12,7 +12,7 @@ import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, le
 
 async function aparelhoPreparado(page) {
     await entrar(page);
-    await page.goto('/invoicing/offline');
+    await irPara(page, '/invoicing/offline');
     await esperarServiceWorker(page);
     await esperarMotor(page);
     await sincronizar(page);
@@ -24,11 +24,11 @@ test.describe('PWA — a rede volta', () => {
         await aparelhoPreparado(page);
 
         await context.setOffline(true);
-        await page.goto('/invoicing/offline/clients');
+        await irPara(page, '/invoicing/offline/clients');
         await esperarMotor(page);
 
         const nome = 'Cliente Offline ' + Date.now();
-        await page.evaluate((n) => window.SosPwa.enqueue('create_client', {
+        await avaliar(page, (n) => window.SosPwa.enqueue('create_client', {
             local_uuid: 'cli-' + Date.now(),
             name: n,
             nif: String(500000000 + Math.floor(Math.random() * 99999999)),
@@ -38,7 +38,7 @@ test.describe('PWA — a rede volta', () => {
 
         // A rede volta.
         await context.setOffline(false);
-        await page.evaluate(() => window.dispatchEvent(new Event('online')));
+        await avaliar(page, () => window.dispatchEvent(new Event('online')));
 
         await expect
             .poll(
@@ -65,7 +65,7 @@ test.describe('PWA — a rede volta', () => {
         const nif = String(500000000 + Math.floor(Math.random() * 99999999));
 
         // Envia duas vezes o MESMO identificador, como faria um reenvio.
-        const primeiro = await page.evaluate(async ({ uuid, nif }) => {
+        const primeiro = await avaliar(page, async ({ uuid, nif }) => {
             const r = await fetch('/api/v1/invoicing/clients', {
                 method: 'POST',
                 headers: {
@@ -79,7 +79,7 @@ test.describe('PWA — a rede volta', () => {
             return r.json();
         }, { uuid, nif });
 
-        const segundo = await page.evaluate(async ({ uuid, nif }) => {
+        const segundo = await avaliar(page, async ({ uuid, nif }) => {
             const r = await fetch('/api/v1/invoicing/clients', {
                 method: 'POST',
                 headers: {
@@ -106,7 +106,7 @@ test.describe('PWA — a rede volta', () => {
     test('um trabalho de outra empresa fica retido e não sobe', async ({ page }) => {
         await aparelhoPreparado(page);
 
-        await page.evaluate(async () => {
+        await avaliar(page, async () => {
             const empresa = (await window.SosPwa.db.meta.get('tenant_id'))?.value;
 
             await window.SosPwa.db.sync_queue.add({
@@ -132,7 +132,7 @@ test.describe('PWA — a rede volta', () => {
     test('uma operação recusada não bloqueia a fila para sempre', async ({ page }) => {
         await aparelhoPreparado(page);
 
-        await page.evaluate(async () => {
+        await avaliar(page, async () => {
             const empresa = (await window.SosPwa.db.meta.get('tenant_id'))?.value;
 
             await window.SosPwa.db.sync_queue.add({

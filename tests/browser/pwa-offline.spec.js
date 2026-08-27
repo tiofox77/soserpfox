@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, lerBase, sincronizar } from './apoio.js';
+import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, lerBase, sincronizar, irPara, avaliar } from './apoio.js';
 
 /**
  * O PWA sem rede.
@@ -18,7 +18,7 @@ import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, le
 /** Prepara o aparelho como se tivesse acabado de sincronizar na loja. */
 async function aparelhoPreparado(page) {
     await entrar(page);
-    await page.goto('/invoicing/offline');
+    await irPara(page, '/invoicing/offline');
     await esperarServiceWorker(page);
     await esperarMotor(page);
     await sincronizar(page);
@@ -35,7 +35,7 @@ test.describe('PWA — sem rede', () => {
 
         await context.setOffline(true);
 
-        const resposta = await page.goto('/invoicing/offline/pos');
+        const resposta = await irPara(page, '/invoicing/offline/pos');
 
         // Não pode ser a página de "sem ligação": tem de ser o POS.
         expect(resposta, 'a navegação tem de devolver alguma coisa').not.toBeNull();
@@ -50,7 +50,7 @@ test.describe('PWA — sem rede', () => {
         await aparelhoPreparado(page);
         await context.setOffline(true);
 
-        await page.goto('/invoicing/offline/catalog');
+        await irPara(page, '/invoicing/offline/catalog');
         await esperarMotor(page);
 
         const artigos = await lerBase(page, 'products');
@@ -65,7 +65,7 @@ test.describe('PWA — sem rede', () => {
         // O motor não confia só no navigator.onLine — confirma por ping.
         await expect
             .poll(
-                () => page.evaluate(() => window.SosPwa.state.realOnline).catch(() => true),
+                () => avaliar(page, () => window.SosPwa.state.realOnline).catch(() => true),
                 { message: 'o motor tem de reconhecer que não há rede', timeout: 30_000 }
             )
             .toBe(false);
@@ -79,15 +79,15 @@ test.describe('PWA — sem rede', () => {
     test('uma venda feita sem rede fica na fila, identificada e carimbada', async ({ page, context }) => {
         await aparelhoPreparado(page);
 
-        const empresa = await page.evaluate(async () => (await window.SosPwa.db.meta.get('tenant_id'))?.value);
+        const empresa = await avaliar(page, async () => (await window.SosPwa.db.meta.get('tenant_id'))?.value);
         const antes = await contar(page, 'sync_queue');
 
         await context.setOffline(true);
-        await page.goto('/invoicing/offline/pos');
+        await irPara(page, '/invoicing/offline/pos');
         await esperarMotor(page);
 
         // Enfileira uma venda pelo motor, que é o caminho que o ecrã usa.
-        await page.evaluate(async () => {
+        await avaliar(page, async () => {
             const artigo = await window.SosPwa.db.products.toCollection().first();
 
             await window.SosPwa.enqueue('create_pos_sale', {
@@ -118,10 +118,10 @@ test.describe('PWA — sem rede', () => {
     test('a fila sobrevive a recarregar sem rede', async ({ page, context }) => {
         await aparelhoPreparado(page);
         await context.setOffline(true);
-        await page.goto('/invoicing/offline/pos');
+        await irPara(page, '/invoicing/offline/pos');
         await esperarMotor(page);
 
-        await page.evaluate(() => window.SosPwa.enqueue('create_pos_sale', {
+        await avaliar(page, () => window.SosPwa.enqueue('create_pos_sale', {
             local_uuid: 'sobrevive-' + Date.now(),
             payment_method: 'cash',
             items: [],

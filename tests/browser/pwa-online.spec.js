@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, empresaLocal, sincronizar } from './apoio.js';
+import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, empresaLocal, sincronizar, irPara, avaliar } from './apoio.js';
 
 /**
  * O que tem de estar de pé COM rede, para que o offline seja sequer possível.
@@ -11,7 +11,7 @@ import { entrar, esperarServiceWorker, esperarMotor, esperarCatalogo, contar, em
 test.describe('PWA — com rede', () => {
     test('a aplicação abre e o service worker assume o comando', async ({ page }) => {
         await entrar(page);
-        await page.goto('/invoicing/offline');
+        await irPara(page, '/invoicing/offline');
 
         await esperarServiceWorker(page);
 
@@ -21,7 +21,7 @@ test.describe('PWA — com rede', () => {
         // falha do ensaio, não do produto.
         await expect
             .poll(
-                () => page.evaluate(() => navigator.serviceWorker.controller !== null).catch(() => false),
+                () => avaliar(page, () => navigator.serviceWorker.controller !== null).catch(() => false),
                 { message: 'o service worker tem de controlar a página', timeout: 30_000 }
             )
             .toBe(true);
@@ -29,10 +29,10 @@ test.describe('PWA — com rede', () => {
 
     test('o motor offline arranca e abre a base local', async ({ page }) => {
         await entrar(page);
-        await page.goto('/invoicing/offline');
+        await irPara(page, '/invoicing/offline');
         await esperarMotor(page);
 
-        const aberta = await page.evaluate(() => window.SosPwa.db.isOpen());
+        const aberta = await avaliar(page, () => window.SosPwa.db.isOpen());
         expect(aberta).toBe(true);
     });
 
@@ -43,10 +43,10 @@ test.describe('PWA — com rede', () => {
      */
     test('o motor e o desenho ficam guardados em cache', async ({ page }) => {
         await entrar(page);
-        await page.goto('/invoicing/offline');
+        await irPara(page, '/invoicing/offline');
         await esperarServiceWorker(page);
 
-        const guardados = await page.evaluate(async () => {
+        const guardados = await avaliar(page, async () => {
             const nomes = await caches.keys();
             const urls = [];
 
@@ -73,7 +73,7 @@ test.describe('PWA — com rede', () => {
 
     test('o catálogo e os clientes descem para a base local', async ({ page }) => {
         await entrar(page);
-        await page.goto('/invoicing/offline');
+        await irPara(page, '/invoicing/offline');
         await esperarMotor(page);
         await sincronizar(page);
         await esperarCatalogo(page, 5);
@@ -93,8 +93,17 @@ test.describe('PWA — com rede', () => {
             '/invoicing/offline/clients',
             '/invoicing/offline/drafts',
         ]) {
-            const r = await page.goto(rota);
-            expect(r.status(), `${rota} tem de responder`).toBe(200);
+            await irPara(page, rota);
+
+            // O que interessa é a PÁGINA ter aparecido, não o código HTTP:
+            // com o service worker no comando, a resposta pode vir da cache e
+            // o objecto de navegação vir a nulo sem nada de errado. Um `goto`
+            // que devolva 200 e mostre o ecrã de "sem ligação" também passaria
+            // por um teste de código de estado — e não devia.
+            await expect(page.locator('body'), `${rota} tem de abrir`)
+                .not.toContainText('Sem Conexão à Internet');
+
+            expect(page.url(), `${rota} não pode desviar para outro lado`).toContain(rota);
         }
     });
 });

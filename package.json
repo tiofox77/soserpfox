@@ -9,7 +9,8 @@
         "pwa:limpar": "php artisan bancada:pwa --limpar",
         "pwa:test": "playwright test --project=pwa",
         "pwa:test:ver": "playwright test --project=pwa --headed",
-        "pwa:relatorio": "playwright show-report"
+        "pwa:relatorio": "playwright show-report",
+        "pwa:test:apache": "node scripts/pwa-test-apache.mjs"
     },
     "devDependencies": {
         "@playwright/test": "^1.62.1",

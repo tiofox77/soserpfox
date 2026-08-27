@@ -17,13 +17,33 @@ funcionar em ensaio e falhar na rua.
 
 ## Arrancar
 
+**A partir da pasta do projecto** — o `npm` procura o `package.json` onde
+estiveres:
+
 ```bash
-npm run pwa:bancada     # monta a empresa de ensaio (só em APP_ENV=local)
-npm run pwa:test        # corre tudo, sem janela
+cd C:\laragon2\www\soserp
 ```
 
-O servidor sobe e desce sozinho na porta **8123**. Não é preciso ter nada a
-correr antes.
+Depois, uma vez:
+
+```bash
+npm run pwa:bancada
+```
+
+E para correr:
+
+```bash
+npm run pwa:test:apache
+```
+
+Usa o Apache do Laragon por **HTTPS**. É o modo recomendado — ver porquê já a
+seguir. Se o Laragon estiver em baixo:
+
+```bash
+npm run pwa:test
+```
+
+sobe um servidor próprio na porta 8123.
 
 Outros comandos:
 
@@ -32,6 +52,20 @@ npm run pwa:test:ver     # com janela visível, para ver o que se passa
 npm run pwa:relatorio    # abre o relatório da última corrida
 npm run pwa:limpar       # apaga a empresa de ensaio
 ```
+
+### Porque HTTPS, e porque Apache
+
+**Um service worker só arranca em contexto seguro**: HTTPS, ou
+`localhost`/`127.0.0.1`. Um `http://soserp.test` responde 200 a tudo e o
+browser recusa-se a registar o service worker **em silêncio** — os ensaios
+ficam 45 segundos à espera de um controlador que nunca chega e falham todos,
+sem uma linha a explicar porquê.
+
+**O `artisan serve` é single-thread no Windows** (o `PHP_CLI_SERVER_WORKERS` só
+existe em Unix). O PWA dispara pedidos em paralelo — a página, o ping, o sync e
+o service worker a pré-guardar cinco páginas — e um servidor de uma linha só
+serializa tudo; a cortar a rede a meio, chega a morrer, e o ensaio seguinte
+apanha um `ERR_CONNECTION_REFUSED` que não tem nada a ver com o produto.
 
 ## A bancada
 

@@ -60,23 +60,92 @@ export async function esperarCatalogo(page, minimo = 1) {
     );
 }
 
+/**
+ * Navega, aguentando as navegações que o PWA provoca sozinho.
+ *
+ * O service worker assume o comando e a aplicação recarrega-se a seguir ao
+ * primeiro sync. Um `goto` apanhado nesse instante morre com `ERR_ABORTED` —
+ * falha do ensaio, não do produto. Tenta-se outra vez; se voltar a acontecer,
+ * é porque a página está mesmo inacessível.
+ */
+export async function irPara(page, rota, tentativas = 3) {
+    let ultimo;
+
+    for (let i = 0; i < tentativas; i++) {
+        try {
+            const r = await page.goto(rota, { waitUntil: 'domcontentloaded' });
+            await assentar(page);
+
+            return r;
+        } catch (erro) {
+            ultimo = erro;
+            const abortada = /ERR_ABORTED|Execution context was destroyed|frame was detached/i.test(erro.message);
+
+            if (!abortada) {
+                throw erro;
+            }
+
+            await page.waitForTimeout(600);
+        }
+    }
+
+    throw ultimo;
+}
+
+/**
+ * Avalia código na página, sobrevivendo a uma navegação a meio.
+ *
+ * Mesmo motivo do `irPara`: o contexto pode ser destruído debaixo dos pés.
+ */
+export async function avaliar(page, fn, arg = undefined, tentativas = 3) {
+    let ultimo;
+
+    for (let i = 0; i < tentativas; i++) {
+        try {
+            return await page.evaluate(fn, arg);
+        } catch (erro) {
+            ultimo = erro;
+
+            if (!/Execution context was destroyed|frame was detached|Target closed/i.test(erro.message)) {
+                throw erro;
+            }
+
+            await assentar(page);
+        }
+    }
+
+    throw ultimo;
+}
+
+/** Espera que a página pare de se mexer sozinha. */
+async function assentar(page) {
+    try {
+        await page.waitForLoadState('domcontentloaded', { timeout: 15_000 });
+        // Meio segundo depois do DOM: é a janela em que a aplicação decide
+        // recarregar-se. Esperar aqui poupa uma navegação a meio do ensaio.
+        await page.waitForTimeout(500);
+    } catch (_) {
+        // Se o estado não assenta, quem chamou trata do erro seguinte.
+    }
+}
+
 /** Lê uma tabela do IndexedDB do PWA. */
 export async function lerBase(page, tabela) {
-    return page.evaluate((t) => window.SosPwa.db.table(t).toArray(), tabela);
+    return avaliar(page, (t) => window.SosPwa.db.table(t).toArray(), tabela);
 }
 
 /** Quantas linhas tem uma tabela. */
 export async function contar(page, tabela) {
-    return page.evaluate((t) => window.SosPwa.db.table(t).count(), tabela);
+    return avaliar(page, (t) => window.SosPwa.db.table(t).count(), tabela);
 }
 
 /** A empresa que o aparelho julga ser a sua. */
 export async function empresaLocal(page) {
-    return page.evaluate(async () => (await window.SosPwa.db.meta.get('tenant_id'))?.value ?? null);
+    return avaliar(page, async () => (await window.SosPwa.db.meta.get('tenant_id'))?.value ?? null);
 }
 
 /** Força uma sincronização e espera que termine. */
 export async function sincronizar(page) {
-    await page.evaluate(() => window.SosPwa.sync());
+    await avaliar(page, () => window.SosPwa.sync());
     await page.waitForFunction(() => window.SosPwa.state.syncing === false, null, { timeout: 60_000 });
 }
