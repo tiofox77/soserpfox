@@ -607,6 +607,13 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::get('/salary-discounts/{id}/pdf', [\App\Http\Controllers\HR\SalaryDiscountController::class, 'generatePDF'])->name('salary-discounts.pdf');
     Route::get('/shifts', \App\Livewire\HR\ShiftsManagement::class)->name('shifts.index');
     Route::get('/reports', \App\Livewire\HR\HRReports::class)->name('reports');
+
+    // Mapa de IRT: o imposto retido aos trabalhadores no mês, para declarar
+    // e pagar à AGT. O ecrã confere; o papel e o CSV entregam.
+    Route::get('/irt-map', \App\Livewire\HR\MapaDeIRT::class)->name('irt-map');
+    Route::get('/irt-map/print', [\App\Http\Controllers\HR\MapaDeIRTController::class, 'imprimir'])->name('irt-map.pdf');
+    Route::get('/irt-map/csv', [\App\Http\Controllers\HR\MapaDeIRTController::class, 'csv'])->name('irt-map.csv');
+
     Route::get('/settings', \App\Livewire\HR\SettingsManagement::class)->name('settings');
 });
 

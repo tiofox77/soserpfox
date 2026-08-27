@@ -1282,7 +1282,13 @@
                                 
                                 <div class="my-2 border-t border-blue-700/50"></div>
 
-                                <a href="{{ route('hr.reports') }}" 
+                                <a href="{{ route('hr.irt-map') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.irt-map*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-landmark w-5 text-rose-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Mapa de IRT') }}</span>
+                                </a>
+
+                                <a href="{{ route('hr.reports') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hr.reports*') ? 'bg-blue-700 border-l-4 border-cyan-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-chart-pie w-5 text-violet-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Relatórios') }}</span>
