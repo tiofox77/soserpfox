@@ -126,6 +126,36 @@ const PWA_OFFLINE_FALLBACKS = [
 // ========================
 // INSTALL - Pré-cache
 // ========================
+/**
+ * Guarda uma página do PWA — mas SÓ se for mesmo a página.
+ *
+ * `cache.add()` segue os redireccionamentos e guarda o que vier ao fim. Sem
+ * sessão iniciada, `/invoicing/offline/pos` responde 302 para `/login`, e o
+ * que ficaria guardado debaixo do URL do POS era o ECRÃ DE LOGIN. Depois,
+ * offline, abrir o POS mostrava um formulário de entrada que não tem como
+ * funcionar sem rede — pior do que a página de offline, porque parece que a
+ * aplicação está a pedir credenciais e a recusá-las.
+ *
+ * Por isso: busca-se, verifica-se que não houve desvio, e só então se guarda.
+ * Quando o service worker instala antes do login, não se guarda nada — e a
+ * página fica em cache na primeira visita a sério, como sempre esteve.
+ */
+async function guardarPagina(cache, url) {
+    try {
+        const resposta = await fetch(url, { credentials: 'same-origin' });
+
+        if (!resposta.ok || resposta.redirected || new URL(resposta.url).pathname !== url) {
+            console.info('[SW] Página não pré-guardada (sem sessão ou desviada):', url);
+
+            return;
+        }
+
+        await cache.put(url, resposta);
+    } catch (err) {
+        console.warn('[SW] Não foi possível pré-guardar a página:', url, err);
+    }
+}
+
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(STATIC_CACHE)
@@ -149,11 +179,7 @@ self.addEventListener('install', (event) => {
                 // onde o networkFirst as vai buscar quando não há rede. Guardá-
                 // las no cache estático não servia de nada: o fallback nunca
                 // olharia para lá.
-                Promise.all(PRECACHE_PAGINAS.map((url) =>
-                    cache.add(url).catch((err) => {
-                        console.warn('[SW] Não foi possível pré-guardar a página:', url, err);
-                    })
-                ))
+                Promise.all(PRECACHE_PAGINAS.map((url) => guardarPagina(cache, url)))
             ))
         // NOTA: NÃO chamamos skipWaiting() aqui. O cliente decide quando
         // ativar a nova versão (ou o user clica "Atualizar agora").

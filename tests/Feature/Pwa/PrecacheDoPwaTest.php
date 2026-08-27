@@ -156,6 +156,41 @@ class PrecacheDoPwaTest extends TenantTestCase
         }
     }
 
+    /**
+     * As páginas NÃO podem ser guardadas com `cache.add()`.
+     *
+     * O `cache.add()` segue os redireccionamentos e guarda o que vier ao fim.
+     * Sem sessão iniciada, `/invoicing/offline/pos` responde 302 para `/login`
+     * — e o que ficava guardado debaixo do URL do POS era o ECRÃ DE LOGIN.
+     * Offline, abrir o POS mostrava um formulário de entrada que não tem como
+     * funcionar sem rede: pior do que a página de offline, porque parece que a
+     * aplicação está a pedir credenciais e a recusá-las.
+     */
+    public function test_as_paginas_nao_sao_guardadas_com_cache_add(): void
+    {
+        $sw = $this->sw();
+
+        $this->assertStringContainsString(
+            'async function guardarPagina',
+            $sw,
+            'As páginas têm de passar por guardarPagina(), que verifica o desvio.'
+        );
+
+        $this->assertStringContainsString(
+            'resposta.redirected',
+            $sw,
+            'guardarPagina() tem de recusar uma resposta desviada (login).'
+        );
+
+        // E o install não pode voltar a usar cache.add para as páginas.
+        preg_match('/PRECACHE_PAGINAS\.map\((.*?)\)\)/s', $sw, $m);
+        $this->assertStringNotContainsString(
+            'cache.add',
+            $m[1] ?? '',
+            'PRECACHE_PAGINAS não pode usar cache.add — segue redireccionamentos.'
+        );
+    }
+
     /** O POS é a razão de a aplicação existir — tem de estar lá. */
     public function test_o_pos_offline_esta_pre_guardado(): void
     {
