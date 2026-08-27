@@ -23,30 +23,57 @@ const API_CACHE = `api-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = 'dynamic-paginas';
 
 // Recursos estáticos pré-cacheados (App Shell)
+/**
+ * O que tem de estar guardado ANTES de faltar a rede.
+ *
+ * ESTA LISTA TEM DE BATER LETRA A LETRA COM O QUE O layouts/pwa.blade.php
+ * PEDE. Um URL diferente é uma entrada diferente no cache e não serve de nada
+ * — foi o que aconteceu: o layout passou a carregar tudo de `/vendor/`, local,
+ * e esta lista ficou a pré-guardar os CDN (unpkg, cdnjs, cdn.tailwindcss.com)
+ * que a aplicação já não pede. Resultado num aparelho acabado de instalar e
+ * sem rede: sem Tailwind não há desenho, sem Alpine o ecrã não responde, e sem
+ * o Dexie o motor offline nem arranca — o pwa-invoicing.js começa com um
+ * `if (typeof Dexie === 'undefined') return`. Parecia que a lógica offline não
+ * existia; existia, mas nunca chegava a correr.
+ *
+ * As `?v=` fazem parte do URL: sem elas o cache falha por um caracter.
+ */
 const PRECACHE_URLS = [
     '/offline',
     '/pwa/icon-192x192.png',
     '/pwa/icon-512x512.png',
 
-    // Estes dois não são enfeite: sem o Dexie o motor offline nem arranca — o
-    // pwa-invoicing.js começa com um `if (typeof Dexie === 'undefined') return`
-    // — e sem o Alpine o ecrã não responde a nada. Ficavam guardados na mesma,
-    // mas só DEPOIS de a página ter carregado bem uma vez; até lá, um aparelho
-    // acabado de instalar não tinha como funcionar sem rede. Os URLs têm de ser
-    // exactamente os do layouts/pwa.blade.php: um URL diferente é uma entrada
-    // diferente no cache, e não serve de nada.
-    'https://unpkg.com/dexie@4.0.10/dist/dexie.min.js',
-    'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
+    // ── O motor. Sem estes quatro não há offline nenhum. ──────────────
+    '/vendor/js/dexie.min.js',
+    '/vendor/js/alpine.min.js',
+    '/vendor/js/tailwind.js',
+    '/vendor/css/fontawesome.min.css',
 
-    'https://cdn.tailwindcss.com',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-regular-400.woff2',
-    'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js',
-
-    // bcryptjs — verifica o PIN de turno offline (self-hosted).
+    // bcryptjs — verifica o PIN de turno offline.
     '/js/vendor/bcrypt.min.js?v=1',
+
+    // ── O código da aplicação offline. É ISTO que faz o trabalho: sem
+    //    ele o ecrã carrega e não sabe fazer nada. ──────────────────────
+    '/js/pwa-invoicing.js?v=19',
+    '/js/pos-offline-ticket.js?v=3',
+];
+
+/**
+ * As páginas do PWA, guardadas na instalação.
+ *
+ * Sem isto só ficavam em cache depois de alguém as ter aberto COM rede. Quem
+ * instalasse a aplicação e fosse vender a um sítio sem cobertura encontrava a
+ * página de offline em vez do POS — e o POS é a razão de a aplicação existir.
+ *
+ * Vão à parte porque falham por outros motivos (sessão expirada, por exemplo)
+ * e uma falha aqui não pode impedir o resto de ficar guardado.
+ */
+const PRECACHE_PAGINAS = [
+    '/invoicing/offline',
+    '/invoicing/offline/pos',
+    '/invoicing/offline/catalog',
+    '/invoicing/offline/clients',
+    '/invoicing/offline/drafts',
 ];
 
 // Rotas que NUNCA devem ser cacheadas
@@ -117,6 +144,17 @@ self.addEventListener('install', (event) => {
                     })
                 ));
             })
+            .then(() => caches.open(DYNAMIC_CACHE).then((cache) =>
+                // As páginas vão para o cache das PÁGINAS, que é o mesmo de
+                // onde o networkFirst as vai buscar quando não há rede. Guardá-
+                // las no cache estático não servia de nada: o fallback nunca
+                // olharia para lá.
+                Promise.all(PRECACHE_PAGINAS.map((url) =>
+                    cache.add(url).catch((err) => {
+                        console.warn('[SW] Não foi possível pré-guardar a página:', url, err);
+                    })
+                ))
+            ))
         // NOTA: NÃO chamamos skipWaiting() aqui. O cliente decide quando
         // ativar a nova versão (ou o user clica "Atualizar agora").
     );
