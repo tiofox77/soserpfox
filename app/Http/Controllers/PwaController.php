@@ -270,6 +270,60 @@ class PwaController extends Controller
      * Sai da MESMA lista de ficheiros vigiados, por isso muda exactamente
      * quando a outra muda — as duas nunca podem discordar.
      */
+    /**
+     * O número da versão que se lê no cabeçalho: `2.0.37`.
+     *
+     * SÉRIE.BUILD, com a série (`2.0`) escrita à mão em config/pwa.php quando
+     * há uma mudança grande, e o BUILD a subir SOZINHO sempre que algum
+     * ficheiro do PWA muda.
+     *
+     * PORQUE NÃO É ESCRITO À MÃO. Estava aqui o `changelog.current`, que é a
+     * versão da release e se actualiza a mão: dizia `2026.08.19.1` num
+     * aparelho a correr código do dia 27. Quem olha para o cabeçalho quer
+     * responder a uma pergunta só — «isto mudou desde ontem?» — e um número
+     * que alguém se esqueceu de subir responde mal. Este sobe sozinho ou não
+     * sobe de todo.
+     *
+     * A contagem vive num ficheiro em storage/, que atravessa os deploys por
+     * FTP. Se desaparecer, recomeça em 1: é um número para COMPARAR com o de
+     * ontem, não um registo histórico.
+     */
+    public function numeroDeVersao(): string
+    {
+        return Cache::remember('pwa.versao.numero', 60, function () {
+            $serie = (string) config('pwa.serie', '2.0');
+            $assinatura = $this->buildVersion();
+            $ficheiro = storage_path('app/pwa-versao.json');
+
+            $estado = ['assinatura' => null, 'build' => 0];
+
+            if (is_file($ficheiro)) {
+                $lido = json_decode((string) @file_get_contents($ficheiro), true);
+                if (is_array($lido)) {
+                    $estado = array_merge($estado, $lido);
+                }
+            }
+
+            if (($estado['assinatura'] ?? null) !== $assinatura) {
+                $estado = ['assinatura' => $assinatura, 'build' => ((int) $estado['build']) + 1];
+
+                // Escrita atómica: dois pedidos ao mesmo tempo depois de um
+                // deploy podiam deixar o ficheiro a meio, e a versão seguinte
+                // recomeçava do zero.
+                $temporario = $ficheiro . '.' . getmypid() . '.tmp';
+
+                try {
+                    @file_put_contents($temporario, json_encode($estado, JSON_PRETTY_PRINT));
+                    @rename($temporario, $ficheiro);
+                } catch (\Throwable $e) {
+                    @unlink($temporario);
+                }
+            }
+
+            return $serie . '.' . max(1, (int) $estado['build']);
+        });
+    }
+
     public function buildLabel(): string
     {
         return Cache::remember('pwa.version.label', 60, function () {

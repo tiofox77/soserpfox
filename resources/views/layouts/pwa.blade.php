@@ -161,13 +161,14 @@
                                  correr, e muda a cada deploy que toque no PWA. Só a
                                  primeira não chegava: dizia 16.08 num aparelho a correr
                                  código do dia 17, e não havia como distinguir aparelhos. --}}
-                            <span class="font-mono">v{{ config('changelog.current', '1.0') }}</span>
+                            @php $__pwa = app(\App\Http\Controllers\PwaController::class); @endphp
+                            <span class="font-mono">v{{ $__pwa->numeroDeVersao() }}</span>
                             ·
                             <span class="font-semibold"
                                   title="{{ __('Versão :v · assinatura :h', [
-                                      'v' => config('changelog.current', '1.0'),
-                                      'h' => app(\App\Http\Controllers\PwaController::class)->buildVersion(),
-                                  ]) }}">{{ app(\App\Http\Controllers\PwaController::class)->buildLabel() }}</span>
+                                      'v' => $__pwa->numeroDeVersao(),
+                                      'h' => $__pwa->buildVersion(),
+                                  ]) }}">{{ $__pwa->buildLabel() }}</span>
                             <span id="pwa-last-sync-badge" class="hidden ml-1 font-normal"></span>
                         </p>
                     </div>

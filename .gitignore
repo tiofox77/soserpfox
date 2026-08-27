@@ -63,3 +63,6 @@ Thumbs.db
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Contagem de versão do PWA (por instalação, não versionada)
+/storage/app/pwa-versao.json
