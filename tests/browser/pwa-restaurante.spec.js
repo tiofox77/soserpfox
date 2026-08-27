@@ -25,6 +25,39 @@ async function aparelhoPreparado(page) {
     await garantirTurno(page);
 }
 
+/**
+ * Devolve uma mesa livre, garantindo que há uma.
+ *
+ * A bancada tem seis mesas e acumula estado entre corridas: uma conta fechada
+ * deixa a mesa "em limpeza", e ao fim de alguns ensaios não sobra nenhuma
+ * livre. Os ensaios passavam a falhar por falta de mesas — que não é o que
+ * medem — e falhavam a partir da sétima corrida, o que é pior do que falhar
+ * sempre.
+ *
+ * Liberta no APARELHO, que é o que estes ensaios observam. O servidor mantém o
+ * seu estado, e a reposição da comanda sabe lidar com uma mesa ocupada.
+ */
+async function mesaLivre(page, salaId) {
+    return avaliar(page, async (sala) => {
+        const r = window.SosPwa.restaurante;
+        const abertas = new Set(
+            (await r.comandas()).filter((c) => c.table_id).map((c) => c.table_id)
+        );
+
+        const mesas = await r.mesas(sala);
+        const candidata = mesas.find((m) => m.status === 'available' && !abertas.has(m.id))
+            || mesas.find((m) => !abertas.has(m.id));
+
+        if (!candidata) {
+            throw new Error('a bancada não tem mesas — correr `php artisan bancada:pwa`');
+        }
+
+        await window.SosPwa.db.rest_tables.update(candidata.id, { status: 'available' });
+
+        return candidata.id;
+    }, salaId);
+}
+
 /** A sala, tal como o aparelho a conhece. */
 async function sala(page) {
     return avaliar(page, async () => ({
@@ -87,16 +120,17 @@ test.describe('PWA — Restaurante', () => {
         await irPara(page, '/invoicing/offline/restaurant');
         await esperarMotor(page);
 
-        const resultado = await avaliar(page, async () => {
+        const salaId = await avaliar(page, async () => (await window.SosPwa.restaurante.salas())[0].id);
+        const mesa = await mesaLivre(page, salaId);
+
+        const resultado = await avaliar(page, async ({ salaId, mesa }) => {
             const r = window.SosPwa.restaurante;
-            const salaId = (await r.salas())[0].id;
-            const livre = (await r.mesas(salaId)).find((m) => m.status === 'available');
 
-            const comanda = await r.abrir({ venue_id: salaId, table_id: livre.id, guest_count: 2 });
-            const depois = (await r.mesas(salaId)).find((m) => m.id === livre.id);
+            const comanda = await r.abrir({ venue_id: salaId, table_id: mesa, guest_count: 2 });
+            const depois = (await r.mesas(salaId)).find((m) => m.id === mesa);
 
-            return { mesa: livre.id, uuid: comanda.local_uuid, estado: depois.status, temComanda: !!depois.comanda };
-        });
+            return { uuid: comanda.local_uuid, estado: depois.status, temComanda: !!depois.comanda };
+        }, { salaId, mesa });
 
         expect(resultado.uuid, 'a comanda nasce com identificador próprio').toBeTruthy();
         expect(resultado.estado, 'a mesa tem de ficar ocupada de imediato').toBe('occupied');
@@ -238,18 +272,19 @@ test.describe('PWA — Restaurante', () => {
         await irPara(page, '/invoicing/offline/restaurant');
         await esperarMotor(page);
 
-        const uuid = await avaliar(page, async () => {
+        const salaId = await avaliar(page, async () => (await window.SosPwa.restaurante.salas())[0].id);
+        const mesa = await mesaLivre(page, salaId);
+
+        const uuid = await avaliar(page, async ({ salaId, mesa }) => {
             const r = window.SosPwa.restaurante;
-            const salaId = (await r.salas())[0].id;
-            const livre = (await r.mesas(salaId)).find((m) => m.status === 'available');
-            const comanda = await r.abrir({ venue_id: salaId, table_id: livre.id });
+            const comanda = await r.abrir({ venue_id: salaId, table_id: mesa });
 
             await r.juntar(comanda.local_uuid, {
                 product_id: -4, product_name: 'Sobrevive', quantity: 2, unit_price: 500, tax_rate: 14,
             });
 
             return comanda.local_uuid;
-        });
+        }, { salaId, mesa });
 
         await page.reload();
         await esperarMotor(page);
@@ -273,11 +308,12 @@ test.describe('PWA — Restaurante', () => {
         await irPara(page, '/invoicing/offline/restaurant');
         await esperarMotor(page);
 
-        const uuid = await avaliar(page, async () => {
+        const salaId = await avaliar(page, async () => (await window.SosPwa.restaurante.salas())[0].id);
+        const mesa = await mesaLivre(page, salaId);
+
+        const uuid = await avaliar(page, async ({ salaId, mesa }) => {
             const r = window.SosPwa.restaurante;
-            const salaId = (await r.salas())[0].id;
-            const livre = (await r.mesas(salaId)).find((m) => m.status === 'available');
-            const comanda = await r.abrir({ venue_id: salaId, table_id: livre.id, guest_count: 2 });
+            const comanda = await r.abrir({ venue_id: salaId, table_id: mesa, guest_count: 2 });
             const prato = await window.SosPwa.db.products.toCollection().first();
             const metodo = ((await window.SosPwa.db.meta.get('payment_methods'))?.value || [])[0];
 
@@ -292,7 +328,7 @@ test.describe('PWA — Restaurante', () => {
             });
 
             return comanda.local_uuid;
-        });
+        }, { salaId, mesa });
 
         await context.setOffline(false);
 
@@ -319,6 +355,98 @@ test.describe('PWA — Restaurante', () => {
         const comanda = await avaliar(page, (u) => window.SosPwa.restaurante.comanda(u), uuid);
 
         expect(comanda._server_number, 'a comanda tem de receber o número CMD- do servidor').toMatch(/^CMD-/);
+    });
+
+    /**
+     * O TALÃO. É o papel que o cliente leva da mesa.
+     *
+     * Sem rede sai provisório — não há numeração da AGT que se possa inventar
+     * — mas sai: um cliente que paga e não recebe nada não aceita "sincroniza
+     * mais logo" como resposta. Tem de trazer a mesa, que é o que ele confere.
+     */
+    test('a conta fechada sem rede dá um talão provisório, com a mesa', async ({ page, context }) => {
+        await aparelhoPreparado(page);
+        await context.setOffline(true);
+        await irPara(page, '/invoicing/offline/restaurant');
+        await esperarMotor(page);
+
+        const salaId = await avaliar(page, async () => (await window.SosPwa.restaurante.salas())[0].id);
+        const mesa = await mesaLivre(page, salaId);
+
+        const talao = await avaliar(page, async ({ salaId, mesa }) => {
+            const r = window.SosPwa.restaurante;
+            const comanda = await r.abrir({ venue_id: salaId, table_id: mesa });
+            const prato = await window.SosPwa.db.products.toCollection().first();
+
+            await r.juntar(comanda.local_uuid, {
+                product_id: prato.id, product_name: prato.name,
+                quantity: 1, unit_price: 1000, tax_rate: 14,
+            });
+            await r.receber(comanda.local_uuid, { document_type: 'FR' });
+
+            return r.talao(comanda.local_uuid);
+        }, { salaId, mesa });
+
+        expect(talao, 'tem de haver talão').toBeTruthy();
+        expect(talao._synced, 'sem rede o talão é provisório').toBe(0);
+        expect(talao.provisional_number, 'o papel tem de levar um número, nem que seja provisório').toBeTruthy();
+        expect(talao.origem, 'o cliente confere a mesa').toMatch(/Mesa/);
+        expect(talao.doc_type).toBe('FR');
+        expect(talao.total).toBeCloseTo(1140, 2);
+        expect(talao.items.length).toBe(1);
+    });
+
+    /**
+     * Depois de subir, o mesmo talão passa a ser um comprovativo fiscal:
+     * número e QR. É a reimpressão que o cliente pede quando volta.
+     */
+    test('depois de sincronizar, o talão leva número fiscal e QR', async ({ page, context }) => {
+        await aparelhoPreparado(page);
+        await context.setOffline(true);
+        await irPara(page, '/invoicing/offline/restaurant');
+        await esperarMotor(page);
+
+        const uuid = await avaliar(page, async () => {
+            const r = window.SosPwa.restaurante;
+            const salaId = (await r.salas())[0].id;
+            const comanda = await r.abrir({ venue_id: salaId, channel: 'counter' });
+            const prato = await window.SosPwa.db.products.toCollection().first();
+            const metodo = ((await window.SosPwa.db.meta.get('payment_methods'))?.value || [])[0];
+
+            await r.juntar(comanda.local_uuid, {
+                product_id: prato.id, product_name: prato.name,
+                quantity: 1, unit_price: prato.price, tax_rate: prato.tax_rate,
+            });
+            await r.receber(comanda.local_uuid, { document_type: 'FR', payment_method_id: metodo?.id || null });
+
+            return comanda.local_uuid;
+        });
+
+        await context.setOffline(false);
+
+        await expect
+            .poll(
+                async () => {
+                    const t = await avaliar(page, (u) => window.SosPwa.restaurante.talao(u), uuid);
+
+                    if (t?._server_number) { return t._server_number; }
+
+                    await sincronizar(page).catch(() => {});
+
+                    return null;
+                },
+                { message: 'o talão tem de receber número fiscal', timeout: 60_000, intervals: [1000] }
+            )
+            .not.toBeNull();
+
+        const talao = await avaliar(page, (u) => window.SosPwa.restaurante.talao(u), uuid);
+
+        expect(talao._synced, 'já não é provisório').toBe(1);
+        expect(talao._server_qr, 'o QR da AGT tem de vir do servidor').toBeTruthy();
+        // O ATCUD NÃO se verifica aqui, e é de propósito: ele sai do código de
+        // validação que a AGT atribui à série, e a bancada não tem séries
+        // registadas na AGT — vem vazio por falta de registo, não por defeito.
+        // Verificá-lo aqui seria medir a configuração da bancada, não o produto.
     });
 
     /**

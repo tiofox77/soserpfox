@@ -112,6 +112,22 @@
                 Aguarda sincronização AGT
             </div>`;
 
+        // O TÍTULO DIZ O QUE O DOCUMENTO É.
+        //
+        // Estava aqui "FACTURA RECIBO" fixo, porque o balcão só emite isso. A
+        // comanda de restaurante também pode sair como FACTURA (a pagar
+        // depois), e um papel que se chama recibo a si próprio, sem ninguém ter
+        // recebido nada, é um documento errado.
+        const docTitulo = String(sale.doc_type || 'FR').toUpperCase() === 'FT'
+            ? 'FACTURA'
+            : 'FACTURA RECIBO';
+
+        // De onde veio a conta: a mesa, quando há uma. É o que o cliente
+        // confere primeiro quando lhe entregam o papel.
+        const origemHtml = sale.origem
+            ? `<div class="line"><span class="b">MESA:</span><span>${esc(sale.origem)}${sale.origem_numero ? ' · ' + esc(sale.origem_numero) : ''}</span></div>`
+            : '';
+
         const logoHtml = company.logo
             ? `<img src="${company.logo}" alt="logo" class="logo"/>`
             : '';
@@ -128,11 +144,12 @@
                 ${qrHtml}
             </div>
 
-            <h4>FACTURA RECIBO</h4>
+            <h4>${docTitulo}</h4>
             ${provisionalBanner}
 
             <div class="meta">
                 <div class="line"><span class="b">${synced ? 'FATURA:' : 'PROVISÓRIO:'}</span><span>${esc(number)}</span></div>
+                ${origemHtml}
                 <div class="line"><span class="b">DATA:</span><span>${esc(dateStr)}</span></div>
                 <div class="line"><span class="b">CLIENTE:</span><span>${esc(sale.client_name || 'Consumidor Final')}</span></div>
                 <div class="line"><span class="b">NIF:</span><span>${esc(sale.client_nif || '999999999')}</span></div>

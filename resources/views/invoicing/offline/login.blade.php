@@ -33,7 +33,7 @@
          host de APP_URL diferente da origem servida seria outra chave de
          cache e offline ficava sem motor. --}}
     <script src="/js/vendor/bcrypt.min.js?v=1"></script>
-    <script src="/js/pwa-invoicing.js?v=20"></script>
+    <script src="/js/pwa-invoicing.js?v=21"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-900 to-blue-700 min-h-screen flex items-center justify-center p-4">
 

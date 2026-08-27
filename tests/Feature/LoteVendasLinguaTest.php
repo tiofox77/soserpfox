@@ -25,6 +25,8 @@ class LoteVendasLinguaTest extends TenantTestCase
             'invoicing.sales.invoices.view', 'invoicing.sales.proformas.view',
             'invoicing.receipts.view', 'invoicing.credit-notes.view',
             'invoicing.debit-notes.view',
+            // O POS do PWA passou a exigir a sua (ver App\Support\MenuDoPwa).
+            'invoicing.pos.access',
         ] as $permissao) {
             \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $permissao, 'guard_name' => 'web']);
             $this->user->givePermissionTo($permissao);

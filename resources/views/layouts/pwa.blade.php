@@ -237,45 +237,38 @@
 
     {{-- Bottom navigation --}}
     @php
-        // A ENTRADA DO RESTAURANTE SÓ EXISTE PARA QUEM TEM O MÓDULO.
+        // O MENU SAI DA MESMA DEFINIÇÃO QUE FECHA AS ROTAS.
         //
-        // Resolve-se no servidor, quando a página é gerada, e fica assim na
-        // cópia que o service worker guarda — que é o que se vê offline. Um
-        // módulo desligado desaparece na próxima vez que a página for buscada
-        // com rede, que é quando a subscrição muda de qualquer forma.
-        $temRestaurante = auth()->check()
-            && optional(auth()->user()->activeTenant())->hasModule('restaurant');
+        // Módulo da empresa, permissão do utilizador e a escolha da empresa nas
+        // definições — as três, em App\Support\MenuDoPwa. Resolve-se aqui, no
+        // servidor, e fica assim na cópia que o service worker guarda: é o que
+        // se vê sem rede. Uma permissão retirada só desaparece na próxima vez
+        // que a página for buscada com internet, e isso chega — a rota fecha na
+        // mesma, e é a rota que manda.
+        $entradasDoPwa = \App\Support\MenuDoPwa::visiveis();
     @endphp
     <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 shadow-2xl z-40">
-        <div class="grid {{ $temRestaurante ? 'grid-cols-6' : 'grid-cols-5' }} text-center">
-            <a href="{{ route('invoicing.offline.index') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.index') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
-                <i class="fas fa-home block text-lg"></i>
-                <span class="text-[10px] font-semibold">Início</span>
-            </a>
-            <a href="{{ route('invoicing.offline.catalog') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.catalog') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
-                <i class="fas fa-box block text-lg"></i>
-                <span class="text-[10px] font-semibold">Catálogo</span>
-            </a>
-            @if($temRestaurante)
-                <a href="{{ route('invoicing.offline.restaurant') }}" class="py-3 hover:bg-orange-50 {{ request()->routeIs('invoicing.offline.restaurant') ? 'text-orange-700 bg-orange-50' : 'text-gray-600' }}">
-                    <i class="fas fa-utensils block text-lg"></i>
-                    <span class="text-[10px] font-semibold">Mesas</span>
-                </a>
-            @endif
-            <a href="{{ route('invoicing.offline.pos') }}" class="py-2 -mt-4">
-                <div class="w-12 h-12 mx-auto bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-lg text-white">
-                    <i class="fas fa-cash-register text-lg"></i>
-                </div>
-                <span class="text-[10px] font-semibold text-orange-700 block mt-0.5">POS</span>
-            </a>
-            <a href="{{ route('invoicing.offline.clients') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.clients') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
-                <i class="fas fa-users block text-lg"></i>
-                <span class="text-[10px] font-semibold">Clientes</span>
-            </a>
-            <a href="{{ route('invoicing.offline.drafts') }}" class="py-3 hover:bg-blue-50 {{ request()->routeIs('invoicing.offline.drafts') ? 'text-blue-700 bg-blue-50' : 'text-gray-600' }}">
-                <i class="fas fa-file-invoice block text-lg"></i>
-                <span class="text-[10px] font-semibold">Documentos</span>
-            </a>
+        <div class="grid text-center" style="grid-template-columns: repeat({{ max(1, count($entradasDoPwa)) }}, minmax(0, 1fr));">
+            @foreach($entradasDoPwa as $chave => $entrada)
+                @php $activa = request()->routeIs($entrada['rota']); @endphp
+
+                @if($entrada['destaque'])
+                    {{-- O botão redondo do meio. Não leva estado activo: já é o
+                         elemento mais visível do ecrã. --}}
+                    <a href="{{ route($entrada['rota']) }}" class="py-2 -mt-4">
+                        <div class="w-12 h-12 mx-auto bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-lg text-white">
+                            <i class="fas {{ $entrada['icone'] }} text-lg"></i>
+                        </div>
+                        <span class="text-[10px] font-semibold text-orange-700 block mt-0.5">{{ __($entrada['etiqueta']) }}</span>
+                    </a>
+                @else
+                    <a href="{{ route($entrada['rota']) }}"
+                       class="py-3 {{ $chave === 'restaurante' ? 'hover:bg-orange-50' : 'hover:bg-blue-50' }} {{ $activa ? ($chave === 'restaurante' ? 'text-orange-700 bg-orange-50' : 'text-blue-700 bg-blue-50') : 'text-gray-600' }}">
+                        <i class="fas {{ $entrada['icone'] }} block text-lg"></i>
+                        <span class="text-[10px] font-semibold">{{ __($entrada['etiqueta']) }}</span>
+                    </a>
+                @endif
+            @endforeach
         </div>
     </nav>
 
@@ -297,8 +290,8 @@
         window.SOS_USER_NAME = @json(auth()->user()?->name);
     </script>
 
-    <script src="/js/pwa-invoicing.js?v=20"></script>
-    <script src="/js/pos-offline-ticket.js?v=3"></script>
+    <script src="/js/pwa-invoicing.js?v=21"></script>
+    <script src="/js/pos-offline-ticket.js?v=4"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
     {{-- Garante que o app abre offline mesmo na primeira tentativa após sair de uma página. --}}
@@ -320,9 +313,9 @@
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=20',
+            '/js/pwa-invoicing.js?v=21',
             '/js/vendor/bcrypt.min.js?v=1',
-            '/js/pos-offline-ticket.js?v=3',
+            '/js/pos-offline-ticket.js?v=4',
             '/manifest.webmanifest',
         ];
 

@@ -124,11 +124,60 @@ class ComandaOfflineController extends Controller
             // isto ao empregado — uma mesa que passou a balcão ou um preço que
             // mudou não pode ficar só no log do servidor.
             'avisos'       => $resultado['avisos'],
-            'invoice'      => $factura ? [
-                'id'             => $factura->id,
-                'invoice_number' => $factura->invoice_number,
-                'total'          => (float) $factura->total,
-            ] : null,
+            'invoice'      => $factura ? $this->paraOTalao($factura) : null,
         ], 201);
+    }
+
+    /**
+     * O documento, na forma que o talão precisa.
+     *
+     * O aparelho imprime um talão provisório no momento em que o cliente paga
+     * — sem rede não há numeração da AGT que se possa inventar. Quando a
+     * comanda sobe, é isto que transforma esse papel provisório num
+     * comprovativo fiscal reimprimível: número, ATCUD, QR e hash.
+     *
+     * Os TOTAIS e as LINHAS vão tal como o servidor os gravou, e não como o
+     * aparelho os calculou. Se o preço mudou entretanto, o talão reimpresso
+     * tem de dizer o que está nos livros — misturar número real com totais
+     * locais dá um documento que não bate com nada.
+     */
+    private function paraOTalao($factura): array
+    {
+        $qr = ['image' => null, 'atcud' => ''];
+
+        try {
+            $qr = getAGTQRData($factura->load(['client', 'items', 'tenant']), 100);
+        } catch (\Throwable $e) {
+            // Um QR que não sai não pode impedir a comanda de fechar: a venda
+            // já está gravada e o número já foi atribuído.
+            Log::warning('Comanda offline: QR não gerado', [
+                'invoice' => $factura->id,
+                'erro'    => $e->getMessage(),
+            ]);
+        }
+
+        return [
+            'id'              => $factura->id,
+            'invoice_number'  => $factura->invoice_number,
+            'invoice_type'    => $factura->invoice_type,
+            'total'           => (float) $factura->total,
+            'subtotal'        => (float) $factura->subtotal,
+            'tax_amount'      => (float) $factura->tax_amount,
+            'discount_amount' => (float) ($factura->discount_amount ?? 0),
+            'atcud'           => $qr['atcud'] ?? ($factura->atcud ?? ''),
+            'qr_image'        => $qr['image'] ?? null,
+            'hash_short'      => $factura->saft_hash ? substr($factura->saft_hash, 0, 4) : null,
+            'hash_control'    => $factura->hash_control ?? '1',
+            'client_name'     => $factura->client?->name,
+            'client_nif'      => $factura->client?->nif,
+            'items'           => $factura->items->map(fn ($i) => [
+                'product_id'   => $i->product_id,
+                'product_name' => $i->product_name,
+                'quantity'     => (float) $i->quantity,
+                'unit_price'   => (float) $i->unit_price,
+                'tax_rate'     => (float) $i->tax_rate,
+                'total'        => (float) $i->total,
+            ])->values()->all(),
+        ];
     }
 }

@@ -30,6 +30,9 @@ class TraducoesJavaScriptTest extends TenantTestCase
         $this->tenant->modules()->syncWithoutDetaching([
             $modulo->id => ['is_active' => true, 'activated_at' => now()],
         ]);
+
+        // O POS do PWA exige agora a permissão que o menu usa para o mostrar.
+        $this->comPermissoes('invoicing.pos.access');
     }
 
     private function posOffline(): string

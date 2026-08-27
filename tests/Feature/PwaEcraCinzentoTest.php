@@ -15,6 +15,17 @@ use Tests\TenantTestCase;
  */
 class PwaEcraCinzentoTest extends TenantTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // O POS do PWA passou a exigir a permissão que o menu usa para o
+        // mostrar (ver App\Support\MenuDoPwa): sem ela, a rota responde 403 e
+        // o ensaio falhava por falta de acesso, não por falta de rede de
+        // segurança — que é o que ele mede.
+        $this->comModulo('invoicing')->comPermissoes('invoicing.pos.access');
+    }
+
     private function pos(): string
     {
         return $this->actingAs($this->user)->get('/invoicing/offline/pos')->assertOk()->getContent();

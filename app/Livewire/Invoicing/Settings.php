@@ -89,6 +89,16 @@ class Settings extends Component
     public $pos_require_customer = false;
     public $pos_default_payment_method_id = null;
 
+    /**
+     * As entradas do PWA que a empresa quer no aparelho.
+     *
+     * Sem tipo declarado de propósito: a coluna vem `null` em quem nunca a
+     * configurou, e o mount() carrega as colunas por reflexão — com `array`
+     * declarado, esse `null` rebentava com um erro de tipo no ecrã inteiro.
+     * A normalização faz-se logo a seguir, no mount.
+     */
+    public $pwa_menu = [];
+
     // Perfil do Negócio
     // Podem estar todos ligados ao mesmo tempo (um supermercado com balcão de
     // farmácia e prateleira de cosmética é as três coisas); nenhum ligado é o
@@ -128,6 +138,13 @@ class Settings extends Component
                 $this->$key = $value;
             }
         }
+
+        // Nunca configurado significa TUDO ligado, e não nada ligado. Uma
+        // definição nova não pode apagar o menu de quem já usava o PWA — a
+        // mesma regra que o MenuDoPwa aplica do lado de lá.
+        $this->pwa_menu = \App\Support\MenuDoPwa::escolhidasPelaEmpresa(
+            auth()->user()?->activeTenant()
+        );
     }
 
     /**
@@ -193,9 +210,19 @@ class Settings extends Component
             'decimal_places' => 'nullable|integer|min:0|max:4',
             'price_mask_enabled' => 'boolean',
             'rounding_mode' => 'nullable|string|max:20',
+            // Só chaves que existem: o que vem do navegador não escolhe o que
+            // se guarda numa coluna que decide portas fechadas.
+            'pwa_menu' => 'array',
+            'pwa_menu.*' => 'string|in:' . implode(',', array_keys(\App\Support\MenuDoPwa::ENTRADAS)),
         ]);
-        
+
         $this->settings->update([
+            // As fixas entram sempre: uma lista sem o Início deixava o PWA sem
+            // saída, e ninguém escolhe isso de propósito.
+            'pwa_menu' => array_values(array_unique(array_merge(
+                \App\Support\MenuDoPwa::fixas(),
+                array_intersect((array) $this->pwa_menu, array_keys(\App\Support\MenuDoPwa::ENTRADAS))
+            ))),
             'default_warehouse_id' => $this->default_warehouse_id,
             'default_client_id' => $this->default_client_id,
             'default_supplier_id' => $this->default_supplier_id,

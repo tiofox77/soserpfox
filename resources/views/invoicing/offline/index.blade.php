@@ -51,10 +51,14 @@
                 </div>
             </div>
 
-            <a href="{{ route('invoicing.offline.pos') }}"
-               class="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition"
-               :class="shift.open ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'"
-               x-text="shift.open ? '{{ __('Ir para o POS') }}' : '{{ __('Abrir turno') }}'"></a>
+            {{-- O turno abre-se no POS. Sem acesso ao POS não há botão: levava
+                 a um 403 e o cartão do turno passava a parecer avariado. --}}
+            @if(\App\Support\MenuDoPwa::podeVer('pos'))
+                <a href="{{ route('invoicing.offline.pos') }}"
+                   class="shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition"
+                   :class="shift.open ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'"
+                   x-text="shift.open ? '{{ __('Ir para o POS') }}' : '{{ __('Abrir turno') }}'"></a>
+            @endif
         </div>
 
         <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-emerald-200" x-show="shift.open">
@@ -189,22 +193,26 @@
         </p>
     </div>
 
-    {{-- Ações --}}
+    {{-- Ações.
+
+         Seguem a MESMA regra do menu de baixo e das rotas — módulo, permissão
+         e a escolha da empresa (App\Support\MenuDoPwa). Um atalho para um ecrã
+         que responde 403 é pior do que não ter atalho nenhum: parece avaria. --}}
+    @php $atalhos = \App\Support\MenuDoPwa::visiveis(); @endphp
     <div class="space-y-3">
-        <a href="{{ route('invoicing.offline.pos') }}" class="block bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs opacity-90 uppercase font-bold">Venda rápida</p>
-                    <p class="text-lg font-bold">POS — Ponto de Venda</p>
-                    <p class="text-xs opacity-80">Emite Fatura-Recibo offline em segundos</p>
+        @if(isset($atalhos['pos']))
+            <a href="{{ route('invoicing.offline.pos') }}" class="block bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90 uppercase font-bold">Venda rápida</p>
+                        <p class="text-lg font-bold">POS — Ponto de Venda</p>
+                        <p class="text-xs opacity-80">Emite Fatura-Recibo offline em segundos</p>
+                    </div>
+                    <i class="fas fa-cash-register text-3xl opacity-80"></i>
                 </div>
-                <i class="fas fa-cash-register text-3xl opacity-80"></i>
-            </div>
-        </a>
-        {{-- O restaurante só aparece a quem tem o módulo. A verificação é do
-             servidor e fica gravada na cópia que o service worker guarda, que
-             é a que se vê sem rede. --}}
-        @if(auth()->check() && optional(auth()->user()->activeTenant())->hasModule('restaurant'))
+            </a>
+        @endif
+        @if(isset($atalhos['restaurante']))
             <a href="{{ route('invoicing.offline.restaurant') }}" class="block bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
                 <div class="flex items-center justify-between">
                     <div>
@@ -216,26 +224,30 @@
                 </div>
             </a>
         @endif
-        <a href="{{ route('invoicing.offline.draft-new') }}" class="block bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs opacity-90 uppercase font-bold">Novo</p>
-                    <p class="text-lg font-bold">Rascunho de Fatura</p>
-                    <p class="text-xs opacity-80">Cria rascunho mesmo sem internet</p>
+        @if(isset($atalhos['documentos']))
+            <a href="{{ route('invoicing.offline.draft-new') }}" class="block bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90 uppercase font-bold">Novo</p>
+                        <p class="text-lg font-bold">Rascunho de Fatura</p>
+                        <p class="text-xs opacity-80">Cria rascunho mesmo sem internet</p>
+                    </div>
+                    <i class="fas fa-file-circle-plus text-3xl opacity-80"></i>
                 </div>
-                <i class="fas fa-file-circle-plus text-3xl opacity-80"></i>
-            </div>
-        </a>
-        <a href="{{ route('invoicing.offline.client-new') }}" class="block bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs opacity-90 uppercase font-bold">Novo</p>
-                    <p class="text-lg font-bold">Cliente</p>
-                    <p class="text-xs opacity-80">Sincroniza automaticamente quando voltar online</p>
+            </a>
+        @endif
+        @if(isset($atalhos['clientes']))
+            <a href="{{ route('invoicing.offline.client-new') }}" class="block bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-90 uppercase font-bold">Novo</p>
+                        <p class="text-lg font-bold">Cliente</p>
+                        <p class="text-xs opacity-80">Sincroniza automaticamente quando voltar online</p>
+                    </div>
+                    <i class="fas fa-user-plus text-3xl opacity-80"></i>
                 </div>
-                <i class="fas fa-user-plus text-3xl opacity-80"></i>
-            </div>
-        </a>
+            </a>
+        @endif
     </div>
 
     {{-- Painel de manutenção / sincronização --}}

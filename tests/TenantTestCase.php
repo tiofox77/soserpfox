@@ -97,6 +97,12 @@ abstract class TenantTestCase extends TestCase
 
         \App\Services\Invoicing\TaxResolver::clearCache();
 
+        // O menu do PWA decide uma vez por pedido e guarda a resposta. Num
+        // teste, "o pedido" é o processo inteiro: sem isto, a decisão de um
+        // teste sobrevivia para o seguinte e as permissões mudadas a meio não
+        // faziam efeito nenhum.
+        \App\Support\MenuDoPwa::esquecerMemoria();
+
         $this->armazem = Warehouse::getDefault($this->tenant->id)
             ?? Warehouse::create([
                 'tenant_id'  => $this->tenant->id,

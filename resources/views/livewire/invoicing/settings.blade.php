@@ -77,6 +77,10 @@
                             <i class="fas fa-cash-register mr-3"></i>
                             {{ __('POS - Ponto de Venda') }}
                         </a>
+                        <a href="#pwa" class="flex items-center px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-xl">
+                            <i class="fas fa-mobile-screen-button mr-3"></i>
+                            {{ __('Aplicação Móvel (PWA)') }}
+                        </a>
                         <a href="{{ route('invoicing.notification-gateways') }}" class="flex items-center px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-xl">
                             <i class="fas fa-satellite-dish mr-3"></i>
                             {{ __('Gateways de Notificação') }}
@@ -1442,6 +1446,44 @@
                                     </p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ============ APLICAÇÃO MÓVEL (PWA) ============ --}}
+                <div id="pwa" class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-1 flex items-center">
+                        <i class="fas fa-mobile-screen-button mr-2 text-purple-600"></i>
+                        {{ __('Aplicação Móvel (PWA)') }}
+                    </h2>
+                    <p class="text-sm text-gray-500 mb-5">
+                        {{ __('O que aparece no telemóvel e no tablet. Desligue o que não usar — menos ecrãs é menos sítios onde o empregado se perde.') }}
+                    </p>
+
+                    @php $entradasPwa = \App\Support\MenuDoPwa::configuraveis(auth()->user()?->activeTenant()); @endphp
+
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        @foreach($entradasPwa as $chave => $entrada)
+                            <label wire:key="pwa-menu-{{ $chave }}"
+                                   class="flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition
+                                          {{ in_array($chave, $pwa_menu ?? [], true) ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-gray-300' }}">
+                                <input type="checkbox" wire:model.live="pwa_menu" value="{{ $chave }}"
+                                       class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500">
+                                <i class="fas {{ $entrada['icone'] }} text-lg text-gray-500 w-5 text-center"></i>
+                                <span class="font-semibold text-gray-800">{{ __($entrada['etiqueta']) }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+
+                    {{-- Desligar uma entrada FECHA a rota, não só esconde o
+                         botão. Dizê-lo aqui evita a surpresa de alguém pensar
+                         que o endereço continua a servir. --}}
+                    <div class="mt-4 flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <i class="fas fa-circle-info text-blue-500 mt-0.5"></i>
+                        <div class="text-sm text-blue-900 space-y-1">
+                            <p>{{ __('O Início nunca se desliga — sem ele não há como voltar atrás na aplicação.') }}</p>
+                            <p>{{ __('Desligar aqui fecha mesmo o ecrã: quem escrever o endereço à mão leva 403.') }}</p>
+                            <p>{{ __('As permissões do utilizador continuam a mandar. Quem não vê clientes no sistema também não os vê no telemóvel, mesmo com a entrada ligada.') }}</p>
                         </div>
                     </div>
                 </div>

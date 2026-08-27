@@ -883,14 +883,43 @@
                     });
 
                     if (result.success) {
-                        await db.rest_orders.update(comanda.local_uuid, {
+                        const f = result.invoice;
+
+                        const mudanca = {
                             _synced: 1,
                             _server_id: result.id,
                             _server_number: result.order_number,
                             _server_status: result.status,
                             _avisos: result.avisos || [],
-                            _invoice_number: result.invoice?.invoice_number || null,
-                        });
+                            _invoice_number: f?.invoice_number || null,
+                        };
+
+                        // O QUE FAZ DO TALÃO UM COMPROVATIVO FISCAL.
+                        //
+                        // Sem rede imprimiu-se um papel provisório; agora que
+                        // o documento existe, o talão reimpresso passa a levar
+                        // número, ATCUD, QR e hash — e os TOTAIS do servidor,
+                        // não os que o aparelho tinha calculado. Misturar
+                        // número real com totais locais dá um talão que não
+                        // bate com os livros.
+                        if (f) {
+                            mudanca._invoice_id = f.id;
+                            mudanca._invoice_type = f.invoice_type || null;
+                            mudanca._server_atcud = f.atcud || null;
+                            mudanca._server_qr = f.qr_image || null;
+                            mudanca._server_hash = f.hash_short || null;
+                            mudanca._hash_control = f.hash_control || '1';
+
+                            if (typeof f.total === 'number') { mudanca.total = f.total; }
+                            if (typeof f.subtotal === 'number') { mudanca.subtotal = f.subtotal; }
+                            if (typeof f.tax_amount === 'number') { mudanca.tax = f.tax_amount; }
+                            if (typeof f.discount_amount === 'number') { mudanca.discount_amount = f.discount_amount; }
+                            if (f.client_name) { mudanca.client_name = f.client_name; }
+                            if (f.client_nif) { mudanca.client_nif = f.client_nif; }
+                            if (Array.isArray(f.items) && f.items.length) { mudanca.items_facturados = f.items; }
+                        }
+
+                        await db.rest_orders.update(comanda.local_uuid, mudanca);
 
                         // A mesa pode ter mudado de dono no servidor: quando a
                         // comanda abriu ao balcão, a mesa que o aparelho tinha
@@ -1527,8 +1556,17 @@
                     }
                 }
 
+                const identificador = uuidV4();
+
                 const comanda = {
-                    local_uuid: uuidV4(),
+                    local_uuid: identificador,
+                    // O número que se imprime no talão enquanto o verdadeiro
+                    // não chega. Sem rede não há sequência CMD- que se possa
+                    // inventar: ela é do servidor, e inventá-la aqui daria dois
+                    // aparelhos a produzir a mesma. Este diz ao empregado que é
+                    // provisório sem ele ter de saber o que isso quer dizer.
+                    provisional_number: 'MESA-' + dataDeHoje().replace(/-/g, '')
+                        + '-' + identificador.slice(-6).toUpperCase(),
                     venue_id,
                     table_id,
                     channel: channel || (table_id ? 'table' : 'counter'),
@@ -1699,6 +1737,66 @@
                 await window.SosPwa.enqueue('sync_restaurant_order', { local_uuid: uuid });
 
                 return db.rest_orders.get(uuid);
+            },
+
+            /**
+             * A comanda na forma que o talão sabe imprimir.
+             *
+             * O talão é o mesmo do balcão — mesmo papel, mesmo rodapé, mesmo
+             * certificado AGT — porque é o mesmo documento fiscal. O que muda é
+             * o cabeçalho: a mesa e o número da comanda, que é o que o cliente
+             * confere quando lhe entregam a conta.
+             *
+             * Antes de sincronizar sai PROVISÓRIO, com o aviso a dizê-lo. Depois
+             * de subir, sai com número, ATCUD, QR e hash — e com os totais do
+             * servidor, que são os que ficaram nos livros.
+             */
+            async talao(uuid) {
+                const c = await db.rest_orders.get(uuid);
+
+                if (!c) { return null; }
+
+                const metodos = (await db.meta.get('payment_methods'))?.value || [];
+                const metodo = metodos.find((m) => m.id === c.checkout?.payment_method_id);
+                const mesa = c.table_id ? await db.rest_tables.get(c.table_id) : null;
+
+                // As linhas do SERVIDOR quando existem: se o preço mudou entre
+                // a venda e a sincronização, é o documento que manda.
+                const linhas = (c.items_facturados || c.items || []).map((i) => ({
+                    product_name: i.product_name,
+                    quantity: i.quantity,
+                    unit_price: i.unit_price,
+                    tax_rate: i.tax_rate,
+                }));
+
+                return {
+                    _synced: c._synced ? 1 : 0,
+                    _server_number: c._invoice_number || null,
+                    provisional_number: c.provisional_number,
+                    _server_qr: c._server_qr || null,
+                    _server_atcud: c._server_atcud || null,
+                    _server_hash: c._server_hash || null,
+                    hash_control: c._hash_control || '1',
+
+                    doc_type: c.checkout?.document_type || 'FR',
+                    // O cabeçalho que faz deste talão o de uma MESA e não o do
+                    // balcão. Ver pos-offline-ticket.js.
+                    origem: mesa ? (mesa.name || mesa.code) : null,
+                    origem_numero: c._server_number || null,
+
+                    created_at: c.closed_at || c.created_at,
+                    client_name: c.client_name || null,
+                    client_nif: c.client_nif || null,
+                    payment_method: metodo?.code || metodo?.type || 'cash',
+                    // Numa comanda não há troco a calcular: paga-se a conta.
+                    amount_received: c.total,
+                    subtotal: c.subtotal,
+                    discount_amount: c.discount_amount || 0,
+                    tax: c.tax,
+                    total: c.total,
+                    notes: c.notes || null,
+                    items: linhas,
+                };
             },
 
             /** Descarta uma comanda que nunca chegou a ter nada nem a subir. */

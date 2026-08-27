@@ -2799,5 +2799,17 @@
     "Comanda não encontrada.": "Commande introuvable.",
     "Uma comanda vazia não se factura.": "Une commande vide ne peut pas être facturée.",
     "Só se descarta uma comanda vazia e por enviar.": "Seule une commande vide et non envoyée peut être supprimée.",
-    "O armazém escolhido já não existe nesta empresa.": "L'entrepôt choisi n'existe plus dans cette entreprise."
+    "O armazém escolhido já não existe nesta empresa.": "L'entrepôt choisi n'existe plus dans cette entreprise.",
+    "Aplicação Móvel (PWA)": "Application mobile (PWA)",
+    "O que aparece no telemóvel e no tablet. Desligue o que não usar — menos ecrãs é menos sítios onde o empregado se perde.": "Ce qui apparaît sur le téléphone et la tablette. Désactivez ce que vous n'utilisez pas — moins d'écrans, moins d'endroits où le personnel se perd.",
+    "O Início nunca se desliga — sem ele não há como voltar atrás na aplicação.": "L'Accueil ne se désactive jamais — sans lui, impossible de revenir en arrière dans l'application.",
+    "Desligar aqui fecha mesmo o ecrã: quem escrever o endereço à mão leva 403.": "Désactiver ici ferme vraiment l'écran : taper l'adresse à la main renvoie 403.",
+    "As permissões do utilizador continuam a mandar. Quem não vê clientes no sistema também não os vê no telemóvel, mesmo com a entrada ligada.": "Les permissions de l'utilisateur priment toujours. Qui ne voit pas les clients dans le système ne les voit pas non plus sur le téléphone, même si l'entrée est activée.",
+    "Sem acesso": "Aucun accès",
+    "Não tem acesso a :area": "Vous n'avez pas accès à :area",
+    "Esta área pertence a um módulo que a sua empresa não tem activo.": "Cette zone appartient à un module que votre entreprise n'a pas activé.",
+    "A sua conta não tem permissão para esta área, ou a empresa desligou-a nas definições da aplicação móvel.": "Votre compte n'a pas la permission pour cette zone, ou l'entreprise l'a désactivée dans les paramètres de l'application mobile.",
+    "Permissão em falta": "Permission manquante",
+    "Peça ao administrador da empresa.": "Demandez à l'administrateur de votre entreprise.",
+    "Mesas": "Tables"
 }

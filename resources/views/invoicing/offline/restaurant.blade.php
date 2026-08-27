@@ -56,9 +56,11 @@
             <p class="text-xs font-bold text-red-800">{{ __('Turno fechado') }}</p>
             <p class="text-[11px] text-red-600">{{ __('Sem turno aberto as comandas não sobem. Abra-o no POS.') }}</p>
         </div>
-        <a href="{{ route('invoicing.offline.pos') }}" class="shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">
-            {{ __('Abrir turno') }}
-        </a>
+        @if(\App\Support\MenuDoPwa::podeVer('pos'))
+            <a href="{{ route('invoicing.offline.pos') }}" class="shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">
+                {{ __('Abrir turno') }}
+            </a>
+        @endif
     </div>
 
     {{-- ================================================================
@@ -110,6 +112,35 @@
                         <p class="text-sm font-bold text-slate-800" x-text="__n(':n artigo|:n artigos', (c.items||[]).length, { n: (c.items||[]).length })"></p>
                         <p class="text-sm font-black text-orange-600" x-text="formatMoney(c.total) + ' Kz'"></p>
                     </button>
+                </template>
+            </div>
+        </div>
+
+        {{-- ============ ÚLTIMAS CONTAS ============
+             Para reimprimir. A primeira impressão falha mais do que se pensa —
+             papel a acabar, impressora desligada — e o talão provisório passa a
+             definitivo assim que a comanda sobe. Sem isto, o cliente que volta
+             a pedir a factura ficava sem ela. --}}
+        <div x-show="contasFechadas.length" x-cloak class="space-y-2">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">{{ __('Últimas contas') }}</p>
+            <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <template x-for="c in contasFechadas" :key="c.local_uuid">
+                    <div class="shrink-0 min-w-[190px] bg-white rounded-2xl shadow-sm border border-slate-200 p-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-bold truncate"
+                                   :class="c._invoice_number ? 'text-emerald-600' : 'text-amber-600'"
+                                   x-text="c._invoice_number || __('Por sincronizar')"></p>
+                                <p class="text-sm font-black text-slate-800" x-text="formatMoney(c.total) + ' Kz'"></p>
+                                <p class="text-[10px] text-slate-400" x-text="nomeDaMesa(c.table_id)"></p>
+                            </div>
+                            <button @click="imprimirTalao(c.local_uuid)"
+                                    class="shrink-0 h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600"
+                                    :title="__('Imprimir talão')">
+                                <i class="fas fa-print"></i>
+                            </button>
+                        </div>
+                    </div>
                 </template>
             </div>
         </div>
@@ -429,11 +460,25 @@
                 <i class="fas text-5xl" :class="recibo?.numero ? 'fa-circle-check' : 'fa-clock'"></i>
                 <p class="mt-3 text-[10px] font-black uppercase tracking-widest"
                    x-text="recibo?.numero ? __('Documento emitido') : __('Guardado neste aparelho')"></p>
-                <h2 class="text-xl font-black" x-text="recibo?.numero || __('Sobe quando houver rede')"></h2>
+                <h2 class="text-xl font-black" x-text="recibo?.numero || recibo?.provisorio || __('Sobe quando houver rede')"></h2>
             </div>
-            <div class="p-5">
+            <div class="p-5 space-y-3">
                 <p class="text-center text-2xl font-black text-slate-800" x-text="formatMoney(recibo?.total) + ' Kz'"></p>
-                <button @click="recibo = null; voltarSala()" class="mt-5 w-full rounded-xl bg-slate-900 text-white p-3 font-black">
+
+                {{-- O TALÃO É O QUE O CLIENTE LEVA.
+                     Sem rede sai provisório, com o aviso a dizê-lo — é o mesmo
+                     papel do balcão, e não uma versão de segunda. Quando a
+                     comanda subir, reimprime-se com número, ATCUD e QR. --}}
+                <button @click="imprimirTalao(recibo.local_uuid)"
+                        class="w-full rounded-xl bg-slate-900 hover:bg-slate-800 text-white p-4 font-black transition">
+                    <i class="fas fa-print mr-2 text-orange-300"></i>{{ __('Imprimir talão') }}
+                </button>
+
+                <p x-show="!recibo?.numero" x-cloak class="text-[11px] text-amber-700 text-center">
+                    {{ __('Sai como provisório. Reimprima depois de sincronizar para levar o número fiscal.') }}
+                </p>
+
+                <button @click="recibo = null; voltarSala()" class="w-full rounded-xl border border-slate-300 p-3 font-bold text-slate-600">
                     {{ __('Continuar') }}
                 </button>
             </div>
@@ -452,7 +497,7 @@ function posRestaurante() {
         vista: 'sala',
         online: navigator.onLine,
 
-        salas: [], zonas: [], mesas: [],
+        salas: [], zonas: [], mesas: [], todasAsMesas: [],
         salaId: null, zonaId: null,
         definicoes: {},
         turno: { open: false },
@@ -462,6 +507,7 @@ function posRestaurante() {
 
         comanda: null,
         comandasSemMesa: [],
+        contasFechadas: [],
 
         mostrarReceber: false,
         aReceber: false,
@@ -491,6 +537,14 @@ function posRestaurante() {
                 if (e.detail?.avisos?.length) {
                     this.avisos = [...this.avisos, ...e.detail.avisos];
                 }
+
+                // O número fiscal chega segundos depois de o cliente pagar, e
+                // quem está com o talão na mão ainda ali está. Trocar o
+                // provisório pelo definitivo poupa uma reimpressão.
+                if (this.recibo && e.detail?.local_uuid === this.recibo.local_uuid) {
+                    this.recibo = { ...this.recibo, numero: e.detail.invoice_number || this.recibo.numero };
+                }
+
                 this.carregarTudo();
             });
 
@@ -545,8 +599,15 @@ function posRestaurante() {
 
         async carregarMesas() {
             this.mesas = await window.SosPwa.restaurante.mesas(this.salaId, this.zonaId);
+            this.todasAsMesas = await window.SosPwa.restaurante.mesas();
             this.comandasSemMesa = (await window.SosPwa.restaurante.comandas())
                 .filter((c) => !c.table_id);
+
+            // Só as últimas: a lista serve para reimprimir o que acabou de
+            // sair, não para ser um histórico — esse vive no sistema.
+            this.contasFechadas = (await window.SosPwa.restaurante.comandas(true))
+                .filter((c) => c.status === 'fechada')
+                .slice(0, 8);
         },
 
         // ---- A sala ----
@@ -581,8 +642,16 @@ function posRestaurante() {
             return cores[mesa.status] || 'bg-white border-slate-200 text-slate-700';
         },
 
+        /**
+         * Procura em TODAS as mesas e não só nas da zona escolhida: a lista
+         * das últimas contas mostra mesas de qualquer zona, e uma conta que
+         * dissesse só "Mesa" não ajudava ninguém a encontrá-la.
+         */
         nomeDaMesa(id) {
-            const m = this.mesas.find((x) => x.id === id);
+            if (!id) { return @json(__('Balcão')); }
+
+            const m = this.todasAsMesas.find((x) => x.id === id)
+                || this.mesas.find((x) => x.id === id);
 
             return m ? (m.name || m.code) : @json(__('Mesa'));
         },
@@ -745,8 +814,10 @@ function posRestaurante() {
 
                 this.mostrarReceber = false;
                 this.recibo = {
+                    local_uuid: fechada.local_uuid,
                     numero: comNumero?._invoice_number || null,
-                    total: fechada.total,
+                    provisorio: fechada.provisional_number,
+                    total: comNumero?.total ?? fechada.total,
                 };
 
                 this.comanda = null;
@@ -774,6 +845,27 @@ function posRestaurante() {
             }
 
             return null;
+        },
+
+        /**
+         * Imprime o talão da conta — o mesmo do balcão, porque é o mesmo
+         * documento fiscal. Muda o cabeçalho: leva a mesa e o número da
+         * comanda.
+         */
+        async imprimirTalao(uuid) {
+            const talao = await window.SosPwa.restaurante.talao(uuid);
+
+            if (!talao) {
+                return alert(@json(__('Não foi possível montar o talão desta conta.')));
+            }
+
+            if (!window.PosOfflineTicket) {
+                return alert(@json(__('O módulo de impressão não carregou. Recarregue a página com internet.')));
+            }
+
+            const empresa = (await window.SosPwa.db.meta.get('company'))?.value || {};
+
+            window.PosOfflineTicket.print(talao, empresa);
         },
 
         formatMoney(v) {

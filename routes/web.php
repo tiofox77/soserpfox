@@ -192,21 +192,29 @@ Route::post('/invoicing/offline/sair', \App\Http\Controllers\Invoicing\PwaSairCo
 Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offline.')->group(function () {
     // O funcionario define/muda o PIN de turno (login offline no POS).
     Route::get('pin', \App\Livewire\Invoicing\Offline\DefinirPin::class)->name('pin');
+    // CADA ECRÃ TEM A PORTA QUE O MENU USA PARA O DESENHAR.
+    //
+    // O middleware `pwa:<chave>` pergunta o mesmo que o menu — módulo da
+    // empresa, permissão do utilizador, e a escolha da empresa nas definições
+    // (ver App\Support\MenuDoPwa). Antes o menu escondia a entrada e a rota
+    // abria na mesma a quem escrevesse o endereço: esconder um botão não é
+    // fechar uma porta, e as duas regras viviam em ficheiros diferentes, por
+    // isso discordavam.
+    //
+    // O 403 é deliberado: o service worker só guarda respostas OK, portanto um
+    // ecrã a que o utilizador não tem direito nem chega a ficar no aparelho.
     Route::get('/', fn() => view('invoicing.offline.index'))->name('index');
-    Route::get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
-    Route::get('/clients', fn() => view('invoicing.offline.clients'))->name('clients');
-    Route::get('/clients/new', fn() => view('invoicing.offline.client-form'))->name('client-new');
-    Route::get('/drafts', fn() => view('invoicing.offline.drafts'))->name('drafts');
-    Route::get('/drafts/new', fn() => view('invoicing.offline.draft-form'))->name('draft-new');
-    Route::get('/pos', fn() => view('invoicing.offline.pos'))->name('pos');
-
-    // POS de Restaurante offline. O módulo é a chave: sem ele isto responde
-    // 403 e o service worker, que só guarda respostas OK, nem sequer chega a
-    // pré-guardar a página — a empresa que não tem restaurante não fica com um
-    // ecrã de restaurante escondido no telemóvel.
-    Route::middleware('tenant.module:restaurant')
-        ->get('/restaurant', fn() => view('invoicing.offline.restaurant'))
-        ->name('restaurant');
+    Route::middleware('pwa:catalogo')->get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
+    Route::middleware('pwa:clientes')->group(function () {
+        Route::get('/clients', fn() => view('invoicing.offline.clients'))->name('clients');
+        Route::get('/clients/new', fn() => view('invoicing.offline.client-form'))->name('client-new');
+    });
+    Route::middleware('pwa:documentos')->group(function () {
+        Route::get('/drafts', fn() => view('invoicing.offline.drafts'))->name('drafts');
+        Route::get('/drafts/new', fn() => view('invoicing.offline.draft-form'))->name('draft-new');
+    });
+    Route::middleware('pwa:pos')->get('/pos', fn() => view('invoicing.offline.pos'))->name('pos');
+    Route::middleware('pwa:restaurante')->get('/restaurant', fn() => view('invoicing.offline.restaurant'))->name('restaurant');
     // Saída do PWA → redireciona para a 1ª área a que o utilizador tem permissão
     Route::get('/exit', \App\Http\Controllers\Invoicing\PwaExitController::class)->name('exit');
 });

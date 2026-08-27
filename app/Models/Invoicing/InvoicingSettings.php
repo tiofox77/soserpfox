@@ -76,6 +76,8 @@ class InvoicingSettings extends Model
         'pos_auto_complete_sale',
         'pos_require_customer',
         'pos_default_payment_method_id',
+        // Que entradas do PWA a empresa quer no aparelho — ver App\Support\MenuDoPwa.
+        'pwa_menu',
         // Perfil do negócio
         'profile_pharmacy',
         'profile_clothing',
@@ -101,6 +103,7 @@ class InvoicingSettings extends Model
     ];
 
     protected $casts = [
+        'pwa_menu' => 'array',
         'default_exchange_rate' => 'decimal:4',
         'default_tax_rate' => 'decimal:2',
         'default_irt_rate' => 'decimal:2',

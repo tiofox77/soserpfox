@@ -147,6 +147,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'tenant.active' => \App\Http\Middleware\CheckTenantActive::class,
             'api.token' => \App\Http\Middleware\ResolveApiToken::class,
+            // A porta de cada ecra do PWA, com a mesma regra que desenha o menu.
+            'pwa' => \App\Http\Middleware\EntradaDoPwa::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -2799,5 +2799,17 @@
     "Comanda não encontrada.": "Order not found.",
     "Uma comanda vazia não se factura.": "An empty order cannot be invoiced.",
     "Só se descarta uma comanda vazia e por enviar.": "Only an empty, unsent order can be discarded.",
-    "O armazém escolhido já não existe nesta empresa.": "The chosen warehouse no longer exists in this company."
+    "O armazém escolhido já não existe nesta empresa.": "The chosen warehouse no longer exists in this company.",
+    "Aplicação Móvel (PWA)": "Mobile App (PWA)",
+    "O que aparece no telemóvel e no tablet. Desligue o que não usar — menos ecrãs é menos sítios onde o empregado se perde.": "What appears on the phone and the tablet. Turn off what you do not use — fewer screens means fewer places for staff to get lost.",
+    "O Início nunca se desliga — sem ele não há como voltar atrás na aplicação.": "Home can never be turned off — without it there is no way back in the app.",
+    "Desligar aqui fecha mesmo o ecrã: quem escrever o endereço à mão leva 403.": "Turning it off here really closes the screen: typing the address by hand returns 403.",
+    "As permissões do utilizador continuam a mandar. Quem não vê clientes no sistema também não os vê no telemóvel, mesmo com a entrada ligada.": "User permissions still rule. Someone who cannot see clients in the system will not see them on the phone either, even with the entry turned on.",
+    "Sem acesso": "No access",
+    "Não tem acesso a :area": "You do not have access to :area",
+    "Esta área pertence a um módulo que a sua empresa não tem activo.": "This area belongs to a module your company does not have active.",
+    "A sua conta não tem permissão para esta área, ou a empresa desligou-a nas definições da aplicação móvel.": "Your account does not have permission for this area, or the company turned it off in the mobile app settings.",
+    "Permissão em falta": "Missing permission",
+    "Peça ao administrador da empresa.": "Ask your company administrator.",
+    "Mesas": "Tables"
 }

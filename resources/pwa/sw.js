@@ -54,8 +54,8 @@ const PRECACHE_URLS = [
 
     // ── O código da aplicação offline. É ISTO que faz o trabalho: sem
     //    ele o ecrã carrega e não sabe fazer nada. ──────────────────────
-    '/js/pwa-invoicing.js?v=20',
-    '/js/pos-offline-ticket.js?v=3',
+    '/js/pwa-invoicing.js?v=21',
+    '/js/pos-offline-ticket.js?v=4',
 ];
 
 /**
