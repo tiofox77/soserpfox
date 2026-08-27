@@ -62,7 +62,11 @@ test.describe('PWA — a rede volta', () => {
         await aparelhoPreparado(page);
 
         const uuid = 'idem-' + Date.now();
-        const nif = String(500000000 + Math.floor(Math.random() * 99999999));
+        // NIF único por CONSTRUÇÃO, e não por sorte: a bancada acumula
+        // clientes entre corridas, e um NIF repetido fazia o servidor
+        // devolver o cliente antigo — o ensaio passava umas vezes e
+        // falhava outras, sem nada a ver com a idempotência que mede.
+        const nif = "5" + String(Date.now()).slice(-9);
 
         // Envia duas vezes o MESMO identificador, como faria um reenvio.
         const primeiro = await avaliar(page, async ({ uuid, nif }) => {

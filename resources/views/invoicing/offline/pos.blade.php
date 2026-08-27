@@ -13,13 +13,28 @@
     $logoDoPos = asset('pwa/icon-192x192.png');
 @endphp
 <div x-data="posOffline()" x-init="init()" x-cloak class="-mx-4 -my-4">
-    <div class="lg:grid lg:grid-cols-12 lg:h-[calc(100vh-116px)]">
+    {{-- Altura em `dvh` e nao `vh`, e a descontar o cromado REAL.
+
+         `100vh` no telemovel conta a barra do browser como se nao
+         existisse, e o fundo do ecra fica escondido por baixo dela; `dvh`
+         acompanha-a. E os 116px eram um numero magico que ja nao batia:
+         o cabecalho tem 60 e a barra de navegacao de baixo 77, portanto
+         os ultimos 21px da coluna ficavam por baixo dela e nao se
+         chegava la. --}}
+    <div class="lg:grid lg:grid-cols-12 lg:h-[calc(100dvh-137px)]">
 
         {{-- ============ COLUNA ESQUERDA — PRODUTOS ============ --}}
         <section class="lg:col-span-7 xl:col-span-8 bg-slate-100 lg:h-full lg:flex lg:flex-col lg:overflow-hidden">
 
             {{-- Barra de pesquisa + categorias (fixa) --}}
-            <div class="sticky top-14 z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
+            {{-- `lg:static`: no desktop esta barra NAO pode ser sticky.
+                 A partir de lg a coluna dos artigos e uma coluna flex com o
+                 seu proprio scroll, e a barra ja esta fora dela. Sticky com
+                 `top-14` empurrava-a 56px para baixo do lugar dela e TAPAVA
+                 44px do topo da primeira fila de cartoes — era o corte que se
+                 via. No telemovel continua sticky, porque ai quem rola e a
+                 pagina inteira e a barra tem de acompanhar. --}}
+            <div class="sticky top-14 lg:static z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
                 <div class="flex gap-2 items-center">
                     <div class="flex-1 flex items-center gap-2 bg-white rounded-2xl shadow-sm px-3 h-12">
                         <i class="fas fa-magnifying-glass text-gray-400"></i>
