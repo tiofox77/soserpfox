@@ -438,9 +438,29 @@
                 await db.meta.delete('offline_valid_until');
                 await db.meta.delete('pin_attempts');
                 try { sessionStorage.removeItem('pwa_unlocked'); } catch (_) {}
+
+                // O que ficou por subir da empresa anterior fica RETIDO, não
+                // apagado e não enviado. Avisa-se, porque uma venda parada que
+                // ninguém vê é uma venda perdida na mesma — só mais devagar.
+                let retidos = 0;
+                try {
+                    retidos = await db.sync_queue
+                        .where('status').anyOf('pending', 'outra_empresa')
+                        .filter((j) => j.tenant_id && j.tenant_id !== newTenant)
+                        .count();
+                } catch (_) {}
+
                 window.dispatchEvent(new CustomEvent('pwa:tenant-changed', {
-                    detail: { prev: prevTenant, next: newTenant },
+                    detail: { prev: prevTenant, next: newTenant, retidos },
                 }));
+
+                if (retidos > 0) {
+                    console.warn('[PWA] ' + retidos + ' operação(ões) da empresa anterior ficaram retidas.');
+                    // Barra de aviso, como a dos erros de sincronização: este
+                    // ficheiro não tem toast() e um alert() bloqueava o ecrã a
+                    // meio de uma sincronização.
+                    mostrarAvisoRetidos(retidos);
+                }
             }
 
             await db.meta.put({ key: 'user', value: json.user });
@@ -540,11 +560,63 @@
         }
     }
 
+    /**
+     * Avisa que ficaram operações da empresa anterior por enviar.
+     *
+     * Fica na barra e NÃO desaparece sozinha: uma venda retida que ninguém vê
+     * é uma venda perdida na mesma, só mais devagar. Sai quando se toca.
+     */
+    function mostrarAvisoRetidos(quantos) {
+        try {
+            const bar = document.getElementById('pwa-status-bar');
+            if (!bar) return;
+
+            // A barra esconde-se quando não há nada a dizer; um aviso destes
+            // tem de a trazer de volta.
+            bar.classList.remove('hidden');
+
+            let aviso = document.getElementById('pwa-retidos');
+            if (!aviso) {
+                aviso = document.createElement('div');
+                aviso.id = 'pwa-retidos';
+                aviso.className = 'bg-amber-500 text-white text-xs px-3 py-2 cursor-pointer';
+                aviso.onclick = () => aviso.remove();
+                bar.appendChild(aviso);
+            }
+
+            aviso.innerHTML = '<i class="fas fa-triangle-exclamation mr-1"></i>'
+                + __(':n operação(ões) da empresa anterior ficaram por enviar. Volte a entrar nessa empresa para as sincronizar.', { n: quantos });
+        } catch (_) {}
+    }
+
     async function processQueue() {
         const pending = await db.sync_queue.where('status').equals('pending').sortBy('created_at');
         if (!pending.length) return;
 
+        // A empresa a que a sessão actual pertence. Um trabalho criado noutra
+        // empresa NÃO pode ser enviado com esta sessão — ver a guarda no ciclo.
+        const empresaActual = (await db.meta.get('tenant_id'))?.value ?? null;
+
         for (const job of pending) {
+            // ── A venda de uma empresa nunca entra nos livros de outra ──────
+            //
+            // O aparelho pode mudar de empresa (o wipe mais abaixo existe para
+            // isso) e a fila é preservada de propósito, para não se perder o
+            // que ainda não subiu. Mas sem esta guarda, uma venda feita offline
+            // para a empresa A era enviada com a sessão da empresa B e ficava
+            // gravada nos livros de B — com número fiscal de B e comunicada à
+            // AGT em nome de B. O servidor valida o OPERADOR, mas quando ele
+            // não pertence à empresa cai para o utilizador da sessão em vez de
+            // recusar: não é defesa contra isto.
+            //
+            // Fica parada, visível, à espera de alguém decidir. Apagar seria
+            // perder uma venda; enviar seria pior.
+            if (job.tenant_id && empresaActual && job.tenant_id !== empresaActual) {
+                console.warn('[PWA] Trabalho de outra empresa, retido:', job.op, job.tenant_id, '≠', empresaActual);
+                await db.sync_queue.update(job.id, { status: 'outra_empresa' });
+                continue;
+            }
+
             try {
                 let result;
                 if (job.op === 'create_client') {
@@ -736,9 +808,18 @@
                 }
             } catch (_) {}
         }
+        // A empresa fica CARIMBADA no trabalho, no momento em que ele nasce.
+        // É o que permite ao processQueue recusar-se a enviar para outra
+        // empresa depois de o aparelho mudar de mãos.
+        let empresaDoTrabalho = null;
+        try {
+            empresaDoTrabalho = (await db.meta.get('tenant_id'))?.value ?? null;
+        } catch (_) {}
+
         await db.sync_queue.add({
             op,
             payload,
+            tenant_id: empresaDoTrabalho,
             created_at: new Date().toISOString(),
             retries: 0,
             status: 'pending',
