@@ -58,6 +58,11 @@ class MaintenanceController extends Controller
         'planos:trial-automatico',
         'planos:dias-de-teste',
         'planos:coerencia',
+        // Preço de CATÁLOGO de um módulo. Só toca em `modules.default_price`:
+        // as empresas que já têm o módulo guardam o preço acordado no pivot e
+        // não são reescritas. O mesmo se faz em /superadmin/modules — isto
+        // serve para o fazer sem sessão aberta e deixar rasto no log.
+        'modulos:preco',
         // Facturas de renovação. Corre-se SEMPRE com ?args=--so-ver primeiro:
         // sem isso emite facturas a sério, e uma factura é um documento que o
         // cliente vê e sobre o qual lhe é pedido dinheiro.

@@ -1191,7 +1191,7 @@
                         // Restantes módulos
                         // 'sector_note': só a faturação a leva, porque é o único
                         // módulo cujo catálogo muda de forma consoante o negócio.
-                        ['slug' => 'vendas', 'name' => 'Vendas & Faturação', 'icon' => 'fa-cash-register', 'desc' => 'POS, faturação certificada AGT, gestão de clientes e produtos. Funciona offline.', 'from' => '#ea580c', 'to' => '#dc2626', 'sector_note' => true],
+                        ['slug' => 'vendas', 'name' => 'Vendas & Faturação', 'icon' => 'fa-cash-register', 'desc' => 'Orçamentos e propostas com modelos próprios, POS, faturação certificada AGT, gestão de clientes e produtos. Funciona offline.', 'from' => '#ea580c', 'to' => '#dc2626', 'sector_note' => true],
                         ['slug' => 'restaurant', 'name' => 'Gestão de Restaurante', 'icon' => 'fa-utensils', 'desc' => 'Sala e mesas, comandas digitais, cozinha/KDS, reservas, fichas técnicas, stock e faturação AGT integrada.', 'from' => '#f97316', 'to' => '#b91c1c', 'featured' => true],
                         ['slug' => 'hotel', 'name' => 'Gestão de Hotel', 'icon' => 'fa-hotel', 'desc' => 'Booking engine, channel manager, check-in/out, housekeeping e analytics.', 'from' => '#0891b2', 'to' => '#2563eb'],
                         ['slug' => 'salao', 'name' => 'Salão de Beleza', 'icon' => 'fa-spa', 'desc' => 'Agendamento online, comissões automáticas, fidelização e lembretes por SMS.', 'from' => '#db2777', 'to' => '#9333ea'],
@@ -1618,7 +1618,14 @@
                             <i class="fas fa-check text-green-600 mt-1"></i>
                             <div>
                                 <p class="font-bold text-sm text-gray-900">Faturação AGT</p>
-                                <p class="text-xs text-gray-600">Vendas, Compras, Proformas, Recibos</p>
+                                <p class="text-xs text-gray-600">Vendas, Compras, Orçamentos, Proformas, Recibos</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                            <i class="fas fa-check text-green-600 mt-1"></i>
+                            <div>
+                                <p class="font-bold text-sm text-gray-900">Orçamentos & Propostas</p>
+                                <p class="text-xs text-gray-600">Modelos com editor visual, campos por preencher e conversão em fatura</p>
                             </div>
                         </div>
                         <div class="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
