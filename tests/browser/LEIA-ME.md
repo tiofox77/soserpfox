@@ -117,6 +117,15 @@ fixas e conhecidas — num servidor a sério seriam uma porta aberta. A verifica
 > **O PWA nao faz documentos de COMPRA.** So de venda. Facturas e proformas
 > de compra fazem-se no sistema online.
 
+**Entrada** (`pwa-entrada.spec.js`)
+- **sessão expirada com rede pede a palavra-passe, não o PIN** — o PIN não cria
+  sessão; com rede, oferecê-lo é um beco
+- sem rede, a entrada é pelo PIN
+- **sem rede, o PIN leva mesmo ao POS** — o PIN sempre conferiu; o que falhava
+  era o destino
+- com sessão viva, o estado é online
+- o motor distingue sessão morta de falta de rede
+
 **Ecrã inicial** (`pwa-inicio.spec.js`)
 - **o que apaga dados não está à vista** — "Apagar tudo" leva as vendas por
   sincronizar com ele; um dedo enganado no ecrã inicial não pode chegar lá

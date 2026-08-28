@@ -54,7 +54,7 @@ const PRECACHE_URLS = [
 
     // ── O código da aplicação offline. É ISTO que faz o trabalho: sem
     //    ele o ecrã carrega e não sabe fazer nada. ──────────────────────
-    '/js/pwa-invoicing.js?v=21',
+    '/js/pwa-invoicing.js?v=22',
     '/js/pos-offline-ticket.js?v=4',
 ];
 
@@ -69,6 +69,15 @@ const PRECACHE_URLS = [
  * e uma falha aqui não pode impedir o resto de ficar guardado.
  */
 const PRECACHE_PAGINAS = [
+    // A ENTRADA. Estava na lista de recurso e faltava nesta — e é a única
+    // página que TEM de existir sem rede: é para onde vai quem não tem sessão,
+    // e sem sessão nem rede não há como a ir buscar ao servidor. Num aparelho
+    // acabado de instalar, ou depois de a sessão caducar longe da cobertura, o
+    // operador encontrava um ecrã de erro em vez do sítio onde põe o PIN.
+    //
+    // É pública (não passa pelo `auth`), portanto responde sempre 200 e o
+    // guardarPagina() guarda-a sem hesitar.
+    '/invoicing/offline/login',
     '/invoicing/offline',
     '/invoicing/offline/pos',
     // O POS de restaurante. Responde 403 a quem não tem o módulo, e o
@@ -332,6 +341,21 @@ self.addEventListener('fetch', (event) => {
     // 3) Assets estáticos (CSS, JS, fonts) → Cache First
     if (isStaticAsset(url)) {
         event.respondWith(cacheFirst(request, STATIC_CACHE));
+        return;
+    }
+
+    // 3b) O PING NUNCA VEM DO CACHE.
+    //
+    // O ping existe para responder a uma pergunta sobre AGORA: chego ao
+    // servidor, e com sessão? Servi-lo do cache responde sobre o passado — e
+    // uma resposta guardada de quando havia sessão dizia "sim" muito depois de
+    // ela ter morrido. O motor decide por ele se está online, se a sessão
+    // expirou ou se não há rede; com um ping em conserva, decide sempre mal.
+    //
+    // Sem rede o fetch falha e quem chamou trata disso, que é precisamente o
+    // que se quer que ele conclua.
+    if (url.pathname === '/api/v1/invoicing/ping') {
+        event.respondWith(fetch(request));
         return;
     }
 

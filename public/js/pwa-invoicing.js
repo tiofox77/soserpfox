@@ -69,6 +69,48 @@
     // ========================
     // VERIFICAÇÃO REAL DE CONECTIVIDADE
     // ========================
+    /**
+     * Três estados, e não dois: `'online'`, `'sessao_expirada'`, `'offline'`.
+     *
+     * O `checkRealOnline()` responde sim ou não, e para sincronizar isso chega
+     * — sem sessão não se sincroniza, tal como sem rede. Mas quem PERGUNTA por
+     * causa do ecrã precisa de saber a diferença, e misturá-las produziu esta
+     * avaria:
+     *
+     *   1. a sessão do Laravel expira (basta o aparelho ficar parado);
+     *   2. o ping devolve 401, e o `checkRealOnline` conta isso como "sem
+     *      rede" — o ecrã de entrada anuncia "Sem ligação — entrada local"
+     *      com o telemóvel cheio de sinal;
+     *   3. o operador põe o PIN, que confere, porque o PIN é um desbloqueio
+     *      LOCAL e não sabe nada da sessão do servidor;
+     *   4. a aplicação salta para o POS, o pedido vai pela rede que existe, o
+     *      `auth` responde com um desvio para /login — e o operador aterra na
+     *      entrada normal, sem perceber porquê.
+     *
+     * Duas camadas a discordar sobre o mesmo facto: o motor dizia "offline", o
+     * service worker dizia "online, vai fazer login". Pelo meio, quem só quer
+     * vender. Uma sessão morta NÃO é falta de ligação, e o ecrã tem de o
+     * dizer: com rede, quem resolve é a palavra-passe.
+     */
+    async function estadoDaLigacao() {
+        if (!navigator.onLine) { return 'offline'; }
+
+        try {
+            const r = await fetch('/api/v1/invoicing/ping', {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                signal: AbortSignal.timeout(5000),
+            });
+
+            if (r.status === 401 || r.status === 419) { return 'sessao_expirada'; }
+
+            return r.ok ? 'online' : 'offline';
+        } catch (_) {
+            return 'offline';
+        }
+    }
+
     async function checkRealOnline() {
         if (!navigator.onLine) { state.realOnline = false; return false; }
         try {
@@ -1135,6 +1177,7 @@
         sync,
         enqueue,
         refreshPendingCount,
+        estadoDaLigacao,
 
         // Helpers de consulta
         async getProducts(filter = {}) {
