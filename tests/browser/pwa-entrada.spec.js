@@ -135,6 +135,58 @@ test.describe('PWA — entrada', () => {
         ).toBeGreaterThanOrEqual(5);
     });
 
+    /**
+     * A ENTRADA INSTALA O MODO OFFLINE POR SI. Sem isto, nada do resto vale.
+     *
+     * O registo do service worker vivia só no `layouts.pwa` — ou seja, DENTRO
+     * da aplicação. Quem chegasse primeiro à entrada (instalação nova, dados do
+     * site limpos, ou a sessão a expirar e o `auth` a mandar para cá) ficava sem
+     * service worker nenhum, e a entrada nem sequer ficava guardada.
+     *
+     * O efeito só aparece no pior momento: enquanto há rede corre tudo bem, e no
+     * dia em que o servidor cai o browser mostra a SUA página de erro, como se o
+     * modo offline nunca tivesse existido — nem para pôr o PIN se volta.
+     *
+     * Este ensaio NÃO passa pela aplicação: vai direito à entrada, como um
+     * aparelho acabado de instalar.
+     */
+    test('a entrada instala o modo offline e sobrevive ao servidor cair', async ({ page, context }) => {
+        await irPara(page, '/invoicing/offline/login');
+
+        await page.waitForFunction(
+            () => navigator.serviceWorker && navigator.serviceWorker.controller !== null,
+            null,
+            { timeout: 45_000 }
+        );
+
+        // A própria entrada tem de ficar guardada: é a página a que se volta
+        // quando não há sessão, e sem sessão nem rede não há como a ir buscar.
+        await expect
+            .poll(
+                () => avaliar(page, async () => {
+                    const c = await caches.open('dynamic-paginas');
+
+                    return !!(await c.match('/invoicing/offline/login'));
+                }),
+                { message: 'a entrada tem de ficar em cache', timeout: 30_000 }
+            )
+            .toBe(true);
+
+        // O servidor desaparece.
+        await context.setOffline(true);
+        await irPara(page, '/invoicing/offline/login');
+
+        // Não pode ser a página de erro do browser nem a de offline: tem de
+        // ser a entrada, com o campo do PIN.
+        await expect(page.locator('body')).not.toContainText('Sem Conexão à Internet');
+        await esperarMotor(page);
+
+        const ecra = await ecraDeEntrada(page);
+
+        expect(ecra.estado, 'sem servidor, o estado é offline').toBe('offline');
+        expect(ecra.formPin, 'e tem de haver onde pôr o PIN').toBe(true);
+    });
+
     /** Com sessão viva, entra-se como sempre. */
     test('com sessão viva, o estado é online', async ({ page }) => {
         await aparelhoPreparado(page);

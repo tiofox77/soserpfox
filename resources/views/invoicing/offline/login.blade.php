@@ -341,5 +341,22 @@ function pwaLogin() {
 }
 
 </script>
+
+{{-- O SERVICE WORKER REGISTA-SE AQUI TAMBÉM — e isto faltava.
+
+     Esta é a porta de casa do PWA, e era a única página que não instalava
+     nada: o registo vivia só no `layouts.pwa`, ou seja, DENTRO da aplicação.
+     Quem chegasse primeiro à entrada — instalação nova, dados do site
+     limpos, ou a sessão a expirar e o `auth` a mandar para cá — ficava sem
+     service worker nenhum.
+
+     O efeito só aparece no pior momento: enquanto há rede corre tudo bem, e
+     no dia em que o servidor cai o browser mostra a SUA página de erro, como
+     se o modo offline nunca tivesse existido. E, sem service worker, esta
+     página também não fica guardada — portanto nem para pôr o PIN se volta.
+
+     O partial é autónomo (não depende de nada do layout) e já se protege
+     sozinho contra contexto não-seguro. --}}
+@include('partials.pwa-register')
 </body>
 </html>
