@@ -117,6 +117,25 @@ const API_ROUTES = [
     '/livewire/message',
 ];
 
+/**
+ * As páginas que podem substituir OUTRA página quando não há rede.
+ *
+ * Repare-se no que NÃO está aqui: a entrada. Servir o ecrã de entrada debaixo
+ * do endereço do POS é mentir ao operador — ele põe o PIN, a aplicação salta
+ * para o POS, e volta a aparecer a entrada. Um ciclo que se lê como "o botão
+ * não faz nada".
+ *
+ * Por ordem: o POS primeiro, que é a razão de a aplicação existir.
+ */
+const FALLBACKS_DE_APLICACAO = [
+    '/invoicing/offline/pos',
+    '/invoicing/offline',
+    '/invoicing/offline/index',
+    '/invoicing/offline/catalog',
+    '/invoicing/offline/clients',
+    '/invoicing/offline/drafts',
+];
+
 // Limite de itens no cache dinâmico (HTML páginas precisam de mais espaço para PWA offline)
 const DYNAMIC_CACHE_LIMIT = 250;
 const IMAGE_CACHE_LIMIT = 200;
@@ -475,12 +494,28 @@ async function networkFirst(request) {
             || url.pathname === '/dashboard'
             || url.pathname === '/pos';
         if (isPwaRoute) {
-            // Preferir sempre o POS offline (página inicial do PWA)
-            const pos = await caches.match('/invoicing/offline/pos');
-            if (pos) return pos;
-            for (const fallback of PWA_OFFLINE_FALLBACKS) {
+            // A ENTRADA NUNCA SERVE DE SUBSTITUTA DE OUTRA PÁGINA.
+            //
+            // Ela estava na lista de recurso, e era a única coisa guardada num
+            // aparelho que instalou o service worker sem sessão. O resultado
+            // era um ciclo fechado, e o pior tipo: o endereço dizia POS e o
+            // conteúdo era o ecrã de entrada. O operador punha o PIN, a
+            // aplicação saltava para o POS, o service worker devolvia a entrada
+            // outra vez — e ele via o mesmo ecrã, como se o botão não fizesse
+            // nada. "Coloco o PIN e não entra."
+            //
+            // Uma página só pode substituir outra quando é DA APLICAÇÃO. Se não
+            // houver nenhuma guardada, mais vale dizer que não há do que fingir
+            // que se entrou.
+            for (const fallback of FALLBACKS_DE_APLICACAO) {
                 const hit = await caches.match(fallback);
                 if (hit) return hit;
+            }
+
+            // A entrada só se serve a si própria, no seu próprio endereço.
+            if (url.pathname === '/invoicing/offline/login') {
+                const entrada = await caches.match('/invoicing/offline/login');
+                if (entrada) return entrada;
             }
         }
 

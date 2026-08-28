@@ -321,8 +321,26 @@
             setTimeout(() => {
                 Promise.allSettled(
                     URLS.map((u) => fetch(u, { credentials: 'same-origin', cache: 'no-store' }))
-                ).then(() => {
-                    try { localStorage.setItem(WARMUP_KEY, '1'); } catch (e) {}
+                ).then(async () => {
+                    // DAR POR FEITO SÓ QUANDO ESTÁ MESMO FEITO.
+                    //
+                    // Isto marcava-se como concluído aconteça o que acontecer:
+                    // o `allSettled` resolve na mesma quando os pedidos voltam
+                    // 302 para /login — que é o que acontece quando o
+                    // aquecimento corre sem sessão. Nada ficava guardado, a
+                    // marca ficava posta, e o aparelho NUNCA MAIS tentava:
+                    // ficava para sempre sem as páginas da aplicação, e sem
+                    // rede não tinha o POS para mostrar.
+                    //
+                    // Agora confirma-se no cache. Se não ficou lá, não se marca
+                    // — e da próxima vez tenta outra vez.
+                    try {
+                        const c = await caches.open('dynamic-paginas');
+
+                        if (await c.match('{{ route('invoicing.offline.pos') }}')) {
+                            localStorage.setItem(WARMUP_KEY, '1');
+                        }
+                    } catch (e) {}
                 });
             }, 1500);
         });

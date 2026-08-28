@@ -184,7 +184,12 @@ test.describe('PWA — entrada', () => {
         const ecra = await ecraDeEntrada(page);
 
         expect(ecra.estado, 'sem servidor, o estado é offline').toBe('offline');
-        expect(ecra.formPin, 'e tem de haver onde pôr o PIN').toBe(true);
+
+        // O PIN NÃO se exige aqui, e é de propósito: este aparelho nunca
+        // sincronizou a empresa, portanto não tem verificadores contra os quais
+        // conferir seja o que for. O que se mede é que a ENTRADA abre — em vez
+        // da página de erro do browser — e que explica o que falta.
+        await expect(page.locator('body')).toContainText('ainda não sincronizou');
     });
 
     /** Com sessão viva, entra-se como sempre. */
