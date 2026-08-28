@@ -8,7 +8,7 @@
             <div>
                 <h1 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-users"></i>Clientes</h1>
                 <p class="text-xs opacity-90 mt-0.5">
-                    <span x-text="clients.length"></span> em cache ·
+                    <span x-text="clients.length"></span> {{ __('neste aparelho') }} ·
                     <span x-text="pendingCount" class="font-bold"></span> por sincronizar
                 </p>
             </div>
@@ -51,7 +51,7 @@
         </template>
         <div x-show="!filtered.length" class="text-center py-16 text-gray-400">
             <i class="fas fa-users-slash text-5xl mb-3 block opacity-40"></i>
-            <p class="text-sm font-medium" x-text="search ? 'Nenhum cliente encontrado' : 'Sem clientes em cache'"></p>
+            <p class="text-sm font-medium" x-text="search ? '{{ __('Nenhum cliente encontrado') }}' : '{{ __('Ainda não há clientes neste aparelho') }}'"></p>
             <a href="{{ route('invoicing.offline.client-new') }}" class="inline-block mt-3 text-xs bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">
                 <i class="fas fa-user-plus mr-1"></i>Criar cliente
             </a>

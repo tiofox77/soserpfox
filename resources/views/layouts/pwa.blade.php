@@ -136,45 +136,41 @@
     </div>
 
     <header class="bg-gradient-to-r from-blue-700 to-blue-800 text-white shadow-lg sticky top-0 z-40">
-        <div class="px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <a href="{{ route('invoicing.offline.index') }}" class="flex items-center gap-2">
+        <div class="px-4 py-3 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <a href="{{ route('invoicing.offline.index') }}" class="flex items-center gap-2 min-w-0">
                     <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
                         <i class="fas fa-bolt"></i>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <p class="font-bold text-sm leading-tight">PWA Faturação</p>
-                        <p class="text-xs opacity-75 leading-tight">
-                            {{-- A versão que se lê é a DATA da última alteração.
+                        {{-- A VERSÃO CABE NUMA LINHA, e é a DATA que se lê.
 
-                                 Estava aqui "v2026.08.16.1 · b0243ac3a1": duas versões
-                                 correctas e nenhuma legível. Quem olha para o cabeçalho
-                                 faz uma pergunta só — já tenho a correcção de hoje? — e
-                                 um md5 não responde. A data responde.
+                             Estava aqui "v2026.08.16.1 · b0243ac3a1": duas versões
+                             correctas e nenhuma legível. Quem olha para o cabeçalho faz
+                             uma pergunta só — já tenho a correcção de hoje? — e um md5
+                             não responde. A data responde.
 
-                                 As duas continuam lá, no title, para quando é preciso
-                                 comparar aparelhos ao certo.
-
-                                 Duas versões, e as duas fazem falta.
-                                 A do changelog é a RELEASE — o que mudou e está escrito
-                                 em /changelog. A build é o que este aparelho está mesmo a
-                                 correr, e muda a cada deploy que toque no PWA. Só a
-                                 primeira não chegava: dizia 16.08 num aparelho a correr
-                                 código do dia 17, e não havia como distinguir aparelhos. --}}
-                            @php $__pwa = app(\App\Http\Controllers\PwaController::class); @endphp
-                            <span class="font-mono">v{{ $__pwa->numeroDeVersao() }}</span>
-                            ·
-                            <span class="font-semibold"
-                                  title="{{ __('Versão :v · assinatura :h', [
-                                      'v' => $__pwa->numeroDeVersao(),
-                                      'h' => $__pwa->buildVersion(),
-                                  ]) }}">{{ $__pwa->buildLabel() }}</span>
+                             Depois passaram a ser três coisas (número, data e "sync
+                             agora") e a linha partia-se ao meio, a chocar com os botões
+                             ao lado. O `truncate` corta em vez de partir, e o número da
+                             versão — que interessa uma vez por mês — sai do telemóvel e
+                             fica só no ecrã largo. Tudo continua no `title` e nas
+                             Ferramentas, para quando é preciso comparar aparelhos. --}}
+                        @php $__pwa = app(\App\Http\Controllers\PwaController::class); @endphp
+                        <p class="text-xs opacity-75 leading-tight truncate"
+                           title="{{ __('Versão :v · assinatura :h', [
+                               'v' => $__pwa->numeroDeVersao(),
+                               'h' => $__pwa->buildVersion(),
+                           ]) }}">
+                            <span class="font-mono hidden sm:inline">v{{ $__pwa->numeroDeVersao() }} · </span>
+                            <span class="font-semibold">{{ $__pwa->buildLabel() }}</span>
                             <span id="pwa-last-sync-badge" class="hidden ml-1 font-normal"></span>
                         </p>
                     </div>
                 </a>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
                 <button id="pwa-install-header" class="hidden px-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-lg text-xs font-bold transition" title="Instalar aplicação">
                     <i class="fas fa-download mr-1"></i>Instalar
                 </button>
@@ -360,8 +356,9 @@
                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">Password</label>
+                    <label id="pwa-offline-login-secret-label" class="block text-[11px] font-bold text-gray-600 uppercase mb-1">PIN de turno</label>
                     <input id="pwa-offline-login-password" type="password" required autocomplete="current-password"
+                           inputmode="numeric" maxlength="6"
                            class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none">
                 </div>
                 <p id="pwa-offline-login-error" class="hidden text-xs text-red-600 font-bold text-center"></p>
@@ -437,6 +434,8 @@
         function showOverlay(info) {
             overlay.classList.remove('hidden');
             const emailInput = document.getElementById('pwa-offline-login-email');
+            const secretInput = document.getElementById('pwa-offline-login-password');
+            const secretLabel = document.getElementById('pwa-offline-login-secret-label');
             // Modelo novo (funcionários com PIN): qualquer um entra, email
             // editável. Legado (um só operador): pré-preenche o email guardado.
             const legadoEmail = (info && info.employees === 0 && info.legacy) ? info.legacy.email : null;
@@ -444,12 +443,20 @@
                 emailInput.value = legadoEmail;
                 emailInput.readOnly = true;
                 subtitle.textContent = 'Insira a palavra-passe de ' + legadoEmail;
+                secretLabel.textContent = 'Palavra-passe';
+                secretInput.inputMode = 'text';
+                secretInput.removeAttribute('maxlength');
+                secretInput.autocomplete = 'current-password';
             } else {
                 emailInput.value = '';
                 emailInput.readOnly = false;
                 subtitle.textContent = 'Entre com o seu email e PIN de turno';
+                secretLabel.textContent = 'PIN de turno (4 a 6 dígitos)';
+                secretInput.inputMode = 'numeric';
+                secretInput.maxLength = 6;
+                secretInput.autocomplete = 'off';
             }
-            document.getElementById('pwa-offline-login-password').focus();
+            secretInput.focus();
         }
 
         function hideOverlay() {

@@ -21,7 +21,14 @@
         <button @click="typeFilter = 'FT'" :class="typeFilter === 'FT' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'" class="px-3.5 py-2 rounded-full font-semibold shadow-sm whitespace-nowrap">Faturas</button>
         <button @click="typeFilter = 'FR'" :class="typeFilter === 'FR' ? 'bg-emerald-600 text-white' : 'bg-white text-gray-600'" class="px-3.5 py-2 rounded-full font-semibold shadow-sm whitespace-nowrap">FR</button>
         <button @click="typeFilter = 'proforma'" :class="typeFilter === 'proforma' ? 'bg-amber-600 text-white' : 'bg-white text-gray-600'" class="px-3.5 py-2 rounded-full font-semibold shadow-sm whitespace-nowrap">Proformas</button>
-        <button @click="typeFilter = 'NC'" :class="typeFilter === 'NC' ? 'bg-red-600 text-white' : 'bg-white text-gray-600'" class="px-3.5 py-2 rounded-full font-semibold shadow-sm whitespace-nowrap">NC</button>
+        {{-- O FILTRO "NC" SAIU, porque o PWA não faz notas de crédito.
+
+             O formulário deixou de as oferecer há muito — o servidor escrevia-as
+             na tabela das VENDAS e nascia uma factura que não estornava nada.
+             O filtro ficou para trás e prometia uma lista que nunca pode ter
+             nada: quem lá tocava concluía que as suas notas de crédito se
+             tinham perdido. O rótulo continua no mapa de tipos, para uma NC
+             antiga vinda do servidor continuar a mostrar-se com o nome certo. --}}
     </div>
 
     <div class="space-y-2">

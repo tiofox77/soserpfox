@@ -117,6 +117,14 @@ fixas e conhecidas — num servidor a sério seriam uma porta aberta. A verifica
 > **O PWA nao faz documentos de COMPRA.** So de venda. Facturas e proformas
 > de compra fazem-se no sistema online.
 
+**Ecrã inicial** (`pwa-inicio.spec.js`)
+- **o que apaga dados não está à vista** — "Apagar tudo" leva as vendas por
+  sincronizar com ele; um dedo enganado no ecrã inicial não pode chegar lá
+- as ferramentas de suporte ficam na gaveta
+- **mas continuam todas lá** — esconder não é apagar
+- vender está à vista, e cabe no primeiro ecrã
+- o cabeçalho cabe numa linha (a 360px)
+
 **Restaurante** (`pwa-restaurante.spec.js`)
 - **o módulo e a sala descem na sincronização** — é a activação: sem o módulo
   não há mesas, sem mesas não há entrada no menu, e o endereço escrito à mão

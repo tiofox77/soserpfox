@@ -4,7 +4,9 @@
 <div x-data="catalog()" x-init="init()" x-cloak>
     <div class="mb-4">
         <h1 class="text-2xl font-bold text-gray-900 mb-1"><i class="fas fa-box mr-2 text-blue-600"></i>Catálogo</h1>
-        <p class="text-xs text-gray-500">Funciona offline — <span x-text="products.length"></span> produtos em cache</p>
+        {{-- "Em cache" é palavra de quem escreve o programa. Ao balcão a
+             pergunta é outra: tenho aqui os artigos para vender sem rede? --}}
+        <p class="text-xs text-gray-500"><span x-text="products.length"></span> {{ __('artigos guardados neste aparelho') }}</p>
     </div>
 
     <div class="mb-3">
@@ -26,11 +28,16 @@
                     <div class="flex gap-3 text-xs text-gray-500 mt-0.5">
                         <span x-show="p.sku"><i class="fas fa-barcode mr-1"></i><span x-text="p.sku"></span></span>
                         <span x-show="p.type === 'servico'" class="text-purple-600 font-semibold">Serviço</span>
-                        <span x-show="p.type !== 'servico'">Stock: <strong x-text="p.stock_quantity"></strong></span>
+                        {{-- "Stock: 0" num artigo que NÃO controla stock —
+                             um prato de restaurante, por exemplo — lê-se como
+                             esgotado, e não é: vende-se sempre. O POS já fazia
+                             esta distinção; a lista dizia o contrário. --}}
+                        <span x-show="p.type !== 'servico' && p.manage_stock !== false">{{ __('Stock:') }} <strong x-text="p.stock_quantity"></strong></span>
+                        <span x-show="p.type !== 'servico' && p.manage_stock === false" class="text-sky-600">{{ __('Sem stock gerido') }}</span>
                     </div>
                 </div>
                 <div class="text-right">
-                    <p class="font-bold text-blue-700" x-text="formatMoney(p.price)"></p>
+                    <p class="font-bold text-blue-700"><span x-text="formatMoney(p.price)"></span> <span class="text-xs font-semibold opacity-70">Kz</span></p>
                     <p class="text-xs text-gray-500">IVA <span x-text="p.tax_rate"></span>%</p>
                 </div>
             </div>

@@ -2,26 +2,22 @@
 
 @section('content')
 <div x-data="pwaHome()" x-init="init()" x-cloak>
-    <div class="bg-gradient-to-br from-blue-700 to-indigo-800 text-white rounded-2xl shadow-xl p-5 mb-4">
-        <p class="text-xs opacity-80 uppercase font-bold">{{ __('Olá') }}</p>
-        <h1 class="text-xl font-bold" x-text="userName">…</h1>
-        <p class="text-xs opacity-75" x-show="userEmail" x-text="userEmail"></p>
+    {{-- QUEM SOU E ONDE ESTOU, em duas linhas.
 
-        {{-- Empresa e armazém: quem trabalha em mais do que uma empresa precisa
-             de saber em qual está ANTES de vender, e não depois. --}}
-        <div class="mt-3 pt-3 border-t border-white/20 space-y-1 text-sm">
-            <p x-show="companyName">
-                <i class="fas fa-building mr-1.5 opacity-75"></i>
-                <span class="font-semibold" x-text="companyName"></span>
-                <span class="opacity-70 text-xs" x-show="companyNif" x-text="' · NIF ' + companyNif"></span>
-            </p>
-            <p x-show="warehouseName">
-                <i class="fas fa-warehouse mr-1.5 opacity-75"></i>
-                <span x-text="warehouseName"></span>
-            </p>
-            <p class="opacity-90">
-                <i class="fas fa-clock mr-1.5 opacity-75"></i>
-                {{ __('Última sincronização:') }} <span x-text="lastSyncText">a verificar…</span>
+         Era um bloco azul que ocupava um terço do ecrã para dizer o nome, o
+         email, a empresa, o NIF, o armazém e a última sincronização — seis
+         coisas que quase nunca mudam, todas em destaque, antes de qualquer
+         coisa que se possa fazer. O que ali interessa mesmo é UMA: em que
+         empresa é que estou, porque quem trabalha em duas precisa de saber
+         isso ANTES de vender. O resto passou para as Ferramentas. --}}
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-lg"
+             x-text="(userName || '?').trim().charAt(0).toUpperCase()">?</div>
+        <div class="min-w-0 flex-1">
+            <p class="text-base font-bold text-gray-800 leading-tight truncate" x-text="userName">…</p>
+            <p class="text-xs text-gray-500 truncate">
+                <span x-show="companyName" x-text="companyName"></span>
+                <span x-show="warehouseName" class="text-gray-400" x-text="' · ' + warehouseName"></span>
             </p>
         </div>
     </div>
@@ -75,72 +71,6 @@
                 <p class="text-sm font-bold text-emerald-700" x-text="kz(shift.total)"></p>
             </div>
         </div>
-    </div>
-
-    {{-- KPIs do cache local --}}
-    <div class="grid grid-cols-2 gap-3 mb-4">
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
-            <p class="text-xs font-bold text-blue-600 uppercase">Produtos em cache</p>
-            <p class="text-2xl font-bold mt-1" x-text="counts.products">—</p>
-        </div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-cyan-500">
-            <p class="text-xs font-bold text-cyan-600 uppercase">Clientes em cache</p>
-            <p class="text-2xl font-bold mt-1" x-text="counts.clients">—</p>
-        </div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-amber-500">
-            <p class="text-xs font-bold text-amber-600 uppercase">Rascunhos locais</p>
-            <p class="text-2xl font-bold mt-1" x-text="counts.drafts">—</p>
-        </div>
-        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-red-500">
-            <p class="text-xs font-bold text-red-600 uppercase">Por sincronizar</p>
-            <p class="text-2xl font-bold mt-1 text-red-700" x-text="counts.pending">—</p>
-        </div>
-    </div>
-
-    {{-- Facturas vendidas hoje --}}
-    <div class="bg-white rounded-xl shadow p-4 mb-4">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-bold text-gray-800">
-                <i class="fas fa-receipt text-emerald-600 mr-1"></i>{{ __('Facturas de hoje') }}
-            </h2>
-            <span class="text-sm font-bold text-emerald-700" x-text="kz(vendas.valor)">—</span>
-        </div>
-
-        <div class="flex gap-2 mb-3">
-            <div class="flex-1 bg-emerald-50 rounded-lg px-3 py-2">
-                <p class="text-[10px] uppercase font-bold text-emerald-700">{{ __('Emitidas') }}</p>
-                <p class="text-lg font-bold text-emerald-800" x-text="vendas.total - vendas.porEmitir">—</p>
-            </div>
-            {{-- Só aparece quando há alguma por emitir: um zero permanente a
-                 vermelho ensina o operador a ignorar o aviso. --}}
-            <div x-show="vendas.porEmitir > 0" x-cloak class="flex-1 bg-amber-50 rounded-lg px-3 py-2">
-                <p class="text-[10px] uppercase font-bold text-amber-700">{{ __('Por emitir') }}</p>
-                <p class="text-lg font-bold text-amber-800" x-text="vendas.porEmitir">—</p>
-            </div>
-        </div>
-
-        <template x-if="!vendas.ultimas.length">
-            <p class="text-xs text-gray-400 text-center py-3">{{ __('Ainda não há vendas hoje.') }}</p>
-        </template>
-
-        <ul class="divide-y divide-gray-100">
-            <template x-for="v in vendas.ultimas" :key="v.numero">
-                <li class="py-2 flex items-center justify-between gap-2">
-                    <div class="min-w-0">
-                        <p class="text-xs font-semibold truncate" x-text="v.numero"></p>
-                        <p class="text-[11px] text-gray-500 truncate">
-                            <span x-text="v.hora"></span> · <span x-text="v.cliente"></span>
-                        </p>
-                    </div>
-                    <div class="text-right shrink-0">
-                        <p class="text-xs font-bold" x-text="kz(v.total)"></p>
-                        <p class="text-[10px]"
-                           :class="v.emitida ? 'text-emerald-600' : 'text-amber-600'"
-                           x-text="v.emitida ? '{{ __('emitida') }}' : '{{ __('por emitir') }}'"></p>
-                    </div>
-                </li>
-            </template>
-        </ul>
     </div>
 
     {{-- Fila de envio --}}
@@ -199,134 +129,252 @@
          e a escolha da empresa (App\Support\MenuDoPwa). Um atalho para um ecrã
          que responde 403 é pior do que não ter atalho nenhum: parece avaria. --}}
     @php $atalhos = \App\Support\MenuDoPwa::visiveis(); @endphp
-    <div class="space-y-3">
+
+    {{-- HIERARQUIA, e não um arco-íris.
+
+         Eram quatro faixas de largura inteira em quatro cores a gritar — o
+         vermelho, o laranja, o verde e o roxo todos com o mesmo peso. Sem
+         hierarquia, o olho não sabe onde pousar, e "Cliente" pesava tanto como
+         o POS, que é a razão de a aplicação existir.
+
+         Agora: o que se usa a toda a hora fica grande e a cor; o resto fica
+         numa grelha calma por baixo. --}}
+    <div class="space-y-2.5">
         @if(isset($atalhos['pos']))
-            <a href="{{ route('invoicing.offline.pos') }}" class="block bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs opacity-90 uppercase font-bold">Venda rápida</p>
-                        <p class="text-lg font-bold">POS — Ponto de Venda</p>
-                        <p class="text-xs opacity-80">Emite Fatura-Recibo offline em segundos</p>
-                    </div>
-                    <i class="fas fa-cash-register text-3xl opacity-80"></i>
-                </div>
-            </a>
-        @endif
-        @if(isset($atalhos['restaurante']))
-            <a href="{{ route('invoicing.offline.restaurant') }}" class="block bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs opacity-90 uppercase font-bold">{{ __('Sala') }}</p>
-                        <p class="text-lg font-bold">{{ __('POS Restaurante') }}</p>
-                        <p class="text-xs opacity-80">{{ __('Mesas, comandas e conta — funciona sem rede') }}</p>
-                    </div>
-                    <i class="fas fa-utensils text-3xl opacity-80"></i>
-                </div>
-            </a>
-        @endif
-        @if(isset($atalhos['documentos']))
-            <a href="{{ route('invoicing.offline.draft-new') }}" class="block bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs opacity-90 uppercase font-bold">Novo</p>
-                        <p class="text-lg font-bold">Rascunho de Fatura</p>
-                        <p class="text-xs opacity-80">Cria rascunho mesmo sem internet</p>
-                    </div>
-                    <i class="fas fa-file-circle-plus text-3xl opacity-80"></i>
-                </div>
-            </a>
-        @endif
-        @if(isset($atalhos['clientes']))
-            <a href="{{ route('invoicing.offline.client-new') }}" class="block bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs opacity-90 uppercase font-bold">Novo</p>
-                        <p class="text-lg font-bold">Cliente</p>
-                        <p class="text-xs opacity-80">Sincroniza automaticamente quando voltar online</p>
-                    </div>
-                    <i class="fas fa-user-plus text-3xl opacity-80"></i>
-                </div>
-            </a>
-        @endif
-    </div>
-
-    {{-- Painel de manutenção / sincronização --}}
-    <div class="mt-4 bg-white rounded-2xl shadow p-4">
-        <div class="flex items-center justify-between mb-3">
-            <p class="text-xs font-bold text-gray-600 uppercase"><i class="fas fa-screwdriver-wrench mr-1"></i>Manutenção &amp; Sincronização</p>
-            <span x-show="busy" class="text-[10px] text-blue-600 font-bold"><i class="fas fa-spinner fa-spin mr-1"></i><span x-text="busyText"></span></span>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-            <button @click="partialSync()" :disabled="busy" class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
-                <i class="fas fa-rotate mr-1"></i>Sync Parcial
-                <span class="block text-[9px] font-normal opacity-70">só alterações recentes</span>
-            </button>
-            <button @click="forceSync()" :disabled="busy" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
-                <i class="fas fa-arrows-rotate mr-1"></i>Sync Completa
-                <span class="block text-[9px] font-normal opacity-70">re-descarrega catálogo todo</span>
-            </button>
-            <button @click="clearCatalog()" :disabled="busy" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
-                <i class="fas fa-broom mr-1"></i>Limpar Catálogo
-                <span class="block text-[9px] font-normal opacity-70">produtos + clientes sincronizados</span>
-            </button>
-            <button @click="resetAll()" :disabled="busy" class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
-                <i class="fas fa-triangle-exclamation mr-1"></i>Reset Total
-                <span class="block text-[9px] font-normal opacity-70">apaga TUDO incl. pendentes</span>
-            </button>
-        </div>
-
-        {{-- A cópia fica LOGO A SEGUIR ao Reset Total, e de propósito: é o
-             botão que faz perder tudo, e quem lá chega deve ver primeiro a
-             forma de salvar o que ainda não foi enviado. --}}
-        <div class="mt-2">
-            <button @click="exportarCopia()" :disabled="busy"
-                    class="w-full bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
-                <i class="fas fa-download mr-1"></i>Guardar cópia do que falta enviar
-                <span class="block text-[9px] font-normal opacity-70">
-                    ficheiro para importar no sistema se este aparelho se perder
+            <a href="{{ route('invoicing.offline.pos') }}"
+               class="flex items-center gap-4 bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl shadow-lg shadow-orange-600/20 p-4 active:scale-[.99] transition">
+                <span class="w-12 h-12 shrink-0 rounded-2xl bg-white/20 flex items-center justify-center">
+                    <i class="fas fa-cash-register text-xl"></i>
                 </span>
-            </button>
-        </div>
-        <div class="mt-2 grid grid-cols-3 gap-2">
-            <button @click="forceUpdateApp()" :disabled="busy" class="bg-purple-100 hover:bg-purple-200 text-purple-800 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-50">
-                <i class="fas fa-cloud-arrow-down mr-1"></i>Atualizar App
-            </button>
-            {{-- O diagnostico do servidor nao ve a fila, que vive no aparelho.
-                 Sem ela, uma venda presa e invisivel de fora. --}}
-            <button type="button" @click="diagnosticar" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold text-center">
-                <i class="fas fa-stethoscope mr-1"></i>Diagnosticar
-            </button>
-            <a href="/api/v1/invoicing/diagnose" target="_blank" class="hidden">
-                <i class="fas fa-stethoscope mr-1"></i>Diagnosticar
+                <span class="min-w-0 flex-1">
+                    <span class="block text-lg font-bold leading-tight">{{ __('Vender') }}</span>
+                    <span class="block text-xs opacity-85">{{ __('Balcão — Fatura-Recibo em segundos') }}</span>
+                </span>
+                <i class="fas fa-chevron-right opacity-60"></i>
             </a>
-            <button @click="detailsOpen = !detailsOpen" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold">
-                <i class="fas fa-circle-info mr-1"></i><span x-text="detailsOpen ? 'Ocultar' : 'Detalhes'"></span>
-            </button>
-        </div>
-        <p class="mt-2 text-[10px] text-gray-400 text-center">Versão instalada: <strong>{{ config('changelog.current', '—') }}</strong></p>
-        <p x-show="statusMsg" x-text="statusMsg" class="mt-2 text-[11px] font-bold" :class="statusOk ? 'text-emerald-700' : 'text-red-600'"></p>
+        @endif
 
-        {{-- Detalhes do cache local --}}
-        <div x-show="detailsOpen" x-cloak class="mt-3 bg-gray-50 rounded-xl p-3 text-[11px] text-gray-700 space-y-1 font-mono">
-            <p>Última sync: <strong x-text="lastSyncText"></strong></p>
-            <p>Produtos: <strong x-text="counts.products"></strong> · Isentos (0%): <strong x-text="detail.exemptProducts"></strong> · Com IVA: <strong x-text="detail.taxedProducts"></strong></p>
-            <p>Clientes: <strong x-text="counts.clients"></strong> (<span x-text="detail.unsyncedClients"></span> por sincronizar)</p>
-            <p>Vendas POS locais: <strong x-text="detail.posSales"></strong> (<span x-text="detail.unsyncedPosSales"></span> por sincronizar)</p>
-            <p>Fila de sync: <strong x-text="detail.queuePending"></strong> pendentes · <strong x-text="detail.queueFailed"></strong> com erro</p>
-            <p>Login offline: <strong x-text="detail.offlineAuth"></strong></p>
-            <p>Turno: <strong x-text="detail.shift"></strong></p>
+        @if(isset($atalhos['restaurante']))
+            <a href="{{ route('invoicing.offline.restaurant') }}"
+               class="flex items-center gap-4 bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl shadow-lg shadow-amber-600/20 p-4 active:scale-[.99] transition">
+                <span class="w-12 h-12 shrink-0 rounded-2xl bg-white/20 flex items-center justify-center">
+                    <i class="fas fa-utensils text-xl"></i>
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-lg font-bold leading-tight">{{ __('Mesas') }}</span>
+                    <span class="block text-xs opacity-85">{{ __('Sala, comandas e conta') }}</span>
+                </span>
+                <i class="fas fa-chevron-right opacity-60"></i>
+            </a>
+        @endif
+
+        {{-- O que se faz de vez em quando: sem cor de fundo, para não competir
+             com o que se faz a toda a hora. --}}
+        @if(isset($atalhos['documentos']) || isset($atalhos['clientes']))
+            <div class="grid grid-cols-2 gap-2.5">
+                @if(isset($atalhos['documentos']))
+                    <a href="{{ route('invoicing.offline.draft-new') }}"
+                       class="bg-white rounded-2xl shadow-sm p-4 active:scale-[.99] transition">
+                        <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
+                            <i class="fas fa-file-circle-plus"></i>
+                        </span>
+                        <span class="block text-sm font-bold text-gray-800">{{ __('Novo documento') }}</span>
+                        <span class="block text-[11px] text-gray-400 leading-tight">{{ __('Fatura ou proforma') }}</span>
+                    </a>
+                @endif
+                @if(isset($atalhos['clientes']))
+                    <a href="{{ route('invoicing.offline.client-new') }}"
+                       class="bg-white rounded-2xl shadow-sm p-4 active:scale-[.99] transition">
+                        <span class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-2">
+                            <i class="fas fa-user-plus"></i>
+                        </span>
+                        <span class="block text-sm font-bold text-gray-800">{{ __('Novo cliente') }}</span>
+                        <span class="block text-[11px] text-gray-400 leading-tight">{{ __('Sobe quando houver rede') }}</span>
+                    </a>
+                @endif
+            </div>
+        @endif
+    </div>
+
+    {{-- O QUE ESTE APARELHO TEM, numa linha.
+
+         Eram quatro caixas grandes a dizer "PRODUTOS EM CACHE" e "CLIENTES EM
+         CACHE" — palavras de quem escreve o programa, não de quem o usa: ao
+         balcão ninguém sabe o que é uma cache, e a pergunta que se faz é
+         "tenho aqui os artigos?". Além disso, "Por sincronizar" repetia o
+         cartão de baixo, que já mostra O QUÊ está preso e não só quantos. --}}
+    <div class="flex items-stretch bg-white rounded-2xl shadow-sm mb-4 divide-x divide-gray-100">
+        <div class="flex-1 px-3 py-3 text-center">
+            <p class="text-xl font-bold text-gray-800 leading-none" x-text="counts.products">—</p>
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">{{ __('Artigos') }}</p>
+        </div>
+        <div class="flex-1 px-3 py-3 text-center">
+            <p class="text-xl font-bold text-gray-800 leading-none" x-text="counts.clients">—</p>
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">{{ __('Clientes') }}</p>
+        </div>
+        <div class="flex-1 px-3 py-3 text-center">
+            <p class="text-xl font-bold text-gray-800 leading-none" x-text="counts.drafts">—</p>
+            <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-1">{{ __('Documentos') }}</p>
         </div>
     </div>
 
-    <div class="mt-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg text-xs text-blue-900">
-        <p class="font-bold mb-1"><i class="fas fa-circle-info mr-1"></i>Como funciona o modo PWA</p>
-        <ul class="list-disc ml-5 space-y-1">
-            <li>Catálogo e clientes são guardados no dispositivo</li>
-            <li>Rascunhos de fatura criados offline são <strong>enviados ao servidor</strong> ao reconectar</li>
-            <li>A <strong>numeração fiscal e hash AGT</strong> só são atribuídos no servidor (online)</li>
-            <li>Rascunhos não têm validade fiscal até serem finalizados</li>
+    {{-- Facturas vendidas hoje --}}
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-gray-800">
+                <i class="fas fa-receipt text-emerald-600 mr-1"></i>{{ __('Facturas de hoje') }}
+            </h2>
+            <span class="text-sm font-bold text-emerald-700" x-text="kz(vendas.valor)">—</span>
+        </div>
+
+        {{-- O DIA VAZIO OCUPA UMA LINHA, não meio ecrã.
+
+             Estava aqui uma caixa verde grande com "EMITIDAS 0" e, logo por
+             baixo, "Ainda não há vendas hoje" — duas maneiras de dizer o mesmo
+             nada, e a ocupar mais espaço do que um dia cheio de vendas. De
+             manhã, que é quando isto se abre, era o maior elemento do ecrã. --}}
+        <template x-if="vendas.total > 0">
+            <div class="flex gap-2 mb-3">
+                <div class="flex-1 bg-emerald-50 rounded-lg px-3 py-2">
+                    <p class="text-[10px] uppercase font-bold text-emerald-700">{{ __('Emitidas') }}</p>
+                    <p class="text-lg font-bold text-emerald-800" x-text="vendas.total - vendas.porEmitir">—</p>
+                </div>
+                {{-- Só aparece quando há alguma por emitir: um zero permanente a
+                     vermelho ensina o operador a ignorar o aviso. --}}
+                <div x-show="vendas.porEmitir > 0" x-cloak class="flex-1 bg-amber-50 rounded-lg px-3 py-2">
+                    <p class="text-[10px] uppercase font-bold text-amber-700">{{ __('Por emitir') }}</p>
+                    <p class="text-lg font-bold text-amber-800" x-text="vendas.porEmitir">—</p>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="!vendas.ultimas.length">
+            <p class="text-xs text-gray-400">{{ __('Ainda não há vendas hoje.') }}</p>
+        </template>
+
+        <ul class="divide-y divide-gray-100">
+            <template x-for="v in vendas.ultimas" :key="v.numero">
+                <li class="py-2 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold truncate" x-text="v.numero"></p>
+                        <p class="text-[11px] text-gray-500 truncate">
+                            <span x-text="v.hora"></span> · <span x-text="v.cliente"></span>
+                        </p>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="text-xs font-bold" x-text="kz(v.total)"></p>
+                        <p class="text-[10px]"
+                           :class="v.emitida ? 'text-emerald-600' : 'text-amber-600'"
+                           x-text="v.emitida ? '{{ __('emitida') }}' : '{{ __('por emitir') }}'"></p>
+                    </div>
+                </li>
+            </template>
         </ul>
     </div>
+
+    {{-- ============ FERRAMENTAS ============
+
+         ESTAVA TUDO ABERTO NO ECRÃ INICIAL: sete botões técnicos, com o
+         "Reset Total — apaga TUDO incl. pendentes" a um toque de distância no
+         ecrã que o empregado vê primeiro de manhã. Não é só feio; é uma venda
+         por sincronizar à distância de um dedo enganado.
+
+         Estas ferramentas continuam todas cá — servem quando alguma coisa
+         corre mal, e é para isso que existem. O que muda é a ordem das coisas:
+         quem abre a aplicação para vender vê o que é de vender; quem vem
+         resolver um problema abre esta gaveta. --}}
+    <details class="mt-4 group bg-white rounded-2xl shadow-sm overflow-hidden">
+        <summary class="flex items-center justify-between gap-2 p-4 cursor-pointer list-none select-none">
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <i class="fas fa-screwdriver-wrench mr-1.5"></i>{{ __('Ferramentas') }}
+            </span>
+            <span class="flex items-center gap-2">
+                <span x-show="busy" x-cloak class="text-[10px] text-blue-600 font-bold">
+                    <i class="fas fa-spinner fa-spin mr-1"></i><span x-text="busyText"></span>
+                </span>
+                <i class="fas fa-chevron-down text-gray-400 text-xs transition group-open:rotate-180"></i>
+            </span>
+        </summary>
+
+        <div class="px-4 pb-4 space-y-3 border-t border-gray-100 pt-4">
+            {{-- Sincronizar. O cabeçalho já sincroniza no dia-a-dia; a que fica
+                 aqui é a COMPLETA, que volta a descarregar o catálogo todo. --}}
+            <button @click="forceSync()" :disabled="busy"
+                    class="w-full flex items-center gap-3 bg-blue-50 hover:bg-blue-100 text-blue-800 p-3 rounded-xl text-left transition disabled:opacity-50">
+                <i class="fas fa-arrows-rotate w-5 text-center"></i>
+                <span class="min-w-0">
+                    <span class="block text-sm font-bold">{{ __('Sincronização completa') }}</span>
+                    <span class="block text-[11px] opacity-70">{{ __('Volta a descarregar o catálogo e os clientes todos') }}</span>
+                </span>
+            </button>
+
+            {{-- A CÓPIA VEM ANTES DO QUE APAGA, e de propósito: quem chega aqui
+                 com um problema deve ver primeiro a forma de salvar o que ainda
+                 não subiu. --}}
+            <button @click="exportarCopia()" :disabled="busy"
+                    class="w-full flex items-center gap-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-3 rounded-xl text-left transition disabled:opacity-50">
+                <i class="fas fa-download w-5 text-center"></i>
+                <span class="min-w-0">
+                    <span class="block text-sm font-bold">{{ __('Guardar cópia do que falta enviar') }}</span>
+                    <span class="block text-[11px] opacity-70">{{ __('Ficheiro para importar no sistema se este aparelho se perder') }}</span>
+                </span>
+            </button>
+
+            <div class="grid grid-cols-2 gap-2">
+                <button @click="forceUpdateApp()" :disabled="busy"
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
+                    <i class="fas fa-cloud-arrow-down mr-1"></i>{{ __('Actualizar aplicação') }}
+                </button>
+                {{-- O diagnóstico do SERVIDOR não vê a fila, que vive no
+                     aparelho. Sem ela, uma venda presa é invisível de fora. --}}
+                <button type="button" @click="diagnosticar"
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2.5 rounded-xl text-xs font-bold">
+                    <i class="fas fa-stethoscope mr-1"></i>{{ __('Diagnosticar') }}
+                </button>
+            </div>
+
+            <p x-show="statusMsg" x-cloak x-text="statusMsg" class="text-[11px] font-bold"
+               :class="statusOk ? 'text-emerald-700' : 'text-red-600'"></p>
+
+            {{-- O estado do aparelho, em números. Fica fechado: é para quando
+                 alguém pergunta "quantos produtos é que este tablet tem?" --}}
+            <button @click="detailsOpen = !detailsOpen"
+                    class="w-full text-left text-[11px] font-bold text-gray-500 hover:text-gray-700 pt-1">
+                <i class="fas fa-circle-info mr-1"></i><span x-text="detailsOpen ? '{{ __('Ocultar estado do aparelho') }}' : '{{ __('Estado do aparelho') }}'"></span>
+            </button>
+
+            <div x-show="detailsOpen" x-cloak class="bg-gray-50 rounded-xl p-3 text-[11px] text-gray-700 space-y-1">
+                <p>{{ __('Última sincronização:') }} <strong x-text="lastSyncText"></strong></p>
+                <p>{{ __('Artigos:') }} <strong x-text="counts.products"></strong> · {{ __('isentos') }}: <strong x-text="detail.exemptProducts"></strong> · {{ __('com IVA') }}: <strong x-text="detail.taxedProducts"></strong></p>
+                <p>{{ __('Clientes:') }} <strong x-text="counts.clients"></strong> (<span x-text="detail.unsyncedClients"></span> {{ __('por enviar') }})</p>
+                <p>{{ __('Vendas no aparelho:') }} <strong x-text="detail.posSales"></strong> (<span x-text="detail.unsyncedPosSales"></span> {{ __('por enviar') }})</p>
+                <p>{{ __('Fila:') }} <strong x-text="detail.queuePending"></strong> {{ __('à espera') }} · <strong x-text="detail.queueFailed"></strong> {{ __('com erro') }}</p>
+                <p>{{ __('Login offline:') }} <strong x-text="detail.offlineAuth"></strong></p>
+                <p>{{ __('Turno:') }} <strong x-text="detail.shift"></strong></p>
+            </div>
+
+            {{-- ZONA PERIGOSA, e assinalada como tal. Apagar o catálogo ou o
+                 aparelho inteiro não pode parecer mais um botão. --}}
+            <div class="border-t border-gray-100 pt-3 space-y-2">
+                <p class="text-[10px] font-bold text-red-500 uppercase tracking-wide">
+                    <i class="fas fa-triangle-exclamation mr-1"></i>{{ __('Apaga dados deste aparelho') }}
+                </p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button @click="clearCatalog()" :disabled="busy"
+                            class="border border-amber-200 text-amber-700 hover:bg-amber-50 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
+                        {{ __('Limpar catálogo') }}
+                    </button>
+                    <button @click="resetAll()" :disabled="busy"
+                            class="border border-red-200 text-red-700 hover:bg-red-50 px-3 py-2.5 rounded-xl text-xs font-bold disabled:opacity-50">
+                        {{ __('Apagar tudo') }}
+                    </button>
+                </div>
+                <p class="text-[10px] text-gray-400">
+                    {{ __('"Apagar tudo" leva também o que ainda não foi enviado. Guarde a cópia primeiro.') }}
+                </p>
+            </div>
+        </div>
+    </details>
 </div>
 
 @push('scripts')
