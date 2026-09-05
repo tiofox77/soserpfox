@@ -347,6 +347,10 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/sales-invoices/opcoes', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'opcoes'])
             ->name('sales-invoices.opcoes');
 
+        // O painel: só números, só leitura.
+        Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
+            ->name('painel');
+
         // Clientes — o primeiro que também escreve. Cada verbo tem a sua
         // permissão, verificada dentro do controlador.
         Route::get('/clients/opcoes', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'opcoes'])
@@ -380,6 +384,14 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
     
     Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
+
+    Route::middleware('permission:invoicing.dashboard.view')
+        ->get('/dashboard/novo-ecra', fn () => view('react.ecra', [
+            'ecra' => 'facturacao/painel',
+            'titulo' => __('Painel da Facturação'),
+            'subtitulo' => __('Ecrã novo, em ensaio'),
+        ]))
+        ->name('dashboard.react');
 
     // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
     Route::middleware('permission:invoicing.products.view')
