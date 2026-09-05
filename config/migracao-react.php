@@ -156,13 +156,13 @@ return [
                     'nome'     => 'Nota de crédito',
                     'livewire' => 'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/credit-notes/credit-note-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/NotaDeCredito.tsx',
+                    'react'    => 'ecras/facturacao/EmitirNota.tsx',
                 ],
                 [
                     'nome'     => 'Nota de débito',
                     'livewire' => 'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/debit-notes/debit-note-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/NotaDeDebito.tsx',
+                    'react'    => 'ecras/facturacao/EmitirNota.tsx',
                 ],
                 [
                     'nome'     => 'Definições da facturação',

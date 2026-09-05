@@ -111,74 +111,6 @@ class CreditNoteCreate extends Component
         }
     }
 
-    /**
-     * As linhas desta nota que pedem mais do que a factura ainda tem.
-     *
-     * Compara-se por ARTIGO, e pela descrição quando a linha não tem artigo do
-     * catálogo. O que já foi creditado conta: duas notas parciais não podem
-     * passar juntas o que nenhuma delas passava sozinha.
-     *
-     * @return array<int,string>  uma frase por linha em excesso
-     */
-    private function linhasQueExcedemAFactura($factura, $cartItems): array
-    {
-        $chave = fn ($artigo, $descricao) => $artigo
-            ? 'p:' . $artigo
-            : 'd:' . mb_strtolower(trim((string) $descricao));
-
-        // O que a factura tem, por linha.
-        $naFactura = [];
-
-        foreach ($factura->items as $linha) {
-            $k = $chave($linha->product_id, $linha->description);
-            $naFactura[$k] = ($naFactura[$k] ?? 0) + (float) $linha->quantity;
-        }
-
-        // O que outras notas EMITIDAS já tiraram.
-        $jaCreditado = [];
-
-        $outras = CreditNote::where('invoice_id', $factura->id)
-            ->where('status', 'issued')
-            ->when($this->creditNoteId, fn ($q) => $q->where('id', '!=', $this->creditNoteId))
-            ->with('items')
-            ->get();
-
-        foreach ($outras as $nota) {
-            foreach ($nota->items as $linha) {
-                $k = $chave($linha->product_id, $linha->description);
-                $jaCreditado[$k] = ($jaCreditado[$k] ?? 0) + (float) $linha->quantity;
-            }
-        }
-
-        // E o que esta nota pede.
-        $pedido = [];
-
-        foreach ($cartItems as $item) {
-            $artigo = is_numeric($item->id) ? (int) $item->id : null;
-            $k = $chave($artigo, $item->name);
-            $pedido[$k] = ($pedido[$k] ?? 0) + (float) $item->quantity;
-        }
-
-        $excessos = [];
-
-        foreach ($pedido as $k => $quantidade) {
-            $disponivel = ($naFactura[$k] ?? 0) - ($jaCreditado[$k] ?? 0);
-
-            // Uma linha que a factura nem tem é excesso por inteiro.
-            if ($quantidade > $disponivel + 0.001) {
-                $nome = collect($cartItems)->first(fn ($i) => $chave(is_numeric($i->id) ? (int) $i->id : null, $i->name) === $k)?->name;
-
-                $excessos[] = __(':artigo (pede :pedido, disponível :disponivel)', [
-                    'artigo'     => \Illuminate\Support\Str::limit((string) $nome, 40),
-                    'pedido'     => rtrim(rtrim(number_format($quantidade, 3, ',', '.'), '0'), ','),
-                    'disponivel' => rtrim(rtrim(number_format(max(0, $disponivel), 3, ',', '.'), '0'), ','),
-                ]);
-            }
-        }
-
-        return $excessos;
-    }
-
     public function loadInvoiceItems($invoiceId)
     {
         // Scoped ao tenant: sem isto era possível carregar as linhas de uma
@@ -306,309 +238,45 @@ class CreditNoteCreate extends Component
             return;
         }
 
-        DB::beginTransaction();
+        /*
+         * TUDO O QUE É FISCAL VIVE NO `EmissorDeNotas`: o travão do E43 (pelo
+         * total e por linha), os campos SAFT, o IEC/IS herdado da linha
+         * original, o hash encadeado e a fila da AGT. Este ecrã e o ecrã em
+         * React chamam o mesmo — foi por isso que saiu daqui.
+         */
         try {
-            // Calcular totais
-            $totals = InvoiceCalculationHelper::calculateTotals(
-                $cartItems,
-                0, // sem desconto comercial
-                0, // sem desconto valor
-                0, // sem desconto financeiro
-                false // não é serviço
-            );
-
-            /*
-             * NÃO SE ANULA MAIS DO QUE SE VENDEU.
-             *
-             * A AGT recusa com E43 quando a soma das notas passa o que a
-             * factura ainda tem por anular — e recusa DEPOIS de o documento já
-             * ter número fiscal, hash e assinatura. Nasce inválido, e só a
-             * resposta da AGT o diz, dias depois. O travão tem de estar aqui,
-             * antes de o número ser atribuído.
-             *
-             * Conta-se o que outras notas JÁ tiraram a esta factura, não só
-             * esta: duas notas parciais podem passar o total sem que nenhuma
-             * delas, sozinha, o pareça.
-             */
-            if ($this->invoice_id) {
-                $factura = \App\Models\Invoicing\SalesInvoice::find($this->invoice_id);
-
-                if ($factura) {
-                    // Pela mesma fonte que decide o botão da lista e o
-                    // selector — três respostas diferentes à mesma pergunta é
-                    // como isto começou.
-                    $porAnular = $factura->porCreditar($this->creditNoteId ?: null);
-
-                    /*
-                     * E AS QUANTIDADES, LINHA A LINHA.
-                     *
-                     * O travão do valor não chega: uma nota pode bater certo no
-                     * total e creditar 69 unidades de uma linha que só teve 34,
-                     * com outra linha a menos a compensar. Foi assim que saiu a
-                     * NC4226S46906N/000002, que a AGT recusou com E43 — o erro
-                     * que diz que a nota não corresponde ao documento que corrige.
-                     */
-                    $excessos = $this->linhasQueExcedemAFactura($factura, $cartItems);
-
-                    if ($excessos !== []) {
-                        DB::rollBack();
-
-                        $this->dispatch('notify', [
-                            'type'    => 'error',
-                            'message' => __('A factura :factura não tem essas quantidades por anular: :linhas', [
-                                'factura' => $factura->invoice_number,
-                                'linhas'  => implode('; ', $excessos),
-                            ]),
-                        ]);
-
-                        return;
-                    }
-
-                    if (round((float) $totals['total'], 2) > $porAnular + 0.01) {
-                        DB::rollBack();
-
-                        $this->dispatch('notify', [
-                            'type' => 'error',
-                            'message' => __('Esta nota anula :nota, mas a factura :factura só tem :saldo por anular. A AGT recusaria (E43).', [
-                                'nota'    => number_format((float) $totals['total'], 2, ',', '.'),
-                                'factura' => $factura->invoice_number,
-                                'saldo'   => number_format($porAnular, 2, ',', '.'),
-                            ]),
-                        ]);
-
-                        return;
-                    }
-                }
-            }
-
-            // Expressão obrigatória conforme Art. 12º RJF (Decreto 71/25)
-            $reasonExpression = ($this->type === 'total') ? 'Anulação' : 'Rectificação';
-
-            // Criar nota de crédito
-            // Campos SAFT-AO obrigatórios (Decreto 71/25)
-            $netTotal = $totals['subtotal_original'];
-            $taxPayable = $totals['tax_amount'];
-            $grossTotal = $netTotal + $taxPayable;
-
-            $creditNote = CreditNote::create([
-                'tenant_id' => activeTenantId(),
+            $emitido = app(\App\Services\Invoicing\EmissorDeNotas::class)->emitirCredito([
                 'client_id' => $this->client_id,
                 'invoice_id' => $this->invoice_id ?: null,
                 'issue_date' => $this->issue_date,
-                'system_entry_date' => now(),
                 'reason' => $this->reason,
-                'reason_text' => $reasonExpression,
                 'type' => $this->type,
                 'notes' => $this->notes,
-                'subtotal' => $totals['subtotal_original'],
-                'net_total' => $netTotal,
-                'tax_amount' => $totals['tax_amount'],
-                'tax_payable' => $taxPayable,
-                'total' => $totals['total'],
-                'gross_total' => $grossTotal,
-                'status' => 'issued',
-                'invoice_status' => 'F',
-                'source_billing' => 'P',
-                'created_by' => auth()->id(),
-            ]);
+            ], collect($cartItems->values()->all()));
+        } catch (\DomainException $e) {
+            // O travão falou: a nota não nasceu, e diz-se porquê.
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
 
-            // Criar items
-            // O IEC/IS só é conhecido depois de copiado da linha original, por
-            // isso os totais do documento (e o hash, que assina o gross_total)
-            // são apurados no fim — ver mais abaixo.
-            $orderNo = 0;
-            $ncExtraTaxes = 0.0;   // IEC + IS de todas as linhas
-            $ncIvaAmount  = 0.0;   // só IVA
-            foreach ($cartItems as $item) {
-                $orderNo++;
-                $itemTotals = InvoiceCalculationHelper::calculateItemTotals(
-                    $item->price,
-                    $item->quantity,
-                    $item->attributes['discount_percent'],
-                    $item->attributes['tax_rate']
-                );
-
-                $netLine = $itemTotals['subtotal'];
-
-                $creditNoteItem = CreditNoteItem::create([
-                    'credit_note_id' => $creditNote->id,
-                    'product_id' => $item->id,
-                    'description' => $item->name,
-                    'quantity' => $item->quantity,
-                    'unit' => 'un',
-                    'unit_price' => $item->price,
-                    'unit_price_base' => $item->price,
-                    'discount_percent' => $item->attributes['discount_percent'],
-                    'discount_amount' => $itemTotals['discount_amount'],
-                    'subtotal' => $netLine,
-                    'tax_rate' => $item->attributes['tax_rate'],
-                    'tax_amount' => $itemTotals['tax_amount'],
-                    'total' => $itemTotals['total'],
-                    'order' => $orderNo,
-                    // AGT v1.2 — line-level
-                    'debit_amount'         => $netLine,
-                    'credit_amount'        => 0,
-                    'settlement_amount'    => $itemTotals['discount_amount'] ?? 0,
-                    // Região e código SAFT herdados da linha original (ver
-                    // loadInvoiceItems): fixá-los aqui fazia o crédito de uma
-                    // factura de Cabinda ou a 7% sair como AO / taxa normal.
-                    'tax_country_region'   => $item->attributes['tax_country_region'] ?? 'AO',
-                    'tax_code'             => $item->attributes['tax_code']
-                        ?: (($item->attributes['tax_rate'] ?? 0) > 0 ? 'NOR' : 'ISE'),
-                    // Linha isenta TEM de levar motivo (a AGT rejeita sem código)
-                    'tax_exemption_code'   => ($item->attributes['tax_rate'] ?? 0) > 0
-                        ? null
-                        : \App\Models\Product::normalizeExemptionCode($item->attributes['exemption_reason'] ?? null),
-                    'tax_exemption_reason' => ($item->attributes['tax_rate'] ?? 0) > 0
-                        ? null
-                        : \App\Models\Product::exemptionReasonText($item->attributes['exemption_reason'] ?? null),
-                    // referenceInfo (NC obrigatório)
-                    'reference_invoice_no'   => $item->attributes['reference_invoice_no']   ?? null,
-                    'reference_item_line_no' => $item->attributes['reference_item_line_no'] ?? $orderNo,
-                    'reference_reason'       => $reasonExpression,
-                ]);
-
-                // Creditar TAMBÉM o IEC e o Imposto de Selo da linha original.
-                // Sem isto uma nota de crédito sobre uma factura com IEC anulava
-                // só o IVA, deixando o imposto especial liquidado sem contrapartida.
-                if (!empty($item->attributes['origem_line_id'])) {
-                    $originais = \App\Models\Invoicing\LineTax::where('line_type', $item->attributes['origem_line_type'])
-                        ->where('line_id', $item->attributes['origem_line_id'])
-                        ->get();
-
-                    $iecLinha = 0.0;
-                    foreach ($originais as $orig) {
-                        \App\Models\Invoicing\LineTax::create([
-                            'tenant_id'            => activeTenantId(),
-                            'line_type'            => get_class($creditNoteItem),
-                            'line_id'              => $creditNoteItem->id,
-                            'tax_type'             => $orig->tax_type,
-                            'tax_country_region'   => $orig->tax_country_region,
-                            'tax_code'             => $orig->tax_code,
-                            'tax_percentage'       => $orig->tax_percentage,
-                            // Proporcional à quantidade creditada, quando é parcial
-                            'tax_amount'           => $item->quantity > 0 && $orig->tax_amount > 0
-                                ? round((float) $orig->tax_amount * ($item->quantity / max(1, $item->quantity)), 2)
-                                : (float) $orig->tax_amount,
-                            'pautal_code'          => $orig->pautal_code,
-                            'verba_no'             => $orig->verba_no,
-                            'description'          => $orig->description,
-                            'tax_exemption_code'   => $orig->tax_exemption_code,
-                            'tax_exemption_reason' => $orig->tax_exemption_reason,
-                        ]);
-
-                        $valor = (float) $orig->tax_amount;
-                        $ncExtraTaxes += $valor;
-                        if ($orig->tax_type === \App\Models\Invoicing\LineTax::TIPO_IEC) {
-                            $iecLinha += $valor;
-                        }
-                    }
-
-                    // O IVA incide sobre o líquido ACRESCIDO do IEC — igual à
-                    // factura de origem. Sem este reajuste a NC creditava um
-                    // IVA menor do que o que foi liquidado e a AGT recusava com
-                    // "taxContribution não corresponde ao imposto apurado".
-                    if ($iecLinha > 0) {
-                        $ivaLinha = round(
-                            ($netLine - $itemTotals['discount_amount'] + $iecLinha)
-                                * ((float) $item->attributes['tax_rate']) / 100,
-                            2
-                        );
-                        $creditNoteItem->tax_amount = $ivaLinha;
-                        $creditNoteItem->total = $netLine - $itemTotals['discount_amount']
-                            + $ivaLinha + $iecLinha;
-                        $creditNoteItem->save();
-                    }
-                }
-
-                $ncIvaAmount += (float) $creditNoteItem->tax_amount;
-            }
-
-            // Totais do documento com IEC/IS incluídos. Só agora se conhece o
-            // imposto total, porque as linhas de IEC/IS são copiadas acima.
-            $creditNote->tax_amount  = $ncIvaAmount;                  // só IVA (compatibilidade)
-            $creditNote->tax_payable = $ncIvaAmount + $ncExtraTaxes;  // imposto total AGT
-            $creditNote->gross_total = (float) $creditNote->net_total + $creditNote->tax_payable;
-            $creditNote->total       = $creditNote->gross_total;
-            $creditNote->save();
-
-            // HASH SAFT-AO (Decreto 71/25): assina o gross_total, por isso só
-            // pode ser gerado depois de os totais estarem fechados.
-            $previousCN = CreditNote::where('tenant_id', activeTenantId())
-                ->where('id', '<', $creditNote->id)
-                ->whereNotNull('saft_hash')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $hash = \App\Helpers\SAFTHelper::generateHash(
-                $creditNote->issue_date->format('Y-m-d'),
-                $creditNote->system_entry_date->format('Y-m-d H:i:s'),
-                $creditNote->credit_note_number,
-                $creditNote->gross_total,
-                $previousCN->saft_hash ?? null
-            );
-
-            if ($hash) {
-                $creditNote->update([
-                    'saft_hash' => $hash,
-                    'hash' => $hash,
-                    'hash_previous' => $previousCN->saft_hash ?? '',
-                    'hash_control' => '1',
-                ]);
-            }
-
-            // Reverter também a retenção na fonte da factura creditada: uma NC
-            // sobre uma factura com IRT/IAC tem de devolver a retenção, senão o
-            // crédito fica incompleto e a AGT recebe um documento sem a
-            // withholdingTaxList que o original declarou.
-            if ($this->invoice_id) {
-                $retencoes = DB::table('invoicing_withholding_taxes')
-                    ->where('document_type', \App\Models\Invoicing\SalesInvoice::class)
-                    ->where('document_id', $this->invoice_id)
-                    ->get();
-
-                foreach ($retencoes as $ret) {
-                    DB::table('invoicing_withholding_taxes')->insert([
-                        'tenant_id'                   => activeTenantId(),
-                        'document_type'               => get_class($creditNote),
-                        'document_id'                 => $creditNote->id,
-                        'withholding_tax_type'        => $ret->withholding_tax_type,
-                        'withholding_tax_description' => $ret->withholding_tax_description,
-                        'withholding_tax_percentage'  => $ret->withholding_tax_percentage,
-                        'withholding_tax_amount'      => $ret->withholding_tax_amount,
-                        'created_at'                  => now(),
-                        'updated_at'                  => now(),
-                    ]);
-                }
-            }
-
-            // Limpar carrinho
-            Cart::session($this->cartInstance)->clear();
-
-            DB::commit();
-
-            // À AGT em SEGUNDO passo: a nota já está gravada, e comunicá-la
-            // não prende o utilizador à espera do fisco. Só se ENFILEIRA; o
-            // DespacharAgtPendentes envia à boleia do tráfego.
-            $fila = \App\Services\AGT\AutoSubmissao::enfileirar($creditNote);
-
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => $fila['enfileirado']
-                    ? __('Nota de Crédito criada — a comunicar à AGT.')
-                    : __('Nota de Crédito criada com sucesso!'),
-            ]);
-
-            return redirect()->route('invoicing.credit-notes.index');
-
+            return;
         } catch (\Exception $e) {
-            DB::rollback();
-            
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => __('Erro ao criar nota de crédito: :erro', ['erro' => $e->getMessage()])
             ]);
+
+            return;
         }
+
+        Cart::session($this->cartInstance)->clear();
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => $emitido['fila']['enfileirado']
+                ? __('Nota de Crédito criada — a comunicar à AGT.')
+                : __('Nota de Crédito criada com sucesso!'),
+        ]);
+
+        return redirect()->route('invoicing.credit-notes.index');
     }
 
     public function render()

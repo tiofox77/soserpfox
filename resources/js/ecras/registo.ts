@@ -41,4 +41,8 @@ export const ecras: Record<string, Ecra> = {
 
     'facturacao/registar-recibo': () =>
         import('./facturacao/RegistarRecibo'),
+
+    // Notas de crédito e de débito: o `tipo` vem nas props.
+    'facturacao/emitir-nota': () =>
+        import('./facturacao/EmitirNota'),
 };

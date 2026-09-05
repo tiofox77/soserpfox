@@ -232,267 +232,37 @@ class DebitNoteCreate extends Component
             return;
         }
 
-        DB::beginTransaction();
+        /*
+         * TUDO O QUE É FISCAL VIVE NO `EmissorDeNotas` — ver a nota de crédito.
+         */
         try {
-            // Calcular totais
-            $totals = InvoiceCalculationHelper::calculateTotals(
-                $cartItems,
-                0, 0, 0, false
-            );
-
-            // Expressão obrigatória conforme Art. 12º RJF (Decreto 71/25):
-            // a ND acresce ao documento original, é sempre uma rectificação.
-            $reasonExpression = 'Rectificação';
-
-            // Criar nota de débito
-            // Campos SAFT-AO obrigatórios (Decreto 71/25) — antes a ND gravava
-            // só subtotal/tax_amount/total e seguia para a AGT sem net_total,
-            // tax_payable, gross_total, invoice_status nem hash.
-            $netTotal = $totals['subtotal_original'];
-
-            $debitNote = DebitNote::create([
-                'tenant_id' => activeTenantId(),
+            $emitido = app(\App\Services\Invoicing\EmissorDeNotas::class)->emitirDebito([
                 'client_id' => $this->client_id,
                 'invoice_id' => $this->invoice_id ?: null,
                 'issue_date' => $this->issue_date,
-                'system_entry_date' => now(),
                 'due_date' => $this->due_date,
                 'reason' => $this->reason,
                 'notes' => $this->notes,
-                'subtotal' => $totals['subtotal_original'],
-                'net_total' => $netTotal,
-                'tax_amount' => $totals['tax_amount'],
-                'tax_payable' => $totals['tax_amount'],
-                'total' => $totals['total'],
-                'gross_total' => $netTotal + $totals['tax_amount'],
-                'status' => 'issued',
-                'invoice_status' => 'F',
-                'source_billing' => 'P',
-                'created_by' => auth()->id(),
-            ]);
-
-            // Criar items
-            // O IEC/IS só é conhecido depois de copiado da linha original, por
-            // isso os totais (e o hash, que assina o gross_total) fecham no fim.
-            $orderNo = 0;
-            $ndExtraTaxes = 0.0;   // IEC + IS de todas as linhas
-            $ndIvaAmount  = 0.0;   // só IVA
-            $ndNetTotal   = 0.0;   // base tributável, JÁ com os descontos de linha
-
-            foreach ($cartItems as $item) {
-                $orderNo++;
-                $itemTotals = InvoiceCalculationHelper::calculateItemTotals(
-                    $item->price,
-                    $item->quantity,
-                    $item->attributes['discount_percent'],
-                    $item->attributes['tax_rate']
-                );
-
-                $netLine = $itemTotals['subtotal'];
-
-                // Base do documento = soma das bases das LINHAS, já líquidas de
-                // desconto. O net_total era o subtotal BRUTO
-                // (`subtotal_original`), enquanto cada linha descontava — o
-                // documento ficava acima da soma das suas próprias linhas e o
-                // cliente era debitado a mais exactamente no valor do desconto.
-                $ndNetTotal += (float) $netLine - (float) ($itemTotals['discount_amount'] ?? 0);
-
-                $debitNoteItem = DebitNoteItem::create([
-                    'debit_note_id' => $debitNote->id,
-                    'product_id' => $item->id,
-                    'description' => $item->name,
-                    'quantity' => $item->quantity,
-                    'unit' => 'un',
-                    'unit_price' => $item->price,
-                    'unit_price_base' => $item->price,
-                    'discount_percent' => $item->attributes['discount_percent'],
-                    'discount_amount' => $itemTotals['discount_amount'],
-                    'subtotal' => $netLine,
-                    'tax_rate' => $item->attributes['tax_rate'],
-                    'tax_amount' => $itemTotals['tax_amount'],
-                    'total' => $itemTotals['total'],
-                    'order' => $orderNo,
-                    // AGT v1.2 — a ND acresce à dívida, logo é creditAmount
-                    // (ao contrário da NC, que preenche debitAmount).
-                    'debit_amount'         => 0,
-                    'credit_amount'        => $netLine,
-                    'settlement_amount'    => $itemTotals['discount_amount'] ?? 0,
-                    // Região e código SAFT herdados da linha original
-                    'tax_country_region'   => $item->attributes['tax_country_region'] ?? 'AO',
-                    'tax_code'             => ($item->attributes['tax_code'] ?? null)
-                        ?: (($item->attributes['tax_rate'] ?? 0) > 0 ? 'NOR' : 'ISE'),
-                    // Campos AGT: linha isenta TEM de levar motivo
-                    'tax_exemption_code'   => ($item->attributes['tax_rate'] ?? 0) > 0
-                        ? null
-                        : \App\Models\Product::normalizeExemptionCode($item->attributes['exemption_reason'] ?? null),
-                    'tax_exemption_reason' => ($item->attributes['tax_rate'] ?? 0) > 0
-                        ? null
-                        : \App\Models\Product::exemptionReasonText($item->attributes['exemption_reason'] ?? null),
-                    // referenceInfo (documento rectificativo)
-                    'reference_invoice_no'   => $item->attributes['reference_invoice_no']   ?? null,
-                    'reference_item_line_no' => $item->attributes['reference_item_line_no'] ?? $orderNo,
-                    'reference_reason'       => $reasonExpression,
-                ]);
-
-                // Replicar o IEC e o Imposto de Selo da linha original: sem isto
-                // a ND rectificava só o IVA e o imposto especial ficava de fora.
-                if (!empty($item->attributes['origem_line_id'])) {
-                    $originais = \App\Models\Invoicing\LineTax::where('line_type', $item->attributes['origem_line_type'])
-                        ->where('line_id', $item->attributes['origem_line_id'])
-                        ->get();
-
-                    $iecLinha = 0.0;
-                    foreach ($originais as $orig) {
-                        \App\Models\Invoicing\LineTax::create([
-                            'tenant_id'            => activeTenantId(),
-                            'line_type'            => get_class($debitNoteItem),
-                            'line_id'              => $debitNoteItem->id,
-                            'tax_type'             => $orig->tax_type,
-                            'tax_country_region'   => $orig->tax_country_region,
-                            'tax_code'             => $orig->tax_code,
-                            'tax_percentage'       => $orig->tax_percentage,
-                            'tax_amount'           => (float) $orig->tax_amount,
-                            'pautal_code'          => $orig->pautal_code,
-                            'verba_no'             => $orig->verba_no,
-                            'description'          => $orig->description,
-                            'tax_exemption_code'   => $orig->tax_exemption_code,
-                            'tax_exemption_reason' => $orig->tax_exemption_reason,
-                        ]);
-
-                        $valor = (float) $orig->tax_amount;
-                        $ndExtraTaxes += $valor;
-                        if ($orig->tax_type === \App\Models\Invoicing\LineTax::TIPO_IEC) {
-                            $iecLinha += $valor;
-                        }
-                    }
-
-                    // O IVA incide sobre o líquido ACRESCIDO do IEC, igual à
-                    // factura de origem. Sem este reajuste a AGT recusava com
-                    // "taxContribution não corresponde ao imposto apurado".
-                    if ($iecLinha > 0) {
-                        $ivaLinha = round(
-                            ($netLine - $itemTotals['discount_amount'] + $iecLinha)
-                                * ((float) $item->attributes['tax_rate']) / 100,
-                            2
-                        );
-                        $debitNoteItem->tax_amount = $ivaLinha;
-                        $debitNoteItem->total = $netLine - $itemTotals['discount_amount']
-                            + $ivaLinha + $iecLinha;
-                        $debitNoteItem->save();
-                    }
-                }
-
-                $ndIvaAmount += (float) $debitNoteItem->tax_amount;
-            }
-
-            // Replicar a retenção na fonte da factura rectificada: a ND acresce
-            // ao valor tributável, logo a retenção também tem de constar.
-            if ($this->invoice_id) {
-                $retencoes = DB::table('invoicing_withholding_taxes')
-                    ->where('document_type', SalesInvoice::class)
-                    ->where('document_id', $this->invoice_id)
-                    ->get();
-
-                foreach ($retencoes as $ret) {
-                    // A retenção incide sobre a base DESTA nota, não sobre a da
-                    // factura rectificada.
-                    //
-                    // Copiar o `withholding_tax_amount` tal e qual fazia uma ND
-                    // de 10.000 Kz sobre uma factura de 1.000.000 Kz declarar à
-                    // AGT 65.000 Kz de retenção — o valor da factura inteira.
-                    $percentagem = (float) ($ret->withholding_tax_percentage ?? 0);
-
-                    // $ndNetTotal e não $debitNote->net_total: os totais do
-                    // documento só fecham mais abaixo, pelo que a propriedade
-                    // ainda tem o valor bruto posto no create().
-                    $valor = $percentagem > 0
-                        ? round($ndNetTotal * $percentagem / 100, 2)
-                        : 0.0;
-
-                    if ($valor <= 0) {
-                        continue;   // sem base nesta nota não há retenção a declarar
-                    }
-
-                    DB::table('invoicing_withholding_taxes')->insert([
-                        'tenant_id'                   => activeTenantId(),
-                        'document_type'               => get_class($debitNote),
-                        'document_id'                 => $debitNote->id,
-                        'withholding_tax_type'        => $ret->withholding_tax_type,
-                        'withholding_tax_description' => $ret->withholding_tax_description,
-                        'withholding_tax_percentage'  => $percentagem,
-                        'withholding_tax_amount'      => $valor,
-                        'created_at'                  => now(),
-                        'updated_at'                  => now(),
-                    ]);
-                }
-            }
-
-            // Totais do documento com IEC/IS incluídos
-            $debitNote->net_total   = round($ndNetTotal, 2);         // já com descontos de linha
-            $debitNote->tax_amount  = $ndIvaAmount;                  // só IVA (compatibilidade)
-            $debitNote->tax_payable = $ndIvaAmount + $ndExtraTaxes;  // imposto total AGT
-            $debitNote->gross_total = (float) $debitNote->net_total + $debitNote->tax_payable;
-            $debitNote->total       = $debitNote->gross_total;
-            $debitNote->save();
-
-            // HASH SAFT-AO (Decreto 71/25): assina o gross_total, por isso só
-            // pode ser gerado depois de os totais estarem fechados. Antes a ND
-            // era gravada sem hash nenhum e ficava fora da cadeia.
-            $previousDN = DebitNote::where('tenant_id', activeTenantId())
-                ->where('id', '<', $debitNote->id)
-                ->whereNotNull('saft_hash')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $hash = \App\Helpers\SAFTHelper::generateHash(
-                $debitNote->issue_date->format('Y-m-d'),
-                $debitNote->system_entry_date->format('Y-m-d H:i:s'),
-                $debitNote->debit_note_number,
-                $debitNote->gross_total,
-                $previousDN->saft_hash ?? null
-            );
-
-            if ($hash) {
-                $debitNote->update([
-                    'saft_hash' => $hash,
-                    'hash' => $hash,
-                    'hash_previous' => $previousDN->saft_hash ?? '',
-                    'hash_control' => '1',
-                ]);
-            }
-
-            Cart::session($this->cartInstance)->clear();
-            DB::commit();
-
-            // Auto-submeter à AGT, como a nota de crédito já fazia.
-            //
-            // A ND é documento fiscal comunicável e o modelo até usa o trait
-            // HasAGTSignature — mas NADA no sistema a submetia. Saía com série,
-            // número e hash encadeado, entrava na cadeia, e para a AGT não
-            // existia. Só a NC era comunicada.
-            //
-            // Depois do commit: a nota já está gravada e uma AGT em baixo não
-            // a pode desfazer nem prender o utilizador.
-            // À AGT em segundo passo: enfileira, não envia. O
-            // DespacharAgtPendentes trata do envio à boleia do tráfego.
-            $fila = \App\Services\AGT\AutoSubmissao::enfileirar($debitNote);
-
-            $mensagem = $fila['enfileirado']
-                ? __('Nota de Débito criada — a comunicar à AGT.')
-                : __('Nota de Débito criada com sucesso!');
-
-            $this->dispatch('notify', ['type' => 'success', 'message' => $mensagem]);
-
-            return redirect()->route('invoicing.debit-notes.index');
-
+            ], collect($cartItems->values()->all()));
         } catch (\Exception $e) {
-            DB::rollback();
-            
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => __('Erro ao criar nota de débito: :erro', ['erro' => $e->getMessage()])
             ]);
+
+            return;
         }
+
+        Cart::session($this->cartInstance)->clear();
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => $emitido['fila']['enfileirado']
+                ? __('Nota de Débito criada — a comunicar à AGT.')
+                : __('Nota de Débito criada com sucesso!'),
+        ]);
+
+        return redirect()->route('invoicing.debit-notes.index');
     }
 
     public function render()

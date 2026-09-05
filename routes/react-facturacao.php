@@ -64,3 +64,16 @@ foreach (TiposDeDocumento::editaveis() as $slug => $editor) {
 Route::middleware('permission:invoicing.receipts.create')
     ->get('receipts/create/novo-ecra', $emReact('facturacao/registar-recibo', __('Registar Recibo')))
     ->name('react.emitir.recibo');
+
+/*
+ * NOTAS DE CRÉDITO E DE DÉBITO.
+ *
+ * A lógica fiscal vive no EmissorDeNotas; o ecrã só acerta quantidades.
+ */
+Route::middleware('permission:invoicing.credit-notes.create')
+    ->get('credit-notes/create/novo-ecra', $emReact('facturacao/emitir-nota', __('Nota de Crédito'), ['tipo' => 'credito']))
+    ->name('react.emitir.credito');
+
+Route::middleware('permission:invoicing.debit-notes.create')
+    ->get('debit-notes/create/novo-ecra', $emReact('facturacao/emitir-nota', __('Nota de Débito'), ['tipo' => 'debito']))
+    ->name('react.emitir.debito');

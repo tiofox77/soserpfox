@@ -30,6 +30,12 @@ class NotaDeCreditoNaoExcedeTest extends TenantTestCase
         return file_get_contents(app_path("Livewire/Invoicing/{$ecra}"));
     }
 
+    /** O travão mudou-se dos componentes para o serviço; é lá que se lê. */
+    private function servico(): string
+    {
+        return file_get_contents(app_path('Services/Invoicing/EmissorDeNotas.php'));
+    }
+
     private function factura(float $total): SalesInvoice
     {
         return SalesInvoice::create([
@@ -125,7 +131,7 @@ class NotaDeCreditoNaoExcedeTest extends TenantTestCase
      */
     public function o_excesso_e_travado_antes_de_o_documento_nascer(): void
     {
-        $fonte = $this->fonte('CreditNotes/CreditNoteCreate.php');
+        $fonte = $this->servico();
 
         $travao = strpos($fonte, 'porAnular');
         $criacao = strpos($fonte, 'CreditNote::create(');
@@ -302,12 +308,12 @@ class NotaDeCreditoNaoExcedeTest extends TenantTestCase
      */
     public function o_travao_conta_as_quantidades_de_cada_linha(): void
     {
-        $fonte = $this->fonte('CreditNotes/CreditNoteCreate.php');
+        $fonte = $this->servico();
 
-        $this->assertStringContainsString('linhasQueExcedemAFactura', $fonte,
+        $this->assertStringContainsString('function excessos(', $fonte,
             'falta o travão por linha');
 
-        $travao  = strpos($fonte, '$excessos = $this->linhasQueExcedemAFactura');
+        $travao  = strpos($fonte, '$excessos = $this->excessos(');
         $criacao = strpos($fonte, 'CreditNote::create(');
 
         $this->assertNotFalse($travao, 'o travão por linha tem de ser chamado');

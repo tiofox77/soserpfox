@@ -376,6 +376,17 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/recibos/facturas', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'facturas'])->name('recibos.facturas');
         Route::post('/recibos', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'guardar'])->name('recibos.guardar');
 
+        // Notas de crédito e de débito. Zero lógica fiscal aqui: tudo no
+        // EmissorDeNotas, o mesmo que o Livewire chama.
+        Route::get('/notas/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'opcoes'])
+            ->where('tipo', 'credito|debito')->name('notas.opcoes');
+        Route::get('/notas/{tipo}/facturas', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'facturas'])
+            ->where('tipo', 'credito|debito')->name('notas.facturas');
+        Route::get('/notas/{tipo}/facturas/{factura}/linhas', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'linhas'])
+            ->where('tipo', 'credito|debito')->whereNumber('factura')->name('notas.linhas');
+        Route::post('/notas/{tipo}', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'guardar'])
+            ->where('tipo', 'credito|debito')->name('notas.guardar');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');
