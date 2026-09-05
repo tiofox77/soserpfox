@@ -2604,6 +2604,24 @@
          quem chegasse ao painel pela barra lateral via tudo em branco. --}}
     <script src="/js/painel-facturacao.js?v={{ filemtime(public_path('js/painel-facturacao.js')) }}" defer></script>
 
+    {{-- OS ECRÃS EM REACT.
+
+         Só carrega em páginas que tenham um ponto de montagem — não vale a pena
+         mandar o pacote a quem está num ecrã Livewire.
+
+         `type="module"` porque é o que o Vite produz, e `?v=filemtime` como
+         todos os outros: a entrada tem nome fixo e são os pedaços que levam
+         hash, portanto basta a entrada vir fresca. Ver vite.react.config.js.
+
+         O `@file_exists` é de propósito: antes da primeira construção o
+         ficheiro não existe, e uma instalação sem ele tem de continuar a
+         abrir em vez de rebentar no filemtime(). --}}
+    @if(file_exists(public_path('js/react/app.js')))
+        <script type="module"
+                src="/js/react/app.js?v={{ filemtime(public_path('js/react/app.js')) }}"
+                defer></script>
+    @endif
+
     <!-- Custom Scripts Stack -->
     @stack('scripts')
     

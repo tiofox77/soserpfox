@@ -66,3 +66,8 @@ Thumbs.db
 
 # Contagem de versão do PWA (por instalação, não versionada)
 /storage/app/pwa-versao.json
+
+# Construção dos ecrãs em React (public/js/react/app.js e os pedaços).
+# Sai do `npm run react:build` e vai para produção por FTP, como os outros
+# ficheiros de public/js — não entra no repositório.
+/public/js/react

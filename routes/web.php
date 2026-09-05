@@ -333,6 +333,20 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
     Route::post('/list/{area}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'store'])->name('list.store');
     Route::put('/list/{area}/{id}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'update'])->name('list.update');
     Route::delete('/list/{area}/{id}', [\App\Http\Controllers\Api\Invoicing\InvoicingListController::class, 'destroy'])->name('list.destroy');
+
+    /*
+     * OS ECRÃS EM REACT.
+     *
+     * Prefixo próprio (`/react/`) para não se confundirem com a API da app
+     * móvel, que tem outra forma e outros compromissos. A permissão é
+     * verificada em cada controlador — o grupo autentica, não autoriza.
+     */
+    Route::prefix('react')->name('react.')->group(function () {
+        Route::get('/sales-invoices', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'index'])
+            ->name('sales-invoices.index');
+        Route::get('/sales-invoices/opcoes', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'opcoes'])
+            ->name('sales-invoices.opcoes');
+    });
 });
 
 // Invoicing Module Routes
@@ -376,6 +390,23 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
 
         // Faturas de Venda
         Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
+
+        /*
+         * A MESMA LISTA, EM REACT, NOUTRA MORADA.
+         *
+         * Enquanto a migração durar, os dois ecrãs vivem ao lado um do outro:
+         * compara-se, e o de sempre nunca deixa de estar lá. Quando o novo
+         * estiver provado, é a rota de cima que passa a apontar para aqui.
+         *
+         * Mesma permissão. Um ecrã novo não é uma porta nova.
+         */
+        Route::middleware('permission:invoicing.sales.invoices.view')
+            ->get('/invoices/novo-ecra', fn () => view('react.ecra', [
+                'ecra' => 'facturacao/lista-de-facturas',
+                'titulo' => __('Facturas de Venda'),
+                'subtitulo' => __('Ecrã novo, em ensaio'),
+            ]))
+            ->name('invoices.react');
         Route::get('/invoices/create', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.create');
         Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
