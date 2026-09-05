@@ -97,7 +97,8 @@ class HRDashboard extends Component
             $date = Carbon::now()->subDays($i);
             $weekAttendance[] = [
                 'date' => $date->format('d/m'),
-                'day' => $date->locale('pt_BR')->dayName,
+                // A lingua de quem esta a ver, e nao 'pt_BR' escrita a mao.
+                'day' => $date->locale(app()->getLocale())->dayName,
                 'present' => Attendance::where('tenant_id', $tenantId)
                     ->whereDate('date', $date)
                     ->where('status', 'present')
@@ -141,10 +142,10 @@ class HRDashboard extends Component
             $alerts[] = [
                 'type' => 'warning',
                 'icon' => 'fa-umbrella-beach',
-                'title' => 'Férias Pendentes',
-                'message' => "$pendingVacations solicitação(ões) de férias aguardando aprovação",
+                'title' => __('Férias Pendentes'),
+                'message' => __(':n pedido(s) de férias à espera de aprovação', ['n' => $pendingVacations]),
                 'action' => route('hr.vacations.index'),
-                'action_text' => 'Ver Solicitações',
+                'action_text' => __('Ver Pedidos'),
             ];
         }
 
@@ -159,10 +160,10 @@ class HRDashboard extends Component
             $alerts[] = [
                 'type' => 'danger',
                 'icon' => 'fa-id-card',
-                'title' => 'Documentos Vencendo',
-                'message' => "$expiringDocuments funcionário(s) com documentos vencendo em breve",
+                'title' => __('Documentos a Vencer'),
+                'message' => __(':n funcionário(s) com documentos a vencer em breve', ['n' => $expiringDocuments]),
                 'action' => route('hr.employees.index'),
-                'action_text' => 'Ver Funcionários',
+                'action_text' => __('Ver Funcionários'),
             ];
         }
 
@@ -170,10 +171,10 @@ class HRDashboard extends Component
             $alerts[] = [
                 'type' => 'info',
                 'icon' => 'fa-hand-holding-usd',
-                'title' => 'Adiantamentos Pendentes',
-                'message' => "$pendingAdvances adiantamento(s) aguardando aprovação",
+                'title' => __('Adiantamentos Pendentes'),
+                'message' => __(':n adiantamento(s) à espera de aprovação', ['n' => $pendingAdvances]),
                 'action' => route('hr.advances'),
-                'action_text' => 'Ver Adiantamentos',
+                'action_text' => __('Ver Adiantamentos'),
             ];
         }
 
@@ -181,10 +182,10 @@ class HRDashboard extends Component
             $alerts[] = [
                 'type' => 'warning',
                 'icon' => 'fa-calendar-times',
-                'title' => 'Licenças Pendentes',
-                'message' => "$pendingLeaves licença(s)/falta(s) aguardando aprovação",
+                'title' => __('Licenças Pendentes'),
+                'message' => __(':n licença(s)/falta(s) à espera de aprovação', ['n' => $pendingLeaves]),
                 'action' => route('hr.leaves'),
-                'action_text' => 'Ver Licenças',
+                'action_text' => __('Ver Licenças'),
             ];
         }
 
@@ -192,10 +193,10 @@ class HRDashboard extends Component
             $alerts[] = [
                 'type' => 'info',
                 'icon' => 'fa-money-check-alt',
-                'title' => 'Folhas em Rascunho',
-                'message' => $payrollSummary['pending_payrolls'] . " folha(s) de pagamento em rascunho",
+                'title' => __('Folhas em Rascunho'),
+                'message' => __(':n folha(s) de pagamento em rascunho', ['n' => $payrollSummary['pending_payrolls']]),
                 'action' => route('hr.payroll'),
-                'action_text' => 'Ver Folhas',
+                'action_text' => __('Ver Folhas'),
             ];
         }
 
@@ -210,6 +211,92 @@ class HRDashboard extends Component
             'weekAttendance' => $weekAttendance,
             'payrollSummary' => $payrollSummary,
             'alerts' => $alerts,
+
+            'custoMensal'    => $this->custoDaFolhaPorMes($tenantId),
+            'porDepartamento' => $this->pessoasPorDepartamento($employeesByDepartment),
+            'presencaSemana' => $this->presencaDaSemana($weekAttendance),
+            'porContrato'    => $this->pessoasPorContrato($tenantId),
         ])->layout('layouts.app', ['title' => 'Dashboard RH']);
+    }
+
+    /**
+     * O custo da folha, mês a mês.
+     *
+     * É a pergunta que a direcção faz e a que este painel não respondia: o
+     * resumo mostrava só o último processamento, e um número sozinho não diz
+     * se a massa salarial está a crescer.
+     */
+    private function custoDaFolhaPorMes(int $tenantId): array
+    {
+        $desde = Carbon::now()->subMonths(11)->startOfMonth();
+
+        $porMes = DB::table('hr_payrolls')
+            ->where('tenant_id', $tenantId)
+            ->whereRaw('STR_TO_DATE(CONCAT(year, "-", LPAD(month, 2, "0"), "-01"), "%Y-%m-%d") >= ?', [$desde->format('Y-m-d')])
+            ->groupBy('year', 'month')
+            ->selectRaw('year, month, SUM(total_net_salary) as total')
+            ->get()
+            ->keyBy(fn ($l) => sprintf('%04d-%02d', $l->year, $l->month));
+
+        $etiquetas = [];
+        $valores = [];
+
+        for ($m = 0; $m < 12; $m++) {
+            $data = $desde->copy()->addMonths($m);
+
+            $etiquetas[] = $data->translatedFormat('M/y');
+            $valores[] = (float) ($porMes[$data->format('Y-m')]->total ?? 0);
+        }
+
+        return ['etiquetas' => $etiquetas, 'valores' => $valores];
+    }
+
+    /** Pessoas por departamento — já vinha calculado, faltava desenhá-lo. */
+    private function pessoasPorDepartamento($porDepartamento): array
+    {
+        return [
+            'etiquetas' => $porDepartamento->map(fn ($d) => $d->department->name ?? __('Sem departamento'))->all(),
+            'valores'   => $porDepartamento->map(fn ($d) => (int) $d->total)->all(),
+        ];
+    }
+
+    /** Presença ao longo da semana — idem. */
+    private function presencaDaSemana(array $semana): array
+    {
+        return [
+            'etiquetas' => array_column($semana, 'date'),
+            'valores'   => array_map('intval', array_column($semana, 'present')),
+        ];
+    }
+
+    /**
+     * Pessoas por situação de emprego.
+     *
+     * Diz numa vista de olhos como está composta a equipa — uma proporção que
+     * muda a leitura de todos os outros números deste painel.
+     */
+    private function pessoasPorContrato(int $tenantId): array
+    {
+        $linhas = DB::table('hr_employees')
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->groupBy('employment_status')
+            ->selectRaw('COALESCE(employment_status, "—") as tipo, COUNT(*) as total')
+            ->orderByDesc('total')
+            ->get();
+
+        $rotulos = [
+            'permanent'  => __('Efectivo'),
+            'fixed_term' => __('A termo'),
+            'temporary'  => __('Temporário'),
+            'internship' => __('Estágio'),
+            'contract'   => __('Prestação de serviços'),
+            'probation'  => __('Período experimental'),
+        ];
+
+        return [
+            'etiquetas' => $linhas->map(fn ($l) => $rotulos[$l->tipo] ?? $l->tipo)->all(),
+            'valores'   => $linhas->map(fn ($l) => (int) $l->total)->all(),
+        ];
     }
 }

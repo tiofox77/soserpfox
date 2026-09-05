@@ -202,7 +202,7 @@ class VacationManagement extends Component
             }
 
             $data = [
-                'tenant_id' => tenant('id'),
+                'tenant_id' => activeTenantId(),
                 'employee_id' => $this->employee_id,
                 'reference_year' => $this->reference_year,
                 'vacation_type' => $this->vacation_type,

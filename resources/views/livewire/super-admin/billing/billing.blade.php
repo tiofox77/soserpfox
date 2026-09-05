@@ -765,7 +765,7 @@
                                         'monthly'    => ['label' => 'Mensal', 'desc' => '1 mês', 'color' => 'green'],
                                         'quarterly'  => ['label' => 'Trimestral', 'desc' => '3 meses', 'color' => 'blue'],
                                         'semiannual' => ['label' => 'Semestral', 'desc' => '6 meses', 'color' => 'purple'],
-                                        'yearly'     => ['label' => 'Anual', 'desc' => '14 meses (2 grátis 🎁)', 'color' => 'orange'],
+                                        'yearly'     => ['label' => 'Anual', 'desc' => $com_oferta ? '14 meses (2 grátis 🎁)' : '12 meses (sem oferta)', 'color' => 'orange'],
                                     ];
                                 @endphp
                                 @foreach($cycles as $value => $cfg)
@@ -784,6 +784,51 @@
                                 @endforeach
                             </div>
                             @error('billing_cycle') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        {{-- Condições do acordo: oferta, dias à medida, preço por utilizador.
+                             Tudo `.live` — o resumo recalcula pela MESMA regra que grava
+                             (App\Support\AcordoDeSubscricao). --}}
+                        <div class="p-4 bg-gray-50 border-2 border-gray-200 rounded-xl">
+                            <label class="block text-sm font-bold text-gray-700 mb-3">
+                                <i class="fas fa-handshake text-gray-500 mr-1"></i>Condições do acordo
+                            </label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Período em dias (opcional)</label>
+                                    <input type="number" min="1" max="3660" step="1" placeholder="ex.: 364"
+                                           wire:model.live.debounce.400ms="dias_personalizados"
+                                           class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:border-purple-500 focus:ring-0">
+                                    <p class="text-[11px] text-gray-500 mt-1">Se preencher, ganha ao ciclo.</p>
+                                    @error('dias_personalizados') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Preço por utilizador (opcional)</label>
+                                    <input type="number" min="0" step="0.01" placeholder="Kz por utilizador"
+                                           wire:model.live.debounce.400ms="preco_por_utilizador"
+                                           class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:border-purple-500 focus:ring-0">
+                                    <p class="text-[11px] text-gray-500 mt-1">O valor passa a N utilizadores × este preço.</p>
+                                    @error('preco_por_utilizador') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Utilizadores a cobrar</label>
+                                    <input type="number" min="1" step="1" placeholder="os do plano"
+                                           wire:model.live.debounce.400ms="utilizadores_cobrados"
+                                           class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:border-purple-500 focus:ring-0">
+                                    <p class="text-[11px] text-gray-500 mt-1">Vazio = os utilizadores do plano.</p>
+                                    @error('utilizadores_cobrados') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+                            @if($billing_cycle === 'yearly' && $dias_personalizados === '')
+                            <label class="mt-3 flex items-start cursor-pointer">
+                                <input type="checkbox" wire:model.live="com_oferta"
+                                       class="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                <span class="ml-2 text-sm text-gray-700">
+                                    <strong>Oferecer os 2 meses do anual</strong> — 14 meses pelo preço de 12.
+                                    <span class="block text-xs text-gray-500">Desligado, o anual dá exactamente 12 meses. Fica gravado: a renovação repete o acordo.</span>
+                                </span>
+                            </label>
+                            @endif
                         </div>
 
                         {{-- Toggle: Marcar como Pago --}}
@@ -835,21 +880,27 @@
                         @endif
 
                         {{-- Resumo --}}
-                        @if($selectedPlan && $tenant_id && $billing_cycle)
+                        @php $acordo = $this->resumoDoAcordo; @endphp
+                        @if($selectedPlan && $tenant_id && $billing_cycle && $acordo)
                             @php
-                                $resumeAmount = $selectedPlan->getPrice($billing_cycle);
-                                $resumeCycle = match($billing_cycle) {
-                                    'yearly' => 'Anual (14 meses)',
-                                    'semiannual' => 'Semestral (6 meses)',
-                                    'quarterly' => 'Trimestral (3 meses)',
-                                    default => 'Mensal',
-                                };
+                                // Valor e período vêm do acordo (a mesma regra que grava),
+                                // não da tabela do plano.
+                                $resumeAmount = $acordo['valor'];
+                                $resumeCycle = $dias_personalizados !== ''
+                                    ? ((int) $dias_personalizados) . ' dias'
+                                    : match($billing_cycle) {
+                                        'yearly' => $com_oferta ? 'Anual (14 meses)' : 'Anual (12 meses, sem oferta)',
+                                        'semiannual' => 'Semestral (6 meses)',
+                                        'quarterly' => 'Trimestral (3 meses)',
+                                        default => 'Mensal',
+                                    };
                             @endphp
                             <div class="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-4 text-white shadow-lg">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-purple-200 text-xs uppercase font-bold tracking-wide">Total a {{ $marcarComoPago ? 'Cobrar' : 'Aguardar' }}</p>
                                         <p class="text-sm text-purple-100 mt-0.5">{{ $selectedPlan->name }} • {{ $resumeCycle }}</p>
+                                        <p class="text-xs text-purple-200 mt-1">{{ $acordo['base'] }} · até {{ $acordo['fim']->format('d/m/Y') }} ({{ $acordo['dias'] }} dias)</p>
                                     </div>
                                     <div class="text-right">
                                         <p class="text-3xl font-bold">{{ number_format($resumeAmount, 0) }} <span class="text-base">Kz</span></p>

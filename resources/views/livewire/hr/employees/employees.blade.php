@@ -1,4 +1,35 @@
-<div>
+<div x-data="{
+        // A tab activa do modal de funcionário vive AQUI, na raiz do componente,
+        // e não no próprio modal — de propósito.
+        //
+        // O modal nasce e morre com o showModal, e é o Livewire que o insere
+        // por morph. Se o `activeTab` vivesse no x-data do modal, os
+        // separadores (:class / x-show) chegavam a ser avaliados DURANTE o
+        // morph, antes de o x-data do modal se estabelecer — e rebentavam com
+        // «activeTab is not defined», deixando o modal sem corpo (todos os
+        // painéis com x-show falso). Aqui, na raiz que nunca é destruída, o
+        // activeTab existe sempre antes de qualquer separador o ler.
+        activeTab: 'personal',
+        init() {
+            // Cada abertura do modal recomeça em 'Pessoais'.
+            Livewire.on('modal-opened', () => { this.activeTab = 'personal'; });
+
+            // Erro de validação: salta para a tab certa e destaca o campo.
+            Livewire.on('switchTab', (event) => {
+                const targetTab = event.tab || event[0]?.tab || 'personal';
+                this.activeTab = targetTab;
+                setTimeout(() => {
+                    const errorInput = document.querySelector('.border-red-500, input:invalid, select:invalid');
+                    if (errorInput) {
+                        errorInput.classList.add('error-field');
+                        errorInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        errorInput.focus();
+                        setTimeout(() => errorInput.classList.remove('error-field'), 600);
+                    }
+                }, 100);
+            });
+        }
+     }">
     {{-- Toastr Notifications --}}
     @if (session()->has('success'))
         <div x-data="{ show: true }" 
@@ -374,7 +405,7 @@
     @include('livewire.hr.employees.partials.view-modal')
 
     {{-- Delete Confirmation Modal --}}
-    <div x-data="{ 
+    <div wire:key="hr-employee-delete-modal" x-data="{ 
         show: false, 
         employeeId: null, 
         employeeName: '' 
@@ -458,7 +489,7 @@
 
     {{-- Modal de Importação de Técnicos --}}
     @if($showImportModal)
-    <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: true }" x-show="show" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+    <div wire:key="hr-employee-import-events-modal" class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: true }" x-show="show" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
         {{-- Backdrop --}}
         <div class="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm" wire:click="closeImportModal"></div>
         
@@ -635,7 +666,7 @@
 
     {{-- Modal de Importação do Hotel --}}
     @if($showImportHotelModal)
-    <div class="fixed inset-0 z-50 overflow-y-auto">
+    <div wire:key="hr-employee-import-hotel-modal" class="fixed inset-0 z-50 overflow-y-auto">
         <div class="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm" wire:click="closeImportHotelModal"></div>
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border-4 border-teal-500">

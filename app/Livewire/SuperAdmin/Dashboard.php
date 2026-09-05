@@ -21,18 +21,31 @@ class Dashboard extends Component
 {
     public function viewTenant($tenantId)
     {
-        return redirect()->route('superadmin.tenants.show', $tenantId);
+        return redirect()->route('superadmin.tenants', ['search' => $tenantId]);
     }
     
     public function editTenant($tenantId)
     {
-        return redirect()->route('superadmin.tenants.edit', $tenantId);
+        return redirect()->route('superadmin.tenants', ['search' => $tenantId]);
     }
     
     public function manageTenant($tenantId)
     {
         $tenant = Tenant::find($tenantId);
         if ($tenant) {
+            // Um super admin a entrar na casa de um cliente é o acto com mais
+            // poder que o sistema tem: daqui para a frente tudo o que fizer
+            // aparece como sendo dentro daquela empresa. As linhas seguintes
+            // já levam o `impersonator_id`; o que faltava era o momento da
+            // entrada — sem ele, a trilha mostra actos sem mostrar quem abriu
+            // a porta.
+            app(\App\Services\Audit\AuditRecorder::class)->acto(
+                'personificacao.entrou',
+                $tenant->id,
+                ['empresa' => $tenant->name],
+                $tenant
+            );
+
             session(['impersonate_tenant_id' => $tenant->id]);
             return redirect('/dashboard');
         }

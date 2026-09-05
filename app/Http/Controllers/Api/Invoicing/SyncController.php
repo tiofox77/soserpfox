@@ -26,6 +26,27 @@ class SyncController extends Controller
             return response()->json(['error' => 'No active tenant'], 403);
         }
 
+        // O APARELHO DIZ QUEM É E QUE VERSÃO CORRE.
+        //
+        // Descobriu-se, a testar num Android, que um deploy do motor podia não
+        // chegar aos aparelhos — e, pior, que não havia forma de o saber. Aqui
+        // fica o inventário: quem usa o PWA, em que versão, e se está mesmo
+        // instalado ou só num separador.
+        //
+        // Vai por cabeçalhos e não no corpo porque a sincronização é um GET, e
+        // porque assim não muda o contrato de dados de nada.
+        //
+        // Nunca falha o pedido: uma escrita de telemetria não pode impedir um
+        // catálogo de descer (ver PwaDevice::visto).
+        \App\Models\PwaDevice::visto($tenantId, [
+            'device_uuid' => $request->header('X-Sos-Device'),
+            'app_version' => $request->header('X-Sos-Version'),
+            'standalone'  => $request->header('X-Sos-Standalone') === '1',
+            'platform'    => $request->header('X-Sos-Platform'),
+            'user_agent'  => $request->userAgent(),
+            'user_id'     => auth()->id(),
+        ]);
+
         $since = $request->query('since'); // ISO timestamp para sync incremental
 
         // Um `since` que não se perceba trata-se como sincronização COMPLETA.
@@ -327,6 +348,9 @@ class SyncController extends Controller
                 'code'           => $t->code,
                 'saft_code'      => $t->saft_code,
                 'exemption_code' => $t->exemption_code,
+                // O motivo por extenso: o papel sem rede escreve-o no resumo
+                // de impostos, como o servidor escreve.
+                'exemption_reason' => $t->exemption_reason,
                 'is_default'     => (bool) $t->is_default,
             ])
             ->values()
@@ -442,6 +466,9 @@ class SyncController extends Controller
             // Lista completa e autoritária: o cliente substitui a sua por esta,
             // por isso quem for desactivado desaparece na próxima sincronização.
             'employees' => $this->buildEmployees($tenant),
+            // As regras do PIN, para o aparelho recusar sem rede o mesmo que o
+            // servidor recusa com rede — uma lista só, a do servidor.
+            'pin_regras' => \App\Support\PinDeTurno::regrasParaOAparelho(),
             'company' => [
                 'name' => $tenant->company_name ?? $tenant->name ?? 'Empresa',
                 'nif' => $tenant->nif ?? '',
@@ -499,6 +526,8 @@ class SyncController extends Controller
      */
     private function buildEmployees(\App\Models\Tenant $tenant): array
     {
+        $reposicoes = app(\App\Services\Pwa\ReporPinSemRede::class);
+
         return $tenant->users()
             ->where('users.is_active', true)
             ->wherePivot('is_active', true)
@@ -510,6 +539,9 @@ class SyncController extends Controller
                 'email'      => mb_strtolower(trim($u->email)),
                 'pin_hash'   => $u->verificadorPinPos(),
                 'updated_at' => optional($u->pos_pin_set_at)->toIso8601String(),
+                // Quem pode autorizar, no aparelho e sem rede, o PIN novo de
+                // um colega que o esqueceu: os mesmos que o definem com rede.
+                'pode_repor_pin' => $reposicoes->podeGerirUtilizadores($u, $tenant->id),
             ])
             ->values()
             ->all();

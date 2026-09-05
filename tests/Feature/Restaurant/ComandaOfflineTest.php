@@ -29,9 +29,45 @@ use Tests\TenantTestCase;
  */
 class ComandaOfflineTest extends TenantTestCase
 {
+    public function test_copia_recupera_comanda_sem_duplicar_artigos(): void
+    {
+        $carga = $this->comanda(['confirmar' => false, 'notes' => 'Sem sal']);
+        $copia = ['formato' => 'soserp.pwa.copia', 'versao' => 2,
+            'tenant_id' => $this->tenant->id,
+            'dados' => ['sync_queue' => [['op' => 'sync_restaurant_order', 'payload' => $carga]]]];
+        $servico = app(\App\Services\POS\ImportacaoDeCopiaOffline::class);
+        $this->assertNull($servico->validar($copia, $this->tenant->id));
+        foreach ([1, 2] as $tentativa) {
+            $resultado = $servico->importar($copia, $this->tenant->id, $this->user->id);
+            $this->assertSame(0, $resultado['falhadas'], json_encode($resultado['erros']));
+            $this->assertSame(1, $resultado['comandas']);
+        }
+        $pedidos = Order::where('local_uuid', $carga['local_uuid'])->get();
+        $this->assertCount(1, $pedidos);
+        $this->assertSame($this->mesa->id, $pedidos->first()->table_id);
+        $this->assertSame('Sem sal', $pedidos->first()->notes);
+        $this->assertSame(1, OrderItem::where('order_id', $pedidos->first()->id)->count());
+        $this->assertEquals(2, OrderItem::where('order_id', $pedidos->first()->id)->value('quantity'));
+    }
+
+    public function test_copia_incompleta_nao_descarta_comanda_silenciosamente(): void
+    {
+        $resultado = app(\App\Services\POS\ImportacaoDeCopiaOffline::class)->importar(
+            ['dados' => ['sync_queue' => [['op' => 'sync_restaurant_order',
+                'payload' => ['local_uuid' => (string) Str::uuid()]]]]],
+            $this->tenant->id, $this->user->id
+        );
+        $this->assertSame(1, $resultado['falhadas']);
+        $this->assertSame(0, $resultado['comandas']);
+        $this->assertStringContainsString('dados completos', $resultado['erros'][0]);
+    }
+
     private Venue $sala;
+
     private DiningTable $mesa;
+
     private Product $prato;
+
     private PaymentMethod $metodo;
 
     protected function setUp(): void
@@ -103,7 +139,7 @@ class ComandaOfflineTest extends TenantTestCase
         return PosShift::create([
             'tenant_id' => $this->tenant->id,
             'user_id' => $userId,
-            'shift_number' => 'T-' . uniqid(),
+            'shift_number' => 'T-'.uniqid(),
             'status' => 'open',
             'opened_at' => now(),
             'opening_balance' => 0,
@@ -378,9 +414,9 @@ class ComandaOfflineTest extends TenantTestCase
     public function test_sala_de_outra_empresa_e_recusada(): void
     {
         $outra = \App\Models\Tenant::create([
-            'name' => 'Outra', 'slug' => 'outra-' . uniqid(),
+            'name' => 'Outra', 'slug' => 'outra-'.uniqid(),
             'nif' => (string) random_int(500000000, 599999999),
-            'email' => 'o' . uniqid() . '@x.ao', 'is_active' => true,
+            'email' => 'o'.uniqid().'@x.ao', 'is_active' => true,
         ]);
 
         $salaAlheia = Venue::withoutGlobalScopes()->create([
@@ -399,7 +435,7 @@ class ComandaOfflineTest extends TenantTestCase
     public function test_operador_de_outra_empresa_cai_no_utilizador_da_sessao(): void
     {
         $estranho = User::create([
-            'name' => 'De Fora', 'email' => 'fora' . uniqid() . '@x.ao',
+            'name' => 'De Fora', 'email' => 'fora'.uniqid().'@x.ao',
             'password' => bcrypt('x'), 'is_active' => true,
         ]);
 
@@ -418,7 +454,7 @@ class ComandaOfflineTest extends TenantTestCase
     public function test_operador_da_empresa_fica_registado_na_comanda(): void
     {
         $colega = User::create([
-            'name' => 'Colega', 'email' => 'colega' . uniqid() . '@x.ao',
+            'name' => 'Colega', 'email' => 'colega'.uniqid().'@x.ao',
             'password' => bcrypt('x'), 'tenant_id' => $this->tenant->id, 'is_active' => true,
         ]);
         $colega->tenants()->syncWithoutDetaching([$this->tenant->id => ['is_active' => true]]);

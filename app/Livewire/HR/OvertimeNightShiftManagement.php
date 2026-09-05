@@ -145,6 +145,8 @@ class OvertimeNightShiftManagement extends Component
 
             $hourlyRate = round($baseSalary / ($workingDays * ((float) HRSetting::get('working_hours_per_day', 8))), 2);
 
+            $nightRate = round($this->dailyRate * ($this->nightPercentage / 100), 2);
+
             $data = [
                 'tenant_id' => auth()->user()->activeTenantId(),
                 'employee_id' => $this->employee_id,
@@ -156,7 +158,10 @@ class OvertimeNightShiftManagement extends Component
                 'direct_hours' => $this->night_days,
                 'total_hours' => $this->night_days,
                 'hourly_rate' => $hourlyRate,
-                'rate' => $this->dailyRate * ($this->nightPercentage / 100),
+                // hr_overtime.overtime_rate is a legacy required column. Keep it
+                // aligned with the newer rate field for both old and new reports.
+                'overtime_rate' => $nightRate,
+                'rate' => $nightRate,
                 'amount' => $this->calculatedAmount,
                 'total_amount' => $this->calculatedAmount,
                 'multiplier' => $this->nightPercentage / 100,

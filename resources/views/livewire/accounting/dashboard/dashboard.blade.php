@@ -18,6 +18,68 @@
         </div>
     </div>
 
+    {{-- ============ OS SALDOS ============
+         O que este painel mostrava em cima eram CONTAGENS de contas — "Total
+         Ativo: 42" quer dizer quarenta e duas contas de activo, um número que
+         não muda com o negócio e não responde a nada. Quem abre isto quer
+         saber quanto há em cada natureza. As contagens continuam mais abaixo,
+         onde servem: para ver se o plano de contas está montado. --}}
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        @php
+            $__naturezas = [
+                ['rotulo' => __('Activo'),   'valor' => $saldoAtivo,    'cor' => 'blue',    'icone' => 'fa-wallet'],
+                ['rotulo' => __('Passivo'),  'valor' => $saldoPassivo,  'cor' => 'amber',   'icone' => 'fa-file-invoice-dollar'],
+                ['rotulo' => __('Proveitos'),'valor' => $saldoProveito, 'cor' => 'emerald', 'icone' => 'fa-arrow-trend-up'],
+                ['rotulo' => __('Gastos'),   'valor' => $saldoGasto,    'cor' => 'rose',    'icone' => 'fa-arrow-trend-down'],
+            ];
+        @endphp
+        @foreach($__naturezas as $n)
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-500">{{ $n['rotulo'] }}</span>
+                    <span class="grid h-9 w-9 place-items-center rounded-xl bg-{{ $n['cor'] }}-100 text-{{ $n['cor'] }}-700">
+                        <i class="fas {{ $n['icone'] }}"></i>
+                    </span>
+                </div>
+                <p class="mt-3 text-2xl font-black text-slate-900">{{ valorProtegido($n['valor'], 'accounting.reports.view') }} Kz</p>
+            </div>
+        @endforeach
+    </div>
+
+    {{-- O RESULTADO. É o número que se procura primeiro e não estava em lado
+         nenhum: proveitos menos gastos, no período escolhido. --}}
+    <div class="mb-6 rounded-2xl p-6 shadow-sm border {{ $resultado >= 0 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50' }}">
+        <p class="text-sm font-semibold {{ $resultado >= 0 ? 'text-emerald-700' : 'text-rose-700' }}">
+            {{ $resultado >= 0 ? __('Resultado do período (lucro)') : __('Resultado do período (prejuízo)') }}
+        </p>
+        <p class="mt-1 text-3xl font-black {{ $resultado >= 0 ? 'text-emerald-900' : 'text-rose-900' }}">
+            {{ valorProtegido($resultado, 'accounting.reports.view') }} Kz
+        </p>
+        <p class="mt-1 text-xs {{ $resultado >= 0 ? 'text-emerald-700' : 'text-rose-700' }}">
+            {{ __('Só lançamentos lançados. Um rascunho é uma intenção, não um facto contabilístico.') }}
+        </p>
+    </div>
+
+    {{-- ============ GRÁFICOS ============ --}}
+    <div class="grid gap-6 lg:grid-cols-2 mb-6">
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Movimento dos últimos 12 meses')"
+                   :subtitulo="__('Total lançado a débito, por mês')"
+                   id="grContMensal"
+                   :altura="260"
+                   :vazio="!array_sum($mensal['valores'])" />
+
+        <x-grafico :titulo="__('Contas mais movimentadas')"
+                   :subtitulo="__('Débito + crédito no período')"
+                   id="grContContas"
+                   :vazio="empty($topContas['valores'])" />
+
+        <x-grafico :titulo="__('Lançamentos por diário')"
+                   :subtitulo="__('Onde a contabilidade está a ser feita')"
+                   id="grContDiarios"
+                   :vazio="empty($porDiario['valores'])" />
+    </div>
+
     {{-- Stats Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         {{-- Total Ativo --}}
@@ -141,10 +203,10 @@
                                 {{ $move->journal->name ?? '-' }}
                             </td>
                             <td class="px-4 py-3 text-sm text-right font-medium text-green-600">
-                                {{ number_format($move->total_debit, 2, ',', '.') }} Kz
+                                {{ valorProtegido($move->total_debit, 'accounting.reports.view') }} Kz
                             </td>
                             <td class="px-4 py-3 text-sm text-right font-medium text-red-600">
-                                {{ number_format($move->total_credit, 2, ',', '.') }} Kz
+                                {{ valorProtegido($move->total_credit, 'accounting.reports.view') }} Kz
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full 
@@ -166,3 +228,50 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+    @include('partials.graficos')
+    <script>
+    sosDesenhar(function () {
+        const mensal   = @json($mensal);
+        const contas   = @json($topContas);
+        const diarios  = @json($porDiario);
+
+        sosBarras('grContMensal', mensal.etiquetas, mensal.valores, { cor: SOS_CORES[0] });
+
+        // Barras horizontais: um código de conta com o nome à frente
+        // ("6111 · Compras de mercadorias") não cabe num eixo vertical sem
+        // ficar inclinado e ilegível.
+        const elContas = document.getElementById('grContContas');
+        if (elContas) {
+            sosGrafico('grContContas', {
+                type: 'bar',
+                data: {
+                    labels: contas.etiquetas,
+                    datasets: [{
+                        data: contas.valores,
+                        backgroundColor: SOS_CORES[2],
+                        borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+                        borderSkipped: false,
+                        maxBarThickness: 24,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => sosMoeda(c.parsed.x) } },
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(100,116,139,.12)' }, border: { display: false } },
+                        y: { grid: { display: false }, border: { display: false } },
+                    },
+                },
+            });
+        }
+
+        sosRosca('grContDiarios', diarios.etiquetas, diarios.valores, { moeda: false });
+    });
+    </script>
+@endpush

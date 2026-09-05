@@ -44,6 +44,10 @@ class OrderManagement extends Component
     public ?int $secondPaymentMethodId = null;
     public float $secondPaymentAmount = 0;
     public bool $multiPayment = false;
+
+    // A gorjeta do fecho. Nao entra na factura — passa pela caixa e fica na
+    // comanda. Ver GorjetaETaxaDeServicoTest para o porque.
+    public float $tipAmount = 0;
     public array $payments = [];
     public ?int $targetTableId = null;
     public ?int $targetOrderId = null;
@@ -134,6 +138,7 @@ class OrderManagement extends Component
         $this->billItemIds = $selected->items()->whereColumn('billed_quantity','<','quantity')->pluck('id')->map(fn($id)=>(string)$id)->all();
         $this->multiPayment = false;
         $this->payments = [];
+        $this->tipAmount = 0;
         $this->secondPaymentMethodId = null;
         $this->secondPaymentAmount = 0;
     }
@@ -186,6 +191,7 @@ class OrderManagement extends Component
             'payments' => [$this->multiPayment && $this->documentType === 'FR' ? 'required' : 'nullable', 'array'],
             'payments.*.payment_method_id' => ['nullable', 'integer'],
             'payments.*.amount' => ['nullable', 'numeric', 'min:0.01'],
+            'tipAmount' => ['nullable', 'numeric', 'min:0'],
         ]);
         try {
             $tenders = $this->multiPayment ? collect($this->payments)
@@ -201,6 +207,7 @@ class OrderManagement extends Component
                 'document_type' => $this->documentType, 'client_id' => $this->clientId,
                 'payment_method_id' => $this->paymentMethodId, 'idempotency_key' => $this->checkoutKey, 'item_ids'=>$this->billItemIds,
                 'payments' => $this->documentType==='FR' ? $tenders : null,
+                'tip_amount' => $this->documentType==='FR' ? max(0, (float) $this->tipAmount) : 0,
             ], activeTenantId(), auth()->id());
             $this->invoiceResult = $invoice->invoice_number;
             $this->invoiceResultId = $invoice->id;
@@ -300,6 +307,9 @@ class OrderManagement extends Component
             $availableTables = DiningTable::where('tenant_id', activeTenantId())->where('venue_id', $selectedOrder->venue_id)->where('status', 'available')->where('is_active', true)->orderBy('name')->get();
             $mergeOrders = Order::where('tenant_id', activeTenantId())->where('venue_id', $selectedOrder->venue_id)->where('id', '!=', $selectedOrder->id)->whereIn('status', Order::OPEN_STATUSES)->with('table')->latest()->get();
         }
-        return view('livewire.restaurant.order-management', compact('orders', 'selectedOrder', 'products', 'clients', 'paymentMethods', 'availableTables', 'mergeOrders'));
+        // A vista do fecho precisa das definicoes (gorjetas ligadas?).
+        $restaurantSettings = \App\Models\Restaurant\RestaurantSettings::forTenant(activeTenantId());
+
+        return view('livewire.restaurant.order-management', compact('orders', 'selectedOrder', 'products', 'clients', 'paymentMethods', 'availableTables', 'mergeOrders', 'restaurantSettings'));
     }
 }

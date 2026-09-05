@@ -157,7 +157,7 @@ class PayrollManagement extends Component
             }
 
             $payrollService = new PayrollService();
-            $payrollService->processPayroll($payroll);
+            $payrollService->processPayroll($payroll, false);
 
             // Recarregar os dados da modal
             $this->viewDetails($payroll->id);
@@ -180,7 +180,9 @@ class PayrollManagement extends Component
 
     public function editItem($itemId)
     {
-        $this->editingItem = PayrollItem::with('employee')->findOrFail($itemId);
+        $this->editingItem = PayrollItem::with('employee')
+            ->whereHas('payroll', fn ($query) => $query->where('tenant_id', activeTenantId()))
+            ->findOrFail($itemId);
         $this->itemBaseSalary = $this->editingItem->base_salary;
         $this->itemFoodAllowance = $this->editingItem->food_allowance;
         $this->itemTransportAllowance = $this->editingItem->transport_allowance;

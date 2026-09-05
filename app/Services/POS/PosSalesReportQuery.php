@@ -174,8 +174,20 @@ class PosSalesReportQuery
                 -- não como FR (1093 contra 53). Filtrar por invoice_type='FR'
                 -- esconderia quase todas as vendas; o que se corrige é a
                 -- etiqueta, que pintava um FT com a pílula 'FR'.
-                COALESCE(NULLIF(i.invoice_type, ''), 'FT') AS doc_subtipo
+                COALESCE(NULLIF(i.invoice_type, ''), 'FT') AS doc_subtipo,
+                -- A série INTERNA, para o relatório mostrar as duas numerações
+                -- como a lista de facturas já mostra. Depois de a série ser
+                -- registada, o `invoice_number` passa a levar o código da AGT
+                -- (FR4226S61319N/…) e a numeração que a casa reconhece — a que
+                -- procura e arquiva — desaparecia do mapa de vendas.
+                --
+                -- Só os PEDAÇOS: quem os junta é o
+                -- SalesInvoice::comporNumeroInterno(), para não haver aqui uma
+                -- segunda implementação da mesma regra.
+                s.prefix AS serie_prefixo,
+                s.series_code AS serie_interna
             ")
+            ->leftJoin('invoicing_series as s', 's.id', '=', 'i.series_id')
             ->where('i.tenant_id', $this->tenantId)
             ->whereNull('i.deleted_at');
 
@@ -227,7 +239,11 @@ class PosSalesReportQuery
                 n.created_by,
                 n.reason_text AS motivo,
                 (SELECT ii.invoice_number FROM invoicing_sales_invoices ii WHERE ii.id = n.invoice_id) AS factura_origem,
-                'NC' AS doc_subtipo
+                'NC' AS doc_subtipo,
+                -- As colunas têm de bater com as das facturas: isto é um UNION.
+                -- Uma nota de crédito não tem série interna a mostrar.
+                NULL AS serie_prefixo,
+                NULL AS serie_interna
             ")
             ->where('n.tenant_id', $this->tenantId)
             ->whereNull('n.deleted_at')

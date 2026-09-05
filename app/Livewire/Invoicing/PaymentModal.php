@@ -189,19 +189,11 @@ class PaymentModal extends Component
                 'amount' => $this->amount,
             ]);
             $total_payment = $this->amount + $this->advance_amount;
-            
-            // Atualizar fatura
-            $new_paid_amount = ($this->invoice->paid_amount ?? 0) + $total_payment;
-            $this->invoice->paid_amount = $new_paid_amount;
-            
-            // Atualizar status automaticamente
-            if ($new_paid_amount >= $this->invoice->total) {
-                $this->invoice->status = 'paid';
-            } elseif ($new_paid_amount > 0) {
-                $this->invoice->status = 'partially_paid';
-            }
-            
-            $this->invoice->save();
+
+            // A FACTURA NAO SE SOMA AQUI. O recibo criado logo abaixo lanca o
+            // seu valor por si (ver os ganchos do Receipt), e somar aqui
+            // tambem fazia o pagamento contar duas vezes. O adiantamento, esse,
+            // nao passa por recibo nenhum e e lancado mais abaixo.
 
             // Criar recibo se houver pagamento em dinheiro/transferência
             $receipt = null;
@@ -259,6 +251,13 @@ class PaymentModal extends Component
                     'advance_number' => $advance->advance_number,
                     'amount' => $overpayment,
                 ]);
+            }
+
+            // O ADIANTAMENTO tambem e dinheiro recebido, e nao passa por
+            // recibo: lanca-se a mao, uma unica vez, depois de aplicado.
+            if ($this->invoiceType === 'sale' && $this->advance_amount > 0) {
+                $this->invoice->refresh();
+                $this->invoice->aplicarPagamento((float) $this->advance_amount);
             }
 
             DB::commit();

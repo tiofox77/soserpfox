@@ -87,7 +87,7 @@
                         @foreach($viewingAppointment->services as $svc)
                             <div class="flex justify-between items-center bg-white p-3 rounded-lg">
                                 <div>
-                                    <p class="font-semibold text-gray-900">{{ $svc->service->name }}</p>
+                                    <p class="font-semibold text-gray-900">{{ $svc->nome_do_servico }}</p>
                                     <p class="text-xs text-gray-500">{{ $svc->duration }} minutos</p>
                                 </div>
                                 <p class="font-bold text-pink-600">{{ number_format($svc->price, 0, ',', '.') }} Kz</p>

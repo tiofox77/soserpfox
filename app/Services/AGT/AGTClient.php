@@ -87,16 +87,23 @@ class AGTClient
 
     private function loadSettings(): void
     {
+        // Uma empresa nova nasce em PRODUÇÃO: quem se regista vai facturar a
+        // sério, e nascer em homologação mandava os primeiros documentos para
+        // o ambiente de testes sem ninguém dar por isso. Ver a migração
+        // 2026_09_02_140000. Só afecta linhas NOVAS — quem já existe fica onde
+        // está.
         $this->settings = InvoicingSettings::firstOrCreate(
             ['tenant_id' => $this->tenantId],
             [
                 'default_currency' => 'AOA',
-                'agt_environment' => 'sandbox',
+                'agt_environment' => 'production',
                 'agt_establishment_number' => 'SEDE',
             ]
         );
 
-        $this->environment = $this->settings->agt_environment ?? 'sandbox';
+        // O `?:` e não `??`: a coluna é NOT NULL, mas uma linha antiga pode ter
+        // ficado com string vazia, e '' escolheria homologação em silêncio.
+        $this->environment = $this->settings->agt_environment ?: 'production';
         $this->baseUrl = $this->environment === 'production'
             ? self::PRODUCTION_URL
             : self::SANDBOX_URL;
@@ -193,7 +200,7 @@ class AGTClient
         $establishment = $this->settings->agt_establishment_number ?? 'SEDE';
 
         $payload = [
-            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'schemaVersion' => $this->settings->agt_schema_version ?? AGTPayloadBuilder::SCHEMA_VERSION,
             'submissionUUID' => (string) Str::uuid(),
             'taxRegistrationNumber' => $taxNumber,
             'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -403,7 +410,8 @@ class AGTClient
                 'documentType' => $documentTypeCode,
                 'documentDate' => ($document->invoice_date ?? $document->issue_date)?->format('Y-m-d'),
                 'customerTaxID' => $client->nif ?? '999999999',
-                'customerCountry' => $client->country ?? 'AO',
+                'customerCountry' => \App\Support\Geografia::normalizarPais($client->country ?? null)
+                    ?? \App\Support\Geografia::PAIS_PADRAO,
                 'companyName' => $client->name ?? '',
                 'documentTotals' => [
                     'taxPayable' => round($document->tax_amount ?? 0, 2),
@@ -416,7 +424,8 @@ class AGTClient
             'eacCode' => $document->eac_code ?? $this->settings->agt_eac_code ?? '',
             'systemEntryDate' => ($document->system_entry_date ?? now())->format('Y-m-d\TH:i:s\Z'),
             'customerTaxID' => $client->nif ?? '999999999',
-            'customerCountry' => $client->country ?? 'AO',
+            'customerCountry' => \App\Support\Geografia::normalizarPais($client->country ?? null)
+                ?? \App\Support\Geografia::PAIS_PADRAO,
             'companyName' => $client->name ?? '',
             'lines' => collect($items)->map(function ($item, $idx) {
                 $credit = round(($item->unit_price ?? 0) * $item->quantity, 2);
@@ -459,7 +468,7 @@ class AGTClient
         ]];
 
         return [
-            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'schemaVersion' => $this->settings->agt_schema_version ?? AGTPayloadBuilder::SCHEMA_VERSION,
             'submissionUUID' => (string) Str::uuid(),
             'taxRegistrationNumber' => $taxNumber,
             'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -484,7 +493,7 @@ class AGTClient
         $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
 
         $payload = [
-            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'schemaVersion' => $this->settings->agt_schema_version ?? AGTPayloadBuilder::SCHEMA_VERSION,
             'submissionUUID' => (string) Str::uuid(),
             'taxRegistrationNumber' => $taxNumber,
             'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -571,7 +580,7 @@ class AGTClient
         $taxNumber = $tenant->nif ?? $tenant->tax_id ?? '';
 
         $payload = [
-            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'schemaVersion' => $this->settings->agt_schema_version ?? AGTPayloadBuilder::SCHEMA_VERSION,
             'submissionUUID' => (string) Str::uuid(),
             'taxRegistrationNumber' => $taxNumber,
             'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -661,7 +670,7 @@ class AGTClient
         $endDate = $filters['date_to'] ?? now()->format('Y-m-d');
 
         $payload = [
-            'schemaVersion' => $this->settings->agt_schema_version ?? '1.2',
+            'schemaVersion' => $this->settings->agt_schema_version ?? AGTPayloadBuilder::SCHEMA_VERSION,
             'submissionUUID' => (string) Str::uuid(),
             'taxRegistrationNumber' => $taxNumber,
             'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
@@ -747,12 +756,31 @@ class AGTClient
     // HELPERS & ASSINATURA
     // =========================================
 
+    /**
+     * Os três campos assinados do produtor — TODOS por ambiente.
+     *
+     * ISTO JÁ ESTEVE ERRADO E CUSTOU CARO. O `productId` e o `productVersion`
+     * liam a definição GLOBAL (`saft_product_id`, `saft_version`), ignorando o
+     * ambiente, enquanto o número de certificação já era o do ambiente certo.
+     * Em produção saía o par trocado — versão `1.0` de homologação com o
+     * certificado `FE/324/AGT/2026`, que é `1.0.0` — e a AGT devolvia E39 no
+     * registo de séries de TODAS as empresas.
+     *
+     * O mais traiçoeiro é que a submissão de DOCUMENTOS funcionava: essa passa
+     * pelo `AGTPayloadBuilder`, que sempre resolveu os três por ambiente. Duas
+     * implementações do mesmo bloco assinado, uma certa e outra errada — e só
+     * a errada é que se via, porque o registo de séries é o primeiro passo de
+     * cada cliente novo.
+     *
+     * Fonte única agora: `AGTProducerStore`, o mesmo que o payload builder usa.
+     */
     private function buildSoftwareInfo(): array
     {
         $detail = [
-            'productId' => softwareSetting('invoicing', 'saft_product_id', $this->settings->agt_product_id ?? 'SOS ERP - SOLUÇÕES EMPRESARIAIS'),
-            'productVersion' => softwareSetting('invoicing', 'saft_version', $this->settings->agt_product_version ?? '1.0'),
-            // Por ambiente: o número de produção enviado a homologação dá E39.
+            'productId' => AGTProducerStore::productId($this->environment)
+                ?: ($this->settings->agt_product_id ?? 'SOS ERP - SOLUÇÕES EMPRESARIAIS'),
+            'productVersion' => AGTProducerStore::productVersion($this->environment)
+                ?: ($this->settings->agt_product_version ?? '1.0'),
             'softwareValidationNumber' => AGTProducerStore::numeroCertificacao($this->environment)
                 ?: ($this->settings->agt_software_validation_number ?? 'C_PENDING'),
         ];
@@ -763,19 +791,30 @@ class AGTClient
         ];
     }
 
+    /**
+     * Assina com a chave do produtor DESTE ambiente.
+     *
+     * O caminho estava fixo em `saft/private_key.pem`. Hoje resolve no mesmo
+     * sítio (o legado é o par partilhado), mas no dia em que se instalar um par
+     * só para produção, esta assinatura continuaria a sair com a chave errada
+     * — e a AGT recusaria sem dizer porquê. O `AGTProducerStore` já trata do
+     * recurso ao legado.
+     */
     private function signSoftwareInfo(array $payload): string
     {
-        $privateKey = null;
-        if (Storage::disk('local')->exists('saft/private_key.pem')) {
-            $privateKey = Storage::disk('local')->get('saft/private_key.pem');
-        }
+        $caminho = AGTProducerStore::privateKeyPath($this->environment);
+        $disco = Storage::disk('local');
 
-        if (!$privateKey) {
-            Log::warning('AGT: Chave privada do produtor não encontrada em saft/private_key.pem');
+        if (!$disco->exists($caminho)) {
+            Log::warning('AGT: chave privada do produtor não encontrada', [
+                'ambiente' => $this->environment,
+                'caminho'  => $caminho,
+            ]);
+
             return '';
         }
 
-        return $this->generateJWS($payload, $privateKey);
+        return $this->generateJWS($payload, $disco->get($caminho));
     }
 
     private function signPayload(array $payload): string
@@ -888,7 +927,7 @@ class AGTClient
             }
 
             $payload = [
-                'schemaVersion' => '1.2',
+                'schemaVersion' => $this->settings->agt_schema_version ?? AGTPayloadBuilder::SCHEMA_VERSION,
                 'taxRegistrationNumber' => $taxNumber,
                 'submissionTimeStamp' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
                 'softwareInfo' => $this->buildSoftwareInfo(),

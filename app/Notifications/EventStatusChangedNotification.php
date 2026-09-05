@@ -40,7 +40,7 @@ class EventStatusChangedNotification extends Notification
             'changed_by' => $this->changedBy->name,
             'icon' => 'fa-sync-alt',
             'color' => 'cyan',
-            'url' => route('events.show', $this->event->id),
+            'url' => route('events.calendar'),
         ];
     }
 }

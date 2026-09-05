@@ -50,6 +50,17 @@ class ExigirNifDeEmpresa
             return $next($request);
         }
 
+        // SÓ SE MANDA LÁ QUEM PODE CORRIGIR.
+        //
+        // O ecrã da empresa passou a exigir `settings.view` — mudar o NIF e o
+        // regime fiscal é de quem gere a empresa. Mandar para lá um caixa era
+        // atirá-lo contra um 403 e trancá-lo fora do sistema: redirecção para
+        // uma página que ele não abre, a cada pedido. Quem não pode corrigir
+        // continua a trabalhar; a pressão fica em quem tem as mãos no volante.
+        if (!auth()->user()?->can('settings.edit')) {
+            return $next($request);
+        }
+
         // Uma mensagem que diz o que está mal, porque importa, e o que fazer.
         // "NIF inválido" não move ninguém; perder as facturas move.
         return redirect()

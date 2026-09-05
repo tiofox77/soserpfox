@@ -1,10 +1,29 @@
-<div class="min-h-screen bg-slate-100 p-4 lg:p-6" wire:poll.15s>
+{{-- O ECRÃ SÓ SE REFAZ QUANDO HÁ ALGUMA COISA PARA VER.
+
+     Isto era `wire:poll.15s`: a página inteira refeita de quinze em quinze
+     segundos, com a consulta grande atrás (bilhetes, artigos, comanda, mesa,
+     posto), estivesse ou não a acontecer alguma coisa. Um prato podia esperar
+     quinze segundos para ser visto, e uma cozinha parada às três da tarde
+     pagava o mesmo que uma cozinha cheia às oito.
+
+     Agora pergunta-se de 3 em 3 segundos a uma rota que só faz uma agregação
+     — sem carregar relação nenhuma — e só se manda refazer quando a resposta
+     muda. Atraso de 15s para 3s, e quase nada de trabalho quando está tudo
+     na mesma.
+
+     O `wire:poll.90s` fica como rede de segurança: se o pulso falhar (sessão
+     morta, rota bloqueada), o ecrã ainda se refaz sozinho de vez em quando em
+     vez de ficar parado a mentir. --}}
+<div class="min-h-screen bg-slate-100 p-4 lg:p-6"
+     wire:poll.90s
+     x-data="pulsoDaCozinha(@js(route('restaurant.kitchen.pulso')), @js($stationId), @js((bool) $autoPrint))">
     <div class="mx-auto max-w-7xl">
         <header class="mb-5 flex flex-col gap-4 rounded-3xl bg-slate-950 p-6 text-white shadow-xl md:flex-row md:items-center md:justify-between">
             <div>
                 <a href="{{ route('restaurant.dashboard') }}" class="text-sm font-bold text-orange-400">← Restaurante</a>
                 <h1 class="mt-2 text-3xl font-black">Cozinha / KDS</h1>
                 <p class="mt-1 text-slate-400">Fila de preparação atualizada automaticamente.</p>
+                <label class="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300"><input type="checkbox" x-model="imprimirSozinho" class="rounded text-orange-500"><i class="fas fa-print"></i>Imprimir talões novos neste aparelho</label>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button wire:click="$set('stationId', null)" class="rounded-xl px-4 py-2 text-sm font-bold {{ !$stationId ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300' }}">Todas</button>
@@ -22,7 +41,7 @@
                     $minutes = (int) floor($ticket->queued_at->diffInMinutes(now()));
                     $next = ['queued' => ['Aceitar', 'bg-blue-600'], 'accepted' => ['Começar', 'bg-amber-500'], 'preparing' => ['Marcar pronto', 'bg-emerald-600'], 'ready' => ['Entregue', 'bg-violet-600']][$ticket->status];
                 @endphp
-                <article class="overflow-hidden rounded-3xl border-2 {{ $minutes >= 20 ? 'border-red-400' : 'border-transparent' }} bg-white shadow-lg">
+                <article data-talao="{{ $ticket->id }}" data-talao-url="{{ route('restaurant.kitchen.print', $ticket) }}" class="overflow-hidden rounded-3xl border-2 {{ $minutes >= 20 ? 'border-red-400' : 'border-transparent' }} bg-white shadow-lg">
                     <div class="flex items-start justify-between bg-slate-900 p-5 text-white">
                         <div>
                             <p class="text-xs font-black uppercase tracking-widest text-orange-400">{{ $ticket->station->name }}</p>
@@ -48,3 +67,134 @@
         </div>
     </div>
 </div>
+
+@script
+<script>
+/**
+ * O pulso: pergunta barata, resposta curta.
+ *
+ * Só chama `$wire.$refresh()` quando a resposta muda. Enquanto a cozinha
+ * estiver na mesma, isto custa um pedido de 30 bytes de três em três segundos
+ * e mais nada — em vez de refazer a página inteira de quinze em quinze.
+ */
+window.pulsoDaCozinha = (rota, posto, autoPrintDaCasa) => ({
+    ultimo: null,
+    aVer: false,
+    falhas: 0,
+
+    /**
+     * A impressão automática é POR APARELHO, guardada no próprio: a impressora
+     * está num posto só, e a definição da casa é apenas o valor de arranque.
+     * Ligada em todos os ecrãs, cada um imprimia a sua cópia do mesmo talão.
+     */
+    imprimirSozinho: (() => {
+        try {
+            const guardado = localStorage.getItem('kds-imprimir-sozinho');
+            return guardado === null ? autoPrintDaCasa : guardado === '1';
+        } catch (e) { return false; }
+    })(),
+
+    init() {
+        const endereco = posto ? `${rota}?station=${posto}` : rota;
+
+        this.temporizador = setInterval(() => this.ver(endereco), 3000);
+
+        // Voltar ao ecrã depois de ele ter estado escondido é o momento em que
+        // é mais provável ter mudado alguma coisa — pergunta-se logo.
+        this.aoVoltar = () => { if (!document.hidden) this.ver(endereco); };
+        document.addEventListener('visibilitychange', this.aoVoltar);
+
+        this.$watch('imprimirSozinho', (v) => {
+            try { localStorage.setItem('kds-imprimir-sozinho', v ? '1' : '0'); } catch (e) {}
+        });
+
+        // No primeiro carregamento, o que já está no ecrã dá-se como visto:
+        // ligar a impressão não pode despejar a fila inteira na impressora.
+        this.marcarVistos();
+
+        // A cada refresh do Livewire, o que aparecer de novo imprime-se.
+        document.addEventListener('livewire:morphed', () => this.imprimirNovos());
+    },
+
+    vistos: new Set(),
+
+    marcarVistos() {
+        document.querySelectorAll('[data-talao]').forEach((el) => {
+            this.vistos.add(el.dataset.talao);
+        });
+    },
+
+    imprimirNovos() {
+        const novos = [...document.querySelectorAll('[data-talao]')]
+            .filter((el) => !this.vistos.has(el.dataset.talao));
+
+        this.marcarVistos();
+
+        if (!this.imprimirSozinho) return;
+
+        // Um de cada vez, num iframe escondido. O print() abre o diálogo do
+        // sistema — silencioso só quando o Chrome do posto corre em modo
+        // quiosque (--kiosk-printing), que é o normal numa impressora térmica
+        // de cozinha. Fora disso, aparece o diálogo, que ainda assim poupa o
+        // abrir-a-página-e-carregar-em-imprimir.
+        novos.forEach((el, i) => {
+            setTimeout(() => this.imprimir(el.dataset.talaoUrl), i * 1500);
+        });
+    },
+
+    imprimir(url) {
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden;';
+        iframe.src = url;
+        iframe.onload = () => {
+            try { iframe.contentWindow.print(); } catch (e) {}
+            // Tempo de sobra para o spooler receber antes de deitar fora.
+            setTimeout(() => iframe.remove(), 20000);
+        };
+        document.body.appendChild(iframe);
+    },
+
+    destroy() {
+        clearInterval(this.temporizador);
+        document.removeEventListener('visibilitychange', this.aoVoltar);
+    },
+
+    async ver(endereco) {
+        // Com o separador escondido não vale a pena: ninguém está a olhar, e
+        // um ecrã de cozinha fica aberto o dia todo.
+        if (this.aVer || document.hidden) return;
+
+        this.aVer = true;
+
+        try {
+            const r = await fetch(endereco, {
+                headers: { Accept: 'application/json' },
+                cache: 'no-store',
+            });
+
+            // Sessão morta ou sem permissão: cala-se e deixa o wire:poll.90s
+            // tomar conta. Insistir de 3 em 3 segundos contra um 401 só enche
+            // os registos.
+            if (!r.ok) {
+                if (++this.falhas >= 3) clearInterval(this.temporizador);
+                return;
+            }
+
+            this.falhas = 0;
+
+            const { pulso } = await r.json();
+
+            if (this.ultimo !== null && pulso !== this.ultimo) {
+                this.$wire.$refresh();
+            }
+
+            this.ultimo = pulso;
+        } catch (e) {
+            if (++this.falhas >= 3) clearInterval(this.temporizador);
+        } finally {
+            this.aVer = false;
+        }
+    },
+});
+</script>
+@endscript

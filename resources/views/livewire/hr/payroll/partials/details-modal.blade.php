@@ -241,10 +241,10 @@
                    class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg inline-flex items-center">
                     <i class="fas fa-file-pdf mr-2"></i>Recibos (Todos)
                 </a>
-                <button type="button"
+                <a href="{{ route('hr.payroll.excel', $selectedPayroll->id) }}"
                         class="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg">
                     <i class="fas fa-file-excel mr-2"></i>Exportar Excel
-                </button>
+                </a>
                 
                 @if($selectedPayroll->status !== 'paid')
                     <button wire:click="recalculatePayroll({{ $selectedPayroll->id }})" 

@@ -441,13 +441,17 @@ class MyAccount extends Component
             $this->loadAccountData();
             $this->dispatch('success', message: 'Empresa removida da conta e arquivada com segurança.');
             
-            // Se deletou a empresa ativa, trocar para outra
+            // Se deletou a empresa ativa, trocar para outra — e aterrar numa
+            // página NOVA. O contexto inteiro mudou (empresa, permissões,
+            // menu); recarregar a mesma página deixava-a com o snapshot e o
+            // token da empresa que acabou de ser arquivada. Mesma regra do
+            // TenantSwitcher.
             if ($wasActive) {
                 $firstTenant = $user->tenants()->first();
                 if ($firstTenant) {
                     $user->switchTenant($firstTenant->id);
-                    // Recarregar página para atualizar contexto
-                    $this->dispatch('tenant-switched-reload');
+
+                    return $this->redirectRoute('home');
                 }
             }
             

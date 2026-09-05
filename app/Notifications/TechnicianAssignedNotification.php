@@ -34,7 +34,7 @@ class TechnicianAssignedNotification extends Notification
             'assigned_by' => $this->assignedBy->name,
             'icon' => 'fa-user-plus',
             'color' => 'purple',
-            'url' => route('events.show', $this->event->id),
+            'url' => route('events.calendar'),
         ];
     }
 }

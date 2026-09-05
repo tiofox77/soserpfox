@@ -38,6 +38,10 @@ class PrepararBancadaPwa extends Command
     public const PASSWORD = 'bancada-pwa-2026';
     public const PIN      = '4321';
 
+    /** O caixa sem direitos de gestão, para o "esqueci o PIN" sem rede. */
+    public const EMAIL_CAIXA = 'caixa@pwa.local';
+    public const PIN_CAIXA   = '7391';
+
     public function handle(): int
     {
         if (!app()->environment('local')) {
@@ -80,6 +84,28 @@ class PrepararBancadaPwa extends Command
             'tenant_id' => $tenant->id,
             'is_active' => true,
         ])->save();
+
+        // O ensaio de login realmente offline precisa do mesmo verificador
+        // bcrypt que um operador define em "PIN de turno". Declarar o PIN na
+        // bancada sem o gravar fazia os restantes testes passarem, mas um
+        // aparelho sem sessão nunca conseguia autenticar-se.
+        $utilizador->definirPinPos(self::PIN);
+
+        // E um CAIXA sem direitos de gestão, para o ensaio do "esqueci o PIN":
+        // é o gestor (o operador acima, com todas as permissões) que lhe
+        // autoriza um PIN novo sem rede. Nunca entra com rede — só por PIN.
+        $caixa = User::firstOrCreate(
+            ['email' => self::EMAIL_CAIXA],
+            [
+                'name'      => 'Caixa da Bancada',
+                'password'  => Hash::make(self::PASSWORD),
+                'tenant_id' => $tenant->id,
+                'is_active' => true,
+            ]
+        );
+        $caixa->forceFill(['tenant_id' => $tenant->id, 'is_active' => true])->save();
+        $caixa->definirPinPos(self::PIN_CAIXA);
+        $caixa->tenants()->syncWithoutDetaching([$tenant->id => ['is_active' => true]]);
 
         $utilizador->tenants()->syncWithoutDetaching([$tenant->id => ['is_active' => true]]);
         setPermissionsTeamId($tenant->id);
@@ -290,6 +316,7 @@ class PrepararBancadaPwa extends Command
         Warehouse::where('tenant_id', $tenant->id)->forceDelete();
         InvoicingSettings::where('tenant_id', $tenant->id)->delete();
         User::where('email', self::EMAIL)->forceDelete();
+        User::where('email', self::EMAIL_CAIXA)->forceDelete();
         $tenant->forceDelete();
 
         $this->info('Bancada apagada.');

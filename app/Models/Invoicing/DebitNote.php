@@ -10,9 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Traits\NumeracaoInternaEAgt;
 
 class DebitNote extends Model
 {
+    // O número nas duas séries: a interna e a da AGT.
+    use NumeracaoInternaEAgt;
+
     use BelongsToTenant, SoftDeletes, HasAGTSignature;
 
     protected $table = 'invoicing_debit_notes';
@@ -60,6 +64,8 @@ class DebitNote extends Model
     ];
 
     protected $casts = [
+        // Sem isto vinha texto cru e o ->format() do ecrã rebentava.
+        'agt_submitted_at' => 'datetime',
         'issue_date' => 'date',
         'due_date' => 'date',
         'system_entry_date' => 'datetime',

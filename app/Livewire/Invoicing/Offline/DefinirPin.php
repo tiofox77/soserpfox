@@ -60,7 +60,7 @@ class DefinirPin extends Component
         }
 
         // PIN óbvio é um PIN que não protege nada.
-        if (in_array($this->pin, ['0000', '1111', '1234', '123456', '000000', '111111'], true)) {
+        if (\App\Support\PinDeTurno::ehObvio($this->pin)) {
             $this->reset(['pin', 'pin_confirmation']);
             $this->addError('pin', 'Escolha um PIN menos óbvio.');
             return;

@@ -28,10 +28,54 @@ class MaintenanceController extends Controller
     protected array $allowedCommands = [
         'plans:update-pricing',
         'create:fox-friendly-plan',
+        // Acerta o fim do período de uma subscrição (a seco por omissão;
+        // escreve só com --aplicar). Mostra também as subscrições todas da
+        // empresa — é como se vê uma empresa com duas vivas.
+        'subscricao:ajustar',
         // Quem já gastou o plano gratuito ou o período de teste. Só contagens.
         'cortesias:estado',
         'admin:set-email',
         'tenants:delete',
+
+        // A cadeia de assinaturas SAFT-AO, conferida documento a documento.
+        // SÓ LÊ — é um relatório, não corrige nada.
+        //
+        // O irmão dele, o `agt:reparar-elos`, fica DE FORA desta lista de
+        // propósito: escreve em documentos fiscais já emitidos, e uma coisa
+        // dessas não se dispara por um endereço no browser. Corre-se por
+        // linha de comando, a seco primeiro, e com alguém a ler o resultado.
+        'agt:verificar-cadeia',
+
+        // O inventário dos aparelhos com PWA e a versão de cada um.
+        // SÓ LÊ — é a forma de confirmar, depois de um deploy, se os
+        // aparelhos apanharam a versão nova.
+        'pwa:aparelhos',
+
+        // Os países e províncias gravados nas moradas, e o que a AGT não
+        // aceitaria. SÓ LÊ — serve para confirmar, antes e depois da migração,
+        // que nenhum país ficou escrito por extenso.
+        'geografia:diagnostico',
+
+        // As empresas cujo país veio do DEFAULT da coluna («Portugal») e não
+        // de uma escolha. SÓ MOSTRA; escreve com `--aplicar`, e isso é uma
+        // ordem do dono — é o país de empresas reais, e sai em documentos.
+        'geografia:pais-da-empresa',
+
+        // A empresa de ensaio em produção. Cria uma empresa e uma equipa com
+        // credenciais GERADAS, que aparecem uma vez na resposta — não há nada
+        // fixo em código, ao contrário do `bancada:pwa`.
+        //
+        // Está aqui porque não há outra forma de a correr (só FTP e estas
+        // rotas), e porque se apaga pelo mesmo caminho: `?args=--limpar`.
+        // Uma bancada esquecida em produção é uma porta aberta.
+        'bancada:producao',
+        'bancada:senha',
+        // Repõe o OPcache do lado web. Corre-se no fecho de um deploy que muda
+        // classes PHP: sem isto, um ficheiro com o conteúdo certo (MD5 a bater)
+        // pode continuar a correr a compilação antiga — um método novo aparece
+        // como «not found» e o view:cache não resolve (é só Blade). Tem de ser
+        // por HTTP: o OPcache do CLI e o do php-fpm são separados.
+        'deploy:opcache-reset',
         'optimize:clear',
         'config:clear',
         'cache:clear',
@@ -54,6 +98,29 @@ class MaintenanceController extends Controller
         'permissions:sync-pos-reports',
         'permissions:sync-quotes',
         'permissoes:conceder',
+        // Liga um módulo a um tenant (ou a todos). Serve para dar acesso à
+        // empresa de ensaio (#96) e reproduzir um ecrã de módulo em produção
+        // sem sessão de admin. syncWithoutDetaching — nunca desliga nada.
+        'module:attach',
+        // Desliga um módulo de um tenant (is_active=false no pivot; reversível,
+        // não apaga dados). A seco por omissão; só desliga com --aplicar. Serve
+        // para trocar módulos por empresa sem passar pelo painel de superadmin.
+        'module:detach',
+        // Importa uma lista de produtos (categoria, nome, código, preço, custo,
+        // stock) de um JSON para um tenant. A SECO por omissão (corre numa
+        // transacção e faz rollback); só grava com ?args=--aplicar. Idempotente
+        // pelo código. O JSON vive em storage/app/imports/ (fora da whitelist
+        // de verificação, mas não é segredo — é o catálogo do cliente).
+        'produtos:importar-lista',
+        'clientes:importar',
+        // Exporta os produtos de um tenant para JSON (só lê) — para gerar uma
+        // lista de preços em PDF fora do sistema.
+        'produtos:exportar',
+        // Repor o PIN de turno de um funcionário (login offline do POS), o mesmo
+        // que o modal da Gestão de Utilizadores faz. Seguro por omissão: gera o
+        // PIN no servidor (não viaja no URL), recusa os óbvios sem --forcar, e
+        // aborta se o utilizador não for membro do tenant. Grava só com --aplicar.
+        'pwa:definir-pin',
         'tenant:set-tax-exclusion',
         'planos:trial-automatico',
         'planos:dias-de-teste',
@@ -109,6 +176,7 @@ class MaintenanceController extends Controller
         'invoices:fix-cross-tenant-client',
         'invoices:fix-type-by-series',
         'modules:repair',
+        'tenant:reconcile-modules',
         'superadmin:audit',
         // Diagnóstico da trilha de auditoria: só lê. Necessário em produção
         // porque o gravador falha em silêncio de propósito — sem isto,
@@ -131,6 +199,24 @@ class MaintenanceController extends Controller
         'artigos:ver',
         // Ultimos documentos emitidos e o imposto de cada um. So le.
         'documentos:ver',
+        'notas-credito:ver',
+        // Corta as quantidades de uma nota de credito ao que a factura ainda
+        // tem por anular, refaz totais e assinatura, e repoe a submissao na
+        // fila. A SECO por omissao; so escreve com --aplicar. Recusa-se a
+        // mexer numa nota que a AGT ja tenha aceite.
+        'nota-credito:acertar',
+        // Poe o 'ja pago' das facturas a par dos recibos que existem. So conta;
+        // escreve com --aplicar. Nunca toca numa factura sem recibo nenhum
+        // (as do balcao pagam-se no acto e o documento e o proprio recibo).
+        'facturas:acertar-pagos',
+        // Marcacoes do salao que ficaram sem origem — a coluna nao conhecia
+        // 'system' e um MySQL permissivo guardava cadeia vazia. So conta;
+        // escreve apenas com --aplicar.
+        'salao:origens',
+        // Ligacao do hotel ao KiandaStay: estado, teste, registar o webhook
+        // outra vez e trazer uma reserva perdida pelo codigo. So --ligar e
+        // --reserva escrevem, e ambos por ordem explicita.
+        'hotel:kiandastay',
         // Apaga artigos da base a sério, para refazer uma importação. Exige
         // --aplicar E --confirmo-que-apaga, e nunca apaga um artigo que
         // esteja numa factura, nota ou receita.
@@ -148,6 +234,9 @@ class MaintenanceController extends Controller
         'subscricao:trial',
         // Troca de plano pela mesma regra do ecra. Simulacao por omissao.
         'empresas:trocar-plano',
+        'empresas:criar',
+        'empresas:regime',
+        'empresas:contas-bancarias',
         // Que nome da empresa sai impresso. Sem --usar apenas lista.
         'empresas:nome-documentos',
         // De quem são as tarefas paradas na fila do AGT. Só lê.
@@ -155,6 +244,21 @@ class MaintenanceController extends Controller
         // Porque é que a AGT recusou um documento (código, mensagem e resposta
         // crua). Só lê.
         'agt:ver-rejeicao',
+        // Permissões cujo nome é prefixo de outra — só lê.
+        'permissoes:sombras',
+        // Reparte invoicing.documents.all pelos papéis (a seco por omissão).
+        'permissions:sync-documentos',
+        // Confere permissões em falta/mortas/sem descrição e os papéis de uma empresa — só lê.
+        'permissoes:catalogo',
+        // Preenche descrições em falta a partir do catálogo (a seco por omissão).
+        'permissoes:descrever',
+        // Acrescenta aos papéis por omissão o que lhes falta (nunca tira).
+        'papeis:completar',
+        // Apaga permissões que nenhum portão verifica (a seco por omissão).
+        'permissoes:limpar-mortas',
+        // Repõe tentativas a submissões esgotadas por culpa nossa (a seco por
+        // omissão). ATENÇÃO: com --aplicar arma um reenvio — só por ordem.
+        'agt:repor-tentativas',
         // Correcção dos prefixos. Sem --aplicar é simulação, e as séries que já
         // emitiram documentos só mudam com --forcar (mudar o prefixo a meio
         // deixa a série com números de duas formas diferentes).
@@ -310,9 +414,75 @@ class MaintenanceController extends Controller
         }
 
         $output = new BufferedOutput();
-        $exitCode = Artisan::call($cmd, $args, $output);
+        $exitCode = 1;
+
+        // O `finally` não é decoração: um comando que REBENTA é precisamente o
+        // que mais interessa ter na trilha, e sem isto a excepção subia e
+        // levava o registo à frente — ficava rasto dos que correram bem e
+        // nenhum dos que falharam a meio.
+        try {
+            $exitCode = Artisan::call($cmd, $args, $output);
+        } finally {
+            $this->registarNaTrilha($cmd, $args, $exitCode);
+        }
 
         return $this->respond($cmd, $exitCode, $output, $request);
+    }
+
+    /**
+     * Um comando corrido por HTTP contra a produção deixa rasto.
+     *
+     * Estas rotas fazem coisas com consequência — migrar, semear, ligar e
+     * desligar módulos, repor PINs — e até aqui não deixavam linha nenhuma:
+     * o observer só vê alterações de modelo, e quem corre isto não tem sessão.
+     *
+     * A trilha é POR EMPRESA (`audit_trail.tenant_id` é NOT NULL), por isso só
+     * se regista quando o comando diz em que empresa mexe. Os comandos globais
+     * (migrate, cache:clear) continuam sem rasto — é a mesma fronteira dos
+     * modelos de plataforma, anotada em config/audit.php.
+     */
+    private function registarNaTrilha(string $cmd, array $args, int $exitCode): void
+    {
+        $tenantId = null;
+        foreach (['tenant_id', '--tenant', 'tenant', '--tenant-id'] as $chave) {
+            if (!empty($args[$chave]) && is_numeric($args[$chave])) {
+                $tenantId = (int) $args[$chave];
+                break;
+            }
+        }
+
+        if (!$tenantId) {
+            return;
+        }
+
+        // Os metadados de um acto NÃO passam pela lista `redacted` do config —
+        // essa só cobre valores de modelo. Um `--pin=1234` escrevia o PIN em
+        // claro numa tabela append-only e selada, de onde não sai sem partir a
+        // cadeia. Aqui oculta-se antes de entrar.
+        $segredos = ['pin', 'password', 'token', 'secret', 'key', 'senha'];
+        $argsLimpos = [];
+        foreach ($args as $chave => $valor) {
+            $nome = strtolower(ltrim((string) $chave, '-'));
+            $sensivel = false;
+            foreach ($segredos as $s) {
+                if (str_contains($nome, $s)) {
+                    $sensivel = true;
+                    break;
+                }
+            }
+            $argsLimpos[$chave] = $sensivel ? '[oculto]' : $valor;
+        }
+
+        app(\App\Services\Audit\AuditRecorder::class)->acto(
+            'manutencao.comando',
+            $tenantId,
+            [
+                'comando' => $cmd,
+                'argumentos' => $argsLimpos,
+                'resultado' => $exitCode === 0 ? 'ok' : 'falhou',
+                'codigo_saida' => $exitCode,
+            ]
+        );
     }
 
     /**

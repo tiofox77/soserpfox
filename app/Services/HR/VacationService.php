@@ -106,7 +106,7 @@ class VacationService
             ->first();
 
         // Se não tiver contrato, usar salário do funcionário
-        $baseSalary = $contract ? $contract->base_salary : ($employee->salary ?? 0);
+        $baseSalary = $contract ? $contract->base_salary : ($employee->base_salary ?? $employee->salary ?? 0);
 
         if ($baseSalary == 0) {
             return [
@@ -187,7 +187,7 @@ class VacationService
                 'total_amount' => $financials['total_amount'],
                 'status' => 'pending',
                 'notes' => $data['notes'] ?? null,
-                'replacement_employee_id' => $data['replacement_employee_id'] ?? null,
+                'replacement_employee_id' => ($data['replacement_employee_id'] ?? null) ?: null,
             ]);
 
             DB::commit();

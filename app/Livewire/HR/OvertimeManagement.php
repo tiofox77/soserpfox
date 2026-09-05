@@ -154,16 +154,21 @@ class OvertimeManagement extends Component
         try {
             $overtimeService = new OvertimeService();
             
+            $storedInputType = match ($this->input_type) {
+                'daily_hours' => 'daily',
+                'monthly_hours' => 'monthly',
+                default => 'time_range',
+            };
             $data = [
                 'tenant_id' => auth()->user()->activeTenantId(),
                 'employee_id' => $this->employee_id,
                 'date' => $this->date,
-                'input_type' => $this->input_type,
+                'input_type' => $storedInputType,
                 'start_time' => $this->input_type === 'time_range' ? $this->start_time : null,
                 'end_time' => $this->input_type === 'time_range' ? $this->end_time : null,
                 'direct_hours' => in_array($this->input_type, ['daily_hours', 'monthly_hours']) ? (float) $this->direct_hours : null,
                 'period_type' => $this->input_type === 'monthly_hours' ? 'monthly' : 'daily',
-                'overtime_type' => $this->overtime_type,
+                'overtime_type' => $this->overtime_type === 'regular' ? 'weekday' : $this->overtime_type,
                 'description' => $this->description,
                 'notes' => $this->notes,
             ];
@@ -196,9 +201,17 @@ class OvertimeManagement extends Component
         }
     }
 
-    public function approve()
+    public function approve(?int $id = null)
     {
         try {
+            if ($id !== null) {
+                $this->approvalOvertimeId = $id;
+            }
+
+            if (!$this->approvalOvertimeId) {
+                throw new \InvalidArgumentException('Selecione o registo de horas extras.');
+            }
+
             $overtime = Overtime::findOrFail($this->approvalOvertimeId);
             $overtime->approve(Auth::id());
             
@@ -207,6 +220,14 @@ class OvertimeManagement extends Component
         } catch (\Exception $e) {
             session()->flash('error', 'Erro ao aprovar hora extra: ' . $e->getMessage());
         }
+    }
+
+    public function openRejectionModal(int $id): void
+    {
+        $this->approvalOvertimeId = $id;
+        $this->rejection_reason = '';
+        $this->resetValidation('rejection_reason');
+        $this->showRejectionModal = true;
     }
 
     public function reject()

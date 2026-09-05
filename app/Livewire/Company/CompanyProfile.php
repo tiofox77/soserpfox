@@ -24,6 +24,7 @@ use Livewire\WithFileUploads;
 class CompanyProfile extends Component
 {
     use WithFileUploads;
+    use \App\Traits\ConcordaComAMorada;
 
     // ── Identificação ──
     public $name = '';
@@ -33,10 +34,16 @@ class CompanyProfile extends Component
     public $phone = '';
 
     // ── Endereço ──
+    // O país é um CÓDIGO ISO de duas letras, não um nome. É o único formato
+    // que a AGT aceita, e este ecrã escrevia-o à mão: viu-se uma empresa
+    // angolana gravada com «Portugal». Ver App\Support\Geografia.
     public $address = '';
     public $postal_code = '';
     public $city = '';
-    public $country = 'Angola';
+    public $country = \App\Support\Geografia::PAIS_PADRAO;
+    public $province = '';
+    public $municipality = '';
+    public $neighbourhood = '';
 
     // ── Regime fiscal ──
     public $regime = Tenant::REGIME_GERAL;
@@ -53,6 +60,12 @@ class CompanyProfile extends Component
 
     public function mount()
     {
+        // A guarda da ROTA não chega: os pedidos seguintes do Livewire vão ao
+        // seu próprio endereço e não tornam a passar pelo middleware. Sem isto,
+        // quem já tivesse a página aberta continuava a poder gravar.
+        abort_unless(auth()->user()?->can('settings.view'), 403,
+            __('Sem permissão para ver os dados da empresa.'));
+
         $tenant = $this->tenant();
         abort_if(!$tenant, 404, 'Empresa não encontrada.');
 
@@ -64,7 +77,14 @@ class CompanyProfile extends Component
         $this->address      = $tenant->address;
         $this->postal_code  = $tenant->postal_code;
         $this->city         = $tenant->city;
-        $this->country      = $tenant->country ?: 'Angola';
+        $this->province      = $tenant->province ?: '';
+        $this->municipality  = $tenant->municipality ?: '';
+        $this->neighbourhood = $tenant->neighbourhood ?: '';
+        // Um país gravado à mão («Angola», «Portugal») converte-se ao ler, para
+        // o select o encontrar. Se não se reconhecer, fica o padrão e a pessoa
+        // escolhe — melhor do que adivinhar num campo que sai nos documentos.
+        $this->country      = \App\Support\Geografia::normalizarPais($tenant->country)
+            ?? \App\Support\Geografia::PAIS_PADRAO;
         $this->currentLogo  = $tenant->logo;
 
         // Canonicalizar: tenants antigos podem ter 'regime_isencao'/'regime_misto'
@@ -94,7 +114,11 @@ class CompanyProfile extends Component
             'address'      => 'nullable|string|max:500',
             'postal_code'  => 'nullable|string|max:20',
             'city'         => 'nullable|string|max:100',
-            'country'      => 'required|string|max:100',
+            'province'     => 'nullable|string|max:100',
+            'municipality' => 'nullable|string|max:100',
+            'neighbourhood'=> 'nullable|string|max:100',
+            // Duas letras, e da lista. Ver App\Rules\PaisIso.
+            'country'      => ['required', 'string', 'size:2', new \App\Rules\PaisIso()],
             'regime'       => 'required|in:' . implode(',', array_keys(Tenant::REGIMES)),
             'logo'         => 'nullable|image|max:2048',
         ];
@@ -130,6 +154,12 @@ class CompanyProfile extends Component
      */
     public function save()
     {
+        // Ver os dados da empresa e MUDÁ-LOS são direitos diferentes: um
+        // contabilista precisa do NIF, e não de mexer no regime fiscal.
+        if (! $this->podeEditar()) {
+            return;
+        }
+
         $this->validate();
 
         if ($this->regimeChanged && !$this->showRegimeConfirm) {
@@ -152,11 +182,7 @@ class CompanyProfile extends Component
             'nif'          => $this->nif ? strtoupper(trim($this->nif)) : null,
             'email'        => $this->email ? trim($this->email) : null,
             'phone'        => $this->phone ? trim($this->phone) : null,
-            'address'      => $this->address ? trim($this->address) : null,
-            'postal_code'  => $this->postal_code ? trim($this->postal_code) : null,
-            'city'         => $this->city ? trim($this->city) : null,
-            'country'      => trim($this->country),
-        ];
+        ] + $this->moradaParaGravar();
 
         // Só escrever `regime` quando muda de facto. Assim, guardar contactos num
         // tenant com valor legado ('regime_isencao') não reescreve silenciosamente
@@ -211,6 +237,19 @@ class CompanyProfile extends Component
         $this->dispatch('success', message: 'Dados da empresa atualizados com sucesso!' . $syncMsg);
     }
 
+    /** Quem pode mexer nos dados da empresa. Diz porquê quando recusa. */
+    public function podeEditar(): bool
+    {
+        if (auth()->user()?->can('settings.edit')) {
+            return true;
+        }
+
+        $this->dispatch('notify', type: 'error',
+            message: __('Só quem gere a empresa pode alterar estes dados.'));
+
+        return false;
+    }
+
     public function cancelRegimeChange()
     {
         $this->regime            = $this->currentRegime;
@@ -219,6 +258,10 @@ class CompanyProfile extends Component
 
     public function removeLogo()
     {
+        if (! $this->podeEditar()) {
+            return;
+        }
+
         $tenant = $this->tenant();
         if ($tenant && $tenant->logo) {
             if (Storage::disk('public')->exists($tenant->logo)) {

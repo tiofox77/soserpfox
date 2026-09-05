@@ -22,11 +22,21 @@ class CicloDeFacturacao
     /** Os ciclos que o sistema aceita. */
     public const CICLOS = ['monthly', 'quarterly', 'semiannual', 'yearly'];
 
-    /** Meses de período que cada ciclo dá. */
-    public static function meses(?string $ciclo): int
+    /** Meses de oferta que o anual leva por cima dos doze pagos. */
+    public const MESES_DE_OFERTA_DO_ANUAL = 2;
+
+    /**
+     * Meses de período que cada ciclo dá.
+     *
+     * A oferta é opcional a partir de 2026-09-02: quem gere a plataforma pode
+     * fechar um anual SEM os dois meses. Por omissão continua a dá-los — é a
+     * política comercial, e é o que as outras portas (registo, aprovação de
+     * pedido, renovação) continuam a fazer sem lhes mexer.
+     */
+    public static function meses(?string $ciclo, bool $comOferta = true): int
     {
         return match ($ciclo) {
-            'yearly'     => 14,   // 12 pagos + 2 de oferta
+            'yearly'     => 12 + ($comOferta ? self::MESES_DE_OFERTA_DO_ANUAL : 0),
             'semiannual' => 6,
             'quarterly'  => 3,
             default      => 1,
@@ -34,9 +44,9 @@ class CicloDeFacturacao
     }
 
     /** O fim do período, a partir de um início. */
-    public static function fim(Carbon $inicio, ?string $ciclo): Carbon
+    public static function fim(Carbon $inicio, ?string $ciclo, bool $comOferta = true): Carbon
     {
-        return $inicio->copy()->addMonths(self::meses($ciclo));
+        return $inicio->copy()->addMonths(self::meses($ciclo, $comOferta));
     }
 
     /** O nome do ciclo, para quem o lê. */

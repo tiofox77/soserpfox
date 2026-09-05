@@ -161,6 +161,7 @@
                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition">
                 <i class="fas fa-file-pdf mr-2"></i>{{ __('Preview') }}
             </a>
+            <x-pdf-descarregar :url="route('invoicing.purchases.invoices.preview', $selectedInvoice->id)" />
         </div>
     </div>
 </div>

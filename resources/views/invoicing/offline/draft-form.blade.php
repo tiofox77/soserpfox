@@ -295,8 +295,27 @@
     </div>
 
     {{-- Toast --}}
-    <div x-show="successMsg" x-transition class="fixed bottom-24 inset-x-3 z-50 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl text-sm">
-        <i class="fas fa-check-circle mr-2"></i><span x-text="successMsg"></span>
+    {{-- Documento gravado: imprimir É a razão de muitos o emitirem — o papel
+         para o cliente. Antes disto o ecrã redireccionava sozinho e não havia
+         impressão em lado nenhum; agora pergunta, como o POS faz com o talão. --}}
+    <div x-show="successMsg" x-transition class="fixed bottom-24 inset-x-3 z-50 rounded-xl bg-emerald-600 px-4 py-3 text-sm text-white shadow-2xl">
+        <p><i class="fas fa-check-circle mr-2"></i><span x-text="successMsg"></span></p>
+        <div class="mt-2 grid grid-cols-3 gap-2" x-show="savedUuid">
+            <button @click="imprimirAgora()" :disabled="printing"
+                    class="rounded-lg bg-white/95 py-2.5 text-xs font-black text-emerald-800 disabled:opacity-60">
+                <span x-show="!printing"><i class="fas fa-print mr-1"></i>{{ __('Imprimir') }}</span>
+                <span x-show="printing"><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A obter o número…') }}</span>
+            </button>
+            <button @click="partilharAgora()" :disabled="partilhando" data-ensaio="partilhar-pdf"
+                    class="rounded-lg bg-teal-900/70 py-2.5 text-xs font-black text-white disabled:opacity-60">
+                <span x-show="!partilhando"><i class="fas fa-file-pdf mr-1"></i>{{ __('PDF · WhatsApp') }}</span>
+                <span x-show="partilhando"><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A gerar o PDF…') }}</span>
+            </button>
+            <a href="{{ route('invoicing.offline.drafts') }}"
+               class="rounded-lg bg-emerald-800/60 py-2.5 text-center text-xs font-black text-white">
+                {{ __('Ver documentos') }}
+            </a>
+        </div>
     </div>
 </div>
 
@@ -307,6 +326,8 @@ function draftForm() {
         online: navigator.onLine,
         saving: false,
         successMsg: '',
+        savedUuid: null,
+        printing: false,
         showClientPicker: false,
         showProductPicker: false,
         clientSearch: '',
@@ -490,17 +511,54 @@ function draftForm() {
             if (this.saving || !this.canSave) return;
             this.saving = true;
             try {
-                await window.SosPwa.createDraftOffline({ ...this.form });
+                const record = await window.SosPwa.createDraftOffline({ ...this.form });
+
+                // Sem redireccionamento automático: quem emite quase sempre
+                // quer o papel a seguir, e o salto para a lista deixava-o sem
+                // botão nenhum de imprimir. Fica o aviso com as duas saídas.
+                this.savedUuid = record.local_uuid;
                 this.successMsg = navigator.onLine
                     ? 'Documento guardado — a emitir no servidor…'
                     : 'Documento guardado. Sai emitido assim que houver rede.';
-                setTimeout(() => {
-                    window.location.href = '{{ route("invoicing.offline.drafts") }}';
-                }, 1200);
             } catch (err) {
                 console.error(err);
                 alert('Erro: ' + err.message);
                 this.saving = false;
+            }
+        },
+
+        partilhando: false,
+
+        async partilharAgora() {
+            if (!this.savedUuid || this.partilhando) return;
+            this.partilhando = true;
+            try {
+                const r = await window.SosPwa.partilharPdf('documento', this.savedUuid);
+                if (r.modo === 'descarregado') alert('PDF descarregado — anexe-o na conversa.');
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                alert('Não foi possível gerar o PDF: ' + e.message);
+            } finally {
+                this.partilhando = false;
+            }
+        },
+
+        async imprimirAgora() {
+            if (!this.savedUuid || this.printing) return;
+            this.printing = true;
+            try {
+                // Com rede, o motor espera uns segundos pelo número fiscal —
+                // o mesmo prazo do talão do POS; sem rede sai já, marcado
+                // como provisório.
+                const doc = await window.SosPwa.imprimirDocumento(this.savedUuid);
+
+                if (doc._server_number) {
+                    this.successMsg = 'Emitido: ' + doc._server_number;
+                }
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                this.printing = false;
             }
         },
     };

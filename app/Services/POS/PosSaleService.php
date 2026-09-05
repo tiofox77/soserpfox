@@ -441,6 +441,24 @@ class PosSaleService
             }
         }
 
+        // O CLIENTE CRIADO SEM REDE, PELO SEU IDENTIFICADOR LOCAL.
+        //
+        // O aparelho resolve-o para o id do servidor antes de enviar, quando
+        // consegue. Quando não consegue — o registo local perdeu o `local_uuid`
+        // numa descarga, ou a ordem da fila trocou — manda o `local_uuid`, e
+        // é o servidor que sabe: o cliente subiu com esse identificador e a
+        // coluna guarda-o. Se ainda não subiu, não se inventa um cliente:
+        // diz-se que falta, e o documento espera (409, não 4xx definitivo).
+        $localUuid = $payload['client_local_uuid'] ?? null;
+        if ($localUuid && $this->temColunaLocalUuid()) {
+            $client = Client::where('tenant_id', $tenantId)->where('local_uuid', $localUuid)->first();
+            if ($client) {
+                return $client;
+            }
+
+            throw new ClientePorSincronizar((string) $localUuid);
+        }
+
         // Consumidor Final (NIF 999999999) — por tenant, idempotente.
         // NOTA: 'type' é ENUM ['pessoa_fisica','pessoa_juridica'] e 'tax_regime'
         // tem default 'geral'. O NIF é único por (tenant_id, nif).
@@ -460,9 +478,14 @@ class PosSaleService
         );
     }
 
-    /**
-     * Cria transação de tesouraria (income) associada à fatura.
-     */
+    /** A coluna pode ainda não existir em produção; sem ela, resolve-se como dantes. */
+    private function temColunaLocalUuid(): bool
+    {
+        static $tem = null;
+
+        return $tem ??= \Illuminate\Support\Facades\Schema::hasColumn('invoicing_clients', 'local_uuid');
+    }
+
     /**
      * Normaliza as formas de pagamento de uma venda.
      *

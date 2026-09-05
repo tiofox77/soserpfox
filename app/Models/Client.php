@@ -12,23 +12,19 @@ class Client extends Authenticatable
 
     protected $table = 'invoicing_clients';
 
-    // Províncias de Angola
-    public const PROVINCIAS_ANGOLA = [
-        'Bengo', 'Benguela', 'Bié', 'Cabinda', 'Cuando Cubango',
-        'Cuanza Norte', 'Cuanza Sul', 'Cunene', 'Huambo', 'Huíla',
-        'Luanda', 'Lunda Norte', 'Lunda Sul', 'Malanje', 'Moxico',
-        'Namibe', 'Uíge', 'Zaire'
-    ];
+    // A lista das províncias saiu daqui. Estava escrita neste modelo, no
+    // Supplier e usada em quatro vistas — 18 províncias, a divisão anterior à
+    // reforma de 2024. Agora vem de App\Support\Geografia, que tem as 21 e os
+    // municípios, e onde se corrige uma vez só.
 
     // Países disponíveis (África + Portugal)
-    public const PAISES = [
-        'Angola', 'Portugal', 'Moçambique', 'Brasil', 'Cabo Verde',
-        'Guiné-Bissau', 'São Tomé e Príncipe', 'Outro'
-    ];
+    // A lista dos países saiu daqui: eram sete e um «Outro», que não é país
+    // nenhum. Ver App\Support\Geografia — 256 códigos ISO com o nome em
+    // português, gerados do ICU e não escritos à mão.
 
     protected $fillable = [
         'tenant_id', 'type', 'name', 'nif', 'logo', 'email', 'phone', 'mobile',
-        'address', 'city', 'province', 'postal_code', 'country',
+        'address', 'city', 'province', 'municipality', 'neighbourhood', 'postal_code', 'country',
         'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days', 'payment_term_id',
         'website', 'notes', 'is_active', 'password', 'portal_access',
         'last_login_at', 'password_changed_at',

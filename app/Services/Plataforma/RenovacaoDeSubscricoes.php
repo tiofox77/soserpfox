@@ -241,7 +241,9 @@ class RenovacaoDeSubscricoes
             ? $sub->current_period_end->copy()
             : now();
 
-        $fim = CicloDeFacturacao::fim($inicio, $sub->billing_cycle);
+        // A repetir o acordo da subscrição (oferta, dias à medida) — não o
+        // ciclo cru. Ver Subscription::fimDoPeriodoSeguinte.
+        $fim = $sub->fimDoPeriodoSeguinte($inicio);
 
         $sub->update([
             'status'               => 'active',

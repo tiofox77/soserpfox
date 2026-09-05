@@ -15,6 +15,9 @@ use Livewire\Attributes\Title;
 class Proformas extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     // Filters
     public $search = '';
@@ -45,15 +48,28 @@ class Proformas extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\SalesProforma::class;
+    }
+
     public function render()
     {
-        $query = SalesProforma::where('tenant_id', activeTenantId())
+        $query = $this->baseDoAutor()
             ->with(['client', 'warehouse', 'creator']);
 
         // Search
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('proforma_number', 'like', '%' . $this->search . '%')
+                  // A SÉRIE INTERNA PRIMEIRO: é a que a empresa reconhece
+                  // (SOSNC), e não o código críptico que a AGT devolve e que
+                  // vai gravado no número. Procura-se também pela da AGT, para
+                  // quem venha do portal com o código na mão.
+                  ->orWhereHas('series', function ($q3) {
+                      $q3->where('series_code', 'like', '%' . $this->search . '%')
+                         ->orWhere('agt_series_id', 'like', '%' . $this->search . '%');
+                  })
                   ->orWhereHas('client', function ($q2) {
                       $q2->where('name', 'like', '%' . $this->search . '%');
                   });
@@ -86,11 +102,11 @@ class Proformas extends Component
 
         // Stats
         $stats = [
-            'total' => SalesProforma::where('tenant_id', activeTenantId())->count(),
-            'draft' => SalesProforma::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'sent' => SalesProforma::where('tenant_id', activeTenantId())->where('status', 'sent')->count(),
-            'accepted' => SalesProforma::where('tenant_id', activeTenantId())->where('status', 'accepted')->count(),
-            'total_amount' => SalesProforma::where('tenant_id', activeTenantId())->sum('total'),
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'sent' => $this->baseDoAutor()->where('status', 'sent')->count(),
+            'accepted' => $this->baseDoAutor()->where('status', 'accepted')->count(),
+            'total_amount' => $this->baseDoAutor()->sum('total'),
         ];
 
         return view('livewire.invoicing.proformas-venda.proformas', [
@@ -119,7 +135,7 @@ class Proformas extends Component
                 return;
             }
 
-            $proforma = SalesProforma::where('tenant_id', activeTenantId())
+            $proforma = $this->baseDoAutor()
                 ->findOrFail($this->proformaToDelete);
 
             // Verificar se tem faturas associadas
@@ -146,7 +162,7 @@ class Proformas extends Component
 
     public function convertToInvoice($proformaId)
     {
-        $proforma = SalesProforma::where('tenant_id', activeTenantId())
+        $proforma = $this->baseDoAutor()
             ->findOrFail($proformaId);
 
         try {
@@ -171,7 +187,7 @@ class Proformas extends Component
     
     public function showHistory($proformaId)
     {
-        $this->proformaHistory = SalesProforma::where('tenant_id', activeTenantId())
+        $this->proformaHistory = $this->baseDoAutor()
             ->with(['client', 'warehouse'])
             ->findOrFail($proformaId);
         
@@ -202,7 +218,7 @@ class Proformas extends Component
     
     public function viewProforma($proformaId)
     {
-        $this->selectedProforma = SalesProforma::where('tenant_id', activeTenantId())
+        $this->selectedProforma = $this->baseDoAutor()
             ->with(['client', 'warehouse', 'items.product', 'creator'])
             ->findOrFail($proformaId);
         
@@ -217,7 +233,7 @@ class Proformas extends Component
     
     public function downloadPdf($proformaId)
     {
-        $proforma = SalesProforma::where('tenant_id', activeTenantId())
+        $proforma = $this->baseDoAutor()
             ->with(['client', 'warehouse', 'items.product', 'creator'])
             ->findOrFail($proformaId);
         

@@ -25,39 +25,36 @@
 
     try { localStorage.setItem('soserp-last-online', Date.now().toString()); } catch (e) {}
 
+    // Na PRIMEIRA instalação não se recarrega. O `clients.claim()` do worker
+    // novo dispara o 'controllerchange' também quando não havia controlador
+    // nenhum — e a página recarregava a meio do email que o operador estava a
+    // escrever na entrada, num aparelho acabado de instalar. Passar a ser
+    // controlada não precisa de recarga; trocar de versão precisa.
+    let controlada = !!navigator.serviceWorker.controller;
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!controlada) { controlada = true; return; }
         if (refreshing) return;
         refreshing = true;
         window.location.reload();
     });
 
-    function notifyUpdate(reg) {
-        const apply = () => {
-            if (reg.waiting) {
-                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-        };
-        if (typeof toastr !== 'undefined') {
-            toastr.info(
-                'Nova versão disponível. <button type="button" id="pwa-update-btn" style="background:#fff;color:#1e40af;font-weight:bold;padding:4px 10px;border-radius:6px;border:0;margin-left:8px;cursor:pointer">Atualizar agora</button>',
-                'Atualização disponível',
-                { timeOut: 0, extendedTimeOut: 0, closeButton: true, allowHtml: true, tapToDismiss: false }
-            );
-            setTimeout(() => {
-                const btn = document.getElementById('pwa-update-btn');
-                if (btn) btn.addEventListener('click', apply);
-            }, 200);
-        } else {
-            // fallback simples
-            if (confirm('Nova versão disponível. Atualizar agora?')) apply();
+    // Aplica a versão nova sozinho, sem perguntar nem avisar: manda
+    // SKIP_WAITING assim que o worker novo instala, o que dispara o
+    // 'controllerchange' acima e recarrega a página. Antes ficava um toast
+    // fixo a pedir clique — decisão trocada por pedido: prioriza não
+    // incomodar sobre o risco (raro) de recarregar a meio de um ecrã com
+    // algo por gravar.
+    function applyUpdate(reg) {
+        if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
     }
 
     function trackInstalling(worker, reg) {
         worker.addEventListener('statechange', () => {
             if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                notifyUpdate(reg);
+                applyUpdate(reg);
             }
         });
     }
@@ -67,7 +64,7 @@
             .then((reg) => {
                 // Se já há um worker à espera quando esta página carrega
                 if (reg.waiting && navigator.serviceWorker.controller) {
-                    notifyUpdate(reg);
+                    applyUpdate(reg);
                 }
                 if (reg.installing) {
                     trackInstalling(reg.installing, reg);

@@ -35,9 +35,13 @@
             font-size: 9px;
             line-height: 1.1;
             color: #000;
-            background: #fff;
+            background: #f5f5f5;
             margin: 0;
-            padding: 0;
+            padding: 20px 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
 
         /*
@@ -46,11 +50,15 @@
          * compor.
          */
         .page-wrapper {
-            width: 100%;
+            width: 210mm;
+            min-height: 297mm;
             background: white;
-            margin: 0;
-            padding: 0;
-            display: block;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+            padding: 10mm 12mm;
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
         }
         
         .main-content {
@@ -227,6 +235,16 @@
             color: #333;
             font-weight: bold;
         }
+        .items-table .discriminacao {
+            text-align: left;
+            padding-left: 5px;
+            /* A descrição de um serviço pode ser longa: parte a palavra em vez de
+               esticar a coluna e desalinhar o resto da tabela. */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            max-width: 220px;
+        }
         
         .items-table .discriminacao {
             text-align: left;
@@ -365,10 +383,10 @@
             font-weight: bold;
             background-color: #f8f9fa;
             color: #333;
-            margin-left: -10px;
-            margin-right: -10px;
-            padding-left: 10px;
-            padding-right: 10px;
+            margin-left: -8px;
+            margin-right: -8px;
+            padding-left: 8px;
+            padding-right: 8px;
         }
         
         .total-extenso {
@@ -554,9 +572,8 @@
                 margin: 0;
                 padding: 10mm 12mm;
                 width: 210mm;
-                height: 297mm;
-                max-height: 297mm;
-                overflow: hidden;
+                min-height: 297mm;
+                overflow: visible;
             }
         }
     </style>

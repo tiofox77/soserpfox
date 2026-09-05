@@ -33,18 +33,26 @@ trait ResolveDocumentoDaEmpresa
             $query->with($com);
         }
 
+        // E do AUTOR, quando o ecrã segue essa regra (DocumentosPorAutor).
+        // Sem isto, os botões da linha — ver, apagar, histórico — abriam pelo
+        // id qualquer documento da empresa, incluindo os de um colega.
+        if (method_exists($this, 'escoparPorAutor')) {
+            $this->escoparPorAutor($query);
+        }
+
         $documento = $query->find($id);
 
         if (!$documento) {
-            \Log::warning('Documento fora da empresa activa', [
+            \Log::warning('Documento fora do alcance do utilizador', [
                 'modelo'    => $modelo,
                 'id'        => $id,
                 'tenant_id' => activeTenantId(),
+                'user_id'   => auth()->id(),
             ]);
 
             $this->dispatch('notify', [
                 'type'    => 'error',
-                'message' => __('Este documento não pertence à empresa activa. A actualizar a lista…'),
+                'message' => __('Este documento não está disponível: ou não é desta empresa, ou não foi emitido por si.'),
             ]);
             $this->dispatch('recarregar-pagina');
         }

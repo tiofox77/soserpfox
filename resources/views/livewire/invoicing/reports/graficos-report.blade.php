@@ -183,6 +183,13 @@
 
 @script
 <script>
+(() => {
+    // IIFE obrigatório: estes blocos script do Livewire avaliam-se como
+    // expressão Alpine, e a heurística que embrulha `const` sozinha deixa
+    // de ver o `const` se um dia alguém puser um comentário na primeira
+    // linha (foi assim que o espelho do carrinho do POS morreu em silêncio).
+    // E nunca escrever a directiva arroba-script por extenso em comentários:
+    // o Blade apanha-a até dentro de um comentário JS.
     const kz = v => new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(v) + ' Kz';
 
     // Eixo em milhares/milhões: "1.250.000 Kz" em cada marca tapa o gráfico.
@@ -326,5 +333,6 @@
             requestAnimationFrame(desenharTudo);
         }
     });
+})();
 </script>
 @endscript

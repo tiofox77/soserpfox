@@ -95,6 +95,24 @@ class User extends Authenticatable
     }
 
     /**
+     * Adopta um verificador que o APARELHO calculou — o caso do PIN reposto
+     * sem rede, autorizado ao balcão por um gestor. O PIN em claro nunca
+     * viajou: o bcryptjs fez o hash no tablet e é isso que chega aqui.
+     *
+     * @throws \InvalidArgumentException se não for um bcrypt como deve ser
+     */
+    public function adoptarVerificadorPinPos(string $hash): void
+    {
+        if (!\App\Support\PinDeTurno::ehVerificadorBcrypt($hash)) {
+            throw new \InvalidArgumentException('O verificador do PIN não é um bcrypt válido.');
+        }
+
+        $this->pos_pin_hash   = \App\Support\PinDeTurno::normalizarVerificador($hash);
+        $this->pos_pin_set_at = now();
+        $this->save();
+    }
+
+    /**
      * O verificador do PIN, pronto para o bcryptjs do tablet.
      *
      * O Laravel produz hashes com prefixo $2y$; algumas versões do bcryptjs

@@ -26,6 +26,33 @@
             </button>
         </div>
         
+        {{-- EM QUE PAPEL. O que aparece primeiro é o que a empresa
+             configurou; trocar aqui não muda a configuração, só esta venda. --}}
+        <div class="px-6 pt-4 flex-shrink-0">
+            <div class="inline-flex rounded-xl bg-gray-100 p-1 w-full">
+                <button type="button" wire:click="trocarFormatoImpressao('a4')"
+                        class="flex-1 px-4 py-2 rounded-lg text-sm font-bold transition {{ $formatoImpressao === 'a4' ? 'bg-white text-green-700 shadow' : 'text-gray-500 hover:text-gray-700' }}">
+                    <i class="fas fa-file-invoice mr-2"></i>{{ __('Factura A4') }}
+                </button>
+                <button type="button" wire:click="trocarFormatoImpressao('talao')"
+                        class="flex-1 px-4 py-2 rounded-lg text-sm font-bold transition {{ $formatoImpressao === 'talao' ? 'bg-white text-green-700 shadow' : 'text-gray-500 hover:text-gray-700' }}">
+                    <i class="fas fa-receipt mr-2"></i>{{ __('Talão 80 mm') }}
+                </button>
+            </div>
+        </div>
+
+        @if($formatoImpressao === 'a4')
+            {{-- A pré-visualização do servidor, dentro do modal. É o mesmo
+                 papel que sai nos Documentos, e é o mesmo que vai imprimir. --}}
+            <div class="px-6 py-4 overflow-y-auto" style="flex: 1 1 auto;">
+                <iframe id="a4-preview"
+                        src="{{ route('invoicing.sales.invoices.preview', $lastInvoice->id) }}"
+                        class="w-full rounded-xl border border-gray-200 bg-white"
+                        style="height: 46vh;"
+                        title="{{ __('Pré-visualização da factura') }}"></iframe>
+            </div>
+        @else
+
         {{-- Ticket Preview (Ubuntu font, 480px, 14px base, #000) --}}
         <div id="ticket-print" class="ticket-thermal" style="width: 480px; max-width: 100%; margin: 0 auto; padding: 16px; background: #fff; font-family: 'Ubuntu', sans-serif; font-size: 14px; color: #000; overflow-y: auto; flex: 1; min-height: 0;">
             {{-- QR Code AGT (gerar antes do cabeçalho) --}}
@@ -255,13 +282,15 @@
             </div>
         </div>
 
+        @endif
+
         {{-- Botões --}}
         <div class="px-6 py-4 flex space-x-3 flex-shrink-0 border-t border-gray-200">
             <button wire:click="closePrintModal" 
                     class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition">
                 <i class="fas fa-times mr-2"></i>{{ __('Fechar') }}
             </button>
-            <button onclick="printTicket()"
+            <button onclick="{{ $formatoImpressao === 'a4' ? 'imprimirA4()' : 'printTicket()' }}"
                     class="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition shadow-lg">
                 <i class="fas fa-print mr-2"></i>{{ __('Imprimir') }}
             </button>
@@ -345,6 +374,26 @@
 // O dicionário é definido no fim do layout, portanto só existe depois desta
 // página estar montada; estas chamadas correm todas dentro de funções (ao
 // clicar), quando já lá está.
+/*
+ * O A4 IMPRIME-SE PELA PRÉ-VISUALIZAÇÃO DO SERVIDOR.
+ *
+ * Abre-se a mesma página que o modal mostra numa janela própria; ela já
+ * traz o seu auto-print quando é aberta a partir de outra janela. Não se
+ * imprime o iframe directamente porque, num iframe, o browser imprime a
+ * página que o contém, não o que está lá dentro.
+ */
+if (typeof window.imprimirA4 !== 'function') {
+    window.imprimirA4 = function () {
+        const moldura = document.getElementById('a4-preview');
+        if (!moldura) { alert(__('Pré-visualização não encontrada.')); return; }
+
+        const janela = window.open(moldura.src, '_blank', 'width=900,height=1000');
+        if (!janela) {
+            alert(__('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'));
+        }
+    };
+}
+
 if (typeof window.printTicket !== 'function') {
     window.printTicket = function() {
         const ticketEl = document.getElementById('ticket-print');

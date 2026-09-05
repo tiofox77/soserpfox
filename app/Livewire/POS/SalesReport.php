@@ -14,12 +14,16 @@ use App\Models\Invoicing\InvoicingSeries;
 use App\Helpers\InvoiceCalculationHelper;
 use Illuminate\Support\Facades\DB;
 use App\Models\Treasury\Transaction as TreasuryTransaction;
+use App\Livewire\Concerns\FormatoDeImpressao;
 
 #[Layout('layouts.app')]
 #[Title('Relatório de Vendas POS')]
 class SalesReport extends Component
 {
     use WithPagination;
+
+    // O modal de impressão é o mesmo ficheiro do POS, e pede o papel.
+    use FormatoDeImpressao;
 
     public $startDate;
     public $endDate;
@@ -256,6 +260,9 @@ class SalesReport extends Component
         $this->applyScope($query);
         $this->selectedInvoice = $query->find($invoiceId);
         abort_unless($this->selectedInvoice, 404, __('Fatura não encontrada ou sem acesso.'));
+
+        // No papel que a empresa escolheu, como no balcão.
+        $this->formatoImpressao = $this->formatoConfigurado();
         $this->showPrintModal = true;
     }
 

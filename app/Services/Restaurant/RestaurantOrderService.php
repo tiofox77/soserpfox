@@ -77,6 +77,32 @@ class RestaurantOrderService
             $number = (int) $settings->next_order_number;
             $settings->update(['next_order_number' => $number + 1]);
 
+            $canal = $table ? 'table' : ($data['channel'] ?? 'counter');
+
+            if (! array_key_exists($canal, Order::CANAIS)) {
+                throw new InvalidArgumentException("Canal de venda desconhecido: {$canal}.");
+            }
+
+            // UMA ENTREGA SEM MORADA NÃO CHEGA A LADO NENHUM.
+            //
+            // Vale a pena recusar aqui e não só no ecrã: a comanda também
+            // entra pela API e pelo PWA, e uma entrega registada sem destino
+            // só se descobre quando o estafeta está à porta a perguntar para
+            // onde vai. O telefone é a única forma de a desfazer.
+            if ($canal === 'delivery') {
+                foreach (['delivery_address' => 'a morada', 'customer_phone' => 'o telefone'] as $campo => $nome) {
+                    if (trim((string) ($data[$campo] ?? '')) === '') {
+                        throw new InvalidArgumentException("Uma entrega precisa de {$nome} do cliente.");
+                    }
+                }
+            }
+
+            // No take-away basta o telefone: é por ele que se avisa que está
+            // pronto, e é por ele que se encontra o dono do saco no balcão.
+            if ($canal === 'takeaway' && trim((string) ($data['customer_phone'] ?? '')) === '') {
+                throw new InvalidArgumentException('Um take-away precisa do telefone do cliente.');
+            }
+
             $order = Order::withoutGlobalScopes()->create([
                 'tenant_id' => $tenantId,
                 'venue_id' => $venue->id,
@@ -85,15 +111,32 @@ class RestaurantOrderService
                 'waiter_id' => $userId,
                 'order_number' => sprintf('CMD-%s-%06d', now()->format('Y'), $number),
                 'local_uuid' => $localUuid,
-                'channel' => $table ? 'table' : ($data['channel'] ?? 'counter'),
+                'channel' => $canal,
                 'status' => 'draft',
                 'guest_count' => max(1, (int) ($data['guest_count'] ?? 1)),
                 'notes' => $data['notes'] ?? null,
+                'customer_name' => trim((string) ($data['customer_name'] ?? '')) ?: null,
+                'customer_phone' => trim((string) ($data['customer_phone'] ?? '')) ?: null,
+                'delivery_address' => $canal === 'delivery'
+                    ? trim((string) $data['delivery_address'])
+                    : null,
+                'delivery_fee' => $canal === 'delivery'
+                    ? max(0, (float) ($data['delivery_fee'] ?? 0))
+                    : 0,
             ]);
 
             if ($table) {
                 $table->update(['status' => 'occupied']);
             }
+
+            // A taxa de entrega já conta no total antes de haver pratos: quem
+            // abre a comanda tem de ver o que já está a cobrar. Sem isto, o
+            // total ficava a zero até se juntar o primeiro artigo.
+            if ((float) $order->delivery_fee > 0) {
+                $this->recalculate($order, $tenantId);
+                $order->refresh();
+            }
+
             $this->event($order, 'order_opened', null, ['channel' => $order->channel], $userId);
 
             return $order->fresh(['table', 'venue', 'items']);
@@ -292,12 +335,44 @@ class RestaurantOrderService
             ->selectRaw('COALESCE(SUM(line_total), 0) grand_total')
             ->first();
 
+        // A TAXA DE ENTREGA ENTRA NO TOTAL, e é a única coisa do total que
+        // não sai de uma linha. Deixá-la de fora fazia a comanda mostrar um
+        // valor e o cliente pagar outro — e a diferença só aparecia ao fechar
+        // a caixa, sem ninguém saber de onde vinha.
+        $entrega = (float) $order->delivery_fee;
+
         $order->update([
             'subtotal' => $totals->subtotal,
             'discount_total' => $totals->discount_total,
             'tax_total' => $totals->tax_total,
-            'grand_total' => $totals->grand_total,
+            'grand_total' => $totals->grand_total + $entrega,
         ]);
+    }
+
+    /**
+     * A venda para fora saiu para o cliente.
+     *
+     * Separa «pronto na cozinha» de «já vai a caminho», que é a pergunta que
+     * se faz ao telefone e que a cozinha não sabe responder.
+     */
+    public function despachar(Order $order, int $tenantId, ?int $userId): Order
+    {
+        if ($order->tenant_id !== $tenantId) {
+            throw new InvalidArgumentException('Comanda de outra empresa.');
+        }
+
+        if (! $order->paraFora()) {
+            throw new InvalidArgumentException('Só se despacha um take-away ou uma entrega.');
+        }
+
+        if ($order->dispatched_at) {
+            return $order;
+        }
+
+        $order->update(['dispatched_at' => now(), 'status' => 'served']);
+        $this->event($order, 'order_dispatched', null, ['channel' => $order->channel], $userId);
+
+        return $order->fresh();
     }
 
     protected function event(Order $order, string $event, ?OrderItem $item, array $payload, ?int $userId): void

@@ -36,8 +36,9 @@ class ContactManagement extends Component
     {
         $table = $this->tab === 'suppliers' ? 'invoicing_suppliers' : 'invoicing_clients';
         $nifRules = [$this->tab === 'clients' ? 'required' : 'nullable', 'string', 'max:30'];
-        if ($this->country === 'AO') $nifRules[] = new ValidateNIF();
+        if ($this->country === 'AO') $nifRules[] = new ValidateNIF($this->type);
         $nifRules[] = Rule::unique($table, 'nif')->where('tenant_id', activeTenantId());
+        $this->nif = ValidateNIF::normalize($this->nif);
         $data = $this->validate([
             'name' => ['required', 'string', 'min:3', 'max:255'],
             'nif' => $nifRules,
@@ -70,12 +71,13 @@ class ContactManagement extends Component
         return view('livewire.restaurant.contact-management', [
             'clients' => Client::where('tenant_id', activeTenantId())->where('is_active', true)->latest()->limit(100)->get(),
             'suppliers' => Supplier::where('tenant_id', activeTenantId())->where('is_active', true)->latest()->limit(100)->get(),
-            'countries' => $this->countries(), 'provinces' => Client::PROVINCIAS_ANGOLA,
+            'countries' => $this->countries(), 'provinces' => \App\Support\Geografia::provincias(),
         ]);
     }
 
+    /** Os países ISO da casa — eram sete escritos aqui. */
     private function countries(): array
     {
-        return ['AO'=>'Angola','PT'=>'Portugal','MZ'=>'Moçambique','BR'=>'Brasil','CV'=>'Cabo Verde','GW'=>'Guiné-Bissau','ST'=>'São Tomé e Príncipe','ZA'=>'África do Sul','NA'=>'Namíbia','CD'=>'R. D. Congo','OTHER'=>'Outro'];
+        return \App\Support\Geografia::paises();
     }
 }

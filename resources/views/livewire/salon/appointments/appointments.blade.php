@@ -278,7 +278,7 @@
                     <div class="col-span-2">
                         <div class="flex flex-wrap gap-1">
                             @foreach($appointment->services->take(2) as $svc)
-                                <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-semibold">{{ Str::limit($svc->service->name, 12) }}</span>
+                                <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-semibold">{{ Str::limit($svc->nome_do_servico, 12) }}</span>
                             @endforeach
                             @if($appointment->services->count() > 2)
                                 <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">+{{ $appointment->services->count() - 2 }}</span>

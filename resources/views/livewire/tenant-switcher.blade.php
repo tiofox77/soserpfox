@@ -5,8 +5,10 @@
      meia janela para o servidor não encontrar o registo (o filtro por
      empresa está a fazer o seu trabalho) e o utilizador levar com
      "No query results for model ... 35" à cara. --}}
-<div class="relative" x-data="{ open: false, aTrocar: false }"
-     @tenant-switched-reload.window="aTrocar = true; window.location.reload()">
+{{-- O véu levanta-se no CLIQUE e fica até o servidor redireccionar. A troca
+     já não recarrega a página no cliente: o servidor entrega uma página nova
+     (ver TenantSwitcher::switchTenant). --}}
+<div class="relative" x-data="{ open: false, aTrocar: false }">
 
     <template x-if="aTrocar">
         <div class="fixed inset-0 z-[9999] bg-white/85 backdrop-blur-sm flex items-center justify-center cursor-wait">
@@ -96,7 +98,8 @@
                     $isActive = $tenant->id == $activeTenantId;
                 @endphp
                 
-                <button wire:click="switchTenant({{ $tenant->id }})" 
+                <button wire:click="switchTenant({{ $tenant->id }})"
+                        @click="aTrocar = true; open = false" 
                         type="button"
                         class="w-full text-left px-4 py-4 flex items-center justify-between transition-colors border-b border-gray-100 last:border-b-0
                                {{ $isActive ? 'bg-blue-50' : 'hover:bg-gray-50' }}"
@@ -113,10 +116,15 @@
                                 {{ $tenant->name }}
                             </div>
                             <div class="text-xs text-gray-500">NIF: {{ $tenant->nif ?? 'N/A' }}</div>
-                            @if($tenant->pivot->role_id)
+                            {{-- `?->` e não `->`: na PRIMEIRA renderização os modelos
+                                 vêm da relação, com pivot. Depois de qualquer acção o
+                                 Livewire rehidrata-os pelo id — e o pivot perde-se.
+                                 Sem o `?->`, o primeiro erro de troca rebentava o
+                                 selector inteiro com «role_id on null». --}}
+                            @if($tenant->pivot?->role_id)
                                 <div class="text-xs text-blue-600 mt-1">
                                     <i class="fas fa-user-tag mr-1"></i>
-                                    {{ \Spatie\Permission\Models\Role::find($tenant->pivot->role_id)?->name ?? 'Usuário' }}
+                                    {{ \Spatie\Permission\Models\Role::find($tenant->pivot?->role_id)?->name ?? 'Usuário' }}
                                 </div>
                             @endif
                         </div>

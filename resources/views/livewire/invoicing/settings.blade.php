@@ -1385,6 +1385,21 @@
 
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        <i class="fas fa-print mr-1 text-emerald-600"></i>
+                                        {{ __('Papel da venda no POS') }}
+                                    </label>
+                                    <select wire:model="pos_formato_impressao"
+                                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                                        <option value="talao">{{ __('Talão de 80 mm') }} ⭐</option>
+                                        <option value="a4">{{ __('Factura em A4') }}</option>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {{ __('O que aparece por omissão depois de fechar uma venda. No momento pode sempre trocar-se para o outro.') }}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         <i class="fas fa-th mr-1 text-indigo-500"></i>
                                         {{ __('Produtos por página') }}
                                     </label>

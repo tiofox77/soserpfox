@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\DB;
 #[Title('Novo Recibo')]
 class ReceiptCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
     public $receiptId = null;
     public $isEdit = false;
     
@@ -62,20 +65,43 @@ class ReceiptCreate extends Component
         ];
     }
 
-    public function mount($id = null)
+    public function mount($id = null, $invoice = null)
     {
         $this->payment_date = date('Y-m-d');
-        
+
         if ($id) {
             $this->isEdit = true;
             $this->receiptId = $id;
             $this->loadReceipt($id);
+
+            return;
         }
+
+        // Vindo com a factura no endereço (?invoice=123), fica tudo escolhido:
+        // o cliente, a factura e o valor que falta receber — que é o que a
+        // caixa recebe quase sempre. Scoped ao tenant: o id vem do browser.
+        $invoiceId = $invoice ?: request()->query('invoice');
+
+        if (! $invoiceId) {
+            return;
+        }
+
+        $factura = SalesInvoice::where('tenant_id', activeTenantId())->find($invoiceId);
+
+        if (! $factura) {
+            return;
+        }
+
+        $this->type        = 'sale';
+        $this->client_id   = $factura->client_id;
+        $this->invoice_id  = $factura->id;
+        $this->amount_paid = max(0, round((float) $factura->total - (float) $factura->paid_amount, 2));
     }
 
     public function loadReceipt($id)
     {
         $receipt = Receipt::where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $this->type = $receipt->type;
@@ -121,6 +147,7 @@ class ReceiptCreate extends Component
         try {
             if ($this->isEdit) {
                 $receipt = Receipt::where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($this->receiptId);
                 
                 $receipt->update([
@@ -197,6 +224,53 @@ class ReceiptCreate extends Component
         }
     }
 
+    /**
+     * O que falta receber da factura escolhida.
+     *
+     * Fonte única: o `paid_amount` da factura, que os recibos mantêm a par
+     * (ver `SalesInvoice::recalcularPago`).
+     *
+     * @return array{total: float, pago: float, falta: float}|null
+     */
+    public function getSaldoDaFacturaProperty(): ?array
+    {
+        if (! $this->invoice_id) {
+            return null;
+        }
+
+        $f = $this->type === 'purchase'
+            ? PurchaseInvoice::where('tenant_id', activeTenantId())->find($this->invoice_id)
+            : SalesInvoice::where('tenant_id', activeTenantId())->find($this->invoice_id);
+
+        if (! $f) {
+            return null;
+        }
+
+        $total = round((float) $f->total, 2);
+        $pago  = round((float) $f->paid_amount, 2);
+
+        return [
+            'total' => $total,
+            'pago'  => $pago,
+            'falta' => max(0, round($total - $pago, 2)),
+        ];
+    }
+
+    /**
+     * Escolher a factura propõe logo o que falta.
+     *
+     * É o que a caixa recebe nove em cada dez vezes, e escrevê-lo de cabeça é
+     * como nascem os enganos.
+     */
+    public function updatedInvoiceId($valor): void
+    {
+        $saldo = $this->saldoDaFactura;
+
+        if ($saldo && $saldo['falta'] > 0) {
+            $this->amount_paid = $saldo['falta'];
+        }
+    }
+
     public function render()
     {
         // Buscar clientes
@@ -229,6 +303,12 @@ class ReceiptCreate extends Component
         $suppliers = $suppliersQuery->orderBy('name')->limit(50)->get();
 
         // Buscar faturas do cliente/fornecedor (apenas não pagas ou parcialmente pagas)
+        //
+        // DE PROPÓSITO SEM A REGRA DO AUTOR (ver App\Traits\EscopoDeAutor):
+        // receber um pagamento não é o mesmo que espreitar as vendas de um
+        // colega — na prática é o caixa que recebe o que o vendedor facturou,
+        // e prender esta lista ao autor partiria a cobrança. A LISTA de
+        // recibos, essa, já segue a regra.
         $invoices = collect();
         if ($this->client_id || $this->supplier_id) {
             $query = SalesInvoice::where('tenant_id', activeTenantId());
@@ -236,12 +316,31 @@ class ReceiptCreate extends Component
             if ($this->type === 'sale' && $this->client_id) {
                 $query->where('client_id', $this->client_id);
             } elseif ($this->type === 'purchase' && $this->supplier_id) {
-                // Para faturas de compra, ajustar para PurchaseInvoice
-                $query = PurchaseInvoice::where('tenant_id', activeTenantId());
+                // O FORNECEDOR TAMBÉM FILTRA. A consulta era substituída por
+                // uma nova e o `supplier_id` ficava pelo caminho: a lista das
+                // compras trazia as facturas de todos os fornecedores.
+                $query = PurchaseInvoice::where('tenant_id', activeTenantId())
+                    ->where('supplier_id', $this->supplier_id);
             }
-            
-            // Apenas faturas pendentes ou parcialmente pagas
-            $invoices = $query->whereIn('status', ['pending', 'partially_paid'])
+
+            /*
+             * O QUE AINDA FALTA RECEBER — pelo saldo, não pelo nome do estado.
+             *
+             * A lista era `pending` e `partially_paid`. Uma factura emitida e
+             * por pagar tem estado `sent`, e uma atrasada `overdue`: nenhuma
+             * aparecia, e portanto não havia como lhe passar recibo. Medido
+             * nesta base: 42 facturas na lista contra 317 com saldo, num total
+             * de 15,4 milhões por cobrar.
+             *
+             * É a mesma regra do painel da facturação e do portal do cliente.
+             */
+            $invoices = $query
+                ->whereNotIn('status', ['draft', 'cancelled', 'credited'])
+                ->whereRaw('COALESCE(total, 0) - COALESCE(paid_amount, 0) > 0.01')
+                // E a factura que veio no endereço entra sempre: sem a opção no
+                // <select>, o Livewire devolvia vazio e o recibo ficava sem
+                // factura nenhuma.
+                ->when($this->invoice_id, fn ($q) => $q->orWhere('id', $this->invoice_id))
                 ->orderBy('invoice_date', 'desc')
                 ->get();
         }

@@ -24,18 +24,18 @@ class ClientController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'type' => 'nullable|string|max:20',
-            // O NIF é OBRIGATÓRIO, e isto dizia 'nullable'.
+            // O NIF É OPCIONAL — e isto dizia 'required'.
             //
-            // A coluna é NOT NULL sem valor por omissão, e o ecrã online exige
-            // o NIF há muito. A API offline prometia o contrário: aceitava a
-            // criação, o PWA punha-a na fila, e ao sincronizar dava 500 —
-            // sempre, contra a base de dados. Cinco tentativas depois o cliente
-            // ficava marcado como erro permanente, e com ele qualquer venda que
-            // o referenciasse.
-            //
-            // O pior é o momento: o erro só aparecia horas depois, longe do
-            // balcão onde a pessoa ainda estava e podia dar o número.
-            'nif' => 'required|string|max:50',
+            // O comentário que aqui estava dizia que a coluna era NOT NULL.
+            // Deixou de ser: é nula, e este mesmo controlador grava NULL nos
+            // NIF genéricos mais abaixo. O 'required' ficou para trás e fazia
+            // isto: o cliente rápido do POS (só com o nome, como a maioria ao
+            // balcão) chegava aqui sem NIF → 422 → o aparelho marcava-o como
+            // recusado de vez → a venda que o referenciava ficava «a
+            // reagendar» cinco vezes e morria na fila. A queixa foi literal:
+            // «cliente offline não sincroniza e a factura sai como consumidor
+            // final». Provado no browser: HTTP 422 "O campo nif é obrigatório".
+            'nif' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
             'mobile' => 'nullable|string|max:50',
@@ -87,8 +87,36 @@ class ClientController extends Controller
             }
         }
 
-        // Idempotência: se já existe cliente com mesmo NIF, devolver
-        if (!empty($data['nif'])) {
+        // Idempotência pelo NIF — MAS O NIF GENÉRICO NÃO IDENTIFICA NINGUÉM.
+        //
+        // O 999999999 é o NIF de consumidor final: é o que fica em toda a
+        // venda de balcão a quem não dá contribuinte, e é o que o POS envia
+        // por omissão. Tratá-lo como identificador fazia isto:
+        //
+        //   1. o operador cria "Maria da esquina" sem NIF;
+        //   2. o PWA envia 999999999, porque é o valor por omissão;
+        //   3. o servidor encontra o Consumidor Final com esse NIF e devolve-o
+        //      com `duplicated: true`;
+        //   4. a Maria NUNCA é criada, o aparelho fica com o Consumidor Final
+        //      no lugar dela — e ninguém vê erro nenhum.
+        //
+        // Cada cliente novo sem contribuinte era engolido em silêncio. Ficam
+        // de fora todos os NIF genéricos: são marcadores de "não identificado",
+        // não identidades.
+        $nifGenericos = ['999999999', '999999998', '000000000'];
+        $nifIdentifica = !empty($data['nif']) && !in_array($data['nif'], $nifGenericos, true);
+
+        // E NÃO SE GUARDA O MARCADOR COMO SE FOSSE UM CONTRIBUINTE.
+        //
+        // Guardá-lo colidia com o índice único `(tenant_id, nif)` — dois
+        // clientes de balcão sem contribuinte não cabiam. Nulo é o que eles
+        // são: não identificados. O MySQL aceita muitos NULL num índice
+        // único, e um NIF a sério continua a ser único.
+        if (!$nifIdentifica) {
+            $data['nif'] = null;
+        }
+
+        if ($nifIdentifica) {
             $existing = Client::where('tenant_id', $tenantId)
                 ->where('nif', $data['nif'])
                 ->first();
@@ -121,7 +149,10 @@ class ClientController extends Controller
         $client->address = $data['address'] ?? null;
         $client->city = $data['city'] ?? null;
         $client->province = $data['province'] ?? null;
-        $client->country = $data['country'] ?? 'Angola';
+        // Código ISO, não o nome: este cliente vai ser facturado e o país
+        // segue para a AGT. O PWA antigo manda «Angola» por extenso.
+        $client->country = \App\Support\Geografia::normalizarPais($data['country'] ?? null)
+            ?? \App\Support\Geografia::PAIS_PADRAO;
         $client->tax_regime = $data['tax_regime'] ?? 'geral';
         $client->is_iva_subject = $data['is_iva_subject'] ?? false;
         $client->is_active = true;

@@ -13,6 +13,9 @@ use Livewire\Attributes\Title;
 class CreditNotes extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     public $search = '';
     public $filterStatus = '';
@@ -41,7 +44,7 @@ class CreditNotes extends Component
     public function viewCreditNote($creditNoteId)
     {
         // Scoped ao tenant: sem isto um id de outra empresa abria o documento.
-        $this->selectedCreditNote = CreditNote::where('tenant_id', activeTenantId())
+        $this->selectedCreditNote = $this->baseDoAutor()
             ->with(['client', 'invoice', 'items.product', 'creator'])
             ->findOrFail($creditNoteId);
         $this->showViewModal = true;
@@ -71,7 +74,7 @@ class CreditNotes extends Component
             return;
         }
 
-        $creditNote = CreditNote::where('tenant_id', activeTenantId())->findOrFail($this->creditNoteToDelete);
+        $creditNote = $this->baseDoAutor()->findOrFail($this->creditNoteToDelete);
         $creditNote->delete();
         
         $this->showDeleteModal = false;
@@ -83,15 +86,28 @@ class CreditNotes extends Component
         ]);
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\CreditNote::class;
+    }
+
     public function render()
     {
-        $query = CreditNote::with(['client', 'invoice', 'items', 'creator'])
-            ->where('tenant_id', activeTenantId());
+        $query = $this->baseDoAutor()
+            ->with(['client', 'invoice', 'items', 'creator']);
 
         // Filtros
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('credit_note_number', 'like', '%' . $this->search . '%')
+                  // A SÉRIE INTERNA PRIMEIRO: é a que a empresa reconhece
+                  // (SOSNC), e não o código críptico que a AGT devolve e que
+                  // vai gravado no número. Procura-se também pela da AGT, para
+                  // quem venha do portal com o código na mão.
+                  ->orWhereHas('series', function ($q3) {
+                      $q3->where('series_code', 'like', '%' . $this->search . '%')
+                         ->orWhere('agt_series_id', 'like', '%' . $this->search . '%');
+                  })
                   ->orWhereHas('client', function ($q2) {
                       $q2->where('name', 'like', '%' . $this->search . '%');
                   });
@@ -120,10 +136,10 @@ class CreditNotes extends Component
 
         // Stats
         $stats = [
-            'total' => CreditNote::where('tenant_id', activeTenantId())->count(),
-            'draft' => CreditNote::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'issued' => CreditNote::where('tenant_id', activeTenantId())->where('status', 'issued')->count(),
-            'total_amount' => CreditNote::where('tenant_id', activeTenantId())
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'issued' => $this->baseDoAutor()->where('status', 'issued')->count(),
+            'total_amount' => $this->baseDoAutor()
                 ->where('status', 'issued')
                 ->sum('total'),
         ];

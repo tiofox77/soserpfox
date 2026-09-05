@@ -45,6 +45,11 @@ Route::post('/api/analytics/track', [\App\Http\Controllers\AnalyticsController::
 // PWA: manifest dinâmico, ícones a partir do logo do sistema, service worker com versão automática
 Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaController::class, 'manifest'])->name('pwa.manifest');
 Route::get('/manifest.json', [\App\Http\Controllers\PwaController::class, 'manifest']);
+// O mascarável ANTES do genérico: `icon-{size}.png` com `[0-9]+` não apanha
+// "maskable-192", mas a ordem torna a intenção óbvia a quem ler.
+Route::get('/pwa/icon-maskable-{size}.png', [\App\Http\Controllers\PwaController::class, 'iconeMascaravel'])
+    ->where('size', '[0-9]+')->name('pwa.icon.maskable');
+
 Route::get('/pwa/icon-{size}.png', [\App\Http\Controllers\PwaController::class, 'icon'])->where('size', '[0-9]+')->name('pwa.icon');
 Route::get('/pwa/icon-{size}x{size2}.png', [\App\Http\Controllers\PwaController::class, 'icon'])->where(['size' => '[0-9]+', 'size2' => '[0-9]+']);
 Route::get('/sw.js', [\App\Http\Controllers\PwaController::class, 'serviceWorker'])->name('pwa.sw');
@@ -59,6 +64,20 @@ Route::get('/', [App\Http\Controllers\LandingController::class, 'home'])->name('
 // alguém que ainda não é cliente, e são referenciados no registo).
 Route::view('/termos', 'legal.termos')->name('legal.termos');
 Route::view('/privacidade', 'legal.privacidade')->name('legal.privacidade');
+
+// Webhook do Meta (Facebook/Instagram/WhatsApp) — POR EMPRESA. Públicos: é o
+// Meta que chama, máquina-a-máquina. Sem sessão nem CSRF (a isenção está em
+// bootstrap/app.php). Seguros pelo verify_token (GET) e pela assinatura (POST).
+Route::get('/webhooks/meta/{tenant}', [\App\Http\Controllers\Webhooks\MetaWebhookController::class, 'verify'])
+    ->where('tenant', '[0-9]+')->name('webhooks.meta.verify');
+Route::post('/webhooks/meta/{tenant}', [\App\Http\Controllers\Webhooks\MetaWebhookController::class, 'receive'])
+    ->where('tenant', '[0-9]+')->name('webhooks.meta.receive');
+
+// Webhook do KiandaStay — o motor de reservas do hotel entrega aqui cada
+// reserva feita no site. Publico pela mesma razao, e fechado pela assinatura
+// HMAC do segredo que o proprio site devolveu ao registar o webhook.
+Route::post('/webhooks/kiandastay/{tenant}', [\App\Http\Controllers\Webhooks\KiandaStayWebhookController::class, 'receive'])
+    ->where('tenant', '[0-9]+')->name('webhooks.kiandastay');
 
 // Páginas de módulos (marketing)
 Route::get('/modulos', [\App\Http\Controllers\ModulePagesController::class, 'index'])->name('modules.index');
@@ -120,7 +139,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Dados da Empresa — identificação, contactos, endereço, logótipo e regime
     // fiscal AGT (a alteração de regime propaga-se via TaxRegimeSyncer).
-    Route::get('/empresa', \App\Livewire\Company\CompanyProfile::class)->name('company.profile');
+    //
+    // ESTAVA SÓ ATRÁS DO `auth`: qualquer utilizador com sessão abria a página
+    // e podia GRAVAR — mudar o NIF, o nome, e sobretudo o REGIME FISCAL, que
+    // se propaga aos impostos, às definições de facturação e a todos os
+    // produtos. Um caixa punha a empresa inteira no regime errado.
+    Route::middleware('permission:settings.view')
+        ->get('/empresa', \App\Livewire\Company\CompanyProfile::class)->name('company.profile');
 });
 
 // Keep-alive: ping leve para manter a sessão viva enquanto o utilizador
@@ -154,6 +179,10 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
     Route::get('/plans', \App\Livewire\SuperAdmin\Plans::class)->name('plans');
     Route::get('/billing', \App\Livewire\SuperAdmin\Billing::class)->name('billing');
     Route::get('/licenciamento', \App\Livewire\SuperAdmin\Licenciamento::class)->name('licenciamento');
+
+    // Que empresas usam o PWA, em que aparelhos e em que VERSÃO. Existe porque
+    // um deploy do motor podia não chegar aos aparelhos e não havia como saber.
+    Route::get('/aparelhos-pwa', \App\Livewire\SuperAdmin\AparelhosPwa::class)->name('aparelhos-pwa');
     Route::get('/system-updates', \App\Livewire\SuperAdmin\SystemUpdates::class)->name('system-updates');
     Route::get('/system-commands', \App\Livewire\SuperAdmin\SystemCommands::class)->name('system-commands');
     Route::get('/script-runner', \App\Livewire\SuperAdmin\ScriptRunner::class)->name('script-runner');
@@ -180,6 +209,13 @@ Route::middleware(['auth', 'superadmin'])->prefix('superadmin')->name('superadmi
 Route::get('/invoicing/offline/login', fn () => view('invoicing.offline.login'))
     ->name('invoicing.offline.login');
 
+// Esqueci o PIN — sem rede. Também FORA do `auth`: quem cá chega não tem
+// sessão nem rede, e tudo o que a página faz é local (o gestor autoriza com o
+// seu PIN, o aparelho calcula o verificador novo e põe-no na fila). O servidor
+// só decide quando a fila subir, com sessão.
+Route::get('/invoicing/offline/pin-esquecido', fn () => view('invoicing.offline.pin-esquecido'))
+    ->name('invoicing.offline.pin-esquecido');
+
 // Sair: termina a sessão e volta à entrada do PWA. Não apaga nada do
 // aparelho — pode haver vendas por enviar.
 // Sem `auth`: quando a saída é feita sem rede, ela vai para a fila e chega
@@ -204,6 +240,30 @@ Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offlin
     // O 403 é deliberado: o service worker só guarda respostas OK, portanto um
     // ecrã a que o utilizador não tem direito nem chega a ficar no aparelho.
     Route::get('/', fn() => view('invoicing.offline.index'))->name('index');
+
+    // O MOLDE de cada documento: o próprio modelo de impressão do servidor,
+    // renderizado com marcas no lugar dos valores, para o aparelho o
+    // preencher sem rede. Um desenho só — ver App\Services\Pwa\MoldeDoDocumento.
+    Route::get('/molde/{tipo}', function (\Illuminate\Http\Request $request, string $tipo) {
+        abort_unless(in_array($tipo, \App\Services\Pwa\MoldeDoDocumento::TIPOS, true), 404);
+        $tenant = \App\Models\Tenant::find(activeTenantId());
+        abort_if(!$tenant, 404);
+
+        $html = app(\App\Services\Pwa\MoldeDoDocumento::class)->render($tipo, $tenant);
+
+        // O molde leva o logótipo embutido e passa dos 700 KB. Só desce
+        // outra vez quando muda: o aparelho manda a etiqueta que guardou.
+        $etiqueta = '"' . md5($html) . '"';
+        if ($request->header('If-None-Match') === $etiqueta) {
+            return response('', 304, ['ETag' => $etiqueta]);
+        }
+
+        return response($html, 200, [
+            'Content-Type'  => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-store',
+            'ETag'          => $etiqueta,
+        ]);
+    })->name('molde');
     Route::middleware('pwa:catalogo')->get('/catalog', fn() => view('invoicing.offline.catalog'))->name('catalog');
     Route::middleware('pwa:clientes')->group(function () {
         Route::get('/clients', fn() => view('invoicing.offline.clients'))->name('clients');
@@ -256,6 +316,11 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
     Route::post('/clients', [\App\Http\Controllers\Api\Invoicing\ClientController::class, 'store'])->name('clients.store');
     Route::post('/drafts', [\App\Http\Controllers\Api\Invoicing\DraftController::class, 'store'])->name('drafts.store');
     Route::post('/pos/sale', [\App\Http\Controllers\Api\Invoicing\PosSaleController::class, 'store'])->name('pos.sale.store');
+    // Um PIN de turno reposto no aparelho sem rede, autorizado por um gestor
+    // ao balcão. Chega pela fila; o servidor confirma quem pode e regista.
+    // Com `auth` explícito: o grupo não o tem, e aqui mexe-se em credenciais.
+    Route::post('/pin/repor', \App\Http\Controllers\Api\Invoicing\ReporPinController::class)
+        ->middleware('auth')->name('pin.repor');
     // Turno POS (abertura/fecho offline → sincronizado quando online)
     Route::get('/pos/shift', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'status'])->name('pos.shift.status');
     Route::post('/pos/shift/open', [\App\Http\Controllers\Api\Invoicing\PosShiftController::class, 'open'])->name('pos.shift.open');
@@ -387,7 +452,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // Recuperar uma cópia de segurança do PWA (aparelho que não sincronizou).
     // A permissão é a de criar vendas no POS: quem pode emitir é quem pode
     // recuperar o que já foi emitido offline.
-    Route::middleware('permission:invoicing.pos.create')
+    Route::middleware('permission:invoicing.pos.sell')
         ->get('/importar-copia-offline', \App\Livewire\Invoicing\ImportarCopiaOffline::class)
         ->name('importar-copia-offline');
     
@@ -425,6 +490,12 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // deixam de entrar; quem precisar, o administrador da empresa concede.
     Route::middleware('permission:invoicing.stock.view')
         ->get('/stock', \App\Livewire\Invoicing\StockManagement::class)->name('stock');
+
+    // As quebras: expirado/estragado/partido/perdido, com relatório próprio.
+    // Genérico de propósito — salão, oficina e restaurante usam os mesmos
+    // artigos, e a perda regista-se num sítio só.
+    Route::middleware('permission:invoicing.stock.view')
+        ->get('/quebras', \App\Livewire\Invoicing\Quebras::class)->name('quebras');
 
     // Documento do lote de movimentação (MOV/AAAA/NNNNNN).
     // A referência leva barras, daí o `where` — sem ele o Laravel parte o
@@ -621,6 +692,7 @@ Route::middleware(['auth', 'tenant.module:rh'])->prefix('hr')->name('hr.')->grou
     Route::get('/payroll', \App\Livewire\HR\PayrollManagement::class)->name('payroll');
     Route::get('/payroll/payslip/{id}/pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generatePayslipPDF'])->name('payroll.payslip.pdf');
     Route::get('/payroll/{id}/payslips-pdf', [\App\Http\Controllers\HR\PayrollController::class, 'generateAllPayslipsPDF'])->name('payroll.payslips-all.pdf');
+    Route::get('/payroll/{id}/excel', [\App\Http\Controllers\HR\PayrollController::class, 'exportExcel'])->name('payroll.excel');
     Route::get('/departments', \App\Livewire\HR\DepartmentManagement::class)->name('departments.index');
     Route::get('/attendance', \App\Livewire\HR\AttendanceManagement::class)->name('attendance.index');
     Route::get('/vacations', \App\Livewire\HR\VacationManagement::class)->name('vacations.index');
@@ -682,36 +754,65 @@ Route::middleware(['auth', 'tenant.module:oficina'])->prefix('workshop')->name('
     Route::get('/reports', \App\Livewire\Workshop\Reports::class)->name('reports');
 });
 
-// CRM Module Routes (Placeholder)
+// CRM — leads, oportunidades e o funil. Deixou de ser placeholder: as quatro
+// rotas prometidas desde o início passam a entregar o que o nome diz.
 Route::middleware(['auth', 'tenant.module:crm'])->prefix('crm')->name('crm.')->group(function () {
-    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'CRM']))->name('dashboard');
-    Route::get('/leads', fn() => view('modules.under-construction', ['module' => 'Leads']))->name('leads');
-    Route::get('/oportunidades', fn() => view('modules.under-construction', ['module' => 'Oportunidades']))->name('oportunidades');
-    Route::get('/funil-vendas', fn() => view('modules.under-construction', ['module' => 'Funil de Vendas']))->name('funil-vendas');
+    Route::middleware('permission:crm.view')
+        ->get('/dashboard', \App\Livewire\CRM\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:crm.leads.view')
+        ->get('/leads', \App\Livewire\CRM\Leads::class)->name('leads');
+    Route::middleware('permission:crm.opportunities.view')
+        ->get('/oportunidades', \App\Livewire\CRM\Oportunidades::class)->name('oportunidades');
+    Route::middleware('permission:crm.opportunities.view')
+        ->get('/funil-vendas', \App\Livewire\CRM\FunilDeVendas::class)->name('funil-vendas');
+    Route::middleware('permission:crm.integrations.manage')
+        ->get('/integracoes', \App\Livewire\CRM\IntegracoesMeta::class)->name('integracoes');
 });
 
-// Inventário Module Routes (Placeholder)
+// Inventário — deixou de ser placeholder. O painel e os movimentos lêem o
+// stock que já existe; os armazéns são o ecrã de sempre da Facturação (um
+// ecrã só, dois sítios no menu); a contagem física é a peça nova.
 Route::middleware(['auth', 'tenant.module:inventario'])->prefix('inventario')->name('inventario.')->group(function () {
-    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Inventário']))->name('dashboard');
-    Route::get('/armazens', fn() => view('modules.under-construction', ['module' => 'Armazéns']))->name('armazens');
-    Route::get('/movimentos', fn() => view('modules.under-construction', ['module' => 'Movimentos de Stock']))->name('movimentos');
-    Route::get('/contagem', fn() => view('modules.under-construction', ['module' => 'Contagem de Stock']))->name('contagem');
+    Route::middleware('permission:inventario.view')
+        ->get('/dashboard', \App\Livewire\Inventario\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:inventario.view')
+        ->get('/armazens', \App\Livewire\Invoicing\Warehouses::class)->name('armazens');
+    Route::middleware('permission:inventario.view')
+        ->get('/movimentos', \App\Livewire\Inventario\Movimentos::class)->name('movimentos');
+    Route::middleware('permission:inventario.contagem.manage')
+        ->get('/contagem', \App\Livewire\Inventario\Contagem::class)->name('contagem');
 });
 
-// Compras Module Routes (Placeholder)
+// Compras — deixou de ser placeholder. O circuito que faltava antes da
+// factura de compra: requisição interna → encomenda ao fornecedor → recepção
+// (é aqui que o stock entra) → factura. Os fornecedores são o ecrã de sempre
+// da Facturação, um ecrã só em dois sítios do menu — como os armazéns.
 Route::middleware(['auth', 'tenant.module:compras'])->prefix('compras')->name('compras.')->group(function () {
-    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Compras']))->name('dashboard');
-    Route::get('/fornecedores', fn() => view('modules.under-construction', ['module' => 'Fornecedores']))->name('fornecedores');
-    Route::get('/requisicoes', fn() => view('modules.under-construction', ['module' => 'Requisições de Compra']))->name('requisicoes');
-    Route::get('/encomendas', fn() => view('modules.under-construction', ['module' => 'Encomendas']))->name('encomendas');
+    Route::middleware('permission:compras.view')
+        ->get('/dashboard', \App\Livewire\Compras\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:compras.view')
+        ->get('/fornecedores', \App\Livewire\Invoicing\Suppliers::class)->name('fornecedores');
+    Route::middleware('permission:compras.requisicoes.view')
+        ->get('/requisicoes', \App\Livewire\Compras\Requisicoes::class)->name('requisicoes');
+    Route::middleware('permission:compras.encomendas.view')
+        ->get('/encomendas', \App\Livewire\Compras\Encomendas::class)->name('encomendas');
 });
 
-// Projetos Module Routes (Placeholder)
+// Projetos — deixou de ser placeholder. O projeto tem orçamento, as tarefas
+// organizam o trabalho, e a folha de horas consome o orçamento e vira factura
+// pelo ModuleInvoiceService — o mesmo do hotel, da oficina e do salão.
+//
+// A folha de horas é gateada por `horas.registar` e não por `view`: quem lança
+// horas é toda a gente que trabalha, mas o ecrã só mostra as SUAS.
 Route::middleware(['auth', 'tenant.module:projetos'])->prefix('projetos')->name('projetos.')->group(function () {
-    Route::get('/dashboard', fn() => view('modules.under-construction', ['module' => 'Projetos']))->name('dashboard');
-    Route::get('/lista', fn() => view('modules.under-construction', ['module' => 'Lista de Projetos']))->name('lista');
-    Route::get('/tarefas', fn() => view('modules.under-construction', ['module' => 'Tarefas']))->name('tarefas');
-    Route::get('/timesheet', fn() => view('modules.under-construction', ['module' => 'Timesheet']))->name('timesheet');
+    Route::middleware('permission:projetos.view')
+        ->get('/dashboard', \App\Livewire\Projetos\Dashboard::class)->name('dashboard');
+    Route::middleware('permission:projetos.view')
+        ->get('/lista', \App\Livewire\Projetos\Projetos::class)->name('lista');
+    Route::middleware('permission:projetos.tarefas.view')
+        ->get('/tarefas', \App\Livewire\Projetos\Tarefas::class)->name('tarefas');
+    Route::middleware('permission:projetos.horas.registar')
+        ->get('/timesheet', \App\Livewire\Projetos\Timesheet::class)->name('timesheet');
 });
 
 // Hotel Module Routes
@@ -734,6 +835,10 @@ Route::middleware(['auth', 'tenant.module:hotel'])->prefix('hotel')->name('hotel
     Route::get('/rates', \App\Livewire\Hotel\RateManagement::class)->name('rates');
     Route::get('/packages', \App\Livewire\Hotel\PackageManagement::class)->name('packages');
     Route::get('/settings', \App\Livewire\Hotel\HotelSettingsManagement::class)->name('settings');
+    // A ligacao ao KiandaStay: as reservas do site entram sozinhas na recepcao.
+    Route::get('/kiandastay', \App\Livewire\Hotel\LigacaoKiandaStayScreen::class)->name('kiandastay');
+    // A volta do «Entrar com o KiandaStay»: troca o bilhete pelo token.
+    Route::get('/kiandastay/retorno', [\App\Http\Controllers\Hotel\LigacaoKiandaStayController::class, 'retorno'])->name('kiandastay.retorno');
 
     // Folio (consumos por reserva)
     Route::get('/reservations/{id}/folio', \App\Livewire\Hotel\ReservationFolio::class)->name('reservations.folio');
@@ -792,6 +897,16 @@ Route::middleware(['auth', 'tenant.module:salon'])->prefix('salon')->name('salon
 // Salon Booking Online (Public) - Landing Page Customizada
 Route::get('/agendar/{slug}', \App\Livewire\Salon\SalonBookingOnline::class)->name('salon.booking.online');
 
+// Menu online do restaurante (público) — a carta que o cliente abre no
+// telemóvel. A segunda forma leva o código da mesa, e é a que vai no QR
+// colado à mesa: o pedido chega já a dizer de onde vem.
+//
+// Fora de qualquer `auth`: quem abre isto é um cliente sentado à mesa. O
+// componente resolve a empresa pelo slug e recusa-se a servir uma carta
+// desligada — ver RestaurantSettings::porSlugPublico.
+Route::get('/menu/{slug}', \App\Livewire\Restaurant\MenuOnline::class)->name('restaurant.menu.online');
+Route::get('/menu/{slug}/{mesa}', \App\Livewire\Restaurant\MenuOnline::class)->name('restaurant.menu.mesa');
+
 // Restaurante - operação de sala e comandas; faturação permanece no módulo Invoicing.
 Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->name('restaurant.')->group(function () {
     Route::middleware('permission:restaurant.dashboard.view')
@@ -808,6 +923,10 @@ Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->n
         ->get('/contacts', \App\Livewire\Restaurant\ContactManagement::class)->name('contacts');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/categories', \App\Livewire\Restaurant\CategoryManagement::class)->name('categories');
+    // A carta inteira num ecrã: categorias e pratos em linha, sem os dois
+    // formulários genéricos que obrigavam a saltar de ecrã para criar um prato.
+    Route::middleware('permission:restaurant.orders.view')
+        ->get('/carta', \App\Livewire\Restaurant\MontarMenu::class)->name('carta');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/shifts', \App\Livewire\Invoicing\Pos\PosShiftManager::class)->name('shifts');
     Route::middleware('permission:restaurant.orders.view')
@@ -822,12 +941,29 @@ Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->n
     Route::middleware('permission:restaurant.kitchen.view')
         ->get('/kitchen', \App\Livewire\Restaurant\KitchenDisplay::class)->name('kitchen');
     Route::middleware('permission:restaurant.kitchen.view')->get('/kitchen/tickets/{ticket}/print', [\App\Http\Controllers\Restaurant\KitchenTicketController::class,'print'])->name('kitchen.print');
+    // O pulso da cozinha: uma agregação, sem relações. O ecrã pergunta de 3 em
+    // 3 segundos e só refaz a página quando a resposta muda — em vez de a
+    // refazer de 15 em 15 esteja ou não a acontecer alguma coisa.
+    Route::middleware('permission:restaurant.kitchen.view')->get('/kitchen/pulso', \App\Http\Controllers\Restaurant\PulsoDaCozinhaController::class)->name('kitchen.pulso');
     Route::middleware('permission:restaurant.reservations.view')
         ->get('/reservations', \App\Livewire\Restaurant\ReservationManagement::class)->name('reservations');
     Route::middleware('permission:restaurant.recipes.view')->get('/recipes', \App\Livewire\Restaurant\RecipeManagement::class)->name('recipes');
     Route::middleware('permission:restaurant.stock.view')->get('/stock', \App\Livewire\Restaurant\StockWasteManagement::class)->name('stock');
     Route::middleware('permission:restaurant.reports.view')->get('/reports', \App\Livewire\Restaurant\Reports::class)->name('reports');
     Route::middleware('permission:restaurant.settings.view')->get('/settings', \App\Livewire\Restaurant\SettingsManagement::class)->name('settings');
+
+    // A aparência da carta pública: capa, cores, tema e pratos em destaque.
+    // Ecrã próprio e não mais um separador das definições — escolher a
+    // fotografia da capa não é a mesma decisão que escolher um armazém.
+    Route::middleware('permission:restaurant.settings.view')
+        ->get('/carta/aparencia', \App\Livewire\Restaurant\AparenciaDaCarta::class)->name('carta.aparencia');
+
+    // Os QR da carta, prontos a imprimir e a colar nas mesas. Vive sob a
+    // permissão das definições: quem publica a carta é quem imprime os códigos.
+    Route::middleware('permission:restaurant.settings.view')->group(function () {
+        Route::get('/menu/qr', [\App\Http\Controllers\Restaurant\QrDoMenuController::class, 'folha'])->name('menu.qr');
+        Route::get('/menu/qr/imagem/{mesa?}', [\App\Http\Controllers\Restaurant\QrDoMenuController::class, 'imagem'])->name('menu.qr.imagem');
+    });
 });
 
 // Support/Help Center Routes

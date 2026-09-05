@@ -86,8 +86,8 @@ class TraducoesJavaScriptTest extends TenantTestCase
         $html = $this->posOffline();
 
         $dicionario = strpos($html, 'window.__ = function');
-        $pwaJs      = strpos($html, '/js/pwa-invoicing.js');
-        $ticketJs   = strpos($html, '/js/pos-offline-ticket.js');
+        $pwaJs = strpos($html, '/js/pwa-invoicing.js');
+        $ticketJs = strpos($html, '/js/pos-offline-ticket.js');
 
         $this->assertNotFalse($dicionario, 'O window.__ tem de estar na página.');
         $this->assertNotFalse($pwaJs);
@@ -149,7 +149,7 @@ class TraducoesJavaScriptTest extends TenantTestCase
             $this->assertDoesNotMatchRegularExpression(
                 '/\bfunction\s+__\s*\(|\b(?:const|let|var)\s+__\s*=/',
                 $conteudo,
-                basename($ficheiro) . ' redefine o __ — tapa o global e cria duas traduções na mesma página.'
+                basename($ficheiro).' redefine o __ — tapa o global e cria duas traduções na mesma página.'
             );
         }
     }
@@ -200,22 +200,50 @@ class TraducoesJavaScriptTest extends TenantTestCase
     /**
      * A versão no URL dos .js tem de acompanhar o conteúdo.
      *
-     * O service worker pré-cacheia `/js/pwa-invoicing.js?v=14`. Se o ficheiro
+     * O service worker pré-cacheia `/js/pwa-invoicing.js?v=…`. Se o ficheiro
      * mudar e a versão não, quem já tem o PWA instalado continua com o
      * JavaScript antigo — português escrito por dentro, página traduzida por
      * fora — e não há nada no ecrã que o denuncie.
      *
-     * Este teste não adivinha a versão certa; garante que a mesma versão é
-     * usada nos DOIS sítios onde cada ficheiro aparece: a tag <script> e a
-     * lista de pré-carregamento. Divergirem é o erro fácil de cometer, porque
-     * estão a vinte linhas de distância.
+     * ISTO CONFERIA UM NÚMERO ESCRITO À MÃO (`?v=14`), e o número à mão foi
+     * exactamente o que falhou: um deploy trocou o motor do PWA inteiro, o
+     * `?v=` ficou igual, e a correcção nunca chegou aos aparelhos. Passou a
+     * sair do `pwa_versao()`, que é um resumo do conteúdo. O que aqui se
+     * confere agora é o que resta poder correr mal: um ficheiro sem `?v=`
+     * nenhum — esse fica em cache para sempre.
+     */
+    public function test_todos_os_js_do_pwa_levam_versao(): void
+    {
+        $layout = file_get_contents(resource_path('views/layouts/pwa.blade.php'));
+
+        preg_match_all('/(?:src|href)="(\/[^"]+\.js)"/i', $layout, $m);
+
+        $semVersao = array_values(array_filter(
+            $m[1],
+            // O `/vendor/` são bibliotecas de terceiros fixas numa versão: o
+            // nome do ficheiro já é a versão. O nosso código não tem essa
+            // sorte — muda com o mesmo nome.
+            fn ($src) => ! str_starts_with($src, '/vendor/')
+        ));
+
+        $this->assertSame([], $semVersao,
+            "Ficheiros do PWA carregados sem `?v=`:\n  ".implode("\n  ", $semVersao)
+            ."\n\nO aparelho guarda-os em cache e nunca mais os vai buscar.");
+    }
+
+    /**
+     * E a versão é a MESMA na tag <script> e na lista de pré-carregamento.
+     *
+     * Divergirem é o erro fácil de cometer, porque estão a vinte linhas de
+     * distância: o service worker pré-carrega um endereço e a página pede
+     * outro — dois descarregamentos, e offline falta sempre um.
      */
     public function test_a_versao_dos_js_e_a_mesma_na_tag_e_no_precache(): void
     {
         $layout = file_get_contents(resource_path('views/layouts/pwa.blade.php'));
 
-        foreach (['pwa-invoicing.js', 'pos-offline-ticket.js'] as $ficheiro) {
-            preg_match_all('/' . preg_quote($ficheiro, '/') . '\?v=(\d+)/', $layout, $m);
+        foreach (['pwa-invoicing.js', 'pos-offline-ticket.js', 'pwa-turno.js'] as $ficheiro) {
+            preg_match_all('/'.preg_quote($ficheiro, '/').'\?v=([^\'"]+)/', $layout, $m);
 
             $this->assertGreaterThanOrEqual(
                 2,
@@ -226,8 +254,8 @@ class TraducoesJavaScriptTest extends TenantTestCase
             $this->assertCount(
                 1,
                 array_unique($m[1]),
-                "{$ficheiro} tem versões diferentes no layout: " . implode(', ', array_unique($m[1]))
-                    . ' — o service worker pré-carrega uma e a página usa outra.'
+                "{$ficheiro} tem versões diferentes no layout: ".implode(', ', array_unique($m[1]))
+                    .' — o service worker pré-carrega uma e a página usa outra.'
             );
         }
     }

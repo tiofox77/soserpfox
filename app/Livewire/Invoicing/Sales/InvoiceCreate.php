@@ -21,6 +21,12 @@ use Illuminate\Support\Facades\DB;
 #[Title('Nova Fatura de Venda')]
 class InvoiceCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
+    // Duplicar documentos: ver o contrato no trait.
+    use \App\Livewire\Concerns\DuplicaDocumento;
+
     public $invoiceId = null;
     public $isEdit = false;
 
@@ -312,6 +318,19 @@ class InvoiceCreate extends Component
             $this->isEdit = true;
             $this->invoiceId = $id;
             $this->loadInvoice($id);
+        } elseif ($duplicar = $this->idParaDuplicar()) {
+            // DUPLICAR: o mesmo carregamento da edição, sem ser uma edição.
+            // O que fica de fora — número, série, hash, ATCUD, datas, estado —
+            // está explicado no trait DuplicaDocumento.
+            $origem = SalesInvoice::where('tenant_id', activeTenantId())->tap(fn ($q) => $this->escoparAoAutor($q))->findOrFail($duplicar);
+
+            $this->loadInvoice($duplicar);
+            $this->marcarComoDuplicado($origem->invoice_number);
+
+            // As datas são de HOJE. Herdar as do original punha o duplicado
+            // num período fiscal que já fechou.
+            $this->invoice_date = now()->format('Y-m-d');
+            $this->due_date = DocumentConfigHelper::getInvoiceDueDate()->format('Y-m-d');
         } else {
             // Restaurar cliente da sessão se existir
             $sessionKey = 'invoice_client_' . activeTenantId() . '_' . auth()->id();
@@ -338,6 +357,7 @@ class InvoiceCreate extends Component
     {
         $invoice = SalesInvoice::where('tenant_id', activeTenantId())
             ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $this->client_id = $invoice->client_id;
@@ -969,6 +989,7 @@ class InvoiceCreate extends Component
         try {
             if ($this->isEdit) {
                 $invoice = SalesInvoice::where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($this->invoiceId);
                 
                 if ($invoice->status === 'converted') {
@@ -1350,7 +1371,7 @@ class InvoiceCreate extends Component
             if (DocumentConfigHelper::shouldAutoPrint()) {
                 // Abrir PDF automaticamente em nova aba
                 $this->dispatch('auto-print-pdf', [
-                    'url' => route('invoicing.sales.invoice.pdf', $invoice->id)
+                    'url' => route('invoicing.sales.invoices.pdf', $invoice->id)
                 ]);
             }
             

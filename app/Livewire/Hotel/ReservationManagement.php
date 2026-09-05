@@ -213,7 +213,8 @@ class ReservationManagement extends Component
             'address' => $this->client_address,
             'city' => $this->client_city,
             'province' => $this->client_province,
-            'country' => 'Angola',
+            // Código ISO: o hóspede vira cliente da facturação.
+            'country' => \App\Support\Geografia::PAIS_PADRAO,
             'is_active' => true,
         ]);
 

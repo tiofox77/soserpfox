@@ -349,10 +349,10 @@
             font-weight: bold;
             background-color: #f8f9fa;
             color: #333;
-            margin-left: -10px;
-            margin-right: -10px;
-            padding-left: 10px;
-            padding-right: 10px;
+            margin-left: -8px;
+            margin-right: -8px;
+            padding-left: 8px;
+            padding-right: 8px;
         }
         
         .total-extenso {

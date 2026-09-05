@@ -59,6 +59,7 @@
             <i class="fas fa-filter mr-2 text-amber-600"></i>{{ __('Filtros') }}
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" />
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Pesquisar...') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-transparent transition text-sm">
@@ -89,28 +90,31 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gradient-to-r from-yellow-50 to-amber-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-hashtag mr-1 text-yellow-600"></i>{{ __('Número') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-user mr-1 text-yellow-600"></i>{{ __('Cliente') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-calendar mr-1 text-yellow-600"></i>{{ __('Data') }}
                     </th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-money-bill mr-1 text-yellow-600"></i>{{ __('Valor') }}
                     </th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-coins mr-1 text-yellow-600"></i>{{ __('Usado') }}
                     </th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-wallet mr-1 text-yellow-600"></i>{{ __('Disponível') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-info-circle mr-1 text-yellow-600"></i>{{ __('Status') }}
                     </th>
-                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                        <i class="fas fa-landmark mr-1 text-emerald-600"></i>{{ __('Portal AGT') }}
+                    </th>
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                         <i class="fas fa-cog mr-1 text-yellow-600"></i>{{ __('Ações') }}
                     </th>
                 </tr>
@@ -118,35 +122,38 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($advances as $advance)
                 <tr>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="font-bold text-yellow-600">{{ $advance->advance_number }}</span>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <div class="flex items-center">
                             <i class="fas fa-user-circle text-gray-400 mr-2"></i>
                             <span class="font-medium">{{ $advance->client->name }}</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-gray-600">
+                    <td class="px-4 py-3 text-gray-600">
                         {{ $advance->payment_date->format('d/m/Y') }}
                     </td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-3 text-right">
                         <span class="text-lg font-bold text-gray-900">{{ number_format($advance->amount, 2) }}</span>
                         <span class="text-xs text-gray-500 ml-1">AOA</span>
                     </td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-3 text-right">
                         <span class="text-sm font-semibold text-gray-600">{{ number_format($advance->used_amount, 2) }}</span>
                     </td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-3 text-right">
                         <span class="text-lg font-bold text-yellow-600">{{ number_format($advance->remaining_amount, 2) }}</span>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-{{ $advance->status_color }}-100 to-{{ $advance->status_color }}-200 text-{{ $advance->status_color }}-800 text-xs font-bold rounded-full">
                             <i class="fas fa-circle mr-1 text-xs"></i>
                             {{ $advance->status_label }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        @include('livewire.invoicing.partials.agt-document-status', ['document' => $advance, 'natureza' => 'nao-fiscal'])
+                    </td>
+                    <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <a href="{{ route('invoicing.advances.preview', $advance->id) }}" 
                                target="_blank"
@@ -154,6 +161,7 @@
                                title="{{ __('Preview HTML') }}">
                                 <i class="fas fa-file-alt"></i>
                             </a>
+                            <x-pdf-descarregar :url="route('invoicing.advances.preview', $advance->id)" />
                             <a href="{{ route('invoicing.advances.pdf', $advance->id) }}" 
                                target="_blank"
                                class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition" 
@@ -175,7 +183,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="px-6 py-8 text-center">
+                    <td colspan="9" class="px-6 py-8 text-center">
                         <div class="flex flex-col items-center justify-center text-gray-400">
                             <i class="fas fa-coins text-6xl mb-4"></i>
                             <p class="text-lg font-medium">{{ __('Nenhum adiantamento encontrado') }}</p>

@@ -5,6 +5,7 @@ namespace App\Services\Plataforma;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\Tenant;
+use App\Support\AcordoDeSubscricao;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,11 +30,20 @@ use Illuminate\Support\Facades\DB;
 class TrocarDePlano
 {
     /**
-     * @param  string  $ciclo  monthly|quarterly|semiannual|yearly
+     * @param  string  $ciclo    monthly|quarterly|semiannual|yearly
+     * @param  array   $opcoes   {
+     *   com_oferta?:           bool,   dar os 2 meses do anual (omissão: sim)
+     *   dias?:                 int,    período em DIAS, à medida — ganha ao ciclo
+     *   preco_por_utilizador?: float,  cobrar N utilizadores × este preço
+     *   utilizadores?:         int,    o N — omissão: os utilizadores do plano
+     *   valor?:                float,  valor fechado à mão — ganha a tudo
+     * }
      */
-    public function aplicar(Tenant $empresa, Plan $plano, string $ciclo = 'monthly'): Subscription
+    public function aplicar(Tenant $empresa, Plan $plano, string $ciclo = 'monthly', array $opcoes = []): Subscription
     {
-        return DB::transaction(function () use ($empresa, $plano, $ciclo) {
+        $this->validarOpcoes($opcoes);
+
+        return DB::transaction(function () use ($empresa, $plano, $ciclo, $opcoes) {
             // Já teve algum plano? Conta o histórico TODO, não só o que está
             // vivo — quem cancelou e voltou não recomeça com um teste novo.
             $jaTevePlano = $empresa->subscriptions()->exists();
@@ -41,7 +51,12 @@ class TrocarDePlano
             $this->cancelarTudo($empresa);
 
             $inicio = now();
-            $fim = $this->fimDoPeriodo($inicio, $ciclo);
+
+            // O acordo (oferta, dias à medida, preço por utilizador) calcula-se
+            // num sítio só — o mesmo que os ecrãs usam para o resumo.
+            $acordo = AcordoDeSubscricao::calcular($plano, $ciclo, $opcoes, $inicio);
+            $fim = $acordo['fim'];
+
             $diasDeTeste = (int) ($plano->trial_days ?? 0);
 
             // Só a PRIMEIRA vez. E só se o plano tiver teste configurado.
@@ -49,15 +64,14 @@ class TrocarDePlano
             $fimDoTeste = $emTeste ? $inicio->copy()->addDays($diasDeTeste) : null;
 
             $nova = $empresa->subscriptions()->create([
-                'plan_id'              => $plano->id,
-                'billing_cycle'        => $ciclo,
-                'amount'               => $plano->getPrice($ciclo),
-                'status'               => $emTeste ? 'trial' : 'active',
-                'trial_ends_at'        => $fimDoTeste,
-                'current_period_start' => $inicio,
-                'current_period_end'   => $emTeste ? $fimDoTeste : $fim,
-                'ends_at'              => $emTeste ? $fimDoTeste : $fim,
-            ]);
+                'plan_id'               => $plano->id,
+                'billing_cycle'         => $ciclo,
+                'status'                => $emTeste ? 'trial' : 'active',
+                'trial_ends_at'         => $fimDoTeste,
+                'current_period_start'  => $inicio,
+                'current_period_end'    => $emTeste ? $fimDoTeste : $fim,
+                'ends_at'               => $emTeste ? $fimDoTeste : $fim,
+            ] + AcordoDeSubscricao::colunas($acordo));
 
             // Os limites da ficha acompanham o plano, senão a empresa fica com
             // o plano novo e os tectos do antigo.
@@ -89,10 +103,8 @@ class TrocarDePlano
             ]);
     }
 
-    private function fimDoPeriodo(\Carbon\Carbon $inicio, string $ciclo): \Carbon\Carbon
+    private function validarOpcoes(array $opcoes): void
     {
-        // Fonte única: o anual leva dois meses de oferta, como no resto do
-        // sistema (ver App\Support\CicloDeFacturacao).
-        return \App\Support\CicloDeFacturacao::fim($inicio, $ciclo);
+        AcordoDeSubscricao::validar($opcoes);
     }
 }

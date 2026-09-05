@@ -134,9 +134,27 @@ class SAFTGenerator extends Component
             $xml = $this->buildSAFTXML();
             
             $fileName = 'SAFT_AO_' . activeTenantId() . '_' . date('Y-m-d') . '.xml';
-            
+
             Storage::disk('local')->put('saft/' . $fileName, $xml);
-            
+
+            // O SAFT leva a facturação inteira do período para fora. É a maior
+            // saída de dados que o sistema tem, e a que a AGT pede — quem o
+            // gerou, quando e de que período tem de ficar registado.
+            //
+            // Antes do streamDownload: o corpo corre depois do pedido, sem
+            // sessão para resolver a empresa.
+            app(\App\Services\Audit\AuditRecorder::class)->exportou(
+                'SAFT-AO',
+                'xml',
+                null,
+                [
+                    'de' => $this->startDate,
+                    'ate' => $this->endDate,
+                    'tipo_documento' => $this->documentType ?? 'todos',
+                    'ficheiro' => $fileName,
+                ]
+            );
+
             return response()->streamDownload(function () use ($xml) {
                 echo $xml;
             }, $fileName, [
@@ -179,7 +197,19 @@ class SAFTGenerator extends Component
         $companyAddress->addChild('AddressDetail', htmlspecialchars($tenant->address ?? 'N/A'));
         $companyAddress->addChild('City', htmlspecialchars($tenant->city ?? 'Luanda'));
         $companyAddress->addChild('PostalCode', $tenant->postal_code ?? '0000');
-        $companyAddress->addChild('Country', 'AO');
+        // FICA «AO», e é deliberado.
+        //
+        // Cheguei a pôr aqui o país da empresa, e tirei-o: a coluna
+        // `tenants.country` tinha `DEFAULT 'Portugal'` na base de dados, e 67
+        // empresas ficaram com esse valor sem ninguém o escolher — não há
+        // sequer campo de país no registo. Ler a coluna fazia essas 67
+        // declarar-se portuguesas no SAFT entregue à AGT.
+        //
+        // O SAFT-AO é uma declaração à administração fiscal ANGOLANA, feita
+        // por um contribuinte angolano. Enquanto o país da empresa não for um
+        // valor que alguém escolheu de facto, este campo não o segue.
+        // Ver `geografia:pais-da-empresa`, que arruma essas 67 por ordem.
+        $companyAddress->addChild('Country', \App\Support\Geografia::PAIS_PADRAO);
         
         $header->addChild('FiscalYear', date('Y', strtotime($this->startDate)));
         $header->addChild('StartDate', $this->startDate);
@@ -246,7 +276,14 @@ class SAFTGenerator extends Component
                 $billingAddress->addChild('AddressDetail', htmlspecialchars($client->address ?? 'N/A'));
                 $billingAddress->addChild('City', htmlspecialchars($client->city ?? 'Luanda'));
                 $billingAddress->addChild('PostalCode', $client->postal_code ?? '0000');
-                $billingAddress->addChild('Country', $client->country_code ?? 'AO');
+                // A COLUNA `country_code` NUNCA EXISTIU.
+                //
+                // Isto lia sempre null e escrevia sempre «AO»: TODOS os
+                // clientes saíam no SAFT como angolanos, incluindo os
+                // estrangeiros. Não dava erro nenhum — dava um ficheiro
+                // entregue à AGT com o país errado em cada cliente de fora.
+                $billingAddress->addChild('Country', \App\Support\Geografia::normalizarPais($client->country)
+                    ?? \App\Support\Geografia::PAIS_PADRAO);
                 
                 $customer->addChild('SelfBillingIndicator', '0');
             }
@@ -272,7 +309,9 @@ class SAFTGenerator extends Component
                 $billingAddress->addChild('AddressDetail', htmlspecialchars($supplier->address ?? 'N/A'));
                 $billingAddress->addChild('City', htmlspecialchars($supplier->city ?? 'Luanda'));
                 $billingAddress->addChild('PostalCode', $supplier->postal_code ?? '0000');
-                $billingAddress->addChild('Country', $supplier->country_code ?? 'AO');
+                // O mesmo `country_code` inexistente do lado dos clientes.
+                $billingAddress->addChild('Country', \App\Support\Geografia::normalizarPais($supplier->country)
+                    ?? \App\Support\Geografia::PAIS_PADRAO);
                 
                 $supplierNode->addChild('SelfBillingIndicator', '0');
             }

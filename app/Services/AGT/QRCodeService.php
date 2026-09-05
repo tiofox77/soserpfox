@@ -56,8 +56,11 @@ class QRCodeService
         $nifCliente = $document->client?->nif ?? '999999999';
         $fields[self::FIELD_NIF_CLIENTE] = $nifCliente;
 
-        // C - País do cliente
-        $paisCliente = $document->client?->country ?? 'AO';
+        // C - País do cliente, em ISO 3166-1 alfa-2.
+        // Lia-se em bruto: um «Portugal» gravado à mão ia impresso no QR da
+        // factura com oito caracteres onde cabem dois.
+        $paisCliente = \App\Support\Geografia::normalizarPais($document->client?->country)
+            ?? \App\Support\Geografia::PAIS_PADRAO;
         $fields[self::FIELD_PAIS_CLIENTE] = $paisCliente;
 
         // D - Tipo de documento

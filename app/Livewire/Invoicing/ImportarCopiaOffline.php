@@ -103,7 +103,7 @@ class ImportarCopiaOffline extends Component
     public function importar(): void
     {
         abort_unless(
-            auth()->user()?->can('invoicing.pos.create') || auth()->user()?->isSuperAdmin(),
+            auth()->user()?->can('invoicing.pos.sell') || auth()->user()?->isSuperAdmin(),
             403,
             'Sem permissão para importar vendas.'
         );

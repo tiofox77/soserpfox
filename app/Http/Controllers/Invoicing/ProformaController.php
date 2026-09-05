@@ -9,12 +9,17 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class ProformaController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function generatePdf($id)
     {
         try {
             // Buscar proforma com relacionamentos
             $proforma = \App\Models\Invoicing\SalesProforma::with(['client', 'items.product', 'warehouse', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->findOrFail($id);
             
             // Buscar dados do tenant
@@ -60,6 +65,7 @@ class ProformaController extends Controller
             return view('pdf.invoicing.proforma', [
                 'proforma' => \App\Models\Invoicing\SalesProforma::with(['client', 'items', 'warehouse'])
                     ->where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($id),
                 'tenant' => \App\Models\Tenant::find(activeTenantId()),
             ]);
@@ -71,6 +77,7 @@ class ProformaController extends Controller
         // Buscar proforma com relacionamentos
         $proforma = \App\Models\Invoicing\SalesProforma::with(['client', 'items.product', 'warehouse', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
         
         // Buscar dados do tenant

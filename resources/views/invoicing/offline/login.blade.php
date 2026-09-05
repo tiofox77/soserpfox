@@ -23,7 +23,13 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ __('Entrar') }} — SOS ERP</title>
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
-    <meta name="theme-color" content="#1e3a8a">
+    <meta name="theme-color" content="{{ pwa_theme_color() }}">
+
+    {{-- O iOS nao le o manifesto: precisa destas quatro. --}}
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url("/pwa/icon-maskable-192.png") }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SOS ERP">
     {{-- LOCAIS, NUNCA DE CDN — e esta é a página onde isso mais importa.
 
          A entrada era servida de três CDN: Tailwind, Alpine e Dexie. Sem rede
@@ -47,7 +53,7 @@
          host de APP_URL diferente da origem servida seria outra chave de
          cache e offline ficava sem motor. --}}
     <script src="/js/vendor/bcrypt.min.js?v=1"></script>
-    <script src="/js/pwa-invoicing.js?v=22"></script>
+    <script src="/js/pwa-invoicing.js?v={{ pwa_versao() }}"></script>
 </head>
 <body class="bg-gradient-to-br from-blue-900 to-blue-700 min-h-screen flex items-center justify-center p-4">
 
@@ -55,7 +61,15 @@
 
     <div class="text-center mb-6">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/15 mb-3">
-            <i class="fas fa-cash-register text-3xl text-white"></i>
+            {{-- O logótipo, e não um ícone genérico de caixa registadora.
+
+                 É o ícone do PWA (`/pwa/icon-192x192.png`) e não o logótipo do
+                 tenant: este está na lista de pré-guardados do service worker
+                 e aparece sempre, mesmo sem rede — que é justamente quando
+                 esta página serve para alguma coisa. O do tenant daria um
+                 quadrado partido no ecrã de entrada de quem está sem net. --}}
+            <img src="{{ asset('pwa/icon-192x192.png') }}" alt="SOS ERP"
+                 class="w-11 h-11 object-contain" draggable="false">
         </div>
         <h1 class="text-white text-xl font-bold">SOS ERP</h1>
         <p class="text-blue-200 text-sm">{{ __('Ponto de venda') }}</p>
@@ -107,7 +121,12 @@
                    placeholder="seu@email.com">
 
             <label class="block text-xs font-bold text-gray-600 mb-1">{{ __('Palavra-passe') }}</label>
-            <input type="password" name="password" x-model="password" required autocomplete="current-password"
+            {{-- Sem x-model: este formulário submete nativamente (name=), e o
+                 pwaLogin() nunca lê a palavra-passe — ligá-la ao estado Alpine
+                 só rebentava («password is not defined») e espelhava um segredo
+                 em JS sem razão. O email mantém o x-model porque é partilhado
+                 com o formulário do PIN. --}}
+            <input type="password" name="password" required autocomplete="current-password"
                    class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm mb-4"
                    placeholder="••••••••">
 
@@ -182,6 +201,13 @@
                         <span x-show="!ocupado">{{ __('Entrar sem rede') }}</span>
                         <span x-show="ocupado" x-cloak>{{ __('A verificar…') }}</span>
                     </button>
+
+                    {{-- Esqueceu o PIN e não há rede: um gestor presente
+                         autoriza um novo, ali mesmo. --}}
+                    <a href="{{ route('invoicing.offline.pin-esquecido') }}?voltar={{ urlencode(route('invoicing.offline.login', [], false)) }}"
+                       class="block w-full mt-3 text-center text-xs text-amber-800 font-semibold underline">
+                        {{ __('Esqueci o PIN') }}
+                    </a>
 
                     <p class="text-[11px] text-gray-400 mt-3 leading-snug">
                         {{ __('O PIN define-se com internet, em "PIN de turno". As vendas ficam em fila e sobem ao servidor assim que houver rede.') }}

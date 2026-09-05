@@ -93,9 +93,13 @@ class DocumentosDoPwaSaoEmitidosTest extends TenantTestCase
         ];
 
         $um = $this->actingAs($this->user)->postJson('/api/v1/invoicing/drafts', $carga)->json();
+        $documento = SalesInvoice::withoutGlobalScopes()->findOrFail($um['id']);
+        $counter = \App\Models\Invoicing\InvoicingSeries::findOrFail($documento->series_id)->next_number;
         $dois = $this->actingAs($this->user)->postJson('/api/v1/invoicing/drafts', $carga)->json();
 
         $this->assertSame($um['id'], $dois['id']);
+        $this->assertSame($um['invoice_number'], $dois['invoice_number']);
+        $this->assertSame($counter, \App\Models\Invoicing\InvoicingSeries::findOrFail($documento->series_id)->next_number);
         $this->assertSame(1, SalesInvoice::withoutGlobalScopes()->where('local_uuid', $uuid)->count());
     }
 
@@ -114,5 +118,45 @@ class DocumentosDoPwaSaoEmitidosTest extends TenantTestCase
             (float) $doc->total,
             'o total tem de ser o liquido mais o imposto apurado'
         );
+    }
+
+    public function test_proforma_repetida_conserva_numero_e_registo(): void
+    {
+        $carga = ['doc_type' => 'proforma', 'local_uuid' => 'pf-repeat-' . uniqid(),
+            'items' => [['product_id' => $this->produtoComStock(10)->id,
+                'product_name' => 'Artigo', 'quantity' => 1, 'unit_price' => 1000]]];
+        $one = $this->actingAs($this->user)->postJson('/api/v1/invoicing/drafts', $carga)->assertSuccessful()->json();
+        $two = $this->postJson('/api/v1/invoicing/drafts', $carga)->assertSuccessful()->json();
+        $this->assertSame($one['id'], $two['id']);
+        $this->assertSame($one['proforma_number'], $two['proforma_number']);
+        $this->assertTrue($two['duplicated']);
+    }
+
+    public function test_contador_muito_atrasado_continua_depois_do_maior_sem_preencher_buracos(): void
+    {
+        $doc = SalesInvoice::withoutGlobalScopes()->findOrFail($this->criar('FT')['id']);
+        $serie = \App\Models\Invoicing\InvoicingSeries::findOrFail($doc->series_id);
+        // Fixture only: simulate a historic high number and a stale counter.
+        \Illuminate\Support\Facades\DB::table('invoicing_sales_invoices')->where('id', $doc->id)
+            ->update(['invoice_number' => $serie->formatNumber(50000)]);
+        $serie->update(['next_number' => 1]);
+        $this->assertSame($serie->formatNumber(50001), $serie->getNextNumber());
+        $this->assertSame($serie->formatNumber(50002), $serie->getNextNumber());
+    }
+
+    public function test_transaccao_falhada_nao_consume_o_numero(): void
+    {
+        $doc = SalesInvoice::withoutGlobalScopes()->findOrFail($this->criar('FT')['id']);
+        $serie = \App\Models\Invoicing\InvoicingSeries::findOrFail($doc->series_id);
+        $expected = $serie->next_number;
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($serie) {
+                $serie->getNextNumber();
+                throw new \RuntimeException('simulated failure');
+            });
+        } catch (\RuntimeException $e) {
+            $this->assertSame('simulated failure', $e->getMessage());
+        }
+        $this->assertSame($expected, $serie->fresh()->next_number);
     }
 }

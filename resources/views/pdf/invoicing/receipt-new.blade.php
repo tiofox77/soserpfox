@@ -214,6 +214,16 @@
             color: #333;
             font-weight: bold;
         }
+        .items-table .discriminacao {
+            text-align: left;
+            padding-left: 5px;
+            /* A descrição de um serviço pode ser longa: parte a palavra em vez de
+               esticar a coluna e desalinhar o resto da tabela. */
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            max-width: 220px;
+        }
         
         .items-table .discriminacao {
             text-align: left;
@@ -349,10 +359,10 @@
             font-weight: bold;
             background-color: #f8f9fa;
             color: #333;
-            margin-left: -10px;
-            margin-right: -10px;
-            padding-left: 10px;
-            padding-right: 10px;
+            margin-left: -8px;
+            margin-right: -8px;
+            padding-left: 8px;
+            padding-right: 8px;
         }
         
         .total-extenso {

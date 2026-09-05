@@ -83,7 +83,22 @@ class SnapshotDoRestaurante
             ])->values()->all(),
 
             'settings' => [
-                'use_kitchen_workflow'        => (bool) $definicoes->use_kitchen_workflow,
+                // NO PWA A VENDA É SEMPRE RÁPIDA — não passa pela cozinha.
+                //
+                // O circuito de cozinha é uma conversa entre dois aparelhos: o
+                // empregado manda o pedido, o ecrã da cozinha aceita, prepara e
+                // devolve "pronto". Sem rede não há essa conversa — o outro
+                // aparelho não existe. O que o PWA fazia era pedir ao empregado
+                // que carregasse em "Enviar à cozinha" para um sítio que não o
+                // ouvia, e o pedido ficava por confirmar até haver rede.
+                //
+                // Aqui a comanda confirma-se e cobra-se num passo só. O
+                // servidor já sabe receber assim: ao repor a comanda marca os
+                // artigos como servidos e consome o stock na mesma (ver
+                // ComandaOffline::darComoServida). O circuito completo continua
+                // a existir no restaurante ONLINE, que é onde funciona.
+                'use_kitchen_workflow'        => false,
+                'use_kitchen_workflow_online' => (bool) $definicoes->use_kitchen_workflow,
                 'require_recipe_for_products' => (bool) $definicoes->require_recipe_for_products,
                 'consume_stock_on_kitchen'    => (bool) $definicoes->consume_stock_on_kitchen,
                 'default_client_id'           => $definicoes->default_client_id,

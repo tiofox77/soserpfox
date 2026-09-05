@@ -160,15 +160,15 @@
                 </div>
                 <div class="text-center p-3 bg-emerald-50 rounded-xl">
                     <p class="text-xs text-emerald-600 uppercase font-semibold">Salário Bruto</p>
-                    <p class="text-2xl font-bold text-emerald-700 mt-1">{{ number_format($payrollSummary['total_gross'], 0, ',', '.') }} <span class="text-sm">Kz</span></p>
+                    <p class="text-2xl font-bold text-emerald-700 mt-1">{{ valorProtegido($payrollSummary['total_gross'], 'payroll.process', 'rh.reports') }} <span class="text-sm">Kz</span></p>
                 </div>
                 <div class="text-center p-3 bg-red-50 rounded-xl">
                     <p class="text-xs text-red-600 uppercase font-semibold">Deduções</p>
-                    <p class="text-2xl font-bold text-red-700 mt-1">{{ number_format($payrollSummary['total_deductions'], 0, ',', '.') }} <span class="text-sm">Kz</span></p>
+                    <p class="text-2xl font-bold text-red-700 mt-1">{{ valorProtegido($payrollSummary['total_deductions'], 'payroll.process', 'rh.reports') }} <span class="text-sm">Kz</span></p>
                 </div>
                 <div class="text-center p-3 bg-blue-50 rounded-xl border-2 border-blue-200">
                     <p class="text-xs text-blue-600 uppercase font-semibold">Líquido a Pagar</p>
-                    <p class="text-2xl font-bold text-blue-700 mt-1">{{ number_format($payrollSummary['total_net'], 0, ',', '.') }} <span class="text-sm">Kz</span></p>
+                    <p class="text-2xl font-bold text-blue-700 mt-1">{{ valorProtegido($payrollSummary['total_net'], 'payroll.process', 'rh.reports') }} <span class="text-sm">Kz</span></p>
                 </div>
             </div>
         </div>
@@ -205,6 +205,37 @@
                         @endforeach
                     </div>
                 </div>
+            </div>
+
+            {{-- ============ GRÁFICOS ============
+                 A presença e os departamentos já eram calculados e só se viam
+                 em listas de números. Uma lista responde "quantos"; a forma
+                 responde "está a crescer ou a cair", que é a pergunta a
+                 seguir. --}}
+            <div class="lg:col-span-2 grid gap-6 lg:grid-cols-2">
+                <x-grafico class="lg:col-span-2"
+                           :titulo="__('Custo da folha — 12 meses')"
+                           :subtitulo="__('Total líquido processado, por mês')"
+                           id="grRhFolha"
+                           :altura="250"
+                           :vazio="!array_sum($custoMensal['valores'])" />
+
+                <x-grafico :titulo="__('Presenças da semana')"
+                           :subtitulo="__('Registos com estado presente')"
+                           id="grRhPresenca"
+                           :vazio="!array_sum($presencaSemana['valores'])" />
+
+                <x-grafico :titulo="__('Equipa por departamento')"
+                           :subtitulo="__('Só funcionários activos')"
+                           id="grRhDeptos"
+                           :vazio="empty($porDepartamento['valores'])" />
+
+                <x-grafico class="lg:col-span-2"
+                           :titulo="__('Composição da equipa')"
+                           :subtitulo="__('Por situação de emprego')"
+                           id="grRhContratos"
+                           :altura="230"
+                           :vazio="empty($porContrato['valores'])" />
             </div>
 
             {{-- Funcionários por Departamento --}}
@@ -437,4 +468,51 @@
         }
     }
 </style>
+@endpush
+
+@push('scripts')
+    @include('partials.graficos')
+    <script>
+    sosDesenhar(function () {
+        const folha     = @json($custoMensal);
+        const presenca  = @json($presencaSemana);
+        const deptos    = @json($porDepartamento);
+        const contratos = @json($porContrato);
+
+        sosLinha('grRhFolha', folha.etiquetas, folha.valores, { cor: SOS_CORES[0] });
+        sosBarras('grRhPresenca', presenca.etiquetas, presenca.valores, { cor: SOS_CORES[2], moeda: false });
+        sosRosca('grRhDeptos', deptos.etiquetas, deptos.valores, { moeda: false });
+
+        // Barras horizontais: os rótulos de situação de emprego são frases
+        // ("Prestação de serviços") e na vertical saíam inclinados.
+        const el = document.getElementById('grRhContratos');
+        if (el) {
+            sosGrafico('grRhContratos', {
+                type: 'bar',
+                data: {
+                    labels: contratos.etiquetas,
+                    datasets: [{
+                        data: contratos.valores,
+                        backgroundColor: contratos.etiquetas.map((_, i) => SOS_CORES[i % SOS_CORES.length]),
+                        borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+                        borderSkipped: false,
+                        maxBarThickness: 26,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => sosNumero(c.parsed.x) + ' ' + @json(__('pessoas')) } },
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(100,116,139,.12)' }, border: { display: false } },
+                        y: { grid: { display: false }, border: { display: false } },
+                    },
+                },
+            });
+        }
+    });
+    </script>
 @endpush

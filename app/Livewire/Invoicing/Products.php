@@ -135,6 +135,9 @@ class Products extends Component
      * serviço com esta bandeira ligada é recusado no POS por "esgotado".
      */
     public $manage_stock = true;
+
+    /** No POS, o preço é escrito na hora da venda em vez de vir da ficha. */
+    public $preco_no_pos = false;
     public $stock_quantity = 0;
     public $stock_min = 0;
     public $stock_max = null;
@@ -524,6 +527,7 @@ class Products extends Component
         $this->tax_rate_id = $product->tax_rate_id;
         $this->exemption_reason = $product->exemption_reason;
         $this->manage_stock = $product->manage_stock;
+        $this->preco_no_pos = (bool) $product->preco_no_pos;
         $this->stock_quantity = $product->stock_quantity;
         $this->stock_min = $product->stock_min ?? 0;
         $this->stock_max = $product->stock_max;
@@ -610,6 +614,7 @@ class Products extends Component
             'tax_rate_id' => $this->tax_type === 'iva' ? $this->tax_rate_id : null,
             'exemption_reason' => $this->tax_type === 'isento' ? $this->exemption_reason : null,
             'manage_stock' => $this->manage_stock,
+            'preco_no_pos' => (bool) $this->preco_no_pos,
             'stock_quantity' => $this->stock_quantity,
             'stock_min' => $this->stock_min,
             'stock_max' => $this->stock_max,
@@ -922,6 +927,7 @@ class Products extends Component
         $this->exemption_reason = null;
         // Mesmo valor por omissão da propriedade: artigo físico conta stock.
         $this->manage_stock = true;
+        $this->preco_no_pos = false;
         $this->stock_quantity = 0;
         $this->stock_min = 0;
         $this->stock_max = null;

@@ -72,7 +72,7 @@
                         <select wire:model.live="overtime_type" 
                                 class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all @error('overtime_type') border-red-500 @enderror">
                             <option value="">Selecione o tipo</option>
-                            <option value="regular">⏰ Regular (+50%)</option>
+                            <option value="weekday">⏰ Regular (+50%)</option>
                             <option value="holiday">📅 Feriado (+100%)</option>
                             <option value="night">🌙 Noturno (+75%)</option>
                             <option value="weekend">🗓️ Fim de Semana (+100%)</option>

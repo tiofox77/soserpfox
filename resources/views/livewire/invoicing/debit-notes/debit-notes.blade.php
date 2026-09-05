@@ -59,6 +59,7 @@
             <i class="fas fa-filter mr-2 text-green-600"></i>{{ __('Filtros') }}
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" />
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Pesquisar...') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-sm">
@@ -101,28 +102,31 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gradient-to-r from-green-50 to-emerald-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-hashtag mr-1 text-green-600"></i>{{ __('Número') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-user mr-1 text-green-600"></i>{{ __('Cliente') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-file-invoice mr-1 text-green-600"></i>{{ __('Fatura Ref.') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-calendar mr-1 text-green-600"></i>{{ __('Data') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-tag mr-1 text-green-600"></i>{{ __('Motivo') }}
                     </th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-coins mr-1 text-green-600"></i>{{ __('Total') }}
                     </th>
-                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-info-circle mr-1 text-green-600"></i>{{ __('Status') }}
                     </th>
-                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                        <i class="fas fa-landmark mr-1 text-emerald-600"></i>{{ __('Portal AGT') }}
+                    </th>
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-cog mr-1 text-green-600"></i>{{ __('Ações') }}
                     </th>
                 </tr>
@@ -130,40 +134,48 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($debitNotes as $debitNote)
                 <tr class="hover:bg-green-50 transition-colors duration-150">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-bold text-green-600">{{ $debitNote->debit_note_number }}</div>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm font-bold text-green-700" title="{{ __('Numeração interna') }}">{{ $debitNote->numeroInterno() }}</div>
+                        @if($debitNote->numeroAgt())
+                            <div class="text-[10px] text-gray-400 font-mono mt-0.5" title="{{ __('Numeração AGT') }}">
+                                <i class="fas fa-landmark mr-0.5"></i>{{ $debitNote->numeroAgt() }}
+                            </div>
+                        @endif
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <div class="text-sm font-medium text-gray-900">{{ $debitNote->client->name }}</div>
                         <div class="text-xs text-gray-500">NIF: {{ $debitNote->client->nif ?? 'N/D' }}</div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         @if($debitNote->invoice)
-                        <div class="text-sm text-gray-900">{{ $debitNote->invoice->invoice_number }}</div>
+                        <div class="text-sm text-gray-900">{{ $debitNote->invoice->numeroInterno() }}</div>
                         <div class="text-xs text-gray-500">{{ $debitNote->invoice->invoice_date->format('d/m/Y') }}</div>
                         @else
                         <span class="text-xs text-gray-400">N/A</span>
                         @endif
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {{ $debitNote->issue_date->format('d/m/Y') }}
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
                             {{ $debitNote->reason_label ?? 'N/A' }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                    <td class="px-4 py-3 whitespace-nowrap text-right">
                         <span class="text-sm font-bold text-green-600">{{ number_format($debitNote->total, 2) }}</span>
                         <span class="text-xs text-gray-500">AOA</span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                    <td class="px-4 py-3 whitespace-nowrap text-center">
                         <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-{{ $debitNote->status_color }}-100 to-{{ $debitNote->status_color }}-200 text-{{ $debitNote->status_color }}-800 text-xs font-bold rounded-full">
                             <i class="fas fa-circle mr-1 text-xs"></i>
                             {{ $debitNote->status_label }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        @include('livewire.invoicing.partials.agt-document-status', ['document' => $debitNote])
+                    </td>
+                    <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <button wire:click="viewDebitNote({{ $debitNote->id }})"
                                     class="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition"
@@ -176,6 +188,7 @@
                                title="{{ __('Pré-visualizar HTML') }}">
                                 <i class="fas fa-file-alt"></i>
                             </a>
+                            <x-pdf-descarregar :url="route('invoicing.debit-notes.preview', $debitNote->id)" />
                             <a href="{{ route('invoicing.debit-notes.pdf', $debitNote->id) }}"
                                target="_blank"
                                class="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
@@ -197,7 +210,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="px-6 py-8 text-center">
+                    <td colspan="9" class="px-6 py-8 text-center">
                         <div class="flex flex-col items-center justify-center text-gray-400">
                             <i class="fas fa-file-circle-plus text-6xl mb-4"></i>
                             <p class="text-lg font-medium">{{ __('Nenhuma nota de débito encontrada') }}</p>

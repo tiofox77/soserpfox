@@ -21,6 +21,7 @@ class Plan extends Model
         'max_users',
         'max_companies',
         'max_storage_mb',
+        'max_documents',
         'features',
         'included_modules',
         'is_active',
@@ -48,6 +49,7 @@ class Plan extends Model
         'max_users' => 'integer',
         'max_companies' => 'integer',
         'max_storage_mb' => 'integer',
+        'max_documents' => 'integer',
         'order' => 'integer',
     ];
 

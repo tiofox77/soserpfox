@@ -69,6 +69,34 @@ async function sala(page) {
 }
 
 test.describe('PWA — Restaurante', () => {
+    test('copia offline preserva comanda ainda nao enviada e nao altera fila', async ({ page, context }) => {
+        await aparelhoPreparado(page);
+        await context.setOffline(true);
+        const resultado = await avaliar(page, async () => {
+            const p = window.SosPwa;
+            const c = await p.restaurante.abrir({ venue_id: (await p.restaurante.salas())[0].id,
+                channel: 'counter', notes: 'Sem sal' });
+            await p.restaurante.juntar(c.local_uuid, {
+                product_id: -1, product_name: 'Teste copia', quantity: 3, unit_price: 1000, tax_rate: 14,
+            });
+            const antes = await p.db.sync_queue.count();
+            let blob;
+            const original = URL.createObjectURL;
+            URL.createObjectURL = value => { blob = value; return original(value); };
+            try { await p.exportarCopia(); } finally { URL.createObjectURL = original; }
+            const copia = JSON.parse(await blob.text());
+            return { versao: copia.versao, antes, depois: await p.db.sync_queue.count(),
+                snapshot: copia.dados.rest_orders.find(o => o.local_uuid === c.local_uuid),
+                payload: copia.dados.sync_queue.find(j => j.op === 'sync_restaurant_order' && j.payload.local_uuid === c.local_uuid)?.payload };
+        });
+        expect(resultado.versao).toBe(2);
+        expect(resultado.depois).toBe(resultado.antes);
+        expect(resultado.snapshot.total).toBe(3420);
+        expect(resultado.payload.notes).toBe('Sem sal');
+        expect(resultado.payload.items[0].quantity).toBe(3);
+        expect(resultado.payload.items[0].unit_price).toBe(1000);
+    });
+
     /**
      * A ACTIVAÇÃO. O módulo tem de chegar ao aparelho, senão a entrada das
      * mesas não aparece e ninguém sabe porquê — nem se é falta de módulo, se

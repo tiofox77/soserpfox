@@ -158,6 +158,16 @@ class AttendanceManagement extends Component
         $this->validate();
 
         try {
+            DB::transaction(function () {
+            // Serialize manual entries for this employee, including concurrent clicks.
+            Employee::where('tenant_id', activeTenantId())->lockForUpdate()->findOrFail($this->employee_id);
+            $existing = Attendance::where('tenant_id', activeTenantId())
+                ->where('employee_id', $this->employee_id)->whereDate('date', $this->date)
+                ->when($this->editMode, fn ($q) => $q->where('id', '!=', $this->attendanceId))
+                ->exists();
+            if ($existing) {
+                throw new \InvalidArgumentException('Já existe uma presença para este funcionário nesta data. Edite o registo existente.');
+            }
             // Calcular horas trabalhadas
             $hoursWorked = null;
             if ($this->check_in && $this->check_out) {
@@ -185,6 +195,7 @@ class AttendanceManagement extends Component
                 Attendance::create($data);
                 session()->flash('success', 'Presença registrada com sucesso!');
             }
+            });
 
             $this->closeModal();
         } catch (\Exception $e) {

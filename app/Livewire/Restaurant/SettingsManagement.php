@@ -23,6 +23,14 @@ class SettingsManagement extends Component
 {
     public ?int $warehouseId = null, $clientId = null, $selectedVenueId = null;
     public bool $requireOpenShift = true, $useKitchen = true, $requireRecipes = false, $reserveStock = true, $consumeStock = true, $allowNegative = false;
+
+    // A taxa de servico e receita da casa (vai a factura); a gorjeta e do
+    // pessoal (so passa pela caixa). Ver a migracao gorjeta_e_taxa_de_servico.
+    public float $serviceChargePercent = 0;
+
+    public bool $tipsEnabled = true;
+
+    public bool $kitchenAutoPrint = false;
     public string $venueCode = '', $venueName = '', $areaName = '', $stationCode = '', $stationName = '';
     public ?int $venueWarehouseId = null;
     public ?string $editType = null;
@@ -32,6 +40,22 @@ class SettingsManagement extends Component
     public bool $showVenueRequest = false;
     public int $requestedVenueLimit = 2;
     public string $venueRequestReason = '';
+
+    // ── Menu online ───────────────────────────────────────────────────────
+    // A carta pública. Nasce desligada: um restaurante que não pediu isto não
+    // pode acordar com os seus preços numa página aberta ao mundo.
+    public bool $menuAtivo = false;
+    public bool $menuWhatsapp = true;
+    public bool $menuPedidos = false;
+    public bool $menuMostrarPrecos = true;
+    public string $menuSlug = '';
+    public string $menuNumeroWhatsapp = '';
+    public string $menuTitulo = '';
+    public string $menuDescricao = '';
+    public string $menuCor = '#ea580c';
+
+    /** O ecrã de imprimir os QR das mesas. */
+    public bool $mostrarQrDasMesas = false;
 
     public function mount(): void
     {
@@ -44,7 +68,86 @@ class SettingsManagement extends Component
         $this->reserveStock = (bool) ($settings->reserve_stock_on_confirm ?? true);
         $this->consumeStock = (bool) ($settings->consume_stock_on_kitchen ?? true);
         $this->allowNegative = (bool) ($settings->allow_negative_stock ?? false);
+        $this->serviceChargePercent = (float) ($settings->service_charge_percent ?? 0);
+        $this->tipsEnabled = (bool) ($settings->tips_enabled ?? true);
+        $this->kitchenAutoPrint = (bool) ($settings->kitchen_auto_print ?? false);
         $this->selectedVenueId = Venue::where('tenant_id', activeTenantId())->orderBy('name')->value('id');
+
+        $this->menuAtivo = (bool) $settings->online_menu_enabled;
+        $this->menuWhatsapp = (bool) ($settings->menu_whatsapp_enabled ?? true);
+        $this->menuPedidos = (bool) $settings->menu_orders_enabled;
+        $this->menuMostrarPrecos = (bool) ($settings->menu_show_prices ?? true);
+        $this->menuSlug = (string) ($settings->menu_slug ?? '');
+        $this->menuNumeroWhatsapp = (string) ($settings->menu_whatsapp_number ?? '');
+        $this->menuTitulo = (string) ($settings->menu_title ?? '');
+        $this->menuDescricao = (string) ($settings->menu_description ?? '');
+        $this->menuCor = (string) ($settings->menu_primary_color ?? '#ea580c');
+
+        // Um endereço sugerido a partir do nome da empresa, para quem só quer
+        // ligar o interruptor e acabar. Continua editável.
+        if ($this->menuSlug === '') {
+            $this->menuSlug = \Illuminate\Support\Str::slug(
+                (string) Tenant::find(activeTenantId())?->name
+            );
+        }
+    }
+
+    /**
+     * Guarda a carta pública.
+     *
+     * Separado do `save()` geral de propósito: publicar preços ao mundo é uma
+     * decisão diferente de escolher um armazém por omissão, e misturá-las fazia
+     * um clique numa caixa qualquer publicar a carta sem querer.
+     */
+    public function guardarMenu(): void
+    {
+        $dados = $this->validate([
+            // O slug é o ENDEREÇO PÚBLICO e é único na tabela inteira, não por
+            // empresa: dois restaurantes com o mesmo endereço é um a servir a
+            // carta do outro.
+            'menuSlug' => [
+                $this->menuAtivo ? 'required' : 'nullable',
+                'string', 'max:80', 'regex:/^[a-z0-9\-]+$/',
+                Rule::unique('restaurant_settings', 'menu_slug')
+                    ->ignore(activeTenantId(), 'tenant_id'),
+            ],
+            'menuNumeroWhatsapp' => ['nullable', 'string', 'max:30'],
+            'menuTitulo'         => ['nullable', 'string', 'max:120'],
+            'menuDescricao'      => ['nullable', 'string', 'max:2000'],
+            'menuCor'            => ['nullable', 'string', 'max:20'],
+        ], [
+            'menuSlug.required' => __('Dê um endereço à carta antes de a publicar.'),
+            'menuSlug.regex'    => __('O endereço só pode ter letras minúsculas, números e hífens.'),
+            'menuSlug.unique'   => __('Esse endereço já está a ser usado por outro restaurante.'),
+        ]);
+
+        // O WhatsApp sem número não serve para nada, e um botão que não leva a
+        // lado nenhum é pior do que botão nenhum.
+        if ($this->menuWhatsapp && trim($this->menuNumeroWhatsapp) === '') {
+            $this->addError('menuNumeroWhatsapp', __('Indique o número que vai receber os pedidos.'));
+
+            return;
+        }
+
+        RestaurantSettings::withoutGlobalScopes()->where('tenant_id', activeTenantId())->update([
+            'menu_slug'             => $dados['menuSlug'] ?: null,
+            'online_menu_enabled'   => $this->menuAtivo,
+            'menu_whatsapp_enabled' => $this->menuWhatsapp,
+            'menu_orders_enabled'   => $this->menuPedidos,
+            'menu_show_prices'      => $this->menuMostrarPrecos,
+            'menu_whatsapp_number'  => $dados['menuNumeroWhatsapp'] ?: null,
+            'menu_title'            => $dados['menuTitulo'] ?: null,
+            'menu_description'      => $dados['menuDescricao'] ?: null,
+            'menu_primary_color'    => $dados['menuCor'] ?: null,
+        ]);
+
+        $this->dispatch('notify', type: 'success', message: __('Carta guardada.'));
+    }
+
+    /** O endereço público da carta, para se poder copiar e testar. */
+    public function getUrlDoMenuProperty(): ?string
+    {
+        return $this->menuSlug ? url('/menu/' . $this->menuSlug) : null;
     }
 
     public function save(): void
@@ -54,6 +157,9 @@ class SettingsManagement extends Component
             'require_open_shift' => true, 'reserve_stock_on_confirm' => $this->reserveStock,
             'use_kitchen_workflow' => $this->useKitchen, 'require_recipe_for_products' => $this->requireRecipes,
             'consume_stock_on_kitchen' => $this->consumeStock, 'allow_negative_stock' => $this->allowNegative,
+            'service_charge_percent' => max(0, min(100, $this->serviceChargePercent)),
+            'tips_enabled' => $this->tipsEnabled,
+            'kitchen_auto_print' => $this->kitchenAutoPrint,
         ]);
         $this->dispatch('notify', type: 'success', message: 'Configurações guardadas.');
     }

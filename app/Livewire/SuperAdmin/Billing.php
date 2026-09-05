@@ -31,6 +31,13 @@ class Billing extends Component
     public $selectedPlan = null;
     public $showSubscriptionModal = false;
     public $marcarComoPago = true;
+    // O acordo por cima da tabela: oferta do anual, dias à medida, preço por
+    // utilizador. Calculado por App\Support\AcordoDeSubscricao — o mesmo que
+    // o modal «Alterar Plano» usa.
+    public bool $com_oferta = true;
+    public string $dias_personalizados = '';
+    public string $preco_por_utilizador = '';
+    public string $utilizadores_cobrados = '';
     public $paymentReference = '';
     public $paymentMethod = 'bank_transfer';
 
@@ -154,7 +161,10 @@ class Billing extends Component
         // O editingSubscriptionId TEM de ser limpo nos dois sítios. Se ficasse
         // só num, "editar a #7, fechar, criar nova" gravava a nova por cima
         // da #7.
-        $this->reset(['tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan', 'paymentReference', 'editingSubscriptionId']);
+        $this->reset([
+            'tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan', 'paymentReference', 'editingSubscriptionId',
+            'com_oferta', 'dias_personalizados', 'preco_por_utilizador', 'utilizadores_cobrados',
+        ]);
         $this->resetValidation();
         $this->marcarComoPago = true;
         $this->paymentMethod = 'bank_transfer';
@@ -164,7 +174,10 @@ class Billing extends Component
     public function closeSubscriptionModal()
     {
         $this->showSubscriptionModal = false;
-        $this->reset(['tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan', 'paymentReference', 'editingSubscriptionId']);
+        $this->reset([
+            'tenant_id', 'plan_id', 'billing_cycle', 'selectedPlan', 'paymentReference', 'editingSubscriptionId',
+            'com_oferta', 'dias_personalizados', 'preco_por_utilizador', 'utilizadores_cobrados',
+        ]);
         $this->resetValidation();
     }
 
@@ -186,8 +199,45 @@ class Billing extends Component
         $this->billing_cycle = $subscription->billing_cycle ?? 'monthly';
         $this->selectedPlan = $subscription->plan;
         $this->marcarComoPago = $subscription->status === 'active';
+        // O acordo vem tal como está gravado — editar não pode «esquecer» que
+        // esta empresa foi fechada sem oferta ou a N dias.
+        $this->com_oferta = (bool) ($subscription->com_oferta ?? true);
+        $this->dias_personalizados = $subscription->dias_personalizados ? (string) $subscription->dias_personalizados : '';
+        $this->preco_por_utilizador = $subscription->preco_por_utilizador !== null ? (string) (float) $subscription->preco_por_utilizador : '';
+        $this->utilizadores_cobrados = $subscription->utilizadores_cobrados ? (string) $subscription->utilizadores_cobrados : '';
         $this->resetValidation();
         $this->showSubscriptionModal = true;
+    }
+
+    /** As opções do acordo tal como o AcordoDeSubscricao as recebe. */
+    private function opcoesDoAcordo(): array
+    {
+        return [
+            'com_oferta' => $this->com_oferta,
+            'dias' => $this->dias_personalizados !== '' ? (int) $this->dias_personalizados : null,
+            'preco_por_utilizador' => $this->preco_por_utilizador !== '' ? (float) $this->preco_por_utilizador : null,
+            'utilizadores' => $this->utilizadores_cobrados !== '' ? (int) $this->utilizadores_cobrados : null,
+        ];
+    }
+
+    /**
+     * O resumo do acordo para o ecrã — pela MESMA regra que grava.
+     *
+     * @return array|null
+     */
+    public function getResumoDoAcordoProperty(): ?array
+    {
+        $plano = $this->plan_id ? Plan::find($this->plan_id) : null;
+
+        if (! $plano || ! $this->billing_cycle) {
+            return null;
+        }
+
+        try {
+            return \App\Support\AcordoDeSubscricao::calcular($plano, (string) $this->billing_cycle, $this->opcoesDoAcordo());
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function updatedTenantId($value)
@@ -222,6 +272,9 @@ class Billing extends Component
             'tenant_id'     => 'required|exists:tenants,id',
             'plan_id'       => 'required|exists:plans,id',
             'billing_cycle' => 'required|in:monthly,quarterly,semiannual,yearly',
+            'dias_personalizados' => 'nullable|integer|min:1|max:3660',
+            'preco_por_utilizador' => 'nullable|numeric|min:0',
+            'utilizadores_cobrados' => 'nullable|integer|min:1',
             'paymentMethod' => 'nullable|string|in:bank_transfer,cash,multicaixa,credit_card,other',
             'paymentReference' => 'nullable|string|max:255',
         ]);
@@ -242,8 +295,13 @@ class Billing extends Component
             $tenant = Tenant::findOrFail($this->tenant_id);
             $plan   = Plan::findOrFail($this->plan_id);
 
-            $amount    = $plan->getPrice($this->billing_cycle);
-            $periodEnd = \App\Support\CicloDeFacturacao::fim(now(), $this->billing_cycle);
+            // Preço e fim do período vêm do ACORDO (oferta, dias, por
+            // utilizador), não só da tabela — e gravam-se na subscrição para a
+            // renovação o repetir.
+            $acordo    = \App\Support\AcordoDeSubscricao::calcular($plan, $this->billing_cycle, $this->opcoesDoAcordo());
+            $colunasDoAcordo = \App\Support\AcordoDeSubscricao::colunas($acordo);
+            $amount    = $acordo['valor'];
+            $periodEnd = $acordo['fim'];
 
             $subStatus = $this->marcarComoPago ? 'active' : 'pending';
 
@@ -275,17 +333,15 @@ class Billing extends Component
                     'plan_id'              => $this->plan_id,
                     'status'               => 'pending',
                     'billing_cycle'        => $this->billing_cycle,
-                    'amount'               => $amount,
                     'current_period_start' => null,
                     'current_period_end'   => null,
                     'ends_at'              => null,
-                ]);
+                ] + $colunasDoAcordo);
                 $message = 'Subscrição pendente criada. O acesso actual mantém-se até o pagamento ser confirmado.';
             } elseif ($existingSubscription) {
-                $existingSubscription->update([
+                $existingSubscription->update($colunasDoAcordo + [
                     'plan_id'              => $this->plan_id,
                     'billing_cycle'        => $this->billing_cycle,
-                    'amount'               => $amount,
                     'status'               => $subStatus,
                     'current_period_start' => $this->marcarComoPago ? now() : $existingSubscription->current_period_start,
                     'current_period_end'   => $this->marcarComoPago ? $periodEnd : $existingSubscription->current_period_end,
@@ -294,12 +350,11 @@ class Billing extends Component
                 $subscription = $existingSubscription;
                 $message = 'Subscrição atualizada com sucesso!';
             } else {
-                $subscription = Subscription::create([
+                $subscription = Subscription::create($colunasDoAcordo + [
                     'tenant_id'            => $this->tenant_id,
                     'plan_id'              => $this->plan_id,
                     'status'               => $subStatus,
                     'billing_cycle'        => $this->billing_cycle,
-                    'amount'               => $amount,
                     'current_period_start' => now(),
                     'current_period_end'   => $periodEnd,
                     'ends_at'              => $periodEnd,

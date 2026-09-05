@@ -11,23 +11,15 @@ class Supplier extends Model
 
     protected $table = 'invoicing_suppliers';
 
-    // Províncias de Angola
-    public const PROVINCIAS_ANGOLA = [
-        'Bengo', 'Benguela', 'Bié', 'Cabinda', 'Cuando Cubango',
-        'Cuanza Norte', 'Cuanza Sul', 'Cunene', 'Huambo', 'Huíla',
-        'Luanda', 'Lunda Norte', 'Lunda Sul', 'Malanje', 'Moxico',
-        'Namibe', 'Uíge', 'Zaire'
-    ];
+    // A segunda cópia da lista das províncias vivia aqui. Ver
+    // App\Support\Geografia — 21 províncias e os municípios, num sítio só.
 
     // Países disponíveis
-    public const PAISES = [
-        'Angola', 'Portugal', 'Moçambique', 'Brasil', 'Cabo Verde',
-        'Guiné-Bissau', 'São Tomé e Príncipe', 'Outro'
-    ];
+    // A segunda cópia da lista dos países vivia aqui. Ver App\Support\Geografia.
 
     protected $fillable = [
         'tenant_id', 'type', 'name', 'nif', 'logo', 'email', 'phone', 'mobile',
-        'address', 'city', 'province', 'postal_code', 'country',
+        'address', 'city', 'province', 'municipality', 'neighbourhood', 'postal_code', 'country',
         'tax_regime', 'is_iva_subject', 'credit_limit', 'payment_term_days',
         'website', 'notes', 'is_active'
     ];

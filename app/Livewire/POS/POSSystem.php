@@ -22,6 +22,7 @@ use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use Illuminate\Support\Facades\DB;
 use Darryldecode\Cart\Facades\CartFacade as Cart;
+use App\Livewire\Concerns\FormatoDeImpressao;
 
 #[Layout('layouts.app')]
 // O título do separador fica em português: um atributo PHP só aceita expressões
@@ -30,6 +31,8 @@ use Darryldecode\Cart\Facades\CartFacade as Cart;
 #[Title('POS - Ponto de Venda')]
 class POSSystem extends Component
 {
+    use FormatoDeImpressao;
+
     public $currentShift = null;
     public $warehouseId = null;   // Armazém default do tenant (única fonte de stock no POS)
     public $warehouseName = '';   // Nome a mostrar na UI
@@ -47,6 +50,7 @@ class POSSystem extends Component
     public $quickClientEmail = '';
     public $showPaymentModal = false;
     public $showPrintModal = false;
+
     // Factura do talão. Preenchida ao concluir a venda e LIBERTADA ao fechar o
     // modal de impressão (closePrintModal), que é o que faltava antes.
     //
@@ -202,7 +206,24 @@ class POSSystem extends Component
             if (!is_numeric($id) || !($product = $products->get((int) $id))) continue;
             $attrs = \App\Helpers\InvoiceCalculationHelper::atributos($item);
             $tax = \App\Services\Invoicing\TaxResolver::forProduct($product, activeTenantId());
-            $canonicalPrice = round((float) $product->price, 2);
+            /*
+             * O PREÇO ESCRITO NO BALCÃO NÃO SE CORRIGE.
+             *
+             * Esta sincronização existe para uma linha antiga não sobreviver
+             * com o preço de ontem. Mas num artigo cujo preço é PERGUNTADO na
+             * venda, a ficha diz zero por definição — e o que se escreveu na
+             * caixa era apagado no instante a seguir, antes sequer de aparecer
+             * no carrinho. Era exactamente o que se via: escrevia-se o valor e
+             * a linha ficava a 0,00.
+             *
+             * O imposto continua a ser sincronizado: esse é fiscal e tem de
+             * seguir a ficha e o regime, aconteça o que acontecer ao preço.
+             */
+            $precoVemDaFicha = ! $product->preco_no_pos;
+
+            $canonicalPrice = $precoVemDaFicha
+                ? round((float) $product->price, 2)
+                : round((float) $item->price, 2);
             $canonicalAttrs = array_merge($attrs, [
                 'image' => $product->image,
                 'sku' => $product->sku,
@@ -534,7 +555,69 @@ class POSSystem extends Component
      *                                   (ou um restauro de carrinho já
      *                                   confirmado) a liga.
      */
-    public function addToCart($productId, $controladoConfirmado = false)
+    /**
+     * O modal do preço escrito no balcão.
+     *
+     * Guarda-se aqui o que a pergunta precisa de saber para a resposta
+     * voltar ao sítio certo: o artigo, e se o psicotrópico já foi
+     * confirmado — essa confirmação não se pode perder pelo caminho, senão
+     * o operador tem de a dar outra vez.
+     */
+    public $showPrecoModal = false;
+
+    public $precoModalProductId = null;
+
+    public $precoModalNome = '';
+
+    public $precoModalValor = 0;
+
+    public $precoModalControlado = false;
+
+    public function fecharPrecoModal(): void
+    {
+        $this->showPrecoModal = false;
+        $this->precoModalProductId = null;
+        $this->precoModalNome = '';
+        $this->precoModalValor = 0;
+        $this->precoModalControlado = false;
+        $this->resetErrorBag('precoModalValor');
+    }
+
+    /** O preço escrito no modal volta pelo mesmo caminho do toque no artigo. */
+    /**
+     * @param string|null $escrito O que está NO CAMPO no momento de submeter.
+     *
+     * O VALOR VIAJA COM O SUBMETER, e não numa viagem própria.
+     *
+     * A primeira versão punha o campo a actualizar a propriedade por `$wire.set`
+     * ao sair da caixa, e o botão chamava este método. São dois pedidos, e o do
+     * botão chegava primeiro: o preço escrito ainda ia a caminho quando o
+     * artigo já tinha entrado no carrinho — a zero. Via-se exactamente isso:
+     * escrevia-se o valor na caixa e a linha aparecia a 0,00.
+     *
+     * Assim o que o operador escreveu chega no mesmo pedido em que carrega no
+     * botão, e não há corrida nenhuma. A propriedade fica como recurso, para
+     * quem submeta sem o campo à mão.
+     */
+    public function confirmarPrecoNoPos($escrito = null): void
+    {
+        $valor = \App\Helpers\MoneyHelper::parse($escrito !== null && $escrito !== '' ? $escrito : $this->precoModalValor);
+
+        if ($valor < 0) {
+            $this->addError('precoModalValor', __('O preço não pode ser negativo.'));
+
+            return;
+        }
+
+        $id = $this->precoModalProductId;
+        $controlado = (bool) $this->precoModalControlado;
+
+        $this->fecharPrecoModal();
+
+        $this->addToCart($id, $controlado, $valor);
+    }
+
+    public function addToCart($productId, $controladoConfirmado = false, $precoEscrito = null)
     {
         // Na segunda passagem — o operador confirmou o psicotrópico e o ecrã
         // repetiu a chamada — não se volta a registar: é a mesma escolha, não
@@ -678,6 +761,33 @@ class POSSystem extends Component
             return;
         }
 
+        /*
+         * O PREÇO QUE SE DECIDE NO BALCÃO.
+         *
+         * Há artigos cujo preço não está na ficha — um trabalho feito à
+         * medida, um serviço combinado com o cliente. No POS, tocar no
+         * artigo mete-o logo no carrinho; sem esta pergunta entrava a zero
+         * e a venda saía a zero.
+         *
+         * A pergunta vem DEPOIS da do psicotrópico e depois do stock, para
+         * não se escrever um preço numa venda que a seguir era recusada.
+         */
+        if ($product->preco_no_pos && $precoEscrito === null) {
+            $this->precoModalProductId = $product->id;
+            $this->precoModalNome = $product->name;
+            $this->precoModalValor = (float) $product->price;
+            $this->precoModalControlado = (bool) $controladoConfirmado;
+            $this->showPrecoModal = true;
+
+            return;
+        }
+
+        // O preço vem do balcão quando o artigo o pede; caso contrário, da
+        // ficha. Negativo não passa — o valor vem do browser.
+        $precoDaLinha = $precoEscrito !== null
+            ? max(0, (float) str_replace(',', '.', (string) $precoEscrito))
+            : (float) $product->price;
+
         // Imposto resolvido pela fonte ÚNICA (regime do tenant + produto).
         // O antigo `?? 14` hardcoded fazia empresas em regime de isenção
         // emitirem faturas com IVA 14%.
@@ -686,7 +796,7 @@ class POSSystem extends Component
         Cart::session($this->cartKey())->add([
             'id' => $product->id,
             'name' => $product->name,
-            'price' => $product->price,
+            'price' => $precoDaLinha,
             'quantity' => 1,
             'attributes' => [
                 'image' => $product->image,
@@ -868,6 +978,15 @@ class POSSystem extends Component
     public function decreaseQuantity($itemId)
     {
         $item = Cart::session($this->cartKey())->get($itemId);
+
+        // Dois toques rápidos no «menos»: o segundo pedido chega depois de o
+        // artigo já ter saído do carrinho — e não há nada para diminuir.
+        if (! $item) {
+            $this->loadCart();
+
+            return;
+        }
+
         if ($item->quantity > 1) {
             Cart::session($this->cartKey())->update($itemId, [
                 'quantity' => -1
@@ -1423,7 +1542,8 @@ class POSSystem extends Component
             $this->payments = [];
             $this->multiPagamento = false;
 
-            // Abrir modal de impressão
+            // Abrir modal de impressão, no papel que a empresa escolheu.
+            $this->formatoImpressao = $this->formatoConfigurado();
             $this->showPrintModal = true;
 
         } catch (\Exception $e) {

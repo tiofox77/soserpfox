@@ -130,7 +130,11 @@ class OvertimeService
             $employee = Employee::findOrFail($data['employee_id']);
 
             // Calcular horas conforme input_type
-            $inputType = $data['input_type'] ?? 'time_range';
+            $inputType = match ($data['input_type'] ?? 'time_range') {
+                'daily_hours' => 'daily',
+                'monthly_hours' => 'monthly',
+                default => $data['input_type'] ?? 'time_range',
+            };
 
             if ($inputType === 'time_range') {
                 if (empty($data['start_time']) || empty($data['end_time'])) {
@@ -150,7 +154,9 @@ class OvertimeService
 
             // Determinar tipo de hora extra
             $date = Carbon::parse($data['date']);
-            $overtimeType = $data['overtime_type'] ?? $this->determineOvertimeType($date);
+            $overtimeType = ($data['overtime_type'] ?? null) === 'regular'
+                ? 'weekday'
+                : ($data['overtime_type'] ?? $this->determineOvertimeType($date));
 
             // Calcular valores
             $calculations = $this->calculateOvertimePay($employee, $totalHours, $overtimeType);
@@ -178,13 +184,13 @@ class OvertimeService
                 'attendance_id' => $data['attendance_id'] ?? null,
                 'overtime_number' => $overtimeNumber,
                 'date' => $data['date'],
-                'start_time' => $data['start_time'],
-                'end_time' => $data['end_time'],
+                'start_time' => $data['start_time'] ?? null,
+                'end_time' => $data['end_time'] ?? null,
                 'total_hours' => $totalHours,
                 'overtime_type' => $overtimeType,
-                'input_type' => $data['input_type'] ?? 'time_range',
+                'input_type' => $inputType,
                 'direct_hours' => $data['direct_hours'] ?? null,
-                'period_type' => $data['period_type'] ?? null,
+                'period_type' => $data['period_type'] ?? ($inputType === 'monthly' ? 'monthly' : 'daily'),
                 'is_night_shift' => ($overtimeType === 'night') || ($data['is_night_shift'] ?? false),
                 'multiplier' => $calculations['multiplier'],
                 'hourly_rate' => $calculations['hourly_rate'],

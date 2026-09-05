@@ -35,22 +35,37 @@
                  via. No telemovel continua sticky, porque ai quem rola e a
                  pagina inteira e a barra tem de acompanhar. --}}
             <div class="sticky top-14 lg:static z-30 bg-slate-100/95 backdrop-blur px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
+                {{-- `min-w-0` NÃO É DECORAÇÃO, é o que impede esta barra de sair
+                     do ecrã. Um item flex recusa-se a encolher abaixo do seu
+                     conteúdo, e um `<input>` traz uma largura mínima própria
+                     do browser (~170px) que o `flex-1` não desfaz. Num
+                     telemóvel de 375px a caixa de pesquisa não cedia, a linha
+                     transbordava, e o armazém e o turno ficavam cortados na
+                     margem direita — sem barra de deslocamento para lá chegar.
+                     Precisa de estar no contentor E no input: a regra tem de
+                     descer toda a cadeia de flex. --}}
                 <div class="flex gap-2 items-center">
-                    <div class="flex-1 flex items-center gap-2 bg-white rounded-2xl shadow-sm px-3 h-12">
-                        <i class="fas fa-magnifying-glass text-gray-400"></i>
+                    <div class="flex-1 min-w-0 flex items-center gap-2 bg-white rounded-2xl shadow-sm px-3 h-12">
+                        <i class="fas fa-magnifying-glass text-gray-400 shrink-0"></i>
                         <input x-model="search" type="search" inputmode="search"
                                placeholder="{{ __('Pesquisar ou scan código de barras…') }}"
                                @keydown.enter="quickAddByBarcode()"
-                               class="flex-1 bg-transparent text-sm focus:outline-none">
-                        <button @click="search = ''" x-show="search" class="text-gray-400 text-xl leading-none px-1">&times;</button>
-                        <button @click="startBarcodeScanner()" class="text-gray-400 hover:text-blue-600 text-lg px-1" title="{{ __('Ler código de barras com câmara') }}">
+                               class="flex-1 min-w-0 bg-transparent text-sm focus:outline-none">
+                        <button @click="search = ''" x-show="search" class="shrink-0 text-gray-400 text-xl leading-none px-1">&times;</button>
+                        <button @click="startBarcodeScanner()" class="shrink-0 text-gray-400 hover:text-blue-600 text-lg px-1" title="{{ __('Ler código de barras com câmara') }}">
                             <i class="fas fa-camera"></i>
                         </button>
                     </div>
-                    {{-- Armazém ativo (default do tenant) --}}
+                    {{-- Armazém ativo (default do tenant).
+                         O NOME SÓ APARECE QUANDO HÁ ESPAÇO. É informação de
+                         leitura — o armazém não se troca aqui, é sempre o da
+                         empresa — e num telemóvel um "Armazém da Ba…" cortado
+                         não diz mais do que o ícone e rouba a largura à
+                         pesquisa, que é o que se usa a sério. A partir de `sm`
+                         o nome volta, inteiro. --}}
                     <div x-show="warehouse" class="shrink-0 h-12 px-3 bg-indigo-100 text-indigo-700 rounded-2xl text-[10px] font-bold flex flex-col items-center justify-center" :title="__('Armazém: :nome', { nome: warehouse?.name || '' })" x-cloak>
                         <i class="fas fa-warehouse text-sm"></i>
-                        <span class="max-w-[80px] truncate" x-text="warehouse?.name || ''"></span>
+                        <span class="hidden sm:block max-w-[80px] truncate" x-text="warehouse?.name || ''"></span>
                     </div>
                     {{-- Estado do turno --}}
                     <button @click="manageShift()"
@@ -317,8 +332,26 @@
                     <div class="space-y-3">
                         {{-- Pagamento --}}
                         <div>
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">{{ __('Forma de Pagamento') }}</label>
-                            <div class="grid grid-cols-4 gap-1.5">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-[10px] font-bold text-gray-500 uppercase">{{ __('Forma de Pagamento') }}</label>
+
+                                {{-- DIVIDIR O PAGAMENTO.
+                                     O servidor já aceitava `payments[]` e o POS
+                                     online já dividia; só este ecrã é que não.
+                                     Um cliente que paga metade em dinheiro e
+                                     metade a cartão — coisa de todos os dias —
+                                     obrigava o operador a fazer duas vendas, e
+                                     saíam dois documentos fiscais para uma
+                                     compra só. --}}
+                                <button @click="alternarDivisao()"
+                                        :class="dividirPagamento ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'"
+                                        class="rounded-lg border px-2.5 py-1 text-[10px] font-bold transition">
+                                    <i class="fas fa-divide mr-1"></i>{{ __('Dividir') }}
+                                </button>
+                            </div>
+
+                            {{-- Um método só: o caminho normal, e continua a um toque. --}}
+                            <div x-show="!dividirPagamento" class="grid grid-cols-4 gap-1.5">
                                 <template x-for="m in paymentMethods" :key="m.code">
                                     <button @click="payment = m.code"
                                             :class="payment === m.code ? 'bg-blue-600 text-white shadow border-blue-600' : 'bg-white text-gray-600 border-gray-200'"
@@ -327,6 +360,45 @@
                                         <span x-text="m.label"></span>
                                     </button>
                                 </template>
+                            </div>
+
+                            {{-- Dividido: uma linha por método. --}}
+                            <div x-show="dividirPagamento" x-cloak class="space-y-1.5">
+                                <template x-for="(linha, i) in pagamentos" :key="i">
+                                    <div class="flex items-center gap-1.5">
+                                        <select x-model="linha.method"
+                                                class="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold focus:outline-none focus:border-blue-400">
+                                            <template x-for="m in paymentMethods" :key="m.code">
+                                                <option :value="m.code" x-text="m.label"></option>
+                                            </template>
+                                        </select>
+
+                                        <input x-model.number="linha.amount" type="number" inputmode="decimal" min="0" step="0.01"
+                                               class="w-24 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-right font-bold focus:outline-none focus:border-blue-400">
+
+                                        <button @click="removerPagamento(i)" x-show="pagamentos.length > 1"
+                                                class="shrink-0 w-8 h-8 rounded-lg bg-gray-100 text-gray-500 text-lg leading-none">&times;</button>
+                                    </div>
+                                </template>
+
+                                <div class="flex items-center justify-between gap-2 pt-0.5">
+                                    <button @click="juntarPagamento()" x-show="pagamentos.length < paymentMethods.length"
+                                            class="text-[11px] font-bold text-blue-600">
+                                        <i class="fas fa-plus mr-1"></i>{{ __('Outro método') }}
+                                    </button>
+
+                                    {{-- A DIFERENÇA À VISTA. Sem ela, o operador
+                                         só descobria que faltavam 200 Kz quando
+                                         o botão de finalizar não respondia. --}}
+                                    <span class="text-[11px] font-bold ml-auto"
+                                          :class="Math.abs(faltaPagar) < 0.01 ? 'text-emerald-600' : 'text-red-600'">
+                                        <span x-show="Math.abs(faltaPagar) < 0.01"><i class="fas fa-check mr-1"></i>{{ __('Certo') }}</span>
+                                        <span x-show="faltaPagar > 0.01" x-cloak
+                                              x-text="'{{ __('Falta') }} ' + formatMoney(faltaPagar) + ' Kz'"></span>
+                                        <span x-show="faltaPagar < -0.01" x-cloak
+                                              x-text="'{{ __('A mais') }} ' + formatMoney(-faltaPagar) + ' Kz'"></span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
@@ -361,7 +433,7 @@
                 {{-- Finalizar --}}
                 {{-- Desactivado sem turno: um botao que se carrega e nao vende
                      ensina a carregar duas vezes. --}}
-                <button @click="checkout()" :disabled="!cart.length || saving || !shift.open"
+                <button @click="checkout()" :disabled="!cart.length || saving || !shift.open || !divisaoFechada"
                         class="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-2xl font-bold text-base py-4 shadow-lg disabled:opacity-50 active:scale-[0.99] transition">
                     <span x-show="!saving"><i class="fas fa-circle-check mr-1.5"></i>{{ __('Finalizar Venda') }}</span>
                     <span x-show="saving"><i class="fas fa-spinner fa-spin mr-1.5"></i>{{ __('A guardar…') }}</span>
@@ -496,101 +568,21 @@
                 <button @click="reprintLast()" class="flex-1 bg-gradient-to-r from-emerald-600 to-green-700 text-white py-3 rounded-2xl font-bold shadow-lg">
                     <i class="fas fa-print mr-1"></i>{{ __('Imprimir') }}
                 </button>
+                {{-- O talão em PDF, para o WhatsApp — feito no aparelho, com
+                     ou sem rede. Abre a folha de partilha do sistema. --}}
+                <button @click="partilharLast()" :disabled="aPartilhar" data-ensaio="partilhar-pdf"
+                        class="flex-1 bg-gradient-to-r from-teal-600 to-emerald-700 text-white py-3 rounded-2xl font-bold shadow-lg disabled:opacity-60">
+                    <span x-show="!aPartilhar"><i class="fas fa-file-pdf mr-1"></i>{{ __('PDF · WhatsApp') }}</span>
+                    <span x-show="aPartilhar" x-cloak><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A gerar o PDF…') }}</span>
+                </button>
                 <button @click="lastReceipt = null" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl font-bold">{{ __('Nova Venda') }}</button>
             </div>
         </div>
     </div>
 
-    {{-- ============ MODAL: abrir turno (funciona offline) ============ --}}
-    <div x-show="showShiftOpen" @click.self="showShiftOpen = false" class="fixed inset-0 bg-black/60 z-[70] flex items-end sm:items-center justify-center" x-transition x-cloak>
-        <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl flex flex-col" @click.stop>
-            <div class="bg-gradient-to-r from-emerald-600 to-green-700 text-white px-5 py-3 rounded-t-3xl flex items-center justify-between">
-                <h3 class="font-bold text-base"><i class="fas fa-lock-open mr-1"></i>{{ __('Abrir Turno') }}</h3>
-                <button @click="showShiftOpen = false" class="text-2xl leading-none">&times;</button>
-            </div>
-            <div class="p-4 space-y-3">
-                <div x-show="!online" x-cloak class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs">
-                    <i class="fas fa-wifi-slash mr-1"></i>{{ __('Está offline — o turno abre localmente e sincroniza quando a internet voltar.') }}
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">{{ __('Saldo inicial em caixa (Kz)') }} <span class="text-red-500">*</span></label>
-                    <input x-model="shiftOpenForm.opening_balance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00"
-                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-right font-bold focus:border-emerald-500 focus:outline-none"
-                           @keydown.enter="confirmOpenShift()">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">{{ __('Notas') }}</label>
-                    <input x-model="shiftOpenForm.opening_notes" type="text" maxlength="1000" placeholder="{{ __('Opcional') }}"
-                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:outline-none">
-                </div>
-            </div>
-            <div class="p-3 border-t flex gap-2">
-                <button @click="showShiftOpen = false" class="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-bold text-sm">{{ __('Cancelar') }}</button>
-                <button @click="confirmOpenShift()" :disabled="shiftBusy || shiftOpenForm.opening_balance === ''"
-                        class="flex-[2] bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg disabled:opacity-50">
-                    <span x-show="!shiftBusy"><i class="fas fa-lock-open mr-1"></i>{{ __('Abrir turno') }}</span>
-                    <span x-show="shiftBusy"><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A abrir…') }}</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    {{-- ============ MODAL: fechar turno (funciona offline) ============ --}}
-    <div x-show="showShiftClose" @click.self="showShiftClose = false" class="fixed inset-0 bg-black/60 z-[70] flex items-end sm:items-center justify-center" x-transition x-cloak>
-        <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl flex flex-col max-h-[90vh]" @click.stop>
-            <div class="bg-gradient-to-r from-red-600 to-rose-700 text-white px-5 py-3 rounded-t-3xl flex items-center justify-between">
-                <h3 class="font-bold text-base"><i class="fas fa-lock mr-1"></i>{{ __('Fechar Turno') }} <span class="opacity-80 text-sm" x-text="shift.number ? '· ' + shift.number : ''"></span></h3>
-                <button @click="showShiftClose = false" class="text-2xl leading-none">&times;</button>
-            </div>
-            <div class="p-4 space-y-3 overflow-y-auto">
-                <div x-show="pendingCount > 0" class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs">
-                    {{-- O "documento(s)" nao existe em EN nem em FR: conta pelo __n.
-                         E a frase seguinte vai inteira, sem o <strong> a parti-la
-                         a meio — negrito dentro de uma cadeia e cadeia impossivel
-                         de traduzir. --}}
-                    <i class="fas fa-clock mr-1"></i><strong x-text="__n(':n documento por sincronizar|:n documentos por sincronizar', pendingCount, { n: pendingCount })"></strong>
-                    — <span x-text="__('O fecho fica em fila e só é efetivado no servidor depois de todas as vendas sincronizarem.')"></span>
-                </div>
-                <div x-show="!online" x-cloak class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs">
-                    <i class="fas fa-wifi-slash mr-1"></i>{{ __('Está offline — o fecho é guardado localmente e sincroniza quando a internet voltar.') }}
-                </div>
-                <div class="bg-gray-50 rounded-2xl p-3 text-sm space-y-1">
-                    <p class="flex justify-between"><span class="text-gray-500">{{ __('Saldo inicial') }}</span><strong x-text="formatMoney(shift.opening_balance) + ' Kz'"></strong></p>
-                    <p class="flex justify-between"><span class="text-gray-500">{{ __('Vendas dinheiro (sincr.)') }}</span><strong x-text="formatMoney(shift.cash_sales) + ' Kz'"></strong></p>
-                    <p class="flex justify-between" x-show="localCashSinceOpen > 0"><span class="text-gray-500">{{ __('Vendas dinheiro (offline)') }}</span><strong x-text="formatMoney(localCashSinceOpen) + ' Kz'"></strong></p>
-                    <p class="flex justify-between border-t pt-1 mt-1"><span class="text-gray-600 font-semibold">{{ __('Esperado em caixa') }}</span><strong class="text-emerald-700" x-text="formatMoney(expectedCash) + ' Kz'"></strong></p>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">{{ __('Dinheiro contado em caixa (Kz)') }} <span class="text-red-500">*</span></label>
-                    <input x-model="shiftCloseForm.actual_cash" type="number" inputmode="decimal" min="0" step="0.01"
-                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-right font-bold focus:border-red-500 focus:outline-none">
-                    <p class="text-[11px] mt-1" :class="closeDifference === 0 ? 'text-gray-400' : (closeDifference > 0 ? 'text-emerald-600' : 'text-red-600')"
-                       x-show="shiftCloseForm.actual_cash !== ''">
-                        {{ __('Diferença:') }} <strong x-text="(closeDifference > 0 ? '+' : '') + formatMoney(closeDifference) + ' Kz'"></strong>
-                    </p>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">{{ __('Notas de fecho') }}</label>
-                    <input x-model="shiftCloseForm.closing_notes" type="text" maxlength="1000" placeholder="{{ __('Opcional') }}"
-                           class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:outline-none">
-                </div>
-                {{-- Última sincronização --}}
-                <div x-show="lastSyncDate" class="bg-blue-50 rounded-xl px-3 py-2 text-[11px] text-blue-700 flex items-center gap-1">
-                    <i class="fas fa-clock-rotate-left"></i>
-                    <span>{{ __('Última sincronização:') }} <strong x-text="lastSyncLabel"></strong></span>
-                    <span x-show="pendingCount > 0" class="ml-auto font-bold text-amber-600">{{ __('Valores locais podem não incluir outros dispositivos.') }}</span>
-                </div>
-            </div>
-            <div class="p-3 border-t flex gap-2">
-                <button @click="showShiftClose = false" class="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-bold text-sm">{{ __('Cancelar') }}</button>
-                <button @click="confirmCloseShift()" :disabled="shiftBusy || shiftCloseForm.actual_cash === ''"
-                        class="flex-[2] bg-gradient-to-r from-red-500 to-rose-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg disabled:opacity-50">
-                    <span x-show="!shiftBusy"><i class="fas fa-lock mr-1"></i>{{ __('Fechar e Imprimir') }}</span>
-                    <span x-show="shiftBusy"><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A fechar…') }}</span>
-                </button>
-            </div>
-        </div>
-    </div>
+    {{-- Os modais do turno vivem num partial: o restaurante usa os mesmos.
+         Ver resources/views/partials/pwa-turno.blade.php --}}
+    @include("partials.pwa-turno")
 
     {{-- ============ DRAWER: vendas pendentes ============ --}}
     <div x-show="showPending" @click.self="showPending = false" class="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4" x-cloak x-transition>
@@ -646,9 +638,14 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <p class="text-emerald-700 font-bold text-sm" x-text="formatMoney(ps.total) + ' Kz'"></p>
-                            <button @click="reprint(ps)" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg font-bold">
-                                <i class="fas fa-print mr-1"></i>{{ __('Reimprimir') }}
-                            </button>
+                            <div class="flex gap-1.5">
+                                <button @click="partilhar(ps)" :disabled="aPartilhar" class="text-xs bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1 rounded-lg font-bold disabled:opacity-60">
+                                    <i class="fas fa-file-pdf mr-1"></i>{{ __('PDF') }}
+                                </button>
+                                <button @click="reprint(ps)" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg font-bold">
+                                    <i class="fas fa-print mr-1"></i>{{ __('Reimprimir') }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -669,11 +666,19 @@ function posOffline() {
         categoryFilter: null,
         clientSearch: '',
         selectedClient: null,
+        aPartilhar: false,
         showClientPicker: false,
         showClientCreate: false,
         creatingClient: false,
         newClient: { type: 'pessoa_fisica', name: '', nif: '', mobile: '' },
         payment: 'cash',
+
+        // ── Pagamento dividido ────────────────────────────────────────────
+        // O servidor aceita `payments[]` desde sempre e o POS online já o
+        // usava; só este ecrã é que obrigava a um método único. Metade em
+        // dinheiro e metade a cartão é venda de todos os dias.
+        dividirPagamento: false,
+        pagamentos: [],
         amountReceived: '',
         discountPercent: 0,
         visibleLimit: 80,
@@ -688,12 +693,10 @@ function posOffline() {
         lastSaleRecord: null,
         company: null,
         warehouse: null,
-        shift: { open: false, number: null, opened_at: null },
-        showShiftOpen: false,
-        showShiftClose: false,
-        shiftOpenForm: { opening_balance: '', opening_notes: '' },
-        shiftCloseForm: { actual_cash: '', closing_notes: '' },
-        shiftBusy: false,
+        // O TURNO VIVE NUM SO SITIO. Estado, modais e aritmetica da caixa
+        // vem de public/js/pwa-turno.js, partilhado com o restaurante --
+        // duas copias da mesma regra de caixa acabam sempre a discordar.
+        ...TurnoDoPwa(),
         online: navigator.onLine,
         // UI
         showCart: false,
@@ -720,7 +723,7 @@ function posOffline() {
             await this.loadCatalog();
             this.company = await window.SosPwa.getCompany();
             this.warehouse = await window.SosPwa.getWarehouse();
-            this.shift = await window.SosPwa.getShift();
+            await this.iniciarTurno();
             await this.refreshPending();
 
             // Auto-purge vendas sincronizadas com mais de 30 dias
@@ -1048,101 +1051,61 @@ function posOffline() {
             return new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
         },
 
-        manageShift() {
-            if (this.shift.open) this.closeShift();
-            else this.openOpenShiftModal();
-        },
+        // ── Pagamento dividido ────────────────────────────────────────────
 
-        openOpenShiftModal() {
-            this.shiftOpenForm = { opening_balance: '', opening_notes: '' };
-            this.showShiftOpen = true;
-        },
+        /**
+         * Liga a divisão com a PRIMEIRA LINHA JÁ CHEIA.
+         *
+         * Abrir com duas linhas a zero obrigava o operador a somar de cabeça
+         * para chegar ao total. Assim ele só tira do primeiro método o que vai
+         * pagar de outra forma, e a segunda linha nasce com o que sobra.
+         */
+        alternarDivisao() {
+            this.dividirPagamento = !this.dividirPagamento;
 
-        async confirmOpenShift() {
-            if (this.shiftBusy) return;
-            const bal = parseFloat(this.shiftOpenForm.opening_balance);
-            if (isNaN(bal) || bal < 0) { alert(__('Informe o saldo inicial (0 ou mais).')); return; }
-            this.shiftBusy = true;
-            try {
-                this.shift = await window.SosPwa.openShiftOffline({
-                    opening_balance: bal,
-                    opening_notes: this.shiftOpenForm.opening_notes.trim() || null,
-                });
-                this.showShiftOpen = false;
-            } catch (err) {
-                console.error(err);
-                alert(__('Erro ao abrir turno: :erro', { erro: err.message }));
-            } finally {
-                this.shiftBusy = false;
+            if (!this.dividirPagamento) {
+                this.pagamentos = [];
+                return;
             }
+
+            this.pagamentos = [{ method: this.payment || 'cash', amount: this.totals.total }];
         },
 
-        // Dinheiro de vendas offline (ainda não sincronizadas) desde a abertura do turno
-        get localCashSinceOpen() {
-            if (!this.shift.open) return 0;
-            const openedAt = this.shift.opened_at ? new Date(this.shift.opened_at).getTime() : 0;
-            return this.pendingSales
-                .filter(s => !s._synced && s.payment_method === 'cash' && new Date(s.created_at).getTime() >= openedAt)
-                .reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
+        juntarPagamento() {
+            const usados = this.pagamentos.map((p) => p.method);
+            const livre = this.paymentMethods.find((m) => !usados.includes(m.code));
+
+            if (!livre) { return; }
+
+            // A linha nova nasce com o que falta: é isso que o operador quer
+            // escrever a seguir, e poupa-lhe a subtracção.
+            const falta = Math.round(this.faltaPagar * 100) / 100;
+
+            this.pagamentos.push({ method: livre.code, amount: falta > 0 ? falta : 0 });
         },
 
-        get expectedCash() {
-            return (parseFloat(this.shift.opening_balance) || 0)
-                 + (parseFloat(this.shift.cash_sales) || 0)
-                 + this.localCashSinceOpen;
+        removerPagamento(i) {
+            this.pagamentos.splice(i, 1);
         },
 
-        get closeDifference() {
-            const a = parseFloat(this.shiftCloseForm.actual_cash);
-            if (isNaN(a)) return 0;
-            return Math.round((a - this.expectedCash) * 100) / 100;
+        /** Quanto falta para as linhas somarem o total. Negativo = a mais. */
+        get faltaPagar() {
+            const somado = this.pagamentos.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+
+            return Math.round((this.totals.total - somado) * 100) / 100;
         },
 
-        async closeShift() {
-            // Tenta sincronizar pendentes em segundo plano antes de mostrar o modal
-            if (this.pendingCount > 0 && navigator.onLine) {
-                window.SosPwa.sync(true).then(() => this.refreshPending());
-            }
-            await this.refreshPending();
-            this.shiftCloseForm = { actual_cash: this.expectedCash.toFixed(2), closing_notes: '' };
-            this.showShiftClose = true;
+        /**
+         * A divisão fecha? Só se somar o total ao cêntimo.
+         *
+         * O cêntimo de tolerância não é preguiça: os totais vêm de percentagens
+         * de imposto e há arredondamentos por linha. Exigir igualdade exacta
+         * fazia o botão recusar vendas correctas por 0,01 Kz.
+         */
+        get divisaoFechada() {
+            return !this.dividirPagamento || Math.abs(this.faltaPagar) < 0.01;
         },
 
-        async confirmCloseShift() {
-            if (this.shiftBusy) return;
-            const cash = parseFloat(this.shiftCloseForm.actual_cash);
-            if (isNaN(cash) || cash < 0) { alert(__('Informe o dinheiro contado em caixa (0 ou mais).')); return; }
-            this.shiftBusy = true;
-            const shiftSnap = { ...this.shift };
-            try {
-                await window.SosPwa.closeShiftOffline({
-                    actual_cash: cash,
-                    closing_notes: this.shiftCloseForm.closing_notes.trim() || null,
-                    // NÃO traduzir: isto é gravado no fecho de turno do servidor e sai
-                    // nos relatórios de caixa. Texto de dados, não de interface.
-                    difference_reason: this.closeDifference !== 0 ? ('Diferença apurada no fecho offline: ' + this.closeDifference.toFixed(2) + ' Kz') : null,
-                });
-                this.shift = await window.SosPwa.getShift();
-                this.showShiftClose = false;
-                await this.refreshPending();
-
-                // Imprimir relatório de fecho (X/Z Report) offline
-                try {
-                    const sales = await window.SosPwa.getPosSales();
-                    window.PosOfflineTicket.printShiftReport(shiftSnap, sales, this.company || {});
-                } catch (re) { console.warn('[POS] Erro ao imprimir relatório:', re); }
-
-                if (!navigator.onLine || this.pendingCount > 0) {
-                    // Duas frases, duas cadeias: o \n é pontuação, não texto.
-                    alert(__('Fecho registado.') + '\n' + __('Será efetivado no servidor assim que todas as vendas sincronizarem.'));
-                }
-            } catch (err) {
-                console.error(err);
-                alert(__('Erro ao fechar turno: :erro', { erro: err.message }));
-            } finally {
-                this.shiftBusy = false;
-            }
-        },
 
         async checkout() {
             if (!this.cart.length || this.saving) return;
@@ -1173,6 +1136,20 @@ function posOffline() {
                     client_name: this.selectedClient?.name || 'Consumidor Final',
                     client_nif: this.selectedClient?.nif || '999999999',
                     payment_method: this.payment,
+
+                    // AS LINHAS DA DIVISÃO, quando há. O servidor aceita-as
+                    // desde sempre; era este ecrã que nunca as mandava, e uma
+                    // compra paga em duas formas obrigava a duas vendas — e
+                    // portanto a dois documentos fiscais.
+                    //
+                    // O `payment_method` continua a ir: é o método principal, e
+                    // é dele que sai o texto do talão.
+                    payments: this.dividirPagamento
+                        ? this.pagamentos
+                            .filter((p) => (parseFloat(p.amount) || 0) > 0)
+                            .map((p) => ({ method: p.method, amount: Math.round((parseFloat(p.amount) || 0) * 100) / 100 }))
+                        : null,
+
                     amount_received: received,
                     discount_commercial: parseFloat(this.discountPercent) || 0,
                     notes: 'POS Offline · Pagamento: ' + payMethod.labelPt,
@@ -1227,6 +1204,31 @@ function posOffline() {
         async reprint(ps) {
             const fresh = await window.SosPwa.db.pos_sales.where('local_uuid').equals(ps.local_uuid).first();
             window.PosOfflineTicket.print(fresh || ps, this.company || {});
+        },
+
+        // ====== O talão em PDF, para o WhatsApp ======
+        // Com ou sem rede: sem rede faz-se no aparelho; emitido e com rede,
+        // vai o PDF do servidor. Quem cancela a folha de partilha não leva
+        // erro nenhum — cancelar não é falhar.
+        async partilharLast() {
+            if (!this.lastSaleRecord) return;
+            await this.partilhar(this.lastSaleRecord);
+        },
+
+        async partilhar(ps) {
+            if (this.aPartilhar || !ps?.local_uuid) return;
+            this.aPartilhar = true;
+            try {
+                const r = await window.SosPwa.partilharPdf('venda', ps.local_uuid);
+                if (r.modo === 'descarregado') {
+                    alert(__('PDF descarregado — anexe-o na conversa.'));
+                }
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                alert(__('Não foi possível gerar o PDF: :erro', { erro: e.message }));
+            } finally {
+                this.aPartilhar = false;
+            }
         },
 
         // ====== Barcode Scanner via câmara (BarcodeDetector API) ======

@@ -187,7 +187,7 @@ class ImportFarmaciaDois extends Command
             'phone' => $this->option('tenant-phone'),
             'address' => $this->option('tenant-address'),
             'city' => $this->option('tenant-city'),
-            'country' => 'Angola',
+            'country' => \App\Support\Geografia::PAIS_PADRAO,
             'max_users' => 10,
             'max_storage_mb' => 5000,
             'is_active' => 1,

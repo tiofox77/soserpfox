@@ -22,14 +22,24 @@ use Tests\TenantTestCase;
  */
 class PrecacheDoPwaTest extends TenantTestCase
 {
+    /**
+     * O service worker COMO ELE É SERVIDO, e não o ficheiro em bruto.
+     *
+     * O `?v=` deixou de ser escrito à mão nos dois sítios: o layout usa
+     * `pwa_versao()` e o controlador reescreve o do sw.js ao servi-lo. Ler o
+     * ficheiro em bruto comparava a versão de ontem com a de hoje e dizia que
+     * o precache não cobria nada — quando o problema era o ensaio estar a
+     * olhar para o sítio errado. Servido contra renderizado é o que o
+     * aparelho vê, e é a única comparação que prova alguma coisa.
+     */
     private function sw(): string
     {
-        return file_get_contents(resource_path('pwa/sw.js'));
+        return $this->get('/sw.js')->assertOk()->getContent();
     }
 
     private function layout(): string
     {
-        return file_get_contents(resource_path('views/layouts/pwa.blade.php'));
+        return view('layouts.pwa', ['title' => 'ensaio'])->render();
     }
 
     /** Os URLs que o layout do PWA pede, tal e qual. */
@@ -59,8 +69,8 @@ class PrecacheDoPwaTest extends TenantTestCase
         $this->assertEmpty(
             $emFalta,
             "Assets que o PWA carrega mas o service worker não pré-guarda:\n  "
-            . implode("\n  ", $emFalta)
-            . "\n\nSem rede, o aparelho fica sem eles."
+            .implode("\n  ", $emFalta)
+            ."\n\nSem rede, o aparelho fica sem eles."
         );
     }
 
@@ -72,7 +82,7 @@ class PrecacheDoPwaTest extends TenantTestCase
         $this->assertEmpty(
             $deCdn,
             "O precache não pode depender de CDN — offline não há CDN nenhum:\n  "
-            . implode("\n  ", $deCdn)
+            .implode("\n  ", $deCdn)
         );
     }
 
@@ -81,9 +91,19 @@ class PrecacheDoPwaTest extends TenantTestCase
     {
         preg_match_all('/(?:src|href)="(https?:\/\/[^"]+)"/', $this->layout(), $m);
 
-        $this->assertEmpty(
+        // O que aponta para a própria aplicação não é «de fora». O layout
+        // renderizado tem endereços absolutos gerados pelo `url()` — ícones,
+        // manifesto, a saída do modo offline. De CDN só conta outro domínio.
+        $daCasa = rtrim(config('app.url'), '/');
+
+        $deFora = array_values(array_filter(
             $m[1],
-            "O layout do PWA carrega de fora:\n  " . implode("\n  ", $m[1])
+            fn ($u) => ! str_starts_with($u, $daCasa.'/') && $u !== $daCasa
+        ));
+
+        $this->assertEmpty(
+            $deFora,
+            "O layout do PWA carrega de fora:\n  ".implode("\n  ", $deFora)
         );
     }
 
@@ -98,9 +118,9 @@ class PrecacheDoPwaTest extends TenantTestCase
         $precache = $this->precache();
 
         foreach ([
-            '/vendor/js/dexie.min.js'      => 'sem Dexie o motor offline nem arranca',
-            '/vendor/js/alpine.min.js'     => 'sem Alpine o ecrã não responde',
-            '/vendor/js/tailwind.js'       => 'sem Tailwind não há desenho nenhum',
+            '/vendor/js/dexie.min.js' => 'sem Dexie o motor offline nem arranca',
+            '/vendor/js/alpine.min.js' => 'sem Alpine o ecrã não responde',
+            '/vendor/js/tailwind.js' => 'sem Tailwind não há desenho nenhum',
             '/vendor/css/fontawesome.min.css' => 'sem os ícones o POS fica ilegível',
         ] as $ficheiro => $porque) {
             $this->assertContains($ficheiro, $precache, "Falta {$ficheiro} — {$porque}.");
@@ -126,7 +146,7 @@ class PrecacheDoPwaTest extends TenantTestCase
 
             // A página /offline e os ícones são servidos por rota, não por
             // ficheiro — testam-se por HTTP mais abaixo.
-            if (!preg_match('/\.(js|css|png|woff2?)$/', strtok($url, '?'))) {
+            if (! preg_match('/\.(js|css|png|woff2?)$/', strtok($url, '?'))) {
                 continue;
             }
 
@@ -145,7 +165,7 @@ class PrecacheDoPwaTest extends TenantTestCase
         preg_match_all("/'([^']+)'/", $m[1], $u);
         $this->assertNotEmpty($u[1], 'Nenhuma página do PWA é pré-guardada.');
 
-        $rotas = collect(\Route::getRoutes())->map(fn ($r) => '/' . ltrim($r->uri(), '/'))->all();
+        $rotas = collect(\Route::getRoutes())->map(fn ($r) => '/'.ltrim($r->uri(), '/'))->all();
 
         foreach ($u[1] as $pagina) {
             $this->assertContains(

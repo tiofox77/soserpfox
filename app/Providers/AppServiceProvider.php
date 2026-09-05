@@ -88,6 +88,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->prepararSuiteEmParalelo();
+
         // Limites de chamadas da API do agente externo.
         //
         // A contagem é por TOKEN, não por IP: dois agentes atrás do mesmo
@@ -356,5 +358,135 @@ class AppServiceProvider extends ServiceProvider
                 }
             });
         }
+    }
+
+    /**
+     * A suite a correr em paralelo: uma base de dados por processo.
+     *
+     * PORQUE ISTO NÃO É `migrate`. As migrações deste projecto não correm de
+     * raiz — a ordem está partida e uma instalação limpa falha (ver
+     * scripts/prepare_test_db.php). O caminho normal do Laravel para o modo
+     * paralelo é criar cada base com `migrate:fresh`, e aqui isso não funciona.
+     *
+     * Então clona-se o ESQUEMA da base de testes que já existe. É rápido (só
+     * DDL, nenhum dado) e é fiel ao esquema real, que é a razão de o
+     * prepare_test_db.php existir.
+     *
+     * INERTE FORA DOS TESTES. O guarda não é defensivo por hábito: este
+     * ficheiro corre em produção a cada pedido, e um `CREATE DATABASE` à solta
+     * aqui seria a pior coisa que este ficheiro podia fazer.
+     */
+    private function prepararSuiteEmParalelo(): void
+    {
+        if (!$this->app->environment('testing')) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\ParallelTesting::setUpProcess(function ($token) {
+            $molde = (string) config('database.connections.mysql.database');
+
+            // O nome que o Laravel vai usar neste processo. Tem de ser
+            // calculado aqui e não lido da configuração: nesta altura ela
+            // ainda aponta para a base comum, e é precisamente ANTES de o
+            // Laravel lá tocar que o esquema tem de existir.
+            //
+            // Se a base chegar vazia ao arranque do primeiro teste, o Laravel
+            // tenta pô-la em dia com `migrate` — e as migrações deste projecto
+            // não correm de raiz. Era o que rebentava: 1714 erros a dizer
+            // "Table 'hr_departments' already exists".
+            $daCorrida = "{$molde}_test_{$token}";
+
+            $anfitriao = config('database.connections.mysql.host');
+            $utilizador = config('database.connections.mysql.username');
+            $palavra = config('database.connections.mysql.password');
+
+            $pdo = new \PDO(
+                "mysql:host={$anfitriao}",
+                $utilizador,
+                $palavra,
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+
+            $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$daCorrida}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+            // Só se constrói uma vez. As bases dos processos ficam entre
+            // corridas de propósito: reconstruir dezenas de esquemas a cada
+            // `artisan test` custava mais do que a paralelização poupa.
+            //
+            // MAS A CONTAGEM TEM DE BATER. "Tem tabelas" não chega como prova
+            // de estar completa: uma corrida que rebentou a meio deixa a base
+            // com meia dúzia de tabelas, e um simples "não está vazia" tomava
+            // isso por pronto — o Laravel migrava por cima e voltava a
+            // rebentar, corrida após corrida.
+            // E AS COLUNAS TAMBÉM. Só as tabelas não chegava: uma migração
+            // que acrescenta colunas a uma tabela existente (subscriptions
+            // ganhou quatro em 2026-09-02) deixava a contagem a bater e os
+            // 29 processos a correr com o esquema velho — centenas de
+            // "Unknown column" que pareciam ensaios partidos e eram bases
+            // fora de prazo. A impressão digital é tabelas + colunas.
+            // E não só o NÚMERO de colunas: também o que cada uma é. Uma
+            // migração que só muda um DEFAULT ou torna uma coluna anulável
+            // (agt_schema_version, 2026-09-02) deixa as contagens iguais e
+            // o esquema diferente. Resume-se tudo a um MD5 das definições.
+            // (O resumo faz-se em PHP e não com GROUP_CONCAT: o MySQL
+            // trunca-o a 1 KB por omissão, e 230 tabelas são 100 KB de
+            // definições — o MD5 só veria as primeiras.)
+            $contar = function (string $base) use ($pdo): string {
+                $tabelas = (int) $pdo->query(
+                    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = " . $pdo->quote($base)
+                )->fetchColumn();
+
+                $definicoes = $pdo->query(
+                    "SELECT CONCAT_WS('|', TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, IFNULL(COLUMN_DEFAULT, 'NULL'))"
+                    . " FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = " . $pdo->quote($base)
+                    . " ORDER BY TABLE_NAME, ORDINAL_POSITION"
+                )->fetchAll(\PDO::FETCH_COLUMN);
+
+                return $tabelas . ':' . count($definicoes) . ':' . md5(implode(';', $definicoes));
+            };
+
+            if ($contar($daCorrida) === $contar($molde)) {
+                return;
+            }
+
+            // NUNCA TODOS AO MESMO TEMPO.
+            //
+            // Depois de uma migração nova, a contagem deixa de bater em TODOS
+            // os processos — e os 26 clonavam o molde em simultâneo: 26 × 231
+            // tabelas de DDL contra o mesmo MySQL. A suite ficou 13 minutos
+            // pendurada no arranque sem correr um único teste.
+            //
+            // Semáforo com 4 lugares (GET_LOCK é por LIGAÇÃO, e esta fica
+            // aberta até ao fim do clone): quatro clones de cada vez é o que o
+            // disco aguenta sem se atropelar. Só custa alguma coisa na
+            // primeira corrida depois de uma migração; nas outras, a contagem
+            // bate e ninguém passa por aqui.
+            $lugar = ((int) $token) % 4;
+
+            // 90s e não mais: uma corrida morta a meio deixa a ligação zombie
+            // com a tranca na mão, e um timeout de minutos pendurava TODAS as
+            // corridas seguintes no arranque (aconteceu). Esgotado o prazo,
+            // avança-se sem tranca — o pior caso é clonar em simultâneo, que
+            // é lento mas nunca errado: cada worker clona a SUA base.
+            $pdo->query("SELECT GET_LOCK('clone-esquema-{$lugar}', 90)");
+
+            try {
+                // Outro processo do mesmo lugar pode ter acabado de clonar
+                // ESTA base? Não — cada processo clona a SUA. Mas a espera
+                // pode ter demorado; confere-se outra vez por higiene.
+                if ($contar($daCorrida) === $contar($molde)) {
+                    return;
+                }
+
+                exec(sprintf(
+                    'php %s %s %s 2>&1',
+                    escapeshellarg(base_path('scripts/prepare_test_db.php')),
+                    escapeshellarg($daCorrida),
+                    escapeshellarg($molde)
+                ));
+            } finally {
+                $pdo->query("SELECT RELEASE_LOCK('clone-esquema-{$lugar}')");
+            }
+        });
     }
 }

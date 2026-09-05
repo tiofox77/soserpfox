@@ -34,6 +34,10 @@ class KitchenDisplay extends Component
             ->whereIn('status', ['queued', 'accepted', 'preparing', 'ready'])
             ->with(['station', 'order.table', 'items.orderItem'])->orderByDesc('priority')->orderBy('queued_at')
             ->limit(50)->get(); // teto de segurança: o poll de 15s não pode arrastar centenas de bilhetes
-        return view('livewire.restaurant.kitchen-display', compact('stations', 'tickets'));
+        // O valor de arranque da impressao automatica; cada aparelho decide o
+        // seu por cima (localStorage), porque a impressora esta num posto so.
+        $autoPrint = (bool) (\App\Models\Restaurant\RestaurantSettings::forTenant($tenantId)->kitchen_auto_print ?? false);
+
+        return view('livewire.restaurant.kitchen-display', compact('stations', 'tickets', 'autoPrint'));
     }
 }

@@ -13,6 +13,9 @@ use Livewire\Attributes\Title;
 class Advances extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     public $search = '';
     public $filterStatus = '';
@@ -41,7 +44,7 @@ class Advances extends Component
 
     public function deleteAdvance()
     {
-        $advance = Advance::where('tenant_id', activeTenantId())->findOrFail($this->advanceToDelete);
+        $advance = $this->baseDoAutor()->findOrFail($this->advanceToDelete);
         
         try {
             $advance->cancel();
@@ -62,10 +65,15 @@ class Advances extends Component
         }
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\Advance::class;
+    }
+
     public function render()
     {
-        $query = Advance::with(['client', 'usages', 'creator'])
-            ->where('tenant_id', activeTenantId());
+        $query = $this->baseDoAutor()
+            ->with(['client', 'usages', 'creator']);
 
         // Filtros
         if ($this->search) {
@@ -95,12 +103,12 @@ class Advances extends Component
 
         // Stats
         $stats = [
-            'total' => Advance::where('tenant_id', activeTenantId())->count(),
-            'active' => Advance::where('tenant_id', activeTenantId())->where('status', 'available')->count(),
-            'total_amount' => Advance::where('tenant_id', activeTenantId())
+            'total' => $this->baseDoAutor()->count(),
+            'active' => $this->baseDoAutor()->where('status', 'available')->count(),
+            'total_amount' => $this->baseDoAutor()
                 ->where('status', 'available')
                 ->sum('amount'),
-            'available_amount' => Advance::where('tenant_id', activeTenantId())
+            'available_amount' => $this->baseDoAutor()
                 ->where('status', 'available')
                 ->sum('remaining_amount'),
         ];

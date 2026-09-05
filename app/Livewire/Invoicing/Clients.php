@@ -13,12 +13,14 @@ use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Illuminate\Validation\Rule;
 
 #[Layout('layouts.app')]
 #[Title('Clientes')]
 class Clients extends Component
 {
     use WithPagination, WithFileUploads;
+    use \App\Traits\ConcordaComAMorada;
 
     public $search = '';
     public $showModal = false;
@@ -47,7 +49,11 @@ class Clients extends Component
     // Form fields
     public $type = 'pessoa_juridica';
     public $name, $nif, $email, $phone, $mobile;
-    public $address, $city, $province, $postal_code, $country = 'AO'; // ISO 3166-1-alpha-2
+    // Morada: o país é um CÓDIGO ISO 3166-1 alfa-2 porque é assim que viaja
+    // para a AGT (`customerCountry`). Ver App\Support\Geografia.
+    public $address, $city, $province, $postal_code;
+    public $municipality, $neighbourhood;
+    public $country = \App\Support\Geografia::PAIS_PADRAO;
     public $logo; // Upload file
     public $currentLogo; // Existing logo path
     public $payment_term_id = null; // Condição de pagamento
@@ -76,18 +82,23 @@ class Clients extends Component
             'mobile' => 'nullable|string',
             'city' => 'nullable|string',
             'province' => 'nullable|string',
+            'municipality' => 'nullable|string|max:100',
+            'neighbourhood' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string',
-            'country' => 'required|string',
+            'country' => ['required', 'string', 'size:2', new \App\Rules\PaisIso()],
             // O portal autentica pelo email: sem email nao ha por onde entrar.
             'email' => $this->portal_access ? 'required|email' : 'nullable|email',
             'portal_password' => 'nullable|string|min:6|max:64',
         ];
         
+        $uniqueDocument = Rule::unique('invoicing_clients', 'nif')
+            ->where(fn ($query) => $query->where('tenant_id', activeTenantId()));
+
         if ($this->editingClientId) {
-            $rules['nif'] = ['required', new ValidateNIF(), 'unique:invoicing_clients,nif,' . $this->editingClientId];
-        } else {
-            $rules['nif'] = ['required', new ValidateNIF(), 'unique:invoicing_clients,nif'];
+            $uniqueDocument->ignore($this->editingClientId);
         }
+
+        $rules['nif'] = ['required', new ValidateNIF($this->type), $uniqueDocument];
         
         return $rules;
     }
@@ -180,8 +191,13 @@ class Clients extends Component
         $this->address = $client->address;
         $this->city = $client->city;
         $this->province = $client->province;
+        $this->municipality = $client->municipality;
+        $this->neighbourhood = $client->neighbourhood;
         $this->postal_code = $client->postal_code;
-        $this->country = $client->country ?? 'Angola';
+        // Um país gravado à mão converte-se ao ler, para o select o encontrar.
+        // O antigo `?? 'Angola'` punha um NOME onde tem de estar um código.
+        $this->country = \App\Support\Geografia::normalizarPais($client->country)
+            ?? \App\Support\Geografia::PAIS_PADRAO;
         $this->payment_term_id = $client->payment_term_id;
         $this->portal_access = (bool) $client->portal_access;
         $this->portal_password = '';
@@ -204,6 +220,7 @@ class Clients extends Component
             }
         }
         
+        $this->nif = ValidateNIF::normalize((string) $this->nif);
         $this->validate();
 
         $data = [
@@ -214,13 +231,8 @@ class Clients extends Component
             'email' => $this->email,
             'phone' => $this->phone,
             'mobile' => $this->mobile,
-            'address' => $this->address,
-            'city' => $this->city,
-            'province' => $this->province,
-            'postal_code' => $this->postal_code,
-            'country' => $this->country,
             'payment_term_id' => $this->payment_term_id ?: null,
-        ];
+        ] + $this->moradaParaGravar();
 
         // Manter payment_term_days em sincronia com a condição escolhida
         // (código legado ainda lê os dias directamente da coluna).
@@ -360,7 +372,14 @@ class Clients extends Component
         $tenantId = activeTenantId();
         
         // Estatisticas gerais
-        $invoicesQ = SalesInvoice::where('tenant_id', $tenantId)->where('client_id', $id);
+        // A MESMA REGRA DAS LISTAS DE DOCUMENTOS (App\Traits\EscopoDeAutor):
+        // sem `invoicing.documents.all`, a ficha conta o que ESTE utilizador
+        // facturou a este cliente. Era a última porta por onde um vendedor via
+        // o trabalho dos colegas — e aqui somado, o que é pior: dizia-lhe
+        // quanto o cliente vale à casa inteira.
+        $invoicesQ = escopoDoAutor(
+            SalesInvoice::where('tenant_id', $tenantId)->where('client_id', $id)
+        );
         $totalInvoices = (clone $invoicesQ)->count();
         $totalRevenue = (clone $invoicesQ)->sum('total');
         $totalPaid = (clone $invoicesQ)->sum('paid_amount');
@@ -396,6 +415,8 @@ class Clients extends Component
             ->leftJoin('invoicing_products as products', 'products.id', '=', 'items.product_id')
             ->where('inv.tenant_id', $tenantId)
             ->where('inv.client_id', $id)
+            // Os produtos saem das facturas, e as facturas seguem a regra.
+            ->tap(fn ($q) => escopoDoAutor($q, 'inv.created_by'))
             ->selectRaw('products.id, products.name, products.sku, SUM(items.quantity) as total_qty, SUM(items.subtotal) as total_value, COUNT(DISTINCT inv.id) as invoices_count')
             ->groupBy('products.id', 'products.name', 'products.sku')
             ->orderByDesc('total_qty')
@@ -403,12 +424,12 @@ class Clients extends Component
             ->get();
         
         // Notas de credito
-        $creditNotesTotal = CreditNote::where('tenant_id', $tenantId)->where('client_id', $id)->sum('total');
-        $creditNotesCount = CreditNote::where('tenant_id', $tenantId)->where('client_id', $id)->count();
-        
+        $creditNotesTotal = escopoDoAutor(CreditNote::where('tenant_id', $tenantId)->where('client_id', $id))->sum('total');
+        $creditNotesCount = escopoDoAutor(CreditNote::where('tenant_id', $tenantId)->where('client_id', $id))->count();
+
         // Recibos
-        $receiptsTotal = Receipt::where('tenant_id', $tenantId)->where('client_id', $id)->sum('amount_paid');
-        $receiptsCount = Receipt::where('tenant_id', $tenantId)->where('client_id', $id)->count();
+        $receiptsTotal = escopoDoAutor(Receipt::where('tenant_id', $tenantId)->where('client_id', $id))->sum('amount_paid');
+        $receiptsCount = escopoDoAutor(Receipt::where('tenant_id', $tenantId)->where('client_id', $id))->count();
         
         // Lista das ultimas faturas (extrato)
         $recentInvoices = (clone $invoicesQ)
@@ -514,10 +535,14 @@ class Clients extends Component
         // senhaGerada/clienteDaSenha ficam de FORA: são mostradas depois de o
         // modal fechar, e o save() fecha o modal — limpá-las aqui apagava a
         // senha antes de alguém a conseguir ler.
-        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'postal_code', 'editingClientId', 'payment_term_id', 'portal_access', 'portal_password']);
+        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'municipality', 'neighbourhood', 'postal_code', 'editingClientId', 'payment_term_id', 'portal_access', 'portal_password']);
         $this->portal_avisar = true;
         $this->type = 'pessoa_juridica';
-        $this->country = 'Angola';
+        // ERA `'Angola'` — o NOME onde tem de estar o CÓDIGO, e era daqui que
+        // vinha a maioria dos clientes gravados com o país por extenso: a
+        // propriedade nascia 'AO' e esta linha desfazia-o a cada formulário
+        // novo. O valor segue para a AGT, que só aceita duas letras.
+        $this->country = \App\Support\Geografia::PAIS_PADRAO;
         // Cliente novo nasce com a condição padrão da empresa (se houver).
         $this->payment_term_id = \App\Models\Invoicing\PaymentTerm::where('tenant_id', activeTenantId())
             ->where('is_active', true)

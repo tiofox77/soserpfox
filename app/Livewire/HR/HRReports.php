@@ -7,10 +7,10 @@ use App\Models\HR\Employee;
 use App\Models\HR\Payroll;
 use App\Models\HR\PayrollItem;
 use App\Models\HR\Attendance;
-use App\Models\HR\Vacation;
 use App\Models\HR\Leave;
 use App\Models\HR\SalaryAdvance;
 use App\Models\HR\Department;
+use App\Services\HR\VacationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -122,13 +122,31 @@ class HRReports extends Component
                 ->whereBetween('date', [$start, $end])
                 ->get();
 
+            $present = $attendances->where('status', 'present')->count();
+            $late = $attendances->where('status', 'late')->count();
+            $halfDay = $attendances->where('status', 'half_day')->count();
+            $absent = $attendances->where('status', 'absent')->count();
+            $justifiedStatuses = [
+                'sick', 'vacation', 'sick_leave', 'on_leave',
+                'maternity_leave', 'paternity_leave',
+            ];
+            $justified = $attendances->whereIn('status', $justifiedStatuses)->count();
+            $workedEquivalent = $present + $late + ($halfDay * 0.5);
+            $total = $attendances->count();
+            $attendanceRate = $total > 0
+                ? round(min(100, (($workedEquivalent + $justified) / $total) * 100), 1)
+                : 0;
+
             return [
                 'employee' => $employee,
-                'present' => $attendances->where('status', 'present')->count(),
-                'late' => $attendances->where('status', 'late')->count(),
-                'absent' => $attendances->where('status', 'absent')->count(),
-                'justified' => $attendances->where('status', 'justified')->count(),
-                'total' => $attendances->count(),
+                'present' => $present,
+                'late' => $late,
+                'half_day' => $halfDay,
+                'worked_equivalent' => $workedEquivalent,
+                'absent' => $absent,
+                'justified' => $justified,
+                'total' => $total,
+                'attendance_rate' => $attendanceRate,
             ];
         })->sortBy('employee.full_name');
     }
@@ -140,19 +158,16 @@ class HRReports extends Component
             $query->where('department_id', $this->departmentId);
         }
 
-        return $query->get()->map(function ($employee) {
-            $taken = Vacation::where('employee_id', $employee->id)
-                ->where('reference_year', $this->year)
-                ->whereIn('status', ['approved', 'completed', 'in_progress'])
-                ->sum('working_days');
+        $vacations = app(VacationService::class);
 
-            $entitled = 22; // Default Angola
+        return $query->get()->map(function ($employee) use ($vacations) {
+            $balance = $vacations->getAvailableVacationDays($employee, (int) $this->year);
 
             return [
                 'employee' => $employee,
-                'entitled' => $entitled,
-                'taken' => $taken,
-                'remaining' => $entitled - $taken,
+                'entitled' => $balance['entitled'],
+                'taken' => $balance['used'],
+                'remaining' => $balance['available'],
             ];
         })->sortBy('employee.full_name');
     }
@@ -161,11 +176,14 @@ class HRReports extends Component
     {
         $data = [];
         for ($m = 1; $m <= 12; $m++) {
-            $date = Carbon::create($this->year, $m, 1)->endOfMonth();
-            if ($date->isFuture()) break;
+            $month = Carbon::create($this->year, $m, 1)->startOfMonth();
+            if ($month->gt(now()->startOfMonth())) break;
+
+            // O mês corrente é uma fotografia de hoje; os anteriores usam o
+            // último dia do mês. Assim Setembro não desaparece até ao dia 30.
+            $date = $month->isSameMonth(now()) ? now()->endOfDay() : $month->copy()->endOfMonth();
 
             $count = Employee::where('tenant_id', $tenantId)
-                ->where('status', 'active')
                 ->where('hire_date', '<=', $date)
                 ->where(function ($q) use ($date) {
                     $q->whereNull('termination_date')->orWhere('termination_date', '>', $date);

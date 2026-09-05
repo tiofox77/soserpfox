@@ -119,15 +119,19 @@ class PayrollService
     /**
      * Processar folha de pagamento
      */
-    public function processPayroll(Payroll $payroll): void
+    public function processPayroll(Payroll $payroll, bool $approve = true): void
     {
-        DB::transaction(function () use ($payroll) {
+        DB::transaction(function () use ($payroll, $approve) {
+            $payroll = Payroll::whereKey($payroll->id)->lockForUpdate()->firstOrFail();
+            if (in_array($payroll->status, ['paid', 'cancelled'], true)) {
+                throw new \InvalidArgumentException('Não é possível recalcular uma folha paga ou cancelada.');
+            }
+            $previousStatus = $payroll->status;
             $payroll->update(['status' => 'processing']);
             
             // Buscar funcionários ativos do tenant
             $employees = Employee::where('tenant_id', $payroll->tenant_id)
                 ->where('status', 'active')
-                ->whereHas('activeContract')
                 ->get();
             
             $payroll->update(['total_employees' => $employees->count()]);
@@ -140,7 +144,8 @@ class PayrollService
             $payroll->calculateTotals();
             
             $payroll->update([
-                'status' => 'approved',
+                'status' => $approve ? 'approved' : $previousStatus,
+                'processed_employees' => $employees->count(),
                 'processed_at' => now(),
             ]);
         });
@@ -151,10 +156,6 @@ class PayrollService
      */
     public function processEmployeePayroll(Payroll $payroll, Employee $employee): PayrollItem
     {
-        if (!$employee->activeContract) {
-            throw new \Exception("Funcionário {$employee->full_name} não possui contrato ativo");
-        }
-
         // Motor único: createPayrollItem constrói o item completo (vencimentos + deduções,
         // presença/licença/atraso) e calcula os impostos. Idempotente (updateOrCreate).
         return $this->createPayrollItem($payroll, $employee);
@@ -436,10 +437,12 @@ class PayrollService
                 $att = $attendances->get($cursor->toDateString());
                 $lv = $leaveForDate($cursor);
 
-                if ($att && $att->status === 'present') {
-                    $worked++;
+                if ($att && in_array($att->status, ['present', 'late', 'half_day'], true)) {
+                    $fraction = $att->status === 'half_day' ? 0.5 : 1;
+                    $worked += $fraction;
+                    $unjustifiedAbsences += 1 - $fraction;
                     $overtimeHours += $att->overtime_hours ?? 0;
-                    if ($att->is_late) { $lateCount++; $totalLateMinutes += $att->late_minutes ?? 0; }
+                    if ($att->is_late || $att->status === 'late') { $lateCount++; $totalLateMinutes += $att->late_minutes ?? 0; }
                 } elseif ($lv) {
                     // Licença aprovada SOBREPÕE falta: paga → conta como paga; não paga → deduzida
                     if ($lv->paid) { $paidLeave++; } else { $unpaidLeave++; }
@@ -605,10 +608,10 @@ class PayrollService
         $notes = [];
         
         // Informação de dias trabalhados
-        $notes[] = sprintf("Dias úteis: %d | Trabalhou: %d", $data['working_days'], $data['worked_days']);
+        $notes[] = sprintf("Dias úteis: %d | Trabalhou: %s", $data['working_days'], $data['worked_days']);
         
         if ($data['unjustified_absences'] > 0) {
-            $notes[] = sprintf("Faltas injustificadas: %d (descontadas)", $data['unjustified_absences']);
+            $notes[] = sprintf("Faltas injustificadas: %s (descontadas)", $data['unjustified_absences']);
         }
         
         if ($data['justified_absences'] > 0) {

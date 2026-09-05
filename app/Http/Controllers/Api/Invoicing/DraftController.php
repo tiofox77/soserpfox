@@ -13,10 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 /**
- * Recebe rascunhos criados offline no PWA e persiste no servidor com status='draft'.
- * Suporta 4 tipos: FT (Fatura), FR (Fatura-Recibo), NC (Nota de Crédito), proforma.
- * NOTA: documentos criados ficam SEM hash AGT — utilizador finaliza manualmente
- *       no módulo principal para obter validade fiscal.
+ * Recebe documentos offline: emite FT/FR e guarda proformas como rascunho.
+ * A repetição do identificador local devolve o registo existente antes de
+ * atribuir numeração, tanto na sincronização como na recuperação por cópia.
  */
 class DraftController extends Controller
 {
@@ -44,6 +43,9 @@ class DraftController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable|integer',
             'items.*.product_name' => 'required|string|max:255',
+            // A descrição da linha. Não estava aqui e o validated() deitava-a
+            // fora: o papel sem rede mostrava-a e o documento emitido não.
+            'items.*.description' => 'nullable|string|max:500',
             'items.*.quantity' => 'required|numeric|min:0.0001',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.tax_rate' => 'nullable|numeric|min:0|max:100',
@@ -77,12 +79,55 @@ class DraftController extends Controller
         $data = $validator->validated();
         $docType = $data['doc_type'];
 
-        return DB::transaction(function () use ($data, $tenantId, $docType) {
-            if ($docType === 'proforma') {
-                return $this->createProforma($data, $tenantId);
-            }
-            return $this->createInvoice($data, $tenantId, $docType);
-        });
+        try {
+            return DB::transaction(function () use ($data, $tenantId, $docType) {
+                // Serialize this tenant's offline issuance before checking UUIDs.
+                // The lock survives until the document AND series counter commit.
+                DB::table('tenants')->where('id', $tenantId)->lockForUpdate()->first();
+                if ($docType === 'proforma' && !empty($data['local_uuid'])) {
+                    $existing = SalesProforma::where('tenant_id', $tenantId)
+                        ->where('local_uuid', $data['local_uuid'])->lockForUpdate()->first();
+                    if ($existing) {
+                        return response()->json([
+                            'id' => $existing->id,
+                            'local_uuid' => $data['local_uuid'],
+                            'doc_type' => 'proforma',
+                            'proforma_number' => $existing->proforma_number,
+                            'total' => (float) $existing->total,
+                            'status' => $existing->status,
+                            'duplicated' => true,
+                        ]);
+                    }
+                }
+                if ($docType !== 'proforma' && !empty($data['local_uuid'])) {
+                    $existing = SalesInvoice::where('tenant_id', $tenantId)
+                        ->where('local_uuid', $data['local_uuid'])->lockForUpdate()->first();
+                    if ($existing) {
+                        if ($existing->invoice_type !== $docType) {
+                            return response()->json(['error' => 'Este identificador pertence a outro tipo de documento.'], 409);
+                        }
+                        return response()->json([
+                            'id' => $existing->id,
+                            'local_uuid' => $data['local_uuid'],
+                            'doc_type' => $existing->invoice_type,
+                            'invoice_number' => $existing->invoice_number,
+                            'atcud' => $existing->atcud,
+                            'total' => (float) $existing->total,
+                            'status' => $existing->status,
+                            'duplicated' => true,
+                        ]);
+                    }
+                }
+                if ($docType === 'proforma') {
+                    return $this->createProforma($data, $tenantId);
+                }
+                return $this->createInvoice($data, $tenantId, $docType);
+            });
+        } catch (\App\Services\POS\ClientePorSincronizar $e) {
+            // O cliente deste documento ainda não subiu. Não é recusa: o
+            // aparelho volta a tentar na sincronização seguinte.
+            return response()->json(['success' => false, 'error' => $e->getMessage(), 'aguardar' => true], 409);
+        }
     }
 
     private function createInvoice(array $data, int $tenantId, string $docType): JsonResponse
@@ -163,24 +208,7 @@ class DraftController extends Controller
         // saíam dois documentos fiscais para a mesma venda.
         //
         // Antes de gravar, se já cá está, devolve-se o que existe.
-        if (!empty($data['local_uuid'])) {
-            $jaExiste = SalesInvoice::where('tenant_id', $tenantId)
-                ->where('local_uuid', $data['local_uuid'])
-                ->first();
-
-            if ($jaExiste) {
-                return response()->json([
-                    'id'         => $jaExiste->id,
-                    'local_uuid' => $data['local_uuid'],
-                    'doc_type'   => $docType,
-                    'status'     => $jaExiste->status,
-                    'duplicated' => true,
-                    'message'    => 'Rascunho já existente.',
-                ]);
-            }
-
-            $invoice->local_uuid = $data['local_uuid'];
-        }
+        $invoice->local_uuid = $data['local_uuid'] ?? null;
 
         $invoice->save();
 
@@ -223,6 +251,7 @@ class DraftController extends Controller
             $line->sales_invoice_id = $invoice->id;
             $line->product_id = $itm['product_id'] ?? null;
             $line->product_name = $itm['product_name'];
+            $line->description = $itm['description'] ?? null;
             $line->quantity = $qty;
             $line->unit_price = $unitPrice;
             $line->unit_price_base = $unitPrice;
@@ -281,6 +310,7 @@ class DraftController extends Controller
     {
         $proforma = new SalesProforma();
         $proforma->tenant_id = $tenantId;
+        $proforma->local_uuid = $data['local_uuid'] ?? null;
         // Ver a nota na factura: a mesma coluna, a mesma regra.
         $clienteResolvido = app(\App\Services\POS\PosSaleService::class)
             ->resolveClient($data, $tenantId);
@@ -344,6 +374,7 @@ class DraftController extends Controller
             $line->sales_proforma_id = $proforma->id;
             $line->product_id = $itm['product_id'] ?? null;
             $line->product_name = $itm['product_name'];
+            $line->description = $itm['description'] ?? null;
             $line->quantity = $qty;
             $line->unit_price = $unitPrice;
             $line->discount_percent = $discountPercent;

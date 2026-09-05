@@ -85,6 +85,25 @@ class PermissionSeeder extends Seeder
             'salon.pos.access', 'salon.pos.sell',
             'salon.reports.view',
 
+            // Inventário
+            'inventario.view', 'inventario.contagem.manage',
+
+            // Compras
+            'compras.view',
+            'compras.requisicoes.view', 'compras.requisicoes.manage', 'compras.requisicoes.decidir',
+            'compras.encomendas.view', 'compras.encomendas.manage', 'compras.encomendas.receber',
+
+            // Projetos
+            'projetos.view', 'projetos.gerir',
+            'projetos.tarefas.view', 'projetos.tarefas.manage',
+            'projetos.horas.registar', 'projetos.horas.gerir', 'projetos.facturar',
+
+            // CRM
+            'crm.view',
+            'crm.leads.view', 'crm.leads.manage',
+            'crm.opportunities.view', 'crm.opportunities.manage',
+            'crm.integrations.manage',
+
             // Restaurante
             'restaurant.dashboard.view',
             'restaurant.floor.view', 'restaurant.floor.manage',

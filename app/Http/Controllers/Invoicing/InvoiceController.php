@@ -8,12 +8,17 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class InvoiceController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function generatePdf($id)
     {
         try {
             // Buscar fatura com relacionamentos
             $invoice = \App\Models\Invoicing\SalesInvoice::with(['client', 'items.product', 'warehouse', 'user', 'creator'])
                 ->where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->findOrFail($id);
             
             // Buscar dados do tenant
@@ -55,6 +60,7 @@ class InvoiceController extends Controller
             return view('pdf.invoicing.invoice', [
                 'invoice' => \App\Models\Invoicing\SalesInvoice::with(['client', 'items', 'warehouse', 'user'])
                     ->where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($id),
                 'tenant' => \App\Models\Tenant::find(activeTenantId()),
             ]);
@@ -66,6 +72,7 @@ class InvoiceController extends Controller
         // Buscar fatura com relacionamentos
         $invoice = \App\Models\Invoicing\SalesInvoice::with(['client', 'items', 'warehouse', 'user'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
         
         // Buscar dados do tenant
@@ -83,6 +90,10 @@ class InvoiceController extends Controller
         
         // Forçar download
         $filename = 'fatura_' . str_replace(['/', '\\', ' '], '_', $invoice->invoice_number) . '.pdf';
+
+        app(\App\Services\Audit\AuditRecorder::class)
+            ->imprimiu('factura de venda', $invoice, ['formato' => 'pdf']);
+
         return $pdf->download($filename);
     }
     
@@ -91,6 +102,7 @@ class InvoiceController extends Controller
         // Buscar fatura com relacionamentos
         $invoice = \App\Models\Invoicing\SalesInvoice::with(['client', 'items.product', 'warehouse', 'user', 'creator'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
         
         // Buscar dados do tenant

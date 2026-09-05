@@ -9,12 +9,17 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class DebitNoteController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function generatePdf($id)
     {
         try {
             // Buscar ND com relacionamentos
             $debitNote = DebitNote::with(['client', 'invoice', 'items.product', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->findOrFail($id);
             
             // Buscar dados do tenant
@@ -60,6 +65,7 @@ class DebitNoteController extends Controller
             return view('pdf.invoicing.debit-note', [
                 'debitNote' => DebitNote::with(['client', 'invoice', 'items.product'])
                     ->where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($id),
                 'tenant' => Tenant::find(activeTenantId()),
                 'bankAccounts' => collect(),
@@ -72,6 +78,7 @@ class DebitNoteController extends Controller
         // Buscar ND com relacionamentos
         $debitNote = DebitNote::with(['client', 'invoice', 'items.product', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
         
         // Buscar dados do tenant

@@ -107,6 +107,7 @@
                                        class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition text-center">
                                         <i class="fas fa-eye mr-1"></i>{{ __('Ver') }}
                                     </a>
+                                    <x-pdf-descarregar :url="route('invoicing.sales.invoices.preview', $invoice->id)" />
                                 </div>
                             </div>
                         </div>

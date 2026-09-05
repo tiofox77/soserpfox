@@ -21,6 +21,18 @@
         </div>
     </div>
 
+    {{-- Chegou aqui por uma factura que já não tem nada por anular.
+         O ecrã abre vazio de propósito; dizer porquê é a outra metade. --}}
+    @if($semSaldoPorAnular)
+        <div class="mb-6 flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+            <i class="fas fa-triangle-exclamation text-amber-600 text-xl mt-0.5"></i>
+            <div class="text-sm text-amber-900 leading-relaxed">
+                <p class="font-bold mb-1">{{ __('A factura :factura já está totalmente creditada.', ['factura' => $semSaldoPorAnular]) }}</p>
+                <p>{{ __('Não há nada por anular, por isso não se pré-encheu nada. Uma segunda nota sobre o mesmo valor seria recusada pela AGT (E43).') }}</p>
+            </div>
+        </div>
+    @endif
+
     <form wire:submit.prevent="save">
         {{-- Informações Gerais --}}
         <div class="bg-white rounded-2xl shadow-lg border border-red-100 overflow-hidden card-hover mb-6">

@@ -67,8 +67,14 @@ class DocumentMapper
         if (!in_array(strlen($customerNif), [9, 10, 14], true) || preg_match('/^0+$/', $customerNif)) {
             $customerNif = '999999999';
         }
-        $country = strtoupper(trim((string) ($client?->country ?? 'AO')));
-        $customerCountry = in_array($country, ['ANGOLA', 'AO'], true) ? 'AO' : $country;
+        // ISO 3166-1 alfa-2, sempre — é o que a DS.120 exige em
+        // `customerCountry`. A conversão anterior só conhecia «ANGOLA» e
+        // deixava passar tudo o resto tal como estava: um cliente gravado com
+        // «Portugal» seguia para a AGT como «PORTUGAL», oito caracteres num
+        // campo de dois. O que não se reconhece cai no país da casa, porque
+        // um documento tem de sair — e o ecrã já não deixa criar mais desses.
+        $customerCountry = \App\Support\Geografia::normalizarPais($client?->country)
+            ?? \App\Support\Geografia::PAIS_PADRAO;
 
         $items = $this->itensFrescos($document);
         // A NC inverte o sinal (preenche debitAmount); a ND acresce à dívida,

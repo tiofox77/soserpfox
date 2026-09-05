@@ -1,0 +1,172 @@
+{
+  "_leia_me": [
+    "Divisão administrativa de Angola: províncias e municípios.",
+    "",
+    "AS TRÊS PROVÍNCIAS NOVAS (2024). A reforma de 2024 dividiu Cuando Cubango",
+    "em Cuando e Cubango, dividiu Moxico em Moxico e Moxico Leste, e separou de",
+    "Luanda a província de Icolo e Bengo. Passaram de 18 para 21.",
+    "",
+    "As antigas ficam em `equivalencias` para os registos anteriores não se",
+    "partirem: um cliente gravado com «Cuando Cubango» continua a ser válido e",
+    "aparece com esse nome enquanto ninguém lhe tocar.",
+    "",
+    "ESTA LISTA CORRIGE-SE AQUI, e só aqui. É o único sítio onde existe. Se a",
+    "AGT ou o Instituto Nacional de Estatística publicarem uma lista diferente,",
+    "muda-se este ficheiro — não há segunda cópia no código."
+  ],
+
+  "equivalencias": {
+    "Cuando Cubango": "Cubango",
+    "Kuando Kubango": "Cubango",
+    "Kwanza Norte": "Cuanza Norte",
+    "Kwanza Sul": "Cuanza Sul",
+    "Cuanza-Norte": "Cuanza Norte",
+    "Cuanza-Sul": "Cuanza Sul",
+    "Kuanza Norte": "Cuanza Norte",
+    "Kuanza Sul": "Cuanza Sul",
+    "Uige": "Uíge",
+    "Huila": "Huíla",
+    "Bie": "Bié",
+    "Kunene": "Cunene",
+    "Kwanza": "Cuanza Norte"
+  },
+
+  "provincias": [
+    {
+      "nome": "Bengo",
+      "capital": "Caxito",
+      "municipios": ["Ambriz", "Bula Atumba", "Dande", "Dembos", "Nambuangongo", "Pango Aluquém"]
+    },
+    {
+      "nome": "Benguela",
+      "capital": "Benguela",
+      "municipios": ["Baía Farta", "Balombo", "Benguela", "Bocoio", "Caimbambo", "Catumbela", "Chongoroi", "Cubal", "Ganda", "Lobito"]
+    },
+    {
+      "nome": "Bié",
+      "capital": "Cuito",
+      "municipios": ["Andulo", "Camacupa", "Catabola", "Chinguar", "Chitembo", "Cuemba", "Cuito", "Cunhinga", "Nharea"]
+    },
+    {
+      "nome": "Cabinda",
+      "capital": "Cabinda",
+      "municipios": ["Belize", "Buco-Zau", "Cabinda", "Cacongo"]
+    },
+    {
+      "nome": "Cuando",
+      "capital": "Mavinga",
+      "desde": 2024,
+      "municipios": ["Dirico", "Mavinga", "Nancova", "Rivungo"]
+    },
+    {
+      "nome": "Cuanza Norte",
+      "capital": "N'dalatando",
+      "municipios": ["Ambaca", "Banga", "Bolongongo", "Cambambe", "Cazengo", "Golungo Alto", "Gonguembo", "Lucala", "Quiculungo", "Samba Caju"]
+    },
+    {
+      "nome": "Cuanza Sul",
+      "capital": "Sumbe",
+      "municipios": ["Amboim", "Cassongue", "Cela", "Conda", "Ebo", "Libolo", "Mussende", "Porto Amboim", "Quibala", "Quilenda", "Seles", "Sumbe"]
+    },
+    {
+      "nome": "Cubango",
+      "capital": "Menongue",
+      "desde": 2024,
+      "municipios": ["Calai", "Cuangar", "Cuchi", "Cuito Cuanavale", "Menongue"]
+    },
+    {
+      "nome": "Cunene",
+      "capital": "Ondjiva",
+      "municipios": ["Cahama", "Cuanhama", "Curoca", "Cuvelai", "Namacunde", "Ombadja"]
+    },
+    {
+      "nome": "Huambo",
+      "capital": "Huambo",
+      "municipios": ["Bailundo", "Caála", "Catchiungo", "Chicala-Cholohanga", "Chinjenje", "Ekunha", "Huambo", "Londuimbali", "Longonjo", "Mungo", "Ucuma"]
+    },
+    {
+      "nome": "Huíla",
+      "capital": "Lubango",
+      "municipios": ["Caconda", "Cacula", "Caluquembe", "Chibia", "Chicomba", "Chipindo", "Cuvango", "Gambos", "Humpata", "Jamba", "Lubango", "Matala", "Quilengues", "Quipungo"]
+    },
+    {
+      "nome": "Icolo e Bengo",
+      "capital": "Catete",
+      "desde": 2024,
+      "municipios": ["Icolo e Bengo", "Quiçama"]
+    },
+    {
+      "nome": "Luanda",
+      "capital": "Luanda",
+      "municipios": ["Belas", "Cacuaco", "Cazenga", "Kilamba Kiaxi", "Luanda", "Talatona", "Viana"]
+    },
+    {
+      "nome": "Lunda Norte",
+      "capital": "Dundo",
+      "municipios": ["Cambulo", "Capenda-Camulemba", "Caungula", "Chitato", "Cuango", "Cuilo", "Lóvua", "Lubalo", "Lucapa", "Xá-Muteba"]
+    },
+    {
+      "nome": "Lunda Sul",
+      "capital": "Saurimo",
+      "municipios": ["Cacolo", "Dala", "Muconda", "Saurimo"]
+    },
+    {
+      "nome": "Malanje",
+      "capital": "Malanje",
+      "municipios": ["Cacuso", "Calandula", "Cambundi-Catembo", "Cangandala", "Caombo", "Cuaba Nzoji", "Cunda-Dia-Baze", "Luquembo", "Malanje", "Marimba", "Massango", "Mucari", "Quela", "Quirima"]
+    },
+    {
+      "nome": "Moxico",
+      "capital": "Luena",
+      "municipios": ["Bundas", "Camanongue", "Cameia", "Léua", "Luchazes", "Moxico"]
+    },
+    {
+      "nome": "Moxico Leste",
+      "capital": "Cazombo",
+      "desde": 2024,
+      "municipios": ["Alto Zambeze", "Luacano", "Luau"]
+    },
+    {
+      "nome": "Namibe",
+      "capital": "Moçâmedes",
+      "municipios": ["Bibala", "Camucuio", "Moçâmedes", "Tômbua", "Virei"]
+    },
+    {
+      "nome": "Uíge",
+      "capital": "Uíge",
+      "municipios": ["Alto Cauale", "Ambuíla", "Bembe", "Buengas", "Bungo", "Damba", "Milunga", "Mucaba", "Negage", "Puri", "Quimbele", "Quitexe", "Sanza Pombo", "Songo", "Uíge", "Zombo"]
+    },
+    {
+      "nome": "Zaire",
+      "capital": "Mbanza Kongo",
+      "municipios": ["Cuimba", "Mbanza Kongo", "Noqui", "Nzeto", "Soyo", "Tomboco"]
+    }
+  ],
+
+  "_bairros": [
+    "SUGESTÕES, não uma lista fechada — e é de propósito.",
+    "",
+    "Angola não tem um registo nacional de bairros: nascem, mudam de nome e",
+    "raramente entram numa lista oficial. Um select fechado aqui obrigaria as",
+    "pessoas a escolher o bairro errado por o certo não estar lá.",
+    "",
+    "Por isso o campo do bairro sugere e aceita o que se escrever. Estas são as",
+    "zonas urbanas mais usadas nas moradas de facturação, por município."
+  ],
+
+  "bairros": {
+    "Luanda": ["Ingombota", "Maianga", "Maculusso", "Rangel", "Samba", "Sambizanga", "Alvalade", "Miramar", "Mutamba", "Marginal", "Prenda", "Bairro Operário", "Cazenga Popular", "São Paulo", "Vila Alice", "Coqueiros"],
+    "Belas": ["Benfica", "Camama", "Morro Bento", "Quenguela", "Ramiros", "Futungo de Belas", "Barra do Cuanza", "Vila Estoril"],
+    "Talatona": ["Talatona", "Lar do Patriota", "Cidade Universitária", "Camama", "Belas Business Park", "Nova Vida", "Condomínio Jardim de Rosas"],
+    "Viana": ["Viana", "Zango", "Calumbo", "Estalagem", "Vila de Viana", "Kikuxi", "Capalanga"],
+    "Cacuaco": ["Cacuaco", "Kikolo", "Funda", "Quicolo", "Sequele", "Mulenvos"],
+    "Cazenga": ["Cazenga", "Hoji-ya-Henda", "Tala Hady", "Mabor", "Asa Branca"],
+    "Kilamba Kiaxi": ["Golfe", "Palanca", "Sapu", "Neves Bendinha", "Kilamba", "Camama II"],
+    "Benguela": ["Centro", "Praia Morena", "Cavaco", "Damba Maria", "Zona Comercial"],
+    "Lobito": ["Restinga", "Compão", "Canata", "Caponte", "Bela Vista"],
+    "Huambo": ["Centro", "Benfica", "Cidade Alta", "Kapango", "São João"],
+    "Lubango": ["Centro", "Comercial", "Nossa Senhora do Monte", "Tchioco", "Mitcha", "João de Almeida"],
+    "Cabinda": ["Centro", "Cabassango", "Simulambuco", "Chibodo", "Marítimo"],
+    "Soyo": ["Centro", "Sumba", "Quifuma", "Pedra do Feitiço"]
+  }
+}

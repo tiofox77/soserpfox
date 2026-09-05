@@ -250,6 +250,7 @@
                                                 <a href="{{ route('invoicing.purchases.invoices.preview', $inv['id']) }}" target="_blank" class="text-orange-600 hover:text-orange-800" title="{{ __('Ver Fatura') }}">
                                                     <i class="fas fa-external-link-alt"></i>
                                                 </a>
+                                                <x-pdf-descarregar :url="route('invoicing.purchases.invoices.preview', $inv['id'])" />
                                             </td>
                                         </tr>
                                     @empty

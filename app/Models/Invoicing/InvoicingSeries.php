@@ -171,6 +171,8 @@ class InvoicingSeries extends Model
      */
     public function getNextNumber()
     {
+        $this->travarSeOPlanoAcabou();
+
         return DB::transaction(function () {
             $numero = $this->reservarNumero();
 
@@ -180,6 +182,38 @@ class InvoicingSeries extends Model
 
             return $numero;
         });
+    }
+
+    /**
+     * O plano tem tecto de documentos e já lá chegou?
+     *
+     * AQUI e não em cada ecrã: todo o documento fiscal desta casa passa por
+     * este método para buscar o seu número — POS, faturação, notas, recibos,
+     * módulos e a sincronização offline. Um travão em cada porta seria uma
+     * porta esquecida.
+     *
+     * Antes da transacção de propósito: negar não deve segurar o bloqueio da
+     * série, e quem é negado nem chega a tocar na numeração.
+     */
+    private function travarSeOPlanoAcabou(): void
+    {
+        $empresa = \App\Models\Tenant::find($this->tenant_id);
+
+        if (! $empresa) {
+            return;
+        }
+
+        $limite = $empresa->limiteDeDocumentos();
+
+        if ($limite === null) {
+            return;
+        }
+
+        $emitidos = $empresa->documentosEmitidos();
+
+        if ($emitidos >= $limite) {
+            throw new \App\Exceptions\LimiteDeDocumentosAtingido($limite, $emitidos);
+        }
     }
 
     private function reservarNumero()
@@ -211,17 +245,18 @@ class InvoicingSeries extends Model
         if ($table && $column
             && \Illuminate\Support\Facades\Schema::hasTable($table)
             && \Illuminate\Support\Facades\Schema::hasColumn($table, $column)) {
-            $maxAttempts = 5000;
-            while (
-                \DB::table($table)
-                    ->where('tenant_id', $serie->tenant_id)
-                    ->where($column, $formatted)
-                    ->exists()
-                && $maxAttempts-- > 0
-            ) {
-                $number++;
-                $formatted = $serie->formatNumber($number);
-            }
+            // Resume AFTER the highest issued number, never inside an old gap.
+            // One aggregate also handles counters thousands of documents behind;
+            // the former 5000-attempt loop could return a number still occupied.
+            $prefix = substr($formatted, 0, strrpos($formatted, '/') + 1);
+            $start = strlen($prefix) + 1;
+            $highest = DB::table($table)->where('tenant_id', $serie->tenant_id)
+                ->whereRaw("LEFT(`{$column}`, ?) = ?", [strlen($prefix), $prefix])
+                ->whereRaw("SUBSTRING(`{$column}`, ?) REGEXP '^[0-9]+$'", [$start])
+                ->selectRaw("MAX(CAST(SUBSTRING(`{$column}`, ?) AS UNSIGNED)) AS last_used", [$start])
+                ->value('last_used');
+            $number = max(1, (int) $number, (int) $highest + 1);
+            $formatted = $serie->formatNumber($number);
         }
 
         // Atualizar next_number para o próximo livre

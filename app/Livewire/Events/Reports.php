@@ -141,29 +141,24 @@ class Reports extends Component
         return $avg ?? 0;
     }
     
+    /*
+     * O PDF e o Excel deste relatório NUNCA existiram.
+     *
+     * Os dois botões redirigiam para endereços que não estão registados —
+     * clicar dava erro 500, e o utilizador ficava a olhar para uma página de
+     * erro sem perceber que a funcionalidade simplesmente não foi feita. O
+     * CSV, esse, funciona e abre em qualquer folha de cálculo.
+     *
+     * Dizer a verdade e oferecer o que existe é melhor do que rebentar.
+     */
     public function exportToPdf()
     {
-        $this->dispatch('info', message: 'Gerando PDF...');
-        // Redirecionar para rota de exportação PDF
-        return redirect()->route('events.reports.export-pdf', [
-            'start_date' => $this->startDate,
-            'end_date' => $this->endDate,
-            'client' => $this->selectedClient,
-            'type' => $this->selectedType,
-            'status' => $this->selectedStatus,
-        ]);
+        $this->dispatch('info', message: __('A exportação em PDF ainda não existe neste relatório. Use CSV — abre no Excel.'));
     }
-    
+
     public function exportToExcel()
     {
-        $this->dispatch('info', message: 'Gerando Excel...');
-        return redirect()->route('events.reports.export-excel', [
-            'start_date' => $this->startDate,
-            'end_date' => $this->endDate,
-            'client' => $this->selectedClient,
-            'type' => $this->selectedType,
-            'status' => $this->selectedStatus,
-        ]);
+        $this->dispatch('info', message: __('A exportação em Excel ainda não existe neste relatório. Use CSV — abre no Excel.'));
     }
     
     public function exportToCsv()

@@ -115,6 +115,8 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
 
     public function test_activar_producao_exige_as_chaves_de_producao(): void
     {
+        $this->definicoes()->update(['agt_environment' => 'sandbox']);
+
         // Activar produção sem par RSA de produção deixava a empresa a falhar
         // toda a facturação: nenhum documento chega a ser assinado.
         [$publica, $privada] = $this->parRsa();
@@ -164,6 +166,8 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
 
     public function test_instalar_chaves_de_producao_sem_sair_de_homologacao(): void
     {
+        $this->definicoes()->update(['agt_environment' => 'sandbox']);
+
         // O pedido de origem: configurar os dois ambientes. Instalar as chaves
         // de produção não pode obrigar a empresa a começar a emitir por lá.
         [$publica, $privada] = $this->parRsa();
@@ -229,6 +233,8 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
 
     public function test_o_estado_mostra_os_dois_ambientes(): void
     {
+        $this->definicoes()->update(['agt_environment' => 'sandbox']);
+
         [$publica, $privada] = $this->parRsa();
         AGTKeyStore::store($this->tenant->id, $publica, $privada, 'sandbox');
 
@@ -245,6 +251,8 @@ class AgtAmbienteEmpresaTest extends TenantTestCase
 
     public function test_o_ecra_mostra_os_dois_e_so_propoe_activar_o_outro(): void
     {
+        $this->definicoes()->update(['agt_environment' => 'sandbox']);
+
         $componente = Livewire::actingAs($this->user)->test(AGTSettings::class);
 
         $componente->assertSee('Homologação')

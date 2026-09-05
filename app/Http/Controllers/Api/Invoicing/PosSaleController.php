@@ -33,6 +33,10 @@ class PosSaleController extends Controller
             'operator_id'         => 'nullable|integer',
             'operator_email'      => 'nullable|string|max:191',
             'client_id'           => 'nullable|integer',
+            // O cliente criado sem rede, pelo identificador local. Não estava
+            // aqui e o validated() deitava-o fora antes de chegar ao
+            // resolvedor: a venda saía em nome do Consumidor Final.
+            'client_local_uuid'   => 'nullable|string|max:80',
             'payment_method'      => 'nullable|string|max:30',
             // Multi-tender: formas repartidas. A soma == total valida-se no serviço.
             'payments'             => 'nullable|array',
@@ -106,6 +110,10 @@ class PosSaleController extends Controller
                     'total'              => (float) $i->total,
                 ])->values()->all(),
             ], 201);
+        } catch (\App\Services\POS\ClientePorSincronizar $e) {
+            // O cliente desta venda ainda não subiu. Não é erro: o aparelho
+            // volta a tentar na sincronização seguinte (409 não é definitivo).
+            return response()->json(['success' => false, 'error' => $e->getMessage(), 'aguardar' => true], 409);
         } catch (\Throwable $e) {
             Log::error('PosSaleController: erro ao criar venda POS offline', [
                 'local_uuid' => $request->input('local_uuid'),

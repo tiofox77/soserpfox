@@ -24,7 +24,13 @@ class RolesAndPermissions extends Component
     public $roleName = '';
     public $roleDescription = '';
     public $selectedPermissions = [];
-    
+    /** O grupo (módulo) aberto no modal do papel. */
+    public string $moduloActivo = '';
+    /** Filtro de texto sobre as permissões do grupo aberto. */
+    public string $pesquisa = '';
+    /** Papel de onde copiar as permissões (atalho «começar a partir de»). */
+    public $copiarDe = null;
+
     // Permission Management
     public $showPermissionModal = false;
     public $permissionName = '';
@@ -72,43 +78,180 @@ class RolesAndPermissions extends Component
     // ROLE MANAGEMENT
     // ==========================================
     
+    // ── O modal do papel ────────────────────────────────────────────
+    //
+    // O que a empresa vê: o núcleo (utilizadores, empresa) e os módulos
+    // ACTIVOS — não as 340 permissões do sistema inteiro. Cada grupo traz
+    // o nome em português, o total e quantas estão marcadas, para o
+    // painel lateral. As linhas do grupo aberto vêm agrupadas por entidade
+    // («Faturas de Venda»: Ver · Criar · Editar · Eliminar).
+
+    /** Os grupos visíveis, com contagens. */
+    public function getGruposProperty(): array
+    {
+        $activos = \App\Models\Tenant::find(activeTenantId())
+            ?->modules()->wherePivot('is_active', true)->pluck('slug')->all() ?? [];
+
+        $todas = $this->permissoesDoSistema();
+        $marcadas = array_map('intval', (array) $this->selectedPermissions);
+        $grupos = [];
+
+        foreach (\App\Support\CatalogoDePermissoes::gruposPara($activos) as $slug => $grupo) {
+            $doGrupo = \App\Support\CatalogoDePermissoes::doGrupo($todas, $grupo);
+
+            if ($doGrupo->isEmpty()) {
+                continue;
+            }
+
+            $ids = $doGrupo->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+            $grupos[$slug] = [
+                'slug'        => $slug,
+                'nome'        => $grupo['nome'],
+                'icone'       => $grupo['icone'],
+                'ids'         => $ids,
+                'total'       => count($ids),
+                'marcadas'    => count(array_intersect($ids, $marcadas)),
+            ];
+        }
+
+        return $grupos;
+    }
+
+    /** As linhas do grupo aberto, por entidade, já filtradas pela pesquisa. */
+    public function getLinhasDoModuloProperty(): array
+    {
+        $grupos = $this->grupos;
+        $slug = $this->moduloActivo ?: array_key_first($grupos);
+
+        if (! $slug || ! isset($grupos[$slug])) {
+            return [];
+        }
+
+        $definicao = \App\Support\CatalogoDePermissoes::NUCLEO[$slug]
+            ?? \App\Support\CatalogoDePermissoes::MODULOS[$slug];
+
+        $termo = mb_strtolower(trim($this->pesquisa));
+        $linhas = [];
+
+        foreach (\App\Support\CatalogoDePermissoes::doGrupo($this->permissoesDoSistema(), $definicao) as $p) {
+            $rotulo = \App\Support\CatalogoDePermissoes::rotulo($p);
+
+            if ($termo !== '' && ! str_contains(mb_strtolower($rotulo.' '.$p->name), $termo)) {
+                continue;
+            }
+
+            $entidade = \App\Support\CatalogoDePermissoes::entidade($p->name);
+            $linhas[$entidade][] = [
+                'id'     => (int) $p->id,
+                'nome'   => $p->name,
+                'rotulo' => $rotulo,
+                'accao'  => \App\Support\CatalogoDePermissoes::accao($p->name),
+            ];
+        }
+
+        return $linhas;
+    }
+
+    public function escolherModulo(string $slug): void
+    {
+        $this->moduloActivo = $slug;
+        $this->pesquisa = '';
+    }
+
+    /** Marca tudo o que a empresa pode ver — e só isso, não o sistema inteiro. */
     public function selectAllPermissions()
     {
-        $this->selectedPermissions = Permission::all()->pluck('id')->toArray();
-        $this->dispatch('notify', [
-            'type' => 'info',
-            'message' => count($this->selectedPermissions) . ' permissões selecionadas'
-        ]);
+        $ids = [];
+        foreach ($this->grupos as $g) {
+            $ids = array_merge($ids, $g['ids']);
+        }
+        $this->selectedPermissions = array_values(array_unique($ids));
     }
-    
+
     public function deselectAllPermissions()
     {
         $this->selectedPermissions = [];
+    }
+
+    /** Marca ou desmarca o grupo inteiro. */
+    public function toggleModulo(string $slug): void
+    {
+        $g = $this->grupos[$slug] ?? null;
+        if (! $g) {
+            return;
+        }
+
+        $marcadas = array_map('intval', (array) $this->selectedPermissions);
+
+        $this->selectedPermissions = $g['marcadas'] === $g['total']
+            ? array_values(array_diff($marcadas, $g['ids']))
+            : array_values(array_unique(array_merge($marcadas, $g['ids'])));
+    }
+
+    /** Só consulta: as acções de ver do grupo, sem criar, editar nem eliminar. */
+    public function soLeituraDoModulo(string $slug): void
+    {
+        $g = $this->grupos[$slug] ?? null;
+        if (! $g) {
+            return;
+        }
+
+        $deLeitura = $this->permissoesDoSistema()
+            ->whereIn('id', $g['ids'])
+            ->filter(fn ($p) => in_array(\App\Support\CatalogoDePermissoes::accao($p->name), ['view', 'access', 'reports', 'dashboard'], true))
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $marcadas = array_map('intval', (array) $this->selectedPermissions);
+
+        $this->selectedPermissions = array_values(array_unique(array_merge(
+            array_diff($marcadas, $g['ids']),
+            $deLeitura
+        )));
+    }
+
+    /** Começar a partir de outro papel: copia-lhe as permissões. */
+    public function copiarDePapel(): void
+    {
+        if (! $this->copiarDe) {
+            return;
+        }
+
+        $origem = Role::where('id', (int) $this->copiarDe)
+            ->where('tenant_id', activeTenantId())
+            ->first();
+
+        if (! $origem) {
+            return;
+        }
+
+        $this->selectedPermissions = $origem->permissions->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->copiarDe = null;
+
         $this->dispatch('notify', [
             'type' => 'info',
-            'message' => 'Todas as permissões desmarcadas'
+            'message' => __('Permissões copiadas de :papel. Ajuste e guarde.', ['papel' => $origem->name]),
         ]);
     }
-    
+
+    /** Mantém a compatibilidade com quem ainda chame pelo nome antigo. */
     public function toggleModulePermissions($module)
     {
-        $modulePermissions = Permission::where('name', 'like', $module . '.%')->pluck('id')->toArray();
-        
-        // Se todas já estão selecionadas, desmarcar; caso contrário, marcar
-        $allSelected = !array_diff($modulePermissions, $this->selectedPermissions);
-        
-        if ($allSelected) {
-            // Remover todas do módulo
-            $this->selectedPermissions = array_diff($this->selectedPermissions, $modulePermissions);
-        } else {
-            // Adicionar todas do módulo
-            $this->selectedPermissions = array_unique(array_merge($this->selectedPermissions, $modulePermissions));
-        }
+        $this->toggleModulo((string) $module);
+    }
+
+    /** @var \Illuminate\Support\Collection<int, Permission>|null */
+    private $permissoesCache = null;
+
+    private function permissoesDoSistema(): \Illuminate\Support\Collection
+    {
+        return $this->permissoesCache ??= Permission::orderBy('name')->get();
     }
 
     public function openRoleModal($roleId = null)
     {
         $this->resetRoleForm();
+        $this->moduloActivo = array_key_first($this->grupos) ?? '';
         
         if ($roleId) {
             // Garantir que a role pertence ao tenant atual
@@ -226,6 +369,10 @@ class RolesAndPermissions extends Component
         $this->roleName = '';
         $this->roleDescription = '';
         $this->selectedPermissions = [];
+        $this->moduloActivo = '';
+        $this->pesquisa = '';
+        $this->copiarDe = null;
+        $this->resetValidation();
     }
 
     // ==========================================

@@ -90,17 +90,25 @@
                         </div>
                         @endif
                     @else
-                        <input type="text" wire:model.live="searchClient" placeholder="{{ __('Pesquisar cliente...') }}"
-                               class="w-full rounded-lg border-gray-300">
-                        @if($searchClient && $clients->count() > 0)
+                        <div class="relative">
+                            <i class="fas fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" wire:model.live="searchClient" placeholder="{{ __('Escreva o nome ou o NIF do cliente…') }}"
+                                   class="w-full pl-11 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        </div>
+                        {{-- A lista abre logo, sem ser preciso escrever: numa casa com
+                             meia dúzia de clientes é o caminho mais curto. --}}
+                        @if($clients->count() > 0)
                         <div class="mt-2 border rounded-lg max-h-60 overflow-y-auto">
-                            @foreach($clients as $client)
-                            <div wire:click="selectClient({{ $client->id }})" 
-                                 class="p-3 hover:bg-gray-100 cursor-pointer border-b">
+                            @foreach($clients->take($searchClient ? 50 : 8) as $client)
+                            <div wire:click="selectClient({{ $client->id }})"
+                                 class="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 transition">
                                 <div class="font-bold text-sm">{{ $client->name }}</div>
-                                <div class="text-xs text-gray-600">NIF: {{ $client->nif }}</div>
+                                <div class="text-xs text-gray-600">NIF: {{ $client->nif ?: __('sem NIF') }}</div>
                             </div>
                             @endforeach
+                            @if(! $searchClient && $clients->count() > 8)
+                            <p class="p-2 text-xs text-center text-gray-500">{{ __('Escreva para procurar entre os restantes.') }}</p>
+                            @endif
                         </div>
                         @endif
                     @endif
@@ -130,17 +138,23 @@
                         </div>
                         @endif
                     @else
-                        <input type="text" wire:model.live="searchSupplier" placeholder="{{ __('Pesquisar fornecedor...') }}"
-                               class="w-full rounded-lg border-gray-300">
-                        @if($searchSupplier && $suppliers->count() > 0)
+                        <div class="relative">
+                            <i class="fas fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" wire:model.live="searchSupplier" placeholder="{{ __('Escreva o nome ou o NIF do fornecedor…') }}"
+                                   class="w-full pl-11 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                        </div>
+                        @if($suppliers->count() > 0)
                         <div class="mt-2 border rounded-lg max-h-60 overflow-y-auto">
-                            @foreach($suppliers as $supplier)
-                            <div wire:click="selectSupplier({{ $supplier->id }})" 
-                                 class="p-3 hover:bg-gray-100 cursor-pointer border-b">
+                            @foreach($suppliers->take($searchSupplier ? 50 : 8) as $supplier)
+                            <div wire:click="selectSupplier({{ $supplier->id }})"
+                                 class="p-3 hover:bg-orange-50 cursor-pointer border-b last:border-0 transition">
                                 <div class="font-bold text-sm">{{ $supplier->name }}</div>
-                                <div class="text-xs text-gray-600">NIF: {{ $supplier->nif }}</div>
+                                <div class="text-xs text-gray-600">NIF: {{ $supplier->nif ?: __('sem NIF') }}</div>
                             </div>
                             @endforeach
+                            @if(! $searchSupplier && $suppliers->count() > 8)
+                            <p class="p-2 text-xs text-center text-gray-500">{{ __('Escreva para procurar entre os restantes.') }}</p>
+                            @endif
                         </div>
                         @endif
                     @endif
@@ -158,17 +172,40 @@
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <i class="fas fa-file-invoice text-blue-500"></i>
                             </div>
-                            <select wire:model="invoice_id" class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white">
+                            {{-- .live: sem isto o saldo so aparecia depois de outra accao qualquer,
+     e o valor proposto nunca chegava a ser preenchido. --}}
+                            <select wire:model.live="invoice_id" class="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white">
                                 <option value="">{{ __('Sem fatura associada') }}</option>
                                 @foreach($invoices as $invoice)
+                                @php $__falta = max(0, round((float) $invoice->total - (float) $invoice->paid_amount, 2)); @endphp
                                 <option value="{{ $invoice->id }}">
-                                    {{ $invoice->invoice_number }} - {{ number_format($invoice->total, 2) }} AOA
-                                    ({{ $invoice->invoice_date->format('d/m/Y') }})
+                                    {{ $invoice->invoice_number }} — {{ __('falta :valor AOA', ['valor' => number_format($__falta, 2)]) }}
+                                    ({{ __('de') }} {{ number_format($invoice->total, 2) }}, {{ $invoice->invoice_date->format('d/m/Y') }})
                                 </option>
                                 @endforeach
                             </select>
                         </div>
-                        <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>{{ __('Selecionar fatura atualiza automaticamente o status de pagamento') }}</p>
+                        @if($this->saldoDaFactura)
+                            {{-- Os três números de quem está na caixa: quanto é, quanto já
+                                 se recebeu, e quanto falta. Sem isto, a segunda prestação
+                                 escreve-se de cabeça. --}}
+                            <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+                                <div class="p-2 rounded-xl bg-gray-50 border border-gray-200">
+                                    <p class="text-[10px] uppercase tracking-wider text-gray-500">{{ __('Total') }}</p>
+                                    <p class="font-bold text-sm text-gray-800">{{ number_format($this->saldoDaFactura['total'], 2) }}</p>
+                                </div>
+                                <div class="p-2 rounded-xl bg-green-50 border border-green-200">
+                                    <p class="text-[10px] uppercase tracking-wider text-green-700">{{ __('Já recebido') }}</p>
+                                    <p class="font-bold text-sm text-green-700">{{ number_format($this->saldoDaFactura['pago'], 2) }}</p>
+                                </div>
+                                <div class="p-2 rounded-xl bg-amber-50 border border-amber-200">
+                                    <p class="text-[10px] uppercase tracking-wider text-amber-700">{{ __('Falta') }}</p>
+                                    <p class="font-bold text-sm text-amber-700">{{ number_format($this->saldoDaFactura['falta'], 2) }}</p>
+                                </div>
+                            </div>
+                        @else
+                            <p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>{{ __('Escolher a fatura propõe o valor que falta receber.') }}</p>
+                        @endif
                     @else
                         <div class="p-4 bg-gray-50 rounded-xl border-2 border-gray-200 text-center text-gray-500">
                             {{-- Frase inteira por cada caso: a ordem das palavras muda de língua
@@ -240,7 +277,7 @@
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Referência (opcional)') }}</label>
                     <input type="text" wire:model="reference"
-                           class="w-full rounded-lg border-gray-300"
+                           class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                            placeholder="{{ __('Ex: Nº transferência, nº cheque...') }}">
                     <p class="text-xs text-gray-600 mt-1">{{ __('Número de transferência, cheque, comprovativo, etc') }}</p>
                 </div>
@@ -249,7 +286,7 @@
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">{{ __('Observações (opcional)') }}</label>
                     <textarea wire:model="notes" rows="3"
-                              class="w-full rounded-lg border-gray-300"
+                              class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                               placeholder="{{ __('Observações adicionais...') }}"></textarea>
                 </div>
             </div>

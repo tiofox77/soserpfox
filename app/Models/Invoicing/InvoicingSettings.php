@@ -72,6 +72,7 @@ class InvoicingSettings extends Model
         'pos_allow_negative_stock',
         'pos_hide_out_of_stock',
         'pos_show_product_images',
+        'pos_formato_impressao',
         'pos_products_per_page',
         'pos_auto_complete_sale',
         'pos_require_customer',
@@ -204,6 +205,23 @@ class InvoicingSettings extends Model
         static::deleted(fn ($m) => static::esquecerMemoria($m->tenant_id));
     }
 
+    /**
+     * O papel do POS: o TALÃO é o significado de «nada escolhido».
+     *
+     * A coluna tem omissão na base, mas uma linha criada antes desta definição
+     * existir traz null — e null não é um papel. Aqui a pergunta «em que papel
+     * imprimo?» tem sempre resposta.
+     *
+     * Esta linha manda mais do que a omissão da coluna: enquanto respondia
+     * 'a4' a tudo o que não fosse 'talao', mudar o `default` da coluna não
+     * mudava nada para ninguém. Quem está ao balcão imprime talão; a factura
+     * em A4 é a excepção, para a venda a uma empresa.
+     */
+    public function getPosFormatoImpressaoAttribute($valor): string
+    {
+        return $valor === 'a4' ? 'a4' : 'talao';
+    }
+
     public static function forTenant($tenantId)
     {
         // Um firstOrCreate é sempre pelo menos um SELECT. Dentro do mesmo
@@ -304,6 +322,16 @@ class InvoicingSettings extends Model
                 'pos_auto_complete_sale' => false,
                 'pos_require_customer' => false,
                 'pos_default_payment_method_id' => null, // Será configurado pelo usuário
+
+                // AGT: uma empresa nova nasce em PRODUÇÃO.
+                //
+                // Quem se regista vai facturar a sério. Nascer em homologação
+                // mandava os primeiros documentos para o ambiente de testes da
+                // AGT — não contam para nada, e ninguém dá por isso até alguém
+                // pedir a factura. A coluna já existe (não é o caso da nota
+                // abaixo sobre colunas novas); está aqui para a intenção se ler
+                // no código e não só no esquema.
+                'agt_environment' => 'production',
 
                 // Perfil do Negócio (profile_pharmacy / profile_clothing /
                 // profile_cosmetics / profile_grocery) não entra aqui de

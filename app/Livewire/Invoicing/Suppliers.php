@@ -16,6 +16,7 @@ use Livewire\Attributes\Title;
 class Suppliers extends Component
 {
     use WithPagination, WithFileUploads;
+    use \App\Traits\ConcordaComAMorada;
 
     public $search = '';
     public $showModal = false;
@@ -44,7 +45,10 @@ class Suppliers extends Component
     // Form fields
     public $type = 'pessoa_juridica';
     public $name, $nif, $email, $phone, $mobile;
-    public $address, $city, $province, $postal_code, $country = 'AO'; // ISO 3166-1-alpha-2
+    // O país é um CÓDIGO ISO 3166-1 alfa-2: sai no SAFT-AO.
+    public $address, $city, $province, $postal_code;
+    public $municipality, $neighbourhood;
+    public $country = \App\Support\Geografia::PAIS_PADRAO;
     public $logo; // Upload file
     public $currentLogo; // Existing logo path
 
@@ -61,8 +65,10 @@ class Suppliers extends Component
             'address' => 'nullable|string',
             'city' => 'nullable|string',
             'province' => 'nullable|string',
+            'municipality' => 'nullable|string|max:100',
+            'neighbourhood' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string',
-            'country' => 'required|string',
+            'country' => ['required', 'string', 'size:2', new \App\Rules\PaisIso()],
         ];
 
         return $rules;
@@ -105,8 +111,12 @@ class Suppliers extends Component
         $this->address = $supplier->address;
         $this->city = $supplier->city;
         $this->province = $supplier->province;
+        $this->municipality = $supplier->municipality;
+        $this->neighbourhood = $supplier->neighbourhood;
         $this->postal_code = $supplier->postal_code;
-        $this->country = $supplier->country ?? 'Angola';
+        // Um país gravado à mão converte-se ao ler, para o select o encontrar.
+        $this->country = \App\Support\Geografia::normalizarPais($supplier->country)
+            ?? \App\Support\Geografia::PAIS_PADRAO;
         $this->showModal = true;
     }
 
@@ -122,11 +132,7 @@ class Suppliers extends Component
             'email' => $this->email,
             'phone' => $this->phone,
             'mobile' => $this->mobile,
-            'address' => $this->address,
-            'city' => $this->city,
-            'province' => $this->province,
-            'postal_code' => $this->postal_code,
-            'country' => $this->country,
+            ...$this->moradaParaGravar(),
         ];
 
         if ($this->editingSupplierId) {
@@ -316,9 +322,10 @@ class Suppliers extends Component
 
     private function resetForm()
     {
-        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'postal_code', 'editingSupplierId']);
+        $this->reset(['name', 'nif', 'logo', 'currentLogo', 'email', 'phone', 'mobile', 'address', 'city', 'province', 'municipality', 'neighbourhood', 'postal_code', 'editingSupplierId']);
         $this->type = 'pessoa_juridica';
-        $this->country = 'Angola';
+        // Código ISO, não o nome — o país do fornecedor sai no SAFT-AO.
+        $this->country = \App\Support\Geografia::PAIS_PADRAO;
     }
 
     public function render()

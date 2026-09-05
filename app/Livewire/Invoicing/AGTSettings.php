@@ -628,6 +628,51 @@ class AGTSettings extends Component
         }
     }
 
+    /**
+     * Repor as tentativas de uma submissão esgotada e reenviá-la já.
+     *
+     * Quando a recusa foi culpa NOSSA (versão do schema fora de prazo,
+     * imposto mal arredondado), o documento fica com as tentativas gastas e
+     * o ecrã escondia o botão — ficava «—» e ninguém conseguia reenviar sem
+     * ir à base. Corrigido o código, quem gere a empresa carrega aqui: o
+     * contador volta a zero e o documento segue no acto.
+     */
+    public function reporEReenviar(int $submissionId): void
+    {
+        if (!$this->currentTenantId) {
+            $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para reenviar.'));
+            return;
+        }
+        $this->ensureTenantAccess();
+
+        if (!$this->ambienteConfere('O reenvio do documento')) {
+            return;
+        }
+
+        $submission = AGTSubmission::find($submissionId);
+
+        if (!$submission || (int) $submission->tenant_id !== (int) $this->currentTenantId) {
+            $this->dispatch('notify', type: 'error', message: __('Submissão não encontrada'));
+            return;
+        }
+
+        if ($submission->status === AGTSubmission::STATUS_VALIDATED) {
+            $this->dispatch('notify', type: 'error', message: __('Este documento já foi validado pela AGT.'));
+            return;
+        }
+
+        // O acto fica com rasto próprio (auditoria por modelo): quem, quando,
+        // e o erro que se estava a apagar.
+        $submission->update([
+            'status'        => AGTSubmission::STATUS_PENDING,
+            'retry_count'   => 0,
+            'error_code'    => null,
+            'error_message' => null,
+        ]);
+
+        $this->retrySubmission($submissionId);
+    }
+
     public function retrySubmission(int $submissionId)
     {
         if (!$this->currentTenantId) {

@@ -29,6 +29,9 @@ class PurchaseInvoice extends Model
         'invoice_number',
         'supplier_id',
         'warehouse_id',
+        // Verdadeiro quando a mercadoria já entrou pela recepção da encomenda
+        // (módulo Compras) — o observer não volta a dar entrada nem a tirar.
+        'stock_ja_entrou',
         'invoice_date',
         'due_date',
         'status',
@@ -55,6 +58,7 @@ class PurchaseInvoice extends Model
         // e o ->format() na geração do hash SAFT rebentava.
         'system_entry_date' => 'datetime',
         'is_service' => 'boolean',
+        'stock_ja_entrou' => 'boolean',
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'irt_amount' => 'decimal:2',
@@ -113,6 +117,34 @@ class PurchaseInvoice extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    /**
+     * Lança um pagamento (ou a sua anulação) nesta factura de compra.
+     *
+     * Por DIFERENÇA, como nas vendas: nunca se mexe no que outros caminhos já
+     * tinham registado. Ver `SalesInvoice::aplicarPagamento`.
+     */
+    public function aplicarPagamento(float $diferenca): void
+    {
+        if (abs($diferenca) < 0.005) {
+            return;
+        }
+
+        $this->paid_amount = max(0, round((float) $this->paid_amount + $diferenca, 2));
+
+        $pago  = round((float) $this->paid_amount, 2);
+        $total = round((float) $this->total, 2);
+
+        if ($pago > 0 && $pago >= $total - 0.01) {
+            $this->status = 'paid';
+        } elseif ($pago > 0.01) {
+            $this->status = 'partially_paid';
+        } elseif (in_array($this->status, ['paid', 'partially_paid', 'partial'], true)) {
+            $this->status = 'pending';
+        }
+
+        $this->save();
     }
 
     public function items()

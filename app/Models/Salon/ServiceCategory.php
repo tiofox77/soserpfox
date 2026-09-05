@@ -54,6 +54,47 @@ class ServiceCategory extends Model
     }
 
     // Relationships
+    /**
+     * Quantos serviços tem cada categoria — a sério.
+     *
+     * `withCount('services')` dá SEMPRE zero: a relação abaixo é um `hasMany`
+     * pela coluna `category_id`, e a categoria de um serviço do salão não vive
+     * nessa coluna (tem chave estrangeira para as categorias da facturação) —
+     * vive no JSON do `description`, e o modelo expõe-a por um acessor com o
+     * mesmo nome.
+     *
+     * Uma consulta, e a conta feita em PHP pelo acessor: um salão tem dezenas
+     * de serviços, não milhares.
+     *
+     * @return array<int,int>  id da categoria => nº de serviços
+     */
+    public static function contagens(?int $tenantId = null): array
+    {
+        $tenantId = $tenantId ?: activeTenantId();
+
+        return Service::where('tenant_id', $tenantId)
+            ->get(['id', 'description'])
+            ->groupBy(fn ($s) => $s->category_id)
+            ->map->count()
+            ->all();
+    }
+
+    /**
+     * Põe `services_count` numa colecção de categorias, sem ir à base por cada.
+     *
+     * @param  iterable<self>  $categorias
+     */
+    public static function comContagens($categorias, ?int $tenantId = null)
+    {
+        $contagens = self::contagens($tenantId);
+
+        foreach ($categorias as $c) {
+            $c->services_count = $contagens[$c->id] ?? 0;
+        }
+
+        return $categorias;
+    }
+
     public function services()
     {
         return $this->hasMany(Service::class, 'category_id');

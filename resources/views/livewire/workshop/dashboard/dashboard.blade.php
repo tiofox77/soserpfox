@@ -40,53 +40,6 @@
         </div>
     </div>
 
-    {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-cyan-100 card-hover">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/50">
-                    <i class="fas fa-clipboard-list text-white text-2xl"></i>
-                </div>
-            </div>
-            <p class="text-sm text-cyan-600 font-semibold mb-2">Total OS</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $totalOrders }}</p>
-            <p class="text-xs text-gray-500">No período</p>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-yellow-100 card-hover">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-14 h-14 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg shadow-yellow-500/50">
-                    <i class="fas fa-clock text-white text-2xl"></i>
-                </div>
-            </div>
-            <p class="text-sm text-yellow-600 font-semibold mb-2">Pendentes</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $pendingOrders }}</p>
-            <p class="text-xs text-gray-500">Aguardando</p>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-green-100 card-hover">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/50">
-                    <i class="fas fa-check-circle text-white text-2xl"></i>
-                </div>
-            </div>
-            <p class="text-sm text-green-600 font-semibold mb-2">Concluídas</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $completedOrders }}</p>
-            <p class="text-xs text-gray-500">Finalizadas</p>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-lg p-6 border border-blue-100 card-hover">
-            <div class="flex items-center justify-between mb-4">
-                <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/50">
-                    <i class="fas fa-car text-white text-2xl"></i>
-                </div>
-            </div>
-            <p class="text-sm text-blue-600 font-semibold mb-2">Veículos</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">{{ $totalVehicles }}</p>
-            <p class="text-xs text-gray-500">Cadastrados</p>
-        </div>
-    </div>
-
         <!-- KPIs Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <!-- Total OS -->
@@ -142,6 +95,33 @@
             </div>
         </div>
 
+    {{-- ============ GRÁFICOS ============ --}}
+    <div class="grid gap-6 lg:grid-cols-2 mb-8">
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Facturação da oficina — 12 meses')"
+                   :subtitulo="__('Ordens concluídas, por mês')"
+                   id="grOfMensal"
+                   :altura="250"
+                   :vazio="!array_sum($receitaMensal['valores'])" />
+
+        <x-grafico :titulo="__('Ordens por estado')"
+                   :subtitulo="__('No período seleccionado')"
+                   id="grOfEstados"
+                   :vazio="empty($porEstado['valores'])" />
+
+        <x-grafico :titulo="__('Serviços que mais rendem')"
+                   :subtitulo="__('Receita, e não só número de vezes')"
+                   id="grOfServicos"
+                   :vazio="empty($servicosTop['valores'])" />
+
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Carga por mecânico')"
+                   :subtitulo="__('Ordens em aberto — quem está sobrecarregado')"
+                   id="grOfMecanicos"
+                   :altura="230"
+                   :vazio="empty($porMecanico['valores'])" />
+    </div>
+
         <!-- Financeiro e Veículos -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <!-- Receita -->
@@ -150,7 +130,7 @@
                     <h3 class="text-lg font-bold text-gray-900">Receita</h3>
                     <i class="fas fa-money-bill-wave text-2xl text-green-600"></i>
                 </div>
-                <p class="text-3xl font-bold text-green-600">{{ number_format($totalRevenue, 2, ',', '.') }} Kz</p>
+                <p class="text-3xl font-bold text-green-600">{{ valorProtegido($totalRevenue, 'workshop.reports.view') }} Kz</p>
                 <p class="text-sm text-gray-500 mt-2">Período selecionado</p>
             </div>
 
@@ -160,7 +140,7 @@
                     <h3 class="text-lg font-bold text-gray-900">A Receber</h3>
                     <i class="fas fa-hourglass-half text-2xl text-orange-600"></i>
                 </div>
-                <p class="text-3xl font-bold text-orange-600">{{ number_format($pendingPayments, 2, ',', '.') }} Kz</p>
+                <p class="text-3xl font-bold text-orange-600">{{ valorProtegido($pendingPayments, 'workshop.reports.view') }} Kz</p>
                 <p class="text-sm text-gray-500 mt-2">Pagamentos pendentes</p>
             </div>
 
@@ -189,7 +169,7 @@
                                 <p class="font-medium text-gray-900">{{ $service->name }}</p>
                                 <p class="text-sm text-gray-500">{{ $service->count }}x utilizado</p>
                             </div>
-                            <p class="text-green-600 font-bold">{{ number_format($service->revenue, 0, ',', '.') }} Kz</p>
+                            <p class="text-green-600 font-bold">{{ valorProtegido($service->revenue, 'workshop.reports.view') }} Kz</p>
                         </div>
                     @empty
                         <p class="text-gray-500 text-center py-4">Nenhum serviço registrado</p>
@@ -291,3 +271,57 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+    @include('partials.graficos')
+    <script>
+    sosDesenhar(function () {
+        const mensal    = @json($receitaMensal);
+        const estados   = @json($porEstado);
+        const servicos  = @json($servicosTop);
+        const mecanicos = @json($porMecanico);
+
+        sosLinha('grOfMensal', mensal.etiquetas, mensal.valores, { cor: SOS_CORES[0] });
+
+        // Cores de ESTADO e não a paleta categórica: "concluída" tem de ser
+        // verde e "cancelada" vermelha em todo o produto. Uma série azul a
+        // querer dizer "em curso" obriga a ler a legenda de cada vez.
+        const coresEstado = {
+            pending: SOS_ESTADOS.neutro, scheduled: SOS_CORES[0], in_progress: SOS_ESTADOS.aviso,
+            completed: SOS_ESTADOS.bom, delivered: SOS_CORES[2], cancelled: SOS_ESTADOS.critico,
+        };
+        sosRosca('grOfEstados', estados.etiquetas, estados.valores, {
+            moeda: false,
+            cores: (estados.chaves || []).map((k) => coresEstado[k] || SOS_ESTADOS.neutro),
+        });
+
+        const elServicos = document.getElementById('grOfServicos');
+        if (elServicos) {
+            sosGrafico('grOfServicos', {
+                type: 'bar',
+                data: {
+                    labels: servicos.etiquetas,
+                    datasets: [{
+                        data: servicos.valores,
+                        backgroundColor: SOS_CORES[3],
+                        borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+                        borderSkipped: false,
+                        maxBarThickness: 26,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => sosMoeda(c.parsed.x) } } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(100,116,139,.12)' }, border: { display: false } },
+                        y: { grid: { display: false }, border: { display: false } },
+                    },
+                },
+            });
+        }
+
+        sosBarras('grOfMecanicos', mecanicos.etiquetas, mecanicos.valores, { cor: SOS_CORES[4], moeda: false });
+    });
+    </script>
+@endpush

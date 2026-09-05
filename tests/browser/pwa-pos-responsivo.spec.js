@@ -19,6 +19,9 @@ import { entrar, esperarMotor, esperarCatalogo, sincronizar, irPara, avaliar } f
  */
 
 const TAMANHOS = [
+    // 360px é o Android barato que se vê a sério no balcão, e é onde a barra
+    // de topo saía do ecrã. Não estava aqui, e por isso o defeito passou.
+    { nome: 'telemóvel pequeno', w: 360, h: 800 },
     { nome: 'telemóvel', w: 390, h: 844 },
     { nome: 'telemóvel grande', w: 430, h: 932 },
     { nome: 'tablet', w: 820, h: 1180 },
@@ -97,6 +100,33 @@ for (const t of TAMANHOS) {
                     : 0,
                 scrollHorizontal: document.documentElement.scrollWidth > window.innerWidth,
                 larguraDoCartao: Math.round(c1.width),
+
+                // O QUE TRANSBORDA DENTRO DA BARRA NÃO FAZ A PÁGINA ROLAR.
+                //
+                // O `scrollHorizontal` aqui em cima mede o documento, e por
+                // isso deixou passar o defeito que se via no telemóvel: a
+                // linha da pesquisa transbordava DENTRO da barra, o armazém e
+                // o turno ficavam cortados na margem, e a página continuava a
+                // caber. Um ensaio que só olha para o documento diz que está
+                // tudo bem enquanto o operador vê metade dos botões.
+                //
+                // Mede-se a barra por dentro...
+                barraTransborda: barra ? barra.scrollWidth > barra.clientWidth + 1 : false,
+
+                // ...e mede-se a VIEWPORT DE LAYOUT, que é o sinal fiável.
+                //
+                // Quando alguma coisa não cabe, o Chromium não deixa
+                // simplesmente transbordar: ALARGA a viewport de layout para o
+                // conteúdo caber. O `innerWidth` passa de 360 para 424, e a
+                // partir daí nada está "fora da margem" — a margem é que
+                // cresceu. Foi por isso que a primeira versão deste ensaio não
+                // viu nada com o defeito à frente.
+                //
+                // No telemóvel isto é a página inteira a encolher para caber
+                // uma barra que não cabia: tudo fica mais pequeno e as pontas
+                // ficam cortadas. Se a viewport de layout não bate com a
+                // janela, alguma coisa não coube.
+                larguraDeLayout: window.innerWidth,
             };
         });
 
@@ -104,6 +134,8 @@ for (const t of TAMANHOS) {
         expect(m.tapadoPelaBarra, 'a barra de pesquisa não pode tapar os cartões').toBe(0);
         expect(m.tapadoPelaNav, 'a barra de navegação não pode tapar o fim da lista').toBe(0);
         expect(m.scrollHorizontal, 'nunca pode haver scroll horizontal').toBe(false);
+        expect(m.barraTransborda, 'a barra de topo não pode transbordar por dentro').toBe(false);
+        expect(m.larguraDeLayout, 'nada pode alargar a viewport: a página ficaria encolhida no telemóvel').toBe(t.w);
         // Um cartão demasiado estreito deixa de ser tocável com o dedo.
         expect(m.larguraDoCartao, 'o cartão tem de continuar tocável').toBeGreaterThanOrEqual(120);
     });

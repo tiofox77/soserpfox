@@ -63,10 +63,9 @@
                             </label>
                             <select wire:model="form.country" 
                                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                                <option value="AO">Angola</option>
-                                <option value="PT">Portugal</option>
-                                <option value="BR">Brasil</option>
-                                <option value="MZ">Moçambique</option>
+                                @foreach(\App\Support\Geografia::paises() as $__c => $__n)
+                                    <option value="{{ $__c }}">{{ $__n }}</option>
+                                @endforeach
                             </select>
                             @error('form.country') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>

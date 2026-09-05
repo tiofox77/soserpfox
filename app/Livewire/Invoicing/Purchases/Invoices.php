@@ -15,6 +15,9 @@ use Livewire\Attributes\Title;
 class Invoices extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
     use \App\Traits\ResolveDocumentoDaEmpresa;
 
     // Filters
@@ -46,9 +49,14 @@ class Invoices extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\PurchaseInvoice::class;
+    }
+
     public function render()
     {
-        $query = PurchaseInvoice::where('tenant_id', activeTenantId())
+        $query = $this->baseDoAutor()
             ->with(['supplier', 'warehouse', 'creator']);
 
         // Search
@@ -87,11 +95,11 @@ class Invoices extends Component
 
         // Stats
         $stats = [
-            'total' => PurchaseInvoice::where('tenant_id', activeTenantId())->count(),
-            'draft' => PurchaseInvoice::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'pending' => PurchaseInvoice::where('tenant_id', activeTenantId())->where('status', 'pending')->count(),
-            'paid' => PurchaseInvoice::where('tenant_id', activeTenantId())->where('status', 'paid')->count(),
-            'total_amount' => PurchaseInvoice::where('tenant_id', activeTenantId())->sum('total'),
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'pending' => $this->baseDoAutor()->where('status', 'pending')->count(),
+            'paid' => $this->baseDoAutor()->where('status', 'paid')->count(),
+            'total_amount' => $this->baseDoAutor()->sum('total'),
         ];
 
         return view('livewire.invoicing.faturas-compra.invoices', [

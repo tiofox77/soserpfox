@@ -77,7 +77,7 @@
                             <div>
                                 <p class="text-xs text-gray-600">Tipo</p>
                                 <p class="font-semibold text-gray-900">
-                                    @if($selectedOvertime->overtime_type === 'regular')
+                                    @if(in_array($selectedOvertime->overtime_type, ['regular', 'weekday']))
                                         ⏰ Regular (+50%)
                                     @elseif($selectedOvertime->overtime_type === 'holiday')
                                         📅 Feriado (+100%)

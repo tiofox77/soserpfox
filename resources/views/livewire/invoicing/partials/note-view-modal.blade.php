@@ -72,6 +72,7 @@
                                class="font-mono text-sm font-bold text-blue-700 hover:underline">
                                 {{ $doc->invoice->invoice_number }}
                             </a>
+                            <x-pdf-descarregar :url="route('invoicing.sales.invoices.preview', $doc->invoice->id)" />
                         @else
                             <p class="text-sm text-gray-400">{{ __('Sem factura associada') }}</p>
                         @endif
@@ -161,7 +162,12 @@
                 <p class="text-xs text-gray-500 mt-2">
                     {{ __('Referência AGT:') }} <span class="font-mono">{{ $doc->agt_reference }}</span>
                     @if($doc->agt_submitted_at)
-                        · {{ $doc->agt_submitted_at->format('d/m/Y H:i') }}
+                        {{-- Nenhum modelo convertia esta coluna: vinha texto cru,
+                             o ->format() rebentava e a modal dava 500. O cast já
+                             lá está, mas o ecrã não volta a depender disso. --}}
+                        · {{ $doc->agt_submitted_at instanceof \DateTimeInterface
+                                ? $doc->agt_submitted_at->format('d/m/Y H:i')
+                                : \Illuminate\Support\Carbon::parse($doc->agt_submitted_at)->format('d/m/Y H:i') }}
                     @endif
                 </p>
                 @endif

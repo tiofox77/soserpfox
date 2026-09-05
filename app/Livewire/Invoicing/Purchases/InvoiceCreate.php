@@ -18,6 +18,13 @@ use Illuminate\Support\Facades\DB;
 #[Title('Nova Fatura de Compra')]
 class InvoiceCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
+    // Duplicar documentos: ver o contrato no trait.
+    use \App\Livewire\Concerns\DuplicaDocumento;
+
+
     public $invoiceId = null;
     public $isEdit = false;
 
@@ -154,6 +161,20 @@ class InvoiceCreate extends Component
             // "No query results for model [PurchaseInvoice]".
             $this->invoiceId = $id;
             $this->loadInvoice($id);
+        } elseif ($duplicar = $this->idParaDuplicar()) {
+            // DUPLICAR: o mesmo carregamento da edição, sem ser uma edição.
+            // O que fica de fora está explicado no trait DuplicaDocumento.
+            $origem = \App\Models\Invoicing\PurchaseInvoice::where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
+                ->findOrFail($duplicar);
+
+            $this->loadInvoice($duplicar);
+            $this->marcarComoDuplicado($origem->invoice_number);
+
+            // As datas são de HOJE: um duplicado não herda o vencimento de uma
+            // factura de compra que já foi paga.
+            $this->invoice_date = now()->format('Y-m-d');
+            $this->due_date = now()->addDays(30)->format('Y-m-d');
         } else {
             // Restaurar fornecedor da sessão se existir
             $sessionKey = 'invoice_supplier_' . activeTenantId() . '_' . auth()->id();
@@ -171,6 +192,7 @@ class InvoiceCreate extends Component
     {
         $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
             ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $this->supplier_id = $invoice->supplier_id;
@@ -602,6 +624,7 @@ class InvoiceCreate extends Component
         try {
             if ($this->isEdit) {
                 $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($this->invoiceId);
                 
                 if ($invoice->status === 'converted') {

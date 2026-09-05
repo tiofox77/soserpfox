@@ -31,7 +31,7 @@ class CopiaOfflineTest extends TenantTestCase
     {
         parent::setUp();
 
-        $this->comModulo('invoicing')->comPermissoes('invoicing.pos.create');
+        $this->comModulo('invoicing')->comPermissoes('invoicing.pos.sell');
 
         $this->artigo = Product::create([
             'tenant_id'  => $this->tenant->id,

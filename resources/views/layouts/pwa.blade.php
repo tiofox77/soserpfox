@@ -7,6 +7,14 @@
     <title>{{ $title ?? 'SOS ERP — PWA Faturação' }}</title>
 
     <link rel="manifest" href="{{ url('/manifest.webmanifest') }}">
+    <meta name="theme-color" content="{{ pwa_theme_color() }}">
+
+    {{-- O iOS nao le o manifesto. Sem estas duas linhas, quem adiciona ao
+         ecra principal num iPhone fica com uma MINIATURA DA PAGINA por
+         icone e a aplicacao abre dentro do Safari, com a barra de endereco
+         a comer o topo do POS. --}}
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url("/pwa/icon-maskable-192.png") }}">
+    <meta name="apple-mobile-web-app-title" content="SOS ERP">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     @include('partials.favicon')
@@ -107,8 +115,26 @@
 </script>
 
 
-    {{-- Banner de instalação PWA --}}
-    <div id="pwa-install-banner" class="hidden fixed bottom-20 inset-x-3 z-50 bg-gradient-to-r from-indigo-600 to-blue-700 text-white rounded-2xl shadow-2xl p-4">
+    {{-- Banner de instalação PWA.
+
+         FICA POR CIMA DA NAVEGAÇÃO, NUNCA POR CIMA DE VENDER.
+
+         Estava em `bottom-20 z-50` e a barra "Ver carrinho" do POS está em
+         `bottom-[72px] z-40`: 80px contra 72px, ambas com ~56px de altura, e o
+         banner com z-index maior. Sobrepunham-se, e o banner ganhava.
+
+         O que isso fazia no telemóvel de quem vende: o operador enchia o
+         carrinho, tocava em "Ver carrinho", e não acontecia nada — o toque ia
+         para o convite a instalar. A gaveta não abria, o "Finalizar Venda"
+         ficava fora de alcance, e a venda não se fazia. Sem erro nenhum: só um
+         botão que não responde.
+
+         Foi apanhado a conduzir o PWA pelos ecrãs num Android; nenhum ensaio
+         que chame o motor por JavaScript veria isto, porque o motor estava bom.
+
+         Agora sobe acima da barra de vendas (`bottom-36`) e cede-lhe a camada.
+         Um convite a instalar pode esperar; uma venda não. --}}
+    <div id="pwa-install-banner" class="hidden fixed bottom-36 inset-x-3 z-30 bg-gradient-to-r from-indigo-600 to-blue-700 text-white rounded-2xl shadow-2xl p-4">
         <div class="flex items-center gap-3">
             <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-download text-xl"></i>
@@ -139,8 +165,15 @@
         <div class="px-4 py-3 flex items-center justify-between gap-2">
             <div class="flex items-center gap-3 min-w-0 flex-1">
                 <a href="{{ route('invoicing.offline.index') }}" class="flex items-center gap-2 min-w-0">
-                    <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-bolt"></i>
+                    {{-- O logótipo em miniatura, no lugar do raio.
+
+                         Usa-se o ícone do PWA e não o logótipo do tenant: este
+                         está pré-guardado pelo service worker e aparece sempre,
+                         inclusive sem rede. O do tenant daria um quadrado
+                         partido no cabeçalho de todas as páginas offline. --}}
+                    <div class="w-9 h-9 shrink-0 bg-white rounded-lg flex items-center justify-center overflow-hidden">
+                        <img src="{{ asset('pwa/icon-192x192.png') }}" alt="SOS ERP"
+                             class="w-7 h-7 object-contain" draggable="false">
                     </div>
                     <div class="min-w-0">
                         <p class="font-bold text-sm leading-tight">PWA Faturação</p>
@@ -286,8 +319,16 @@
         window.SOS_USER_NAME = @json(auth()->user()?->name);
     </script>
 
-    <script src="/js/pwa-invoicing.js?v=22"></script>
-    <script src="/js/pos-offline-ticket.js?v=4"></script>
+    <script src="/js/pwa-invoicing.js?v={{ pwa_versao() }}"></script>
+    <script src="/js/pos-offline-ticket.js?v={{ pwa_versao() }}"></script>
+    {{-- O PDF NO PRÓPRIO APARELHO, sem rede: html2canvas desenha o talão ou
+         o documento (o MESMO HTML que vai para a impressora) e o jsPDF
+         embrulha-o num PDF que a folha de partilha do Android entrega ao
+         WhatsApp. Locais, e na lista de pré-guardados do service worker. --}}
+    <script defer src="/vendor/js/html2canvas.min.js"></script>
+    <script defer src="/vendor/js/jspdf.umd.min.js"></script>
+    {{-- O turno de caixa: uma definição, usada pelo POS e pelo restaurante. --}}
+    <script src="/js/pwa-turno.js?v={{ pwa_versao() }}"></script>
 
     {{-- PWA OFFLINE WARMUP — pré-cacheia todas as páginas + assets críticos do PWA. --}}
     {{-- Garante que o app abre offline mesmo na primeira tentativa após sair de uma página. --}}
@@ -309,9 +350,10 @@
             '{{ route('invoicing.offline.client-new') }}',
             '{{ route('invoicing.offline.drafts') }}',
             '{{ route('invoicing.offline.draft-new') }}',
-            '/js/pwa-invoicing.js?v=22',
+            '/js/pwa-invoicing.js?v={{ pwa_versao() }}',
             '/js/vendor/bcrypt.min.js?v=1',
-            '/js/pos-offline-ticket.js?v=4',
+            '/js/pos-offline-ticket.js?v={{ pwa_versao() }}',
+            '/js/pwa-turno.js?v={{ pwa_versao() }}',
             '/manifest.webmanifest',
         ];
 
@@ -385,7 +427,14 @@
                     <i class="fas fa-unlock mr-1"></i>Desbloquear
                 </button>
             </form>
-            <p class="mt-4 text-[10px] text-center text-gray-400">
+            <p class="mt-3 text-center">
+                {{-- Esqueceu o PIN sem rede: um gestor presente autoriza um
+                     novo. A página é pública e fica guardada na instalação. --}}
+                <a id="pwa-offline-login-esqueci"
+                   href="{{ route('invoicing.offline.pin-esquecido') }}?voltar={{ urlencode(request()->getRequestUri()) }}"
+                   class="text-xs text-blue-700 font-semibold underline">{{ __('Esqueci o PIN') }}</a>
+            </p>
+            <p class="mt-3 text-[10px] text-center text-gray-400">
                 Se voltar à internet, faça login normal em <a href="/login" class="text-blue-600 underline">/login</a>.
             </p>
         </div>

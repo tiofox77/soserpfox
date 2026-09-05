@@ -115,6 +115,74 @@ class FloorManagement extends Component
         }
     }
 
+    /**
+     * Aceitar um pedido que o cliente fez na carta online.
+     *
+     * É AQUI que o pedido vira comanda, e não antes: a comanda exige turno
+     * aberto, e o turno é o de quem está a aceitar. O cliente sentado à mesa
+     * não tem turno nenhum — deixá-lo abrir comandas obrigava a furar a regra
+     * que impede vender com a caixa fechada, e num sítio aberto ao público.
+     *
+     * OS PREÇOS SÃO OS DE AGORA. O pedido guardou o que o cliente VIU, mas
+     * quem manda é o catálogo neste momento: uma carta pública pode estar
+     * numa página aberta há uma hora, e um preço congelado por aí seria um
+     * desconto que ninguém autorizou.
+     */
+    public function aceitarPedidoDoMenu(int $pedidoId, RestaurantOrderService $service): void
+    {
+        try {
+            $pedido = \App\Models\Restaurant\MenuOrder::where('tenant_id', activeTenantId())
+                ->where('status', 'pending')
+                ->findOrFail($pedidoId);
+
+            $comanda = $service->open([
+                'venue_id'    => $this->venueId,
+                'table_id'    => $pedido->table_id,
+                'guest_count' => 1,
+                'notes'       => trim(__('Pedido pela carta online') . ' · ' . (string) $pedido->notes, ' ·'),
+            ], activeTenantId(), auth()->id());
+
+            foreach ($pedido->items as $linha) {
+                $service->addItem(
+                    $comanda,
+                    (int) $linha['product_id'],
+                    (float) $linha['quantity'],
+                    null,
+                    activeTenantId(),
+                    auth()->id()
+                );
+            }
+
+            $pedido->update([
+                'status'     => 'accepted',
+                'order_id'   => $comanda->id,
+                'handled_by' => auth()->id(),
+                'handled_at' => now(),
+            ]);
+
+            $this->redirectRoute('restaurant.orders', ['order' => $comanda->id]);
+        } catch (\Throwable $e) {
+            // A mesa pode ter sido ocupada entretanto, ou o turno pode estar
+            // fechado. Dizer porquê — o empregado tem o cliente à frente.
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+        }
+    }
+
+    /** Descartar um pedido: um engano, uma brincadeira, ou já foi resolvido à mão. */
+    public function descartarPedidoDoMenu(int $pedidoId): void
+    {
+        \App\Models\Restaurant\MenuOrder::where('tenant_id', activeTenantId())
+            ->where('status', 'pending')
+            ->whereKey($pedidoId)
+            ->update([
+                'status'     => 'dismissed',
+                'handled_by' => auth()->id(),
+                'handled_at' => now(),
+            ]);
+
+        $this->dispatch('notify', type: 'success', message: __('Pedido descartado.'));
+    }
+
     public function markTableClean(int $tableId, RestaurantOrderService $service): void
     {
         try {
@@ -154,6 +222,15 @@ class FloorManagement extends Component
             ->orderBy('code')
             ->get();
 
-        return view('livewire.restaurant.floor-management', compact('venues', 'areas', 'tables'));
+        // Os pedidos que os clientes fizeram na carta online e ainda ninguém
+        // atendeu. Aparecem aqui porque é aqui que o empregado olha.
+        $pedidosDoMenu = \App\Models\Restaurant\MenuOrder::where('tenant_id', activeTenantId())
+            ->aEspera()
+            ->with('mesa')
+            ->latest()
+            ->limit(20)
+            ->get();
+
+        return view('livewire.restaurant.floor-management', compact('venues', 'areas', 'tables', 'pedidosDoMenu'));
     }
 }

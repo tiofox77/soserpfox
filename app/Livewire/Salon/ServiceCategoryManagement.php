@@ -101,9 +101,16 @@ class ServiceCategoryManagement extends Component
 
     public function confirmDelete()
     {
-        $category = ServiceCategory::withCount('services')->find($this->deletingId);
-        
-        if ($category->services_count > 0) {
+        $category = ServiceCategory::forTenant()->find($this->deletingId);
+
+        if (! $category) {
+            $this->cancelDelete();
+            return;
+        }
+
+        // O travão lia um `withCount` que era SEMPRE zero: apagava-se uma
+        // categoria cheia de serviços e ficavam todos órfãos.
+        if ((ServiceCategory::contagens()[$category->id] ?? 0) > 0) {
             $this->dispatch('notify', ['type' => 'error', 'message' => 'Categoria tem serviços vinculados! Mova-os primeiro.']);
             $this->cancelDelete();
             return;
@@ -146,11 +153,14 @@ class ServiceCategoryManagement extends Component
     public function render()
     {
         $categories = ServiceCategory::forTenant()
-            ->withCount('services')
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->orderBy('order')
             ->orderBy('name')
             ->paginate($this->perPage);
+
+        // A contagem verdadeira: o `withCount` conta pela coluna e a categoria
+        // de um serviço do salão vive no JSON — dizia sempre zero.
+        ServiceCategory::comContagens($categories->items());
 
         return view('livewire.salon.service-categories.categories', compact('categories'));
     }

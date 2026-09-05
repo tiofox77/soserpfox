@@ -65,6 +65,14 @@ class CheckSubscription
         $tenant = $user->activeTenant();
         
         if (!$tenant) {
+            if ($this->esperaJson($request)) {
+                return response()->json([
+                    'success' => false,
+                    'code'    => 'no_active_tenant',
+                    'error'   => 'Não há empresa activa nesta conta.',
+                ], 403);
+            }
+
             return redirect()->route('my-account')
                 ->with('error', 'Você não possui uma empresa ativa. Configure sua conta primeiro.');
         }
@@ -90,7 +98,29 @@ class CheckSubscription
                 ->with('plan')
                 ->latest()
                 ->first();
-            
+
+            // UMA RECUSA TEM DE SE PARECER COM UMA RECUSA.
+            //
+            // Para o PWA, um 302 para a página de renovação era o pior dos
+            // mundos: o `fetch` do motor SEGUE o redireccionamento, recebe
+            // HTML com estado 200, e não tem como distinguir uma empresa que
+            // deixou de pagar de uma ligação que caiu. O `ping` chegava a
+            // responder OK — o aparelho julgava-se online e continuava a
+            // vender, a bater numa porta fechada até ao fim do turno, sem uma
+            // linha a explicar ao operador.
+            //
+            // 402 é o código que existe exactamente para isto, e vem com o
+            // motivo em JSON para o motor poder agir: parar a fila e dizer o
+            // que se passa, em vez de arquivar tudo como falha de rede.
+            if ($this->esperaJson($request)) {
+                return response()->json([
+                    'success' => false,
+                    'code'    => 'subscription_expired',
+                    'error'   => 'A subscrição desta empresa expirou. Renove o plano para continuar a emitir documentos.',
+                    'renovar' => route('subscription.expired'),
+                ], 402);
+            }
+
             return redirect()->route('subscription.expired')
                 ->with('subscription', $lastSubscription);
         }
@@ -106,6 +136,20 @@ class CheckSubscription
         return $next($request);
     }
     
+    /**
+     * Este pedido quer uma resposta que uma máquina saiba ler?
+     *
+     * O `expectsJson()` do Laravel sozinho não chega: depende de o cliente
+     * mandar o cabeçalho certo, e um `fetch` sem `Accept` explícito passa
+     * despercebido. O prefixo da API é a garantia — tudo o que vive sob
+     * `api/` é consumido por código, nunca por um browser a mostrar uma
+     * página, e um 302 para HTML nunca é a resposta certa aí.
+     */
+    protected function esperaJson(Request $request): bool
+    {
+        return $request->is('api/*') || $request->expectsJson();
+    }
+
     /**
      * Auto-expirar subscriptions vencidas de um tenant
      */

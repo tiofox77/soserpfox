@@ -13,6 +13,9 @@ use Livewire\Attributes\Title;
 class Receipts extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     public $search = '';
     public $filterType = '';
@@ -55,7 +58,7 @@ class Receipts extends Component
             return;
         }
 
-        $receipt = Receipt::where('tenant_id', activeTenantId())->findOrFail($this->receiptToDelete);
+        $receipt = $this->baseDoAutor()->findOrFail($this->receiptToDelete);
         $receipt->delete();
         
         $this->showDeleteModal = false;
@@ -69,8 +72,8 @@ class Receipts extends Component
 
     public function viewReceipt($receiptId)
     {
-        $this->selectedReceipt = Receipt::with(['client', 'supplier', 'invoice', 'creator'])
-            ->where('tenant_id', activeTenantId())
+        $this->selectedReceipt = $this->baseDoAutor()
+            ->with(['client', 'supplier', 'invoice', 'creator'])
             ->findOrFail($receiptId);
         
         $this->showViewModal = true;
@@ -84,7 +87,7 @@ class Receipts extends Component
 
     public function cancelReceipt($receiptId)
     {
-        $receipt = Receipt::where('tenant_id', activeTenantId())->findOrFail($receiptId);
+        $receipt = $this->baseDoAutor()->findOrFail($receiptId);
         $receipt->cancel();
         
         $this->dispatch('notify', [
@@ -93,15 +96,28 @@ class Receipts extends Component
         ]);
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\Receipt::class;
+    }
+
     public function render()
     {
-        $query = Receipt::with(['client', 'supplier', 'invoice', 'creator'])
-            ->where('tenant_id', activeTenantId());
+        $query = $this->baseDoAutor()
+            ->with(['client', 'supplier', 'invoice', 'creator']);
 
         // Filtros
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('receipt_number', 'like', '%' . $this->search . '%')
+                  // A SÉRIE INTERNA PRIMEIRO: é a que a empresa reconhece
+                  // (SOSNC), e não o código críptico que a AGT devolve e que
+                  // vai gravado no número. Procura-se também pela da AGT, para
+                  // quem venha do portal com o código na mão.
+                  ->orWhereHas('series', function ($q3) {
+                      $q3->where('series_code', 'like', '%' . $this->search . '%')
+                         ->orWhere('agt_series_id', 'like', '%' . $this->search . '%');
+                  })
                   ->orWhere('reference', 'like', '%' . $this->search . '%')
                   ->orWhereHas('client', function ($q2) {
                       $q2->where('name', 'like', '%' . $this->search . '%');
@@ -134,10 +150,10 @@ class Receipts extends Component
 
         // Stats
         $stats = [
-            'total' => Receipt::where('tenant_id', activeTenantId())->count(),
-            'sales' => Receipt::where('tenant_id', activeTenantId())->where('type', 'sale')->count(),
-            'purchases' => Receipt::where('tenant_id', activeTenantId())->where('type', 'purchase')->count(),
-            'total_amount' => Receipt::where('tenant_id', activeTenantId())
+            'total' => $this->baseDoAutor()->count(),
+            'sales' => $this->baseDoAutor()->where('type', 'sale')->count(),
+            'purchases' => $this->baseDoAutor()->where('type', 'purchase')->count(),
+            'total_amount' => $this->baseDoAutor()
                 ->where('status', 'issued')
                 ->sum('amount_paid'),
         ];

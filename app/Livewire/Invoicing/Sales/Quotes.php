@@ -14,6 +14,9 @@ use Livewire\Attributes\Title;
 class Quotes extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     // Filters
     public $search = '';
@@ -44,9 +47,14 @@ class Quotes extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\SalesQuote::class;
+    }
+
     public function render()
     {
-        $query = SalesQuote::where('tenant_id', activeTenantId())
+        $query = $this->baseDoAutor()
             ->with(['client', 'warehouse', 'creator']);
 
         if ($this->search) {
@@ -80,11 +88,11 @@ class Quotes extends Component
             ->get();
 
         $stats = [
-            'total' => SalesQuote::where('tenant_id', activeTenantId())->count(),
-            'draft' => SalesQuote::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'sent' => SalesQuote::where('tenant_id', activeTenantId())->where('status', 'sent')->count(),
-            'accepted' => SalesQuote::where('tenant_id', activeTenantId())->where('status', 'accepted')->count(),
-            'total_amount' => SalesQuote::where('tenant_id', activeTenantId())->sum('total'),
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'sent' => $this->baseDoAutor()->where('status', 'sent')->count(),
+            'accepted' => $this->baseDoAutor()->where('status', 'accepted')->count(),
+            'total_amount' => $this->baseDoAutor()->sum('total'),
         ];
 
         return view('livewire.invoicing.orcamentos-venda.orcamentos', [
@@ -103,7 +111,7 @@ class Quotes extends Component
     public function deleteQuote()
     {
         if ($this->quoteToDelete) {
-            $quote = SalesQuote::where('tenant_id', activeTenantId())
+            $quote = $this->baseDoAutor()
                 ->findOrFail($this->quoteToDelete);
 
             // Não deixar apagar um orçamento que já deu origem a facturas.
@@ -130,7 +138,7 @@ class Quotes extends Component
 
     public function convertToInvoice($quoteId)
     {
-        $quote = SalesQuote::where('tenant_id', activeTenantId())
+        $quote = $this->baseDoAutor()
             ->findOrFail($quoteId);
 
         try {
@@ -152,7 +160,7 @@ class Quotes extends Component
 
     public function showHistory($quoteId)
     {
-        $this->quoteHistory = SalesQuote::where('tenant_id', activeTenantId())
+        $this->quoteHistory = $this->baseDoAutor()
             ->with(['client', 'warehouse'])
             ->findOrFail($quoteId);
 
@@ -183,7 +191,7 @@ class Quotes extends Component
 
     public function viewQuote($quoteId)
     {
-        $this->selectedQuote = SalesQuote::where('tenant_id', activeTenantId())
+        $this->selectedQuote = $this->baseDoAutor()
             ->with(['client', 'warehouse', 'items.product', 'creator'])
             ->findOrFail($quoteId);
 
@@ -198,7 +206,7 @@ class Quotes extends Component
 
     public function downloadPdf($quoteId)
     {
-        $quote = SalesQuote::where('tenant_id', activeTenantId())
+        $quote = $this->baseDoAutor()
             ->findOrFail($quoteId);
 
         return redirect()->route('invoicing.sales.quotes.pdf', $quote->id);

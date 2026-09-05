@@ -125,6 +125,7 @@
          armazéns já era passada à vista, mas não havia onde o escolher. --}}
     <div class="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
         <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" classe="col-span-2 md:col-span-4" />
             <div class="col-span-2 md:col-span-4">
                 <label class="block text-[11px] font-bold text-gray-500 mb-1 uppercase">{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search"
@@ -238,13 +239,13 @@
                         <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-info-circle mr-1 text-gray-600"></i>{{ __('Estado') }}
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase whitespace-nowrap">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-landmark mr-1 text-emerald-600"></i>{{ __('Portal AGT') }}
                         </th>
                         <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-money-bill mr-1 text-green-600"></i>{{ __('Total') }}
                         </th>
-                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase whitespace-nowrap w-px">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase w-px">
                             <i class="fas fa-cog mr-1 text-gray-600"></i>{{ __('Ações') }}
                         </th>
                     </tr>
@@ -347,7 +348,22 @@
                                         {{ __('PDF/Imprimir') }}
                                     </span>
                                 </a>
+                                <x-pdf-descarregar :url="route('invoicing.sales.invoices.preview', $invoice->id)" />
                                 
+                                {{-- Duplicar: aproveita o trabalho, não a identidade.
+                                     Vale para QUALQUER factura, incluindo as já
+                                     emitidas — copiar o conteúdo de um documento
+                                     fiscal para um novo não lhe toca. O que nunca
+                                     se copia (número, série, hash, ATCUD, datas,
+                                     estado) está no trait DuplicaDocumento. --}}
+                                <a href="{{ route('invoicing.sales.invoices.create', ['duplicar' => $invoice->id]) }}"
+                                   class="group relative p-2 bg-teal-100 hover:bg-teal-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-copy text-teal-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        {{ __('Duplicar para novo documento') }}
+                                    </span>
+                                </a>
+
                                 {{-- Editar: SÓ rascunhos. Um documento fiscal emitido
                                      não pode ser alterado (Decreto 71/25) — rectifica-se
                                      por Nota de Crédito/Débito. --}}
@@ -360,7 +376,42 @@
                                     </span>
                                 </a>
                                 @else
-                                {{-- Rectificação conforme AGT --}}
+                                {{-- Receber. Só quando falta receber alguma coisa: pelo
+                                     SALDO e não pelo nome do estado, que é a regra da casa. --}}
+                                @if(round((float) $invoice->total - (float) $invoice->paid_amount, 2) > 0.01)
+                                {{-- Verde ao lado e o pagamento rapido (modal). Este e o
+                                     caminho longo: abre o recibo com data, referencia e
+                                     observacoes. Cor e icone diferentes de proposito, para
+                                     nao parecerem o mesmo botao duas vezes. --}}
+                                <a href="{{ route('invoicing.receipts.create', ['invoice' => $invoice->id]) }}"
+                                   class="group relative p-2 bg-teal-100 hover:bg-teal-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-receipt text-teal-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        {{ __('Recibo com data e referência') }}
+                                    </span>
+                                </a>
+                                @endif
+
+                                {{-- Rectificação conforme AGT.
+
+                                     UMA FACTURA JÁ INTEIRAMENTE ANULADA NÃO SE
+                                     CREDITA OUTRA VEZ. O botão continua no
+                                     lugar, apagado e a dizer porquê: fazê-lo
+                                     desaparecer leva quem o procura a pensar
+                                     que o sistema o perdeu.
+
+                                     Pelo SALDO por anular e não pelo nome do
+                                     estado — uma factura pode estar creditada
+                                     em parte e continuar a dar para o resto. --}}
+                                @if($invoice->jaTotalmenteCreditada())
+                                <span class="group relative p-2 bg-gray-100 rounded-lg cursor-not-allowed opacity-60"
+                                      aria-disabled="true">
+                                    <i class="fas fa-file-circle-minus text-gray-400"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        {{ __('Já totalmente creditada — não há nada por anular') }}
+                                    </span>
+                                </span>
+                                @else
                                 <a href="{{ route('invoicing.credit-notes.create', ['invoice' => $invoice->id]) }}"
                                    class="group relative p-2 bg-amber-100 hover:bg-amber-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-file-circle-minus text-amber-600 group-hover:text-white transition-colors"></i>
@@ -368,6 +419,7 @@
                                         {{ __('Nota de Crédito (corrigir/anular)') }}
                                     </span>
                                 </a>
+                                @endif
 
                                 <a href="{{ route('invoicing.debit-notes.create', ['invoice' => $invoice->id]) }}"
                                    class="group relative p-2 bg-indigo-100 hover:bg-indigo-600 rounded-lg transition-all duration-200 transform hover:scale-110">
@@ -427,7 +479,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-16 text-center">
+                        <td colspan="8" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center justify-center animate-pulse">
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-file-invoice text-gray-300 text-4xl"></i>

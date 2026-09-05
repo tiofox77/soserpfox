@@ -36,7 +36,7 @@ class EventCreatedNotification extends Notification
             'created_by' => $this->createdBy->name,
             'icon' => 'fa-calendar-plus',
             'color' => 'blue',
-            'url' => route('events.show', $this->event->id),
+            'url' => route('events.calendar'),
         ];
     }
 }

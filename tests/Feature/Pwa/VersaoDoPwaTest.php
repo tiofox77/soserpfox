@@ -23,8 +23,19 @@ class VersaoDoPwaTest extends TenantTestCase
     {
         parent::setUp();
 
-        $this->ficheiro = storage_path('app/pwa-versao.json');
+        // Um contador só deste ensaio. Partilhado, os 26 processos da suite
+        // mexiam-lhe ao mesmo tempo — um apagava-o enquanto outro contava.
+        $this->ficheiro = tempnam(sys_get_temp_dir(), 'pwaver').'.json';
+        config(['pwa.ficheiro_versao' => $this->ficheiro]);
+
         $this->esquecer();
+    }
+
+    protected function tearDown(): void
+    {
+        @unlink($this->ficheiro);
+
+        parent::tearDown();
     }
 
     private function esquecer(): void
@@ -62,19 +73,24 @@ class VersaoDoPwaTest extends TenantTestCase
 
     /**
      * A PROVA: mexer num ficheiro do PWA faz o número subir exactamente uma vez.
+     *
+     * O deploy simulava-se aqui com `touch()` no motor — mudava a DATA. Era o
+     * mecanismo errado (a versão passou a sair dos BYTES, precisamente porque
+     * a data falhou em produção) e, pior, mexia num ficheiro verdadeiro do
+     * PWA com a suite a correr em 26 processos. Agora dá-se a assinatura já
+     * feita: o que aqui se ensaia é o CONTADOR, não o resumo dos ficheiros.
      */
     public function test_mexer_no_motor_sobe_o_numero_uma_vez(): void
     {
-        $motor = public_path('js/pwa-invoicing.js');
-        $this->assertFileExists($motor);
+        $pwa = \Mockery::mock(PwaController::class)->makePartial();
+        $pwa->shouldReceive('buildVersion')->andReturn('antes00000', 'depois0000');
 
-        $antes = $this->pwa()->numeroDeVersao();
+        $antes = $pwa->numeroDeVersao();
 
-        // Uma alteração ao motor, como num deploy.
-        touch($motor, time() + 5);
+        // Uma alteração ao motor, como num deploy: assinatura nova.
         $this->esquecer();
 
-        $depois = $this->pwa()->numeroDeVersao();
+        $depois = $pwa->numeroDeVersao();
 
         $this->assertNotSame($antes, $depois, 'Mexer no motor tem de subir o número.');
         $this->assertSame(
@@ -85,7 +101,7 @@ class VersaoDoPwaTest extends TenantTestCase
 
         // E não volta a subir sem mais nenhuma alteração.
         $this->esquecer();
-        $this->assertSame($depois, $this->pwa()->numeroDeVersao());
+        $this->assertSame($depois, $pwa->numeroDeVersao());
     }
 
     /** A série vem da configuração; o build continua de onde estava. */

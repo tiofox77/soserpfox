@@ -1,33 +1,9 @@
-<div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4"
+{{-- O x-data com o `activeTab` NÃO vive aqui: subiu para a raiz do componente
+     (employees.blade.php). Este modal é inserido por morph e, com o estado no
+     próprio modal, os separadores rebentavam com «activeTab is not defined»
+     durante o morph. Aqui herda-se o activeTab da raiz, que existe sempre. --}}
+<div wire:key="hr-employee-form-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4"
      style="backdrop-filter: blur(4px);"
-     x-data="{ 
-        activeTab: 'personal',
-        init() {
-            // Listener para mudar de tab quando houver erro de validação
-            Livewire.on('switchTab', (event) => {
-                const targetTab = event.tab || event[0]?.tab || 'personal';
-                this.activeTab = targetTab;
-                
-                // Aguardar um momento para a tab mudar, depois destacar campo com erro
-                setTimeout(() => {
-                    // Procurar primeiro campo com erro (classe de validação do Livewire)
-                    const errorInput = document.querySelector('.border-red-500, input:invalid, select:invalid');
-                    if (errorInput) {
-                        // Adicionar animação de shake
-                        errorInput.classList.add('error-field');
-                        // Rolar até o campo
-                        errorInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        // Focar no campo
-                        errorInput.focus();
-                        // Remover classe após animação
-                        setTimeout(() => {
-                            errorInput.classList.remove('error-field');
-                        }, 600);
-                    }
-                }, 100);
-            });
-        }
-     }"
      x-show="true"
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0"

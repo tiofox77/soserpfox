@@ -356,7 +356,9 @@ class UserManagement extends Component
             return;
         }
 
-        if (in_array($this->posPin, ['0000', '1111', '1234', '123456', '000000', '111111'], true)) {
+        // A lista dos óbvios vive num sítio só (PinDeTurno): estava aqui, no
+        // auto-serviço e no comando, e já não eram iguais.
+        if (\App\Support\PinDeTurno::ehObvio($this->posPin)) {
             $this->addError('posPin', 'Escolha um PIN menos óbvio.');
             return;
         }

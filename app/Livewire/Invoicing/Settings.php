@@ -33,6 +33,10 @@ class Settings extends Component
     public $number_format = 'angola';
     public $decimal_places = 2;
     public $price_mask_enabled = true;
+
+    /** Em que papel sai a venda do balcão. O talão por omissão — é o que o
+     *  balcão imprime; a factura A4 é a excepção, para a venda a empresas. */
+    public $pos_formato_impressao = 'talao';
     public $rounding_mode = 'normal';
     
     // Séries (deprecated - agora usa invoicing_series table)
@@ -230,6 +234,9 @@ class Settings extends Component
             'number_format' => 'nullable|string|max:20',
             'decimal_places' => 'nullable|integer|min:0|max:4',
             'price_mask_enabled' => 'boolean',
+            // Dois valores e mais nenhum: isto decide o que sai na
+            // impressora de quem está ao balcão.
+            'pos_formato_impressao' => 'nullable|in:a4,talao',
             'rounding_mode' => 'nullable|string|max:20',
             // Só chaves que existem: o que vem do navegador não escolhe o que
             // se guarda numa coluna que decide portas fechadas.
@@ -272,6 +279,7 @@ class Settings extends Component
             'number_format' => $this->number_format,
             'decimal_places' => $this->decimal_places,
             'price_mask_enabled' => (bool) $this->price_mask_enabled,
+            'pos_formato_impressao' => $this->pos_formato_impressao ?: 'talao',
             'rounding_mode' => $this->rounding_mode,
             'proforma_series' => $this->proforma_series,
             'invoice_series' => $this->invoice_series,

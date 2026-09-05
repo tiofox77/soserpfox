@@ -17,7 +17,13 @@
                 <button wire:click="$toggle('showTables')" class="rounded-xl px-4 py-2.5 text-sm font-black {{ $showTables ? 'bg-orange-600 text-white' : 'bg-slate-100 text-slate-700' }}"><i class="fas fa-chair mr-2"></i>Mesas</button>
                 <button wire:click="$toggle('showOrders')" class="rounded-xl px-4 py-2.5 text-sm font-black {{ $showOrders ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700' }}"><i class="fas fa-receipt mr-2"></i>Comandas <span class="ml-1 rounded-full bg-white/20 px-2">{{ $orders->count() }}</span></button>
                 <button wire:click="openCounterOrder" class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white"><i class="fas fa-bag-shopping mr-2 text-orange-300"></i>Balcão</button>
+                {{-- A venda para fora. A base aceitava estes canais desde o
+                     início e não havia por onde os escolher — um restaurante
+                     que vendesse para fora não tinha onde o registar. --}}
+                <button wire:click="prepararVendaParaFora('takeaway')" class="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-black text-white"><i class="fas fa-bag-shopping mr-2"></i>Take-away</button>
+                <button wire:click="prepararVendaParaFora('delivery')" class="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-black text-white"><i class="fas fa-motorcycle mr-2"></i>Entrega</button>
                 @if(!$restaurantSettings->require_recipe_for_products)<button wire:click="$set('showQuickProduct',true)" class="rounded-xl bg-amber-100 px-4 py-2.5 text-sm font-black text-amber-800"><i class="fas fa-bowl-food mr-2"></i>Prato rápido</button>@endif
+                <button wire:click="$toggle('showEspera')" class="rounded-xl px-4 py-2.5 text-sm font-black {{ $showEspera ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700' }}"><i class="fas fa-hourglass-half mr-2"></i>Fila @if($espera->count())<span class="ml-1 rounded-full bg-white/20 px-2">{{ $espera->count() }}</span>@endif</button>
                 <a href="{{ route('restaurant.floor') }}" class="ml-auto rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"><i class="fas fa-expand mr-2"></i>Mapa da sala</a>
             </div>
 
@@ -65,6 +71,44 @@
                     @empty<p class="py-3 text-sm text-slate-500">Sem comandas abertas.</p>@endforelse
                 </div>
             @endif
+            @if($showEspera)
+                {{-- A fila da porta: quem chegou sem reserva. Sentar abre a
+                     comanda pelo caminho de sempre — toca-se no nome e depois
+                     na mesa. O "foi-se embora" fica registado: é a medida de
+                     quantos clientes se perdem por falta de mesa. --}}
+                <div class="mt-3 border-t border-slate-100 pt-3">
+                    <div class="flex flex-wrap items-end gap-2">
+                        <label class="text-xs font-bold text-slate-500">Nome
+                            <input type="text" wire:model="esperaNome" wire:keydown.enter="chegouParaEspera" placeholder="Quem espera" class="mt-1 block w-44 rounded-xl border-slate-300 text-sm">
+                        </label>
+                        <label class="text-xs font-bold text-slate-500">Telefone
+                            <input type="tel" wire:model="esperaTelefone" placeholder="opcional" class="mt-1 block w-36 rounded-xl border-slate-300 text-sm">
+                        </label>
+                        <label class="text-xs font-bold text-slate-500">Pessoas
+                            <input type="number" min="1" max="100" wire:model="esperaPessoas" class="mt-1 block w-20 rounded-xl border-slate-300 text-sm">
+                        </label>
+                        <button wire:click="chegouParaEspera" class="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-black text-white"><i class="fas fa-plus mr-1"></i>Entrar na fila</button>
+                    </div>
+                    @error(esperaNome)<p class="mt-1 text-xs font-bold text-red-600">{{ $message }}</p>@enderror
+                    <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
+                        @forelse($espera as $pessoa)
+                            <div class="min-w-52 rounded-xl border border-cyan-200 bg-cyan-50 p-3">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <b class="truncate text-slate-900">{{ $pessoa->guest_name }}</b>
+                                    <span class="text-xs font-black tabular-nums {{ $pessoa->minutosDeEspera() >= 20 ? text-red-600 : text-cyan-700 }}">{{ $pessoa->minutosDeEspera() }}m</span>
+                                </div>
+                                <p class="text-xs text-slate-500">{{ $pessoa->guest_count }} pessoa(s)@if($pessoa->phone) · {{ $pessoa->phone }}@endif</p>
+                                <div class="mt-2 grid grid-cols-2 gap-1 text-xs font-black">
+                                    <button wire:click="prepararSentar({{ $pessoa->id }})" class="rounded-lg bg-emerald-600 px-2 py-2 text-white"><i class="fas fa-chair mr-1"></i>Sentar</button>
+                                    <button wire:click="desistiuDaEspera({{ $pessoa->id }})" wire:confirm="{{ $pessoa->guest_name }} foi-se embora?" class="rounded-lg bg-slate-200 px-2 py-2 text-slate-600">Foi-se</button>
+                                </div>
+                            </div>
+                        @empty
+                            <p class="py-2 text-sm text-slate-500">Ninguém à espera.</p>
+                        @endforelse
+                    </div>
+                </div>
+            @endif
         </header>
 
         <div class="grid min-h-[680px] gap-3 xl:grid-cols-[210px_minmax(0,1fr)_400px]">
@@ -105,10 +149,42 @@
             <aside class="fixed inset-x-2 bottom-2 z-40 max-h-[82vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl xl:static xl:z-auto xl:max-h-none xl:shadow-sm" :class="mobileCart ? 'block' : 'hidden xl:block'">
                 <div class="sticky top-0 z-10 border-b border-slate-100 bg-white p-4">
                     <div class="flex items-start justify-between gap-3">
-                        <div>@if($selectedOrder)<p class="text-xs font-black uppercase text-orange-600">{{ $selectedOrder->table?->name ?? 'Venda ao balcão' }}</p><h2 class="text-xl font-black text-slate-900">{{ $selectedOrder->order_number }}</h2><p class="text-xs text-slate-500">{{ $selectedOrder->guest_count }} pessoa(s) · {{ str_replace('_',' ', $selectedOrder->status) }}</p>@else<h2 class="text-xl font-black">Nova venda</h2><p class="text-sm text-slate-500">Escolha uma mesa ou Balcão</p>@endif</div>
+                        <div>@if($selectedOrder)<p class="text-xs font-black uppercase text-orange-600">{{ $selectedOrder->table?->name ?? $selectedOrder->channel_label }}</p><h2 class="text-xl font-black text-slate-900">{{ $selectedOrder->order_number }}</h2><p class="text-xs text-slate-500">{{ $selectedOrder->guest_count }} pessoa(s) · {{ str_replace('_',' ', $selectedOrder->status) }}</p>@else<h2 class="text-xl font-black">Nova venda</h2><p class="text-sm text-slate-500">Escolha uma mesa, Balcão, Take-away ou Entrega</p>@endif</div>
                         <button @click="mobileCart=false" class="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 xl:hidden">×</button>
                     </div>
                 </div>
+
+                @if($selectedOrder && $selectedOrder->paraFora())
+                    {{-- Para onde vai e para quem. Está sempre à vista: é o que
+                         se lê ao telefone quando o cliente liga a perguntar. --}}
+                    <div class="border-b border-slate-200 bg-slate-50 p-4 text-sm">
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            @if($selectedOrder->customer_name)
+                                <span class="font-black text-slate-900"><i class="fas fa-user mr-1.5 text-slate-400"></i>{{ $selectedOrder->customer_name }}</span>
+                            @endif
+                            @if($selectedOrder->customer_phone)
+                                <a href="tel:{{ $selectedOrder->customer_phone }}" class="font-bold text-teal-700 hover:underline"><i class="fas fa-phone mr-1.5"></i>{{ $selectedOrder->customer_phone }}</a>
+                            @endif
+                        </div>
+                        @if($selectedOrder->delivery_address)
+                            <p class="mt-2 leading-relaxed text-slate-600"><i class="fas fa-location-dot mr-1.5 text-slate-400"></i>{{ $selectedOrder->delivery_address }}</p>
+                        @endif
+                        <div class="mt-2 flex items-center justify-between">
+                            @if((float) $selectedOrder->delivery_fee > 0)
+                                <span class="text-xs font-bold text-slate-500">Taxa de entrega: <b class="text-slate-900">{{ number_format($selectedOrder->delivery_fee, 2, ',', '.') }} Kz</b></span>
+                            @else
+                                <span></span>
+                            @endif
+                            @if($selectedOrder->dispatched_at)
+                                <span class="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700"><i class="fas fa-check mr-1"></i>Saiu {{ $selectedOrder->dispatched_at->format('H:i') }}</span>
+                            @else
+                                <button wire:click="despachar" class="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-black text-white hover:bg-teal-800">
+                                    <i class="fas fa-motorcycle mr-1"></i>Saiu para o cliente
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                @endif
 
                 @if($selectedOrder)
                     <div class="divide-y divide-slate-100">
@@ -153,6 +229,67 @@
 
     @include('livewire.restaurant.partials.shift-required-modal')
 
+    {{-- A venda para fora --}}
+    @if($showParaFora)
+        @php($entrega = $canalParaFora === 'delivery')
+        <div class="fixed inset-0 z-[110] grid place-items-center bg-slate-950/75 p-3 backdrop-blur-sm">
+            <section class="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
+                <div class="{{ $entrega ? 'bg-gradient-to-br from-teal-700 to-teal-900' : 'bg-gradient-to-br from-amber-600 to-orange-700' }} p-6 text-white">
+                    <p class="text-xs font-black uppercase tracking-widest text-white/70">Venda para fora</p>
+                    <h2 class="mt-1 text-2xl font-black">
+                        <i class="fas {{ $entrega ? 'fa-motorcycle' : 'fa-bag-shopping' }} mr-2"></i>{{ $entrega ? 'Entrega' : 'Take-away' }}
+                    </h2>
+                    <p class="mt-1 text-sm text-white/80">
+                        {{ $entrega
+                            ? 'Sem morada e telefone a comida não chega a lado nenhum.'
+                            : 'O telefone é como se avisa que está pronto e se encontra o dono do saco.' }}
+                    </p>
+                </div>
+
+                <div class="space-y-4 p-6">
+                    <div>
+                        <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Nome <span class="font-bold normal-case text-slate-400">(opcional)</span></label>
+                        <input type="text" wire:model="paraForaNome" placeholder="Quem levanta ou recebe"
+                               class="w-full rounded-xl border-slate-300 px-4 py-3 text-slate-900 focus:border-slate-900 focus:ring-slate-900">
+                        @error('paraForaNome')<p class="mt-1 text-xs font-bold text-red-600">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Telefone</label>
+                        <input type="tel" wire:model="paraForaTelefone" placeholder="9XX XXX XXX"
+                               class="w-full rounded-xl border-slate-300 px-4 py-3 text-slate-900 focus:border-slate-900 focus:ring-slate-900">
+                        @error('paraForaTelefone')<p class="mt-1 text-xs font-bold text-red-600">{{ $message }}</p>@enderror
+                    </div>
+
+                    @if($entrega)
+                        <div>
+                            <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Morada</label>
+                            <textarea wire:model="paraForaMorada" rows="3" placeholder="Rua, bairro e a referência que o estafeta precisa"
+                                      class="w-full rounded-xl border-slate-300 px-4 py-3 text-slate-900 focus:border-slate-900 focus:ring-slate-900"></textarea>
+                            @error('paraForaMorada')<p class="mt-1 text-xs font-bold text-red-600">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">Taxa de entrega</label>
+                            <x-moeda-input wire:model="paraForaTaxa" placeholder="0,00"
+                                           class="w-full rounded-xl border-slate-300 px-4 py-3 text-right text-lg font-black text-slate-900 focus:border-slate-900 focus:ring-slate-900" />
+                            <p class="mt-1 text-xs text-slate-500">Entra no total da comanda, à parte dos pratos.</p>
+                            @error('paraForaTaxa')<p class="mt-1 text-xs font-bold text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    @endif
+
+                    <div class="flex gap-2 pt-1">
+                        <button wire:click="abrirVendaParaFora" wire:loading.attr="disabled"
+                                class="flex-1 rounded-2xl bg-slate-900 p-4 text-lg font-black text-white hover:bg-slate-800 disabled:opacity-50">
+                            <i class="fas fa-plus mr-2 text-orange-300"></i>Abrir comanda
+                        </button>
+                        <button wire:click="$set('showParaFora',false)" class="rounded-2xl px-5 font-bold text-slate-500 hover:bg-slate-100">Cancelar</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    @endif
+
     @if($showCheckout && $selectedOrder)
         <div class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/75 p-3 backdrop-blur-sm">
             <section class="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
@@ -169,6 +306,7 @@
                 <div class="flex items-center justify-between rounded-xl border-2 p-3 {{abs($this->paymentRemaining)<=.02?'border-emerald-300 bg-emerald-50':($this->paymentRemaining>0?'border-amber-300 bg-amber-50':'border-red-300 bg-red-50')}}"><span class="text-sm font-black {{abs($this->paymentRemaining)<=.02?'text-emerald-800':($this->paymentRemaining>0?'text-amber-800':'text-red-800')}}">{{abs($this->paymentRemaining)<=.02?'✓ Pagamentos somam o total':($this->paymentRemaining>0?'Falta distribuir':'Excede o total')}}</span><b class="{{abs($this->paymentRemaining)<=.02?'text-emerald-700':($this->paymentRemaining>0?'text-amber-700':'text-red-700')}}">{{number_format(abs($this->paymentRemaining),2,',','.')}} Kz</b></div></div>@endif</div>
                 @endif
                 <div class="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><i class="fas fa-circle-check text-xl text-emerald-600"></i><span>Ao confirmar, o documento fiscal será emitido, o valor entrará na Tesouraria e o ticket ficará pronto para imprimir.</span></div>
+                @if($documentType==='FR' && ($restaurantSettings->tips_enabled ?? true))<div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4"><div class="flex items-center justify-between gap-3"><div><b class="text-amber-900"><i class="fas fa-hand-holding-heart mr-1"></i>Gorjeta</b><p class="text-xs text-amber-700">Do pessoal, não da casa: entra na caixa mas não na factura.</p></div><input type="number" min="0" step="50" wire:model.live.debounce.400ms="tipAmount" placeholder="0" class="w-32 rounded-xl border-amber-300 text-right font-black"></div></div>@endif
                 @php($paymentInvalid = $documentType==='FR' && $multiPayment && (count($payments)<2 || abs($this->paymentRemaining)>.02))
                 <button wire:click="checkout" wire:loading.attr="disabled" @disabled($paymentInvalid) class="mt-4 w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-4 text-lg font-black text-white shadow-lg shadow-emerald-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"><span wire:loading.remove wire:target="checkout"><i class="fas fa-cash-register mr-2"></i>Confirmar e emitir {{$documentType}}</span><span wire:loading wire:target="checkout"><i class="fas fa-spinner fa-spin mr-2"></i>A processar...</span></button>
                 <button wire:click="$set('showCheckout',false)" class="mt-2 w-full p-2 text-sm font-bold text-slate-500">Voltar à comanda</button></div>

@@ -113,7 +113,13 @@ class ClientManagement extends Component
         $this->validate();
 
         // Dados base do cliente (invoicing_clients)
+        //
+        // A EMPRESA VAI AQUI. A tabela e partilhada e `tenant_id` nao aceita
+        // nulo: sem esta linha, criar um cliente pelo ecra do salao rebentava
+        // com "Field tenant_id doesnt have a default value" — nunca funcionou.
+        // O modal de marcacao rapida ja a passava; este nao.
         $data = [
+            'tenant_id' => activeTenantId(),
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
@@ -123,7 +129,11 @@ class ClientManagement extends Component
             'province' => $this->province,
             'city' => $this->city,
             'postal_code' => $this->postal_code,
-            'type' => 'particular',
+            // A coluna e um enum('pessoa_fisica','pessoa_juridica'). Escrever
+            // 'particular' dava "Data truncated for column type" e o cliente
+            // simplesmente NAO era criado — nem pelo ecra de clientes nem pelo
+            // modal de marcacao rapida.
+            'type' => 'pessoa_fisica',
             'is_active' => true,
         ];
 

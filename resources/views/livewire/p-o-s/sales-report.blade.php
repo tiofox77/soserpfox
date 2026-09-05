@@ -1,4 +1,4 @@
-<div class="container mx-auto px-4 py-6">
+<div class="container mx-auto px-4 py-6" data-pdf-alvo="relatorio-pos">
     {{-- Header --}}
     <div class="mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg p-4 sm:p-6 text-white">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -17,7 +17,7 @@
                     @endif
                 </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2" data-pdf-fora>
                 <button wire:click="exportExcel" 
                         class="bg-white text-green-600 hover:bg-green-50 px-4 py-2 rounded-xl font-semibold transition-all shadow-lg hover:scale-105 text-sm">
                     <i class="fas fa-file-excel mr-2"></i>Excel
@@ -26,6 +26,22 @@
                         class="bg-white text-red-600 hover:bg-red-50 px-4 py-2 rounded-xl font-semibold transition-all shadow-lg hover:scale-105 text-sm">
                     <i class="fas fa-file-pdf mr-2"></i>PDF
                 </button>
+                {{--
+                    O PDF DO ECRÃ. O botão ao lado manda o servidor desenhar o
+                    relatório outra vez, e o que sai não é o que está à frente
+                    de quem carregou: o desenho é outro, e os filtros de módulo
+                    e de operador nem sequer viajam no pedido.
+
+                    Este fotografa o relatório como ele está. O que se vê é o
+                    que sai. A barra de botões fica de fora pelo data-pdf-fora.
+                --}}
+                <x-pdf-descarregar
+                    elemento="[data-pdf-alvo='relatorio-pos']"
+                    nome="Relatorio de Vendas POS"
+                    titulo="{{ __('Descarregar o relatório como está no ecrã') }}"
+                    classe="bg-white text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-xl font-semibold transition-all shadow-lg hover:scale-105 text-sm">
+                    {{ __('PDF do ecrã') }}
+                </x-pdf-descarregar>
             </div>
         </div>
     </div>
@@ -212,7 +228,23 @@
                             @endif
                         </td>
                         <td class="px-4 py-3">
-                            <span class="font-bold text-gray-900">{{ $doc->numero }}</span>
+                            @php
+                                // A numeração INTERNA primeiro — é a que a casa
+                                // reconhece e procura; a da AGT a seguir, que é
+                                // o número fiscal. Mesma ordem da lista de
+                                // facturas (decisão de 22/08).
+                                $interna = \App\Models\Invoicing\SalesInvoice::comporNumeroInterno(
+                                    $doc->serie_prefixo ?? null,
+                                    $doc->serie_interna ?? null,
+                                    $doc->numero
+                                );
+                            @endphp
+                            <span class="font-bold text-gray-900">{{ $interna }}</span>
+                            @if($interna !== $doc->numero)
+                                <p class="text-[11px] text-gray-500" title="{{ __('Número na AGT') }}">
+                                    <i class="fas fa-landmark mr-0.5 text-gray-400"></i>{{ $doc->numero }}
+                                </p>
+                            @endif
                             @if($ehNota && $doc->factura_origem)
                                 {{-- Uma nota de crédito sem a factura que corrige não se
                                      consegue conferir. --}}

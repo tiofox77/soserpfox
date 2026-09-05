@@ -20,6 +20,13 @@ use Illuminate\Support\Facades\DB;
 #[Title('Nova Proforma de Venda')]
 class ProformaCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
+    // Duplicar documentos: ver o contrato no trait.
+    use \App\Livewire\Concerns\DuplicaDocumento;
+
+
     public $proformaId = null;
     public $isEdit = false;
 
@@ -188,6 +195,18 @@ class ProformaCreate extends Component
             $this->isEdit = true;
             $this->proformaId = $id;
             $this->loadProforma($id);
+        } elseif ($duplicar = $this->idParaDuplicar()) {
+            // DUPLICAR: o mesmo carregamento da edição, sem ser uma edição.
+            // O que fica de fora está explicado no trait DuplicaDocumento.
+            $origem = \App\Models\Invoicing\SalesProforma::where("tenant_id", activeTenantId())->findOrFail($duplicar);
+
+            $this->loadProforma($duplicar);
+            $this->marcarComoDuplicado($origem->proforma_number);
+
+            // As datas são de HOJE: um duplicado não herda o prazo de um
+            // documento que já expirou.
+            $this->proforma_date = now()->format("Y-m-d");
+            $this->valid_until = \App\Helpers\DocumentConfigHelper::getProformaValidUntil()->format("Y-m-d");
         } else {
             // Restaurar cliente da sessão se existir
             $sessionKey = 'proforma_client_' . activeTenantId() . '_' . auth()->id();
@@ -214,6 +233,7 @@ class ProformaCreate extends Component
     {
         $proforma = SalesProforma::where('tenant_id', activeTenantId())
             ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $this->client_id = $proforma->client_id;
@@ -698,6 +718,7 @@ class ProformaCreate extends Component
         try {
             if ($this->isEdit) {
                 $proforma = SalesProforma::where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($this->proformaId);
                 
                 if ($proforma->status === 'converted') {
@@ -837,7 +858,7 @@ class ProformaCreate extends Component
             if (DocumentConfigHelper::shouldAutoPrint()) {
                 // Abrir PDF automaticamente em nova aba
                 $this->dispatch('auto-print-pdf', [
-                    'url' => route('invoicing.sales.proforma.pdf', $proforma->id)
+                    'url' => route('invoicing.sales.proformas.pdf', $proforma->id)
                 ]);
             }
             

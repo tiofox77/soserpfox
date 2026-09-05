@@ -33,12 +33,29 @@ class InteligenciaDoAgenteTest extends TenantTestCase
     {
         $this->getJson('/api/agent/v1/analytics/overview?dias=30', $this->headers())
             ->assertOk()->assertJsonStructure(['empresas' => ['total', 'activas'], 'utilizadores', 'erros', 'planos']);
+
+        // O ENDPOINT ORDENA POR ÚLTIMO ACESSO, e o utilizador do ensaio nunca
+        // entrou — nunca seria o primeiro da lista.
+        //
+        // Isto exigia `utilizadores.0.id` sem carimbar acesso nenhum. Passava
+        // enquanto a base de testes estava quase vazia e falhava assim que ela
+        // acumulava utilizadores de corridas anteriores: 16 mil, e o primeiro
+        // era outro qualquer. Estava a medir a limpeza da base, não o produto.
+        //
+        // Carimbar o acesso torna a ordenação determinista E passa a exercer o
+        // que o endpoint promete: o mais recente vem à frente.
+        $this->user->forceFill(['last_login_at' => now()])->save();
+
         $this->getJson('/api/agent/v1/analytics/users?estado=activo', $this->headers())
             ->assertOk()->assertJsonPath('utilizadores.0.id', $this->user->id);
     }
 
     public function test_filtros_de_empresa_sao_aplicados_na_query(): void
     {
+        // A pesquisa tem de apanhar ESTA empresa e não uma homónima deixada por
+        // outra corrida: o nome do TenantTestCase é sempre "Empresa de Teste".
+        $this->tenant->forceFill(['name' => 'Empresa Única ' . $this->tenant->id])->save();
+
         $this->getJson('/api/agent/v1/tenants?pesquisa=' . urlencode($this->tenant->name) . '&activa=1', $this->headers())
             ->assertOk()->assertJsonPath('empresas.0.id', $this->tenant->id);
     }

@@ -311,9 +311,26 @@ class SignatureService
      */
     public function signComplete($document): array
     {
-        // 1. Gerar hash SAFT
-        $hash = $this->generateHash($document);
-        
+        // 1. O HASH DE UM DOCUMENTO EMITIDO NÃO SE RECALCULA.
+        //
+        // Isto assinava sempre de novo, e era um defeito caro. O hash sai do
+        // `hash_previous` guardado; se o documento foi emitido por um caminho
+        // que não gravou esse campo (era o caso do ModuleInvoiceService:
+        // restaurante, hotel, salão, oficina e as vendas repostas pelo PWA),
+        // a segunda passagem calculava um hash DIFERENTE — com o anterior
+        // vazio — e sobrepunha o correcto.
+        //
+        // O momento em que isso acontecia era a transmissão à AGT. A cadeia
+        // chegava intacta à véspera e partia-se ao ser declarada.
+        //
+        // Um documento assinado é imutável: reassinar só o JWS é legítimo (a
+        // chave pode ter rodado), reassinar o hash nunca é.
+        $hash = $document->hash ?: $document->saft_hash;
+
+        if (empty($hash)) {
+            $hash = $this->generateHash($document);
+        }
+
         if ($hash) {
             $document->hash = $hash;
             $document->saft_hash = $hash;

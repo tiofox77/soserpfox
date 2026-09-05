@@ -8,9 +8,13 @@ use App\Traits\BelongsToTenant;
 use App\Traits\HasAGTSignature;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\NumeracaoInternaEAgt;
 
 class SalesInvoice extends Model
 {
+    // O número nas duas séries: a interna e a da AGT.
+    use NumeracaoInternaEAgt;
+
     use SoftDeletes, BelongsToTenant, HasAGTSignature;
 
     protected $table = 'invoicing_sales_invoices';
@@ -75,6 +79,8 @@ class SalesInvoice extends Model
     ];
 
     protected $casts = [
+        // Sem isto vinha texto cru e o ->format() do ecrã rebentava.
+        'agt_submitted_at' => 'datetime',
         'invoice_date' => 'date',
         'due_date' => 'date',
         'delivery_date' => 'date',
@@ -238,6 +244,69 @@ class SalesInvoice extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    /**
+     * Lança um pagamento (ou a sua anulação) nesta factura.
+     *
+     * POR DIFERENÇA, como num livro de contas — e não recalculando o total a
+     * partir dos recibos. A diferença importa muito: há facturas antigas com o
+     * pagamento registado por outro caminho (o balcão, o modal de antes de
+     * haver recibos, uma importação) e um recibo pequeno por cima. Recalcular
+     * do zero apagava-lhes o pagamento verdadeiro — em produção seriam 6,8
+     * milhões de Kz numa só empresa.
+     *
+     * @param  float  $diferenca  positiva ao receber, negativa ao anular
+     */
+    public function aplicarPagamento(float $diferenca): void
+    {
+        if (abs($diferenca) < 0.005) {
+            return;
+        }
+
+        $this->paid_amount = max(0, round((float) $this->paid_amount + $diferenca, 2));
+
+        $this->acertarEstadoPeloPago();
+    }
+
+    /**
+     * Põe o estado de acordo com o que já está pago.
+     *
+     * Não inventa estados: se não há nada pago, uma factura `sent` continua
+     * `sent`, e só se desfaz o `paid`/`partially_paid` que isto próprio pôs.
+     */
+    public function acertarEstadoPeloPago(): void
+    {
+        $pago  = round((float) $this->paid_amount, 2);
+        $total = round((float) $this->total, 2);
+
+        if ($pago > 0 && $pago >= $total - 0.01) {
+            $this->status = 'paid';
+        } elseif ($pago > 0.01) {
+            $this->status = 'partially_paid';
+        } elseif (in_array($this->status, ['paid', 'partially_paid'], true)) {
+            $this->status = 'sent';
+        }
+
+        $this->save();
+    }
+
+    /**
+     * O que os recibos e adiantamentos desta factura explicam.
+     *
+     * Serve para diagnóstico e para o acerto do passado, que só ACRESCENTA o
+     * que ficou por registar — nunca tira.
+     */
+    public function pagamentoExplicadoPorDocumentos(): float
+    {
+        $recibos = \App\Models\Invoicing\Receipt::where('invoice_id', $this->id)
+            ->where('status', 'issued')
+            ->sum('amount_paid');
+
+        $adiantado = \App\Models\Invoicing\AdvanceUsage::where('invoice_id', $this->id)
+            ->where('invoice_type', 'SalesInvoice')
+            ->sum('amount_used');
+
+        return round((float) $recibos + (float) $adiantado, 2);
+    }
     public function items()
     {
         return $this->hasMany(SalesInvoiceItem::class, 'sales_invoice_id')->orderBy('order');
@@ -257,6 +326,69 @@ class SalesInvoice extends Model
     public function creditNotes()
     {
         return $this->hasMany(CreditNote::class, 'invoice_id');
+    }
+
+    /**
+     * Traz o já-creditado na mesma consulta, para as listas.
+     *
+     * Sem isto, perguntar `porCreditar()` linha a linha numa página de 15
+     * facturas são 15 consultas. Com isto é uma.
+     */
+    public function scopeComCreditado($query)
+    {
+        return $query->withSum([
+            'creditNotes as creditado_total' => fn ($q) => $q->whereNotIn('status', ['draft', 'cancelled']),
+        ], 'total');
+    }
+
+    /**
+     * Quanto desta factura ainda se pode anular por nota de crédito.
+     *
+     * FONTE ÚNICA. A pergunta «esta factura ainda dá para creditar?» aparece em
+     * quatro sítios — o botão da lista, o arranque do ecrã da nota, o selector
+     * de facturas e o travão de gravação — e tem de ter sempre a mesma
+     * resposta. Enquanto a soma vivia dentro do ecrã da nota, a lista continuou
+     * a convidar a creditar uma factura já inteiramente creditada e só se
+     * descobria no fim, depois de a nota estar toda preenchida.
+     *
+     * Conta o que TODAS as notas já tiraram, não só a que se está a fazer:
+     * duas notas parciais passam o total sem que nenhuma delas, sozinha, o
+     * pareça. E conta pelo avesso — fica de fora o que ainda não existe
+     * (rascunho) e o que já não existe (cancelada) — para que um estado novo
+     * não passe a contar sem ninguém dar por isso.
+     */
+    public function porCreditar(?int $exceptoNota = null): float
+    {
+        /*
+         * A nota que se está a editar não se conta a si própria — senão a
+         * factura que ela anulou por inteiro parece sem saldo para a corrigir.
+         *
+         * E a pergunta é se a soma VEIO na consulta, não se ela é diferente de
+         * zero: o `withSum` devolve NULL quando a factura não tem nota nenhuma,
+         * que é o caso da esmagadora maioria. Perguntar `!== null` mandava
+         * justamente essas de volta à base, uma a uma — o N+1 que o `scope`
+         * existe para evitar.
+         */
+        $jaAnulado = ($exceptoNota === null && array_key_exists('creditado_total', $this->getAttributes()))
+            ? (float) $this->creditado_total
+            : CreditNote::where('invoice_id', $this->id)
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                ->when($exceptoNota, fn ($q) => $q->where('id', '!=', $exceptoNota))
+                ->sum('total');
+
+        return round((float) $this->total - (float) $jaAnulado, 2);
+    }
+
+    /**
+     * Já não há nada para anular.
+     *
+     * O cêntimo de tolerância é o mesmo que o travão da gravação usa: uma
+     * factura de 2.550.698,08 anulada por 2.550.698,08 não pode ficar com
+     * «0,004 por creditar» por causa de um arredondamento.
+     */
+    public function jaTotalmenteCreditada(?int $exceptoNota = null): bool
+    {
+        return $this->porCreditar($exceptoNota) <= 0.01;
     }
 
     public function debitNotes()
@@ -282,36 +414,6 @@ class SalesInvoice extends Model
     // série ligada. Para as listagens e o preview mostramos as DUAS: a interna
     // primeiro, por ser a que a empresa reconhece e procura, e a da AGT a
     // seguir. O número fiscal a valer continua a ser o `invoice_number`.
-
-    /** Parte sequencial do número (ex.: "000001"), comum às duas séries. */
-    public function numeroSequencia(): ?string
-    {
-        return preg_match('~/(\d+)\s*$~', (string) $this->invoice_number, $m) ? $m[1] : null;
-    }
-
-    /** Número na SÉRIE INTERNA gravada, ex.: "FT SOSFT/000001". */
-    public function numeroInterno(): string
-    {
-        $serie = $this->series;
-        $seq = $this->numeroSequencia();
-        if (!$serie || !$serie->series_code || !$seq) {
-            return (string) $this->invoice_number;
-        }
-
-        return trim(($serie->prefix ?: '') . ' ' . $serie->series_code) . '/' . $seq;
-    }
-
-    /** Número na SÉRIE DA AGT, ex.: "FT FT0426S72207N/000001"; null se a série não está registada. */
-    public function numeroAgt(): ?string
-    {
-        $serie = $this->series;
-        $seq = $this->numeroSequencia();
-        if (!$serie || empty($serie->agt_series_id) || !$seq) {
-            return null;
-        }
-
-        return trim(($serie->prefix ?: '') . ' ' . $serie->agt_series_id) . '/' . $seq;
-    }
 
     // Métodos
     public function calculateTotals()

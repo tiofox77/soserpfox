@@ -149,6 +149,52 @@
          muda o período. Dentro do <script> ficariam presos ao primeiro render. --}}
     <script type="application/json" id="dadosPainel">@json($graficos ?? [])</script>
 
+    {{-- E os do gráfico de vendas pela mesma razão: dentro do <script> do
+         @push ficavam presos ao primeiro desenho, e trocar de período
+         mudava os números dos cartões sem mudar a linha do gráfico. --}}
+    <script type="application/json" id="dadosVendas">@json($chartData ?? [])</script>
+
+    {{-- Os textos e os valores para exportar. O desenho vive em
+         /js/painel-facturacao.js, que corre sempre — um script em linha
+         não volta a correr quando se chega aqui pela barra lateral. --}}
+    @php
+        // O @json de uma linha não aguenta um array com várias linhas: monta-se
+        // aqui e emite-se lá em baixo, como manda a regra da casa.
+        // O formato de números segue a língua do utilizador. A definição
+        // vivia no partial dos gráficos; aqui resolve-se no sítio.
+        $__intl = ['pt' => 'pt-PT', 'en' => 'en-GB', 'fr' => 'fr-FR'][app()->getLocale()] ?? 'pt-PT';
+
+        $__textosPainel = [
+            'intl' => $__intl,
+            't' => [
+                'vendasAoa'    => __('Vendas (AOA)'),
+                'vendas'       => __('Vendas'),
+                'compras'      => __('Compras'),
+                'titulo'       => __('Dashboard de Faturação'),
+                'geradoEm'     => __('Gerado em: :data'),
+                'facturado'    => __('Faturação do Mês'),
+                'recebido'     => __('Recebimentos'),
+                'pendente'     => __('Valores Pendentes'),
+                'vencido'      => __('Valores Vencidos'),
+                'data'         => __('Data'),
+                'valorAoa'     => __('Valor (AOA)'),
+                'estatisticas' => __('Estatísticas'),
+            ],
+            'valores' => [
+                'facturado'    => number_format($stats['total_invoiced'], 2),
+                'recebido'     => number_format($stats['total_received'], 2),
+                'pendente'     => number_format($stats['total_pending'], 2),
+                'vencido'      => number_format($stats['total_overdue'], 2),
+                'facturadoCru' => number_format($stats['total_invoiced'], 2, '.', ''),
+                'recebidoCru'  => number_format($stats['total_received'], 2, '.', ''),
+                'pendenteCru'  => number_format($stats['total_pending'], 2, '.', ''),
+                'vencidoCru'   => number_format($stats['total_overdue'], 2, '.', ''),
+            ],
+        ];
+    @endphp
+
+    <script type="application/json" id="textosPainel">@json($__textosPainel)</script>
+
     {{-- Gráficos do período escolhido --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div class="bg-white rounded-2xl shadow-lg p-5">
@@ -269,10 +315,14 @@
 
         {{-- Status de Faturas --}}
         <div class="bg-white rounded-xl shadow-lg p-6 lg:col-span-2">
-            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            {{-- Titulo diferente do grafico la de cima de proposito: aqui sao
+                 CONTAGENS deste mes, la em cima sao VALORES do periodo
+                 escolhido. Com o mesmo nome parecia que um dos dois mentia. --}}
+            <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center">
                 <i class="fas fa-chart-pie mr-2 text-blue-600"></i>
-                {{ __('Estado das Faturas') }}
+                {{ __('Faturas Deste Mês') }}
             </h3>
+            <p class="text-xs text-gray-500 mb-4">{{ __('Quantas estão em cada estado') }}</p>
             
             <div class="grid grid-cols-2 gap-4">
                 <div class="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border-2 border-green-200">
@@ -309,14 +359,22 @@
             {{ __('Comparação Ano a Ano') }}
         </h3>
         
+        {{-- A cor do crescimento tem tres estados: zero nao e uma queda, e
+             estava a sair vermelho com seta para baixo. --}}
+        @php
+            $__crescimento = $stats['year_growth'];
+            $__cor = $__crescimento > 0 ? 'green' : ($__crescimento < 0 ? 'red' : 'gray');
+            $__seta = $__crescimento > 0 ? 'arrow-up' : ($__crescimento < 0 ? 'arrow-down' : 'minus');
+        @endphp
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-sm font-medium text-blue-700">{{ __('Faturação :ano', ['ano' => now()->year]) }}</p>
                     <i class="fas fa-calendar-check text-blue-600"></i>
                 </div>
-                <p class="text-2xl font-bold text-blue-900">{{ number_format($stats['total_invoiced'], 2) }}</p>
-                <p class="text-xs text-blue-600 mt-1">AOA</p>
+                <p class="text-2xl font-bold text-blue-900">{{ number_format($stats['year_invoiced'], 2) }}</p>
+                <p class="text-xs text-blue-600 mt-1">AOA ({{ __('até hoje') }})</p>
             </div>
 
             <div class="p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-gray-200">
@@ -324,17 +382,17 @@
                     <p class="text-sm font-medium text-gray-700">{{ __('Faturação :ano', ['ano' => now()->year - 1]) }}</p>
                     <i class="fas fa-calendar text-gray-600"></i>
                 </div>
-                <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['total_invoiced_last_month'] * 12, 2) }}</p>
-                <p class="text-xs text-gray-600 mt-1">AOA ({{ __('estimado') }})</p>
+                <p class="text-2xl font-bold text-gray-900">{{ number_format($stats['year_invoiced_previous'], 2) }}</p>
+                <p class="text-xs text-gray-600 mt-1">AOA ({{ __('mesmo período') }})</p>
             </div>
 
-            <div class="p-4 bg-gradient-to-br from-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-50 to-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-100 rounded-lg border-2 border-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-200">
+            <div class="p-4 bg-gradient-to-br from-{{ $__cor }}-50 to-{{ $__cor }}-100 rounded-lg border-2 border-{{ $__cor }}-200">
                 <div class="flex items-center justify-between mb-2">
-                    <p class="text-sm font-medium text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-700">{{ __('Crescimento') }}</p>
-                    <i class="fas fa-{{ $stats['growth'] > 0 ? 'arrow-up' : 'arrow-down' }} text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-600"></i>
+                    <p class="text-sm font-medium text-{{ $__cor }}-700">{{ __('Crescimento') }}</p>
+                    <i class="fas fa-{{ $__seta }} text-{{ $__cor }}-600"></i>
                 </div>
-                <p class="text-2xl font-bold text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-900">{{ number_format(abs($stats['growth']), 1) }}%</p>
-                <p class="text-xs text-{{ $stats['growth'] > 0 ? 'green' : 'red' }}-600 mt-1">{{ __('vs mês anterior') }}</p>
+                <p class="text-2xl font-bold text-{{ $__cor }}-900">{{ number_format(abs($__crescimento), 1) }}%</p>
+                <p class="text-xs text-{{ $__cor }}-600 mt-1">{{ __('vs ano anterior') }}</p>
             </div>
         </div>
     </div>
@@ -358,15 +416,19 @@
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                     <div class="flex-1">
                         <p class="text-sm font-bold text-gray-800">{{ $invoice->invoice_number }}</p>
-                        <p class="text-xs text-gray-600">{{ $invoice->client->name }}</p>
+                        <p class="text-xs text-gray-600">{{ $invoice->client?->name ?: __('Consumidor Final') }}</p>
+                        {{-- Nem toda a factura por cobrar tem data de vencimento; sem
+                             esta guarda a pagina inteira ia abaixo com erro 500. --}}
+                        @if($invoice->due_date)
                         <p class="text-xs text-gray-500">
                             <i class="fas fa-calendar mr-1"></i>
                             {{ __('Venc.: :data', ['data' => $invoice->due_date->format('d/m/Y')]) }}
                         </p>
+                        @endif
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-bold text-gray-800">{{ number_format($invoice->total, 2) }} AOA</p>
-                        @if($invoice->due_date->isPast())
+                        @if($invoice->due_date && $invoice->due_date->isPast())
                             <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">{{ __('Vencida') }}</span>
                         @else
                             <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full">{{ __('Pendente') }}</span>
@@ -463,289 +525,6 @@
 </div>
 
 {{-- Scripts --}}
-@push('scripts')
-{{-- Chart.js LOCAL, não de CDN: a versão on-premise corre sem internet e o
-     painel ficava com um quadrado branco no lugar do gráfico. --}}
-<script src="{{ asset('vendor/js/chart.min.js') }}"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-@php
-    // O Intl do navegador nao percebe 'pt'/'en'/'fr' a seco tao bem como a
-    // etiqueta completa — e sobretudo, sem isto o grafico ficava com meses e
-    // separadores decimais portugueses numa pagina inglesa. O nome do mes vem
-    // do navegador, nao do nosso dicionario, por isso tem de ser aqui.
-    $__intl = ['pt' => 'pt-PT', 'en' => 'en-GB', 'fr' => 'fr-FR'][app()->getLocale()] ?? 'pt-PT';
-@endphp
-<script>
-const SOS_INTL = @json($__intl);
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Dados do gráfico
-    const chartData = @json($chartData);
 
-    // Preparar dados para o Chart.js
-    const labels = chartData.map(item => {
-        const date = new Date(item.date);
-        return date.toLocaleDateString(SOS_INTL, { day: '2-digit', month: 'short' });
-    });
-    
-    const data = chartData.map(item => parseFloat(item.total));
-    
-    // Criar gráfico
-    const ctx = document.getElementById('salesChart');
-    const salesChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: @json(__('Vendas (AOA)')),
-                data: data,
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 5,
-                pointHoverRadius: 8,
-                pointBackgroundColor: 'rgb(59, 130, 246)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat(SOS_INTL, {
-                                    style: 'decimal',
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                }).format(context.parsed.y) + ' AOA';
-                            }
-                            return label;
-                        }
-                    },
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 12,
-                    borderColor: 'rgba(59, 130, 246, 0.8)',
-                    borderWidth: 2,
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return new Intl.NumberFormat(SOS_INTL, {
-                                notation: 'compact',
-                                compactDisplay: 'short'
-                            }).format(value) + ' AOA';
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)',
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false,
-                    }
-                }
-            }
-        }
-    });
-});
-
-// Função para exportar para PDF
-async function exportToPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4');
-    
-    // Título
-    doc.setFontSize(18);
-    doc.setTextColor(59, 130, 246);
-    doc.text(@json(__('Dashboard de Faturação')), 15, 20);
-
-    // Data
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    const today = new Date().toLocaleDateString(SOS_INTL);
-    doc.text(@json(__('Gerado em: :data')).replace(':data', today), 15, 28);
-    
-    // Capturar estatísticas
-    const stats = {
-        faturado: '{{ number_format($stats["total_invoiced"], 2) }} AOA',
-        recebido: '{{ number_format($stats["total_received"], 2) }} AOA',
-        pendente: '{{ number_format($stats["total_pending"], 2) }} AOA',
-        vencido: '{{ number_format($stats["total_overdue"], 2) }} AOA'
-    };
-    
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    let y = 40;
-    
-    doc.text(@json(__('Faturação do Mês')) + ': ' + stats.faturado, 15, y);
-    y += 8;
-    doc.text(@json(__('Recebimentos')) + ': ' + stats.recebido, 15, y);
-    y += 8;
-    doc.text(@json(__('Valores Pendentes')) + ': ' + stats.pendente, 15, y);
-    y += 8;
-    doc.text(@json(__('Valores Vencidos')) + ': ' + stats.vencido, 15, y);
-    y += 15;
-    
-    // Capturar o gráfico
-    const canvas = document.getElementById('salesChart');
-    const imgData = canvas.toDataURL('image/png');
-    doc.addImage(imgData, 'PNG', 15, y, 180, 90);
-    
-    // Salvar
-    doc.save('dashboard-faturacao.pdf');
-    
-    // Notificação
-    alert('✅ ' + @json(__('Relatório PDF gerado com sucesso!')));
-}
-
-// Função para exportar para Excel (CSV)
-function exportToExcel() {
-    const chartData = @json($chartData);
-    
-    // Criar CSV
-    let csv = @json(__('Data')) + ',' + @json(__('Valor (AOA)')) + '\n';
-    chartData.forEach(item => {
-        const date = new Date(item.date).toLocaleDateString(SOS_INTL);
-        csv += `${date},${item.total}\n`;
-    });
-
-    // Adicionar estatísticas
-    // Sem separador de milhares: o number_format() por omissao mete uma
-    // virgula ("1,234.56") dentro de um ficheiro separado por virgulas, e a
-    // folha de calculo abria a linha com uma coluna a mais. Numero cru e
-    // tambem o que a folha de calculo quer para poder somar.
-    csv += '\n' + @json(__('Estatísticas')) + '\n';
-    csv += @json(__('Faturação do Mês')) + ',{{ number_format($stats["total_invoiced"], 2, '.', '') }}\n';
-    csv += @json(__('Recebimentos')) + ',{{ number_format($stats["total_received"], 2, '.', '') }}\n';
-    csv += @json(__('Valores Pendentes')) + ',{{ number_format($stats["total_pending"], 2, '.', '') }}\n';
-    csv += @json(__('Valores Vencidos')) + ',{{ number_format($stats["total_overdue"], 2, '.', '') }}\n';
-    
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'dashboard-faturacao.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Notificação
-    alert('✅ Relatório Excel exportado com sucesso!');
-}
-
-// Listener do Livewire para atualizar gráfico
-document.addEventListener('livewire:initialized', () => {
-    Livewire.on('chartUpdated', () => {
-        location.reload();
-    });
-});
-
-// ── Gráficos do período ─────────────────────────────────────────────────
-(function () {
-    let feitos = [];
-
-    const kzCurto = v => Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(1) + 'M'
-                       : Math.abs(v) >= 1e3 ? Math.round(v / 1e3) + 'k'
-                       : v;
-    const kz = v => new Intl.NumberFormat(SOS_INTL, { maximumFractionDigits: 0 }).format(v) + ' Kz';
-
-    function desenharPainel() {
-        // Destruir antes de redesenhar: sem isto o Chart.js queixa-se de
-        // "Canvas is already in use" ao mudar de período.
-        feitos.forEach(c => { try { c.destroy(); } catch (e) {} });
-        feitos = [];
-
-        const no = document.getElementById('dadosPainel');
-        if (!no || !window.Chart) return;
-
-        let d;
-        try { d = JSON.parse(no.textContent); } catch (e) { return; }
-        if (!d || !d.estados) return;
-
-        const novo = (id, cfg) => {
-            const el = document.getElementById(id);
-            if (el) feitos.push(new Chart(el, cfg));
-        };
-
-        const rosca = (id, fonte) => {
-            if (!fonte || !fonte.valores || !fonte.valores.length) return;
-            novo(id, {
-                type: 'doughnut',
-                data: { labels: fonte.rotulos, datasets: [{ data: fonte.valores, backgroundColor: fonte.cores, borderWidth: 0 }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '58%',
-                    plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10, font: { size: 10 } } },
-                        tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + kz(c.parsed) } },
-                    },
-                },
-            });
-        };
-
-        rosca('pEstados', d.estados);
-        rosca('pMeios', d.meiosPagamento);
-
-        if (d.topProdutos && d.topProdutos.valores.length) {
-            novo('pProdutos', {
-                type: 'bar',
-                data: { labels: d.topProdutos.rotulos, datasets: [{ data: d.topProdutos.valores, backgroundColor: d.topProdutos.cores }] },
-                options: {
-                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-                    scales: { x: { beginAtZero: true, ticks: { callback: kzCurto } } },
-                    plugins: { legend: { display: false },
-                        tooltip: { callbacks: { label: c => ' ' + kz(c.parsed.x) } } },
-                },
-            });
-        }
-
-        if (d.vendasCompras && d.vendasCompras.rotulos.length) {
-            novo('pVendasCompras', {
-                type: 'bar',
-                data: {
-                    labels: d.vendasCompras.rotulos,
-                    datasets: [
-                        { label: @json(__('Vendas')), data: d.vendasCompras.vendas, backgroundColor: '#4f46e5' },
-                        { label: @json(__('Compras')), data: d.vendasCompras.compras, backgroundColor: '#ea580c' },
-                    ],
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, ticks: { callback: kzCurto } } },
-                    plugins: { legend: { position: 'bottom' },
-                        tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + kz(c.parsed.y) } } },
-                },
-            });
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', desenharPainel);
-
-    // Trocar de período (semana/mês/ano) troca o HTML: redesenhar a seguir.
-    document.addEventListener('livewire:initialized', () => {
-        Livewire.hook('morph.updated', () => requestAnimationFrame(desenharPainel));
-    });
-})();
-</script>
-@endpush

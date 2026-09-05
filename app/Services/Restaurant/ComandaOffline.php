@@ -8,6 +8,7 @@ use App\Models\Restaurant\OrderEvent;
 use App\Models\Restaurant\OrderItem;
 use App\Models\Restaurant\RestaurantSettings;
 use App\Models\Treasury\PaymentMethod;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -52,6 +53,32 @@ class ComandaOffline
      * @return array{order: Order, avisos: array<int,string>, invoice: mixed}
      */
     public function repor(array $dados, int $tenantId, ?int $userId): array
+    {
+        // UMA COMANDA DE CADA VEZ — POR local_uuid.
+        //
+        // Descoberto pelo ensaio de carga: o retry de um aparelho pode chegar
+        // DUAS VEZES AO MESMO TEMPO (o pedido original ainda em curso quando o
+        // aparelho o repete). As protecções daqui são todas «vê se já existe,
+        // senão cria» — perfeitas em série, corrida em paralelo: os dois
+        // passavam no «não existe», um criava, e o outro rebentava com 1062
+        // no envio à cozinha. O índice único salvou os dados; o 500 não — um
+        // aparelho que recebe 500 repete para sempre.
+        //
+        // O GET_LOCK serializa só os pedidos DO MESMO local_uuid: o gémeo
+        // espera uns milissegundos, e depois encontra tudo `jaExiste` e
+        // devolve a mesma comanda. Comandas diferentes não se atrasam nada.
+        $tranca = 'comanda-'.$tenantId.'-'.(string) $dados['local_uuid'];
+
+        DB::select('SELECT GET_LOCK(?, 15)', [$tranca]);
+
+        try {
+            return $this->reporTrancado($dados, $tenantId, $userId);
+        } finally {
+            DB::select('SELECT RELEASE_LOCK(?)', [$tranca]);
+        }
+    }
+
+    private function reporTrancado(array $dados, int $tenantId, ?int $userId): array
     {
         $avisos = [];
         $comanda = $this->abrir($dados, $tenantId, $userId, $avisos);

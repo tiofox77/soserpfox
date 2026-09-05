@@ -316,6 +316,14 @@ class Reservation extends Model
 
     public function calculateTotals()
     {
+        // AS NOITES PRIMEIRO. Isto corre no `saving`, e o `creating` que as
+        // calcula só corre DEPOIS: numa reserva criada por código sem passar
+        // `nights` — a que entra pelo KiandaStay, por exemplo — o subtotal
+        // saía a zero e a estadia ficava gravada como se não custasse nada.
+        if (! $this->nights && $this->check_in_date && $this->check_out_date) {
+            $this->nights = Carbon::parse($this->check_in_date)->diffInDays(Carbon::parse($this->check_out_date));
+        }
+
         // Calcular subtotal (quarto × noites)
         $this->subtotal = $this->room_rate * $this->nights;
         
@@ -504,10 +512,44 @@ class Reservation extends Model
             }
         }
 
+        // O SITE TEM DE SABER. Uma reserva vinda do KiandaStay que a casa
+        // anula aqui continuava, do lado de lá, a ocupar o quarto — e o site
+        // deixava de o vender a quem quer que fosse.
+        $this->avisarOCanalExterno($reason);
+
         return $this->invoices()
             ->where('status', '!=', 'cancelled')
             ->where('invoice_status', '!=', 'A')
             ->get();
+    }
+
+    /**
+     * Devolve ao canal de origem o cancelamento feito aqui.
+     *
+     * Nunca deita a anulação abaixo: se o site estiver em baixo, a reserva
+     * fica anulada na mesma e o erro fica no registo da ligação. Recusar o
+     * cancelamento por causa do site seria dar o problema dele a esta casa.
+     */
+    private function avisarOCanalExterno($motivo = null): void
+    {
+        if ($this->external_source !== 'kiandastay' || ! $this->external_id) {
+            return;
+        }
+
+        try {
+            $ligacao = \App\Models\Hotel\LigacaoKiandaStay::withoutGlobalScopes()
+                ->where('tenant_id', $this->tenant_id)
+                ->first();
+
+            if ($ligacao && $ligacao->aReceber()) {
+                \App\Services\Hotel\KiandaStay::para($ligacao)->cancelar($this, $motivo);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('[KiandaStay] não foi possível cancelar no site', [
+                'reserva' => $this->id,
+                'erro'    => $e->getMessage(),
+            ]);
+        }
     }
 
     public function confirm()

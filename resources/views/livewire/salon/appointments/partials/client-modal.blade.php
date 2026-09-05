@@ -91,14 +91,9 @@
                             </label>
                             <select wire:model="quickClientCountry" 
                                     class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                                <option value="AO">Angola (AO)</option>
-                                <option value="PT">Portugal (PT)</option>
-                                <option value="BR">Brasil (BR)</option>
-                                <option value="MZ">Moçambique (MZ)</option>
-                                <option value="CV">Cabo Verde (CV)</option>
-                                <option value="ST">São Tomé e Príncipe (ST)</option>
-                                <option value="GW">Guiné-Bissau (GW)</option>
-                                <option value="TL">Timor-Leste (TL)</option>
+                                @foreach(\App\Support\Geografia::paises() as $__c => $__n)
+                                    <option value="{{ $__c }}">{{ $__n }} ({{ $__c }})</option>
+                                @endforeach
                             </select>
                         </div>
                     </div>

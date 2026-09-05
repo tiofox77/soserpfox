@@ -54,13 +54,15 @@
         <i class="fas fa-lock text-red-500"></i>
         <div class="flex-1 min-w-0">
             <p class="text-xs font-bold text-red-800">{{ __('Turno fechado') }}</p>
-            <p class="text-[11px] text-red-600">{{ __('Sem turno aberto as comandas não sobem. Abra-o no POS.') }}</p>
+            <p class="text-[11px] text-red-600">{{ __('Sem turno aberto as comandas não sobem.') }}</p>
         </div>
-        @if(\App\Support\MenuDoPwa::podeVer('pos'))
-            <a href="{{ route('invoicing.offline.pos') }}" class="shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">
-                {{ __('Abrir turno') }}
-            </a>
-        @endif
+        {{-- ABRE AQUI, e não noutro ecrã.
+             Mandava para o POS de balcão: com a sala cheia, ninguém faz essa
+             viagem — tiravam-se as comandas na mesma, o servidor recusava-as
+             por falta de turno, e a comida já tinha saído. --}}
+        <button @click="openOpenShiftModal()" class="shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl">
+            {{ __('Abrir turno') }}
+        </button>
     </div>
 
     {{-- ================================================================
@@ -83,6 +85,17 @@
             <button @click="abrirBalcao()" :disabled="!turno.open"
                     class="shrink-0 h-12 px-4 rounded-2xl bg-slate-900 text-white text-sm font-bold shadow disabled:opacity-40 disabled:cursor-not-allowed">
                 <i class="fas fa-bag-shopping mr-1.5 text-orange-300"></i>{{ __('Balcão') }}
+            </button>
+
+            {{-- O CADEADO DO TURNO, o mesmo do POS de balcão: verde aberto,
+                 vermelho fechado, e toca-se para abrir ou fechar. Quem está na
+                 sala tem de poder abrir a caixa sem sair daqui. --}}
+            <button @click="manageShift()"
+                    :class="turno.open ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'"
+                    class="shrink-0 h-12 px-3 rounded-2xl text-[10px] font-bold flex flex-col items-center justify-center transition"
+                    title="{{ __('Gerir turno') }}">
+                <i :class="turno.open ? 'fas fa-lock-open' : 'fas fa-triangle-exclamation'" class="text-sm"></i>
+                <span x-text="turno.open ? __('Turno') : __('S/ turno')"></span>
             </button>
         </div>
 
@@ -180,14 +193,38 @@
             </template>
         </div>
 
-        {{-- Sala por montar --}}
+        {{-- Sala por montar.
+
+             DUAS CAUSAS, DUAS MENSAGENS. Isto dizia sempre "Sem mesas
+             sincronizadas" — mesmo com as mesas todas no aparelho, quando o
+             que estava vazio era a sala ou a zona escolhida. Mandava
+             sincronizar outra vez, o que não resolvia nada, e fazia parecer
+             uma avaria de sincronização o que era uma questão de escolha. --}}
         <div x-show="pronto && !mesas.length && !comandasSemMesa.length" x-cloak class="text-center py-16 text-slate-400">
             <i class="fas fa-chair text-5xl mb-3 block opacity-40"></i>
-            <p class="text-sm font-medium">{{ __('Sem mesas sincronizadas') }}</p>
-            <p class="text-xs mt-1">{{ __('Monte a sala em Restaurante → Salas e sincronize.') }}</p>
-            <button @click="window.SosPwa.sync(true)" class="mt-4 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">
-                <i class="fas fa-rotate mr-1"></i>{{ __('Sincronizar') }}
-            </button>
+
+            <template x-if="todasAsMesas.length">
+                <div>
+                    <p class="text-sm font-medium">{{ __('Esta sala não tem mesas') }}</p>
+                    <p class="text-xs mt-1" x-text="zonaId
+                        ? '{{ __('A zona escolhida está vazia — veja as outras zonas.') }}'
+                        : '{{ __('As mesas estão noutra sala — escolha-a acima.') }}'"></p>
+                    <button @click="zonaId = null" x-show="zonaId"
+                            class="mt-4 text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold">
+                        <i class="fas fa-layer-group mr-1"></i>{{ __('Ver a sala toda') }}
+                    </button>
+                </div>
+            </template>
+
+            <template x-if="!todasAsMesas.length">
+                <div>
+                    <p class="text-sm font-medium">{{ __('Sem mesas sincronizadas') }}</p>
+                    <p class="text-xs mt-1">{{ __('Monte a sala em Restaurante → Salas e sincronize.') }}</p>
+                    <button @click="window.SosPwa.sync(true)" class="mt-4 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">
+                        <i class="fas fa-rotate mr-1"></i>{{ __('Sincronizar') }}
+                    </button>
+                </div>
+            </template>
         </div>
     </section>
 
@@ -485,6 +522,10 @@
         </section>
     </div>
 
+    {{-- Os modais do turno: os MESMOS do POS de balcão, não uma segunda
+         versão deles. Ver resources/views/partials/pwa-turno.blade.php --}}
+    @include('partials.pwa-turno')
+
     </div>{{-- fim de !semModulo --}}
 </div>
 
@@ -500,7 +541,17 @@ function posRestaurante() {
         salas: [], zonas: [], mesas: [], todasAsMesas: [],
         salaId: null, zonaId: null,
         definicoes: {},
-        turno: { open: false },
+
+        // O TURNO É O MESMO DO POS DE BALCÃO, e vem do mesmo sítio:
+        // public/js/pwa-turno.js. Antes o restaurante só sabia LER o estado do
+        // turno e mandava o empregado ao outro ecrã para o abrir — uma viagem
+        // que ninguém faz com a sala cheia, e as comandas saíam na mesma para
+        // serem recusadas depois, com a comida já servida.
+        ...TurnoDoPwa(),
+
+        // O ecrã fala em `turno`; o motor partilhado fala em `shift`. Um
+        // alias, e não uma segunda cópia: assim continuam a ser a mesma coisa.
+        get turno() { return this.shift; },
 
         todosOsPratos: [],
         pesquisa: '', categoria: null, limite: 40,
@@ -526,6 +577,7 @@ function posRestaurante() {
                 return;
             }
 
+            await this.iniciarTurno();
             await this.carregarTudo();
             this.pronto = true;
 
@@ -569,13 +621,21 @@ function posRestaurante() {
             this.definicoes = await r.definicoes();
             this.salas = await r.salas();
 
+            // A SALA POR OMISSÃO É UMA QUE TENHA MESAS, e não a primeira da
+            // lista. Numa empresa com mais do que uma sala, a primeira por
+            // ordem pode estar vazia — e o empregado abria o PWA num salão
+            // sem mesa nenhuma, com as mesas todas no aparelho, na sala do
+            // lado. Foi o que aconteceu a testar num Android.
             if (!this.salaId && this.salas.length) {
-                this.salaId = this.salas[0].id;
+                const todas = await r.mesas();
+                const comMesas = this.salas.find((s) => todas.some((m) => m.venue_id === s.id));
+
+                this.salaId = (comMesas || this.salas[0]).id;
             }
 
             this.zonas = await r.zonas(this.salaId);
             this.todosOsPratos = await r.pratos();
-            this.turno = (await window.SosPwa.db.meta.get('shift'))?.value || { open: false };
+            this.shift = (await window.SosPwa.getShift()) || { open: false };
             // Os métodos de pagamento vêm na sincronização geral e ficam no
             // aparelho: o fecho de uma comanda precisa do ID do método para
             // lançar o recebimento na caixa certa.

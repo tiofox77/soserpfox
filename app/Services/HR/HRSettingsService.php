@@ -67,7 +67,7 @@ class HRSettingsService
      */
     public function getChristmasBonusPercentage(): float
     {
-        return HRSetting::get('christmas_bonus_percentage', 100) / 100;
+        return HRSetting::get('christmas_subsidy_percentage', 50) / 100;
     }
 
     /**
@@ -145,7 +145,7 @@ class HRSettingsService
      */
     public function getByCategory(string $category): array
     {
-        $settings = HRSetting::where('tenant_id', tenant('id'))
+        $settings = HRSetting::where('tenant_id', activeTenantId())
             ->where('category', $category)
             ->where('is_active', true)
             ->orderBy('display_order')

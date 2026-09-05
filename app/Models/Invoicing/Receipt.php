@@ -9,9 +9,13 @@ use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Traits\NumeracaoInternaEAgt;
 
 class Receipt extends Model
 {
+    // O número nas duas séries: a interna e a da AGT.
+    use NumeracaoInternaEAgt;
+
     use BelongsToTenant, SoftDeletes;
 
     protected $table = 'invoicing_receipts';
@@ -50,6 +54,8 @@ class Receipt extends Model
     ];
 
     protected $casts = [
+        // Sem isto vinha texto cru e o ->format() do ecrã rebentava.
+        'agt_submitted_at' => 'datetime',
         'payment_date' => 'date',
         'amount_paid' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
@@ -163,11 +169,39 @@ class Receipt extends Model
             }
         });
 
+        // NASCER, MUDAR E MORRER. Só havia o `created`, e punha apenas o
+        // ESTADO: um recibo feito pelo ecrã dos recibos não mexia no valor da
+        // factura, e um recibo corrigido ou anulado deixava lá dinheiro que já
+        // não existe.
         static::created(function ($receipt) {
-            // Atualizar status da fatura se houver
-            if ($receipt->invoice_id && $receipt->type === 'sale') {
-                $receipt->updateInvoiceStatus();
+            $receipt->lancarNaFactura($receipt->documentoPago(), $receipt->valorQueConta());
+        });
+
+        static::deleted(function ($receipt) {
+            $receipt->lancarNaFactura($receipt->documentoPago(), -$receipt->valorQueConta());
+        });
+
+        static::updated(function ($receipt) {
+            $facturaAntes = $receipt->type === 'purchase'
+                ? $receipt->getOriginal('purchase_invoice_id')
+                : $receipt->getOriginal('invoice_id');
+
+            $antes = $receipt->valorQueConta(
+                $receipt->getOriginal('status'),
+                $receipt->getOriginal('amount_paid')
+            );
+
+            $agora = $receipt->valorQueConta();
+
+            // A factura mudou: tira-se tudo da antiga e põe-se na nova.
+            if ($facturaAntes != $receipt->documentoPago()) {
+                $receipt->lancarNaFactura($facturaAntes, -$antes);
+                $receipt->lancarNaFactura($receipt->documentoPago(), $agora);
+
+                return;
             }
+
+            $receipt->lancarNaFactura($receipt->documentoPago(), $agora - $antes);
         });
     }
 
@@ -205,33 +239,57 @@ class Receipt extends Model
         return sprintf('%s/%s/%04d', $prefix, $year, $nextNumber);
     }
 
-    // Atualizar status da fatura baseado nos pagamentos
+    /**
+     * Quanto é que este recibo conta como dinheiro recebido.
+     *
+     * Um recibo anulado conta zero. Os argumentos servem para comparar com o
+     * que ele valia ANTES de ser alterado.
+     */
+    public function valorQueConta(?string $estado = null, $valor = null): float
+    {
+        $estado = $estado ?? $this->status;
+        $valor  = $valor ?? $this->amount_paid;
+
+        return $estado === 'issued' ? round((float) $valor, 2) : 0.0;
+    }
+
+    /** A factura que este recibo paga — de venda ou de compra. */
+    public function documentoPago()
+    {
+        return $this->type === 'purchase' ? $this->purchase_invoice_id : $this->invoice_id;
+    }
+
+    /**
+     * Lança uma diferença na factura a que este recibo pertence.
+     *
+     * Cada tipo na SUA coluna: `invoice_id` é a factura de venda e
+     * `purchase_invoice_id` a de compra. Tratar só as vendas deixava o
+     * pagamento a fornecedores sem ninguém a marcá-lo.
+     */
+    public function lancarNaFactura($documentoId, float $diferenca): void
+    {
+        if (! $documentoId || abs($diferenca) < 0.005) {
+            return;
+        }
+
+        if ($this->type === 'purchase') {
+            \App\Models\Invoicing\PurchaseInvoice::withoutGlobalScopes()
+                ->find($documentoId)?->aplicarPagamento($diferenca);
+
+            return;
+        }
+
+        SalesInvoice::withoutGlobalScopes()->find($documentoId)?->aplicarPagamento($diferenca);
+    }
+
+    /** Compatibilidade: quem chamava isto queria pôr a factura a par. */
     public function updateInvoiceStatus()
     {
         if (!$this->invoice_id || $this->type !== 'sale') {
             return;
         }
 
-        $invoice = SalesInvoice::find($this->invoice_id);
-        if (!$invoice) {
-            return;
-        }
-
-        // Somar todos os recibos dessa fatura
-        $totalPaid = self::where('invoice_id', $this->invoice_id)
-            ->where('status', 'issued')
-            ->sum('amount_paid');
-
-        // Atualizar status da fatura
-        if ($totalPaid >= $invoice->total) {
-            $invoice->status = 'paid';
-        } elseif ($totalPaid > 0) {
-            $invoice->status = 'partially_paid';
-        } else {
-            $invoice->status = 'pending';
-        }
-
-        $invoice->save();
+        SalesInvoice::withoutGlobalScopes()->find($this->invoice_id)?->acertarEstadoPeloPago();
     }
 
     // Accessors

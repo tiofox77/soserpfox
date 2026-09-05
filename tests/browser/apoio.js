@@ -15,6 +15,8 @@ export const CREDENCIAIS = {
     email: 'bancada@pwa.local',
     password: 'bancada-pwa-2026',
     pin: '4321',
+    // O caixa sem direitos de gestão (bancada:pwa). Nunca entra com rede.
+    caixa: { email: 'caixa@pwa.local', pin: '7391' },
 };
 
 /** Entra no sistema. */

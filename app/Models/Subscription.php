@@ -15,7 +15,17 @@ class Subscription extends Model
         'plan_id',
         'status',
         'billing_cycle',
+        // Como foi acordada — a renovação repete o acordo (ver migração
+        // subscricao_a_medida).
+        'com_oferta',
+        'dias_personalizados',
         'amount',
+        'preco_por_utilizador',
+        'utilizadores_cobrados',
+        // Tecto de documentos emitidos. NULL = sem limite. Copia-se do plano
+        // quando a subscrição nasce, para que uma mudança de política hoje
+        // não reescreva o que se prometeu ontem.
+        'max_documentos',
         'trial_ends_at',
         'current_period_start',
         'current_period_end',
@@ -106,10 +116,32 @@ class Subscription extends Model
         ]);
     }
 
+    /**
+     * O fim do período seguinte, a repetir o ACORDO desta subscrição.
+     *
+     * Dias à medida ganham ao ciclo; e a oferta do anual só entra se foi
+     * acordada. Sem isto, uma empresa fechada «sem oferta» ganhava os dois
+     * meses na primeira renovação, à socapa — e a fechada a 364 dias voltava
+     * aos 14 meses.
+     */
+    public function fimDoPeriodoSeguinte(\Carbon\Carbon $inicio): \Carbon\Carbon
+    {
+        if ((int) $this->dias_personalizados > 0) {
+            // Até ao fim do N-ésimo dia, como no acordo inicial.
+            return $inicio->copy()->addDays((int) $this->dias_personalizados)->endOfDay();
+        }
+
+        return \App\Support\CicloDeFacturacao::fim(
+            $inicio,
+            $this->billing_cycle,
+            $this->com_oferta ?? true
+        );
+    }
+
     public function renew()
     {
         $periodStart = ($this->current_period_end ?? now())->copy();
-        $periodEnd = \App\Support\CicloDeFacturacao::fim($periodStart, $this->billing_cycle);
+        $periodEnd = $this->fimDoPeriodoSeguinte($periodStart);
 
         $this->update([
             'status' => 'active',

@@ -82,6 +82,36 @@
         </div>
     </div>
 
+    {{-- ============ GRÁFICOS ============
+         Num hotel a sazonalidade É o negócio. Este painel mostrava só o mês
+         corrente — e sem os doze meses não se distingue um mau mês de uma
+         época baixa, que são decisões opostas. --}}
+    <div class="grid gap-6 lg:grid-cols-2 mb-6">
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Receita dos últimos 12 meses')"
+                   :subtitulo="__('Estadias fechadas, por mês de saída')"
+                   id="grHotMensal"
+                   :altura="250"
+                   :vazio="!array_sum($receitaMensal['valores'])" />
+
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Ocupação dos últimos 30 dias')"
+                   :subtitulo="__('Quartos ocupados por noite')"
+                   id="grHotOcupacao"
+                   :altura="240"
+                   :vazio="!array_sum($ocupacaoDias['valores'])" />
+
+        <x-grafico :titulo="__('Estado dos quartos')"
+                   :subtitulo="__('Agora')"
+                   id="grHotEstados"
+                   :vazio="empty($estadoQuartos['valores'])" />
+
+        <x-grafico :titulo="__('Receita por tipo de quarto')"
+                   :subtitulo="__('Últimos 6 meses')"
+                   id="grHotTipos"
+                   :vazio="empty($porTipoDeQuarto['valores'])" />
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Coluna Esquerda: Check-ins e Check-outs --}}
         <div class="lg:col-span-2 space-y-6">
@@ -235,8 +265,8 @@
                     <h3 class="font-bold text-gray-900">Receita do Mês</h3>
                     <i class="fas fa-chart-line text-green-600"></i>
                 </div>
-                <p class="text-3xl font-bold text-green-600">{{ number_format($monthlyRevenue, 2, ',', '.') }} Kz</p>
-                <p class="text-sm text-gray-500 mt-1">{{ now()->format('F Y') }}</p>
+                <p class="text-3xl font-bold text-green-600">{{ valorProtegido($monthlyRevenue, 'hotel.reports.view') }} Kz</p>
+                <p class="text-sm text-gray-500 mt-1">{{ now()->locale(app()->getLocale())->translatedFormat('F Y') }}</p>
             </div>
 
             {{-- Hóspedes Atuais --}}
@@ -316,3 +346,55 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+    @include('partials.graficos')
+    <script>
+    sosDesenhar(function () {
+        const mensal   = @json($receitaMensal);
+        const ocupacao = @json($ocupacaoDias);
+        const estados  = @json($estadoQuartos);
+        const tipos    = @json($porTipoDeQuarto);
+
+        sosLinha('grHotMensal', mensal.etiquetas, mensal.valores, { cor: SOS_CORES[0] });
+        sosBarras('grHotOcupacao', ocupacao.etiquetas, ocupacao.valores, { cor: SOS_CORES[2], moeda: false });
+
+        // Cores de estado: "manutenção" e "bloqueado" têm de saltar à vista —
+        // são quartos que não vendem, e é essa a leitura que interessa.
+        const coresEstado = {
+            available: SOS_ESTADOS.bom, occupied: SOS_CORES[0], reserved: SOS_CORES[6],
+            cleaning: SOS_ESTADOS.neutro, maintenance: SOS_ESTADOS.aviso, blocked: SOS_ESTADOS.critico,
+        };
+        sosRosca('grHotEstados', estados.etiquetas, estados.valores, {
+            moeda: false,
+            cores: (estados.chaves || []).map((k) => coresEstado[k] || SOS_ESTADOS.neutro),
+        });
+
+        const el = document.getElementById('grHotTipos');
+        if (el) {
+            sosGrafico('grHotTipos', {
+                type: 'bar',
+                data: {
+                    labels: tipos.etiquetas,
+                    datasets: [{
+                        data: tipos.valores,
+                        backgroundColor: SOS_CORES[3],
+                        borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+                        borderSkipped: false,
+                        maxBarThickness: 26,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => sosMoeda(c.parsed.x) } } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(100,116,139,.12)' }, border: { display: false } },
+                        y: { grid: { display: false }, border: { display: false } },
+                    },
+                },
+            });
+        }
+    });
+    </script>
+@endpush

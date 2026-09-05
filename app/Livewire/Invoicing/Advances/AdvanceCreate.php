@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\DB;
 #[Title('Novo Adiantamento')]
 class AdvanceCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
     public $advanceId = null;
     public $isEdit = false;
     
@@ -50,7 +53,7 @@ class AdvanceCreate extends Component
 
     public function loadAdvance()
     {
-        $advance = Advance::where('tenant_id', activeTenantId())->findOrFail($this->advanceId);
+        $advance = Advance::where('tenant_id', activeTenantId())->tap(fn ($q) => $this->escoparAoAutor($q))->findOrFail($this->advanceId);
         
         $this->client_id = $advance->client_id;
         $this->payment_date = $advance->payment_date->format('Y-m-d');
@@ -73,7 +76,7 @@ class AdvanceCreate extends Component
         DB::beginTransaction();
         try {
             if ($this->isEdit) {
-                $advance = Advance::where('tenant_id', activeTenantId())->findOrFail($this->advanceId);
+                $advance = Advance::where('tenant_id', activeTenantId())->tap(fn ($q) => $this->escoparAoAutor($q))->findOrFail($this->advanceId);
                 
                 if ($advance->used_amount > 0) {
                     throw new \Exception('Não é possível editar adiantamento já utilizado.');

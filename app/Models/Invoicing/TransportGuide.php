@@ -27,6 +27,8 @@ class TransportGuide extends Model
     ];
 
     protected $casts = [
+        // Sem isto vinha texto cru e o ->format() do ecrã rebentava.
+        'agt_submitted_at' => 'datetime',
         'issue_date' => 'date',
         'system_entry_date' => 'datetime',
         'loading_datetime' => 'datetime',

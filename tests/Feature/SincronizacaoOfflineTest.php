@@ -207,30 +207,33 @@ class SincronizacaoOfflineTest extends TenantTestCase
     }
 
     /**
-     * Um cliente sem NIF é recusado ali, com uma mensagem — e não com um 500.
+     * UM CLIENTE SEM NIF ENTRA — este ensaio dizia o contrário, e era o defeito
+     * escrito como regra.
      *
-     * A coluna é NOT NULL e o ecrã online exige o NIF há muito, mas a API
-     * offline dizia 'nullable'. O cliente entrava na fila e rebentava contra a
-     * base de dados a cada tentativa; cinco depois ficava marcado como erro
-     * permanente, e com ele qualquer venda que o referenciasse.
-     *
-     * 422 e não 500: o PWA sabe distinguir um pedido mal formado (que não vale
-     * a pena repetir) de uma falha do servidor (que vale).
+     * A versão anterior exigia 422 «porque a coluna é NOT NULL». Deixou de
+     * ser: a coluna é nula, e o próprio controlador grava NULL nos NIF
+     * genéricos. O 'required' ficou para trás e fazia isto ao balcão: o
+     * cliente rápido do POS (só com o nome, como a maioria) era recusado, o
+     * aparelho marcava-o como recusado de vez, e a venda que o referenciava
+     * ficava «a reagendar» cinco vezes e morria na fila. A queixa foi
+     * literal: «cliente offline não sincroniza e a factura sai como
+     * consumidor final».
      */
-    public function test_um_cliente_sem_nif_e_recusado_com_mensagem(): void
+    public function test_um_cliente_sem_nif_entra(): void
     {
-        $this->postJson('/api/v1/invoicing/clients', [
+        $r = $this->postJson('/api/v1/invoicing/clients', [
             'local_uuid' => 'sem-nif-1',
             'name'       => 'Cliente de Balcão',
             'type'       => 'pessoa_fisica',
-        ])->assertStatus(422)->assertJsonValidationErrors('nif');
+        ])->assertStatus(201);
 
-        $this->assertSame(
-            0,
-            \App\Models\Client::where('tenant_id', $this->tenant->id)
-                ->where('name', 'Cliente de Balcão')
-                ->count()
-        );
+        $cliente = \App\Models\Client::where('tenant_id', $this->tenant->id)
+            ->where('name', 'Cliente de Balcão')
+            ->first();
+
+        $this->assertNotNull($cliente, 'o cliente sem contribuinte tem de ficar criado');
+        $this->assertSame($cliente->id, $r->json('id'));
+        $this->assertNull($cliente->nif, 'sem contribuinte é NULL — não um marcador nem um 422');
     }
 
     // ==================== a fila do PWA ====================

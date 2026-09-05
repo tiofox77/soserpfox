@@ -8,10 +8,15 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class TransportGuideController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function pdf($id)
     {
         $guide = TransportGuide::with(['items', 'client', 'invoice'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $tenant = auth()->user()?->tenant;

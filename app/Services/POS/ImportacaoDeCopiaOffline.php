@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 class ImportacaoDeCopiaOffline
 {
     public const FORMATO = 'soserp.pwa.copia';
-    public const VERSAO  = 1;
+    public const VERSAO  = 2;
 
     /**
      * @return array{
@@ -46,6 +46,7 @@ class ImportacaoDeCopiaOffline
             'falhadas'    => 0,
             'clientes'    => 0,
             'rascunhos'   => 0,
+            'comandas'    => 0,
             'ignoradas'   => 0,
             'erros'       => [],
             'detalhes'    => [],
@@ -64,15 +65,33 @@ class ImportacaoDeCopiaOffline
             $this->importarVenda($carga, $tenantId, $userId, $resumo);
         }
 
-        // Facturas, proformas e notas de crédito por finalizar.
-        //
-        // Estas NÃO entram na cadeia AGT — e é essa a razão de poderem ser
-        // importadas sem risco. Entram como estão no dispositivo: rascunho,
-        // sem número e sem hash. O número AGT e o encadeamento só acontecem
-        // quando alguém as finaliza no módulo de facturação, exactamente como
-        // acontece quando o dispositivo sincroniza pelo caminho normal.
+        // Usa o mesmo fluxo da sincronização: FT/FR são emitidas no servidor;
+        // proformas mantêm o estado definido pelo controlador. O UUID evita
+        // uma segunda emissão quando a cópia é importada novamente.
         foreach ($this->operacoes($copia, 'create_draft') as $carga) {
             $this->importarRascunho($carga, $tenantId, $resumo);
+        }
+
+        foreach (collect($this->operacoes($copia, 'sync_restaurant_order'))->unique('local_uuid') as $carga) {
+            try {
+                if ((int) activeTenantId() !== $tenantId || !\App\Models\Tenant::find($tenantId)?->hasModule('restaurant')) {
+                    throw new \RuntimeException('A empresa activa precisa do módulo Restaurante.');
+                }
+                if (empty($carga['venue_id']) || !isset($carga['items'])) {
+                    throw new \RuntimeException('Esta cópia não contém os dados completos da comanda. Exporte novamente no aparelho.');
+                }
+                $request = \Illuminate\Http\Request::create('/api/v1/restaurant/offline/comanda', 'POST', $carga);
+                $response = app(\App\Http\Controllers\Api\Restaurant\ComandaOfflineController::class)
+                    ->store($request, app(\App\Services\Restaurant\ComandaOffline::class));
+                $body = $response->getData(true);
+                if (!$response->isSuccessful() || empty($body['success'])) {
+                    throw new \RuntimeException($body['error'] ?? 'Não foi possível recuperar a comanda.');
+                }
+                $resumo['comandas']++;
+            } catch (\Throwable $e) {
+                $resumo['falhadas']++;
+                $resumo['erros'][] = 'Comanda '.($carga['local_uuid'] ?? '?').': '.$e->getMessage();
+            }
         }
 
         // Os turnos não se importam: um turno aberto há três dias não se
@@ -129,6 +148,7 @@ class ImportacaoDeCopiaOffline
             'vendas'    => count($this->operacoes($copia, 'create_pos_sale')),
             'clientes'  => count($this->operacoes($copia, 'create_client')),
             'rascunhos' => count($this->operacoes($copia, 'create_draft')),
+            'comandas' => count(collect($this->operacoes($copia, 'sync_restaurant_order'))->unique('local_uuid')),
             'turnos'    => count($this->operacoes($copia, 'open_pos_shift'))
                 + count($this->operacoes($copia, 'close_pos_shift')),
             'gerado_em'  => $copia['gerado_em'] ?? null,
@@ -262,7 +282,12 @@ class ImportacaoDeCopiaOffline
                 );
             }
 
-            $resumo['rascunhos']++;
+            $corpo = json_decode($resposta->getContent(), true);
+            if (!empty($corpo['duplicated'])) {
+                $resumo['ja_existiam']++;
+            } else {
+                $resumo['rascunhos']++;
+            }
         } catch (\Throwable $e) {
             $resumo['falhadas']++;
             $resumo['erros'][] = strtoupper($carga['doc_type'] ?? '?') . ' '

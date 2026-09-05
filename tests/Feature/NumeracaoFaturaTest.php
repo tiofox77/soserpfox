@@ -24,6 +24,12 @@ class NumeracaoFaturaTest extends TenantTestCase
             'series_code'   => 'SOSFT' . strtoupper(substr(uniqid(), -4)),
             'next_number'   => 1,
             'is_active'     => true,
+            // Uma série REGISTADA só se usa no ambiente em que foi registada —
+            // é o que impede uma empresa em produção de emitir com o código de
+            // série da homologação. Aqui carimba-se o ambiente da empresa em
+            // vez de o presumir, para o ensaio continuar honesto se o valor
+            // por omissão mudar.
+            'agt_environment' => \App\Models\Invoicing\InvoicingSettings::forTenant($this->tenant->id)->agt_environment,
         ], $over));
     }
 

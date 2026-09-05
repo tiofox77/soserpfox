@@ -8,6 +8,7 @@ use App\Models\Hotel\RoomType;
 use App\Models\Hotel\Guest;
 use App\Models\Hotel\Reservation;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class Dashboard extends Component
 {
@@ -145,6 +146,117 @@ class Dashboard extends Component
             'monthlyRevenue',
             'upcomingArrivals',
             'roomsMap'
-        ))->layout('layouts.app');
+        ) + [
+            'receitaMensal'  => $this->receitaPorMes(),
+            'ocupacaoDias'   => $this->ocupacaoPorDia(),
+            'porTipoDeQuarto' => $this->receitaPorTipoDeQuarto(),
+            'estadoQuartos'  => $this->quartosPorEstado($roomsByStatus),
+        ])->layout('layouts.app');
+    }
+
+    /**
+     * A receita dos últimos 12 meses.
+     *
+     * O painel mostrava só o mês corrente. Num hotel a sazonalidade é o
+     * negócio — sem os doze meses não se distingue um mau mês de uma época
+     * baixa, e são decisões opostas.
+     */
+    private function receitaPorMes(): array
+    {
+        $desde = now()->subMonths(11)->startOfMonth();
+
+        $porMes = Reservation::forTenant()
+            ->where('status', 'checked_out')
+            ->where('check_out_date', '>=', $desde)
+            ->groupBy('mes')
+            ->selectRaw("DATE_FORMAT(check_out_date, '%Y-%m') as mes, SUM(total) as total")
+            ->pluck('total', 'mes');
+
+        $etiquetas = [];
+        $valores = [];
+
+        for ($m = 0; $m < 12; $m++) {
+            $data = $desde->copy()->addMonths($m);
+
+            $etiquetas[] = $data->translatedFormat('M/y');
+            $valores[] = (float) ($porMes[$data->format('Y-m')] ?? 0);
+        }
+
+        return ['etiquetas' => $etiquetas, 'valores' => $valores];
+    }
+
+    /**
+     * Quantos quartos estiveram ocupados em cada um dos últimos 30 dias.
+     *
+     * Conta-se por NOITE e não por reserva: uma reserva de cinco noites ocupa
+     * cinco dias, e contá-la uma vez no dia da chegada dava uma ocupação que
+     * parecia um serrote — picos nos dias de check-in e vazio no meio.
+     */
+    private function ocupacaoPorDia(): array
+    {
+        $dias = 30;
+        $desde = today()->subDays($dias - 1);
+
+        $reservas = Reservation::forTenant()
+            ->whereIn('status', ['checked_in', 'checked_out', 'confirmed'])
+            ->where('check_out_date', '>=', $desde)
+            ->where('check_in_date', '<=', today())
+            ->get(['check_in_date', 'check_out_date']);
+
+        $etiquetas = [];
+        $valores = [];
+
+        for ($d = 0; $d < $dias; $d++) {
+            $data = $desde->copy()->addDays($d);
+
+            $etiquetas[] = $data->format('d/m');
+            $valores[] = $reservas->filter(function ($r) use ($data) {
+                // A noite de saída não conta: quem sai de manhã liberta o
+                // quarto nesse dia.
+                return $r->check_in_date <= $data && $r->check_out_date > $data;
+            })->count();
+        }
+
+        return ['etiquetas' => $etiquetas, 'valores' => $valores];
+    }
+
+    /** Quanto rende cada tipo de quarto — decide onde investir. */
+    private function receitaPorTipoDeQuarto(): array
+    {
+        $linhas = DB::table('hotel_reservations as r')
+            ->join('hotel_rooms as q', 'q.id', '=', 'r.room_id')
+            ->leftJoin('hotel_room_types as t', 't.id', '=', 'q.room_type_id')
+            ->where('r.tenant_id', activeTenantId())
+            ->where('r.status', 'checked_out')
+            ->where('r.check_out_date', '>=', now()->subMonths(6))
+            ->groupBy('t.id', 't.name')
+            ->selectRaw('COALESCE(t.name, "—") as nome, SUM(r.total) as total')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->get();
+
+        return [
+            'etiquetas' => $linhas->pluck('nome')->all(),
+            'valores'   => $linhas->map(fn ($l) => (float) $l->total)->all(),
+        ];
+    }
+
+    /** Os quartos por estado — já vinha calculado, faltava desenhá-lo. */
+    private function quartosPorEstado(array $porEstado): array
+    {
+        $rotulos = [
+            'available'   => __('Livre'),
+            'occupied'    => __('Ocupado'),
+            'reserved'    => __('Reservado'),
+            'maintenance' => __('Manutenção'),
+            'cleaning'    => __('Limpeza'),
+            'blocked'     => __('Bloqueado'),
+        ];
+
+        return [
+            'etiquetas' => array_map(fn ($k) => $rotulos[$k] ?? $k, array_keys($porEstado)),
+            'chaves'    => array_keys($porEstado),
+            'valores'   => array_map('intval', array_values($porEstado)),
+        ];
     }
 }

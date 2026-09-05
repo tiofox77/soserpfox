@@ -125,7 +125,7 @@
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none bg-white text-sm">
                     <option value="">Todos os Meses</option>
                     @for($month = 1; $month <= 12; $month++)
-                        <option value="{{ str_pad($month, 2, '0', STR_PAD_LEFT) }}">{{ DateTime::createFromFormat('!m', $month)->format('F') }}</option>
+                        <option value="{{ str_pad($month, 2, '0', STR_PAD_LEFT) }}">{{ [1=>'Janeiro',2=>'Fevereiro',3=>'Março',4=>'Abril',5=>'Maio',6=>'Junho',7=>'Julho',8=>'Agosto',9=>'Setembro',10=>'Outubro',11=>'Novembro',12=>'Dezembro'][$month] }}</option>
                     @endfor
                 </select>
             </div>
@@ -152,7 +152,7 @@
                 <select wire:model.live="typeFilter"
                         class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 appearance-none bg-white text-sm">
                     <option value="">Todos os Tipos</option>
-                    <option value="regular">Regular (50%)</option>
+                    <option value="weekday">Regular (50%)</option>
                     <option value="holiday">Feriado (100%)</option>
                     <option value="night">Noturno (75%)</option>
                     <option value="weekend">Fim de Semana (100%)</option>
@@ -215,7 +215,7 @@
                                     <div>
                                         <p class="text-gray-500 text-xs mb-1">Tipo</p>
                                         <p class="font-semibold text-gray-900">
-                                            @if($overtime->overtime_type === 'regular')
+                                            @if(in_array($overtime->overtime_type, ['regular', 'weekday']))
                                                 <i class="fas fa-clock text-blue-600 mr-1"></i>Regular (50%)
                                             @elseif($overtime->overtime_type === 'holiday')
                                                 <i class="fas fa-calendar-day text-red-600 mr-1"></i>Feriado (100%)

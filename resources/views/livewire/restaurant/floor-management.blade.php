@@ -19,6 +19,66 @@
             </div>
         </header>
 
+        {{-- ============ PEDIDOS DA CARTA ONLINE ============
+             Clientes que pediram pelo telemóvel e ainda ninguém atendeu.
+
+             Aparece AQUI, no ecrã da sala, e não numa página à parte: um
+             pedido que o empregado tem de ir procurar noutro sítio é um
+             pedido que fica por atender. Aceitar abre a comanda com o turno
+             de quem aceitou — é aí que a venda passa a existir. --}}
+        @if($pedidosDoMenu->count())
+            <section class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-mobile-screen text-amber-600"></i>
+                    <h2 class="font-black text-amber-900">
+                        {{ trans_choice(':n pedido da carta online|:n pedidos da carta online', $pedidosDoMenu->count(), ['n' => $pedidosDoMenu->count()]) }}
+                    </h2>
+                </div>
+
+                <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach($pedidosDoMenu as $pedido)
+                        <div class="rounded-2xl bg-white p-4 shadow-sm">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="font-black text-slate-800">
+                                        {{ $pedido->mesa?->name ?: ($pedido->table_code ?: __('Sem mesa')) }}
+                                    </p>
+                                    <p class="text-xs text-slate-500">
+                                        {{ $pedido->created_at->diffForHumans() }}
+                                        @if($pedido->customer_name) · {{ $pedido->customer_name }} @endif
+                                    </p>
+                                </div>
+                                <span class="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+                                    {{ number_format((float) $pedido->estimated_total, 2, ',', '.') }} Kz
+                                </span>
+                            </div>
+
+                            <ul class="mt-3 space-y-0.5 text-sm text-slate-700">
+                                @foreach($pedido->items as $linha)
+                                    <li>{{ $linha['quantity'] }}× {{ $linha['name'] }}</li>
+                                @endforeach
+                            </ul>
+
+                            @if($pedido->notes)
+                                <p class="mt-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs italic text-slate-600">{{ $pedido->notes }}</p>
+                            @endif
+
+                            <div class="mt-4 flex gap-2">
+                                <button wire:click="descartarPedidoDoMenu({{ $pedido->id }})"
+                                        class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200">
+                                    {{ __('Descartar') }}
+                                </button>
+                                <button wire:click="aceitarPedidoDoMenu({{ $pedido->id }})"
+                                        class="flex-1 rounded-xl bg-orange-600 px-3 py-2 text-sm font-black text-white hover:bg-orange-700">
+                                    {{ __('Aceitar e abrir comanda') }}
+                                </button>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
         <nav class="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Zonas da sala">
             @foreach($areas as $area)
                 <button wire:click="$set('areaId', {{ $area->id }})" class="whitespace-nowrap rounded-xl px-5 py-2.5 text-sm font-bold transition {{ $areaId === $area->id ? 'bg-orange-600 text-white shadow' : 'text-slate-600 hover:bg-orange-50 hover:text-orange-700' }}">

@@ -313,7 +313,11 @@ class AppointmentManagement extends Component
             'address' => $this->quickClientAddress,
             'city' => $this->quickClientCity,
             'country' => $this->quickClientCountry,
-            'type' => 'particular',
+            // A coluna e um enum('pessoa_fisica','pessoa_juridica'). Escrever
+            // 'particular' dava "Data truncated for column type" e o cliente
+            // simplesmente NAO era criado — nem pelo ecra de clientes nem pelo
+            // modal de marcacao rapida.
+            'type' => 'pessoa_fisica',
             'is_active' => true,
         ]);
 
@@ -435,8 +439,14 @@ class AppointmentManagement extends Component
         // Stats
         $this->totalToday = Appointment::forTenant()->forDate(today())->count();
         $this->totalPending = Appointment::forTenant()->upcoming()->count();
-        $this->totalCompletedMonth = Appointment::forTenant()->whereMonth('date', now()->month)->completed()->count();
-        $this->totalRevenue = Appointment::forTenant()->whereMonth('date', now()->month)->completed()->sum('total');
+        // O mês E o ano: sem o ano, Setembro conta Setembro de todos os anos.
+        $doMes = fn () => Appointment::forTenant()
+            ->whereMonth('date', now()->month)
+            ->whereYear('date', now()->year)
+            ->completed();
+
+        $this->totalCompletedMonth = $doMes()->count();
+        $this->totalRevenue = $doMes()->sum('total');
 
         // Stats por fonte
         $totalOnline = Appointment::forTenant()->onlineBooking()->upcoming()->count();

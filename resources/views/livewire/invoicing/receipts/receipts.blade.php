@@ -59,6 +59,7 @@
             <i class="fas fa-filter mr-2 text-blue-600"></i>{{ __('Filtros') }}
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" />
             <div class="md:col-span-1">
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Pesquisar...') }}"
@@ -97,25 +98,28 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gradient-to-r from-blue-50 to-indigo-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-hashtag mr-1 text-blue-600"></i>{{ __('Número') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-tag mr-1 text-blue-600"></i>{{ __('Tipo') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-user mr-1 text-blue-600"></i>{{ __('Cliente/Fornecedor') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-money-bill mr-1 text-blue-600"></i>{{ __('Valor') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-calendar mr-1 text-blue-600"></i>{{ __('Data') }}
                     </th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-info-circle mr-1 text-blue-600"></i>{{ __('Status') }}
                     </th>
-                    <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                        <i class="fas fa-landmark mr-1 text-emerald-600"></i>{{ __('Portal AGT') }}
+                    </th>
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                         <i class="fas fa-cog mr-1 text-blue-600"></i>{{ __('Ações') }}
                     </th>
                 </tr>
@@ -123,10 +127,15 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($receipts as $receipt)
                 <tr>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="font-bold text-blue-600">{{ $receipt->receipt_number }}</span>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-sm font-bold text-blue-700" title="{{ __('Numeração interna') }}">{{ $receipt->numeroInterno() }}</div>
+                        @if($receipt->numeroAgt())
+                            <div class="text-[10px] text-gray-400 font-mono mt-0.5" title="{{ __('Numeração AGT') }}">
+                                <i class="fas fa-landmark mr-0.5"></i>{{ $receipt->numeroAgt() }}
+                            </div>
+                        @endif
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         @if($receipt->type === 'sale')
                             <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-green-100 to-green-200 text-green-800 text-xs font-bold rounded-full">
                                 <i class="fas fa-shopping-cart mr-1"></i>{{ __('Venda') }}
@@ -137,27 +146,30 @@
                             </span>
                         @endif
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <div class="flex items-center">
                             <i class="fas fa-user-circle text-gray-400 mr-2"></i>
                             <span class="font-medium text-gray-900">{{ $receipt->entity_name }}</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="text-lg font-bold text-blue-600">{{ number_format($receipt->amount_paid, 2) }}</span>
                         <span class="text-xs text-gray-500 ml-1">AOA</span>
                     </td>
-                    <td class="px-6 py-4 text-gray-600">
+                    <td class="px-4 py-3 text-gray-600">
                         <i class="fas fa-calendar-alt mr-1 text-blue-400"></i>
                         {{ $receipt->payment_date->format('d/m/Y') }}
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-4 py-3">
                         <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-{{ $receipt->status_color }}-100 to-{{ $receipt->status_color }}-200 text-{{ $receipt->status_color }}-800 text-xs font-bold rounded-full">
                             <i class="fas fa-circle mr-1 text-xs"></i>
                             {{ $receipt->status_label }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-center">
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        @include('livewire.invoicing.partials.agt-document-status', ['document' => $receipt])
+                    </td>
+                    <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
                             <a href="{{ route('invoicing.receipts.preview', $receipt->id) }}" 
                                target="_blank"
@@ -165,6 +177,7 @@
                                title="{{ __('Ver documento') }}">
                                 <i class="fas fa-file-alt"></i>
                             </a>
+                            <x-pdf-descarregar :url="route('invoicing.receipts.preview', $receipt->id)" />
                             <a href="{{ route('invoicing.receipts.pdf', $receipt->id) }}"
                                target="_blank"
                                class="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition transform hover:scale-110"
@@ -186,7 +199,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                    <td colspan="8" class="px-4 py-3 text-center text-gray-500">
                         {{ __('Nenhum recibo encontrado') }}
                     </td>
                 </tr>

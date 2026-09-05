@@ -56,6 +56,17 @@ class GraficosDeFacturacao
         );
     }
 
+    /**
+     * SÓ AS MINHAS, quando a regra da empresa é essa.
+     *
+     * `escopoDoAutor()` não faz nada a quem vê tudo; a quem está limitado ao
+     * que emitiu, corta. Passa-se a coluna qualificada porque metade destas
+     * consultas tem junções, e um `created_by` à solta é ambíguo em SQL.
+     */
+    private function soAsMinhas(string $coluna = 'invoicing_sales_invoices.created_by'): \Closure
+    {
+        return fn ($q) => escopoDoAutor($q, $coluna);
+    }
     /** Este período mostra-se por mês ou por dia? */
     private function porMes(): bool
     {
@@ -75,6 +86,7 @@ class GraficosDeFacturacao
         $formato = $porMes ? '%Y-%m' : '%Y-%m-%d';
 
         $linhas = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw("DATE_FORMAT(invoice_date, '{$formato}') as periodo, SUM(total) as total, COUNT(*) as documentos")
@@ -105,12 +117,14 @@ class GraficosDeFacturacao
         $formato = $porMes ? '%Y-%m' : '%Y-%m-%d';
 
         $vendas = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw("DATE_FORMAT(invoice_date, '{$formato}') as periodo, SUM(total) as total")
             ->groupBy('periodo')->pluck('total', 'periodo');
 
         $compras = PurchaseInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_purchase_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw("DATE_FORMAT(invoice_date, '{$formato}') as periodo, SUM(total) as total")
@@ -136,12 +150,14 @@ class GraficosDeFacturacao
         $formato = $porMes ? '%Y-%m' : '%Y-%m-%d';
 
         $facturado = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw("DATE_FORMAT(invoice_date, '{$formato}') as periodo, SUM(total) as total")
             ->groupBy('periodo')->pluck('total', 'periodo');
 
         $recebido = Receipt::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_receipts.created_by'))
             ->whereBetween('payment_date', [$this->de, $this->ate])
             ->where('status', 'issued')
             ->selectRaw("DATE_FORMAT(payment_date, '{$formato}') as periodo, SUM(amount_paid) as total")
@@ -165,6 +181,7 @@ class GraficosDeFacturacao
     public function topClientes(int $quantos = 8): array
     {
         $linhas = SalesInvoice::where('invoicing_sales_invoices.tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('invoicing_sales_invoices.status', '!=', 'cancelled')
             ->leftJoin('invoicing_clients', 'invoicing_clients.id', '=', 'invoicing_sales_invoices.client_id')
@@ -182,6 +199,7 @@ class GraficosDeFacturacao
         $linhas = DB::table('invoicing_sales_invoice_items as it')
             ->join('invoicing_sales_invoices as f', 'f.id', '=', 'it.sales_invoice_id')
             ->where('f.tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('f.created_by'))
             ->whereBetween('f.invoice_date', [$this->de, $this->ate])
             ->where('f.status', '!=', 'cancelled')
             ->selectRaw('it.product_name as nome, SUM(it.total) as total')
@@ -197,6 +215,7 @@ class GraficosDeFacturacao
     public function vendasPorVendedor(int $quantos = 8): array
     {
         $linhas = SalesInvoice::where('invoicing_sales_invoices.tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('invoicing_sales_invoices.status', '!=', 'cancelled')
             ->leftJoin('users', 'users.id', '=', 'invoicing_sales_invoices.created_by')
@@ -221,6 +240,7 @@ class GraficosDeFacturacao
     public function estadoDasFacturas(): array
     {
         $facturas = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->get(['status', 'total', 'due_date']);
@@ -259,6 +279,7 @@ class GraficosDeFacturacao
     public function recebimentosPorMeio(): array
     {
         $linhas = Receipt::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_receipts.created_by'))
             ->whereBetween('payment_date', [$this->de, $this->ate])
             ->where('status', 'issued')
             ->selectRaw('COALESCE(payment_method, "Não indicado") as nome, SUM(amount_paid) as total')
@@ -278,6 +299,7 @@ class GraficosDeFacturacao
     public function vendasPorDiaDaSemana(): array
     {
         $linhas = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw('DAYOFWEEK(invoice_date) as dia, SUM(total) as total')
@@ -310,12 +332,14 @@ class GraficosDeFacturacao
         $formato = $porMes ? '%Y-%m' : '%Y-%m-%d';
 
         $liquidado = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw("DATE_FORMAT(invoice_date, '{$formato}') as periodo, SUM(tax_amount) as total")
             ->groupBy('periodo')->pluck('total', 'periodo');
 
         $suportado = PurchaseInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_purchase_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled')
             ->selectRaw("DATE_FORMAT(invoice_date, '{$formato}') as periodo, SUM(tax_amount) as total")
@@ -338,6 +362,7 @@ class GraficosDeFacturacao
     public function resumo(): array
     {
         $vendas = SalesInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_sales_invoices.created_by'))
             ->whereBetween('invoice_date', [$this->de, $this->ate])
             ->where('status', '!=', 'cancelled');
 
@@ -349,9 +374,11 @@ class GraficosDeFacturacao
             'documentos'  => $documentos,
             'ticket'      => $documentos > 0 ? $total / $documentos : 0.0,
             'compras'     => (float) PurchaseInvoice::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_purchase_invoices.created_by'))
                 ->whereBetween('invoice_date', [$this->de, $this->ate])
                 ->where('status', '!=', 'cancelled')->sum('total'),
             'recebido'    => (float) Receipt::where('tenant_id', $this->tenantId)
+            ->tap($this->soAsMinhas('invoicing_receipts.created_by'))
                 ->whereBetween('payment_date', [$this->de, $this->ate])
                 ->where('status', 'issued')->sum('amount_paid'),
         ];

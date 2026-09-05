@@ -60,6 +60,7 @@
                     ['Vendas (FR)', $inventario['vendas'], 'emerald', 'fa-receipt'],
                     ['Rascunhos', $inventario['rascunhos'], 'blue', 'fa-file-lines'],
                     ['Clientes', $inventario['clientes'], 'purple', 'fa-users'],
+                    ['Comandas', $inventario['comandas'] ?? 0, 'orange', 'fa-utensils'],
                     ['Turnos', $inventario['turnos'], 'gray', 'fa-clock'],
                 ] as [$rotulo, $quantos, $cor, $icone])
                     <div class="text-center p-3 bg-{{ $cor }}-50 rounded-xl border border-{{ $cor }}-200">
@@ -95,7 +96,7 @@
                 </p>
                 <p>
                     <i class="fas fa-check text-emerald-600 mr-1"></i>
-                    {!! __('Faturas, proformas e notas de crédito entram como <strong>rascunho</strong> — o número AGT é atribuído quando as finalizar na Faturação, tal como acontece na sincronização normal.') !!}
+                    {!! __('Faturas e faturas-recibo são <strong>emitidas no servidor</strong>, tal como na sincronização. Proformas ficam como rascunho. Documentos já existentes são reconhecidos pelo identificador original, sem voltar a emitir.') !!}
                 </p>
                 <p>
                     <i class="fas fa-check text-emerald-600 mr-1"></i>
@@ -131,8 +132,9 @@
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
                 @foreach([
                     ['Importadas', $resultado['importadas'], 'emerald'],
-                    ['Rascunhos', $resultado['rascunhos'] ?? 0, 'blue'],
+                    ['Documentos', $resultado['rascunhos'] ?? 0, 'blue'],
                     ['Clientes', $resultado['clientes'], 'purple'],
+                    ['Comandas recuperadas', $resultado['comandas'] ?? 0, 'orange'],
                     ['Já existiam', $resultado['ja_existiam'], 'gray'],
                     ['Falhadas', $resultado['falhadas'], 'red'],
                 ] as [$rotulo, $quantos, $cor])

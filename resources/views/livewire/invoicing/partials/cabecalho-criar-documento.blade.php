@@ -37,4 +37,22 @@
             <span x-show="loading" x-cloak><i class="fas fa-spinner fa-spin mr-2"></i>{{ __('Voltando...') }}</span>
         </a>
     </div>
+
+    {{-- DUPLICADO: dizer de onde veio, e dizer o que NÃO veio.
+         Um formulário que aparece cheio sem explicação faz o utilizador
+         pensar que está a editar o original — e a hesitar em gravar. As duas
+         frases resolvem isso: isto é novo, e o número é atribuído agora. --}}
+    @if(!empty($duplicadoDe))
+        <div class="mt-4 flex items-start gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+            <i class="fas fa-copy text-teal-600 mt-0.5"></i>
+            <div class="text-sm">
+                <p class="font-semibold text-teal-800">
+                    {{ __('Duplicado de :numero', ['numero' => $duplicadoDe]) }}
+                </p>
+                <p class="text-teal-700 mt-0.5">
+                    {{ __('Documento NOVO: o número, a série e a assinatura são atribuídos ao gravar. Altere o que precisar.') }}
+                </p>
+            </div>
+        </div>
+    @endif
 </div>

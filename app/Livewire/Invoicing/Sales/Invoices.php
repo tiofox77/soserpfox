@@ -15,6 +15,9 @@ use Livewire\Attributes\Title;
 class Invoices extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
     use \App\Traits\ResolveDocumentoDaEmpresa;
 
     // Filters
@@ -51,10 +54,18 @@ class Invoices extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\SalesInvoice::class;
+    }
+
     public function render()
     {
-        $query = SalesInvoice::where('tenant_id', activeTenantId())
-            ->with(['Client', 'warehouse', 'creator', 'series']);
+        $query = $this->baseDoAutor()
+            ->with(['Client', 'warehouse', 'creator', 'series'])
+            // Quanto já foi anulado por notas de crédito, na mesma consulta:
+            // é o que decide se o botão de creditar aparece.
+            ->comCreditado();
 
         // Search
         if ($this->search) {
@@ -123,11 +134,11 @@ class Invoices extends Component
 
         // Stats
         $stats = [
-            'total' => SalesInvoice::where('tenant_id', activeTenantId())->count(),
-            'draft' => SalesInvoice::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'pending' => SalesInvoice::where('tenant_id', activeTenantId())->where('status', 'pending')->count(),
-            'paid' => SalesInvoice::where('tenant_id', activeTenantId())->where('status', 'paid')->count(),
-            'total_amount' => SalesInvoice::where('tenant_id', activeTenantId())->sum('total'),
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'pending' => $this->baseDoAutor()->where('status', 'pending')->count(),
+            'paid' => $this->baseDoAutor()->where('status', 'paid')->count(),
+            'total_amount' => $this->baseDoAutor()->sum('total'),
         ];
 
         return view('livewire.invoicing.faturas-venda.invoices', [

@@ -13,6 +13,9 @@ use Livewire\Attributes\Title;
 class DebitNotes extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     public $search = '';
     public $filterStatus = '';
@@ -41,7 +44,7 @@ class DebitNotes extends Component
     public function viewDebitNote($debitNoteId)
     {
         // Scoped ao tenant: sem isto um id de outra empresa abria o documento.
-        $this->selectedDebitNote = DebitNote::where('tenant_id', activeTenantId())
+        $this->selectedDebitNote = $this->baseDoAutor()
             ->with(['client', 'invoice', 'items.product', 'creator'])
             ->findOrFail($debitNoteId);
         $this->showViewModal = true;
@@ -73,7 +76,7 @@ class DebitNotes extends Component
             return;
         }
 
-        $debitNote = DebitNote::where('tenant_id', activeTenantId())->findOrFail($this->debitNoteToDelete);
+        $debitNote = $this->baseDoAutor()->findOrFail($this->debitNoteToDelete);
         $debitNote->delete();
         
         $this->showDeleteModal = false;
@@ -85,15 +88,28 @@ class DebitNotes extends Component
         ]);
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\DebitNote::class;
+    }
+
     public function render()
     {
-        $query = DebitNote::with(['client', 'invoice', 'items', 'creator'])
-            ->where('tenant_id', activeTenantId());
+        $query = $this->baseDoAutor()
+            ->with(['client', 'invoice', 'items', 'creator']);
 
         // Filtros
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('debit_note_number', 'like', '%' . $this->search . '%')
+                  // A SÉRIE INTERNA PRIMEIRO: é a que a empresa reconhece
+                  // (SOSNC), e não o código críptico que a AGT devolve e que
+                  // vai gravado no número. Procura-se também pela da AGT, para
+                  // quem venha do portal com o código na mão.
+                  ->orWhereHas('series', function ($q3) {
+                      $q3->where('series_code', 'like', '%' . $this->search . '%')
+                         ->orWhere('agt_series_id', 'like', '%' . $this->search . '%');
+                  })
                   ->orWhereHas('client', function ($q2) {
                       $q2->where('name', 'like', '%' . $this->search . '%');
                   });
@@ -122,10 +138,10 @@ class DebitNotes extends Component
 
         // Stats
         $stats = [
-            'total' => DebitNote::where('tenant_id', activeTenantId())->count(),
-            'draft' => DebitNote::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'issued' => DebitNote::where('tenant_id', activeTenantId())->where('status', 'issued')->count(),
-            'total_amount' => DebitNote::where('tenant_id', activeTenantId())
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'issued' => $this->baseDoAutor()->where('status', 'issued')->count(),
+            'total_amount' => $this->baseDoAutor()
                 ->where('status', 'issued')
                 ->sum('total'),
         ];

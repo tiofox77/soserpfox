@@ -227,7 +227,10 @@ class ReportExportService
             'nif' => $tenant?->nif ?? '',
             'address' => $tenant?->address ?? '',
             'city' => $tenant?->city ?? 'Luanda',
-            'country' => 'Angola',
+            // No cabeçalho de um relatório o país lê-se por extenso — mas é o
+            // da empresa, e não «Angola» fixo: havia empresas com outro.
+            'country' => \App\Support\Geografia::nomeDoPais($tenant?->country)
+                ?? \App\Support\Geografia::nomeDoPais(\App\Support\Geografia::PAIS_PADRAO),
         ];
     }
     

@@ -18,6 +18,13 @@ use Illuminate\Support\Facades\DB;
 #[Title('Nova Proforma de Compra')]
 class ProformaCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
+    // Duplicar documentos: ver o contrato no trait.
+    use \App\Livewire\Concerns\DuplicaDocumento;
+
+
     public $proformaId = null;
     public $isEdit = false;
 
@@ -151,6 +158,18 @@ class ProformaCreate extends Component
             $this->isEdit = true;
             $this->proformaId = $id;
             $this->loadProforma($id);
+        } elseif ($duplicar = $this->idParaDuplicar()) {
+            // DUPLICAR: o mesmo carregamento da edição, sem ser uma edição.
+            // O que fica de fora está explicado no trait DuplicaDocumento.
+            $origem = \App\Models\Invoicing\PurchaseProforma::where("tenant_id", activeTenantId())->findOrFail($duplicar);
+
+            $this->loadProforma($duplicar);
+            $this->marcarComoDuplicado($origem->proforma_number);
+
+            // As datas são de HOJE: um duplicado não herda o prazo de um
+            // documento que já expirou.
+            $this->proforma_date = now()->format("Y-m-d");
+            $this->valid_until = now()->addDays(30)->format("Y-m-d");
         } else {
             // Restaurar fornecedor da sessão se existir
             $sessionKey = 'proforma_supplier_' . activeTenantId() . '_' . auth()->id();
@@ -168,6 +187,7 @@ class ProformaCreate extends Component
     {
         $proforma = PurchaseProforma::where('tenant_id', activeTenantId())
             ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $this->supplier_id = $proforma->supplier_id;
@@ -570,6 +590,7 @@ class ProformaCreate extends Component
         try {
             if ($this->isEdit) {
                 $proforma = PurchaseProforma::where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($this->proformaId);
                 
                 if ($proforma->status === 'converted') {

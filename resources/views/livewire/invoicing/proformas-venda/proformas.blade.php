@@ -97,6 +97,7 @@
     {{-- Filters --}}
     <div class="bg-white rounded-xl shadow-md p-4 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" />
             <div class="md:col-span-2">
                 <input type="text" wire:model.live.debounce.300ms="search"
                        placeholder="🔍 {{ __('Pesquisar número ou cliente...') }}"
@@ -135,25 +136,28 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-hashtag mr-1 text-purple-600"></i>{{ __('Número') }}
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-user mr-1 text-blue-600"></i>{{ __('Cliente') }}
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-calendar mr-1 text-green-600"></i>{{ __('Data') }}
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-hourglass-end mr-1 text-orange-600"></i>{{ __('Validade') }}
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-info-circle mr-1 text-gray-600"></i>{{ __('Estado') }}
                         </th>
-                        <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-money-bill mr-1 text-green-600"></i>{{ __('Total') }}
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                            <i class="fas fa-landmark mr-1 text-emerald-600"></i>{{ __('Portal AGT') }}
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-cog mr-1 text-gray-600"></i>{{ __('Ações') }}
                         </th>
                     </tr>
@@ -161,17 +165,22 @@
                 <tbody class="bg-white divide-y divide-gray-100">
                     @forelse($proformas as $proforma)
                     <tr class="hover:bg-purple-50 transition-all duration-200">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-sm font-bold text-purple-600">{{ $proforma->proforma_number }}</span>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <div class="text-sm font-bold text-purple-700" title="{{ __('Numeração interna') }}">{{ $proforma->numeroInterno() }}</div>
+                        @if($proforma->numeroAgt())
+                            <div class="text-[10px] text-gray-400 font-mono mt-0.5" title="{{ __('Numeração AGT') }}">
+                                <i class="fas fa-landmark mr-0.5"></i>{{ $proforma->numeroAgt() }}
+                            </div>
+                        @endif
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3">
                             <div class="text-sm font-semibold text-gray-900">{{ $proforma->client->name }}</div>
                             <div class="text-xs text-gray-500">{{ $proforma->client->email }}</div>
                         </td>
-                        <td class="px-6 py-4 text-center text-sm text-gray-700">
+                        <td class="px-4 py-3 text-center text-sm text-gray-700">
                             {{ $proforma->proforma_date->format('d/m/Y') }}
                         </td>
-                        <td class="px-6 py-4 text-center text-sm">
+                        <td class="px-4 py-3 text-center text-sm">
                             @if($proforma->valid_until)
                                 <span class="{{ $proforma->valid_until->isPast() ? 'text-red-600 font-bold' : 'text-gray-700' }}">
                                     {{ $proforma->valid_until->format('d/m/Y') }}
@@ -180,7 +189,7 @@
                                 <span class="text-gray-400">-</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-center">
+                        <td class="px-4 py-3 text-center">
                             @if($proforma->status === 'draft')
                                 <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-full">
                                     <i class="fas fa-edit mr-1"></i>{{ __('Rascunho') }}
@@ -207,11 +216,14 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-right">
+                        <td class="px-4 py-3 text-right">
                             <span class="text-lg font-bold text-gray-900">{{ number_format($proforma->total, 2) }}</span>
                             <div class="text-xs text-gray-500">Kz</div>
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                            @include('livewire.invoicing.partials.agt-document-status', ['document' => $proforma, 'natureza' => 'nao-fiscal'])
+                        </td>
+                        <td class="px-4 py-3">
                             <div class="flex items-center justify-center space-x-2">
                                 {{-- Ver Proforma --}}
                                 <button wire:click="viewProforma({{ $proforma->id }})"
@@ -232,6 +244,18 @@
                                     <i class="fas fa-file-pdf text-orange-600 group-hover:text-white transition-colors"></i>
                                     <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
                                         {{ __('Preview') }}
+                                    </span>
+                                </a>
+                                <x-pdf-descarregar :url="route('invoicing.sales.proformas.preview', $proforma->id)" />
+
+                                {{-- Duplicar: aproveita o conteúdo, nunca a identidade
+                                     do documento (número, série, hash, datas, estado).
+                                     Ver o trait DuplicaDocumento. --}}
+                                <a href="{{ route('invoicing.sales.proformas.create', ['duplicar' => $proforma->id]) }}"
+                                   class="group relative p-2 bg-teal-100 hover:bg-teal-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-copy text-teal-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        {{ __('Duplicar para novo documento') }}
                                     </span>
                                 </a>
 
@@ -279,7 +303,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-16 text-center">
+                        <td colspan="8" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center justify-center animate-pulse">
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-file-invoice text-gray-300 text-4xl"></i>

@@ -10,6 +10,7 @@ use App\Models\Salon\Client;
 use App\Models\Salon\Professional;
 use App\Models\Salon\Service;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 #[Layout('layouts.app')]
 #[Title('Dashboard - Salão de Beleza')]
@@ -40,7 +41,7 @@ class Dashboard extends Component
 
     public function quickConfirm($appointmentId)
     {
-        $appointment = Appointment::find($appointmentId);
+        $appointment = Appointment::forTenant()->find($appointmentId);
         if ($appointment) {
             $appointment->confirm();
             $this->dispatch('success', message: 'Agendamento confirmado!');
@@ -49,7 +50,7 @@ class Dashboard extends Component
 
     public function quickStart($appointmentId)
     {
-        $appointment = Appointment::find($appointmentId);
+        $appointment = Appointment::forTenant()->find($appointmentId);
         if ($appointment) {
             $appointment->start();
             $this->dispatch('success', message: 'Atendimento iniciado!');
@@ -58,7 +59,7 @@ class Dashboard extends Component
 
     public function quickComplete($appointmentId)
     {
-        $appointment = Appointment::find($appointmentId);
+        $appointment = Appointment::forTenant()->find($appointmentId);
         if ($appointment) {
             $appointment->complete($appointment->total, 'cash');
             $this->dispatch('success', message: 'Atendimento concluído!');
@@ -119,6 +120,121 @@ class Dashboard extends Component
             ->take(5)
             ->get();
 
-        return view('livewire.salon.dashboard', compact('stats', 'appointments', 'professionals', 'schedule', 'nextClients'));
+        return view('livewire.salon.dashboard', compact('stats', 'appointments', 'professionals', 'schedule', 'nextClients') + [
+            'receitaDias'   => $this->receitaPorDia(),
+            'porEstado'     => $this->marcacoesPorEstado(),
+            'porProfissional' => $this->receitaPorProfissional(),
+            'servicosTop'   => $this->servicosMaisPedidos(),
+        ]);
+    }
+
+    /**
+     * A receita dos últimos 30 dias.
+     *
+     * O painel mostrava o dia e o mês em números soltos. Nenhum deles diz se
+     * a semana passada foi melhor do que esta — e é isso que faz um salão
+     * mudar horários ou promoções.
+     *
+     * Os dias sem marcação vão a ZERO e não desaparecem: uma linha que salta
+     * a segunda-feira fechada dá-lhe a receita do domingo.
+     */
+    private function receitaPorDia(): array
+    {
+        $dias = 30;
+        $desde = today()->subDays($dias - 1);
+
+        $porDia = Appointment::forTenant()
+            ->where('status', 'completed')
+            ->where('date', '>=', $desde->format('Y-m-d'))
+            ->groupBy('dia')
+            ->selectRaw('DATE(date) as dia, SUM(total) as total')
+            ->pluck('total', 'dia');
+
+        $etiquetas = [];
+        $valores = [];
+
+        for ($d = 0; $d < $dias; $d++) {
+            $data = $desde->copy()->addDays($d);
+
+            $etiquetas[] = $data->format('d/m');
+            $valores[] = (float) ($porDia[$data->format('Y-m-d')] ?? 0);
+        }
+
+        return ['etiquetas' => $etiquetas, 'valores' => $valores];
+    }
+
+    /**
+     * As marcações do mês por estado.
+     *
+     * As FALTAS são o número que interessa aqui: um salão com muitos
+     * "no_show" tem um problema de confirmação, não de procura — e isso não
+     * se via em lado nenhum.
+     */
+    private function marcacoesPorEstado(): array
+    {
+        $linhas = Appointment::forTenant()
+            ->whereMonth('date', now()->month)
+            ->whereYear('date', now()->year)
+            ->groupBy('status')
+            ->selectRaw('status, COUNT(*) as total')
+            ->get();
+
+        $rotulos = [
+            'scheduled'   => __('Marcada'),
+            'confirmed'   => __('Confirmada'),
+            'in_progress' => __('Em curso'),
+            'completed'   => __('Concluída'),
+            'cancelled'   => __('Cancelada'),
+            'no_show'     => __('Faltou'),
+        ];
+
+        return [
+            'etiquetas' => $linhas->map(fn ($l) => $rotulos[$l->status] ?? $l->status)->all(),
+            'chaves'    => $linhas->pluck('status')->all(),
+            'valores'   => $linhas->map(fn ($l) => (int) $l->total)->all(),
+        ];
+    }
+
+    /** Quanto rende cada profissional no mês. */
+    private function receitaPorProfissional(): array
+    {
+        $linhas = DB::table('salon_appointments as a')
+            ->leftJoin('salon_professionals as p', 'p.id', '=', 'a.professional_id')
+            ->where('a.tenant_id', activeTenantId())
+            ->where('a.status', 'completed')
+            ->whereMonth('a.date', now()->month)
+            ->whereYear('a.date', now()->year)
+            ->groupBy('p.id', 'p.name')
+            ->selectRaw('COALESCE(p.name, "—") as nome, SUM(a.total) as total')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->get();
+
+        return [
+            'etiquetas' => $linhas->pluck('nome')->all(),
+            'valores'   => $linhas->map(fn ($l) => (float) $l->total)->all(),
+        ];
+    }
+
+    /** Os serviços mais pedidos no mês. */
+    private function servicosMaisPedidos(): array
+    {
+        $linhas = DB::table('salon_appointment_services as s')
+            ->join('salon_appointments as a', 'a.id', '=', 's.appointment_id')
+            ->join('invoicing_products as v', 'v.id', '=', 's.service_id')
+            ->where('a.tenant_id', activeTenantId())
+            ->whereNotIn('a.status', ['cancelled'])
+            ->whereMonth('a.date', now()->month)
+            ->whereYear('a.date', now()->year)
+            ->groupBy('v.id', 'v.name')
+            ->selectRaw('v.name as nome, COUNT(*) as total')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->get();
+
+        return [
+            'etiquetas' => $linhas->pluck('nome')->all(),
+            'valores'   => $linhas->map(fn ($l) => (int) $l->total)->all(),
+        ];
     }
 }

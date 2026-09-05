@@ -33,6 +33,10 @@ class PosExportController extends Controller
         $pdf->setPaper('a4', 'portrait');
 
         $filename = 'turno-' . $shift->shift_number . '.pdf';
+
+        app(\App\Services\Audit\AuditRecorder::class)
+            ->exportou('resumo de turno', 'pdf', null, ['turno' => $shift->shift_number]);
+
         return $pdf->download($filename);
     }
 
@@ -85,6 +89,10 @@ class PosExportController extends Controller
         $pdf->setPaper('a4', 'landscape');
 
         $filename = 'relatorio-vendas-pos-' . now()->format('Ymd-His') . '.pdf';
+
+        app(\App\Services\Audit\AuditRecorder::class)
+            ->exportou('relatório de vendas do POS', 'pdf');
+
         return $pdf->download($filename);
     }
 
@@ -217,6 +225,12 @@ class PosExportController extends Controller
         }
 
         $filename = 'relatorio-vendas-pos-' . now()->format('Ymd-His') . '.xlsx';
+
+        // Antes do streamDownload: o corpo da resposta corre DEPOIS de o
+        // pedido terminar, e lá dentro já não há sessão para resolver a
+        // empresa nem transacção onde a linha caiba.
+        app(\App\Services\Audit\AuditRecorder::class)
+            ->exportou('relatório de vendas do POS', 'excel');
 
         return response()->streamDownload(function () use ($ss) {
             $writer = new Xlsx($ss);

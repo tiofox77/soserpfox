@@ -91,7 +91,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     @php
-        $tenant = auth()->user()->activeTenant ?? null;
+        $tenant = \App\Models\Tenant::find(activeTenantId());
         $employee = $vacation->employee;
         $statusLabels = [
             'pending' => 'Pendente', 'approved' => 'Aprovada', 'rejected' => 'Rejeitada',

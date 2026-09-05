@@ -67,7 +67,11 @@
         .sig-name { font-weight: bold; font-size: 7.5pt; color: #111827; }
         .sig-label { font-size: 6.5pt; color: #6b7280; font-weight: 600; }
 
-        .footer-line { text-align: center; font-size: 6pt; color: #9ca3af; margin-top: 3px; }
+        .footer-line { font-size: 6pt; color: #9ca3af; margin-top: 4px; padding-top: 3px; border-top: 1px solid #e5e7eb; }
+        .footer-table { width: 100%; border-collapse: collapse; }
+        .footer-meta { text-align: left; vertical-align: middle; }
+        .footer-brand { width: 145px; text-align: right; vertical-align: middle; color: #64748b; font-weight: 700; white-space: nowrap; }
+        .footer-brand-logo { width: 17px; height: 17px; object-fit: contain; vertical-align: middle; margin-right: 4px; }
         .section-hdr { font-size: 8pt; color: #059669; font-weight: bold; padding: 2px 5px; background: #d1fae5; border-left: 2px solid #059669; text-transform: uppercase; margin: 3px 0 2px 0; }
 
         /* ── Print ── */
@@ -94,6 +98,7 @@
         </div>
     </div>
 
+@php($tenant = \App\Models\Tenant::find(activeTenantId()))
 @foreach($payrollItems as $payrollItem)
     <div class="employee-page">
     @foreach(['empresa', 'funcionario'] as $via)
@@ -105,16 +110,16 @@
             <table class="header-row" cellspacing="0" cellpadding="0">
                 <tr>
                     <td style="width: 80px;">
-                        @if(auth()->user()->tenant->logo)
-                            <img src="{{ asset('storage/' . auth()->user()->tenant->logo) }}" alt="Logo" class="logo">
+                        @if($tenant?->logo)
+                            <img src="{{ asset('storage/' . $tenant->logo) }}" alt="Logo" class="logo">
                         @else
-                            <div class="logo-placeholder">{{ \Illuminate\Support\Str::limit(auth()->user()->tenant->name, 12) }}</div>
+                            <div class="logo-placeholder">{{ \Illuminate\Support\Str::limit($tenant?->name ?? 'Empresa', 12) }}</div>
                         @endif
                     </td>
                     <td>
-                        <span class="company-name">{{ auth()->user()->tenant->name }}</span><br>
-                        @if(auth()->user()->tenant->nif)<span class="company-detail"><strong>NIF:</strong> {{ auth()->user()->tenant->nif }}</span> @endif
-                        @if(auth()->user()->tenant->phone)<span class="company-detail">| <strong>Tel:</strong> {{ auth()->user()->tenant->phone }}</span>@endif
+                        <span class="company-name">{{ $tenant?->name ?? 'Empresa' }}</span><br>
+                        @if($tenant?->nif)<span class="company-detail"><strong>NIF:</strong> {{ $tenant->nif }}</span> @endif
+                        @if($tenant?->phone)<span class="company-detail">| <strong>Tel:</strong> {{ $tenant->phone }}</span>@endif
                     </td>
                     <td style="text-align: right; width: 100px;">
                         <span class="via-badge {{ $via === 'empresa' ? 'via-empresa' : 'via-func' }}">
@@ -140,7 +145,7 @@
                     <td class="lbl">Cargo</td>
                     <td class="val">{{ $payrollItem->employee->position ?? 'N/A' }}</td>
                     <td class="lbl">Departamento</td>
-                    <td class="val">{{ $payrollItem->employee->department ?? 'N/A' }}</td>
+                    <td class="val">{{ $payrollItem->employee->department?->name ?? 'N/A' }}</td>
                 </tr>
                 <tr>
                     <td class="lbl">Dias Trabalhados</td>
@@ -260,10 +265,7 @@
                 </tr>
             </table>
 
-            <div class="footer-line">
-                Gerado em {{ now()->format('d/m/Y H:i') }} | {{ auth()->user()->tenant->name }} - Confidencial
-                | INSS Patronal (8%): {{ number_format($payrollItem->inss_employer ?? 0, 2, ',', '.') }} Kz
-            </div>
+            @include('pdf.hr.partials.soserp-footer')
         </div>
     @endforeach
     </div>

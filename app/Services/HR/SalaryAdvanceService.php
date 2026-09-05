@@ -25,9 +25,9 @@ class SalaryAdvanceService
             ->where('status', 'active')
             ->first();
 
-        $baseSalary = $contract && $contract->base_salary > 0 
-            ? $contract->base_salary 
-            : ($employee->salary ?? 0);
+        $baseSalary = $contract && $contract->base_salary > 0
+            ? $contract->base_salary
+            : ($employee->base_salary ?? $employee->salary ?? 0);
 
         if ($baseSalary <= 0) {
             return [
@@ -41,11 +41,22 @@ class SalaryAdvanceService
 
         $maxAllowed = $baseSalary * $maxPercentageDecimal;
 
-        // Verificar apenas adiantamentos em dedução ativa (que estão bloqueando o limite)
+        // Reservar o limite desde o pedido até à liquidação. Considerar apenas
+        // "in_deduction" permitia acumular vários pedidos/aprovações acima dos 50%.
         $pendingAdvances = SalaryAdvance::where('employee_id', $employee->id)
-            ->where('status', 'in_deduction')
-            ->where('balance', '>', 0)
-            ->sum('balance');
+            ->whereIn('status', ['pending', 'approved', 'paid', 'in_deduction'])
+            ->get()
+            ->sum(function (SalaryAdvance $advance): float {
+                if ($advance->status === 'in_deduction') {
+                    return max(0, (float) $advance->balance);
+                }
+
+                if ($advance->status === 'pending') {
+                    return max(0, (float) $advance->requested_amount);
+                }
+
+                return max(0, (float) ($advance->balance ?: $advance->approved_amount ?: $advance->requested_amount));
+            });
 
         $availableAmount = $maxAllowed - $pendingAdvances;
 
@@ -66,7 +77,9 @@ class SalaryAdvanceService
         DB::beginTransaction();
 
         try {
-            $employee = Employee::findOrFail($data['employee_id']);
+            // Serializa pedidos simultâneos do mesmo funcionário para que dois
+            // pedidos não consumam o mesmo limite disponível.
+            $employee = Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
 
             // Calcular limites
             $limits = $this->calculateMaxAllowed($employee);
@@ -90,14 +103,11 @@ class SalaryAdvanceService
             $installments = $data['installments'] ?? 1;
             $installmentAmount = round($data['requested_amount'] / $installments, 2);
 
-            // Número de adiantamento gerado por-tenant (robusto a eliminações/concorrência)
-            $advanceNumber = SalaryAdvance::generateTenantNumber('advance_number', 'ADV-' . date('Y') . '-');
-
-            // Criar registro
-            $advance = SalaryAdvance::create([
+            // Criar com número sequencial por tenant e repetição automática em
+            // caso de concorrência.
+            $advance = SalaryAdvance::createWithTenantNumber([
                 'tenant_id' => $data['tenant_id'],
                 'employee_id' => $data['employee_id'],
-                'advance_number' => $advanceNumber,
                 'requested_amount' => $data['requested_amount'],
                 'base_salary' => $limits['base_salary'],
                 'max_allowed' => $limits['max_allowed'],
@@ -107,7 +117,7 @@ class SalaryAdvanceService
                 'reason' => $data['reason'],
                 'notes' => $data['notes'] ?? null,
                 'status' => 'pending',
-            ]);
+            ], 'advance_number', 'ADV-' . date('Y') . '-');
 
             DB::commit();
 

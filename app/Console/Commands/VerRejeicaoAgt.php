@@ -128,6 +128,20 @@ class VerRejeicaoAgt extends Command
                         if ($doc) {
                             $novo = (new \App\Services\AGT\DocumentMapper())->map($doc);
                             $this->line('     SIMULAÇÃO (o que seria enviado agora):');
+
+                            // O envelope também: depois de a AGT recusar o
+                            // schema 1.2 (2026-09-02), a pergunta é «que
+                            // versão SAIRIA agora?» — sem enviar nada.
+                            $definicoes = \App\Models\Invoicing\InvoicingSettings::forTenant((int) $s->tenant_id);
+                            $versao = $definicoes->agt_schema_version
+                                ?? \App\Services\AGT\AGTPayloadBuilder::SCHEMA_VERSION;
+                            $origem = $definicoes->agt_schema_version ? 'fixada nesta empresa' : 'omissão da plataforma';
+                            $software = (new \App\Services\AGT\AGTPayloadBuilder($definicoes))->softwareInfo();
+                            $detalhe = $software['softwareInfoDetail'] ?? $software;
+                            $this->line("        schemaVersion={$versao} ({$origem})  software="
+                                .($detalhe['productId'] ?? '?')
+                                .' v'.($detalhe['productVersion'] ?? '?')
+                                .' cert='.($detalhe['softwareValidationNumber'] ?? '?'));
                             foreach (($novo['lines'] ?? []) as $ln) {
                                 $base = (float) ($ln['creditAmount'] ?? $ln['debitAmount'] ?? 0);
                                 foreach (($ln['taxes'] ?? []) as $t) {

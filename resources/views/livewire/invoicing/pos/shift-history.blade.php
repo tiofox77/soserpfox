@@ -31,6 +31,10 @@
                 <input type="date" wire:model.live="dateTo"
                        class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
             </div>
+            {{-- O filtro por operador só existe para quem pode ver os turnos
+                 de todos. Sem esse direito, o ecrã mostra apenas os do próprio
+                 e a lista de colegas não tem aqui nada que fazer. --}}
+            @if(!$this->ownOnly)
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Usuário') }}</label>
                 <select wire:model.live="userId"
@@ -43,6 +47,13 @@
                     @endforeach
                 </select>
             </div>
+            @else
+            <div class="flex items-end">
+                <p class="text-xs text-gray-500 pb-2">
+                    <i class="fas fa-user-lock mr-1"></i>{{ __('A mostrar apenas os seus turnos.') }}
+                </p>
+            </div>
+            @endif
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Status') }}</label>
                 <select wire:model.live="status"

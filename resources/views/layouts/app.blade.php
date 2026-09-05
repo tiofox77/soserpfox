@@ -636,7 +636,7 @@
                                 {{-- Fica logo a seguir ao POS Offline: quem
                                      precisa disto vem de lá, com um aparelho
                                      que não sincronizou nas mãos. --}}
-                                @can('invoicing.pos.create')
+                                @can('invoicing.pos.sell')
                                 <a href="{{ route('invoicing.importar-copia-offline') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.importar-copia-offline') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-800' }} transition">
                                     <i class="fas fa-file-import w-5 text-emerald-400 text-sm"></i>
@@ -839,10 +839,15 @@
                                 @endcan
                                 
                                 @can('invoicing.stock.view')
-                                <a href="{{ route('invoicing.stock') }}" 
+                                <a href="{{ route('invoicing.stock') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.stock') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-boxes w-5 text-yellow-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Gestão Stock') }}</span>
+                                </a>
+                                <a href="{{ route('invoicing.quebras') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('invoicing.quebras') ? 'bg-blue-700 border-l-4 border-yellow-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-dumpster-fire w-5 text-rose-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Quebras e Desperdício') }}</span>
                                 </a>
                                 @endcan
                                 
@@ -1587,6 +1592,12 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Pacotes') }}</span>
                                 </a>
                                 
+                                <a href="{{ route('hotel.kiandastay') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.kiandastay*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fas fa-link w-5 text-gray-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">KiandaStay</span>
+                                </a>
+
                                 <a href="{{ route('hotel.settings') }}" 
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('hotel.settings*') ? 'bg-blue-700 border-l-4 border-purple-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-cog w-5 text-gray-400 text-sm"></i>
@@ -1723,11 +1734,18 @@
                                         <i class="fas fa-bowl-food w-5 text-amber-300 text-sm"></i>
                                         <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Produtos e Menu') }}</span>
                                     </a>
-                                    <a href="{{ route('restaurant.categories') }}"
-                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.categories') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
-                                        <i class="fas fa-tags w-5 text-pink-300 text-sm"></i>
-                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Categorias do Menu') }}</span>
+                                    <a href="{{ route('restaurant.carta') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.carta') || request()->routeIs('restaurant.categories') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-book-open-reader w-5 text-pink-300 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Montar o Menu') }}</span>
                                     </a>
+                                    @if(auth()->user()->can('restaurant.settings.view'))
+                                        <a href="{{ route('restaurant.carta.aparencia') }}"
+                                           class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.carta.aparencia') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
+                                            <i class="fas fa-palette w-5 text-rose-300 text-sm"></i>
+                                            <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Aparência da Carta') }}</span>
+                                        </a>
+                                    @endif
                                     <a href="{{ route('restaurant.contacts') }}"
                                        class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('restaurant.contacts') ? 'bg-blue-700 border-l-4 border-orange-400' : 'hover:bg-blue-700/50' }} transition">
                                         <i class="fas fa-address-book w-5 text-blue-300 text-sm"></i>
@@ -1828,11 +1846,19 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Oportunidades') }}</span>
                                 </a>
                                 
-                                <a href="{{ route('crm.funil-vendas') }}" 
+                                <a href="{{ route('crm.funil-vendas') }}"
                                    class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.funil-vendas*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
                                     <i class="fas fa-filter w-5 text-purple-400 text-sm"></i>
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Funil de Vendas') }}</span>
                                 </a>
+
+                                @if(auth()->user()->can('crm.integrations.manage'))
+                                <a href="{{ route('crm.integracoes') }}"
+                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('crm.integracoes*') ? 'bg-blue-700 border-l-4 border-teal-400' : 'hover:bg-blue-700/50' }} transition">
+                                    <i class="fab fa-facebook-messenger w-5 text-cyan-400 text-sm"></i>
+                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Integração Meta') }}</span>
+                                </a>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -1916,17 +1942,23 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Fornecedores') }}</span>
                                 </a>
                                 
-                                <a href="{{ route('compras.requisicoes') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.requisicoes*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-file-alt w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Requisições') }}</span>
-                                </a>
-                                
-                                <a href="{{ route('compras.encomendas') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.encomendas*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-clipboard-list w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Encomendas') }}</span>
-                                </a>
+                                {{-- Guardados pela permissão: as rotas exigem-na, e um link
+                                     que só dá 403 é pior do que link nenhum. --}}
+                                @if(auth()->user()->can('compras.requisicoes.view'))
+                                    <a href="{{ route('compras.requisicoes') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.requisicoes*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-file-alt w-5 text-yellow-400 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Requisições') }}</span>
+                                    </a>
+                                @endif
+
+                                @if(auth()->user()->can('compras.encomendas.view'))
+                                    <a href="{{ route('compras.encomendas') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('compras.encomendas*') ? 'bg-blue-700 border-l-4 border-lime-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-clipboard-list w-5 text-green-400 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Encomendas') }}</span>
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -1963,17 +1995,23 @@
                                     <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Projetos') }}</span>
                                 </a>
                                 
-                                <a href="{{ route('projetos.tarefas') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.tarefas*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-tasks w-5 text-green-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tarefas') }}</span>
-                                </a>
-                                
-                                <a href="{{ route('projetos.timesheet') }}" 
-                                   class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.timesheet*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
-                                    <i class="fas fa-clock w-5 text-yellow-400 text-sm"></i>
-                                    <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Timesheet') }}</span>
-                                </a>
+                                {{-- Guardados pela permissão: as rotas exigem-na, e um link
+                                     que só dá 403 é pior do que link nenhum. --}}
+                                @if(auth()->user()->can('projetos.tarefas.view'))
+                                    <a href="{{ route('projetos.tarefas') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.tarefas*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-tasks w-5 text-green-400 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Tarefas') }}</span>
+                                    </a>
+                                @endif
+
+                                @if(auth()->user()->can('projetos.horas.registar'))
+                                    <a href="{{ route('projetos.timesheet') }}"
+                                       class="flex items-center pl-8 pr-4 py-2.5 {{ request()->routeIs('projetos.timesheet*') ? 'bg-blue-700 border-l-4 border-violet-400' : 'hover:bg-blue-700/50' }} transition">
+                                        <i class="fas fa-clock w-5 text-yellow-400 text-sm"></i>
+                                        <span x-show="sidebarOpen" class="ml-3 text-sm">{{ __('Folha de Horas') }}</span>
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -2106,9 +2144,14 @@
                             <a href="{{ route('my-account') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-user-circle mr-2 text-blue-600"></i> Minha Conta
                             </a>
+                            {{-- Os dados da empresa — NIF, morada e regime fiscal —
+                                 são de quem a gere. O link deixou de aparecer a
+                                 quem a página recusa. --}}
+                            @can('settings.view')
                             <a href="{{ route('company.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                 <i class="fas fa-building mr-2 text-indigo-600"></i> Dados da Empresa
                             </a>
+                            @endcan
                             @if(auth()->user()->canManageAccount())
                                 <a href="{{ route('my-account') }}?tab=companies" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <i class="fas fa-building mr-2 text-purple-600"></i> Minhas Empresas
@@ -2547,6 +2590,20 @@
         })();
     </script>
     
+    {{--
+        O PDF feito no browser, a partir da própria pré-visualização.
+
+        São 8 KB. As bibliotecas pesadas (html2canvas e jsPDF, 560 KB) só
+        descem quando alguém carrega mesmo num botão de PDF — não pesam nas
+        páginas de quem nunca gera nenhum.
+    --}}
+    <script src="/js/pdf-do-documento.js?v={{ filemtime(public_path('js/pdf-do-documento.js')) }}" defer></script>
+
+    {{-- Os gráficos do painel de facturação. Fora do Blade porque um
+         script em linha não volta a correr numa navegação do Livewire, e
+         quem chegasse ao painel pela barra lateral via tudo em branco. --}}
+    <script src="/js/painel-facturacao.js?v={{ filemtime(public_path('js/painel-facturacao.js')) }}" defer></script>
+
     <!-- Custom Scripts Stack -->
     @stack('scripts')
     

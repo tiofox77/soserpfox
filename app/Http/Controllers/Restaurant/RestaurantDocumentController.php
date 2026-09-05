@@ -31,6 +31,9 @@ class RestaurantDocumentController extends Controller
             ->where('source_module', 'restaurant')
             ->findOrFail($id);
 
+        app(\App\Services\Audit\AuditRecorder::class)
+            ->imprimiu('talão fiscal do restaurante', $invoice, ['formato' => 'talao']);
+
         return view('restaurant.documents.fiscal-ticket', [
             'invoice' => $invoice,
             'tenant' => Tenant::findOrFail(activeTenantId()),

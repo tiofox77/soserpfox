@@ -17,6 +17,11 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
     {
         $this->tenant->update(['nif' => $nif]);
 
+        // Só se manda ao ecrã da empresa quem o pode corrigir — o ecrã exige
+        // `settings.view` e a correcção exige `settings.edit`. Um utilizador
+        // sem esses direitos continua a trabalhar (ver o ensaio no fim).
+        $this->comPermissoes('settings.view', 'settings.edit');
+
         // O User memoriza a empresa activa na própria instância. Sem
         // reautenticar com uma instância fresca, o middleware lia o NIF que
         // estava em memória antes desta actualização — e o teste passava a
@@ -85,4 +90,19 @@ class ExigirNifDeEmpresaTest extends TenantTestCase
         $this->assertStringContainsString('AGT', session('warning'));
         $this->assertStringContainsString('recusados', session('warning'));
     }
+    /**
+     * QUEM NÃO PODE CORRIGIR NÃO É MANDADO PARA LÁ.
+     *
+     * O ecrã da empresa exige permissão; mandar para lá um caixa era atirá-lo
+     * contra um 403 a cada pedido — trancado fora do sistema por um NIF que
+     * ele nem podia mudar.
+     */
+    public function test_quem_nao_pode_corrigir_continua_a_trabalhar(): void
+    {
+        $this->tenant->update(['nif' => '004512345LA041']);
+        $this->actingAs(\App\Models\User::find($this->user->id));
+
+        $this->get('/home')->assertOk();
+    }
+
 }

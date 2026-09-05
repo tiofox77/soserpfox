@@ -1,4 +1,4 @@
-<div>
+<div data-pdf-alvo="turno-pos">
     {{-- Header --}}
     <div class="mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
         <div class="flex items-center justify-between">
@@ -11,6 +11,21 @@
                     <p class="text-purple-100 text-sm">{{ __('Sistema de Caixa e Turnos') }}</p>
                 </div>
             </div>
+            <div class="flex items-center gap-2" data-pdf-fora>
+            @if($currentShift)
+                {{--
+                    O resumo do turno ABERTO não tinha como sair em papel. O PDF
+                    do servidor só existe depois de fechar o turno, e a meio da
+                    manhã ninguém fecha a caixa para conferir um número.
+                --}}
+                <x-pdf-descarregar
+                    elemento="[data-pdf-alvo='turno-pos']"
+                    nome="Resumo do Turno"
+                    titulo="{{ __('Descarregar o resumo do turno como está no ecrã') }}"
+                    classe="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-lg font-bold transition-all">
+                    {{ __('PDF') }}
+                </x-pdf-descarregar>
+            @endif
             @if(!$currentShift)
                 <button wire:click="openShiftModal" class="bg-white text-purple-600 px-6 py-3 rounded-lg font-bold hover:bg-purple-50 transition">
                     <i class="fas fa-play mr-2"></i>{{ __('Abrir Turno') }}
@@ -20,6 +35,7 @@
                     <i class="fas fa-stop mr-2"></i>{{ __('Fechar Turno') }}
                 </button>
             @endif
+            </div>
         </div>
     </div>
 
@@ -268,10 +284,15 @@
 
                     @php
                         $expected = $currentShift->opening_balance + $currentShift->cash_sales;
-                        $difference = $actual_cash - $expected;
+                        // Com o campo em .live, a meio da escrita o valor chega
+                        // como string ("" ao apagar tudo) — e string menos float
+                        // rebenta. A diferença calcula-se só com o que já se
+                        // consegue ler como dinheiro.
+                        $__contado = is_numeric($actual_cash) ? (float) $actual_cash : 0.0;
+                        $difference = $__contado - $expected;
                     @endphp
 
-                    @if($actual_cash > 0 && $difference != 0)
+                    @if($__contado > 0 && $difference != 0)
                         {{-- Duas frases inteiras, e não "Diferença:" + número + "(Sobra)"
                              montado por pedaços: noutras línguas nem a ordem nem o
                              parêntesis caem no mesmo sítio. O valor entra por :valor. --}}
@@ -289,7 +310,7 @@
                     @endif
                 </div>
 
-                @if($actual_cash > 0 && abs($difference) > 0.01)
+                @if($__contado > 0 && abs($difference) > 0.01)
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">{{ __('Motivo da Diferença') }}</label>
                         <textarea wire:model="difference_reason" rows="2"

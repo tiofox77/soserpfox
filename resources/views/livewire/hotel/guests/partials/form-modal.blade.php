@@ -83,7 +83,11 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1">Nacionalidade</label>
                             <select wire:model="nationality" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
-                                @foreach(\App\Models\Client::PAISES as $pais)
+                                {{-- Os países por extenso, e todos: a ficha do
+                                     hóspede não é documento fiscal, guarda o
+                                     nome. A lista é a mesma de toda a casa e
+                                     já não são sete com um «Outro» ao fim. --}}
+                                @foreach(array_unique(\App\Support\Geografia::paises()) as $pais)
                                     <option value="{{ $pais }}">{{ $pais }}</option>
                                 @endforeach
                             </select>
@@ -108,7 +112,11 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1">Pais</label>
                             <select wire:model="country" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
-                                @foreach(\App\Models\Client::PAISES as $pais)
+                                {{-- Os países por extenso, e todos: a ficha do
+                                     hóspede não é documento fiscal, guarda o
+                                     nome. A lista é a mesma de toda a casa e
+                                     já não são sete com um «Outro» ao fim. --}}
+                                @foreach(array_unique(\App\Support\Geografia::paises()) as $pais)
                                     <option value="{{ $pais }}">{{ $pais }}</option>
                                 @endforeach
                             </select>

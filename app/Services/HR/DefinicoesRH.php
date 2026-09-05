@@ -58,9 +58,11 @@ class DefinicoesRH
         // Subsídio de férias: duas entradas com o mesmo valor, uma lida.
         'vacation_subsidy_rate' => 'vacation_subsidy_percentage',
 
-        // Subsídio de Natal: 50% numa e 100% na outra, lado a lado no mesmo
-        // ecrã. Vale a de 100%.
-        'christmas_bonus_rate' => 'christmas_bonus_percentage',
+        // Subsídio de Natal: existiam duas chaves activas e contraditórias
+        // (100% em benefits e 50% em payroll). O motor salarial sempre lê a
+        // chave canónica abaixo; as antigas ficam preservadas mas ocultas.
+        'christmas_bonus_rate'       => 'christmas_subsidy_percentage',
+        'christmas_bonus_percentage' => 'christmas_subsidy_percentage',
     ];
 
     /**

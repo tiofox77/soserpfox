@@ -70,6 +70,32 @@ class AuditRecorder
     }
 
     /**
+     * DADOS QUE SAEM DE CASA.
+     *
+     * Uma exportação não muda nada — e é exactamente por isso que escapava à
+     * trilha: o observer só vê escritas. Mas levar o SAFT, a lista de clientes
+     * ou o relatório de vendas para fora é dos actos que mais interessa saber
+     * quem fez, sobretudo quando alguém sai da empresa.
+     *
+     * Método próprio e não `acto('exportacao', ...)` espalhado por dez sítios:
+     * assim o nome do evento e a forma dos metadados ficam num lugar só, e o
+     * ecrã de auditoria pode filtrar por eles sem adivinhar variantes.
+     */
+    public function exportou(string $oQue, string $formato, ?int $tenantId = null, array $extra = []): void
+    {
+        $this->acto('exportacao', $tenantId, array_merge([
+            'o_que' => $oQue,
+            'formato' => $formato,
+        ], $extra));
+    }
+
+    /** Um documento que saiu em papel — o mesmo raciocínio da exportação. */
+    public function imprimiu(string $oQue, ?Model $alvo = null, array $extra = []): void
+    {
+        $this->acto('impressao', null, array_merge(['o_que' => $oQue], $extra), $alvo);
+    }
+
+    /**
      * Regista um acto que não é alteração de modelo: login, exportação,
      * impressão, execução de comando, submissão à AGT.
      */
@@ -120,8 +146,27 @@ class AuditRecorder
             return (int) $modelo->tenant_id;
         }
 
+        // A empresa é ela própria a empresa. Sem este caso, mudar o nome, o
+        // NIF ou o regime fiscal de uma empresa não deixava rasto nenhum —
+        // e é das alterações com mais consequência que existem.
+        if ($modelo instanceof \App\Models\Tenant) {
+            return (int) $modelo->getKey() ?: null;
+        }
+
         // Subir ao documento que contém a linha.
-        foreach (['invoice', 'creditNote', 'debitNote', 'proforma', 'guide', 'document', 'order'] as $relacao) {
+        //
+        // A lista cresceu com a allowlist: cada linha de documento que se
+        // acrescenta à auditoria precisa de aqui ter o nome da relação que a
+        // leva ao pai, senão cai no último recurso (a empresa activa) e
+        // desaparece fora de um pedido web — numa fila ou num comando.
+        foreach ([
+            'invoice', 'creditNote', 'debitNote', 'proforma', 'guide', 'document', 'order',
+            'purchaseInvoice', 'transportGuide', 'quote', 'salesQuote',
+            'encomenda', 'requisicao', 'projeto', 'tarefa',
+            'workOrder', 'payroll', 'reservation', 'appointment', 'event', 'team',
+            'bankReconciliation', 'reconciliation', 'ticket', 'featureRequest',
+            'equipmentSet', 'import', 'stockCount', 'recipe',
+        ] as $relacao) {
             if (!method_exists($modelo, $relacao)) {
                 continue;
             }

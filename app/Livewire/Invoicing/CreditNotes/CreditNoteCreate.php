@@ -18,9 +18,20 @@ use Illuminate\Support\Facades\DB;
 #[Title('Nova Nota de Crédito')]
 class CreditNoteCreate extends Component
 {
+    // Uma nota nasce de uma factura: se a factura não é sua, a nota também não.
+    use \App\Traits\EscopoDeAutor;
+
     public $creditNoteId = null;
     public $isEdit = false;
     
+    /**
+     * O número da factura que se tentou creditar e já não tem nada por anular.
+     *
+     * Vazio é o caso normal. Quando tem valor, o ecrã abre a dizer porque é
+     * que não pré-encheu nada, em vez de abrir vazio sem explicação.
+     */
+    public $semSaldoPorAnular = '';
+
     // Campos básicos
     public $client_id = '';
     public $invoice_id = '';
@@ -62,7 +73,22 @@ class CreditNoteCreate extends Component
         // lista de faturas (?invoice=123) — scoped ao tenant activo.
         $invoiceId = $invoice ?: request()->query('invoice');
         if ($invoiceId) {
-            $invoice = SalesInvoice::where('tenant_id', activeTenantId())->find($invoiceId);
+            $invoice = SalesInvoice::where("tenant_id", activeTenantId())->tap(fn ($q) => $this->escoparAoAutor($q))->find($invoiceId);
+
+            /*
+             * UMA FACTURA JÁ INTEIRAMENTE ANULADA NÃO ENTRA.
+             *
+             * O botão da lista já não a oferece, mas o endereço continua a
+             * poder ser escrito à mão — e a `?invoice=` é o que a preenchia
+             * toda. Diz-se aqui, e não no fim: descobrir que não havia saldo
+             * depois de a nota estar preenchida é o pior sítio para o saber.
+             */
+            if ($invoice && $invoice->jaTotalmenteCreditada()) {
+                $this->semSaldoPorAnular = $invoice->invoice_number;
+
+                return;
+            }
+
             if ($invoice) {
                 $this->client_id = $invoice->client_id;
                 $this->invoice_id = $invoice->id;
@@ -85,11 +111,81 @@ class CreditNoteCreate extends Component
         }
     }
 
+    /**
+     * As linhas desta nota que pedem mais do que a factura ainda tem.
+     *
+     * Compara-se por ARTIGO, e pela descrição quando a linha não tem artigo do
+     * catálogo. O que já foi creditado conta: duas notas parciais não podem
+     * passar juntas o que nenhuma delas passava sozinha.
+     *
+     * @return array<int,string>  uma frase por linha em excesso
+     */
+    private function linhasQueExcedemAFactura($factura, $cartItems): array
+    {
+        $chave = fn ($artigo, $descricao) => $artigo
+            ? 'p:' . $artigo
+            : 'd:' . mb_strtolower(trim((string) $descricao));
+
+        // O que a factura tem, por linha.
+        $naFactura = [];
+
+        foreach ($factura->items as $linha) {
+            $k = $chave($linha->product_id, $linha->description);
+            $naFactura[$k] = ($naFactura[$k] ?? 0) + (float) $linha->quantity;
+        }
+
+        // O que outras notas EMITIDAS já tiraram.
+        $jaCreditado = [];
+
+        $outras = CreditNote::where('invoice_id', $factura->id)
+            ->where('status', 'issued')
+            ->when($this->creditNoteId, fn ($q) => $q->where('id', '!=', $this->creditNoteId))
+            ->with('items')
+            ->get();
+
+        foreach ($outras as $nota) {
+            foreach ($nota->items as $linha) {
+                $k = $chave($linha->product_id, $linha->description);
+                $jaCreditado[$k] = ($jaCreditado[$k] ?? 0) + (float) $linha->quantity;
+            }
+        }
+
+        // E o que esta nota pede.
+        $pedido = [];
+
+        foreach ($cartItems as $item) {
+            $artigo = is_numeric($item->id) ? (int) $item->id : null;
+            $k = $chave($artigo, $item->name);
+            $pedido[$k] = ($pedido[$k] ?? 0) + (float) $item->quantity;
+        }
+
+        $excessos = [];
+
+        foreach ($pedido as $k => $quantidade) {
+            $disponivel = ($naFactura[$k] ?? 0) - ($jaCreditado[$k] ?? 0);
+
+            // Uma linha que a factura nem tem é excesso por inteiro.
+            if ($quantidade > $disponivel + 0.001) {
+                $nome = collect($cartItems)->first(fn ($i) => $chave(is_numeric($i->id) ? (int) $i->id : null, $i->name) === $k)?->name;
+
+                $excessos[] = __(':artigo (pede :pedido, disponível :disponivel)', [
+                    'artigo'     => \Illuminate\Support\Str::limit((string) $nome, 40),
+                    'pedido'     => rtrim(rtrim(number_format($quantidade, 3, ',', '.'), '0'), ','),
+                    'disponivel' => rtrim(rtrim(number_format(max(0, $disponivel), 3, ',', '.'), '0'), ','),
+                ]);
+            }
+        }
+
+        return $excessos;
+    }
+
     public function loadInvoiceItems($invoiceId)
     {
         // Scoped ao tenant: sem isto era possível carregar as linhas de uma
         // fatura de OUTRA empresa passando o id.
-        $invoice = SalesInvoice::where('tenant_id', activeTenantId())
+        $invoice = SalesInvoice::where("tenant_id", activeTenantId())
+            ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->with('items.product')
             ->findOrFail($invoiceId);
         
@@ -171,10 +267,28 @@ class CreditNoteCreate extends Component
         Cart::session($this->cartInstance)->remove($itemId);
     }
 
+    /**
+     * A QUANTIDADE ESCRITA SUBSTITUI. NÃO SOMA.
+     *
+     * O carrinho trata uma quantidade escalar como RELATIVA: `update($id,
+     * ['quantity' => 35])` ACRESCENTA 35 ao que já lá está. A linha entrava com
+     * as unidades da factura, quem corrigia o número via-o somar-se ao antigo,
+     * e a nota saía a anular mais do que se tinha vendido.
+     *
+     * Aconteceu a sério: uma factura com 34 almoços gerou uma nota com 69 (34
+     * mais os 35 escritos), e a AGT recusou-a com E43 — «excede o montante
+     * ainda não anulado do documento base». As facturas, as proformas e o POS
+     * sempre passaram `relative => false`; foram só as notas que ficaram de fora.
+     */
     public function updateQuantity($itemId, $quantity)
     {
         if ($quantity > 0) {
-            Cart::session($this->cartInstance)->update($itemId, ['quantity' => $quantity]);
+            Cart::session($this->cartInstance)->update($itemId, [
+                'quantity' => [
+                    'relative' => false,
+                    'value'    => $quantity,
+                ],
+            ]);
         }
     }
 
@@ -202,6 +316,70 @@ class CreditNoteCreate extends Component
                 0, // sem desconto financeiro
                 false // não é serviço
             );
+
+            /*
+             * NÃO SE ANULA MAIS DO QUE SE VENDEU.
+             *
+             * A AGT recusa com E43 quando a soma das notas passa o que a
+             * factura ainda tem por anular — e recusa DEPOIS de o documento já
+             * ter número fiscal, hash e assinatura. Nasce inválido, e só a
+             * resposta da AGT o diz, dias depois. O travão tem de estar aqui,
+             * antes de o número ser atribuído.
+             *
+             * Conta-se o que outras notas JÁ tiraram a esta factura, não só
+             * esta: duas notas parciais podem passar o total sem que nenhuma
+             * delas, sozinha, o pareça.
+             */
+            if ($this->invoice_id) {
+                $factura = \App\Models\Invoicing\SalesInvoice::find($this->invoice_id);
+
+                if ($factura) {
+                    // Pela mesma fonte que decide o botão da lista e o
+                    // selector — três respostas diferentes à mesma pergunta é
+                    // como isto começou.
+                    $porAnular = $factura->porCreditar($this->creditNoteId ?: null);
+
+                    /*
+                     * E AS QUANTIDADES, LINHA A LINHA.
+                     *
+                     * O travão do valor não chega: uma nota pode bater certo no
+                     * total e creditar 69 unidades de uma linha que só teve 34,
+                     * com outra linha a menos a compensar. Foi assim que saiu a
+                     * NC4226S46906N/000002, que a AGT recusou com E43 — o erro
+                     * que diz que a nota não corresponde ao documento que corrige.
+                     */
+                    $excessos = $this->linhasQueExcedemAFactura($factura, $cartItems);
+
+                    if ($excessos !== []) {
+                        DB::rollBack();
+
+                        $this->dispatch('notify', [
+                            'type'    => 'error',
+                            'message' => __('A factura :factura não tem essas quantidades por anular: :linhas', [
+                                'factura' => $factura->invoice_number,
+                                'linhas'  => implode('; ', $excessos),
+                            ]),
+                        ]);
+
+                        return;
+                    }
+
+                    if (round((float) $totals['total'], 2) > $porAnular + 0.01) {
+                        DB::rollBack();
+
+                        $this->dispatch('notify', [
+                            'type' => 'error',
+                            'message' => __('Esta nota anula :nota, mas a factura :factura só tem :saldo por anular. A AGT recusaria (E43).', [
+                                'nota'    => number_format((float) $totals['total'], 2, ',', '.'),
+                                'factura' => $factura->invoice_number,
+                                'saldo'   => number_format($porAnular, 2, ',', '.'),
+                            ]),
+                        ]);
+
+                        return;
+                    }
+                }
+            }
 
             // Expressão obrigatória conforme Art. 12º RJF (Decreto 71/25)
             $reasonExpression = ($this->type === 'total') ? 'Anulação' : 'Rectificação';
@@ -454,10 +632,32 @@ class CreditNoteCreate extends Component
         $invoices = collect();
         if ($this->client_id) {
             $invoices = SalesInvoice::where('tenant_id', activeTenantId())
+                // Escolher a factura de origem numa lista com as dos colegas
+                // era vê-las — número, data e valor.
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->where('client_id', $this->client_id)
-                ->whereIn('status', ['pending', 'partially_paid', 'paid'])
+                // O AVESSO: fica de fora o que ainda não existe (rascunho) e o
+                // que já não existe (anulada). Nomear os estados que entram
+                // deixava de fora as `sent` — o estado normal de uma factura
+                // emitida e por pagar — e as `overdue`.
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                // E o que já foi anulado por inteiro também sai da lista: não
+                // se oferece o que a AGT recusaria com E43. Pelo SALDO, que uma
+                // factura creditada em parte continua a dar para o resto.
+                ->comCreditado()
+                // E a factura que veio no endereço entra sempre, aconteça o que
+                // acontecer: sem a opção no <select>, o Livewire devolvia vazio
+                // e a nota ficava sem referência à factura.
+                ->when($this->invoice_id, fn ($q) => $q->orWhere('id', $this->invoice_id))
                 ->orderBy('invoice_date', 'desc')
-                ->get();
+                ->get()
+                // O corte fica em PHP e não em SQL: filtrar por uma soma exige
+                // HAVING, e o HAVING sobre coluna não agrupada passa aqui e
+                // rebenta em produção com ONLY_FULL_GROUP_BY. A lista é de um
+                // cliente só, já veio inteira.
+                ->filter(fn ($f) => (int) $f->id === (int) $this->invoice_id
+                    || ! $f->jaTotalmenteCreditada($this->creditNoteId ?: null))
+                ->values();
         }
 
         // Buscar produtos

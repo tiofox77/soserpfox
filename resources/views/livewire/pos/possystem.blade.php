@@ -481,6 +481,7 @@
     @include('livewire.pos.partials.quick-client-modal')
     @include('livewire.pos.partials.payment-modal')
     @include('livewire.pos.partials.print-modal')
+    @include('livewire.pos.partials.preco-modal')
 </div>
 
 {{-- Scripts --}}

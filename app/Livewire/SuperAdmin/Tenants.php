@@ -69,6 +69,14 @@ class Tenants extends Component
     public $managingPlanTenantId = null;
     public $selectedPlanId = null;
     public $billingCycle = 'monthly';
+    // O acordo, além do plano e do ciclo: oferta do anual, período em dias
+    // à medida, e cobrança por utilizador. Ver TrocarDePlano::aplicar.
+    public bool $comOferta = true;
+    public string $diasPersonalizados = '';
+    public string $precoPorUtilizador = '';
+    public string $utilizadoresCobrados = '';
+    /** Tecto de documentos emitidos. Vazio = o que o plano disser. */
+    public string $maxDocumentos = '';
     
     // Deactivation modal
     public $showDeactivationModal = false;
@@ -82,7 +90,8 @@ class Tenants extends Component
     
     // Form fields
     public $name, $slug, $email, $phone, $company_name, $nif;
-    public $address, $city, $postal_code, $country = 'Angola';
+    public $address, $city, $postal_code;
+    public $country = \App\Support\Geografia::PAIS_PADRAO; // ISO 3166-1 alfa-2
     public $max_users = 5, $max_storage_mb = 1000;
     public $is_active = true;
 
@@ -510,7 +519,7 @@ class Tenants extends Component
     {
         $this->reset(['name', 'slug', 'email', 'phone', 'company_name', 'nif', 
                      'address', 'city', 'postal_code', 'editingTenantId']);
-        $this->country = 'Angola';
+        $this->country = \App\Support\Geografia::PAIS_PADRAO;
         $this->max_users = 5;
         $this->max_storage_mb = 1000;
         $this->is_active = true;
@@ -938,35 +947,93 @@ class Tenants extends Component
         $this->managingPlanTenantId = $tenantId;
         $tenant = Tenant::with('activeSubscription.plan')->find($tenantId);
         
-        if ($tenant->activeSubscription) {
-            $this->selectedPlanId = $tenant->activeSubscription->plan_id;
-            $this->billingCycle = $tenant->activeSubscription->billing_cycle ?? 'monthly';
+        $sub = $tenant->activeSubscription;
+
+        if ($sub) {
+            $this->selectedPlanId = $sub->plan_id;
+            $this->billingCycle = $sub->billing_cycle ?? 'monthly';
+            // O acordo actual vem para o ecrã tal como está — quem abre o
+            // modal para «ver» não pode ficar com valores diferentes dos que
+            // a empresa tem.
+            $this->comOferta = (bool) ($sub->com_oferta ?? true);
+            $this->diasPersonalizados = $sub->dias_personalizados ? (string) $sub->dias_personalizados : '';
+            $this->precoPorUtilizador = $sub->preco_por_utilizador !== null ? (string) (float) $sub->preco_por_utilizador : '';
+            $this->utilizadoresCobrados = $sub->utilizadores_cobrados ? (string) $sub->utilizadores_cobrados : '';
+            $this->maxDocumentos = $sub->max_documentos !== null ? (string) $sub->max_documentos : '';
+        } else {
+            $this->comOferta = true;
+            $this->diasPersonalizados = '';
+            $this->precoPorUtilizador = '';
+            $this->utilizadoresCobrados = '';
+            $this->maxDocumentos = '';
         }
-        
+
         $this->showPlanModal = true;
     }
-    
+
     public function closePlanModal()
     {
         $this->showPlanModal = false;
         $this->managingPlanTenantId = null;
         $this->selectedPlanId = null;
         $this->billingCycle = 'monthly';
+        $this->comOferta = true;
+        $this->diasPersonalizados = '';
+        $this->precoPorUtilizador = '';
+        $this->utilizadoresCobrados = '';
+        $this->maxDocumentos = '';
     }
-    
+
+    /**
+     * O que a escolha actual do modal dá — calculado no servidor, pela MESMA
+     * regra que vai gravar, para o ecrã nunca prometer uma coisa e gravar outra.
+     *
+     * @return array{fim: ?\Carbon\Carbon, dias: int, valor: float, base: string}|null
+     */
+    public function getResumoDoPlanoProperty(): ?array
+    {
+        $plano = $this->selectedPlanId ? \App\Models\Plan::find($this->selectedPlanId) : null;
+
+        if (! $plano) {
+            return null;
+        }
+
+        try {
+            return \App\Support\AcordoDeSubscricao::calcular($plano, (string) $this->billingCycle, $this->opcoesDoAcordo());
+        } catch (\Throwable) {
+            // Um valor a meio de ser escrito não pode rebentar o ecrã.
+            return null;
+        }
+    }
+
+    /** As opções do acordo tal como o TrocarDePlano as recebe. */
+    private function opcoesDoAcordo(): array
+    {
+        return [
+            'com_oferta' => $this->comOferta,
+            'dias' => $this->diasPersonalizados !== '' ? (int) $this->diasPersonalizados : null,
+            'preco_por_utilizador' => $this->precoPorUtilizador !== '' ? (float) $this->precoPorUtilizador : null,
+            'utilizadores' => $this->utilizadoresCobrados !== '' ? (int) $this->utilizadoresCobrados : null,
+        ] + ($this->maxDocumentos !== '' ? ['max_documentos' => (int) $this->maxDocumentos] : []);
+    }
+
     public function updateTenantPlan()
     {
         $this->validate([
             'selectedPlanId' => 'required|exists:plans,id',
             'billingCycle' => 'required|in:monthly,quarterly,semiannual,yearly',
+            'diasPersonalizados' => 'nullable|integer|min:1|max:3660',
+            'precoPorUtilizador' => 'nullable|numeric|min:0',
+            'utilizadoresCobrados' => 'nullable|integer|min:1',
+            'maxDocumentos' => 'nullable|integer|min:1|max:1000000',
         ]);
-        
+
         \DB::beginTransaction();
-        
+
         try {
             $tenant = Tenant::find($this->managingPlanTenantId);
             $plan = \App\Models\Plan::find($this->selectedPlanId);
-            
+
             // A troca de plano vive no TrocarDePlano: o antigo e cancelado
             // com tudo a zero e nasce um novo, com dias novos. Aqui
             // reaproveitava-se a subscricao existente e so se lhe trocava o
@@ -974,7 +1041,7 @@ class Tenants extends Component
             // e a empresa acabava com um plano novo a correr com as contas do
             // velho.
             app(\App\Services\Plataforma\TrocarDePlano::class)
-                ->aplicar($tenant, $plan, $this->billingCycle);
+                ->aplicar($tenant, $plan, $this->billingCycle, $this->opcoesDoAcordo());
 
             // Sincronizar módulos do plano com o tenant
             $this->syncPlanModules($tenant, $plan);

@@ -7,9 +7,13 @@ use App\Models\User;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\NumeracaoInternaEAgt;
 
 class SalesProforma extends Model
 {
+    // O número nas duas séries: a interna e a da AGT.
+    use NumeracaoInternaEAgt;
+
     use SoftDeletes, BelongsToTenant;
 
     protected $table = 'invoicing_sales_proformas';

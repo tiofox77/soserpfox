@@ -56,6 +56,14 @@ class PurchaseInvoiceObserver
      */
     private function increaseStock(PurchaseInvoice $invoice): void
     {
+        // A mercadoria desta factura já entrou na RECEPÇÃO da encomenda (módulo
+        // Compras). Dar entrada outra vez punha no sistema o dobro do que
+        // chegou ao armazém — e ninguém daria pela diferença até à contagem.
+        // O custo do artigo também já foi actualizado nessa altura.
+        if ($invoice->stock_ja_entrou) {
+            return;
+        }
+
         $invoice->loadMissing(['items.product', 'supplier']);
 
         // O preço a que se comprou passa a ser o custo do artigo. Fica aqui —
@@ -156,6 +164,14 @@ class PurchaseInvoiceObserver
      */
     private function removeStock(PurchaseInvoice $invoice): void
     {
+        // Simétrico do increaseStock: se o stock não entrou por aqui, não sai
+        // por aqui. Anular a factura de uma encomenda já recebida é um acto
+        // administrativo — a mercadoria continua no armazém. Quem a quiser
+        // fazer sair devolve-a ou acerta-a por contagem.
+        if ($invoice->stock_ja_entrou) {
+            return;
+        }
+
         $invoice->loadMissing(['items.product']);
 
         foreach ($invoice->items as $item) {

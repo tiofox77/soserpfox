@@ -1,5 +1,5 @@
 {{-- Modal Backdrop --}}
-<div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4"
+<div wire:key="hr-leave-details-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4"
      x-data="{ show: @entangle('showDetailsModal') }"
      x-show="show"
      x-transition:enter="transition ease-out duration-300"

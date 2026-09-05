@@ -28,7 +28,9 @@
         $isFoxFriendly = $plan && str_contains(strtolower($plan->slug), 'fox');
     @endphp
     
-    @if($isFoxFriendly)
+    {{-- Também é informação do pacote: quantos utilizadores, quanto espaço,
+         quantos meses de oferta. Só a quem trata disso. --}}
+    @if($isFoxFriendly && podeVer('billing.manage'))
     <div class="mb-6 bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 rounded-2xl shadow-2xl p-6 text-white overflow-hidden relative"
          x-data="{ foxVisible: true }"
          x-show="foxVisible"
@@ -47,11 +49,29 @@
                     <span>🎉 FOX Friendly Ativo!</span>
                     <span class="ml-3 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm">3 meses GRÁTIS</span>
                 </h3>
+                @php
+                    // O que a oferta dá HOJE a esta empresa — não o que o
+                    // cartaz dizia. Uma promoção com tecto de documentos não
+                    // pode continuar a prometer «ilimitado».
+                    $tectoDocs = $tenant?->limiteDeDocumentos();
+                    $docsEmitidos = $tectoDocs !== null ? $tenant->documentosEmitidos() : 0;
+                @endphp
                 <p class="text-white/90 mb-3">
-                    Você tem acesso <strong>completo e ilimitado</strong> a todos os módulos do sistema! 
+                    Você tem acesso a <strong>todos os módulos</strong> do sistema!
                     Aproveite essa oportunidade especial. 🚀
                 </p>
-                <div class="flex items-center space-x-6 text-sm">
+                <div class="flex items-center flex-wrap gap-x-6 gap-y-2 text-sm">
+                    @if($tectoDocs !== null)
+                    <div class="flex items-center">
+                        <i class="fas {{ $docsEmitidos >= $tectoDocs ? 'fa-circle-exclamation' : 'fa-check-circle' }} mr-2"></i>
+                        <span>
+                            {{ number_format($docsEmitidos, 0, ',', '.') }} de {{ number_format($tectoDocs, 0, ',', '.') }} documentos
+                            @if($docsEmitidos >= $tectoDocs)
+                                <strong>· esgotado</strong>
+                            @endif
+                        </span>
+                    </div>
+                    @endif
                     <div class="flex items-center">
                         <i class="fas fa-check-circle mr-2"></i>
                         <span>999 utilizadores</span>
@@ -105,7 +125,7 @@
     @endif
 
     <!-- Alert: Pagamento Pendente -->
-    @if($hasPendingOrder)
+    @if($hasPendingOrder && podeVer('billing.manage'))
     <div class="mb-6 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-2xl shadow-xl p-6 text-white" id="pendingOrderAlert">
         <div class="flex items-start">
             <div class="flex-shrink-0">
@@ -170,7 +190,7 @@
     @endif
 
     <!-- Alert: Sem Plano Ativo -->
-    @if($needsSubscription && !$hasPendingOrder)
+    @if($needsSubscription && !$hasPendingOrder && podeVer('billing.manage'))
     <div class="mb-6 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl shadow-xl p-6 text-white">
         <div class="flex items-start">
             <div class="flex-shrink-0">
@@ -199,7 +219,7 @@
     @endif
 
     <!-- Alert: Trial Ativo -->
-    @if($hasCompany && !$needsSubscription && $subscriptionStatus === 'trial')
+    @if($hasCompany && !$needsSubscription && $subscriptionStatus === 'trial' && podeVer('billing.manage'))
     <div class="mb-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl shadow-xl p-6 text-white">
         <div class="flex items-start">
             <div class="flex-shrink-0">
@@ -341,9 +361,11 @@
 
     @if(!auth()->user()->isSuperAdmin())
     <!-- Tenant Info & Statistics with Modern Design -->
+    {{-- Sem o cartão da subscrição ao lado, a ficha da empresa ocupa a largura
+         toda em vez de deixar um buraco. --}}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-animation">
         <!-- Tenant Info Card -->
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6 card-hover border border-purple-100">
+        <div class="{{ podeVer('billing.manage') ? 'lg:col-span-2' : 'lg:col-span-3' }} bg-white rounded-2xl shadow-lg p-6 card-hover border border-purple-100">
             <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
                 <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3 icon-float">
                     <i class="fas fa-building text-white"></i>
@@ -400,6 +422,14 @@
             @endif
         </div>
 
+        {{-- Subscrição: SÓ A QUEM GERE A EMPRESA.
+
+             Plano, valor, ciclo e data de renovação são assunto de quem paga.
+             Um vendedor ou um caixa não tem nada a fazer com isso, e o cartão
+             ocupava-lhe metade do ecrã com informação que não lhe pertence
+             nem sobre a qual pode agir. `billing.manage` é a permissão que
+             marca quem trata do pacote (Admin e Super Admin). --}}
+        @if(podeVer('billing.manage'))
         <!-- Subscription Card with Modern Design -->
         <div class="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 rounded-2xl shadow-xl p-6 text-white card-glow">
             <div class="absolute inset-0 opacity-10">
@@ -453,6 +483,7 @@
                 @endif
             </div>
         </div>
+        @endif
     </div>
 
     <!-- Modules Section -->
@@ -507,8 +538,29 @@
         @endif
     </div>
 
-    <!-- Statistics Cards with Modern Design -->
+    {{-- Números do topo: cada cartão só aparece a quem pode ver aquilo.
+
+         Antes mostravam-se quatro a toda a gente, e dois deles eram um zero
+         escrito à mão — "Faturas: 0", "Receita Total: 0" — que nunca mudavam.
+         Agora contam a sério e seguem a mesma regra das listas: sem
+         `invoicing.documents.all`, são os SEUS números, não os da empresa. --}}
+    @php
+        $mesActual = now()->startOfMonth();
+        $facturasDoMes = null;
+        $receitaDoMes = null;
+
+        if (podeVer('invoicing.dashboard.view', 'invoicing.sales.invoices.view')) {
+            $baseFacturas = fn () => escopoDoAutor(
+                \App\Models\Invoicing\SalesInvoice::where('tenant_id', activeTenantId())
+                    ->where('invoice_date', '>=', $mesActual)
+                    ->where('status', '!=', 'cancelled')
+            );
+            $facturasDoMes = $baseFacturas()->count();
+            $receitaDoMes = $baseFacturas()->sum('total');
+        }
+    @endphp
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 stagger-animation">
+        @if(podeVer('customers.view'))
         <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-3d border border-green-200">
             <div class="flex items-center justify-between mb-4">
                 <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/50 icon-float">
@@ -521,7 +573,9 @@
             </p>
             <p class="text-xs text-gray-500">Total registados</p>
         </div>
+        @endif
 
+        @if(podeVer('products.view'))
         <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-zoom border border-purple-200">
             <div class="flex items-center justify-between mb-4">
                 <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/50 icon-float">
@@ -534,7 +588,9 @@
             </p>
             <p class="text-xs text-gray-500">No catálogo</p>
         </div>
+        @endif
 
+        @if($facturasDoMes !== null)
         <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-glow border border-blue-200">
             <div class="flex items-center justify-between mb-4">
                 <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/50 icon-float">
@@ -542,8 +598,8 @@
                 </div>
             </div>
             <p class="text-sm text-blue-600 font-bold mb-1">Faturas</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">0</p>
-            <p class="text-xs text-gray-500">Este mês</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ number_format($facturasDoMes) }}</p>
+            <p class="text-xs text-gray-500">{{ soVeOSeu() ? 'Emitidas por si este mês' : 'Este mês' }}</p>
         </div>
 
         <div class="bg-white rounded-2xl shadow-lg p-6 card-hover card-rotate border border-orange-200">
@@ -552,10 +608,11 @@
                     <i class="fas fa-money-bill-wave text-white text-2xl"></i>
                 </div>
             </div>
-            <p class="text-sm text-orange-600 font-bold mb-1">Receita Total</p>
-            <p class="text-4xl font-bold text-gray-900 mb-1">0</p>
-            <p class="text-xs text-gray-500">Kz este mês</p>
+            <p class="text-sm text-orange-600 font-bold mb-1">Facturado</p>
+            <p class="text-4xl font-bold text-gray-900 mb-1">{{ number_format($receitaDoMes, 0, ',', '.') }}</p>
+            <p class="text-xs text-gray-500">{{ soVeOSeu() ? 'Kz seus, este mês' : 'Kz este mês' }}</p>
         </div>
+        @endif
     </div>
     @endif
 </div>

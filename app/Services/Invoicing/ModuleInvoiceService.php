@@ -249,7 +249,22 @@ class ModuleInvoiceService
             );
 
             if ($hash) {
-                $invoice->saft_hash = $hash;
+                // GRAVAR O ELO, e não só o hash.
+                //
+                // Guardar apenas o `saft_hash` deixava a factura com o hash
+                // certo mas sem dizer a que documento se ligava. Parecia
+                // inofensivo — a cadeia estava lá, calculada. Não estava:
+                // quando estas facturas iam à AGT, o SignatureService
+                // RECALCULAVA o hash a partir do `hash_previous` guardado, que
+                // era vazio, e sobrepunha o correcto. A cadeia partia-se na
+                // transmissão, que é o pior momento possível para partir.
+                //
+                // Isto afectava tudo o que passa por aqui: restaurante, hotel,
+                // salão, oficina e as vendas repostas pelo PWA offline.
+                $invoice->hash          = $hash;
+                $invoice->saft_hash     = $hash;
+                $invoice->hash_previous = $anterior->saft_hash ?? '';
+                $invoice->hash_control  = '1';
                 $invoice->save();
             }
 

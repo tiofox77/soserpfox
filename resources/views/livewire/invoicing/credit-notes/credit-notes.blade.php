@@ -59,6 +59,7 @@
             <i class="fas fa-filter mr-2 text-red-600"></i>{{ __('Filtros') }}
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3 sm:gap-4">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" />
             <div>
                 <label class="block text-xs font-bold text-gray-600 mb-2 uppercase"><i class="fas fa-search mr-1"></i>{{ __('Pesquisar') }}</label>
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Pesquisar...') }}" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition text-sm">
@@ -99,25 +100,31 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gradient-to-r from-red-50 to-rose-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Número') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Cliente') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Fatura Origem') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Data') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Motivo') }}</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-red-700 uppercase">{{ __('Valor') }}</th>
-                        <th class="px-6 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Status') }}</th>
-                        <th class="px-6 py-3 text-right text-xs font-bold text-red-700 uppercase">{{ __('Ações') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Número') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Cliente') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Fatura Origem') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Data') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Motivo') }}</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-red-700 uppercase">{{ __('Valor') }}</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-red-700 uppercase">{{ __('Status') }}</th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">
+                            <i class="fas fa-landmark mr-1 text-emerald-600"></i>{{ __('Portal AGT') }}
+                        </th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-red-700 uppercase">{{ __('Ações') }}</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($creditNotes as $creditNote)
                         <tr class="hover:bg-red-50 transition">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-3 py-1 text-xs font-mono bg-red-100 text-red-800 rounded-full font-bold">
-                                    {{ $creditNote->credit_note_number }}
-                                </span>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-sm font-bold text-red-700" title="{{ __('Numeração interna') }}">{{ $creditNote->numeroInterno() }}</div>
+                        @if($creditNote->numeroAgt())
+                            <div class="text-[10px] text-gray-400 font-mono mt-0.5" title="{{ __('Numeração AGT') }}">
+                                <i class="fas fa-landmark mr-0.5"></i>{{ $creditNote->numeroAgt() }}
+                            </div>
+                        @endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-4 py-3">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
                                         <i class="fas fa-user text-red-600"></i>
@@ -128,30 +135,30 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-4 py-3 whitespace-nowrap">
                                 @if($creditNote->invoice)
                                     <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded font-mono">
-                                        {{ $creditNote->invoice->invoice_number }}
+                                        {{ $creditNote->invoice->numeroInterno() }}
                                     </span>
                                 @else
                                     <span class="text-xs text-gray-400">-</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                                 {{ $creditNote->issue_date->format('d/m/Y') }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-4 py-3 whitespace-nowrap">
                                 <span class="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">
                                     {{ $creditNote->reason_label }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <td class="px-4 py-3 whitespace-nowrap text-right">
                                 <p class="text-lg font-bold text-red-600">
                                     {{ number_format($creditNote->total, 2) }}
                                 </p>
                                 <p class="text-xs text-gray-500">AOA</p>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-4 py-3 whitespace-nowrap">
                                 <span class="px-3 py-1 text-xs font-semibold rounded-full
                                     {{ $creditNote->status === 'issued' ? 'bg-red-100 text-red-700' : '' }}
                                     {{ $creditNote->status === 'draft' ? 'bg-gray-100 text-gray-700' : '' }}
@@ -159,7 +166,10 @@
                                     {{ $creditNote->status_label }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                @include('livewire.invoicing.partials.agt-document-status', ['document' => $creditNote])
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex items-center justify-end gap-2">
                                     <button wire:click="viewCreditNote({{ $creditNote->id }})"
                                             class="text-red-600 hover:text-red-900"
@@ -172,6 +182,7 @@
                                        title="{{ __('Ver documento') }}">
                                         <i class="fas fa-file-alt"></i>
                                     </a>
+                                    <x-pdf-descarregar :url="route('invoicing.credit-notes.preview', $creditNote->id)" />
                                     <a href="{{ route('invoicing.credit-notes.pdf', $creditNote->id) }}"
                                        target="_blank"
                                        class="text-green-600 hover:text-green-900"
@@ -194,7 +205,7 @@
                             </td>                        </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center">
+                            <td colspan="9" class="px-6 py-12 text-center">
                                 <i class="fas fa-file-circle-minus text-6xl text-gray-300 mb-4"></i>
                                 <p class="text-gray-500 font-medium">{{ __('Nenhuma nota de crédito encontrada') }}</p>
                                 <p class="text-gray-400 text-sm mt-2">{{ __('Crie sua primeira nota de crédito para começar') }}</p>

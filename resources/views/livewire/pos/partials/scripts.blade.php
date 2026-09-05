@@ -110,6 +110,16 @@ document.addEventListener('livewire:init', () => {
 {{-- Persistência do carrinho no cliente (rede de segurança contra expiração de sessão) --}}
 @script
 <script>
+(() => {
+    // O IIFE não é estilo: o conteúdo destes blocos script do Livewire é
+    // avaliado como EXPRESSÃO Alpine, e o Alpine só embrulha sozinho o que
+    // COMEÇA por let/const — um comentário à frente cega-lhe a heurística e
+    // o bloco inteiro morria com «Unexpected token: const»: sem espelho do
+    // carrinho, sem restauro, e sem a confirmação dos psicotrópicos (o
+    // clique no artigo não fazia nada). Nota: nunca escrever a directiva
+    // arroba-script por extenso nos comentários — o Blade apanha-a até aqui
+    // dentro e desfaz o bloco.
+
     // Chave de armazenamento (mesma que o servidor usa em loadCart()).
     const POS_KEY = @js('pos_cart_' . auth()->id() . '_' . ($this->currentShift?->id ?? 0));
     // Já vimos um carrinho com itens nesta sessão de página? (só então limpamos o espelho ao esvaziar)
@@ -168,5 +178,6 @@ document.addEventListener('livewire:init', () => {
         }
         // count 0 && !posHadItems → NÃO apagar (preserva a cópia para restauro pós-login).
     });
+})();
 </script>
 @endscript

@@ -9,12 +9,17 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdvanceController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function generatePdf($id)
     {
         try {
             // Buscar adiantamento com relacionamentos
             $advance = Advance::with(['client', 'creator'])
                 ->where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->findOrFail($id);
             
             // Buscar dados do tenant
@@ -56,6 +61,7 @@ class AdvanceController extends Controller
             return view('pdf.invoicing.advance', [
                 'advance' => Advance::with(['client'])
                     ->where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($id),
                 'tenant' => Tenant::find(activeTenantId()),
                 'bankAccounts' => collect(),
@@ -68,6 +74,7 @@ class AdvanceController extends Controller
         // Buscar adiantamento com relacionamentos
         $advance = Advance::with(['client', 'creator'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
         
         // Buscar dados do tenant

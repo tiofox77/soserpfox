@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\HR\SettingsManagement;
 use App\Models\HR\HRSetting;
 use App\Services\HR\DefinicoesRH;
+use App\Services\HR\HRSettingsService;
 use Livewire\Livewire;
 use Tests\TenantTestCase;
 
@@ -275,6 +276,24 @@ class DefinicoesRHTest extends TenantTestCase
             (float) HRSetting::get('max_salary_advance_percentage', 50),
             'é isto que o ecrã de adiantamentos lê'
         );
+    }
+
+    public function test_subsidio_de_natal_tem_uma_unica_chave_activa_e_o_servico_le_a_mesma_do_payroll(): void
+    {
+        DefinicoesRH::garantirPara($this->tenant->id);
+
+        $this->assertFalse((bool) HRSetting::withoutGlobalScopes()
+            ->where('tenant_id', $this->tenant->id)
+            ->where('key', 'christmas_bonus_percentage')
+            ->value('is_active'));
+
+        HRSetting::withoutGlobalScopes()
+            ->where('tenant_id', $this->tenant->id)
+            ->where('key', 'christmas_subsidy_percentage')
+            ->update(['value' => '65']);
+        HRSetting::clearCache();
+
+        $this->assertSame(0.65, app(HRSettingsService::class)->getChristmasBonusPercentage());
     }
 
     /**

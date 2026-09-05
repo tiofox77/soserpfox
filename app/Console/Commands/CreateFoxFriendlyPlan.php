@@ -57,8 +57,14 @@ class CreateFoxFriendlyPlan extends Command
             'max_users' => 999, // Ilimitado
             'max_companies' => 50,
             'max_storage_mb' => 100000, // 100GB
+            // A oferta tem tecto: 500 documentos fiscais. Sem isto, três meses
+            // «com tudo aberto» davam para facturar um ano à borla. Só apanha
+            // quem assinar a partir de agora — o tecto viaja na subscrição
+            // (ver App\Support\AcordoDeSubscricao e Tenant::limiteDeDocumentos).
+            'max_documents' => 500,
             'features' => [
                 'Todos os módulos incluídos',
+                '500 documentos fiscais',
                 '999 utilizadores',
                 '50 empresas',
                 '100GB de armazenamento',
@@ -109,6 +115,7 @@ class CreateFoxFriendlyPlan extends Command
         $this->info('  - Módulos: ' . count($plan->included_modules));
         $this->info('  - Usuários: ' . $plan->max_users);
         $this->info('  - Storage: ' . ($plan->max_storage_mb / 1024) . 'GB');
+        $this->info('  - Documentos fiscais: ' . ($plan->max_documents ?? 'sem tecto'));
         
         return Command::SUCCESS;
     }

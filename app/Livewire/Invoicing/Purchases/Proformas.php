@@ -15,6 +15,9 @@ use Livewire\Attributes\Title;
 class Proformas extends Component
 {
     use WithPagination;
+    // Cada um vê os documentos que emitiu; com
+    // `invoicing.documents.all` vê os de todos e ganha o filtro por autor.
+    use \App\Traits\DocumentosPorAutor;
 
     // Filters
     public $search = '';
@@ -45,9 +48,14 @@ class Proformas extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
+    protected function modeloDoDocumento(): string
+    {
+        return \App\Models\Invoicing\PurchaseProforma::class;
+    }
+
     public function render()
     {
-        $query = PurchaseProforma::where('tenant_id', activeTenantId())
+        $query = $this->baseDoAutor()
             ->with(['supplier', 'warehouse', 'creator']);
 
         // Search
@@ -86,11 +94,11 @@ class Proformas extends Component
 
         // Stats
         $stats = [
-            'total' => PurchaseProforma::where('tenant_id', activeTenantId())->count(),
-            'draft' => PurchaseProforma::where('tenant_id', activeTenantId())->where('status', 'draft')->count(),
-            'sent' => PurchaseProforma::where('tenant_id', activeTenantId())->where('status', 'sent')->count(),
-            'accepted' => PurchaseProforma::where('tenant_id', activeTenantId())->where('status', 'accepted')->count(),
-            'total_amount' => PurchaseProforma::where('tenant_id', activeTenantId())->sum('total'),
+            'total' => $this->baseDoAutor()->count(),
+            'draft' => $this->baseDoAutor()->where('status', 'draft')->count(),
+            'sent' => $this->baseDoAutor()->where('status', 'sent')->count(),
+            'accepted' => $this->baseDoAutor()->where('status', 'accepted')->count(),
+            'total_amount' => $this->baseDoAutor()->sum('total'),
         ];
 
         return view('livewire.invoicing.proformas-compra.proformas', [
@@ -119,7 +127,7 @@ class Proformas extends Component
                 return;
             }
 
-            $proforma = PurchaseProforma::where('tenant_id', activeTenantId())
+            $proforma = $this->baseDoAutor()
                 ->findOrFail($this->proformaToDelete);
 
             // Verificar se tem faturas associadas
@@ -146,7 +154,7 @@ class Proformas extends Component
 
     public function convertToInvoice($proformaId)
     {
-        $proforma = PurchaseProforma::where('tenant_id', activeTenantId())
+        $proforma = $this->baseDoAutor()
             ->findOrFail($proformaId);
 
         try {
@@ -166,7 +174,7 @@ class Proformas extends Component
     
     public function showHistory($proformaId)
     {
-        $this->proformaHistory = PurchaseProforma::where('tenant_id', activeTenantId())
+        $this->proformaHistory = $this->baseDoAutor()
             ->with(['supplier', 'warehouse'])
             ->findOrFail($proformaId);
         
@@ -196,7 +204,7 @@ class Proformas extends Component
     
     public function viewProforma($proformaId)
     {
-        $this->selectedProforma = PurchaseProforma::where('tenant_id', activeTenantId())
+        $this->selectedProforma = $this->baseDoAutor()
             ->with(['supplier', 'warehouse', 'items.product', 'creator'])
             ->findOrFail($proformaId);
         
@@ -211,7 +219,7 @@ class Proformas extends Component
     
     public function downloadPdf($proformaId)
     {
-        $proforma = PurchaseProforma::where('tenant_id', activeTenantId())
+        $proforma = $this->baseDoAutor()
             ->with(['supplier', 'warehouse', 'items.product', 'creator'])
             ->findOrFail($proformaId);
         

@@ -776,6 +776,18 @@
                                             <span wire:loading.remove wire:target="retrySubmission({{ $sub['id'] }})"><i class="fas fa-redo mr-1"></i> {{ __('Reenviar') }}</span>
                                             <span wire:loading wire:target="retrySubmission({{ $sub['id'] }})"><i class="fas fa-spinner fa-spin"></i></span>
                                         </button>
+                                        @elseif($sub['status'] !== 'validated')
+                                        {{-- Tentativas gastas. Quando a recusa foi culpa do software
+                                             (schema, arredondamento) e o código já está corrigido, é
+                                             aqui que se repõe o contador e se reenvia no acto. --}}
+                                        <button wire:click="reporEReenviar({{ $sub['id'] }})"
+                                                wire:confirm="{{ __('Repor as tentativas e reenviar este documento à AGT agora?') }}"
+                                                wire:loading.attr="disabled" wire:target="reporEReenviar({{ $sub['id'] }})"
+                                                class="px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                title="{{ __('Tentativas esgotadas: repõe o contador e reenvia já') }}">
+                                            <span wire:loading.remove wire:target="reporEReenviar({{ $sub['id'] }})"><i class="fas fa-rotate-left mr-1"></i> {{ __('Repor e reenviar') }}</span>
+                                            <span wire:loading wire:target="reporEReenviar({{ $sub['id'] }})"><i class="fas fa-spinner fa-spin"></i></span>
+                                        </button>
                                         @else
                                             <span class="text-gray-300 text-xs">—</span>
                                         @endif

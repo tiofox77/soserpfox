@@ -984,7 +984,7 @@ class AGTDocumentGenerator extends Component
     
     public function viewDocument($id)
     {
-        return redirect()->route('invoicing.invoices.show', $id);
+        return redirect()->route('invoicing.sales.invoices');
     }
     
     public function cleanAllDocuments()

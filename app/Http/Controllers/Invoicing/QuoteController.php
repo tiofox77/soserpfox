@@ -10,11 +10,16 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class QuoteController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function generatePdf($id)
     {
         try {
             $quote = SalesQuote::with(['client', 'items.product', 'warehouse', 'creator'])
                 ->where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->findOrFail($id);
 
             $tenant = \App\Models\Tenant::find(activeTenantId());
@@ -55,6 +60,7 @@ class QuoteController extends Controller
             return view('pdf.invoicing.quote', [
                 'quote' => SalesQuote::with(['client', 'items', 'warehouse'])
                     ->where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($id),
                 'tenant' => \App\Models\Tenant::find(activeTenantId()),
             ]);
@@ -65,6 +71,7 @@ class QuoteController extends Controller
     {
         $quote = SalesQuote::with(['client', 'items.product', 'warehouse', 'creator'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $tenant = \App\Models\Tenant::find(activeTenantId());

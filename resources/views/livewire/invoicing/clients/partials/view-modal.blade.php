@@ -125,6 +125,14 @@
 
                 {{-- TAB: DETALHES (estatísticas) --}}
                 <div x-show="tab === 'detalhes'" x-transition>
+                    {{-- Um total parcial apresentado como total da casa seria pior
+                         do que não mostrar nada. Quem só vê os seus documentos vê
+                         aqui as SUAS contas com este cliente, e fica dito. --}}
+                    @if(soVeOSeu())
+                        <p class="mb-3 text-xs text-gray-500">
+                            <i class="fas fa-user-lock mr-1"></i>{{ __('Contas do que você facturou a este cliente.') }}
+                        </p>
+                    @endif
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                         <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
                             <div class="flex items-center justify-between mb-2">
@@ -250,6 +258,7 @@
                                                 <a href="{{ route('invoicing.sales.invoices.preview', $inv['id']) }}" target="_blank" class="text-blue-600 hover:text-blue-800" title="{{ __('Ver Fatura') }}">
                                                     <i class="fas fa-external-link-alt"></i>
                                                 </a>
+                                                <x-pdf-descarregar :url="route('invoicing.sales.invoices.preview', $inv['id'])" />
                                             </td>
                                         </tr>
                                     @empty

@@ -27,6 +27,9 @@ use Illuminate\Support\Facades\DB;
 #[Title('Novo Orçamento')]
 class QuoteCreate extends Component
 {
+    // Editar por URL o documento de um colega é vê-lo por inteiro.
+    use \App\Traits\EscopoDeAutor;
+
     public $quoteId = null;
     public $isEdit = false;
 
@@ -214,6 +217,7 @@ class QuoteCreate extends Component
     {
         $quote = SalesQuote::where('tenant_id', activeTenantId())
             ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
 
         $this->client_id = $quote->client_id;
@@ -590,6 +594,7 @@ class QuoteCreate extends Component
         try {
             if ($this->isEdit) {
                 $quote = SalesQuote::where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($this->quoteId);
 
                 if ($quote->status === 'converted') {

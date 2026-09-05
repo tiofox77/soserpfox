@@ -16,8 +16,8 @@
                     <i class="fas fa-chevron-left"></i>
                 </button>
                 <div class="text-center min-w-[120px]">
-                    <p class="text-lg font-bold">{{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}</p>
-                    <p class="text-xs text-pink-200">{{ \Carbon\Carbon::parse($selectedDate)->locale('pt')->dayName }}</p>
+                    <p class="text-lg font-bold">{{ \Carbon\Carbon::parse($selectedDate)->locale(app()->getLocale())->translatedFormat('d M Y') }}</p>
+                    <p class="text-xs text-pink-200">{{ \Carbon\Carbon::parse($selectedDate)->locale(app()->getLocale())->dayName }}</p>
                 </div>
                 <button wire:click="nextDay" class="p-2 hover:bg-white/20 rounded-lg transition">
                     <i class="fas fa-chevron-right"></i>
@@ -83,7 +83,7 @@
                     <i class="fas fa-coins text-pink-600"></i>
                 </div>
                 <div>
-                    <p class="text-lg font-bold text-pink-600">{{ number_format($stats['revenue_today'], 0, ',', '.') }}</p>
+                    <p class="text-lg font-bold text-pink-600">{{ valorProtegido($stats['revenue_today'], 'salon.reports.view') }}</p>
                     <p class="text-xs text-gray-500">Receita Hoje (Kz)</p>
                 </div>
             </div>
@@ -94,7 +94,7 @@
                     <i class="fas fa-chart-line text-purple-600"></i>
                 </div>
                 <div>
-                    <p class="text-lg font-bold text-purple-600">{{ number_format($stats['revenue_month'], 0, ',', '.') }}</p>
+                    <p class="text-lg font-bold text-purple-600">{{ valorProtegido($stats['revenue_month'], 'salon.reports.view') }}</p>
                     <p class="text-xs text-gray-500">Receita Mês (Kz)</p>
                 </div>
             </div>
@@ -121,6 +121,36 @@
                 </div>
             </div>
         </a>
+    </div>
+
+    {{-- ============ GRÁFICOS ============
+         Os números de cima são de HOJE. Um salão decide horários e promoções
+         a olhar para a forma do mês, não para o dia — e essa forma não estava
+         em lado nenhum. --}}
+    <div class="grid gap-6 lg:grid-cols-2 mb-6">
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Receita dos últimos 30 dias')"
+                   :subtitulo="__('Atendimentos concluídos, por dia')"
+                   id="grSalReceita"
+                   :altura="250"
+                   :vazio="!array_sum($receitaDias['valores'])" />
+
+        <x-grafico :titulo="__('Marcações do mês')"
+                   :subtitulo="__('Por estado — as faltas são o número a vigiar')"
+                   id="grSalEstados"
+                   :vazio="empty($porEstado['valores'])" />
+
+        <x-grafico :titulo="__('Serviços mais pedidos')"
+                   :subtitulo="__('No mês corrente')"
+                   id="grSalServicos"
+                   :vazio="empty($servicosTop['valores'])" />
+
+        <x-grafico class="lg:col-span-2"
+                   :titulo="__('Receita por profissional')"
+                   :subtitulo="__('Atendimentos concluídos este mês')"
+                   id="grSalProfissionais"
+                   :altura="230"
+                   :vazio="empty($porProfissional['valores'])" />
     </div>
 
     <div class="grid grid-cols-3 gap-6">
@@ -267,3 +297,60 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+    @include('partials.graficos')
+    <script>
+    sosDesenhar(function () {
+        const receita  = @json($receitaDias);
+        const estados  = @json($porEstado);
+        const servicos = @json($servicosTop);
+        const profs    = @json($porProfissional);
+
+        sosLinha('grSalReceita', receita.etiquetas, receita.valores, { cor: SOS_CORES[4] });
+
+        // Cores de estado: "faltou" TEM de ser vermelho. É o número que faz
+        // um salão mudar a forma de confirmar marcações, e uma cor qualquer
+        // deixava-o a passar despercebido no meio das outras fatias.
+        const coresEstado = {
+            scheduled: SOS_ESTADOS.neutro, confirmed: SOS_CORES[0], in_progress: SOS_ESTADOS.aviso,
+            completed: SOS_ESTADOS.bom, cancelled: SOS_CORES[1], no_show: SOS_ESTADOS.critico,
+        };
+        sosRosca('grSalEstados', estados.etiquetas, estados.valores, {
+            moeda: false,
+            cores: (estados.chaves || []).map((k) => coresEstado[k] || SOS_ESTADOS.neutro),
+        });
+
+        const desenharHorizontal = (id, dados, cor, moeda) => {
+            sosGrafico(id, {
+                type: 'bar',
+                data: {
+                    labels: dados.etiquetas,
+                    datasets: [{
+                        data: dados.valores,
+                        backgroundColor: cor,
+                        borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+                        borderSkipped: false,
+                        maxBarThickness: 26,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => (moeda ? sosMoeda(c.parsed.x) : sosNumero(c.parsed.x)) } },
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(100,116,139,.12)' }, border: { display: false } },
+                        y: { grid: { display: false }, border: { display: false } },
+                    },
+                },
+            });
+        };
+
+        desenharHorizontal('grSalServicos', servicos, SOS_CORES[2], false);
+        desenharHorizontal('grSalProfissionais', profs, SOS_CORES[6], true);
+    });
+    </script>
+@endpush

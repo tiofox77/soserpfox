@@ -22,10 +22,22 @@ if (!function_exists('getDefaultRolePermissionMap')) {
                 return !str_contains($perm->name, 'system.');
             })->pluck('name')->toArray(),
             'Gestor' => $allPermissions->filter(function ($perm) {
-                // Gestor: view, create e edit (sem delete)
-                return str_contains($perm->name, '.view')
-                    || str_contains($perm->name, '.create')
-                    || str_contains($perm->name, '.edit');
+                // GESTOR: gere o negócio todo, menos apagar e menos mandar em
+                // quem manda.
+                //
+                // A regra era «.view, .create ou .edit» e envelheceu mal: os
+                // módulos que vieram depois nomeiam as suas acções de gestão
+                // com outros verbos — `.manage`, `.gerir`, `.facturar`,
+                // `.decidir`, `.receber`, `.registar`, `.charge`. O Gestor via
+                // Projetos e Compras e não podia criar um projeto, aprovar uma
+                // requisição, lançar horas nem facturá-las; e no restaurante,
+                // no hotel e na contabilidade ficava sem `.manage`. Cada
+                // módulo novo tirava-lhe poder em silêncio.
+                //
+                // Passa a ser uma lista de EXCEPÇÕES, que é a forma que não
+                // envelhece: tudo, excepto o que um gestor de empresa não deve
+                // mesmo poder.
+                return ! naoEhParaOGestor($perm->name);
             })->pluck('name')->toArray(),
             'Utilizador' => $allPermissions->filter(function ($perm) {
                 // Utilizador: apenas view
@@ -137,6 +149,10 @@ if (!function_exists('createDefaultRolesForTenant')) {
             'invoicing.product-batches.edit'   => 'Editar Lotes de Produtos',
             'invoicing.product-batches.delete' => 'Excluir Lotes de Produtos',
             'invoicing.pos.reports.all'        => 'Ver Relatórios POS de Todos os Caixas',
+            // Sem esta, cada utilizador vê nas listas de documentos apenas os
+            // que emitiu (facturas, proformas, orçamentos, notas, recibos,
+            // adiantamentos e compras).
+            'invoicing.documents.all'         => 'Ver Documentos de Todos os Utilizadores',
             'invoicing.reports.view'           => 'Ver Relatórios de Faturação',
             // Gestão de utilizadores e permissões (rota /users/*)
             'users.manage'              => 'Gestão de Utilizadores (acesso total ao módulo)',
@@ -239,5 +255,124 @@ if (!function_exists('initializeAccountingDataForTenant')) {
                 'trace' => $e->getTraceAsString()
             ]);
         }
+    }
+}
+
+if (!function_exists('podeVer')) {
+    /**
+     * O utilizador tem ALGUMA destas permissões?
+     *
+     * Existe para os painéis: um cartão que mostra dinheiro, stock ou o
+     * trabalho de terceiros só deve ser desenhado a quem tem o direito de o
+     * ver. Sem isto, cada vista repetia `auth()->user()?->can(...)` com
+     * variações — e onde se esquecia, mostrava tudo.
+     *
+     *   @if(podeVer('invoicing.reports.view', 'invoicing.dashboard.view'))
+     */
+    function podeVer(string ...$permissoes): bool
+    {
+        $utilizador = auth()->user();
+
+        if (!$utilizador) {
+            return false;
+        }
+
+        foreach ($permissoes as $permissao) {
+            if ($utilizador->can($permissao)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('soVeOSeu')) {
+    /**
+     * Está preso ao próprio trabalho?
+     *
+     * A mesma regra das listas de documentos (ver App\Traits\EscopoDeAutor):
+     * sem `invoicing.documents.all`, os números que um painel mostra têm de
+     * ser os DELE, não os da empresa inteira.
+     */
+    function soVeOSeu(): bool
+    {
+        return !podeVer('invoicing.documents.all');
+    }
+}
+
+if (!function_exists('escopoDoAutor')) {
+    /**
+     * Aplica a regra do autor a uma consulta, fora de um componente.
+     *
+     * Um documento SEM autor é de ninguém, não é de um colega — por isso
+     * continua à vista (ver a nota em App\Traits\DocumentosPorAutor).
+     */
+    function escopoDoAutor($query, string $coluna = 'created_by')
+    {
+        if (soVeOSeu()) {
+            $query->where(function ($q) use ($coluna) {
+                $q->where($coluna, auth()->id())->orWhereNull($coluna);
+            });
+        }
+
+        return $query;
+    }
+}
+
+if (!function_exists('valorProtegido')) {
+    /**
+     * Um número que só aparece a quem tem o direito de o ver.
+     *
+     * É a forma mais barata de tratar os painéis: os cartões continuam lá,
+     * com o rótulo e o desenho, mas o VALOR — dinheiro, receita, margem —
+     * troca-se por um cadeado a quem não tem a permissão. Não é preciso
+     * mexer na estrutura da página, e onde se esquecer uma linha nota-se.
+     *
+     *   {{ valorProtegido($stats['receita'], 'workshop.reports.view') }}
+     *
+     * @param  mixed  $valor  já formatado, ou número
+     */
+    function valorProtegido($valor, string ...$permissoes): string
+    {
+        if (podeVer(...$permissoes)) {
+            return is_numeric($valor)
+                ? number_format((float) $valor, 2, ',', '.')
+                : (string) $valor;
+        }
+
+        return '•••';
+    }
+}
+
+if (!function_exists('naoEhParaOGestor')) {
+    /**
+     * O que fica FORA do papel Gestor, e porquê.
+     *
+     * Três famílias:
+     *   · apagar — a intenção original do papel («sem delete»);
+     *   · mandar em quem manda — dar permissões a si próprio ou a outros é
+     *     escalada de privilégio, mesmo com boas intenções;
+     *   · a plataforma e o pacote — empresas, planos, módulos e facturação da
+     *     subscrição são de quem paga, não de quem gere o dia-a-dia.
+     */
+    function naoEhParaOGestor(string $permissao): bool
+    {
+        // Apagar: nunca.
+        if (str_ends_with($permissao, '.delete')) {
+            return true;
+        }
+
+        return in_array($permissao, [
+            // Mandar em quem manda.
+            'users.manage',
+            'users.permissions',
+            'users.roles.manage',
+            // O pacote e a plataforma.
+            'billing.manage',
+            'plans.manage',
+            'modules.manage',
+            'tenants.view', 'tenants.create', 'tenants.edit', 'tenants.delete',
+        ], true) || str_starts_with($permissao, 'system.');
     }
 }

@@ -7,26 +7,26 @@
                     <i class="fas fa-chart-line text-3xl"></i>
                 </div>
                 <div>
-                    <h2 class="text-3xl font-bold">Dashboard Tesouraria</h2>
-                    <p class="text-green-100 text-sm mt-1">Visão geral financeira em tempo real</p>
+                    <h2 class="text-3xl font-bold">{{ __('Dashboard Tesouraria') }}</h2>
+                    <p class="text-green-100 text-sm mt-1">{{ __('Visão geral financeira em tempo real') }}</p>
                 </div>
             </div>
             <div class="flex gap-2">
                 <button wire:click="$set('period', 'today')" 
                         class="px-4 py-2 {{ $period === 'today' ? 'bg-white text-green-600' : 'bg-white/20 text-white' }} rounded-lg font-semibold transition">
-                    Hoje
+                    {{ __('Hoje') }}
                 </button>
                 <button wire:click="$set('period', 'week')" 
                         class="px-4 py-2 {{ $period === 'week' ? 'bg-white text-green-600' : 'bg-white/20 text-white' }} rounded-lg font-semibold transition">
-                    Semana
+                    {{ __('Semana') }}
                 </button>
                 <button wire:click="$set('period', 'month')" 
                         class="px-4 py-2 {{ $period === 'month' ? 'bg-white text-green-600' : 'bg-white/20 text-white' }} rounded-lg font-semibold transition">
-                    Mês
+                    {{ __('Mês') }}
                 </button>
                 <button wire:click="$set('period', 'year')" 
                         class="px-4 py-2 {{ $period === 'year' ? 'bg-white text-green-600' : 'bg-white/20 text-white' }} rounded-lg font-semibold transition">
-                    Ano
+                    {{ __('Ano') }}
                 </button>
             </div>
         </div>
@@ -56,10 +56,10 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Vendas facturadas</p><p class="text-2xl font-bold text-indigo-700">{{ number_format($invoicedVolume, 2) }} Kz</p><p class="text-xs text-gray-500">Volume documental do período</p></div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Recebido de clientes</p><p class="text-2xl font-bold text-emerald-700">{{ number_format($salesCollected, 2) }} Kz</p><p class="text-xs {{ $receivable > 0 ? 'text-amber-600' : 'text-gray-500' }}">Por receber: {{ number_format($receivable, 2) }} Kz</p></div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Compras registadas</p><p class="text-2xl font-bold text-slate-700">{{ number_format($purchasedVolume, 2) }} Kz</p><p class="text-xs text-gray-500">Obrigações com fornecedores</p></div>
-        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Pago a fornecedores</p><p class="text-2xl font-bold text-rose-700">{{ number_format($suppliersPaid, 2) }} Kz</p><p class="text-xs {{ $payable > 0 ? 'text-amber-600' : 'text-gray-500' }}">Por pagar: {{ number_format($payable, 2) }} Kz</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Vendas facturadas</p><p class="text-2xl font-bold text-indigo-700">{{ valorProtegido($invoicedVolume, 'treasury.reports.view') }} Kz</p><p class="text-xs text-gray-500">Volume documental do período</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Recebido de clientes</p><p class="text-2xl font-bold text-emerald-700">{{ valorProtegido($salesCollected, 'treasury.reports.view') }} Kz</p><p class="text-xs {{ $receivable > 0 ? 'text-amber-600' : 'text-gray-500' }}">Por receber: {{ valorProtegido($receivable, 'treasury.reports.view') }} Kz</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Compras registadas</p><p class="text-2xl font-bold text-slate-700">{{ valorProtegido($purchasedVolume, 'treasury.reports.view') }} Kz</p><p class="text-xs text-gray-500">Obrigações com fornecedores</p></div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4"><p class="text-xs uppercase font-bold text-gray-500">Pago a fornecedores</p><p class="text-2xl font-bold text-rose-700">{{ valorProtegido($suppliersPaid, 'treasury.reports.view') }} Kz</p><p class="text-xs {{ $payable > 0 ? 'text-amber-600' : 'text-gray-500' }}">Por pagar: {{ valorProtegido($payable, 'treasury.reports.view') }} Kz</p></div>
     </div>
 
     {{-- Stats Cards --}}
@@ -69,7 +69,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex-1">
                     <p class="text-blue-100 text-sm font-semibold uppercase tracking-wider">Saldo Total</p>
-                    <h3 class="text-3xl font-bold mt-2">{{ number_format($totalBalance, 2) }}</h3>
+                    <h3 class="text-3xl font-bold mt-2">{{ valorProtegido($totalBalance, 'treasury.reports.view') }}</h3>
                     <p class="text-blue-100 text-xs mt-1">AOA</p>
                 </div>
                 <div class="bg-white/20 p-4 rounded-xl">
@@ -78,14 +78,25 @@
             </div>
         </div>
 
+        {{-- Bloco de PHP e nao a forma de uma linha: o match tem quatro ramos
+             e a forma curta parte a compilacao do Blade. --}}
+        @php
+            $__periodo = match ($period) {
+                'week'  => __('Semana'),
+                'month' => __('Mês'),
+                'year'  => __('Ano'),
+                default => __('Hoje'),
+            };
+        @endphp
+
         {{-- Entradas --}}
         <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
             <div class="flex items-center justify-between">
                 <div class="flex-1">
                     <p class="text-green-100 text-sm font-semibold uppercase tracking-wider">
-                        Entradas ({{ ucfirst($period) }})
+                        {{ __('Entradas') }} ({{ $__periodo }})
                     </p>
-                    <h3 class="text-3xl font-bold mt-2">{{ number_format($totalIncome, 2) }}</h3>
+                    <h3 class="text-3xl font-bold mt-2">{{ valorProtegido($totalIncome, 'treasury.reports.view') }}</h3>
                     <p class="text-green-100 text-xs mt-1">AOA</p>
                 </div>
                 <div class="bg-white/20 p-4 rounded-xl">
@@ -99,9 +110,9 @@
             <div class="flex items-center justify-between">
                 <div class="flex-1">
                     <p class="text-red-100 text-sm font-semibold uppercase tracking-wider">
-                        Saídas ({{ ucfirst($period) }})
+                        {{ __('Saídas') }} ({{ $__periodo }})
                     </p>
-                    <h3 class="text-3xl font-bold mt-2">{{ number_format($totalExpense, 2) }}</h3>
+                    <h3 class="text-3xl font-bold mt-2">{{ valorProtegido($totalExpense, 'treasury.reports.view') }}</h3>
                     <p class="text-red-100 text-xs mt-1">AOA</p>
                 </div>
                 <div class="bg-white/20 p-4 rounded-xl">
@@ -115,9 +126,9 @@
             <div class="flex items-center justify-between">
                 <div class="flex-1">
                     <p class="text-white/80 text-sm font-semibold uppercase tracking-wider">
-                        Saldo ({{ ucfirst($period) }})
+                        {{ __('Saldo') }} ({{ $__periodo }})
                     </p>
-                    <h3 class="text-3xl font-bold mt-2">{{ number_format($periodBalance, 2) }}</h3>
+                    <h3 class="text-3xl font-bold mt-2">{{ valorProtegido($periodBalance, 'treasury.reports.view') }}</h3>
                     <p class="text-white/80 text-xs mt-1">AOA</p>
                 </div>
                 <div class="bg-white/20 p-4 rounded-xl">
@@ -151,7 +162,7 @@
                     @forelse($topIncomeCategories as $category)
                     <div class="flex items-center justify-between py-2 border-b border-gray-100">
                         <span class="text-sm text-gray-600">{{ $category->category ?? 'Sem categoria' }}</span>
-                        <span class="text-sm font-bold text-green-600">{{ number_format($category->total, 2) }}</span>
+                        <span class="text-sm font-bold text-green-600">{{ valorProtegido($category->total, 'treasury.reports.view') }}</span>
                     </div>
                     @empty
                     <p class="text-sm text-gray-400">Nenhuma receita</p>
@@ -163,7 +174,7 @@
                     @forelse($topExpenseCategories as $category)
                     <div class="flex items-center justify-between py-2 border-b border-gray-100">
                         <span class="text-sm text-gray-600">{{ $category->category ?? 'Sem categoria' }}</span>
-                        <span class="text-sm font-bold text-red-600">{{ number_format($category->total, 2) }}</span>
+                        <span class="text-sm font-bold text-red-600">{{ valorProtegido($category->total, 'treasury.reports.view') }}</span>
                     </div>
                     @empty
                     <p class="text-sm text-gray-400">Nenhuma despesa</p>
@@ -179,7 +190,7 @@
         <div class="bg-white rounded-2xl shadow-lg p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
                 <i class="fas fa-cash-register mr-2 text-orange-600"></i>
-                Caixas ({{ number_format($totalCashRegisters, 2) }} AOA)
+                Caixas ({{ valorProtegido($totalCashRegisters, 'treasury.reports.view') }} AOA)
             </h3>
             <div class="space-y-3">
                 @forelse($cashRegisters as $cash)
@@ -189,7 +200,7 @@
                         <p class="text-xs text-gray-600">{{ $cash->code }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-lg font-bold text-orange-600">{{ number_format($cash->current_balance, 2) }}</p>
+                        <p class="text-lg font-bold text-orange-600">{{ valorProtegido($cash->current_balance, 'treasury.reports.view') }}</p>
                         <p class="text-xs text-gray-500">AOA</p>
                     </div>
                 </div>
@@ -203,7 +214,7 @@
         <div class="bg-white rounded-2xl shadow-lg p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
                 <i class="fas fa-university mr-2 text-blue-600"></i>
-                Contas Bancárias ({{ number_format($totalBankAccounts, 2) }} AOA)
+                Contas Bancárias ({{ valorProtegido($totalBankAccounts, 'treasury.reports.view') }} AOA)
             </h3>
             <div class="space-y-3">
                 @forelse($bankAccounts as $account)
@@ -213,7 +224,7 @@
                         <p class="text-xs text-gray-600">{{ $account->bank->name ?? 'N/A' }} - {{ $account->account_number }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-lg font-bold text-blue-600">{{ number_format($account->current_balance, 2) }}</p>
+                        <p class="text-lg font-bold text-blue-600">{{ valorProtegido($account->current_balance, 'treasury.reports.view') }}</p>
                         <p class="text-xs text-gray-500">{{ $account->currency }}</p>
                     </div>
                 </div>
@@ -256,7 +267,7 @@
                         <td class="px-4 py-3 text-sm text-gray-800">{{ Str::limit($transaction->description, 50) }}</td>
                         <td class="px-4 py-3 text-right">
                             <span class="text-lg font-bold {{ $transaction->type === 'income' ? 'text-green-600' : 'text-red-600' }}">
-                                {{ number_format($transaction->amount, 2) }}
+                                {{ valorProtegido($transaction->amount, 'treasury.reports.view') }}
                             </span>
                         </td>
                     </tr>
@@ -272,30 +283,29 @@
         </div>
     </div>
 
-    {{-- Chart.js Script --}}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {{-- O gráfico. A base da casa traz o Chart.js local, a paleta e o
+         formato de números da língua de quem está a ver. --}}
+    @include('partials.graficos')
     <script>
-        document.addEventListener('livewire:initialized', () => {
-            const ctx = document.getElementById('cashFlowChart');
-            if (ctx) {
-                new Chart(ctx, {
+        sosDesenhar(function () {
+            sosGrafico('cashFlowChart', {
                     type: 'line',
                     data: {
                         labels: @json($chartData['labels']),
                         datasets: [
                             {
-                                label: 'Entradas',
+                                label: @json(__('Entradas')),
                                 data: @json($chartData['income']),
-                                borderColor: 'rgb(34, 197, 94)',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                borderColor: SOS_ESTADOS.bom,
+                                backgroundColor: SOS_ESTADOS.bom + '1f',
                                 tension: 0.4,
                                 fill: true
                             },
                             {
-                                label: 'Saídas',
+                                label: @json(__('Saídas')),
                                 data: @json($chartData['expense']),
-                                borderColor: 'rgb(239, 68, 68)',
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                borderColor: SOS_ESTADOS.critico,
+                                backgroundColor: SOS_ESTADOS.critico + '1f',
                                 tension: 0.4,
                                 fill: true
                             }
@@ -315,10 +325,7 @@
                                         if (label) {
                                             label += ': ';
                                         }
-                                        label += new Intl.NumberFormat('pt-AO', { 
-                                            style: 'currency', 
-                                            currency: 'AOA' 
-                                        }).format(context.parsed.y);
+                                        label += sosMoeda(context.parsed.y);
                                         return label;
                                     }
                                 }
@@ -329,14 +336,13 @@
                                 beginAtZero: true,
                                 ticks: {
                                     callback: function(value) {
-                                        return new Intl.NumberFormat('pt-AO').format(value) + ' Kz';
+                                        return sosNumero(value) + ' Kz';
                                     }
                                 }
                             }
                         }
                     }
                 });
-            }
         });
     </script>
 </div>

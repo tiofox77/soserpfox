@@ -100,16 +100,22 @@ class SalonPOS extends POSSystem
         }
         
         if ($this->selectedCategory && $this->activeTab === 'services') {
-            $servicesQuery->where('category_id', $this->selectedCategory);
+            // Pelo JSON e não pela coluna: a coluna `category_id` aponta para as
+            // categorias da facturação e está sempre a nulo nos serviços do
+            // salão — escolher uma categoria não mostrava serviço nenhum.
+            $servicesQuery->daCategoria($this->selectedCategory);
         }
         
         $services = $servicesQuery->orderBy('name')->limit(50)->get();
         
         // Categorias de serviços
-        $serviceCategories = ServiceCategory::where('tenant_id', activeTenantId())
-            ->where('is_active', true)
-            ->withCount('services')
-            ->get();
+        // A contagem vem de um sítio único: o `withCount` dava sempre zero
+        // porque conta pela coluna, e a categoria do salão vive no JSON.
+        $serviceCategories = ServiceCategory::comContagens(
+            ServiceCategory::where('tenant_id', activeTenantId())
+                ->where('is_active', true)
+                ->get()
+        );
         
         // Produtos do salão (usando modelo base que inclui produtos do invoicing).
         //

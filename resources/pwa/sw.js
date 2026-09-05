@@ -3,7 +3,7 @@
  * Cache imersivo + Offline parcial
  */
 
-const CACHE_VERSION = 'soserp-v1.1.0';
+const CACHE_VERSION = 'soserp-v1.3.0';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -49,13 +49,18 @@ const PRECACHE_URLS = [
     '/vendor/js/tailwind.js',
     '/vendor/css/fontawesome.min.css',
 
+    // O PDF no aparelho (talão e documento para o WhatsApp), sem rede.
+    '/vendor/js/html2canvas.min.js',
+    '/vendor/js/jspdf.umd.min.js',
+
     // bcryptjs — verifica o PIN de turno offline.
     '/js/vendor/bcrypt.min.js?v=1',
 
     // ── O código da aplicação offline. É ISTO que faz o trabalho: sem
     //    ele o ecrã carrega e não sabe fazer nada. ──────────────────────
-    '/js/pwa-invoicing.js?v=22',
+    '/js/pwa-invoicing.js?v=24',
     '/js/pos-offline-ticket.js?v=4',
+    '/js/pwa-turno.js?v=1',
 ];
 
 /**
@@ -78,6 +83,9 @@ const PRECACHE_PAGINAS = [
     // É pública (não passa pelo `auth`), portanto responde sempre 200 e o
     // guardarPagina() guarda-a sem hesitar.
     '/invoicing/offline/login',
+    // Esqueci o PIN. Também pública, também só faz sentido sem rede — e sem
+    // rede só existe se tiver ficado guardada na instalação.
+    '/invoicing/offline/pin-esquecido',
     '/invoicing/offline',
     '/invoicing/offline/pos',
     // O POS de restaurante. Responde 403 a quem não tem o módulo, e o
@@ -86,7 +94,12 @@ const PRECACHE_PAGINAS = [
     '/invoicing/offline/restaurant',
     '/invoicing/offline/catalog',
     '/invoicing/offline/clients',
+    // OS FORMULÁRIOS TAMBÉM. Sem eles guardados, tocar em «Novo cliente» ou
+    // «Novo documento» sem rede — sem alguma vez os ter aberto com rede —
+    // dava o POS servido debaixo desse endereço, pelo ciclo de recurso.
+    '/invoicing/offline/clients/new',
     '/invoicing/offline/drafts',
+    '/invoicing/offline/drafts/new',
 ];
 
 // Rotas que NUNCA devem ser cacheadas
@@ -110,6 +123,13 @@ const NEVER_CACHE = [
 // números de ontem a pensar que são de hoje.
 const API_ROUTES = [
     '/api/',
+    // O molde do documento é dado para o motor, não uma página: 700 KB do
+    // modelo do servidor com marcas, que o aparelho guarda no IndexedDB e
+    // revalida por ETag. No «tudo o resto» (stale-while-revalidate) o service
+    // worker devolvia a CÓPIA VELHA e só ia buscar a nova por trás — e o
+    // papel sem rede ficava um ciclo atrasado em relação à pré-visualização.
+    // Vai à rede; sem rede, o motor fica com o molde que já tem.
+    '/invoicing/offline/molde/',
     // O Livewire 3 usa /livewire/update; o /message é do Livewire 2 e ficou
     // aqui de arrasto. Os dois vão a POST e já saltam pelo método, mas a
     // lista tem de dizer a verdade sobre o que existe hoje.
@@ -136,6 +156,18 @@ const FALLBACKS_DE_APLICACAO = [
     '/invoicing/offline/drafts',
 ];
 
+/**
+ * As páginas públicas do PWA: a entrada e o "esqueci o PIN".
+ *
+ * Só se servem a SI PRÓPRIAS, no seu próprio endereço — nunca no lugar de
+ * outra página, e nenhuma outra página no lugar delas. Vão pelo caminho
+ * (sem a query): `?voltar=/invoicing/offline/pos` é o mesmo ecrã.
+ */
+const PAGINAS_PUBLICAS = [
+    '/invoicing/offline/login',
+    '/invoicing/offline/pin-esquecido',
+];
+
 // Limite de itens no cache dinâmico (HTML páginas precisam de mais espaço para PWA offline)
 const DYNAMIC_CACHE_LIMIT = 250;
 const IMAGE_CACHE_LIMIT = 200;
@@ -149,6 +181,7 @@ const PWA_OFFLINE_FALLBACKS = [
     // um ecrã de erro, com a sessão do servidor ainda aberta e sem forma de
     // voltar a entrar no aparelho.
     '/invoicing/offline/login',
+    '/invoicing/offline/pin-esquecido',
     '/invoicing/offline/pos',
     '/invoicing/offline/restaurant',
     '/invoicing/offline/catalog',
@@ -320,13 +353,81 @@ self.addEventListener('activate', (event) => {
                         })
                 );
             })
+            .then(() => limparPaginasIntrusas())
             .then(() => self.clients.claim())
     );
 });
 
+/**
+ * Deita fora as páginas da retaguarda que nunca deviam ter entrado.
+ *
+ * O cache das páginas não é apagado nos deploys, de propósito — é o que
+ * sustenta o PWA sem rede. Mas isso também quer dizer que o que lá entrou por
+ * engano fica lá para sempre. E entrou muita coisa: todas as páginas abertas
+ * pela barra lateral, porque o `wire:navigate` as pedia sem `Accept`.
+ *
+ * Essas páginas são de uma EMPRESA. Quem trabalha em duas casas trocava de
+ * empresa e via os produtos da anterior, porque a cópia guardada respondia
+ * primeiro. Aqui limpa-se o que já está nos aparelhos; a regra do `fetch`
+ * impede que volte a entrar.
+ */
+async function limparPaginasIntrusas() {
+    try {
+        const cache = await caches.open(DYNAMIC_CACHE);
+        const pedidos = await cache.keys();
+
+        await Promise.all(pedidos.map(async (pedido) => {
+            const caminho = new URL(pedido.url).pathname;
+            if (!ehPaginaDoPwa(caminho)) await cache.delete(pedido);
+        }));
+    } catch (err) {
+        console.warn('[SW] Não foi possível limpar as páginas intrusas:', err);
+    }
+}
+
 // ========================
 // FETCH - Estratégias de cache
 // ========================
+/**
+ * É uma página DO PWA — das que TÊM de funcionar offline?
+ *
+ * Só estas é que o service worker serve. São as mesmas que o networkFirst já
+ * reconhecia como PWA no ramo do fallback (`isPwaRoute`, lá dentro) — mas aqui
+ * a decisão é tomada MAIS CEDO, antes de responder, para a retaguarda inteira
+ * nem sequer entrar no service worker. O `start_url` é `/invoicing/offline/pos`,
+ * e `/dashboard` e `/pos` são atalhos legados que desembocam no PWA.
+ */
+/**
+ * Isto é um pedido de PÁGINA?
+ *
+ * NÃO BASTA OLHAR PARA O `Accept`. A barra lateral usa `wire:navigate`, e o
+ * Livewire vai buscar a página com um `fetch` que só leva o cabeçalho
+ * `X-Livewire-Navigate` — sem `Accept`, o browser envia `*​/​*`. A pergunta
+ * «tem text/html?» dava NÃO, a página escapava por baixo de todas as regras e
+ * caía no «tudo o resto», que é stale-while-revalidate: servia a CÓPIA VELHA e
+ * só depois ia buscar a nova.
+ *
+ * O estrago via-se ao trocar de empresa. Mudava-se de casa, clicava-se em
+ * Produtos pela barra lateral, e apareciam os produtos da empresa ANTERIOR;
+ * era preciso passar lá duas vezes para ver os certos. O cache das páginas não
+ * sabe de empresas — guarda por endereço, e o endereço é o mesmo nas duas.
+ *
+ * Por isso conta como página tudo o que seja navegação: o modo `navigate` do
+ * browser, o cabeçalho do Livewire, ou um `Accept` que peça HTML.
+ */
+function ehPedidoDePagina(request) {
+    if (request.mode === 'navigate') return true;
+    if (request.headers.has('X-Livewire-Navigate')) return true;
+
+    return !!request.headers.get('Accept')?.includes('text/html');
+}
+
+function ehPaginaDoPwa(pathname) {
+    return pathname.startsWith('/invoicing/offline')
+        || pathname === '/dashboard'
+        || pathname === '/pos';
+}
+
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
@@ -384,13 +485,30 @@ self.addEventListener('fetch', (event) => {
     // text/html no Accept, e caía no ramo errado. Com rede vem sempre o
     // valor de agora; o que está guardado só serve quando não há rede.
     if (API_ROUTES.some((rota) => url.pathname.startsWith(rota))) {
-        event.respondWith(networkFirst(request));
+        event.respondWith(soRede(request));
         return;
     }
 
-    // 5) Páginas HTML → Network First (com fallback offline)
-    if (request.headers.get('Accept')?.includes('text/html')) {
-        event.respondWith(networkFirst(request));
+    // 5) Páginas HTML — SÓ as do PWA passam pelo service worker.
+    //
+    // O offline é só do POS: /invoicing/offline/* (e os atalhos /pos e
+    // /dashboard que lá desembocam). A retaguarda inteira — RH, produtos,
+    // painéis, definições — vai DIRECTA À REDE, como se o service worker não
+    // existisse.
+    //
+    // Sem esta fronteira, o networkFirst apanhava também essas páginas. Numa
+    // rede instável, ou perante uma resposta que ele descarta (um 403, um
+    // redirect que não é login, um 500), servia a página de «Sem Conexão» ou
+    // uma CÓPIA VELHA do DYNAMIC_CACHE — que nunca é purgado — no lugar da
+    // página real. E uma cópia velha traz um snapshot Livewire desactualizado:
+    // o clique de um botão (o «Novo Funcionário», por exemplo) ia bater no
+    // servidor fresco, o checksum não conferia, e o modal não abria — sem erro
+    // nenhum à vista. A retaguarda não é offline; não tem nada que passar aqui.
+    if (ehPedidoDePagina(request)) {
+        if (ehPaginaDoPwa(url.pathname)) {
+            event.respondWith(networkFirst(request));
+        }
+        // Não-PWA: sem respondWith → o browser trata do pedido pela rede normal.
         return;
     }
 
@@ -426,6 +544,33 @@ async function cacheFirst(request, cacheName, limit) {
             });
         }
         return new Response('Offline', { status: 503 });
+    }
+}
+
+/**
+ * Só rede — para os DADOS. Sem rede, um 503 em JSON, e não uma resposta
+ * guardada.
+ *
+ * Os dados iam pelo networkFirst e ficavam no cache das páginas. Ninguém os
+ * lia de lá: o aparelho guarda o catálogo no IndexedDB e é de lá que vende.
+ * Mas faziam dois estragos. Cada sincronização incremental tem um URL
+ * diferente (`?since=...`), e cada uma ocupava um lugar no cache das páginas
+ * — que tem 250 lugares e apaga os mais antigos primeiro. Os mais antigos são
+ * as páginas guardadas na instalação: ao fim de 250 sincronizações, um
+ * aparelho que só abrisse o POS com rede perdia o resto do modo offline sem
+ * ninguém dar por isso. E, pior, uma resposta do `/sync` servida do cache
+ * numa rede a falhar parecia uma sincronização feita: gravava um `last_sync`
+ * antigo, destrancava o aparelho e reescrevia a lista dos funcionários com
+ * uma cópia velha.
+ */
+async function soRede(request) {
+    try {
+        return await fetch(request);
+    } catch (err) {
+        return new Response(JSON.stringify({ offline: true, error: 'Sem rede' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+        });
     }
 }
 
@@ -494,28 +639,31 @@ async function networkFirst(request) {
             || url.pathname === '/dashboard'
             || url.pathname === '/pos';
         if (isPwaRoute) {
-            // A ENTRADA NUNCA SERVE DE SUBSTITUTA DE OUTRA PÁGINA.
-            //
-            // Ela estava na lista de recurso, e era a única coisa guardada num
-            // aparelho que instalou o service worker sem sessão. O resultado
-            // era um ciclo fechado, e o pior tipo: o endereço dizia POS e o
-            // conteúdo era o ecrã de entrada. O operador punha o PIN, a
-            // aplicação saltava para o POS, o service worker devolvia a entrada
-            // outra vez — e ele via o mesmo ecrã, como se o botão não fizesse
-            // nada. "Coloco o PIN e não entra."
-            //
-            // Uma página só pode substituir outra quando é DA APLICAÇÃO. Se não
-            // houver nenhuma guardada, mais vale dizer que não há do que fingir
-            // que se entrou.
-            for (const fallback of FALLBACKS_DE_APLICACAO) {
-                const hit = await caches.match(fallback);
-                if (hit) return hit;
-            }
-
-            // A entrada só se serve a si própria, no seu próprio endereço.
-            if (url.pathname === '/invoicing/offline/login') {
-                const entrada = await caches.match('/invoicing/offline/login');
-                if (entrada) return entrada;
+            // AS PÁGINAS PÚBLICAS SÓ SE SERVEM A SI PRÓPRIAS — e decidem-se
+            // antes das outras. Com `?voltar=...` no endereço o `caches.match`
+            // exacto lá em cima falha, e sem isto o ciclo de recurso servia o
+            // POS no lugar do "esqueci o PIN".
+            if (PAGINAS_PUBLICAS.includes(url.pathname)) {
+                const propria = await caches.match(url.pathname);
+                if (propria) return propria;
+            } else {
+                // A ENTRADA NUNCA SERVE DE SUBSTITUTA DE OUTRA PÁGINA.
+                //
+                // Ela estava na lista de recurso, e era a única coisa guardada
+                // num aparelho que instalou o service worker sem sessão. O
+                // resultado era um ciclo fechado, e o pior tipo: o endereço
+                // dizia POS e o conteúdo era o ecrã de entrada. O operador
+                // punha o PIN, a aplicação saltava para o POS, o service worker
+                // devolvia a entrada outra vez — e ele via o mesmo ecrã, como
+                // se o botão não fizesse nada. "Coloco o PIN e não entra."
+                //
+                // Uma página só pode substituir outra quando é DA APLICAÇÃO. Se
+                // não houver nenhuma guardada, mais vale dizer que não há do
+                // que fingir que se entrou.
+                for (const fallback of FALLBACKS_DE_APLICACAO) {
+                    const hit = await caches.match(fallback);
+                    if (hit) return hit;
+                }
             }
         }
 
@@ -595,15 +743,48 @@ async function staleWhileRevalidate(request, cacheName, limit) {
 
     const fetchPromise = fetch(request)
         .then((response) => {
-            if (response.ok) {
+            if (response.ok && ehConteudoImutavel(response)) {
                 cache.put(request, response.clone());
                 if (limit) trimCache(cacheName, limit);
             }
+
             return response;
         })
         .catch(() => cached);
 
-    return cached || fetchPromise;
+    // Uma cópia guardada só serve se for do tipo que pode ser guardado. Isto
+    // também protege os aparelhos que ainda têm páginas cá dentro de antes.
+    if (cached && ehConteudoImutavel(cached)) return cached;
+
+    return fetchPromise;
+}
+
+/**
+ * Isto pode ficar guardado na rede de segurança final?
+ *
+ * SÓ O QUE NÃO TEM DONO. Uma folha de estilos ou um tipo de letra é igual para
+ * toda a gente e pode ser servido velho sem mentir a ninguém. Uma página ou uma
+ * resposta de dados pertence a uma EMPRESA e a um momento — servida velha,
+ * mostra a casa errada.
+ *
+ * Foi assim que apareceu a queixa: trocava-se de empresa, ia-se a Produtos ou a
+ * Facturas pela barra lateral, e vinham os dados da empresa anterior. Era
+ * preciso passar lá duas ou três vezes até o cache se renovar por trás. O cache
+ * guarda por ENDEREÇO, e o endereço de Produtos é o mesmo nas duas casas.
+ *
+ * Por isso a regra deixou de ser uma lista do que NÃO entra — que ficaria
+ * sempre atrás do que se inventa a seguir — e passou a ser a lista curta do que
+ * PODE entrar.
+ */
+function ehConteudoImutavel(response) {
+    const tipo = response?.headers?.get('Content-Type')?.toLowerCase() || '';
+    if (!tipo) return false;
+
+    return tipo.startsWith('text/css')
+        || tipo.startsWith('font/')
+        || tipo.startsWith('image/')
+        || tipo.includes('javascript')
+        || tipo.includes('font-woff');
 }
 
 // ========================

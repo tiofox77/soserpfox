@@ -22,7 +22,18 @@ class AGTPayloadBuilder
      * Default schema version. Pode ser sobrescrita via InvoicingSettings::agt_schema_version.
      * NB: DS.120 v1.1 (Nov 2025) refere "1.0" — confirmar com AGT a versão activa.
      */
-    public const SCHEMA_VERSION = '1.2';
+    /*
+     * 2026-09-02: a AGT passou a recusar o 1.2 em produção — «A versão 1.2 do
+     * schema já não é suportada. Por favor, atualize o campo schemaVersion
+     * para uma versão 2.x». A Free Dation validou o FT …/000001 com 1.2 e
+     * viu o …/000002 recusado no mesmo dia. A documentação pública
+     * (quiosqueagt.minfin.gov.ao/doc-agt) ainda só mostra a versão 1 com
+     * exemplos a 1.2; o 2.0 é o que a própria AGT pede na recusa.
+     *
+     * FONTE ÚNICA: o AGTClient lia '1.2' em seis sítios por conta própria —
+     * o mesmo padrão de duas implementações que deu o E39 das séries.
+     */
+    public const SCHEMA_VERSION = '2.0';
 
     /** Limite máximo de documentos por submissão (DS.120 §4.1). */
     public const MAX_ENTRIES_PER_SUBMISSION = 30;

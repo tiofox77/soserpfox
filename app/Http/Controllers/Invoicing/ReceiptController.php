@@ -9,12 +9,17 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReceiptController extends Controller
 {
+    // Cada um vê os documentos que emitiu; com `invoicing.documents.all`
+    // vê os de todos. Esconder na lista e entregar em PDF não esconde nada.
+    use \App\Traits\EscopoDeAutor;
+
     public function generatePdf($id)
     {
         try {
             // Buscar recibo com relacionamentos
             $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator', 'series'])
                 ->where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->findOrFail($id);
             
             // Buscar dados do tenant
@@ -60,6 +65,7 @@ class ReceiptController extends Controller
             return view('pdf.invoicing.receipt', [
                 'receipt' => Receipt::with(['client', 'supplier', 'invoice'])
                     ->where('tenant_id', activeTenantId())
+                    ->tap(fn ($q) => $this->escoparAoAutor($q))
                     ->findOrFail($id),
                 'tenant' => Tenant::find(activeTenantId()),
                 'bankAccounts' => collect(),
@@ -72,6 +78,7 @@ class ReceiptController extends Controller
         // Buscar recibo com relacionamentos
         $receipt = Receipt::with(['client', 'supplier', 'invoice', 'creator', 'series'])
             ->where('tenant_id', activeTenantId())
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->findOrFail($id);
         
         // Buscar dados do tenant

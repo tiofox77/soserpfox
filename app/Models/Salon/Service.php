@@ -96,6 +96,27 @@ class Service extends Product
         return $this->salon_data['online_booking'] ?? true;
     }
 
+    /**
+     * Os serviços de uma categoria do salão.
+     *
+     * A categoria está no JSON do `description` e não na coluna `category_id`
+     * — essa tem chave estrangeira para as categorias da facturação. Um
+     * `where('category_id', …)` normal compara com a coluna, que está sempre a
+     * nulo nos serviços do salão, e não devolve nada.
+     *
+     * O `JSON_VALID` não é enfeite: um serviço gravado sem dados do salão tem
+     * ali texto simples, e o `JSON_EXTRACT` sobre texto inválido rebenta a
+     * consulta inteira.
+     */
+    public function scopeDaCategoria($query, $categoriaId)
+    {
+        return $query->whereRaw(
+            "CASE WHEN JSON_VALID(invoicing_products.description)"
+            . " THEN JSON_UNQUOTE(JSON_EXTRACT(invoicing_products.description, '$.salon.category_id')) END = ?",
+            [(string) $categoriaId]
+        );
+    }
+
     public function getCategoryIdAttribute()
     {
         return $this->salon_data['category_id'] ?? null;

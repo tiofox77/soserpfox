@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\DB;
 #[Title('Nova Nota de Débito')]
 class DebitNoteCreate extends Component
 {
+    // Uma nota nasce de uma factura: se a factura não é sua, a nota também não.
+    use \App\Traits\EscopoDeAutor;
+
     public $debitNoteId = null;
     public $isEdit = false;
     
@@ -62,7 +65,7 @@ class DebitNoteCreate extends Component
         // lista de faturas (?invoice=123) — scoped ao tenant activo.
         $invoiceId = $invoice ?: request()->query('invoice');
         if ($invoiceId) {
-            $invoice = SalesInvoice::where('tenant_id', activeTenantId())->find($invoiceId);
+            $invoice = SalesInvoice::where("tenant_id", activeTenantId())->tap(fn ($q) => $this->escoparAoAutor($q))->find($invoiceId);
             if ($invoice) {
                 $this->client_id = $invoice->client_id;
                 $this->invoice_id = $invoice->id;
@@ -88,7 +91,9 @@ class DebitNoteCreate extends Component
     public function loadInvoiceItems($invoiceId)
     {
         // Scoped ao tenant (evita carregar fatura de outra empresa pelo id)
-        $invoice = SalesInvoice::where('tenant_id', activeTenantId())
+        $invoice = SalesInvoice::where("tenant_id", activeTenantId())
+            ->with('items.product')
+            ->tap(fn ($q) => $this->escoparAoAutor($q))
             ->with('items.product')
             ->findOrFail($invoiceId);
         
@@ -193,10 +198,23 @@ class DebitNoteCreate extends Component
         Cart::session($this->cartInstance)->remove($itemId);
     }
 
+    /**
+     * A QUANTIDADE ESCRITA SUBSTITUI. NÃO SOMA.
+     *
+     * O carrinho trata uma quantidade escalar como RELATIVA — acrescenta em vez
+     * de trocar. Nas notas de crédito isso fez sair uma nota a anular o dobro do
+     * que a factura tinha, e a AGT recusou-a. A nota de débito partilha o mesmo
+     * ecrã e o mesmo erro; corrige-se junto, antes de acontecer também aqui.
+     */
     public function updateQuantity($itemId, $quantity)
     {
         if ($quantity > 0) {
-            Cart::session($this->cartInstance)->update($itemId, ['quantity' => $quantity]);
+            Cart::session($this->cartInstance)->update($itemId, [
+                'quantity' => [
+                    'relative' => false,
+                    'value'    => $quantity,
+                ],
+            ]);
         }
     }
 
@@ -498,8 +516,19 @@ class DebitNoteCreate extends Component
         $invoices = collect();
         if ($this->client_id) {
             $invoices = SalesInvoice::where('tenant_id', activeTenantId())
+                // Escolher a factura de origem numa lista com as dos colegas
+                // era vê-las — número, data e valor.
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
                 ->where('client_id', $this->client_id)
-                ->whereIn('status', ['pending', 'partially_paid', 'paid'])
+                // O AVESSO: fica de fora o que ainda não existe (rascunho) e o
+                // que já não existe (anulada). Nomear os estados que entram
+                // deixava de fora as `sent` — o estado normal de uma factura
+                // emitida e por pagar — e as `overdue`.
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                // E a factura que veio no endereço entra sempre, aconteça o que
+                // acontecer: sem a opção no <select>, o Livewire devolvia vazio
+                // e a nota ficava sem referência à factura.
+                ->when($this->invoice_id, fn ($q) => $q->orWhere('id', $this->invoice_id))
                 ->orderBy('invoice_date', 'desc')
                 ->get();
         }

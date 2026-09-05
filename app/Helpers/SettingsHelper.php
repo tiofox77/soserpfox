@@ -165,3 +165,35 @@ if (!function_exists('app_name')) {
         return \App\Models\SystemSetting::get('app_name', config('app.name', 'SOS ERP'));
     }
 }
+
+if (!function_exists('pwa_theme_color')) {
+    /**
+     * A cor de tema do PWA — UMA, e não três.
+     *
+     * Havia três em circulação: #1e40af no manifesto, #1e3a8a na entrada do
+     * PWA e #1270A7 no favicon. O resultado via-se no telemóvel: a barra de
+     * estado mudava de azul entre abrir a aplicação instalada e abrir a mesma
+     * página no navegador. Não parte nada, mas parecem dois produtos.
+     *
+     * O manifesto e as páginas passam a ler daqui.
+     */
+    function pwa_theme_color(): string
+    {
+        return \App\Models\SystemSetting::get('pwa_theme_color', '#1e40af');
+    }
+}
+
+if (!function_exists('pwa_versao')) {
+    /**
+     * A versão do deploy do PWA — a mesma que o service worker usa.
+     *
+     * Serve para os `?v=` dos ficheiros do PWA deixarem de ser escritos à mão.
+     * Um número mantido à unha esquece-se, e um URL que não muda é servido da
+     * cache para sempre: foi assim que uma correcção deployada não chegou aos
+     * aparelhos.
+     */
+    function pwa_versao(): string
+    {
+        return app(\App\Http\Controllers\PwaController::class)->buildVersion();
+    }
+}

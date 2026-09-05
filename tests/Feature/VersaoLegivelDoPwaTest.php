@@ -33,18 +33,36 @@ class VersaoLegivelDoPwaTest extends TestCase
     {
         // Se discordarem, o service worker actualiza-se e o cabeçalho continua
         // a dizer a data antiga — ou o contrário, que é pior.
+        //
+        // Isto simulava um deploy com `touch()` no sw.js: mudava a DATA. A
+        // assinatura passou a sair dos BYTES — precisamente porque a data
+        // falhou em produção — e o ensaio ficou a provar o mecanismo errado.
+        // A propriedade que interessa nunca foi «mexer faz mudar»: é as duas
+        // versões saírem da MESMA lista, e é isso que se confere agora.
         $c = new PwaController;
 
-        $antes = [$c->buildLabel(), $c->buildVersion()];
+        $lista = $c->ficheirosVigiados();
 
-        touch(resource_path('pwa/sw.js'));
-        Cache::forget('pwa.version');
-        Cache::forget('pwa.version.label');
+        $this->assertNotEmpty($lista, 'sem lista, as duas versões ficam paradas para sempre');
 
-        $depois = [(new PwaController)->buildLabel(), (new PwaController)->buildVersion()];
+        $this->assertContains(resource_path('pwa/sw.js'), $lista);
+        $this->assertContains(resource_path('views/layouts/pwa.blade.php'), $lista);
 
-        $this->assertNotSame($antes[1], $depois[1], 'a assinatura tinha de mudar');
-        $this->assertNotEmpty($depois[0]);
+        // E mudar a matéria da lista muda a assinatura.
+        $ficheiro = tempnam(sys_get_temp_dir(), 'pwa');
+
+        try {
+            file_put_contents($ficheiro, 'antes');
+            $antes = $c->assinaturaDe([$ficheiro]);
+
+            file_put_contents($ficheiro, 'depois');
+
+            $this->assertNotSame($antes, $c->assinaturaDe([$ficheiro]), 'a assinatura tinha de mudar');
+        } finally {
+            @unlink($ficheiro);
+        }
+
+        $this->assertNotEmpty($c->buildLabel());
     }
 
     public function test_o_cabecalho_mostra_a_data_e_guarda_o_resto_no_title(): void
@@ -68,7 +86,7 @@ class VersaoLegivelDoPwaTest extends TestCase
         // por isso não respondia à pergunta "já tenho a correcção de hoje?".
         $html = view('layouts.pwa', ['title' => 'x'])->render();
 
-        $this->assertStringContainsString('v' . (new PwaController)->numeroDeVersao(), $html);
+        $this->assertStringContainsString('v'.(new PwaController)->numeroDeVersao(), $html);
         $this->assertStringContainsString((new PwaController)->buildLabel(), $html);
     }
 }

@@ -98,6 +98,7 @@
     {{-- Filters --}}
     <div class="bg-white rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+            <x-filtro-autor :autores="$this->autoresDosDocumentos" :todos="$this->veDocumentosDeTodos" />
             <div class="col-span-2">
                 <input type="text" wire:model.live.debounce.300ms="search" 
                        placeholder="{{ __('🔍 Pesquisar número ou fornecedor...') }}" 
@@ -150,7 +151,7 @@
                         <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-info-circle mr-1 text-gray-600"></i>{{ __('Estado') }}
                         </th>
-                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase whitespace-nowrap">
+                        <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase">
                             <i class="fas fa-landmark mr-1 text-slate-600"></i>{{ __('Portal AGT') }}
                         </th>
                         <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase">
@@ -235,10 +236,22 @@
                                         {{ __('Preview') }}
                                     </span>
                                 </a>
+                                <x-pdf-descarregar :url="route('invoicing.purchases.invoices.preview', $invoice->id)" />
                                 
                                 {{-- Editar: SÓ rascunhos. Depois de recebida, a compra
                                      deu entrada de stock e tem histórico — anula-se. --}}
                                 @if($invoice->status === 'draft')
+                                {{-- Duplicar: aproveita o conteúdo, nunca a identidade
+                                     do documento (número, série, hash, datas, estado).
+                                     Ver o trait DuplicaDocumento. --}}
+                                <a href="{{ route('invoicing.purchases.invoices.create', ['duplicar' => $invoice->id]) }}"
+                                   class="group relative p-2 bg-teal-100 hover:bg-teal-600 rounded-lg transition-all duration-200 transform hover:scale-110">
+                                    <i class="fas fa-copy text-teal-600 group-hover:text-white transition-colors"></i>
+                                    <span class="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10">
+                                        {{ __('Duplicar para novo documento') }}
+                                    </span>
+                                </a>
+
                                 <a href="{{ route('invoicing.purchases.invoices.edit', $invoice->id) }}"
                                    class="group relative p-2 bg-blue-100 hover:bg-blue-600 rounded-lg transition-all duration-200 transform hover:scale-110">
                                     <i class="fas fa-edit text-blue-600 group-hover:text-white transition-colors"></i>
@@ -295,7 +308,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-16 text-center">
+                        <td colspan="8" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center justify-center animate-pulse">
                                 <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                                     <i class="fas fa-file-invoice text-gray-300 text-4xl"></i>

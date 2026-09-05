@@ -162,11 +162,25 @@ return [
     'display_role_in_exception' => false,
 
     /*
-     * By default wildcard permission lookups are disabled.
-     * See documentation to understand supported syntax.
+     * DESLIGADO DE PROPÓSITO (2026-09-02).
+     *
+     * Ligado, o Spatie lê os nomes por partes separadas por ponto e trata o
+     * que falta como «tudo»: quem tinha `invoicing.pos.reports` ficava com
+     * `invoicing.pos.reports.all` sem que ninguém lho tivesse dado. Na
+     * prática, TODO o caixa via as vendas de todos os colegas — o relatório
+     * do POS distinguia as duas permissões e a distinção não valia nada.
+     *
+     * O sistema nunca usou a sintaxe wildcard: não há uma única permissão com
+     * `*` no nome, e tudo — RoleHelper, seeders, modules:sync-permissions —
+     * concede nomes inteiros. O que o wildcard fazia aqui era só apagar as
+     * diferenças entre `x` e `x.y`.
+     *
+     * Antes de voltar a ligar isto, corra `permissoes:sombras`: ele lista os
+     * nomes que são prefixo de outros e diz quantos papéis ganhariam poder
+     * que ninguém lhes concedeu.
      */
 
-    'enable_wildcard_permission' => true,
+    'enable_wildcard_permission' => false,
 
     /*
      * The class to use for interpreting wildcard permissions.

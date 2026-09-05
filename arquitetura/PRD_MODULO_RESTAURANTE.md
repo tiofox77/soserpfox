@@ -353,29 +353,72 @@ Requisitos:
 
 ### Fase 4 - Reservas, offline e integracoes
 
-- reservas de mesa e lista de espera;
+- [x] reservas de mesa (CRUD, conflitos, capacidade, no-show, libertação);
 - [x] API tablet/offline com UUID e checkout idempotente;
-- impressoras de cozinha/KDS em tempo real;
+- [x] **restaurante offline no PWA** — sala, comanda e recebimento sem rede,
+      com a comanda a subir inteira numa só viagem (`ComandaOffline`);
+- [x] **menu online público e QR por mesa** — carta em `/menu/{slug}`, QR com
+      logótipo e zona segura da máscara, pedido por WhatsApp com a mesa à
+      cabeça, e pedido pela própria página a entrar no ecrã da sala;
+- lista de espera;
+- impressoras de cozinha;
+- KDS em tempo real (hoje é `wire:poll.15s`);
 - notificacoes de reserva e pedido pronto;
 - API para app movel.
 
 ### Fase 5 - Analitica e endurecimento
 
-- dashboards e relatorios;
+- [x] dashboards e relatorios — painel com consumo por dia, venda por hora,
+      pratos mais pedidos, estado da sala e receita por mesa;
+- [x] testes de falha de rede — suíte de browser com rede cortada ao nível do
+      browser E do sistema (modo avião no Android), e ensaio de ponta a ponta
+      em PRODUÇÃO com cinco empregados;
+- [x] auditoria de isolamento multi-tenant (ver `MenuOnlineTest`: a carta
+      pública nunca mostra pratos de outra empresa);
 - carga, concorrencia e multiplos terminais;
-- testes de falha de rede/AGT;
-- auditoria de isolamento multi-tenant;
 - piloto controlado e rollout por feature flag.
+
+### Validação em produção — 2026-08-28
+
+Empresa de ensaio criada em produção (`bancada:producao`) com gerente e cinco
+empregados, cada um com o seu PIN. Ensaio de ponta a ponta num Android real
+apontado a `soserp.vip`, **17 de 17 passos sem falha**:
+
+- turno aberto do aparelho e sincronizado (`POS-2026-001`);
+- cliente criado com rede e sem rede, ambos repostos com o id do servidor;
+- venda com rede, venda sem rede, e sincronizar duas vezes sem duplicar;
+- proforma, factura e factura-recibo — os três a subir com número;
+- comanda numa mesa **sem rede**, recebida e facturada (`FR FR/000015`);
+- os cinco PIN a abrir offline, e o PIN de um a ser recusado na conta de outro;
+- **17 documentos, cadeia de assinaturas intacta** (`agt:verificar-cadeia`).
+
+Defeito encontrado e corrigido nesse ensaio: todo o cliente criado sem
+contribuinte era **engolido em silêncio** — o `999999999` do POS batia com o
+Consumidor Final na desduplicação por NIF, e o servidor devolvia-o em vez de
+criar o cliente. Sem erro, sem fila parada. Corrigido com `nif` nulável e um
+NIF genérico que deixa de identificar (ver `ClienteDoPwaTest`).
 
 ### Roadmap não bloqueante
 
-O núcleo operacional está concluído. Permanecem como evolução, sem bloquear o uso atual:
+O núcleo operacional está concluído e validado em produção. Por ordem do que
+vale mais, o que falta:
 
-- WebSocket para atualização instantânea do KDS; atualmente existe atualização automática por polling;
-- testes de carga e concorrência com muitos terminais físicos;
-- notificações externas de reserva/pedido pronto;
-- lista de espera avançada, QR público e marketplaces de delivery;
-- aplicação móvel dedicada consumindo a API já disponibilizada.
+1. **Takeaway e delivery.** A coluna `channel` das comandas já aceita
+   `takeaway` e `delivery` — mas não há ecrã nem fluxo para nenhum dos dois. A
+   base promete um canal que o produto não sabe operar, e é aí que está o
+   crescimento de um restaurante hoje. **É o maior buraco.**
+2. **KDS em tempo real.** Hoje `wire:poll.15s`: a cozinha pode ver um pedido
+   quinze segundos depois de entrar. Numa casa cheia nota-se.
+3. **Impressora de cozinha.** Não existe. Um KDS num ecrã serve, mas muitas
+   cozinhas querem o papel na bancada.
+4. **Gorjeta / taxa de serviço.** Não existe em lado nenhum — e é dinheiro que
+   passa pela caixa sem ficar registado.
+5. **Lista de espera.** O par natural das reservas numa casa que enche.
+6. **Notificações** de reserva confirmada e de pedido pronto (há para o hotel,
+   não para o restaurante).
+7. **Testes de carga** com vários terminais em simultâneo — é o que ainda não
+   sabemos: o módulo nunca foi posto sob concorrência real.
+8. Aplicação móvel dedicada, sobre a API já disponível.
 
 ### Regras de plano e publicação
 

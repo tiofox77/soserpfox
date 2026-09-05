@@ -196,7 +196,7 @@ class LoteMenuLinguaTest extends TenantTestCase
             $this->user->update(['locale' => $escolhida ?: null]);
 
             $this->assertStringContainsString(
-                'const SOS_INTL = "' . $etiqueta . '"',
+                '"intl":"' . $etiqueta . '"',
                 $this->comoSeLe($this->painel()),
                 'Com locale ' . ($escolhida ?: 'nenhum') . " o gráfico devia receber {$etiqueta}."
             );
@@ -225,7 +225,9 @@ class LoteMenuLinguaTest extends TenantTestCase
     {
         $html = $this->comoSeLe($this->painel());
 
-        preg_match_all("/csv \+= .*?\+ ',([0-9.]*)/", $html, $m);
+        // Os valores crus do CSV viajam no nó dos textos, um campo por
+        // cartão: "facturadoCru", "recebidoCru", e assim por diante.
+        preg_match_all('/"\w+Cru":"([0-9.,]*)"/', $html, $m);
 
         $this->assertNotEmpty($m[1], 'Não encontrei os valores do CSV na página.');
 

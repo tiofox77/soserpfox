@@ -98,29 +98,15 @@
                 <i class="fas fa-map-marker-alt text-emerald-500"></i>
                 <h2 class="text-sm font-bold text-gray-800">Endereço</h2>
             </div>
-            <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">Morada</label>
-                    <textarea wire:model="address" rows="2" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"></textarea>
-                    @error('address') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Código postal</label>
-                        <input wire:model="postal_code" type="text" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-                        @error('postal_code') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Cidade</label>
-                        <input wire:model="city" type="text" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-                        @error('city') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">País <span class="text-red-500">*</span></label>
-                    <input wire:model="country" type="text" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-                    @error('country') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
-                </div>
+            <div class="p-5">
+                {{-- O MESMO bloco de morada de toda a aplicação.
+                     Era aqui tudo texto livre — e o país, que sai nos
+                     documentos e tem de ser o código ISO da AGT, escrevia-se à
+                     mão. Ver resources/views/components/morada.blade.php. --}}
+                <x-morada
+                    :pais="$country" :provincia="$province" :municipio="$municipality"
+                    :bairro="$neighbourhood" :cidade="$city" :codigo-postal="$postal_code"
+                    :morada="$address" :obrigatorio="true" />
             </div>
         </div>
 
@@ -233,8 +219,8 @@
                         <i class="fas fa-spinner fa-spin mr-1"></i> A carregar…
                     </div>
                 </div>
-                @if($currentLogo)
-                    <button type="button" wire:click="removeLogo" class="px-3 py-2 bg-white border border-red-200 hover:bg-red-50 text-red-600 text-xs font-bold rounded-lg">
+                @if($currentLogo && auth()->user()->can('settings.edit'))
+                    <button type="button" wire:click="removeLogo" class="px-3 py-2 bg-white border border-red-200 hover:bg-red-50text-red-600 text-xs font-bold rounded-lg">
                         <i class="fas fa-trash mr-1"></i> Remover
                     </button>
                 @endif
@@ -243,11 +229,20 @@
 
         {{-- ─────────── Ações + atalhos ─────────── --}}
         <div class="flex flex-wrap items-center gap-3 pb-2">
+            {{-- Ver e mudar são direitos diferentes: quem só pode ver não leva
+                 um botão que o servidor vai recusar. --}}
+            @cannot('settings.edit')
+                <p class="text-sm text-gray-500">
+                    <i class="fas fa-eye mr-1"></i>{{ __('Está a ver os dados da empresa. Alterá-los é de quem a gere.') }}
+                </p>
+            @endcannot
+            @can('settings.edit')
             <button type="submit" wire:loading.attr="disabled"
                 class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-bold rounded-xl shadow-lg disabled:opacity-60">
                 <span wire:loading.remove wire:target="save"><i class="fas fa-save mr-2"></i>Guardar alterações</span>
                 <span wire:loading wire:target="save"><i class="fas fa-spinner fa-spin mr-2"></i>A guardar…</span>
             </button>
+            @endcan
 
             @can('invoicing.settings.view')
                 <a href="{{ route('invoicing.settings') }}" class="px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl">

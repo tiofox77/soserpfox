@@ -64,6 +64,7 @@
         lastSync: null,
         pendingCount: 0,
         sessionExpired: false,
+        subscriptionExpired: false,
     };
 
     // ========================
@@ -105,6 +106,16 @@
 
             if (r.status === 401 || r.status === 419) { return 'sessao_expirada'; }
 
+            // A EMPRESA DEIXOU DE PAGAR. Não é o mesmo que não haver rede, e
+            // dizer "offline" aqui seria a mentira mais cara desta aplicação:
+            // o aparelho continuava a vender sem parar, convencido de que
+            // depois sincronizava, e nada disso ia chegar a existir.
+            if (r.status === 402) {
+                handleSubscriptionExpired();
+
+                return 'subscricao_expirada';
+            }
+
             return r.ok ? 'online' : 'offline';
         } catch (_) {
             return 'offline';
@@ -122,6 +133,11 @@
             });
             if (r.status === 401 || r.status === 419) {
                 handleSessionExpired();
+                state.realOnline = false;
+                return false;
+            }
+            if (r.status === 402) {
+                handleSubscriptionExpired();
                 state.realOnline = false;
                 return false;
             }
@@ -160,6 +176,50 @@
                 + __('Sessão expirada — toque para autenticar novamente');
         }
         window.dispatchEvent(new CustomEvent('pwa:session-expired'));
+    }
+
+    // ========================
+    // SUBSCRIÇÃO EXPIRADA
+    // ========================
+    /**
+     * A empresa deixou de ter direito a emitir.
+     *
+     * É um primo da sessão expirada, mas NÃO é a mesma coisa e não se resolve
+     * da mesma maneira: uma palavra-passe não repõe um plano. Por isso o aviso
+     * é vermelho, não laranja, e leva a quem pode renovar.
+     *
+     * O QUE NÃO SE FAZ AQUI: apagar seja o que for. As vendas que estão na
+     * fila foram feitas, o cliente levou o produto, e o dinheiro entrou na
+     * caixa. Ficam onde estão até a empresa renovar — nessa altura sobem
+     * todas. Descartá-las por causa de uma factura por pagar seria castigar o
+     * operador por uma decisão que não é dele.
+     */
+    function handleSubscriptionExpired() {
+        if (state.subscriptionExpired) return;
+        state.subscriptionExpired = true;
+
+        const bar = document.getElementById('pwa-status-bar');
+
+        if (bar) {
+            bar.classList.remove('hidden');
+            bar.querySelectorAll('div').forEach((d) => d.classList.add('hidden'));
+
+            let sb = document.getElementById('pwa-status-subscricao');
+
+            if (!sb) {
+                sb = document.createElement('div');
+                sb.id = 'pwa-status-subscricao';
+                sb.className = 'bg-red-700 text-white text-center py-2 text-xs font-bold shadow-lg cursor-pointer';
+                sb.onclick = () => { window.location.href = '/subscription-expired'; };
+                bar.appendChild(sb);
+            }
+
+            sb.classList.remove('hidden');
+            sb.innerHTML = '<i class="fas fa-triangle-exclamation mr-1"></i>'
+                + __('Subscrição expirada — as vendas ficam guardadas até renovar');
+        }
+
+        window.dispatchEvent(new CustomEvent('pwa:subscricao-expirada'));
     }
 
     /**
@@ -358,7 +418,83 @@
     // ========================
     // SYNC ENGINE
     // ========================
+    /**
+     * O identificador deste aparelho, nesta empresa.
+     *
+     * Nasce aqui e vive no IndexedDB. Se o operador limpar os dados do
+     * browser aparece um aparelho novo — e isso é honesto: do ponto de vista
+     * da aplicação offline, é mesmo uma instalação nova.
+     */
+    let _idDoAparelho = null;
+
+    async function idDoAparelho() {
+        if (_idDoAparelho) { return _idDoAparelho; }
+
+        try {
+            const guardado = (await db.meta.get('device_uuid'))?.value;
+
+            if (guardado) { return (_idDoAparelho = guardado); }
+
+            const novo = uuidV4();
+            await db.meta.put({ key: 'device_uuid', value: novo });
+
+            return (_idDoAparelho = novo);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /**
+     * O que este aparelho declara sobre si em cada sincronização.
+     *
+     * A VERSÃO É A QUE ELE ESTÁ MESMO A CORRER — lê-se do `?v=` do próprio
+     * script, e não de uma constante escrita à mão. É essa a diferença que
+     * interessa: o servidor pode estar a servir uma versão nova e o aparelho
+     * continuar com a antiga em cache, e foi isso que aconteceu.
+     */
+    async function cabecalhosDoAparelho() {
+        try {
+            const script = document.querySelector('script[src*="pwa-invoicing.js"]');
+            const versao = script ? (new URL(script.src, location.origin).searchParams.get('v') || '') : '';
+
+            // Instalado no ecrã principal, ou só um separador? Um separador
+            // fecha-se e volta actualizado; uma aplicação instalada pode ficar
+            // semanas com a mesma versão.
+            const instalado = window.matchMedia?.('(display-mode: standalone)')?.matches
+                || window.navigator.standalone === true;
+
+            return {
+                'X-Sos-Device': (await idDoAparelho()) || '',
+                'X-Sos-Version': versao,
+                'X-Sos-Standalone': instalado ? '1' : '0',
+                'X-Sos-Platform': (navigator.userAgentData?.platform || navigator.platform || '').slice(0, 60),
+            };
+        } catch (_) {
+            return {};
+        }
+    }
+
+    /**
+     * O motivo de uma recusa, tirado do JSON que o servidor pôs no corpo.
+     * `HTTP 422: {"error":"..."}` → `...`. Se não houver JSON, null.
+     */
+    function motivoDoServidor(texto) {
+        try {
+            const inicio = String(texto || '').indexOf('{');
+            if (inicio < 0) return null;
+            const corpo = JSON.parse(String(texto).slice(inicio));
+            return corpo.error || corpo.message || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
     async function fetchJson(url, options = {}) {
+        // Só a sincronização é que carrega a identificação: é a chamada que
+        // todo o aparelho faz, e pendurá-la em cada pedido só engordava
+        // cabeçalhos sem dizer nada de novo.
+        const daIdentidade = url.includes('/invoicing/sync') ? await cabecalhosDoAparelho() : {};
+
         const response = await fetch(url, {
             credentials: 'same-origin',
             headers: {
@@ -366,6 +502,7 @@
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': csrf(),
+                ...daIdentidade,
                 ...(options.headers || {}),
             },
             ...options,
@@ -374,6 +511,16 @@
         if (response.status === 401 || response.status === 419) {
             handleSessionExpired();
             throw new Error(`SESSION_EXPIRED:${response.status}`);
+        }
+        // 402 — a empresa não tem subscrição válida.
+        //
+        // Tem de sair ANTES do tratamento de 4xx que está a seguir: lá abaixo
+        // um 4xx é uma recusa DEFINITIVA e o trabalho é descartado. Aqui não:
+        // a venda é boa, o que caducou foi o plano. Descartá-la fazia
+        // desaparecer uma venda já cobrada por causa de uma factura por pagar.
+        if (response.status === 402) {
+            handleSubscriptionExpired();
+            throw new Error(`SUBSCRIPTION_EXPIRED:${response.status}`);
         }
         if (!response.ok) {
             const text = await response.text();
@@ -385,9 +532,13 @@
             //
             // O 408 e o 429 ficam de fora porque dizem "agora não", e não
             // "nunca": um é tempo esgotado, o outro é excesso de pedidos.
+            // O 409 também fica de fora: é o servidor a dizer «o cliente a
+            // que este documento aponta ainda não existe cá» — um estado que
+            // a próxima sincronização resolve, não uma recusa.
             const definitivo = response.status >= 400
                 && response.status < 500
                 && response.status !== 408
+                && response.status !== 409
                 && response.status !== 429;
 
             const erro = new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
@@ -397,6 +548,50 @@
             throw erro;
         }
         return response.json();
+    }
+
+    /**
+     * O MOLDE de cada documento, vindo do servidor.
+     *
+     * É o próprio modelo de impressão do servidor (o mesmo do PDF e da
+     * pré-visualização), renderizado com marcas no lugar dos valores. Sem
+     * rede, o aparelho preenche-o com o documento local — e o papel sai
+     * igual ao do servidor, porque É o do servidor. Um desenho só.
+     *
+     * Renova-se uma vez por dia, ou numa sincronização forçada: o logótipo,
+     * as contas bancárias e o regime podem mudar.
+     */
+    async function descarregarMoldes(force) {
+        for (const tipo of ['FT', 'FR', 'proforma']) {
+            try {
+                const actual = (await db.meta.get('molde_' + tipo))?.value;
+                const velho = !actual || !actual.em || (Date.now() - Date.parse(actual.em)) > 24 * 3600 * 1000;
+                if (!force && !velho) continue;
+
+                const r = await fetch('/invoicing/offline/molde/' + tipo, {
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: actual?.etag ? { 'If-None-Match': actual.etag } : {},
+                });
+
+                // Não mudou: fica o que está, só se renova a data.
+                if (r.status === 304 && actual?.html) {
+                    await db.meta.put({ key: 'molde_' + tipo, value: { ...actual, em: new Date().toISOString() } });
+                    continue;
+                }
+                if (!r.ok) continue;
+
+                const html = await r.text();
+                // Só se for mesmo um molde: uma página de login ou de erro não serve.
+                if (!html.includes('%%NUMERO%%') || !html.includes('%%ITEM_NOME%%')) continue;
+
+                await db.meta.put({ key: 'molde_' + tipo, value: {
+                    html, etag: r.headers.get('ETag') || null, em: new Date().toISOString(),
+                } });
+            } catch (_) {
+                // Sem molde fica o desenho de recurso do aparelho.
+            }
+        }
     }
 
     /**
@@ -452,10 +647,19 @@
                 await db.products.bulkPut(json.data.products);
             }
             if (json.data.clients?.length) {
-                // não sobrescrever clientes locais ainda não sincronizados
+                // JUNTA-SE AO QUE JÁ CÁ ESTÁ; NÃO SE SUBSTITUI.
+                //
+                // O `put` sobrepunha o registo inteiro pelo do servidor, e o
+                // do servidor não traz `local_uuid`. Um cliente criado sem
+                // rede, acabado de subir e de adoptar o id do servidor,
+                // perdia o seu `local_uuid` logo na descarga seguinte — a
+                // mesma sincronização. Qualquer documento ainda na fila a
+                // apontar para esse `local_uuid` (uma venda que falhou à
+                // primeira por um soluço da rede) deixava de o encontrar:
+                // «Cliente ainda não sincronizado» cinco vezes, e morria.
                 for (const c of json.data.clients) {
-                    c._synced = 1;
-                    await db.clients.put(c);
+                    const existente = await db.clients.get(c.id);
+                    await db.clients.put({ ...(existente || {}), ...c, _synced: 1 });
                 }
             }
             if (json.data.series?.length) {
@@ -497,6 +701,10 @@
             }
 
             await db.meta.put({ key: 'last_sync', value: json.server_time });
+
+            // OS MOLDES DOS DOCUMENTOS: o desenho do servidor, para o papel
+            // sem rede ser o mesmo da pré-visualização. Ver descarregarMoldes.
+            await descarregarMoldes(force);
 
             // Sync online bem-sucedido → sessão Laravel válida → desbloqueia este tab.
             try { sessionStorage.setItem('pwa_unlocked', '1'); } catch (_) {}
@@ -579,12 +787,20 @@
                         name: e.name,
                         pin_hash: e.pin_hash,
                         updated_at: e.updated_at || null,
+                        // Quem pode autorizar, sem rede, o PIN novo de um
+                        // colega que o esqueceu.
+                        pode_repor_pin: !!e.pode_repor_pin,
                     })));
                 }
             }
             // Até quando o login offline vale sem nova sincronização.
             if (json.offline_valid_until) {
                 await db.meta.put({ key: 'offline_valid_until', value: json.offline_valid_until });
+            }
+            // As regras do PIN (tamanho e a lista dos óbvios) são as do
+            // servidor: o aparelho recusa sem rede o mesmo que ele recusa.
+            if (json.pin_regras) {
+                await db.meta.put({ key: 'pin_regras', value: json.pin_regras });
             }
 
             if (json.company) {
@@ -834,33 +1050,27 @@
                         body: JSON.stringify(job.payload),
                     });
                     if (result.id && job.payload.local_uuid) {
-                        await db.clients.where('local_uuid').equals(job.payload.local_uuid).modify({
-                            id: result.id,
-                            _synced: 1,
-                        });
+                        await adoptarIdDoServidor(job.payload.local_uuid, result.id);
                     }
                 } else if (job.op === 'create_draft') {
-                    // Antes de enviar, se o cliente ainda for local_uuid, resolver para ID real
-                    let payload = { ...job.payload };
-                    if (payload.client_local_uuid && !payload.client_id) {
-                        const localClient = await db.clients.where('local_uuid').equals(payload.client_local_uuid).first();
-                        if (localClient && Number.isInteger(localClient.id)) {
-                            payload.client_id = localClient.id;
-                        } else {
-                            // cliente ainda não sincronizado — adiar este job
-                            throw new Error(__('Cliente ainda não sincronizado — a reagendar'));
-                        }
-                    }
+                    // O cliente criado sem rede — o mesmo caminho da venda POS.
+                    let payload = await resolverClienteLocal({ ...job.payload });
                     result = await fetchJson('/api/v1/invoicing/drafts', {
                         method: 'POST',
                         body: JSON.stringify(payload),
                     });
                     if (result.id && job.payload.local_uuid) {
-                        await db.draft_documents.where('local_uuid').equals(job.payload.local_uuid).modify({
-                            _server_id: result.id,
-                            _synced: 1,
-                            _server_number: result.invoice_number || result.proforma_number || null,
+                        await db.draft_documents.where('local_uuid').equals(job.payload.local_uuid).modify(doc => {
+                            doc._server_id = result.id;
+                            doc._synced = 1;
+                            doc._server_number = result.invoice_number || result.proforma_number || doc._server_number || null;
                         });
+                        // Best effort: receipt of the sale must not fail because
+                        // downloading its paper failed. pdfDe explains missing copies.
+                        try {
+                            const saved = await db.draft_documents.get(job.payload.local_uuid);
+                            await window.SosPwa.pdfDe('documento', saved);
+                        } catch (e) { console.warn('[PWA] PDF definitivo ainda por guardar:', e.message); }
                     }
                 } else if (job.op === 'open_pos_shift') {
                     // Abertura de turno feita offline → cria turno real (idempotente)
@@ -979,6 +1189,19 @@
                             },
                         }));
                     }
+                } else if (job.op === 'repor_pin') {
+                    // O PIN reposto sem rede. Uma recusa do servidor (4xx) é
+                    // definitiva, e o motivo tem de chegar legível à gaveta
+                    // dos pendentes — não um JSON inteiro.
+                    try {
+                        result = await fetchJson('/api/v1/invoicing/pin/repor', {
+                            method: 'POST',
+                            body: JSON.stringify(job.payload),
+                        });
+                    } catch (e) {
+                        if (e.definitivo) { e.message = motivoDoServidor(e.message) || e.message; }
+                        throw e;
+                    }
                 } else if (job.op === 'logout') {
                     // A saída pedida sem rede. O servidor fecha a sessão
                     // agora; se ela já tiver caído, responde na mesma que
@@ -990,16 +1213,10 @@
                 } else if (job.op === 'create_pos_sale') {
                     // Venda POS offline → cria Fatura-Recibo real (idempotente via local_uuid)
                     let payload = { ...job.payload };
-                    // Resolver cliente local → ID real, se aplicável
-                    if (payload.client_local_uuid && !payload.client_id) {
-                        const localClient = await db.clients.where('local_uuid').equals(payload.client_local_uuid).first();
-                        if (localClient && Number.isInteger(localClient.id)) {
-                            payload.client_id = localClient.id;
-                        } else {
-                            throw new Error(__('Cliente ainda não sincronizado — a reagendar'));
-                        }
-                    }
-                    delete payload.client_local_uuid;
+                    // O cliente criado sem rede: resolve-se aqui quando se
+                    // consegue; senão vai o `client_local_uuid` e é o
+                    // SERVIDOR que o resolve — ver resolverClienteLocal.
+                    payload = await resolverClienteLocal(payload);
                     result = await fetchJson('/api/v1/invoicing/pos/sale', {
                         method: 'POST',
                         body: JSON.stringify(payload),
@@ -1043,6 +1260,22 @@
                 await limparEntreguesAntigos();
             } catch (err) {
                 console.error('[PWA] Job falhou:', job, err);
+
+                // A SUBSCRIÇÃO EXPIRADA NÃO GASTA TENTATIVAS.
+                //
+                // Isto vem antes de contar o retry de propósito. Uma empresa
+                // que fica um fim-de-semana sem renovar tinha a fila a bater
+                // na porta a cada sincronização; ao fim de cinco, as vendas
+                // ficavam marcadas como falhadas e saíam do caminho — vendas
+                // reais, já cobradas, perdidas por uma razão administrativa.
+                //
+                // Fica tudo intacto e pendente. No dia em que renovarem, sobe.
+                if (err.message && err.message.startsWith('SUBSCRIPTION_EXPIRED')) {
+                    console.warn('[PWA] Subscrição expirada — a parar queue (nada se perde)');
+                    await db.sync_queue.update(job.id, { last_error: err.message });
+                    break;
+                }
+
                 await db.sync_queue.update(job.id, {
                     retries: (job.retries || 0) + 1,
                     last_error: err.message,
@@ -1071,6 +1304,87 @@
                 }
             }
         }
+    }
+
+    /**
+     * O cliente a que um documento aponta, pronto a enviar.
+     *
+     * Três casos, e os três existiam no balcão:
+     *
+     *   1. O cliente local já subiu e tem id do servidor → vai o `client_id`.
+     *   2. O cliente local ainda cá está, mas por subir → ESPERA-SE. O seu
+     *      trabalho vem antes na fila; se falhou, o motivo está nele. Emitir
+     *      agora seria emitir em nome do Consumidor Final — foi a queixa.
+     *   3. Não há registo local com esse `local_uuid` — a descarga do catálogo
+     *      apagava-o ao sobrepor o registo (corrigido), ou a base foi limpa.
+     *      Vai o `client_local_uuid` na mesma: o servidor tem a coluna e sabe
+     *      resolvê-lo. Se também não o tiver, responde 409 e o documento
+     *      espera, em vez de sair em nome de outra pessoa.
+     */
+    async function resolverClienteLocal(payload) {
+        if (!payload.client_local_uuid || payload.client_id) {
+            delete payload.client_local_uuid;
+            return payload;
+        }
+
+        const local = await db.clients.where('local_uuid').equals(payload.client_local_uuid).first();
+
+        if (local && Number.isInteger(local.id)) {
+            payload.client_id = local.id;
+            delete payload.client_local_uuid;
+            return payload;
+        }
+
+        if (local) {
+            throw new Error(__('Cliente ainda não sincronizado — a reagendar'));
+        }
+
+        return payload;
+    }
+
+    /**
+     * O cliente criado sem rede passa a ter o id do servidor.
+     *
+     * PORQUE NÃO É UM `modify`. Era, e nunca funcionou: em `db.clients` a
+     * chave primária é o `id`, e o Dexie não deixa mudar a chave primária num
+     * `modify()` — rebentava com "Key already exists in the object store". O
+     * erro ficava enterrado no `last_error` de um trabalho da fila, onde
+     * ninguém olha, e o estrago era permanente:
+     *
+     *   · o cliente ficava com o id local para sempre e `_synced: 0`;
+     *   · o trabalho voltava a correr em CADA sincronização, para sempre
+     *     (o servidor é idempotente pelo local_uuid, por isso não duplicava
+     *     lá — mas também nunca ficava resolvido);
+     *   · no ecrã apareciam DOIS clientes, o local e o que descia do
+     *     servidor;
+     *   · e, o pior, qualquer venda ou rascunho feito a esse cliente ficava
+     *     à espera do id real com "Cliente ainda não sincronizado" — uma
+     *     venda que nunca subia.
+     *
+     * Trocar a chave faz-se como se faz: apagar a linha antiga e escrever a
+     * nova. Numa transação, para não haver um instante em que o cliente não
+     * existe em lado nenhum.
+     */
+    async function adoptarIdDoServidor(localUuid, idDoServidor) {
+        await db.transaction('rw', db.clients, async () => {
+            const local = await db.clients.where('local_uuid').equals(localUuid).first();
+
+            if (!local) {
+                return;
+            }
+
+            if (local.id === idDoServidor) {
+                await db.clients.update(local.id, { _synced: 1 });
+
+                return;
+            }
+
+            // O `put` sobrepõe se o servidor já nos tinha mandado este cliente
+            // numa descarga anterior — é o mesmo cliente, e os dados do
+            // servidor são os bons.
+            await db.clients.put({ ...local, id: idDoServidor, _synced: 1 });
+            await db.clients.delete(local.id);
+        });
     }
 
     /**
@@ -1277,6 +1591,19 @@
                 subtotal: Math.round(subtotal * 100) / 100,
                 tax: Math.round(tax * 100) / 100,
                 total: Math.round(total * 100) / 100,
+                // O que o PAPEL precisa e o registo não guardava: os descontos
+                // do documento, a retenção, a entrega e o pagamento ficavam só
+                // na fila, e o papel sem rede saía sem eles.
+                discount_commercial: parseFloat(draft.discount_commercial) || 0,
+                discount_financial: parseFloat(draft.discount_financial) || 0,
+                is_service: !!draft.is_service,
+                withholding_percentage: draft.is_service
+                    ? (parseFloat(draft.withholding_percentage) || 6.5)
+                    : null,
+                delivery_date: draft.delivery_date || null,
+                delivery_location: draft.delivery_location || null,
+                payment_method: draft.payment_method || null,
+                amount_received: draft.amount_received != null ? parseFloat(draft.amount_received) : null,
                 _synced: 0,
                 _server_id: null,
                 _server_number: null,
@@ -1309,7 +1636,257 @@
         },
 
         async getDrafts() {
-            return await db.draft_documents.orderBy('created_at').reverse().toArray();
+            const docs = await db.draft_documents.orderBy('created_at').reverse().toArray();
+
+            // O ESTADO DA FILA, AO LADO DE CADA DOCUMENTO.
+            //
+            // A lista dizia «Pendente» para sempre, mesmo quando o trabalho
+            // já tinha falhado cinco vezes e saído do caminho. Quem olhava
+            // via um documento à espera; o que havia era um documento morto,
+            // com o motivo enterrado na fila onde ninguém olha.
+            let fila = [];
+            try { fila = await db.sync_queue.filter((j) => j.op === 'create_draft').toArray(); } catch (_) {}
+            const porUuid = new Map(fila.map((j) => [j.payload?.local_uuid, j]));
+
+            return docs.map((d) => {
+                const j = porUuid.get(d.local_uuid);
+                return {
+                    ...d,
+                    _estado_fila: d._synced ? 'done' : (j?.status || 'pending'),
+                    _erro: !d._synced && j?.last_error ? j.last_error : null,
+                };
+            });
+        },
+
+        /**
+         * Imprime um documento (proforma, FT, FR, NC) criado no modo offline.
+         *
+         * O POS sempre imprimiu o talão com ou sem rede; os documentos não
+         * tinham impressão nenhuma. A regra é UM desenho, o do site:
+         *
+         *   · sincronizado e com rede → abre a PÁGINA DE PREVIEW que o site
+         *     já tem (pdf/invoicing/*.blade.php) — o mesmo papel que sai do
+         *     ecrã grande, com QR AGT, contas bancárias e tudo. Não se copia
+         *     esse desenho para JavaScript: uma cópia diverge à primeira
+         *     alteração e ninguém dá por isso.
+         *   · por sincronizar e COM rede → espera até 8s (o prazo do
+         *     emitirJa) e, sincronizando, abre esse mesmo preview;
+         *   · SEM rede → o papel local de recurso, marcado como PROVISÓRIO —
+         *     vale mais um papel honesto agora do que papel nenhum. A FR sai
+         *     no talão de 80mm; o resto em A4.
+         */
+        /**
+         * O PDF de uma venda do POS ou de um documento, para partilhar — o
+         * WhatsApp, em regra.
+         *
+         * UM DESENHO SÓ, também aqui. Sem rede, ou por sincronizar, o PDF
+         * faz-se NO APARELHO a partir do MESMO HTML que vai para a
+         * impressora (talão 80mm para a venda, A4 para o documento), com a
+         * faixa de provisório quando ainda não há número fiscal. Emitido e
+         * com rede, vai-se buscar o PDF DO SERVIDOR — o mesmo do ecrã grande,
+         * com QR da AGT e hash — e é esse que se partilha.
+         *
+         * A entrega é a folha de partilha do sistema (Web Share API, com
+         * ficheiros): é lá que o WhatsApp aparece. Onde não existe (browser
+         * de secretária, iOS antigo), o PDF descarrega-se e anexa-se à mão.
+         *
+         * @param {'venda'|'documento'} tipo
+         * @returns {Promise<{modo:'partilhado'|'descarregado', nome:string, bytes:number, origem:'servidor'|'aparelho'}>}
+         */
+        async partilharPdf(tipo, localUuid) {
+            const registo = tipo === 'venda'
+                ? await db.pos_sales.get(localUuid)
+                : await db.draft_documents.get(localUuid);
+            if (!registo) {
+                throw new Error(__('Documento não encontrado neste aparelho.'));
+            }
+
+            const { blob, nome, origem } = await this.pdfDe(tipo, registo);
+            const ficheiro = new File([blob], nome, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [ficheiro] })) {
+                await navigator.share({
+                    files: [ficheiro],
+                    title: nome.replace(/\.pdf$/i, ''),
+                    text: registo._server_number
+                        ? __('Documento :numero', { numero: registo._server_number })
+                        : __('Documento provisório — a numeração fiscal é atribuída na sincronização.'),
+                });
+                return { modo: 'partilhado', nome, bytes: blob.size, origem };
+            }
+
+            // Sem folha de partilha: descarrega, e a pessoa anexa.
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nome;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
+            return { modo: 'descarregado', nome, bytes: blob.size, origem };
+        },
+
+        /** O PDF em si (Blob), com o nome do ficheiro. Separado para se poder ensaiar sem a folha de partilha. */
+        async pdfDe(tipo, registo) {
+            const nome = (registo._server_number
+                ? String(registo._server_number)
+                : 'PROVISORIO-' + String(registo.local_uuid || '').slice(-6).toUpperCase()
+            ).replace(/[^A-Za-z0-9._-]+/g, '-') + '.pdf';
+
+            const tenant = window.SOS_TENANT_ID || (await db.meta.get('tenant_id'))?.value;
+            const canonicalKey = `pdf_emitido_${tenant}_${tipo}_${registo.doc_type || 'FR'}_${registo._server_id}`;
+            const canonical = registo._synced && registo._server_id
+                ? (await db.meta.get(canonicalKey))?.value : null;
+            // Reuse the exact issued bytes. Never reconstruct an issued document
+            // from a stale offline catalogue, logo or provisional template.
+            if (canonical?.blob) return { blob: canonical.blob, nome: canonical.nome || nome, origem: 'copia-servidor' };
+
+            // Emitido e com rede: o PDF do servidor, que é o verdadeiro.
+            if (registo._synced && registo._server_id && navigator.onLine && (await checkRealOnline())) {
+                const caminho = tipo === 'venda' || String(registo.doc_type || '').toLowerCase() !== 'proforma'
+                    ? '/invoicing/sales/invoices/' + registo._server_id + '/pdf'
+                    : '/invoicing/sales/proformas/' + registo._server_id + '/pdf';
+                try {
+                    const r = await fetch(caminho, { credentials: 'same-origin', signal: AbortSignal.timeout(15000) });
+                    if (r.ok && (r.headers.get('content-type') || '').includes('pdf')) {
+                        const blob = await r.blob();
+                        if ((await blob.slice(0, 5).text()) !== '%PDF-') throw new Error('PDF inválido');
+                        await db.meta.put({key: canonicalKey, value: {blob, nome}});
+                        try { await this.previewDefinitivo(tipo, registo); } catch (_) {}
+                        return { blob, nome, origem: 'servidor' };
+                    }
+                } catch (_) {
+                    // Sem servidor à mão: faz-se cá.
+                }
+            }
+
+            if (registo._synced && registo._server_id) {
+                throw new Error(__('O PDF definitivo ainda não está guardado neste aparelho. Ligue à internet e abra o documento uma vez para o guardar.'));
+            }
+
+            if (!window.PosOfflineTicket || !window.PosOfflineTicket.pdfDoTalao) {
+                throw new Error(__('O módulo de impressão ainda não carregou. Tente outra vez.'));
+            }
+
+            const empresa = (await this.getCompany()) || {};
+            const blob = tipo === 'venda'
+                ? await window.PosOfflineTicket.pdfDoTalao(registo, empresa)
+                : await window.PosOfflineTicket.pdfDoDocumento(registo, empresa, await this.dadosParaOPapel(registo));
+
+            return { blob, nome, origem: 'aparelho' };
+        },
+
+        /**
+         * O que o papel precisa e o registo não tem: o molde do servidor, o
+         * NIF do cliente, os códigos dos artigos, o operador e o motivo de
+         * isenção. Tudo do que já está no aparelho.
+         */
+        async dadosParaOPapel(doc) {
+            const tipoDoc = String(doc.doc_type || '').toUpperCase();
+            const tipo = tipoDoc === 'PROFORMA' ? 'proforma' : (tipoDoc === 'FR' ? 'FR' : 'FT');
+            const molde = (await db.meta.get('molde_' + tipo))?.value?.html || null;
+
+            let clienteNif = null;
+            try {
+                const cli = doc.client_id
+                    ? await db.clients.get(doc.client_id)
+                    : (doc.client_local_uuid ? await db.clients.where('local_uuid').equals(doc.client_local_uuid).first() : null);
+                clienteNif = cli?.nif || null;
+            } catch (_) {}
+
+            const codigos = {};
+            for (const it of (doc.items || [])) {
+                if (!Number.isInteger(it.product_id)) continue;
+                try {
+                    const p = await db.products.get(it.product_id);
+                    if (p?.code) codigos[it.product_id] = p.code;
+                } catch (_) {}
+            }
+
+            const operador = (await db.meta.get('user'))?.value?.name || null;
+
+            let isencao = null;
+            try {
+                const taxas = await db.tax_rates.toArray();
+                const t = taxas.find((x) => x.is_default && (parseFloat(x.rate) || 0) <= 0)
+                    || taxas.find((x) => (parseFloat(x.rate) || 0) <= 0 && x.exemption_code);
+                if (t) isencao = { codigo: t.exemption_code || null, motivo: t.exemption_reason || null };
+            } catch (_) {}
+
+            return { molde, clienteNif, codigos, operador, isencao };
+        },
+
+        async previewDefinitivo(tipo, doc) {
+            const tenant = window.SOS_TENANT_ID || (await db.meta.get('tenant_id'))?.value;
+            const key = `preview_emitido_${tenant}_${tipo}_${doc.doc_type || 'FR'}_${doc._server_id}`;
+            const saved = (await db.meta.get(key))?.value;
+            if (saved) return saved;
+            if (!navigator.onLine || !(await checkRealOnline())) throw new Error('A pré-visualização definitiva ainda não está guardada. Abra este documento com internet primeiro.');
+            const path = tipo !== 'venda' && doc.doc_type === 'proforma'
+                ? '/invoicing/sales/proformas/' : '/invoicing/sales/invoices/';
+            const response = await fetch(path + doc._server_id + '/preview', {credentials: 'same-origin', signal: AbortSignal.timeout(15000)});
+            if (!response.ok || response.redirected) throw new Error('Não foi possível guardar a pré-visualização definitiva.');
+            const html = await response.text();
+            const parsed = new DOMParser().parseFromString(html, 'text/html');
+            // Server print templates must be self-contained to work without a network.
+            if ([...parsed.images].some(img => !img.getAttribute('src')?.startsWith('data:')) || parsed.querySelector('link[rel="stylesheet"]')) {
+                throw new Error('A pré-visualização contém recursos externos e não pode ser guardada offline.');
+            }
+            await db.meta.put({key, value: html});
+            return html;
+        },
+
+        /** O HTML do papel de um documento, tal como vai para a impressora — para ensaios e verificação. */
+        async htmlDoPapel(localUuid) {
+            const doc = await db.draft_documents.get(localUuid);
+            if (!doc) {
+                throw new Error(__('Documento não encontrado neste aparelho.'));
+            }
+
+            return window.PosOfflineTicket.htmlDoDocumento(doc, (await this.getCompany()) || {}, await this.dadosParaOPapel(doc));
+        },
+
+        async imprimirDocumento(localUuid) {
+            let doc = await db.draft_documents.get(localUuid);
+
+            if (!doc) {
+                throw new Error('Documento não encontrado neste aparelho.');
+            }
+
+            const comRede = navigator.onLine && (await checkRealOnline());
+
+            if (!doc._synced && comRede) {
+                let travao;
+                const limite = new Promise(resolve => { travao = setTimeout(resolve, 8000); });
+
+                try {
+                    await Promise.race([sync(false), limite]);
+                } finally {
+                    clearTimeout(travao);
+                }
+
+                doc = (await db.draft_documents.get(localUuid)) || doc;
+            }
+
+            // O documento existe no servidor e há rede: o papel é o do site.
+            if (doc._synced && doc._server_id) {
+                const html = await this.previewDefinitivo('documento', doc);
+                const janela = window.open('', '_blank');
+                if (!janela) throw new Error('O navegador bloqueou a janela. Permita pop-ups para este site.');
+                janela.document.open();
+                janela.document.write(html);
+                janela.document.close();
+                return doc;
+            }
+
+            // Sem rede (ou sem documento no servidor): o papel de recurso.
+            if (!window.PosOfflineTicket || !window.PosOfflineTicket.printDocument) {
+                throw new Error('O módulo de impressão ainda não carregou. Tente outra vez.');
+            }
+
+            window.PosOfflineTicket.printDocument(doc, (await this.getCompany()) || {}, await this.dadosParaOPapel(doc));
+
+            return doc;
         },
 
         /**
@@ -1367,6 +1944,15 @@
                 client_name: sale.client_name || 'Consumidor Final',
                 client_nif: sale.client_nif || '999999999',
                 payment_method: sale.payment_method || 'cash',
+
+                // AS LINHAS DO PAGAMENTO DIVIDIDO.
+                //
+                // Ficam GUARDADAS na venda, e não só enviadas: o talão
+                // reimpresso tem de poder dizer quanto entrou em dinheiro e
+                // quanto a cartão. Sem isto, uma venda dividida reimprimia-se
+                // como se tivesse sido paga toda de uma forma.
+                payments: Array.isArray(sale.payments) && sale.payments.length ? sale.payments : null,
+
                 amount_received: parseFloat(sale.amount_received) || total,
                 discount_commercial: discPct,
                 notes: sale.notes || '',
@@ -1391,6 +1977,7 @@
                 client_id: sale.client_id || null,
                 client_local_uuid: sale.client_local_uuid || null,
                 payment_method: record.payment_method,
+                payments: record.payments,
                 amount_received: record.amount_received,
                 discount_commercial: discPct,
                 notes: record.notes,
@@ -2193,6 +2780,99 @@
             return { ok: true, name: cache.name, email: cache.email };
         },
 
+        // ---- Esqueci o PIN, sem rede ----
+        // O bcrypt do PIN novo calcula-se AQUI, no aparelho, com o mesmo motor
+        // que o verifica. Custo 12, como o servidor: a forma com callback não
+        // tranca o ecrã enquanto calcula.
+        _bcryptHash(secret, rounds = 12) {
+            const bc = this._bcryptEngine();
+            return new Promise((resolve) => {
+                if (!bc) return resolve(null);
+                try { bc.hash(String(secret), rounds, (err, hash) => resolve(err ? null : hash)); }
+                catch (_) { resolve(null); }
+            });
+        },
+
+        // As regras do PIN vêm do servidor na sincronização (uma lista só).
+        // Sem sincronização ainda, fica o mínimo que qualquer pessoa aceitaria.
+        async regrasDoPin() {
+            const m = await db.meta.get('pin_regras');
+            return m?.value || { min: 4, max: 6, obvios: ['0000', '1111', '1234', '4321', '123456', '000000', '111111'] };
+        },
+
+        async recusaDoPinNovo(pin) {
+            const r = await this.regrasDoPin();
+            const s = String(pin || '');
+            if (!/^\d+$/.test(s) || s.length < r.min || s.length > r.max) return 'TAMANHO';
+            if ((r.obvios || []).includes(s)) return 'OBVIO';
+            return null;
+        },
+
+        /**
+         * Repõe o PIN de um funcionário sem rede, com um gestor a autorizar.
+         *
+         * O gestor põe o SEU email e o SEU PIN — verificado contra o bcrypt
+         * que já está no aparelho, com a mesma trava anti-força-bruta da
+         * entrada. Só quem pode gerir utilizadores (a mesma regra da Gestão
+         * de Utilizadores) autoriza. O verificador novo fica logo no aparelho
+         * — o funcionário entra de imediato — e vai na fila para o servidor
+         * decidir quando houver rede. Se o servidor recusar, a sincronização
+         * seguinte repõe o verificador antigo: o servidor manda.
+         */
+        async reporPinOffline({ email, gestorEmail, gestorPin, pinNovo }) {
+            const alvo   = (email || '').toLowerCase().trim();
+            const gestor = (gestorEmail || '').toLowerCase().trim();
+            if (!alvo || !gestor || !gestorPin || !pinNovo) return { ok: false, reason: 'MISSING' };
+
+            if (!(await this._offlineWindowOk())) {
+                await this._expirarAcessoOffline();
+                return { ok: false, reason: 'EXPIRED_WINDOW' };
+            }
+            if (!this._bcryptEngine()) return { ok: false, reason: 'NO_ENGINE' };
+
+            const empAlvo = await db.employees.get(alvo);
+            if (!empAlvo) return { ok: false, reason: 'ALVO_DESCONHECIDO' };
+
+            const lockedUntil = await this._pinLockedUntil(gestor);
+            if (lockedUntil) return { ok: false, reason: 'LOCKED', until: lockedUntil };
+
+            // Primeiro o PIN, só depois o direito: assim quem tenta não fica a
+            // saber se o email do gestor existe sem ter o PIN dele.
+            const empGestor = await db.employees.get(gestor);
+            const confere = !!(empGestor && empGestor.pin_hash)
+                && await this._bcryptCompare(gestorPin, empGestor.pin_hash);
+            if (!confere) {
+                await this._recordPinFail(gestor);
+                return { ok: false, reason: 'BAD_PIN' };
+            }
+            await this._resetPinFail(gestor);
+            if (!empGestor.pode_repor_pin) return { ok: false, reason: 'GESTOR_SEM_DIREITO' };
+
+            const recusa = await this.recusaDoPinNovo(pinNovo);
+            if (recusa) return { ok: false, reason: recusa };
+
+            const hash = await this._bcryptHash(pinNovo, 12);
+            if (!hash) return { ok: false, reason: 'NO_ENGINE' };
+
+            const agora = new Date().toISOString();
+            await db.employees.update(alvo, { pin_hash: hash, updated_at: agora });
+            await this._resetPinFail(alvo);
+
+            const local_uuid = uuidV4();
+            await enqueue('repor_pin', {
+                local_uuid,
+                user_id: empAlvo.id,
+                email: alvo,
+                authorized_by: empGestor.id,
+                authorized_email: gestor,
+                pin_hash: hash,
+                reposto_em: agora,
+                aparelho: await idDoAparelho(),
+            });
+
+            return { ok: true, name: empAlvo.name, email: alvo, local_uuid };
+        },
+
         async clearOfflineAuth() {
             await db.meta.delete('auth_cache');
             try { sessionStorage.removeItem('pwa_unlocked'); } catch (_) {}
@@ -2271,10 +2951,22 @@
          * Funciona sem rede: o Blob e o createObjectURL são do navegador.
          */
         async exportarCopia() {
-            const fila = await db.sync_queue.where('status').notEqual('done').toArray();
-            const vendas = await db.pos_sales.where('_synced').equals(0).toArray();
-            const clientes = await db.clients.where('_synced').equals(0).toArray();
-            const rascunhos = await db.draft_documents.where('_synced').equals(0).toArray();
+            const {fila, vendas, clientes, rascunhos, comandas} = await db.transaction('r',
+                db.sync_queue, db.pos_sales, db.clients, db.draft_documents, db.rest_orders, async () => ({
+                    fila: await db.sync_queue.where('status').notEqual('done').toArray(),
+                    vendas: await db.pos_sales.where('_synced').equals(0).toArray(),
+                    clientes: await db.clients.where('_synced').equals(0).toArray(),
+                    rascunhos: await db.draft_documents.where('_synced').equals(0).toArray(),
+                    comandas: await db.rest_orders.filter(c => !c._synced || c.status !== 'fechada').toArray(),
+                }));
+            // The live queue stores only an order UUID. A backup must carry the
+            // full snapshot, including open orders which were never enqueued.
+            for (const comanda of comandas) {
+                const job = fila.find(j => j.op === 'sync_restaurant_order' && j.payload?.local_uuid === comanda.local_uuid);
+                const payload = cargaDaComanda(comanda, job?.payload || {});
+                if (job) job.payload = payload;
+                else fila.push({op: 'sync_restaurant_order', status: 'pending', payload});
+            }
 
             const meta = {};
             for (const chave of ['shift', 'last_sync', 'tenant_id', 'user']) {
@@ -2284,7 +2976,7 @@
 
             const copia = {
                 formato: 'soserp.pwa.copia',
-                versao: 1,
+                versao: 2,
                 gerado_em: new Date().toISOString(),
                 tenant_id: window.SOS_TENANT_ID || meta.tenant_id || null,
                 utilizador: {
@@ -2297,12 +2989,14 @@
                     vendas: vendas.length,
                     clientes: clientes.length,
                     rascunhos: rascunhos.length,
+                    comandas: comandas.length,
                 },
                 dados: {
                     sync_queue: fila,
                     pos_sales: vendas,
                     clients: clientes,
                     draft_documents: rascunhos,
+                    rest_orders: comandas,
                     meta,
                 },
             };

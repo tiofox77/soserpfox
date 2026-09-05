@@ -85,13 +85,9 @@
                                 <i class="fas fa-globe text-blue-500 mr-2"></i>País <span class="text-xs text-gray-500">(ISO)</span>
                             </label>
                             <select wire:model.live="country" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                                <option value="AO">Angola (AO)</option>
-                                <option value="PT">Portugal (PT)</option>
-                                <option value="MZ">Moçambique (MZ)</option>
-                                <option value="BR">Brasil (BR)</option>
-                                <option value="CV">Cabo Verde (CV)</option>
-                                <option value="GW">Guiné-Bissau (GW)</option>
-                                <option value="ST">São Tomé e Príncipe (ST)</option>
+                                @foreach(\App\Support\Geografia::paises() as $__c => $__n)
+                                    <option value="{{ $__c }}">{{ $__n }} ({{ $__c }})</option>
+                                @endforeach
                             </select>
                         </div>
                         
@@ -102,7 +98,7 @@
                             </label>
                             <select wire:model="province" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition">
                                 <option value="">Selecione...</option>
-                                @foreach(\App\Models\Client::PROVINCIAS_ANGOLA as $provincia)
+                                @foreach(\App\Support\Geografia::provincias() as $provincia)
                                     <option value="{{ $provincia }}">{{ $provincia }}</option>
                                 @endforeach
                             </select>

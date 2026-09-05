@@ -4,7 +4,29 @@
     $isDraft = ($document->status ?? null) === 'draft'
         || ($document->invoice_status ?? null) === 'N';
 
-    if ($isPurchase) {
+    /*
+     * DOCUMENTOS QUE A AGT NUNCA RECEBE.
+     *
+     * Só quatro tipos são comunicados: factura de venda, nota de crédito, nota
+     * de débito e recibo. A proforma, o orçamento e o adiantamento não são
+     * documentos fiscais e nenhum caminho do sistema os envia.
+     *
+     * Sem esta distinção, a coluna dizia «pendente de envio» numa proforma —
+     * um alarme para uma coisa que nunca vai acontecer, e que faria alguém
+     * andar à procura de um envio que não existe. Dizer «não é comunicável» é
+     * informação; dizer «pendente» é ruído.
+     */
+    $naoComunicavel = ($natureza ?? null) === 'nao-fiscal';
+
+    if ($naoComunicavel) {
+        $badge = [
+            'label' => __('Não comunicável à AGT'),
+            'short' => __('Não fiscal'),
+            'icon' => 'fa-minus-circle',
+            'classes' => 'bg-slate-100 text-slate-600 ring-slate-200',
+            'title' => __('Este documento não é fiscal: à AGT comunicam-se as facturas, as notas de crédito e de débito, e os recibos.'),
+        ];
+    } elseif ($isPurchase) {
         $badge = [
             'label' => __('Responsabilidade do fornecedor'),
             'short' => __('Fornecedor'),

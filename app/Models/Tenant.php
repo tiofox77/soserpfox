@@ -120,10 +120,15 @@ class Tenant extends Model
         'address',
         'postal_code',
         'city',
+        'province',
+        'municipality',
+        'neighbourhood',
+        // Código ISO 3166-1 alfa-2 — ver App\Support\Geografia.
         'country',
         'locale',
         'max_users',
         'max_storage_mb',
+        'max_documents',
         'restaurant_venue_limit',
         'settings',
         'is_active',
@@ -709,7 +714,13 @@ class Tenant extends Model
                 $query->whereNull('current_period_end')
                       ->orWhere('current_period_end', '>=', now());
             })
-            ->latest();
+            // ORDEM DETERMINÍSTICA. Só `latest()` (created_at) empatava em
+            // empresas com duas subscrições vivas — herança de antes de o
+            // TrocarDePlano cancelar tudo — e cada ecrã apanhava uma: a lista
+            // dizia «Professional» e o modal, para a MESMA empresa, «Starter».
+            // Ganha a que acaba mais tarde; em empate, a mais recente.
+            ->orderByDesc('current_period_end')
+            ->orderByDesc('id');
     }
 
     public function invoices()
@@ -897,6 +908,80 @@ class Tenant extends Model
         }
 
         return $limite;
+    }
+
+    /**
+     * Quantos documentos fiscais esta empresa ainda pode emitir? NULL = sem tecto.
+     *
+     * O tecto viaja na SUBSCRIÇÃO, não no plano. Uma promoção que hoje passa a
+     * dar 500 documentos não pode encolher o que já se prometeu a quem
+     * assinou ontem: as subscrições antigas têm NULL e continuam sem limite.
+     * (A mesma ideia do `com_oferta` — a subscrição guarda o acordo com que
+     * nasceu; ver App\Support\AcordoDeSubscricao.)
+     *
+     * A ficha da empresa CONCEDE mais, nunca corta — é o `max()`, igual ao
+     * limite de utilizadores.
+     */
+    public function limiteDeDocumentos(): ?int
+    {
+        $daSubscricao = $this->activeSubscription?->max_documentos;
+
+        // Sem tecto na subscrição não há tecto nenhum — é o caso de todos os
+        // planos e de todas as subscrições feitas antes desta política.
+        if ($daSubscricao === null) {
+            return null;
+        }
+
+        // A ficha VAZIA é ausência, não concessão: quem não escreveu nada não
+        // está a dar mais nada. Só um número maior na ficha alarga o tecto.
+        $daFicha = $this->max_documents;
+
+        return $daFicha === null
+            ? (int) $daSubscricao
+            : max((int) $daSubscricao, (int) $daFicha);
+    }
+
+    /**
+     * Documentos fiscais já emitidos por esta empresa.
+     *
+     * Conta-se, não se guarda: um contador numa coluna é uma verdade que
+     * envelhece sozinha (basta um documento apagado ou uma migração). Só
+     * corre para quem TEM tecto, que são poucos.
+     *
+     * Contam os documentos que vão à AGT — faturas, notas de crédito e de
+     * débito, recibos. Proformas e orçamentos não contam: não são fiscais, e
+     * ninguém deve gastar a sua quota a fazer uma estimativa.
+     */
+    public function documentosEmitidos(): int
+    {
+        $tabelas = [
+            'invoicing_sales_invoices',
+            'invoicing_credit_notes',
+            'invoicing_debit_notes',
+            'invoicing_receipts',
+        ];
+
+        $total = 0;
+
+        foreach ($tabelas as $tabela) {
+            if (! \Illuminate\Support\Facades\Schema::hasTable($tabela)) {
+                continue;
+            }
+
+            $total += (int) \Illuminate\Support\Facades\DB::table($tabela)
+                ->where('tenant_id', $this->id)
+                ->count();
+        }
+
+        return $total;
+    }
+
+    /** Ainda cabe mais um documento? */
+    public function podeEmitirDocumento(): bool
+    {
+        $limite = $this->limiteDeDocumentos();
+
+        return $limite === null || $this->documentosEmitidos() < $limite;
     }
 
     /**

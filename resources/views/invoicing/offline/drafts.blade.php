@@ -48,6 +48,20 @@
                     <button @click="remove(d)" class="text-red-400 hover:text-red-600 text-xs"><i class="fas fa-trash"></i></button>
                 </div>
                 <p class="font-semibold text-sm" x-text="d.client_name || 'Consumidor Final'"></p>
+                {{-- O que se passa com ele, quando não é «à espera de rede».
+                     Um documento que o servidor recusou dizia «Pendente» para
+                     sempre; o motivo ficava na fila, onde ninguém olha. --}}
+                <div x-show="d._estado_fila === 'failed'" x-cloak
+                     class="mt-1.5 rounded-lg bg-red-50 border border-red-200 px-2.5 py-2 text-[11px] text-red-800">
+                    <p class="font-bold"><i class="fas fa-triangle-exclamation mr-1"></i>Não foi aceite pelo servidor</p>
+                    <p class="mt-0.5 break-words" x-text="d._erro || ''"></p>
+                    <button type="button" @click="tentarDeNovo()"
+                            class="mt-1.5 inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white">
+                        <i class="fas fa-rotate-right"></i>Tentar outra vez
+                    </button>
+                </div>
+                <p x-show="d._estado_fila === 'pending' && d._erro" x-cloak
+                   class="mt-1 text-[10px] text-amber-700" x-text="'Última tentativa: ' + d._erro"></p>
                 <div class="flex justify-between items-end mt-1">
                     <div>
                         <p class="text-xs text-gray-500" x-text="formatDate(d.created_at)"></p>
@@ -55,6 +69,23 @@
                         <p class="text-[10px] text-emerald-700 font-bold" x-show="d._server_number" x-text="'Nº: ' + d._server_number"></p>
                     </div>
                     <p class="text-lg font-bold text-blue-700" x-text="formatMoney(d.total)"></p>
+                </div>
+                {{-- Imprimir, com ou sem rede — como o talão do POS. Com rede
+                     e por sincronizar, espera uns segundos pelo número fiscal;
+                     sem rede sai já, com a faixa de PROVISÓRIO. --}}
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                    <button @click="imprimir(d)" :disabled="printing === d.local_uuid"
+                            class="rounded-lg bg-slate-800 py-2 text-xs font-bold text-white disabled:opacity-50">
+                        <span x-show="printing !== d.local_uuid"><i class="fas fa-print mr-1"></i>{{ __('Imprimir') }}</span>
+                        <span x-show="printing === d.local_uuid"><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A obter o número…') }}</span>
+                    </button>
+                    {{-- Em PDF, para o WhatsApp: sem rede faz-se no aparelho;
+                         emitido e com rede, vai o PDF do servidor. --}}
+                    <button @click="partilhar(d)" :disabled="partilhando === d.local_uuid" data-ensaio="partilhar-pdf"
+                            class="rounded-lg bg-teal-700 py-2 text-xs font-bold text-white disabled:opacity-50">
+                        <span x-show="partilhando !== d.local_uuid"><i class="fas fa-file-pdf mr-1"></i>{{ __('PDF · WhatsApp') }}</span>
+                        <span x-show="partilhando === d.local_uuid"><i class="fas fa-spinner fa-spin mr-1"></i>{{ __('A gerar o PDF…') }}</span>
+                    </button>
                 </div>
             </div>
         </template>
@@ -78,6 +109,7 @@ function draftsList() {
         drafts: [],
         typeFilter: 'all',
         pendingCount: 0,
+        printing: null,
 
         async init() {
             await this.refresh();
@@ -87,6 +119,28 @@ function draftsList() {
         async refresh() {
             this.drafts = await window.SosPwa.getDrafts();
             this.pendingCount = this.drafts.filter(d => !d._synced).length;
+        },
+
+        partilhando: null,
+
+        async partilhar(d) {
+            if (this.partilhando) return;
+            this.partilhando = d.local_uuid;
+            try {
+                const r = await window.SosPwa.partilharPdf('documento', d.local_uuid);
+                if (r.modo === 'descarregado') alert('PDF descarregado — anexe-o na conversa.');
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                alert('Não foi possível gerar o PDF: ' + e.message);
+            } finally {
+                this.partilhando = null;
+            }
+        },
+
+        /** Repõe os trabalhos falhados na fila e sincroniza — o sync(true) já o faz. */
+        async tentarDeNovo() {
+            try { await window.SosPwa.sync(true); } catch (_) {}
+            await this.refresh();
         },
 
         get filtered() {
@@ -120,6 +174,21 @@ function draftsList() {
             if (!confirm('Apagar este documento da lista local? Se já foi emitido, continua no servidor — um documento fiscal não se apaga.')) return;
             await window.SosPwa.db.draft_documents.where('local_uuid').equals(d.local_uuid).delete();
             await this.refresh();
+        },
+
+        async imprimir(d) {
+            this.printing = d.local_uuid;
+            try {
+                // O motor espera pelo número fiscal quando há rede; sem rede
+                // imprime já com a faixa de provisório. A lista refresca-se
+                // porque a espera pode ter trazido o número.
+                await window.SosPwa.imprimirDocumento(d.local_uuid);
+                await this.refresh();
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                this.printing = null;
+            }
         },
     };
 }

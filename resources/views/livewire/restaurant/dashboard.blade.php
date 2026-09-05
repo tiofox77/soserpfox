@@ -45,9 +45,86 @@
                     <span class="text-sm font-semibold text-emerald-700">Consumo hoje</span>
                     <span class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-600 text-white"><i class="fas fa-coins"></i></span>
                 </div>
-                <p class="mt-3 text-2xl font-black text-emerald-900">{{ number_format($todaySales, 2, ',', '.') }} Kz</p>
-                <p class="mt-1 text-xs text-emerald-700">Comandas não canceladas; faturação no checkout.</p>
+                <p class="mt-3 text-2xl font-black text-emerald-900">{{ valorProtegido($todaySales, 'restaurant.reports.view') }} Kz</p>
+
+                {{-- CONTRA ONTEM. Um número sozinho não diz nada: 400 mil é bom
+                     ou mau consoante o que foi ontem. A comparação é o que
+                     transforma o valor numa leitura. --}}
+                @php
+                    $variacao = $ontemSales > 0 ? (($todaySales - $ontemSales) / $ontemSales) * 100 : null;
+                @endphp
+                <p class="mt-1 text-xs text-emerald-700">
+                    @if($variacao === null)
+                        {{ __('Sem venda ontem para comparar.') }}
+                    @else
+                        <span class="font-bold {{ $variacao >= 0 ? 'text-emerald-700' : 'text-red-600' }}">
+                            <i class="fas fa-arrow-{{ $variacao >= 0 ? 'up' : 'down' }}"></i>
+                            {{ number_format(abs($variacao), 0) }}%
+                        </span>
+                        {{ __('contra ontem') }} ({{ valorProtegido($ontemSales, 'restaurant.reports.view') }} Kz)
+                    @endif
+                </p>
             </article>
+        </section>
+
+        {{-- ============ O QUE OS NÚMEROS DE CIMA NÃO DIZEM ============ --}}
+        <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <span class="text-sm font-semibold text-slate-500">{{ __('Comandas hoje') }}</span>
+                <p class="mt-2 text-3xl font-black text-slate-900">{{ $comandasHoje }}</p>
+            </article>
+            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <span class="text-sm font-semibold text-slate-500">{{ __('Ticket médio') }}</span>
+                <p class="mt-2 text-2xl font-black text-slate-900">{{ valorProtegido($ticketMedio, 'restaurant.reports.view') }} Kz</p>
+                {{-- Distingue vender mais de atender mais gente. São duas
+                     leituras muito diferentes e o total sozinho confunde-as. --}}
+                <p class="mt-1 text-xs text-slate-400">{{ __('Por comanda') }}</p>
+            </article>
+            <article class="col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <span class="text-sm font-semibold text-slate-500">{{ __('Ocupação da sala') }}</span>
+                @php
+                    $ocupacao = $tablesTotal > 0 ? round(($tablesOccupied / $tablesTotal) * 100) : 0;
+                @endphp
+                <div class="mt-3 flex items-center gap-3">
+                    <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full bg-orange-500" style="width: {{ $ocupacao }}%"></div>
+                    </div>
+                    <span class="shrink-0 text-lg font-black text-slate-900">{{ $ocupacao }}%</span>
+                </div>
+                <p class="mt-1 text-xs text-slate-400">
+                    {{ __(':ocupadas de :total mesas', ['ocupadas' => $tablesOccupied, 'total' => $tablesTotal]) }}
+                </p>
+            </article>
+        </section>
+
+        {{-- ============ GRÁFICOS ============ --}}
+        <section class="grid gap-6 lg:grid-cols-2">
+            <x-grafico class="lg:col-span-2"
+                       :titulo="__('Consumo dos últimos 14 dias')"
+                       :subtitulo="__('Comandas não canceladas, por dia')"
+                       id="grRestDias"
+                       :altura="260"
+                       :vazio="!array_sum($porDia['valores'])" />
+
+            <x-grafico :titulo="__('A que horas se vende')"
+                       :subtitulo="__('Soma das últimas duas semanas')"
+                       id="grRestHoras"
+                       :vazio="!array_sum($porHora['valores'])" />
+
+            <x-grafico :titulo="__('Pratos mais pedidos')"
+                       :subtitulo="__('Por quantidade servida')"
+                       id="grRestPratos"
+                       :vazio="empty($topPratos['valores'])" />
+
+            <x-grafico :titulo="__('Estado da sala')"
+                       :subtitulo="__('Mesas por estado, agora')"
+                       id="grRestMesas"
+                       :vazio="!$tablesTotal" />
+
+            <x-grafico :titulo="__('As mesas que mais rendem')"
+                       :subtitulo="__('Receita por mesa, últimas duas semanas')"
+                       id="grRestReceitaMesa"
+                       :vazio="empty($porMesa['valores'])" />
         </section>
 
         <section class="grid gap-6 lg:grid-cols-3">
@@ -97,4 +174,72 @@
         </section>
     </div>
 </div>
+
+@push('scripts')
+    @include('partials.graficos')
+    <script>
+    sosDesenhar(function () {
+        const porDia  = @json($porDia);
+        const porHora = @json($porHora);
+        const pratos  = @json($topPratos);
+        const porMesa = @json($porMesa);
+        const mesas   = @json($statusCounts);
+
+        sosLinha('grRestDias', porDia.etiquetas, porDia.valores, { cor: SOS_CORES[1] });
+        sosBarras('grRestHoras', porHora.etiquetas, porHora.valores, { cor: SOS_CORES[0] });
+
+        // Barras horizontais para os pratos: nomes de prato são compridos e,
+        // na vertical, saíam inclinados e ilegíveis — o eixo passava a ser
+        // um exercício de leitura em vez de uma etiqueta.
+        const elPratos = document.getElementById('grRestPratos');
+        if (elPratos) {
+            sosGrafico('grRestPratos', {
+                type: 'bar',
+                data: {
+                    labels: pratos.etiquetas,
+                    datasets: [{
+                        data: pratos.valores,
+                        backgroundColor: SOS_CORES[2],
+                        borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+                        borderSkipped: false,
+                        maxBarThickness: 26,
+                    }],
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => sosNumero(c.parsed.x) + ' ' + @json(__('unidades')) } },
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(100,116,139,.12)' }, border: { display: false } },
+                        y: { grid: { display: false }, border: { display: false } },
+                    },
+                },
+            });
+        }
+
+        // O estado das mesas usa as cores de ESTADO e não a paleta categórica:
+        // "livre" tem de ser verde e "bloqueada" vermelha em todo o produto.
+        // Reaproveitar aqui a série 4 dava um azul a querer dizer "ocupada".
+        const rotulosMesa = @json(\App\Models\Restaurant\DiningTable::STATUSES);
+        const coresMesa = {
+            available: SOS_ESTADOS.bom, occupied: SOS_CORES[1], reserved: SOS_CORES[6],
+            waiting_kitchen: SOS_CORES[4], served: SOS_CORES[0], billing: SOS_ESTADOS.aviso,
+            cleaning: SOS_ESTADOS.neutro, blocked: SOS_ESTADOS.critico,
+        };
+        const chavesMesa = Object.keys(mesas).filter((k) => mesas[k] > 0);
+
+        sosRosca(
+            'grRestMesas',
+            chavesMesa.map((k) => rotulosMesa[k] || k),
+            chavesMesa.map((k) => mesas[k]),
+            { cores: chavesMesa.map((k) => coresMesa[k] || SOS_ESTADOS.neutro), moeda: false }
+        );
+
+        sosBarras('grRestReceitaMesa', porMesa.etiquetas, porMesa.valores, { cor: SOS_CORES[3] });
+    });
+    </script>
+@endpush
 

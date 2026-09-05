@@ -21,7 +21,7 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class SyncModulePermissions extends Command
 {
-    protected $signature = 'modules:sync-permissions {--tenant= : Só este tenant ID}';
+    protected $signature = 'modules:sync-permissions {--tenant= : Só este tenant ID} {--fatia= : Ex.: 2/5 — corre só o segundo quinto dos tenants}';
     protected $description = 'Cria permissões em falta dos módulos e concede-as aos roles dos tenants ativos';
 
     /**
@@ -75,11 +75,32 @@ class SyncModulePermissions extends Command
         'accounting.budgets.manage'      => 'Gerir Orçamentos',
         'accounting.settings.view'       => 'Ver Configurações de Contabilidade',
         'accounting.settings.edit'       => 'Editar Configurações de Contabilidade',
-        // Módulos em construção — acesso base para aparecerem no sidebar
+        // CRM (implementado 2026-08: leads, oportunidades, funil)
         'crm.view'                 => 'Aceder ao CRM',
+        'crm.leads.view'           => 'Ver Leads',
+        'crm.leads.manage'         => 'Gerir Leads (criar/converter/perder)',
+        'crm.opportunities.view'   => 'Ver Oportunidades e Funil',
+        'crm.opportunities.manage' => 'Gerir Oportunidades (criar/ganhar/perder)',
+        'crm.integrations.manage'  => 'Gerir integrações Meta (Facebook/Instagram/WhatsApp)',
+        // Inventário (implementado 2026-08: painel, movimentos, contagem física)
         'inventario.view'          => 'Aceder ao Inventário',
-        'compras.view'             => 'Aceder às Compras',
+        'inventario.contagem.manage' => 'Fazer Contagens Físicas (abre/conta/fecha — acerta stock)',
+        // Compras (implementado 2026-09: requisições, encomendas, recepção)
+        'compras.view'                  => 'Aceder às Compras',
+        'compras.requisicoes.view'      => 'Ver Requisições de Compra',
+        'compras.requisicoes.manage'    => 'Criar e submeter Requisições',
+        'compras.requisicoes.decidir'   => 'Aprovar ou recusar Requisições',
+        'compras.encomendas.view'       => 'Ver Encomendas',
+        'compras.encomendas.manage'     => 'Criar e enviar Encomendas',
+        'compras.encomendas.receber'    => 'Receber mercadoria (dá ENTRADA de stock)',
+        // Projetos (implementado 2026-09: projetos, tarefas, folha de horas)
         'projetos.view'            => 'Aceder aos Projetos',
+        'projetos.gerir'           => 'Criar e editar Projetos (orçamento, preço/hora, estados)',
+        'projetos.tarefas.view'    => 'Ver Tarefas de Projeto',
+        'projetos.tarefas.manage'  => 'Criar e mover Tarefas de Projeto',
+        'projetos.horas.registar'  => 'Lançar as suas horas na folha de horas',
+        'projetos.horas.gerir'     => 'Ver e corrigir as horas de toda a equipa',
+        'projetos.facturar'        => 'Facturar horas ao cliente (emite documento)',
     ];
 
     public function handle(TenantModuleSyncService $service): int
@@ -97,9 +118,23 @@ class SyncModulePermissions extends Command
         }
         $this->info("   {$created} permissões criadas (as restantes já existiam).");
 
+        // Em fatias, para caber numa chamada HTTP de manutenção: a corrida
+        // completa sobre todos os tenants passa o limite de tempo do servidor
+        // e morre com um 500 sem corpo — aconteceu, e o comando ficou a meio
+        // sem ninguém saber onde. `--fatia=2/5` corre o segundo quinto.
         $tenants = $this->option('tenant')
             ? Tenant::where('id', $this->option('tenant'))->get()
-            : Tenant::all();
+            : Tenant::orderBy('id')->get();
+
+        if ($fatia = $this->option('fatia')) {
+            [$parte, $total] = array_map('intval', explode('/', $fatia) + [1, 1]);
+            $total = max(1, $total);
+            $parte = max(1, min($parte, $total));
+
+            $tenants = $tenants->chunk((int) ceil($tenants->count() / $total))
+                ->values()
+                ->get($parte - 1, collect());
+        }
 
         $this->info("2) A conceder permissões dos módulos ativos aos roles de {$tenants->count()} tenant(s)...");
         foreach ($tenants as $tenant) {

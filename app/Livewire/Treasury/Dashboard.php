@@ -65,7 +65,10 @@ class Dashboard extends Component
         $sales = SalesInvoice::where('tenant_id', activeTenantId())
             ->where('invoice_status', 'F')
             ->whereBetween('invoice_date', [$dateRange['start'], $dateRange['end']]);
+        // A mesma regra das vendas: so as definitivas. Sem isto um rascunho
+        // de factura de fornecedor entrava no "Comprado" e no "A Pagar".
         $purchase = PurchaseInvoice::where('tenant_id', activeTenantId())
+            ->whereNotIn('status', ['draft', 'cancelled'])
             ->whereBetween('invoice_date', [$dateRange['start'], $dateRange['end']]);
         $invoicedVolume = (float) (clone $sales)->sum('total');
         $salesCollected = (float) (clone $sales)->sum('paid_amount');
@@ -178,30 +181,39 @@ class Dashboard extends Component
         };
     }
 
+    /**
+     * A linha dos ultimos sete dias, numa consulta so.
+     *
+     * Eram CATORZE: uma por dia e por sentido, dentro de um ciclo. Numa
+     * empresa com movimento e o painel que toda a gente abre primeiro.
+     *
+     * Os dias sem movimento vao a ZERO e nao desaparecem: uma linha que salta
+     * o domingo fechado da-lhe o valor de segunda.
+     */
     private function getChartData()
     {
+        $desde = now()->subDays(6)->startOfDay();
+
+        $linhas = Transaction::where('tenant_id', activeTenantId())
+            ->where('status', 'completed')
+            ->whereIn('type', ['income', 'expense'])
+            ->where('transaction_date', '>=', $desde)
+            ->groupBy('dia', 'type')
+            ->selectRaw('DATE(transaction_date) as dia, type, SUM(amount) as total')
+            ->get()
+            ->keyBy(fn ($l) => $l->dia . '|' . $l->type);
+
         $days = [];
         $income = [];
         $expense = [];
 
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i);
+            $chave = $date->format('Y-m-d');
+
             $days[] = $date->format('d/m');
-
-            $dayIncome = Transaction::where('tenant_id', activeTenantId())
-                ->where('type', 'income')
-                ->where('status', 'completed')
-                ->whereDate('transaction_date', $date)
-                ->sum('amount');
-
-            $dayExpense = Transaction::where('tenant_id', activeTenantId())
-                ->where('type', 'expense')
-                ->where('status', 'completed')
-                ->whereDate('transaction_date', $date)
-                ->sum('amount');
-
-            $income[] = $dayIncome;
-            $expense[] = $dayExpense;
+            $income[] = (float) ($linhas[$chave . '|income']->total ?? 0);
+            $expense[] = (float) ($linhas[$chave . '|expense']->total ?? 0);
         }
 
         return [

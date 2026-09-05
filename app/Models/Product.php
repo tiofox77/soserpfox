@@ -105,7 +105,8 @@ class Product extends Model
         'type', 'code', 'sku', 'barcode', 'name', 'description', 'category',
         'featured_image', 'gallery',
         'price', 'cost', 'tax_type', 'tax_rate_id', 'exemption_reason',
-        'manage_stock', 'stock_quantity', 'stock_min', 'stock_max', 'minimum_stock', 'unit', 'is_active',
+'preco_no_pos',
+                'manage_stock', 'stock_quantity', 'stock_min', 'stock_max', 'minimum_stock', 'unit', 'is_active',
         'track_batches', 'track_expiry', 'require_batch_on_purchase', 'require_batch_on_sale',
         // Farmácia
         'requires_prescription', 'is_controlled', 'active_ingredient', 'dosage',
@@ -125,6 +126,7 @@ class Product extends Model
         'brand_id' => 'integer',
         'supplier_id' => 'integer',
         'tax_rate_id' => 'integer',
+        'preco_no_pos' => 'boolean',
         'manage_stock' => 'boolean',
         'is_active' => 'boolean',
         'track_batches' => 'boolean',

@@ -352,7 +352,7 @@ class Notifications extends Component
                         'title' => 'Faturas Vencidas!',
                         'message' => "{$overdueInvoices->count()} fatura(s) vencida(s) totalizando " . number_format($totalOverdue, 2) . " Kz" . ($criticalCount > 0 ? " ({$criticalCount} críticas > 30 dias)" : ""),
                         'time' => 'Ação urgente',
-                        'link' => route('invoicing.invoices') . '?status=overdue',
+                        'link' => route('invoicing.sales.invoices') . '?status=overdue',
                     ];
                 }
             }
@@ -384,7 +384,7 @@ class Notifications extends Component
                         'title' => 'Faturas Vencendo em Breve',
                         'message' => "{$expiringInvoices->count()} fatura(s) vencem nos próximos 7 dias - Total: " . number_format($totalExpiring, 2) . " Kz" . ($urgentCount > 0 ? " ({$urgentCount} em 3 dias)" : ""),
                         'time' => 'Lembrar clientes',
-                        'link' => route('invoicing.invoices') . '?status=expiring',
+                        'link' => route('invoicing.sales.invoices') . '?status=expiring',
                     ];
                 }
             }

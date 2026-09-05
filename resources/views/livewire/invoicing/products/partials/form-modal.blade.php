@@ -262,6 +262,21 @@
                             <p class="text-xs text-gray-500 mt-1">{{ __('Opcional - Fornecedor principal deste produto') }}</p>
                         </div>
                         
+                        {{-- O preço decidido no balcão. Fica ao lado do stock
+                             porque são as duas perguntas de comportamento do
+                             artigo, e não dados dele. --}}
+                        <div class="md:col-span-3 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                            <div class="flex items-center">
+                                <input type="checkbox" wire:model="preco_no_pos" id="preco_no_pos" class="w-5 h-5 text-amber-600 rounded">
+                                <label for="preco_no_pos" class="ml-3 text-sm font-bold text-gray-900">
+                                    <i class="fas fa-hand-holding-dollar text-amber-500 mr-2"></i>{{ __('Perguntar o preço no POS') }}
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-2 ml-8">
+                                {{ __('Para trabalhos à medida: no POS o preço é escrito na hora da venda. Na factura de venda escreve-se na linha, como sempre.') }}
+                            </p>
+                        </div>
+
                         <!-- Gestão de Stock -->
                         <div class="md:col-span-3 p-4 bg-gray-50 rounded-xl">
                             <div class="flex items-center mb-4">
@@ -958,7 +973,7 @@
                                             <div>
                                                 <p class="text-sm font-semibold text-yellow-800">{{ __('Nenhuma taxa de IVA cadastrada') }}</p>
                                                 <p class="text-xs text-yellow-700 mt-1">{{ __('Por favor, cadastre as taxas primeiro em:') }}</p>
-                                                <a href="{{ route('invoicing.taxes.index') }}" target="_blank" 
+                                                <a href="{{ route('invoicing.taxes') }}" target="_blank" 
                                                    class="inline-flex items-center mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-semibold transition">
                                                     <i class="fas fa-external-link-alt mr-2"></i>{{ __('Ir para Taxas de IVA') }}
                                                 </a>
