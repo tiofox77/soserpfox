@@ -49,4 +49,8 @@ export const ecras: Record<string, Ecra> = {
     // A factura de venda, FT ou FR — o ecrã mais delicado da casa.
     'facturacao/emitir-factura': () =>
         import('./facturacao/EmitirFactura'),
+
+    // A factura de compra: a que dá entrada de stock e de lotes.
+    'facturacao/emitir-factura-de-compra': () =>
+        import('./facturacao/EmitirFacturaDeCompra'),
 };

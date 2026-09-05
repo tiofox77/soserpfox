@@ -138,7 +138,7 @@ return [
                     'nome'     => 'Emitir factura de compra',
                     'livewire' => 'app/Livewire/Invoicing/Purchases/InvoiceCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/faturas-compra/invoice-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/FacturaDeCompra.tsx',
+                    'react'    => 'ecras/facturacao/EmitirFacturaDeCompra.tsx',
                 ],
                 [
                     'nome'     => 'Emitir proforma de compra',

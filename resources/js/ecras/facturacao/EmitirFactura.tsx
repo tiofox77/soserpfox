@@ -59,10 +59,14 @@ export default function EmitirFactura() {
         porSerieId(padrao ? String(padrao.id) : '');
     }, [opcoes.data, tipo]);
 
+    /* Uma linha sem artigo, sem preço e sem descrição ainda não é uma linha. */
+    const comConteudo = (l: { product_id: number | null; quantity: number | string; price: number | string; description: string }) =>
+        Number(l.quantity) > 0 && (l.product_id !== null || Number(l.price) > 0 || l.description.trim() !== '');
+
     /* A CONTA PEDE-SE AO SERVIDOR, com pausa e cancelamento — ver EmitirProposta. */
     useEffect(() => {
         let cancelado = false;
-        const comLinhas = linhas.filter((l) => Number(l.quantity) > 0);
+        const comLinhas = linhas.filter(comConteudo);
 
         if (comLinhas.length === 0) {
             porTotais(null);
@@ -107,7 +111,7 @@ export default function EmitirFactura() {
                 withholding_amount: retencaoValor,
                 notes: notas || null,
                 status,
-                linhas: linhas.filter((l) => Number(l.quantity) > 0),
+                linhas: linhas.filter(comConteudo),
             }),
         onSuccess: (r) => { porFeito({ numero: r.numero, agt: r.agt, abrir: r.abrir, pdf: r.pdf }); porErros({}); },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),

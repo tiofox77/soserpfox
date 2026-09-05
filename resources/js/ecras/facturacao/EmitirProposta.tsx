@@ -53,6 +53,10 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
     const [totais, porTotais] = useState<Totais | null>(null);
     const [aContar, porAContar] = useState(false);
 
+    /* Uma linha sem artigo, sem preço e sem descrição ainda não é uma linha. */
+    const comConteudo = (l: { product_id: number | null; quantity: number | string; price: number | string; description: string }) =>
+        Number(l.quantity) > 0 && (l.product_id !== null || Number(l.price) > 0 || l.description.trim() !== '');
+
     /*
      * A CONTA PEDE-SE AO SERVIDOR, COM UMA PAUSA.
      *
@@ -65,7 +69,7 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
     useEffect(() => {
         let cancelado = false;
 
-        const comLinhas = linhas.filter((l) => Number(l.quantity) > 0);
+        const comLinhas = linhas.filter(comConteudo);
 
         if (comLinhas.length === 0) {
             porTotais(null);
@@ -101,7 +105,7 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
                 data,
                 valido_ate: validoAte || null,
                 notas: notas || null,
-                linhas: linhas.filter((l) => Number(l.quantity) > 0),
+                linhas: linhas.filter(comConteudo),
             }),
         onSuccess: (r) => {
             porGravado({ numero: r.numero, abrir: r.abrir });

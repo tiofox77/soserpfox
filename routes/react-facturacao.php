@@ -84,3 +84,11 @@ Route::middleware('permission:invoicing.debit-notes.create')
 Route::middleware('permission:invoicing.sales.invoices.create')
     ->get('sales/invoices/create/novo-ecra', $emReact('facturacao/emitir-factura', __('Emitir Factura')))
     ->name('react.emitir.factura');
+
+/*
+ * A FACTURA DE COMPRA. Dá entrada de stock e de lotes; a lógica vive no
+ * EmissorDeCompras.
+ */
+Route::middleware('permission:invoicing.purchases.invoices.create')
+    ->get('purchases/invoices/create/novo-ecra', $emReact('facturacao/emitir-factura-de-compra', __('Registar Factura de Compra')))
+    ->name('react.emitir.compra');

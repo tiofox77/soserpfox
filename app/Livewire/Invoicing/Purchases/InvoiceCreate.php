@@ -620,176 +620,59 @@ class InvoiceCreate extends Component
             return;
         }
 
-        DB::beginTransaction();
+        /*
+         * O REGISTO VIVE NO `EmissorDeCompras`: linhas com lotes, totais, hash,
+         * e o estado posto no fim para o observer dar entrada do stock com as
+         * linhas já lá. Este ecrã e o ecrã em React chamam o mesmo.
+         */
+        $existente = null;
+
+        if ($this->isEdit) {
+            $existente = PurchaseInvoice::where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
+                ->findOrFail($this->invoiceId);
+        }
+
         try {
-            if ($this->isEdit) {
-                $invoice = PurchaseInvoice::where('tenant_id', activeTenantId())
-                    ->tap(fn ($q) => $this->escoparAoAutor($q))
-                    ->findOrFail($this->invoiceId);
-                
-                if ($invoice->status === 'converted') {
-                    throw new \Exception('Não é possível editar uma fatura já convertida.');
-                }
+            $invoice = app(\App\Services\Invoicing\EmissorDeCompras::class)->emitir([
+                'supplier_id' => $this->supplier_id,
+                'warehouse_id' => $this->warehouse_id,
+                'invoice_date' => $this->invoice_date,
+                'due_date' => $this->due_date,
+                'is_service' => $this->is_service,
+                'discount_amount' => $this->discount_amount,
+                'discount_commercial' => $this->discount_commercial,
+                'discount_financial' => $this->discount_financial,
+                'notes' => $this->notes,
+                'terms' => $this->terms,
+                'tax_country_region' => $this->tax_country_region,
+                // Numa edição o estado não muda, para o stock não entrar duas vezes.
+                'status' => $this->isEdit ? $existente->status : $status,
+            ], collect($cartItems->values()->all()), $existente);
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
 
-                // Delete old items
-                $invoice->items()->delete();
-            } else {
-                $invoice = new PurchaseInvoice();
-                $invoice->tenant_id = activeTenantId();
-                $invoice->created_by = auth()->id();
-            }
-
-            $invoice->supplier_id = $this->supplier_id;
-            $invoice->warehouse_id = $this->warehouse_id;
-            $invoice->invoice_date = $this->invoice_date;
-            $invoice->due_date = $this->due_date;
-            // Para novos: salvar como draft primeiro (items ainda não existem)
-            // Para edições: manter status original para evitar re-criar stock
-            if (!$this->isEdit) {
-                $invoice->status = 'draft';
-            }
-            $invoice->is_service = $this->is_service;
-            $invoice->discount_amount = $this->discount_amount;
-            $invoice->discount_commercial = $this->discount_commercial;
-            $invoice->discount_financial = $this->discount_financial;
-            $invoice->notes = $this->notes;
-            $invoice->terms = $this->terms;
-            $invoice->save();
-
-            // Add items e calcular totais conforme AGT Angola
-            $order = 0;
-            $invoice_subtotal = 0;
-            $invoice_tax_amount = 0;
-            
-            foreach ($cartItems as $item) {
-                // Calcular valores do item conforme AGT Angola
-                $valorBrutoLinha = $item->price * $item->quantity;
-                $descontoPercent = $item->attributes['discount_percent'] ?? 0;
-                $descontoAmount = $valorBrutoLinha * ($descontoPercent / 100);
-                $subtotal = $valorBrutoLinha;
-                $valorAposDesconto = $valorBrutoLinha - $descontoAmount;
-                $taxAmount = $valorAposDesconto * (($item->attributes['tax_rate'] ?? 0) / 100);
-                $total = $valorAposDesconto + $taxAmount;
-                
-                // Acumular totais
-                $invoice_subtotal += $valorBrutoLinha;
-                $invoice_tax_amount += $taxAmount;
-                
-                PurchaseInvoiceItem::create([
-                    'purchase_invoice_id' => $invoice->id,
-                    'product_id' => $item->id,
-                    'product_name' => $item->name,
-                    'quantity' => $item->quantity,
-                    'unit' => $item->attributes['unit'] ?? 'UN',
-                    'unit_price' => $item->price,
-                    'discount_percent' => $descontoPercent,
-                    'discount_amount' => $descontoAmount,
-                    'subtotal' => $subtotal,
-                    'tax_rate' => $item->attributes['tax_rate'] ?? 0,
-                    // Região do documento; na falta de escolha, continental.
-                    'tax_country_region' => in_array($this->tax_country_region, ['AO', 'AO-CAB'], true)
-                        ? $this->tax_country_region
-                        : 'AO',
-                    'tax_amount' => $taxAmount,
-                    'total' => $total,
-                    'order' => ++$order,
-                    'batch_number' => $item->attributes['batch_number'] ?? null,
-                    'manufacturing_date' => $item->attributes['manufacturing_date'] ?? null,
-                    'expiry_date' => $item->attributes['expiry_date'] ?? null,
-                    'alert_days' => $item->attributes['alert_days'] ?? 30,
-                ]);
-            }
-
-            // Calcular total da proforma conforme AGT Angola
-            $desconto_comercial_total = $invoice->discount_commercial + $invoice->discount_amount;
-            $valor_apos_desc_comercial = $invoice_subtotal - $desconto_comercial_total;
-            $incidencia_iva = $valor_apos_desc_comercial - $invoice->discount_financial;
-            $irt_amount = $invoice->is_service ? $incidencia_iva * 0.065 : 0;
-            $total_final = $incidencia_iva + $invoice_tax_amount - $irt_amount;
-            
-            // Atualizar totais do proforma
-            $invoice->subtotal = $invoice_subtotal;
-            $invoice->tax_amount = $invoice_tax_amount;
-            $invoice->irt_amount = $irt_amount;
-            $invoice->total = $total_final;
-            
-            // Campos SAFT-AO obrigatórios (Decreto 71/25)
-            $invoice->net_total = $invoice_subtotal - $desconto_comercial_total - ($invoice->discount_financial ?? 0);
-            $invoice->tax_payable = $invoice_tax_amount;
-            $invoice->gross_total = $invoice->net_total + $invoice_tax_amount;
-            $invoice->system_entry_date = $invoice->system_entry_date ?? now();
-            $invoice->save();
-            
-            // Gerar HASH SAFT-AO conforme regulamento Angola (usar gross_total)
-            $previousProforma = PurchaseInvoice::where('tenant_id', activeTenantId())
-                ->where('id', '<', $invoice->id)
-                ->whereNotNull('saft_hash')
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            $hash = \App\Helpers\SAFTHelper::generateHash(
-                $invoice->invoice_date->format('Y-m-d'),
-                ($invoice->system_entry_date ?? $invoice->created_at)->format('Y-m-d H:i:s'),
-                $invoice->invoice_number,
-                $invoice->gross_total,
-                $previousProforma->saft_hash ?? null
-            );
-            
-            if ($hash) {
-                $invoice->saft_hash = $hash;
-                $invoice->hash = $hash;
-                $invoice->hash_previous = $previousProforma->saft_hash ?? '';
-                $invoice->hash_control = '1';
-            }
-            
-            // Definir status final AGORA (items e totais já existem)
-            // O observer vai detectar a mudança draft→$status e criar stock + lotes
-            $invoice->status = $status;
-            $invoice->save();
-
-            // O preço de compra novo passa a ser o custo do artigo.
-            //
-            // Numa factura NOVA o observer já o fez ao dar entrada do stock e
-            // isto não faz nada (só escreve quando o valor muda). Numa EDIÇÃO
-            // é o único caminho: o estado não muda, por isso o observer não
-            // corre — e corrigir o preço de uma compra já recebida tem de
-            // corrigir o custo, senão a margem fica presa ao valor errado.
-            if (in_array($status, PurchaseInvoice::ESTADOS_COM_STOCK, true)) {
-                app(\App\Services\Invoicing\ActualizarCustoDeCompra::class)
-                    ->aplicar($invoice->fresh(['items.product']));
-            }
-
-            DB::commit();
-
-            // Clear cart
-            Cart::session($this->cartInstance)->clear();
-            
-            // Clear session
-            $sessionKey = 'invoice_supplier_' . activeTenantId() . '_' . auth()->id();
-            session()->forget($sessionKey);
-
-            $this->dispatch('notify', [
-                'type' => 'success',
-                // Duas frases inteiras, e não uma frase com a palavra do meio
-                // escolhida por ternário: "atualizada"/"criada" ficavam em
-                // português dentro de uma mensagem traduzida, e não há forma
-                // de o tradutor os alcançar.
-                'message' => $this->isEdit
-                    ? __('Fatura de Compra atualizada com sucesso!')
-                    : __('Fatura de Compra criada com sucesso!')
-            ]);
-            
-            // Disparar evento para abrir preview em nova aba
-            $this->dispatch('openInvoicePreview', ['invoiceId' => $invoice->id]);
-            
-            return redirect()->route('invoicing.purchases.invoices');
-
+            return;
         } catch (\Exception $e) {
-            DB::rollback();
-            
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => __('Erro ao salvar fatura: :detalhe', ['detalhe' => $e->getMessage()])]);
+
+            return;
         }
+
+        Cart::session($this->cartInstance)->clear();
+        session()->forget('invoice_supplier_' . activeTenantId() . '_' . auth()->id());
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => $this->isEdit
+                ? __('Fatura de Compra atualizada com sucesso!')
+                : __('Fatura de Compra criada com sucesso!')
+        ]);
+
+        $this->dispatch('openInvoicePreview', ['invoiceId' => $invoice->id]);
+
+        return redirect()->route('invoicing.purchases.invoices');
     }
 }
