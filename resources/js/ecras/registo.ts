@@ -11,7 +11,12 @@
 
 import type { ComponentType } from 'react';
 
-type Ecra = () => Promise<{ default: ComponentType<Record<string, never>> }>;
+/*
+ * As props vêm do `data-props` do Blade e são diferentes por ecrã, por isso
+ * o registo aceita qualquer forma. A verificação a sério é dentro do ecrã, que
+ * declara o que espera receber.
+ */
+type Ecra = () => Promise<{ default: ComponentType<any> }>;
 
 export const ecras: Record<string, Ecra> = {
     'facturacao/lista-de-facturas': () =>
@@ -25,4 +30,8 @@ export const ecras: Record<string, Ecra> = {
 
     'facturacao/painel': () =>
         import('./facturacao/Painel'),
+
+    // Serve CINCO documentos: o `tipo` vem nas props, do Blade.
+    'facturacao/documentos': () =>
+        import('./facturacao/ListaDeDocumentos'),
 };

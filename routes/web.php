@@ -347,6 +347,18 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/sales-invoices/opcoes', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'opcoes'])
             ->name('sales-invoices.opcoes');
 
+        /*
+         * AS LISTAS QUE TÊM TODAS A MESMA FORMA.
+         *
+         * Proformas de venda e de compra, orçamentos, facturas de compra e
+         * recibos. O que muda entre elas está no `TiposDeDocumento`; aqui há
+         * uma rota só. A permissão de cada tipo é exigida lá dentro.
+         */
+        Route::get('/documentos/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'opcoes'])
+            ->where('tipo', '[a-z-]+')->name('documentos.opcoes');
+        Route::get('/documentos/{tipo}', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'index'])
+            ->where('tipo', '[a-z-]+')->name('documentos.index');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');
@@ -384,6 +396,9 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
     
     Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
+
+    // As cinco listas que partilham forma, num ficheiro à parte.
+    require __DIR__ . '/react-facturacao.php';
 
     Route::middleware('permission:invoicing.dashboard.view')
         ->get('/dashboard/novo-ecra', fn () => view('react.ecra', [

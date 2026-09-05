@@ -18,6 +18,11 @@
  * existirem, há duas implementações da mesma coisa — que é exactamente o
  * problema que esta migração existe para acabar.
  *
+ * LISTA E EDITOR SÃO ENTRADAS SEPARADAS, e foi preciso separá-las: as cinco
+ * listas de documentos ficaram feitas de uma vez, e apontar as entradas para os
+ * componentes `…Create` fazia o contador dizer 64% quando os editores — que é
+ * onde está a matemática do imposto — não tinham uma linha escrita.
+ *
  * COMO SE ACRESCENTA UM ECRÃ: uma linha em `ecras`, com o componente Livewire,
  * a vista Blade e o ficheiro React que o há-de substituir. O caminho do React
  * pode ainda não existir; é isso que o «por fazer» quer dizer.
@@ -30,16 +35,10 @@ return [
      */
     'raiz' => 'resources/js',
 
-    /*
-     * As frentes de trabalho, pela ordem por que vão ser feitas.
-     *
-     * `livewire` e `blade` são o que existe hoje — servem para medir o tamanho
-     * do que falta. `react` é o ficheiro que os substitui.
-     */
     'frentes' => [
 
         'Casca e menu' => [
-            'nota' => 'O layout que todos os 244 ecrãs usam. Entra primeiro porque tudo o resto assenta nele.',
+            'nota' => 'O layout que todos os 244 ecrãs usam.',
             'ecras' => [
                 /*
                  * Menu, barra do topo e casca são UMA entrada porque vivem no
@@ -54,8 +53,8 @@ return [
             ],
         ],
 
-        'Facturação' => [
-            'nota' => 'O módulo inteiro: listas, emissores, notas e painel.',
+        'Facturação: listas e painel' => [
+            'nota' => 'Cinco destas listas saem todas do mesmo ListaDeDocumentos.tsx — o que muda entre elas vem do TiposDeDocumento.',
             'ecras' => [
                 [
                     'nome'     => 'Painel da facturação',
@@ -70,52 +69,34 @@ return [
                     'react'    => 'ecras/facturacao/vendas/ListaDeFacturas.tsx',
                 ],
                 [
-                    'nome'     => 'Criar factura de venda',
-                    'livewire' => 'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
-                    'blade'    => 'resources/views/livewire/invoicing/faturas-venda/invoice-create.blade.php',
-                    'react'    => 'ecras/facturacao/vendas/CriarFactura.tsx',
-                ],
-                [
-                    'nome'     => 'Proformas de venda',
-                    'livewire' => 'app/Livewire/Invoicing/Sales/ProformaCreate.php',
+                    'nome'     => 'Lista de proformas de venda',
+                    'livewire' => 'app/Livewire/Invoicing/Sales/Proformas.php',
                     'blade'    => 'resources/views/livewire/invoicing/proformas-venda/proformas.blade.php',
-                    'react'    => 'ecras/facturacao/vendas/Proformas.tsx',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
                 ],
                 [
-                    'nome'     => 'Orçamentos',
-                    'livewire' => 'app/Livewire/Invoicing/Sales/QuoteCreate.php',
-                    'blade'    => 'resources/views/livewire/invoicing/orcamentos-venda/quotes.blade.php',
-                    'react'    => 'ecras/facturacao/vendas/Orcamentos.tsx',
+                    'nome'     => 'Lista de orçamentos',
+                    'livewire' => 'app/Livewire/Invoicing/Sales/Quotes.php',
+                    'blade'    => 'resources/views/livewire/invoicing/orcamentos-venda/orcamentos.blade.php',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
                 ],
                 [
-                    'nome'     => 'Notas de crédito',
-                    'livewire' => 'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
-                    'blade'    => 'resources/views/livewire/invoicing/credit-notes/credit-note-create.blade.php',
-                    'react'    => 'ecras/facturacao/notas/NotaDeCredito.tsx',
-                ],
-                [
-                    'nome'     => 'Notas de débito',
-                    'livewire' => 'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
-                    'blade'    => 'resources/views/livewire/invoicing/debit-notes/debit-note-create.blade.php',
-                    'react'    => 'ecras/facturacao/notas/NotaDeDebito.tsx',
-                ],
-                [
-                    'nome'     => 'Recibos',
-                    'livewire' => 'app/Livewire/Invoicing/Receipts/ReceiptCreate.php',
-                    'blade'    => 'resources/views/livewire/invoicing/receipts/receipt-create.blade.php',
-                    'react'    => 'ecras/facturacao/Recibos.tsx',
-                ],
-                [
-                    'nome'     => 'Facturas de compra',
-                    'livewire' => 'app/Livewire/Invoicing/Purchases/InvoiceCreate.php',
+                    'nome'     => 'Lista de facturas de compra',
+                    'livewire' => 'app/Livewire/Invoicing/Purchases/Invoices.php',
                     'blade'    => 'resources/views/livewire/invoicing/faturas-compra/invoices.blade.php',
-                    'react'    => 'ecras/facturacao/compras/ListaDeFacturas.tsx',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
                 ],
                 [
-                    'nome'     => 'Proformas de compra',
-                    'livewire' => 'app/Livewire/Invoicing/Purchases/ProformaCreate.php',
+                    'nome'     => 'Lista de proformas de compra',
+                    'livewire' => 'app/Livewire/Invoicing/Purchases/Proformas.php',
                     'blade'    => 'resources/views/livewire/invoicing/proformas-compra/proformas.blade.php',
-                    'react'    => 'ecras/facturacao/compras/Proformas.tsx',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
+                ],
+                [
+                    'nome'     => 'Lista de recibos',
+                    'livewire' => 'app/Livewire/Invoicing/Receipts/Receipts.php',
+                    'blade'    => 'resources/views/livewire/invoicing/receipts/receipts.blade.php',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
                 ],
                 [
                     'nome'     => 'Clientes',
@@ -128,6 +109,60 @@ return [
                     'livewire' => 'app/Livewire/Invoicing/Products.php',
                     'blade'    => 'resources/views/livewire/invoicing/products/products.blade.php',
                     'react'    => 'ecras/facturacao/Produtos.tsx',
+                ],
+            ],
+        ],
+
+        'Facturação: emissores' => [
+            'nota' => 'Onde está a matemática do imposto e a assinatura da AGT. Entram por último, e com o travão de mão puxado.',
+            'ecras' => [
+                [
+                    'nome'     => 'Emitir factura de venda',
+                    'livewire' => 'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/faturas-venda/invoice-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/FacturaDeVenda.tsx',
+                ],
+                [
+                    'nome'     => 'Emitir proforma de venda',
+                    'livewire' => 'app/Livewire/Invoicing/Sales/ProformaCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/proformas-venda/proforma-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/ProformaDeVenda.tsx',
+                ],
+                [
+                    'nome'     => 'Emitir orçamento',
+                    'livewire' => 'app/Livewire/Invoicing/Sales/QuoteCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/orcamentos-venda/orcamento-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/Orcamento.tsx',
+                ],
+                [
+                    'nome'     => 'Emitir factura de compra',
+                    'livewire' => 'app/Livewire/Invoicing/Purchases/InvoiceCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/faturas-compra/invoice-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/FacturaDeCompra.tsx',
+                ],
+                [
+                    'nome'     => 'Emitir proforma de compra',
+                    'livewire' => 'app/Livewire/Invoicing/Purchases/ProformaCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/proformas-compra/proforma-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/ProformaDeCompra.tsx',
+                ],
+                [
+                    'nome'     => 'Registar recibo',
+                    'livewire' => 'app/Livewire/Invoicing/Receipts/ReceiptCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/receipts/receipt-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/Recibo.tsx',
+                ],
+                [
+                    'nome'     => 'Nota de crédito',
+                    'livewire' => 'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/credit-notes/credit-note-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/NotaDeCredito.tsx',
+                ],
+                [
+                    'nome'     => 'Nota de débito',
+                    'livewire' => 'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/debit-notes/debit-note-create.blade.php',
+                    'react'    => 'ecras/facturacao/emissores/NotaDeDebito.tsx',
                 ],
                 [
                     'nome'     => 'Definições da facturação',
