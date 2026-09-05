@@ -70,12 +70,13 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
 
         $this->assertSame('a4', $definicoes->fresh()->pos_formato_impressao);
 
-        // O que vem do navegador não escolhe o que sai na impressora.
-        $componente = file_get_contents(app_path('Livewire/Invoicing/Settings.php'));
-        $this->assertStringContainsString("'pos_formato_impressao' => 'nullable|in:a4,talao'", $componente);
+        // O que vem do navegador não escolhe o que sai na impressora. A regra
+        // vive no serviço, que o Livewire e a API em React partilham.
+        $servico = file_get_contents(app_path('Services/Invoicing/DefinicoesDaFacturacao.php'));
+        $this->assertStringContainsString("'pos_formato_impressao' => 'nullable|in:a4,talao'", $servico);
         $this->assertStringContainsString(
-            "'pos_formato_impressao' => \$this->pos_formato_impressao ?: 'talao'",
-            $componente,
+            "\$valores['pos_formato_impressao'] ?: 'talao'",
+            $servico,
             'sem valor, cai no talão'
         );
     }

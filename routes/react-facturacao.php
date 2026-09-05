@@ -92,3 +92,11 @@ Route::middleware('permission:invoicing.sales.invoices.create')
 Route::middleware('permission:invoicing.purchases.invoices.create')
     ->get('purchases/invoices/create/novo-ecra', $emReact('facturacao/emitir-factura-de-compra', __('Registar Factura de Compra')))
     ->name('react.emitir.compra');
+
+/*
+ * AS DEFINIÇÕES DA FACTURAÇÃO. Ver é uma permissão, editar é outra — a
+ * segunda é exigida pela API em cada escrita.
+ */
+Route::middleware('permission:invoicing.settings.view')
+    ->get('settings/novo-ecra', $emReact('facturacao/definicoes', __('Configurações de Faturação')))
+    ->name('react.definicoes');

@@ -53,4 +53,8 @@ export const ecras: Record<string, Ecra> = {
     // A factura de compra: a que dá entrada de stock e de lotes.
     'facturacao/emitir-factura-de-compra': () =>
         import('./facturacao/EmitirFacturaDeCompra'),
+
+    // As definições da facturação e as séries de numeração.
+    'facturacao/definicoes': () =>
+        import('./facturacao/Definicoes'),
 };

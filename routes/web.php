@@ -399,6 +399,16 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/compra/calcular', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'calcular'])->name('compra.calcular');
         Route::post('/compra', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'guardar'])->name('compra.guardar');
 
+        // As definições da facturação e as séries. As regras vivem no
+        // DefinicoesDaFacturacao e no GestorDeSeries, os mesmos do Livewire.
+        Route::get('/definicoes', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'mostrar'])->name('definicoes.mostrar');
+        Route::put('/definicoes', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'guardar'])->name('definicoes.guardar');
+        Route::post('/definicoes/series', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'criarSerie'])->name('definicoes.series.criar');
+        Route::put('/definicoes/series/{serie}', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'renomearSerie'])
+            ->whereNumber('serie')->name('definicoes.series.renomear');
+        Route::post('/definicoes/series/{serie}/padrao', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'tornarPadrao'])
+            ->whereNumber('serie')->name('definicoes.series.padrao');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');
