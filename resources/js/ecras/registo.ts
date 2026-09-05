@@ -19,4 +19,7 @@ export const ecras: Record<string, Ecra> = {
 
     'facturacao/clientes': () =>
         import('./facturacao/Clientes'),
+
+    'facturacao/produtos': () =>
+        import('./facturacao/Produtos'),
 };

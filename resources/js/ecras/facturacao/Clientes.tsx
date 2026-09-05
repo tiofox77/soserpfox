@@ -12,6 +12,7 @@ import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
 import { CARTAO, FOCO, RAIO, cls } from '@/ui/tokens';
 
@@ -314,6 +315,7 @@ export default function Clientes() {
                 aEditar={aEditar}
                 erros={erros}
                 aGravar={gravar.isPending}
+                erroDeGravar={gravar.error}
                 provincias={opcoes.data?.provincias ?? []}
                 paises={opcoes.data?.paises ?? {}}
                 aoMudar={porFormulario}
@@ -367,6 +369,7 @@ function Formulario({
     aEditar,
     erros,
     aGravar,
+    erroDeGravar,
     provincias,
     paises,
     aoMudar,
@@ -377,6 +380,7 @@ function Formulario({
     aEditar: Cliente | null;
     erros: Record<string, string[]>;
     aGravar: boolean;
+    erroDeGravar: unknown;
     provincias: string[];
     paises: Record<string, string>;
     aoMudar: (d: ClienteParaGravar) => void;
@@ -410,6 +414,8 @@ function Formulario({
                 </>
             }
         >
+            <AvisoDeErro erro={erroDeGravar} />
+
             <form
                 className="grid gap-4 sm:grid-cols-2"
                 onSubmit={(e) => {

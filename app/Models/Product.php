@@ -231,9 +231,27 @@ class Product extends Model
         return $this->belongsTo(\App\Models\Invoicing\Tax::class, 'tax_rate_id');
     }
 
+    /**
+     * ATENÇÃO: esta relação está PARTIDA, como a `Client::invoices()`.
+     *
+     * `InvoiceItem` aponta para a tabela `invoicing_items`, que NÃO EXISTE.
+     * Qualquer consulta por aqui rebenta com «Base table or view not found».
+     * Nada no sistema a usava — descobriu-se ao escrever a API dos artigos.
+     *
+     * Fica por apagar num passo próprio, para não misturar limpeza com o que
+     * está a ser feito.
+     *
+     * @deprecated usar linhasVendidas()
+     */
     public function invoiceItems()
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    /** As linhas de factura de venda onde este artigo já saiu. */
+    public function linhasVendidas()
+    {
+        return $this->hasMany(\App\Models\Invoicing\SalesInvoiceItem::class, 'product_id');
     }
 
     public function stocks()

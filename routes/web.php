@@ -359,6 +359,18 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->whereNumber('id')->name('clients.update');
         Route::delete('/clients/{id}', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'destroy'])
             ->whereNumber('id')->name('clients.destroy');
+
+        // Artigos.
+        Route::get('/products/opcoes', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'opcoes'])
+            ->name('products.opcoes');
+        Route::get('/products', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'index'])
+            ->name('products.index');
+        Route::post('/products', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'store'])
+            ->name('products.store');
+        Route::put('/products/{id}', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'update'])
+            ->whereNumber('id')->name('products.update');
+        Route::delete('/products/{id}', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'destroy'])
+            ->whereNumber('id')->name('products.destroy');
     });
 });
 
@@ -368,6 +380,15 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
     
     Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
+
+    // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
+    Route::middleware('permission:invoicing.products.view')
+        ->get('/products/novo-ecra', fn () => view('react.ecra', [
+            'ecra' => 'facturacao/produtos',
+            'titulo' => __('Produtos'),
+            'subtitulo' => __('Ecrã novo, em ensaio'),
+        ]))
+        ->name('products.react');
 
     // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
     Route::middleware('permission:invoicing.clients.view')
