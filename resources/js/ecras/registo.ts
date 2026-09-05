@@ -38,4 +38,7 @@ export const ecras: Record<string, Ecra> = {
     // E TRÊS propostas: proforma de venda, orçamento, proforma de compra.
     'facturacao/emitir-proposta': () =>
         import('./facturacao/EmitirProposta'),
+
+    'facturacao/registar-recibo': () =>
+        import('./facturacao/RegistarRecibo'),
 };

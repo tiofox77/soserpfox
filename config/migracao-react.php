@@ -150,7 +150,7 @@ return [
                     'nome'     => 'Registar recibo',
                     'livewire' => 'app/Livewire/Invoicing/Receipts/ReceiptCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/receipts/receipt-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/Recibo.tsx',
+                    'react'    => 'ecras/facturacao/RegistarRecibo.tsx',
                 ],
                 [
                     'nome'     => 'Nota de crédito',

@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { emissor, type LinhaDoEditor, type Totais } from '@/api/emissor';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
+import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
@@ -374,9 +375,6 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
 
-const entrada =
-    'w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500';
 
 function Total({ rotulo, valor }: { rotulo: string; valor: number }) {
     return (
@@ -387,32 +385,6 @@ function Total({ rotulo, valor }: { rotulo: string; valor: number }) {
     );
 }
 
-function Campo({
-    etiqueta,
-    erro,
-    obrigatorio = false,
-    children,
-}: {
-    etiqueta: string;
-    erro?: string[];
-    obrigatorio?: boolean;
-    children: React.ReactNode;
-}) {
-    return (
-        <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {etiqueta}
-                {obrigatorio && <span className="ml-0.5 text-red-500">*</span>}
-            </span>
-            {children}
-            {erro?.[0] && (
-                <span role="alert" className="mt-1 block text-xs font-medium text-red-600">
-                    {erro[0]}
-                </span>
-            )}
-        </label>
-    );
-}
 
 function Falhou({ erro }: { erro: unknown }) {
     const daApi = erro instanceof ErroDaApi ? erro : null;

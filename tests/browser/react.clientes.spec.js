@@ -39,8 +39,8 @@ test('cria um cliente e ele aparece na lista', async ({ page }) => {
     const janela = page.getByRole('dialog');
     await expect(janela).toBeVisible();
 
-    await janela.getByLabel('NIF').fill(nif);
-    await janela.getByLabel('Nome').fill(nome);
+    await janela.getByLabel(/^NIF\b/).fill(nif);
+    await janela.getByLabel(/^Nome\b/).fill(nome);
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(page.getByRole('status')).toContainText('Cliente criado', { timeout: 20_000 });
@@ -64,14 +64,14 @@ test('mostra o erro de validação no campo certo', async ({ page }) => {
     const janela = page.getByRole('dialog');
 
     // Nome com duas letras e sem NIF: o servidor recusa os dois.
-    await janela.getByLabel('Nome').fill('ab');
+    await janela.getByLabel(/^Nome\b/).fill('ab');
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(janela.getByRole('alert').first()).toBeVisible({ timeout: 20_000 });
 
     // A janela NÃO fecha com erro — o que se escreveu continua lá.
     await expect(janela).toBeVisible();
-    await expect(janela.getByLabel('Nome')).toHaveValue('ab');
+    await expect(janela.getByLabel(/^Nome\b/)).toHaveValue('ab');
 });
 
 /**

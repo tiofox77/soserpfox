@@ -8,6 +8,7 @@ import {
     type FiltrosDeClientes,
 } from '@/api/clientes';
 import { ErroDaApi } from '@/api/cliente';
+import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
@@ -443,7 +444,7 @@ function Formulario({
                     />
                 </Campo>
 
-                <Campo etiqueta="Nome" erro={erros.name} obrigatorio largo>
+                <Campo etiqueta="Nome" erro={erros.name} obrigatorio className="sm:col-span-2">
                     <input
                         value={dados.name}
                         onChange={(e) => campo('name', e.target.value)}
@@ -471,7 +472,7 @@ function Formulario({
                     />
                 </Campo>
 
-                <Campo etiqueta="Morada" erro={erros.address} largo>
+                <Campo etiqueta="Morada" erro={erros.address} className="sm:col-span-2">
                     <input
                         value={dados.address ?? ''}
                         onChange={(e) => campo('address', e.target.value)}
@@ -506,7 +507,7 @@ function Formulario({
 
                 {/* O país é um código ISO de duas letras porque é assim que
                     viaja para a AGT em `customerCountry`. */}
-                <Campo etiqueta="País" erro={erros.country} obrigatorio largo>
+                <Campo etiqueta="País" erro={erros.country} obrigatorio className="sm:col-span-2">
                     <select
                         value={dados.country}
                         onChange={(e) => campo('country', e.target.value)}
@@ -526,38 +527,7 @@ function Formulario({
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
 
-const entrada =
-    'w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500';
 
-function Campo({
-    etiqueta,
-    erro,
-    obrigatorio = false,
-    largo = false,
-    children,
-}: {
-    etiqueta: string;
-    erro?: string[];
-    obrigatorio?: boolean;
-    largo?: boolean;
-    children: React.ReactNode;
-}) {
-    return (
-        <label className={cls('block', largo && 'sm:col-span-2')}>
-            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {etiqueta}
-                {obrigatorio && <span className="ml-0.5 text-red-500">*</span>}
-            </span>
-            {children}
-            {erro?.[0] && (
-                <span role="alert" className="mt-1 block text-xs font-medium text-red-600">
-                    {erro[0]}
-                </span>
-            )}
-        </label>
-    );
-}
 
 function Falhou({ erro }: { erro: unknown }) {
     const daApi = erro instanceof ErroDaApi ? erro : null;

@@ -54,3 +54,13 @@ foreach (TiposDeDocumento::editaveis() as $slug => $editor) {
         ->get($caminho, $emReact('facturacao/emitir-proposta', __('Emitir') . ' · ' . $def['titulo'], ['tipo' => $slug]))
         ->name('react.emitir.' . $slug);
 }
+
+/*
+ * REGISTAR UM RECIBO.
+ *
+ * Fica de fora do laço acima porque não é uma proposta: é documento fiscal
+ * (RC/RG), vai à AGT, e o pagamento lança-se nos ganchos do modelo.
+ */
+Route::middleware('permission:invoicing.receipts.create')
+    ->get('receipts/create/novo-ecra', $emReact('facturacao/registar-recibo', __('Registar Recibo')))
+    ->name('react.emitir.recibo');

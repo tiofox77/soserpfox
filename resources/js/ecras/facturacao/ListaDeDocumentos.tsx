@@ -7,6 +7,7 @@ import {
     type LinhaDeDocumento,
 } from '@/api/documentos';
 import { ErroDaApi } from '@/api/cliente';
+import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
@@ -226,17 +227,7 @@ function Linha({ d, rota, temSaldo }: { d: LinhaDeDocumento; rota: string; temSa
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
 
-const entrada =
-    'w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500';
 
-function Rotulo({ children }: { children: React.ReactNode }) {
-    return (
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-            {children}
-        </span>
-    );
-}
 
 function Falhou({ erro }: { erro: unknown }) {
     const daApi = erro instanceof ErroDaApi ? erro : null;

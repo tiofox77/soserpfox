@@ -370,6 +370,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/emissor/{tipo}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'guardar'])
             ->where('tipo', '[a-z-]+')->name('emissor.guardar');
 
+        // Recibos. O pagamento lança-se pelos ganchos do modelo — aqui não
+        // se toca no paid_amount.
+        Route::get('/recibos/opcoes', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'opcoes'])->name('recibos.opcoes');
+        Route::get('/recibos/facturas', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'facturas'])->name('recibos.facturas');
+        Route::post('/recibos', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'guardar'])->name('recibos.guardar');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');

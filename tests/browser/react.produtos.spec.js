@@ -53,7 +53,7 @@ test('escolher servico faz desaparecer o stock', async ({ page }) => {
 
     await expect(janela.getByLabel('Stock mínimo')).toBeVisible();
 
-    await janela.getByLabel('Tipo').selectOption('servico');
+    await janela.getByLabel(/^Tipo\b/).selectOption('servico');
 
     await expect(janela.getByLabel('Stock mínimo')).toHaveCount(0);
     await expect(janela.getByLabel('Quantidade inicial')).toHaveCount(0);
@@ -65,12 +65,12 @@ test('o imposto troca entre taxa do catalogo e motivo de isencao', async ({ page
 
     const janela = page.getByRole('dialog');
 
-    await janela.getByLabel('Imposto').selectOption('iva');
+    await janela.getByLabel(/^Imposto\b/).selectOption('iva');
     await expect(janela.getByLabel('Taxa')).toBeVisible();
-    await expect(janela.getByLabel('Motivo da isenção')).toHaveCount(0);
+    await expect(janela.getByLabel(/^Motivo da isenção\b/)).toHaveCount(0);
 
-    await janela.getByLabel('Imposto').selectOption('isento');
-    await expect(janela.getByLabel('Motivo da isenção')).toBeVisible();
+    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
+    await expect(janela.getByLabel(/^Motivo da isenção\b/)).toBeVisible();
     await expect(janela.getByLabel('Taxa')).toHaveCount(0);
 });
 
@@ -81,11 +81,11 @@ test('cria um artigo e ele aparece na lista', async ({ page }) => {
 
     const janela = page.getByRole('dialog');
 
-    await janela.getByLabel('Nome').fill(nome);
-    await janela.getByLabel('Preço').fill('1500');
-    await janela.getByLabel('Categoria').selectOption({ index: 1 });
-    await janela.getByLabel('Imposto').selectOption('isento');
-    await janela.getByLabel('Motivo da isenção').fill('M99');
+    await janela.getByLabel(/^Nome\b/).fill(nome);
+    await janela.getByLabel(/^Preço\b/).fill('1500');
+    await janela.getByLabel(/^Categoria\b/).selectOption({ index: 1 });
+    await janela.getByLabel(/^Imposto\b/).selectOption('isento');
+    await janela.getByLabel(/^Motivo da isenção\b/).fill('M99');
     await janela.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(page.getByRole('status')).toContainText('Artigo criado', { timeout: 20_000 });

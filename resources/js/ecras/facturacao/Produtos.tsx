@@ -9,6 +9,7 @@ import {
     type OpcoesDosArtigos,
 } from '@/api/produtos';
 import { ErroDaApi } from '@/api/cliente';
+import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
@@ -685,46 +686,8 @@ function Formulario({
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
 
-const entrada =
-    'w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-indigo-500';
 
-function Rotulo({ children }: { children: React.ReactNode }) {
-    return (
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-            {children}
-        </span>
-    );
-}
 
-function Campo({
-    etiqueta,
-    erro,
-    obrigatorio = false,
-    className,
-    children,
-}: {
-    etiqueta: string;
-    erro?: string[];
-    obrigatorio?: boolean;
-    className?: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <label className={cls('block', className)}>
-            <Rotulo>
-                {etiqueta}
-                {obrigatorio && <span className="ml-0.5 text-red-500">*</span>}
-            </Rotulo>
-            {children}
-            {erro?.[0] && (
-                <span role="alert" className="mt-1 block text-xs font-medium text-red-600">
-                    {erro[0]}
-                </span>
-            )}
-        </label>
-    );
-}
 
 function Falhou({ erro }: { erro: unknown }) {
     const daApi = erro instanceof ErroDaApi ? erro : null;

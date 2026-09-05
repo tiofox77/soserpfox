@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('abre com uma linha e sem totais', async ({ page }) => {
-    await expect(page.getByLabel('Cliente')).toBeVisible();
+    await expect(page.getByLabel(/^Cliente\b/)).toBeVisible();
     expect(await page.locator('tbody tr').count()).toBe(1);
 
     // Sem quantidade não há nada para contar, e diz-se em vez de mostrar zeros.
@@ -60,7 +60,7 @@ test('acrescenta e apaga linhas', async ({ page }) => {
 });
 
 test('grava e devolve o numero da serie', async ({ page }) => {
-    await page.getByLabel('Cliente').selectOption({ index: 1 });
+    await page.getByLabel(/^Cliente\b/).selectOption({ index: 1 });
     await page.getByLabel('Artigo da linha 1').selectOption({ index: 1 });
     await page.getByLabel('Quantidade da linha 1').fill('3');
 
