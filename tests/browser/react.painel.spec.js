@@ -36,6 +36,15 @@ test('o grafico tem os doze meses, mesmo os vazios', async ({ page }) => {
     await expect(grafico).toBeVisible({ timeout: 20_000 });
 
     expect(await grafico.locator('> div').count()).toBe(12);
+
+    // E as barras TÊM ALTURA. Contar doze colunas não chega: elas existiam e
+    // eram todas de altura zero — o gráfico aparecia vazio com a legenda a
+    // dizer «máximo 124 773 Kz».
+    const alturas = await grafico.locator('> div > div').evaluateAll(
+        (bs) => bs.map((b) => b.getBoundingClientRect().height),
+    );
+
+    expect(Math.max(...alturas)).toBeGreaterThan(20);
 });
 
 test('as quatro caixas do estado nao se sobrepoem', async ({ page }) => {

@@ -34,13 +34,13 @@ export function GraficoDeBarras({
     return (
         <figure className="m-0">
             <div
-                className="flex items-end gap-1.5 border-b border-slate-200"
+                className="flex items-stretch gap-1.5 border-b border-slate-200"
                 style={{ height: altura }}
                 role="img"
                 aria-label={titulo}
             >
                 {dados.map((d, i) => (
-                    <div key={i} className="group relative flex flex-1 flex-col justify-end">
+                    <div key={i} className="group relative flex h-full flex-1 flex-col justify-end">
                         {/* O valor aparece por cima da barra ao passar o rato,
                             e não em todas ao mesmo tempo: doze números
                             sobrepostos não se lêem. */}
