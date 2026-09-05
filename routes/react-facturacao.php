@@ -39,3 +39,18 @@ foreach (TiposDeDocumento::todos() as $slug => $def) {
         ->get($caminho, $emReact('facturacao/documentos', $def['titulo'], ['tipo' => $slug]))
         ->name('react.' . $slug);
 }
+
+/*
+ * OS EMISSORES DE PROPOSTAS.
+ *
+ * Só os três que não têm número fiscal, assinatura nem stock. A morada é
+ * `/create/novo-ecra`, ao lado do `/create` de sempre.
+ */
+foreach (TiposDeDocumento::editaveis() as $slug => $editor) {
+    $def = TiposDeDocumento::um($slug);
+    $caminho = ltrim(str_replace('/invoicing', '', $def['rota']), '/') . '/create/novo-ecra';
+
+    Route::middleware('permission:' . str_replace('.view', '.create', $def['permissao']))
+        ->get($caminho, $emReact('facturacao/emitir-proposta', __('Emitir') . ' · ' . $def['titulo'], ['tipo' => $slug]))
+        ->name('react.emitir.' . $slug);
+}

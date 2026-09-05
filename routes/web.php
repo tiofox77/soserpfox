@@ -359,6 +359,17 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/documentos/{tipo}', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'index'])
             ->where('tipo', '[a-z-]+')->name('documentos.index');
 
+        /*
+         * EMITIR PROPOSTAS. Só proformas e orçamentos — o que não tem
+         * número fiscal, assinatura nem stock. Ver TiposDeDocumento::editaveis.
+         */
+        Route::get('/emissor/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'opcoes'])
+            ->where('tipo', '[a-z-]+')->name('emissor.opcoes');
+        Route::post('/emissor/{tipo}/calcular', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'calcular'])
+            ->where('tipo', '[a-z-]+')->name('emissor.calcular');
+        Route::post('/emissor/{tipo}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'guardar'])
+            ->where('tipo', '[a-z-]+')->name('emissor.guardar');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');

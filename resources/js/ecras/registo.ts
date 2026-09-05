@@ -34,4 +34,8 @@ export const ecras: Record<string, Ecra> = {
     // Serve CINCO documentos: o `tipo` vem nas props, do Blade.
     'facturacao/documentos': () =>
         import('./facturacao/ListaDeDocumentos'),
+
+    // E TRÊS propostas: proforma de venda, orçamento, proforma de compra.
+    'facturacao/emitir-proposta': () =>
+        import('./facturacao/EmitirProposta'),
 };

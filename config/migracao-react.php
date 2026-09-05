@@ -126,13 +126,13 @@ return [
                     'nome'     => 'Emitir proforma de venda',
                     'livewire' => 'app/Livewire/Invoicing/Sales/ProformaCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/proformas-venda/proforma-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/ProformaDeVenda.tsx',
+                    'react'    => 'ecras/facturacao/EmitirProposta.tsx',
                 ],
                 [
                     'nome'     => 'Emitir orçamento',
                     'livewire' => 'app/Livewire/Invoicing/Sales/QuoteCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/orcamentos-venda/orcamento-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/Orcamento.tsx',
+                    'react'    => 'ecras/facturacao/EmitirProposta.tsx',
                 ],
                 [
                     'nome'     => 'Emitir factura de compra',
@@ -144,7 +144,7 @@ return [
                     'nome'     => 'Emitir proforma de compra',
                     'livewire' => 'app/Livewire/Invoicing/Purchases/ProformaCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/proformas-compra/proforma-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/ProformaDeCompra.tsx',
+                    'react'    => 'ecras/facturacao/EmitirProposta.tsx',
                 ],
                 [
                     'nome'     => 'Registar recibo',

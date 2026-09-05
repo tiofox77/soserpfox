@@ -106,6 +106,53 @@ class TiposDeDocumento
         ];
     }
 
+    /**
+     * OS DOCUMENTOS QUE O EDITOR EM REACT JÁ SABE EMITIR.
+     *
+     * Só PROPOSTAS: proforma de venda, orçamento e proforma de compra. São os
+     * três que não têm número fiscal, não são assinados, não vão à AGT e não
+     * mexem em stock. Se um deles sair errado, corrige-se e grava-se outra vez.
+     *
+     * O QUE FICA DE FORA, E PORQUÊ, um a um:
+     *   · factura de venda — número de série, hash encadeado e assinatura AGT;
+     *   · factura de compra — faz o stock entrar (`stock_ja_entrou`);
+     *   · recibo — mexe no `paid_amount` por lançamento diferencial;
+     *   · notas de crédito e débito — o travão do E43 e as quantidades por linha.
+     *
+     * Cada um desses entra por si, com o seu travão. Não se apressa o que a
+     * AGT recusa dias depois.
+     *
+     * @return array<string, array{itens: class-string, chave: string, parte_id: string, numero_de: string}>
+     */
+    public static function editaveis(): array
+    {
+        return [
+            'proformas-venda' => [
+                'itens' => \App\Models\Invoicing\SalesProformaItem::class,
+                'chave' => 'sales_proforma_id',
+                'parte_id' => 'client_id',
+                'numero_de' => 'proforma',
+            ],
+            'orcamentos' => [
+                'itens' => \App\Models\Invoicing\SalesQuoteItem::class,
+                'chave' => 'sales_quote_id',
+                'parte_id' => 'client_id',
+                'numero_de' => 'quote',
+            ],
+            'proformas-compra' => [
+                'itens' => \App\Models\Invoicing\PurchaseProformaItem::class,
+                'chave' => 'purchase_proforma_id',
+                'parte_id' => 'supplier_id',
+                'numero_de' => 'proforma',
+            ],
+        ];
+    }
+
+    public static function eEditavel(string $slug): bool
+    {
+        return isset(self::editaveis()[$slug]);
+    }
+
     /** @return array<string, mixed> */
     public static function um(string $slug): array
     {
