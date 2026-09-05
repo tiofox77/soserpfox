@@ -2606,20 +2606,17 @@
 
     {{-- OS ECRÃS EM REACT.
 
-         Só carrega em páginas que tenham um ponto de montagem — não vale a pena
-         mandar o pacote a quem está num ecrã Livewire.
+         O nome vem do manifesto e leva hash — e SEM `?v=` por cima. Os pedaços
+         importam a entrada por caminho relativo e sem query; com um nome fixo
+         mais query, o browser via dois módulos e carregava o React duas vezes.
+         Ver App\Support\PacoteReact.
 
-         `type="module"` porque é o que o Vite produz, e `?v=filemtime` como
-         todos os outros: a entrada tem nome fixo e são os pedaços que levam
-         hash, portanto basta a entrada vir fresca. Ver vite.react.config.js.
-
-         O `@file_exists` é de propósito: antes da primeira construção o
-         ficheiro não existe, e uma instalação sem ele tem de continuar a
-         abrir em vez de rebentar no filemtime(). --}}
-    @if(file_exists(public_path('js/react/app.js')))
-        <script type="module"
-                src="/js/react/app.js?v={{ filemtime(public_path('js/react/app.js')) }}"
-                defer></script>
+         Null quando ainda não foi construído, que é um estado normal numa
+         instalação acabada de clonar: os ecrãs React não montam e o resto da
+         aplicação abre na mesma. --}}
+    @php($pacoteReact = \App\Support\PacoteReact::caminho())
+    @if($pacoteReact)
+        <script type="module" src="{{ $pacoteReact }}" defer></script>
     @endif
 
     <!-- Custom Scripts Stack -->

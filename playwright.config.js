@@ -66,11 +66,30 @@ export default defineConfig({
     projects: [
         {
             name: 'pwa',
+            // Os ecrãs em React são de secretaria e correm no projecto abaixo.
+            // Ficam de fora daqui para o `npm run pwa:test` continuar a correr
+            // exactamente o que sempre correu.
+            testIgnore: /react\..*\.spec\.js/,
             use: {
                 ...devices['Pixel 5'],
                 // Os service workers TÊM de correr: sem eles não há offline
                 // nenhum e o ensaio não mede nada.
                 serviceWorkers: 'allow',
+            },
+        },
+        {
+            /*
+             * OS ECRÃS EM REACT, NUM ECRÃ DE SECRETÁRIA.
+             *
+             * A facturação faz-se sentado, num monitor — testá-la a 412 px
+             * mediria um problema que ninguém tem. O PWA é que vive no
+             * telemóvel, e esse continua no projecto de cima.
+             */
+            name: 'secretaria',
+            testMatch: /react\..*\.spec\.js/,
+            use: {
+                ...devices['Desktop Chrome'],
+                viewport: { width: 1440, height: 900 },
             },
         },
     ],

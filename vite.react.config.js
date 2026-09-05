@@ -10,16 +10,18 @@ import path from 'node:path';
  * O manifesto do Vite não encaixa nisso, e o service worker precacha por URL
  * escrito à mão — com nomes gerados, essa lista deixava de poder existir.
  *
- * Por isso:
+ * Por isso escreve para `public/react/` e o Blade lê o MANIFESTO para saber o
+ * nome do ficheiro. A publicação continua a ser por FTP — é uma pasta em vez
+ * de um ficheiro, e mais nada.
  *
- *   ENTRADA COM NOME FIXO   `public/js/react/app.js`, carregado como os outros,
- *                           com `?v=filemtime` a servir de cache-busting — o
- *                           mesmo padrão que o `painel-facturacao.js` já usa.
- *
- *   PEDAÇOS COM HASH        os `import()` preguiçosos saem com hash no nome, e
- *                           é preciso: a entrada vem sempre fresca e aponta
- *                           para os hashes novos, portanto nenhum browser fica
- *                           com um pedaço velho.
+ * PORQUE NÃO UM NOME FIXO COM `?v=filemtime`, QUE ERA O PLANO. Foi tentado e
+ * está errado, de uma maneira que só se vê no browser: os pedaços importam a
+ * entrada por caminho relativo e SEM a query (`import ... from "../app.js"`).
+ * O browser trata `/react/app.js?v=123` e `/react/app.js` como dois módulos
+ * diferentes e carrega o React DUAS VEZES — o componente é desenhado por uma
+ * cópia e os hooks vêm da outra, e o ecrã morre com «Cannot read properties of
+ * null (reading 'useState')». Com o hash no nome, há um só caminho e uma só
+ * cópia.
  *
  * A construção de sempre (`vite.config.js`) não é tocada. Se isto correr mal,
  * apaga-se `public/js/react` e a aplicação fica exactamente como estava.
@@ -48,17 +50,19 @@ export default defineConfig({
     publicDir: false,
 
     build: {
-        outDir: 'public/js/react',
+        outDir: 'public/react',
         emptyOutDir: true,
         // O Tailwind vem do `/vendor/js/tailwind.js` que o layout já carrega e
         // que observa o DOM — as classes dos componentes React são apanhadas
         // quando eles montam. Não há CSS para gerar aqui.
         cssCodeSplit: false,
         sourcemap: true,
+        // O manifesto é o que diz ao Blade qual é o ficheiro de hoje.
+        manifest: true,
         rollupOptions: {
             input: path.resolve(__dirname, 'resources/js/react.tsx'),
             output: {
-                entryFileNames: 'app.js',
+                entryFileNames: 'app-[hash].js',
                 chunkFileNames: 'pedacos/[name]-[hash].js',
                 assetFileNames: 'recursos/[name]-[hash][extname]',
             },

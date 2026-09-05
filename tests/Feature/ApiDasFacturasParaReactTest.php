@@ -190,6 +190,47 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
             'uma factura já inteiramente anulada não se credita outra vez');
     }
 
+    /**
+     * UMA FACTURA-RECIBO NÃO TEM NADA A RECEBER.
+     *
+     * A FR é paga no acto da venda e nunca tem recibo, por isso o
+     * `paid_amount` fica em zero para sempre. Uma conta ingénua
+     * (`total - paid_amount`) punha-a a dizer «Pago» e «falta 570,00» ao lado
+     * — foi o que se viu no ecrã à primeira vez que ele abriu.
+     *
+     * @test
+     */
+    public function uma_factura_recibo_nao_aparece_a_dever(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $fr = $this->factura(['invoice_type' => 'FR', 'status' => 'paid', 'total' => 570, 'paid_amount' => 0]);
+        $ft = $this->factura(['invoice_type' => 'FT', 'status' => 'pending', 'total' => 570, 'paid_amount' => 0]);
+
+        $porId = collect($this->getJson(self::LISTA)->assertOk()->json('data'))->keyBy('id');
+
+        $this->assertSame(0, (int) $porId[$fr->id]['saldo'], 'uma FR está paga por definição');
+        $this->assertFalse($porId[$fr->id]['pode_receber'], 'e não se recebe outra vez');
+
+        $this->assertEqualsWithDelta(570, $porId[$ft->id]['saldo'], 0.01);
+        $this->assertTrue($porId[$ft->id]['pode_receber']);
+    }
+
+    /** E o que está pago, cancelado ou creditado também não deve nada. @test */
+    public function o_que_ja_esta_liquidado_nao_aparece_a_dever(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        foreach (['paid', 'cancelled', 'credited'] as $estado) {
+            $f = $this->factura(['status' => $estado, 'total' => 1000, 'paid_amount' => 0]);
+
+            $linha = collect($this->getJson(self::LISTA)->json('data'))->firstWhere('id', $f->id);
+
+            $this->assertSame(0, (int) $linha['saldo'], "estado {$estado} não deve nada");
+            $this->assertFalse($linha['pode_receber']);
+        }
+    }
+
     /** Os filtros filtram, e a paginação pagina. @test */
     public function os_filtros_e_a_paginacao_funcionam(): void
     {

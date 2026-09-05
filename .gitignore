@@ -71,3 +71,4 @@ Thumbs.db
 # Sai do `npm run react:build` e vai para produção por FTP, como os outros
 # ficheiros de public/js — não entra no repositório.
 /public/js/react
+/public/react

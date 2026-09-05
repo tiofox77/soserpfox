@@ -48,7 +48,7 @@ class SalesInvoiceResource extends JsonResource
 
             'total' => round((float) $this->total, 2),
             'pago' => round((float) $this->paid_amount, 2),
-            'saldo' => round((float) $this->total - (float) $this->paid_amount, 2),
+            'saldo' => $this->porReceber(),
 
             'agt' => [
                 'comunicada' => (bool) $this->jws_signature,
@@ -62,9 +62,38 @@ class SalesInvoiceResource extends JsonResource
 
             // As decisões, já tomadas do lado de cá.
             'pode_creditar' => ! $this->jaTotalmenteCreditada(),
-            'pode_receber' => round((float) $this->total - (float) $this->paid_amount, 2) > 0.01,
+            'pode_receber' => $this->porReceber() > 0.01,
             'e_rascunho' => $this->status === 'draft',
         ];
+    }
+
+    /**
+     * Quanto falta receber MESMO.
+     *
+     * `total - paid_amount` não chega, e o ecrã em React mostrou porquê ao
+     * primeiro olhar: as facturas-recibo do balcão apareciam «Pago» e a dizer
+     * «falta 570,00» ao lado.
+     *
+     * UMA FR É PAGA NO ACTO DA VENDA, POR DEFINIÇÃO. Não tem recibo nenhum
+     * porque não precisa de um, e por isso o `paid_amount` fica em zero para
+     * sempre — na bancada são 124 documentos assim. O mesmo vale para o que
+     * está `paid`, `cancelled` ou `credited`: não há nada a receber, seja o
+     * que for que a coluna diga.
+     *
+     * É a mesma regra que a lista Livewire já aplica ao botão de pagamento
+     * (`$__linhaFR`), trazida para o único sítio onde agora se decide.
+     */
+    private function porReceber(): float
+    {
+        if (($this->invoice_type ?? 'FT') === 'FR') {
+            return 0.0;
+        }
+
+        if (in_array($this->status, ['paid', 'cancelled', 'credited'], true)) {
+            return 0.0;
+        }
+
+        return max(0.0, round((float) $this->total - (float) $this->paid_amount, 2));
     }
 
     /**
