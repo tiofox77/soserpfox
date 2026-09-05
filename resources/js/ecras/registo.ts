@@ -45,4 +45,8 @@ export const ecras: Record<string, Ecra> = {
     // Notas de crédito e de débito: o `tipo` vem nas props.
     'facturacao/emitir-nota': () =>
         import('./facturacao/EmitirNota'),
+
+    // A factura de venda, FT ou FR — o ecrã mais delicado da casa.
+    'facturacao/emitir-factura': () =>
+        import('./facturacao/EmitirFactura'),
 };

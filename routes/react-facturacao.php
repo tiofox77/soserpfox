@@ -77,3 +77,10 @@ Route::middleware('permission:invoicing.credit-notes.create')
 Route::middleware('permission:invoicing.debit-notes.create')
     ->get('debit-notes/create/novo-ecra', $emReact('facturacao/emitir-nota', __('Nota de Débito'), ['tipo' => 'debito']))
     ->name('react.emitir.debito');
+
+/*
+ * A FACTURA DE VENDA (FT/FR). A lógica fiscal vive no EmissorDeFacturas.
+ */
+Route::middleware('permission:invoicing.sales.invoices.create')
+    ->get('sales/invoices/create/novo-ecra', $emReact('facturacao/emitir-factura', __('Emitir Factura')))
+    ->name('react.emitir.factura');

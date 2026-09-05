@@ -120,7 +120,7 @@ return [
                     'nome'     => 'Emitir factura de venda',
                     'livewire' => 'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
                     'blade'    => 'resources/views/livewire/invoicing/faturas-venda/invoice-create.blade.php',
-                    'react'    => 'ecras/facturacao/emissores/FacturaDeVenda.tsx',
+                    'react'    => 'ecras/facturacao/EmitirFactura.tsx',
                 ],
                 [
                     'nome'     => 'Emitir proforma de venda',

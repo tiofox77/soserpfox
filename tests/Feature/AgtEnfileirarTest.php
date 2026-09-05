@@ -175,13 +175,25 @@ class AgtEnfileirarTest extends TenantTestCase
      */
     public function test_nenhum_ecra_de_emissao_envia_a_agt_no_mesmo_pedido(): void
     {
+        // A emissão da factura de venda e das notas mudou-se dos componentes
+        // Livewire para serviços partilhados com o ecrã em React — é lá que
+        // se enfileira agora. Os componentes continuam vigiados abaixo por
+        // não poderem enviar no mesmo pedido.
         $emissores = [
-            'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
+            'app/Services/Invoicing/EmissorDeFacturas.php',
+            'app/Services/Invoicing/EmissorDeNotas.php',
             'app/Livewire/POS/POSSystem.php',
-            'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
-            'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
             'app/Services/Invoicing/ModuleInvoiceService.php',
         ];
+
+        foreach ([
+            'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
+            'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
+            'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
+        ] as $ecra) {
+            $this->assertStringNotContainsString('submitToAGT(', file_get_contents(base_path($ecra)),
+                basename($ecra) . ' voltou a enviar à AGT no mesmo pedido.');
+        }
 
         foreach ($emissores as $ficheiro) {
             $codigo = file_get_contents(base_path($ficheiro));

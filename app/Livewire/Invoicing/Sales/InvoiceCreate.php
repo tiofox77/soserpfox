@@ -985,411 +985,86 @@ class InvoiceCreate extends Component
             }
         }
 
-        DB::beginTransaction();
+        /*
+         * TUDO O QUE É FISCAL VIVE NO `EmissorDeFacturas`: descontos globais a
+         * descer às linhas, IEC/IS, campos SAFT, FR paga no acto, retenção,
+         * hash, baixa de stock, tesouraria e fila da AGT. Este ecrã e o ecrã
+         * em React chamam o mesmo — foi por isso que saiu daqui.
+         */
+        $existente = null;
+
+        if ($this->isEdit) {
+            $existente = SalesInvoice::where('tenant_id', activeTenantId())
+                ->tap(fn ($q) => $this->escoparAoAutor($q))
+                ->findOrFail($this->invoiceId);
+        }
+
         try {
-            if ($this->isEdit) {
-                $invoice = SalesInvoice::where('tenant_id', activeTenantId())
-                    ->tap(fn ($q) => $this->escoparAoAutor($q))
-                    ->findOrFail($this->invoiceId);
-                
-                if ($invoice->status === 'converted') {
-                    throw new \Exception(__('Não é possível editar uma fatura já convertida.'));
-                }
-                
-                // Decreto 71/25: documento finalizado (com hash) não pode ser editado
-                // Apenas rectificação via Nota de Crédito é permitida
-                if ($invoice->invoice_status === 'F' && !empty($invoice->saft_hash)) {
-                    throw new \Exception(__('Esta fatura já foi finalizada e não pode ser editada. Utilize uma Nota de Crédito para rectificação (Decreto 71/25).'));
-                }
-                
-                if (in_array($invoice->status, ['paid', 'cancelled', 'credited'])) {
-                    throw new \Exception(__('Não é possível editar uma fatura com estado: :estado', ['estado' => $invoice->status_label]));
-                }
+            $emitido = app(\App\Services\Invoicing\EmissorDeFacturas::class)->emitir([
+                'client_id' => $this->client_id,
+                'warehouse_id' => $this->warehouse_id,
+                'invoice_date' => $this->invoice_date,
+                'due_date' => $this->due_date,
+                'delivery_date' => $this->delivery_date,
+                'delivery_location' => $this->delivery_location,
+                'invoice_type' => $this->isFaturaRecibo() ? 'FR' : 'FT',
+                'series_id' => $this->series_id,
+                'is_service' => $this->is_service,
+                'discount_amount' => $this->discount_amount,
+                'discount_commercial' => $this->discount_commercial,
+                'discount_financial' => $this->discount_financial,
+                'notes' => $this->notes,
+                'terms' => $this->terms,
+                'tax_country_region' => $this->tax_country_region,
+                'withholding_type' => $this->withholding_type,
+                'withholding_percentage' => $this->withholding_percentage,
+                'withholding_amount' => $this->withholding_amount,
+                'payment_method' => $this->payment_method,
+                'status' => $status,
+            ], collect($cartItems->values()->all()), $this->lineIec, $this->lineIs, $existente);
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
 
-                // Delete old items
-                $invoice->items()->delete();
-            } else {
-                $invoice = new SalesInvoice();
-                $invoice->tenant_id = activeTenantId();
-                $invoice->created_by = auth()->id();
-            }
-
-            // Tipo do documento — define a série (FR usa a sequência do POS).
-            // Só pode ser definido na CRIAÇÃO: mudar o tipo de um documento já
-            // numerado quebraria a sequência da série.
-            if (!$this->isEdit) {
-                $invoice->invoice_type = $this->isFaturaRecibo() ? 'FR' : 'FT';
-                $invoice->series_id = $this->series_id ?: null;
-            }
-
-            $invoice->client_id = $this->client_id;
-            $invoice->warehouse_id = $this->warehouse_id;
-            $invoice->invoice_date = $this->invoice_date;
-            $invoice->due_date = $this->due_date;
-            $invoice->delivery_date = $this->delivery_date ?: null;
-            $invoice->delivery_location = $this->delivery_location ?: null;
-            $invoice->status = $status;
-            $invoice->is_service = $this->is_service;
-            $invoice->discount_amount = $this->discount_amount;
-            $invoice->discount_commercial = $this->discount_commercial;
-            $invoice->discount_financial = $this->discount_financial;
-            $invoice->notes = $this->notes;
-            $invoice->terms = $this->terms;
-            $invoice->save();
-
-            // Add items e calcular totais conforme AGT Angola
-            $order = 0;
-            $invoice_subtotal = 0;
-            $invoice_tax_amount = 0;
-            $invoice_line_discounts = 0;   // descontos de linha (antes eram ignorados no total)
-            $extraTaxes = 0;               // IEC + IS de todas as linhas
-
-            // Os descontos comerciais GLOBAIS têm de DESCER ÀS LINHAS antes de
-            // se apurar o IVA. Enquanto não desciam, o Resumo do ecrã (que os
-            // distribui) e o documento gravado (que os ignorava) apuravam
-            // impostos diferentes: o utilizador aprovava um valor e o razão
-            // ficava com outro, e a soma das linhas não fechava com o
-            // cabeçalho — que é o que a AGT valida.
-            //
-            // O desconto FINANCEIRO não entra aqui: é acerto de pronto
-            // pagamento, sai do total já depois do imposto.
-            // Mesma regra do caminho do PWA (DraftController::calculateTotals).
-            $descontosGlobais = (float) $this->discount_commercial + (float) $this->discount_amount;
-            $liquidoDasLinhas = 0.0;
-            foreach ($cartItems as $__linha) {
-                $__bruto = $__linha->price * $__linha->quantity;
-                $__pct   = $__linha->attributes['discount_percent'] ?? 0;
-                $liquidoDasLinhas += $__bruto - ($__bruto * ($__pct / 100));
-            }
-            // Nunca descontar mais do que existe.
-            $descontosGlobais = max(0.0, min($descontosGlobais, $liquidoDasLinhas));
-
-            foreach ($cartItems as $item) {
-                // Calcular valores do item conforme AGT Angola
-                $valorBrutoLinha = $item->price * $item->quantity;
-                $descontoPercent = $item->attributes['discount_percent'] ?? 0;
-                $descontoAmount = $valorBrutoLinha * ($descontoPercent / 100);
-
-                // Quota desta linha nos descontos comerciais globais,
-                // proporcional ao seu peso no líquido do documento.
-                $liquidoLinha = $valorBrutoLinha - $descontoAmount;
-                if ($descontosGlobais > 0 && $liquidoDasLinhas > 0) {
-                    $descontoAmount += $descontosGlobais * ($liquidoLinha / $liquidoDasLinhas);
-
-                    // Gravar a percentagem EFECTIVA: o hook saving() do model
-                    // reescreve discount_amount a partir de discount_percent,
-                    // e sem isto apagaria a quota que acabámos de distribuir.
-                    $descontoPercent = $valorBrutoLinha > 0
-                        ? ($descontoAmount / $valorBrutoLinha) * 100
-                        : 0;
-                }
-
-                $subtotal = $valorBrutoLinha;
-                $valorAposDesconto = $valorBrutoLinha - $descontoAmount;
-
-                // Impostos extra desta linha. O IEC entra na BASE DO IVA: a AGT
-                // apura o IVA sobre o valor acrescido do Imposto Especial de
-                // Consumo. Calcular o IVA só sobre o líquido dava um
-                // taxContribution que a AGT recusava ("não corresponde ao
-                // imposto apurado"). O Imposto de Selo NÃO entra nessa base.
-                $extrasLinha = $this->lineTaxesFor($item);
-                $iecLinha = 0.0;
-                foreach ($extrasLinha as $ex) {
-                    if ($ex['tax_type'] === 'IEC') {
-                        $iecLinha += (float) $ex['tax_amount'];
-                    }
-                }
-
-                $baseIva   = $valorAposDesconto + $iecLinha;
-                $taxAmount = $baseIva * (($item->attributes['tax_rate'] ?? 0) / 100);
-
-                $totalExtras = array_sum(array_column($extrasLinha, 'tax_amount'));
-                $total = $valorAposDesconto + $taxAmount + $totalExtras;
-
-                // Acumular totais
-                $invoice_subtotal += $valorBrutoLinha;
-                $invoice_tax_amount += $taxAmount;
-                $invoice_line_discounts += $descontoAmount;
-                
-                // Campos fiscais AGT da linha: uma linha sem imposto TEM de levar
-                // motivo de isenção (a AGT rejeita ISE sem código).
-                $lineRate = (float) ($item->attributes['tax_rate'] ?? 0);
-                $lineTx = \App\Services\Invoicing\TaxResolver::forProductId($item->id, activeTenantId());
-
-                $invoiceItem = SalesInvoiceItem::create([
-                    'sales_invoice_id' => $invoice->id,
-                    'product_id' => $item->id,
-                    'product_name' => $item->name,
-                    'description' => $item->attributes['description'] ?? null,
-                    'quantity' => $item->quantity,
-                    'unit' => $item->attributes['unit'] ?? 'UN',
-                    'unit_price' => $item->price,
-                    'discount_percent' => $descontoPercent,
-                    'discount_amount' => $descontoAmount,
-                    'subtotal' => $subtotal,
-                    'tax_rate' => $lineRate,
-                    'tax_amount' => $taxAmount,
-                    'total' => $total,
-                    'order' => ++$order,
-                    // AGT DS.120 — a região vem da província do adquirente
-                    // (Cabinda ⇒ AO-CAB, regime próprio). Antes era sempre 'AO'.
-                    // Região escolhida no documento tem prioridade; senão deriva
-                    // da província do adquirente (Cabinda ⇒ AO-CAB).
-                    'tax_country_region'   => in_array($this->tax_country_region, ['AO', 'AO-CAB'], true)
-                        ? $this->tax_country_region
-                        : \App\Services\Invoicing\TaxResolver::regionForClient(
-                            $invoice->client ?? Client::find($this->client_id)
-                        ),
-                    // Código SAFT do TaxResolver: NOR na taxa normal, RED nas
-                    // reduzidas (7%, 5%), ISE quando isento. Fixar 'NOR' fazia
-                    // as taxas reduzidas irem declaradas como normais.
-                    'tax_code'             => $lineRate > 0
-                        ? ($lineTx['tax_code'] ?: 'NOR')
-                        : 'ISE',
-                    'tax_exemption_code'   => $lineRate > 0 ? null
-                        : (\App\Models\Product::normalizeExemptionCode($item->attributes['exemption_reason'] ?? null)
-                            ?: $lineTx['exemption_code']),
-                    'tax_exemption_reason' => $lineRate > 0 ? null
-                        : (\App\Models\Product::exemptionReasonText($item->attributes['exemption_reason'] ?? null)
-                            ?: $lineTx['exemption_reason']),
-                ]);
-
-                // Impostos extra da linha (IEC/IS) — o IVA fica nas colunas acima.
-                // Recria-se sempre: numa edição os antigos deixam de valer.
-                \App\Models\Invoicing\LineTax::where('line_type', get_class($invoiceItem))
-                    ->where('line_id', $invoiceItem->id)->delete();
-
-                foreach ($extrasLinha as $extra) {
-                    \App\Models\Invoicing\LineTax::create(array_merge($extra, [
-                        'tenant_id'          => activeTenantId(),
-                        'line_type'          => get_class($invoiceItem),
-                        'line_id'            => $invoiceItem->id,
-                        'tax_country_region' => $invoiceItem->tax_country_region ?: 'AO',
-                        // No Imposto de Selo o código é a VERBA; 'NOR' é código
-                        // de IVA e a AGT recusava a combinação.
-                        'tax_code'           => $extra['tax_type'] === 'IS'
-                            ? (string) $extra['verba_no']
-                            : 'NOR',
-                    ]));
-                    $extraTaxes += (float) $extra['tax_amount'];
-                }
-
-                // Regravar a linha: o IEC só existe depois das linhas de imposto
-                // e o calculateTotals() do model precisa dele para apurar o IVA
-                // sobre a base acrescida. Sem esta segunda gravação a linha
-                // ficava com o IVA calculado só sobre o líquido.
-                if (!empty($extrasLinha)) {
-                    $invoiceItem->save();
-                    $invoiceItem->refresh();
-                    $invoice_tax_amount += ((float) $invoiceItem->tax_amount - $taxAmount);
-                }
-            }
-
-            // Calcular total da fatura conforme AGT Angola.
-            // $invoice_line_discounts JÁ inclui a quota que cada linha recebeu
-            // dos descontos comerciais globais (ver o pré-passe acima). Somar
-            // aqui outra vez discount_commercial/discount_amount descontaria
-            // o mesmo dinheiro duas vezes.
-            $desconto_comercial_total = $invoice_line_discounts;
-            $valor_apos_desc_comercial = $invoice_subtotal - $desconto_comercial_total;
-
-            // Base do IVA: só o desconto comercial. O financeiro sai do total
-            // depois do imposto, mais abaixo.
-            $incidencia_iva = $valor_apos_desc_comercial;
-            // Retenção: a explícita do ecrã tem prioridade; o IRT automático de
-            // 6,5% sobre serviços mantém-se como antes quando nada é indicado.
-            $retencaoExplicita = (float) $this->withholding_amount;
-            $irt_amount = $retencaoExplicita > 0
-                ? $retencaoExplicita
-                : ($invoice->is_service ? $incidencia_iva * 0.065 : 0);
-
-            // IEC e IS acrescem ao IVA no imposto total do documento.
-            $imposto_total = $invoice_tax_amount + $extraTaxes;
-            $total_final = $incidencia_iva + $imposto_total
-                - (float) ($invoice->discount_financial ?? 0)
-                - $irt_amount;
-
-            // Atualizar totais da fatura
-            $invoice->subtotal = $invoice_subtotal;
-            $invoice->tax_amount = $invoice_tax_amount;   // só IVA (compatibilidade)
-            $invoice->irt_amount = $irt_amount;
-            $invoice->total = $total_final;
-
-            // Campos SAFT-AO obrigatórios (Decreto Presidencial 71/25)
-            // net_total é a soma dos líquidos das LINHAS: é das linhas que o
-            // DocumentMapper recompõe o payload da AGT, e cabeçalho e linhas
-            // têm de fechar. O desconto financeiro não entra — reduz o que se
-            // recebe (total), não o valor fiscal do documento, tal como a
-            // retenção na fonte.
-            $invoice->net_total = $valor_apos_desc_comercial;
-            // taxPayable inclui TODOS os impostos liquidados, senão
-            // netTotal + taxPayable ≠ grossTotal e a AGT recusa o documento.
-            $invoice->tax_payable = $imposto_total;
-            $invoice->gross_total = $invoice->net_total + $imposto_total;
-            $invoice->system_entry_date = $invoice->system_entry_date ?? now();
-            // invoice_status é ENUM('N','A','F') (Normal/Anulado/Finalizado) — 'R'
-            // rebentava o INSERT (SQL 1265). O estado de negócio do rascunho vive
-            // em $invoice->status = 'draft'.
-            $invoice->invoice_status = ($status === 'draft') ? 'N' : 'F';
-            $invoice->invoice_status_date = now();
-            $invoice->source_id = auth()->id() ?? 'SYSTEM';
-            $invoice->source_billing = 'P';
-
-            // ── Fatura-Recibo: paga no acto de emissão ──
-            // O documento vale como fatura E recibo, por isso fica liquidado e o
-            // valor entra logo na tesouraria (mesma lógica do POS).
-            $isFR = $invoice->invoice_type === 'FR';
-            if ($isFR && $status !== 'draft') {
-                $invoice->status         = 'paid';
-                $invoice->paid_amount    = $invoice->total;
-                $invoice->payment_method = $this->payment_method ?: 'cash';
-            }
-
-            $invoice->save();
-
-            // ── Retenção na fonte / cativação ──
-            // Vai em withholdingTaxList no payload AGT. Recria-se sempre, para
-            // uma edição não deixar a retenção antiga pendurada.
-            \Illuminate\Support\Facades\DB::table('invoicing_withholding_taxes')
-                ->where('document_type', get_class($invoice))
-                ->where('document_id', $invoice->id)
-                ->delete();
-
-            // Só tipos da lista da AGT: um valor fora dela faz o payload inteiro
-            // ser recusado na validação, com os documentos já emitidos.
-            $tipoRetencao = array_key_exists($this->withholding_type, self::DESCRICOES_RETENCAO)
-                ? $this->withholding_type
-                : null;
-
-            if ($tipoRetencao && (float) $this->withholding_amount > 0) {
-                \Illuminate\Support\Facades\DB::table('invoicing_withholding_taxes')->insert([
-                    'tenant_id'                   => activeTenantId(),
-                    'document_type'               => get_class($invoice),
-                    'document_id'                 => $invoice->id,
-                    'withholding_tax_type'        => $tipoRetencao,
-                    'withholding_tax_description' => self::DESCRICOES_RETENCAO[$tipoRetencao],
-                    'withholding_tax_percentage'  => (float) $this->withholding_percentage,
-                    'withholding_tax_amount'      => (float) $this->withholding_amount,
-                    'created_at'                  => now(),
-                    'updated_at'                  => now(),
-                ]);
-            }
-
-            // Gerar HASH SAFT-AO conforme regulamento Angola
-            // SAFT-AO exige GrossTotal (total bruto com impostos) para o hash
-            $previousInvoice = SalesInvoice::where('tenant_id', activeTenantId())
-                ->where('id', '<', $invoice->id)
-                ->whereNotNull('saft_hash')
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            $hash = \App\Helpers\SAFTHelper::generateHash(
-                $invoice->invoice_date->format('Y-m-d'),
-                $invoice->system_entry_date->format('Y-m-d H:i:s'),
-                $invoice->invoice_number,
-                $invoice->gross_total,
-                $previousInvoice->saft_hash ?? null
-            );
-            
-            if ($hash) {
-                $invoice->saft_hash = $hash;
-                $invoice->hash = $hash;
-                $invoice->hash_previous = $previousInvoice->saft_hash ?? '';
-                $invoice->hash_control = '1';
-                $invoice->save();
-            }
-            
-            // Baixa de stock.
-            //
-            // TEM de ser aqui e não no observer: o `created` do SalesInvoice
-            // corre no $invoice->save() lá em cima, quando ainda não existe
-            // nenhuma linha — a colecção $invoice->items vem vazia e não se
-            // descontava nada. Medido: 6 unidades antes da factura, 6 depois,
-            // zero movimentos registados.
-            //
-            // O reduceStock() é idempotente (verifica se já existe movimento de
-            // saída a referenciar esta factura), pelo que chamá-lo aqui não
-            // duplica com o observer nem com o desconto explícito do POS.
-            if ($status !== 'draft') {
-                $invoice->load('items');
-                app(\App\Observers\SalesInvoiceObserver::class)->reduceStock($invoice);
-            }
-
-            // Fatura-Recibo: registar a entrada na tesouraria (o documento já é
-            // o recibo). Best-effort: uma falha aqui não pode anular o documento
-            // fiscal já numerado e assinado.
-            if ($isFR && $status !== 'draft') {
-                try {
-                    $this->createTreasuryTransaction($invoice);
-                } catch (\Throwable $e) {
-                    \Log::error('InvoiceCreate: falha ao criar transação de tesouraria da Fatura-Recibo', [
-                        'invoice' => $invoice->invoice_number,
-                        'error'   => $e->getMessage(),
-                    ]);
-                }
-            }
-
-            DB::commit();
-
-            // Clear cart
-            Cart::session($this->cartInstance)->clear();
-            
-            // Clear session
-            $sessionKey = 'invoice_client_' . activeTenantId() . '_' . auth()->id();
-            session()->forget($sessionKey);
-
-            // A AGT é o SEGUNDO passo, não o mesmo.
-            //
-            // A factura já está gravada e é válida. Comunicá-la ao fisco é
-            // outra coisa, e não se faz agora, a prender o utilizador à espera
-            // da AGT — que num dia mau responde a 8 segundos, ou não responde.
-            // Aqui só se ENFILEIRA (marca como pendente); quem a envia é o
-            // DespacharAgtPendentes, à boleia do tráfego, depois de a resposta
-            // já ter seguido para o browser. O documento sai na mesma, sem
-            // ninguém a olhar para a ampulheta.
-            $agtMessage = '';
-            if (!$this->isEdit) {
-                $fila = \App\Services\AGT\AutoSubmissao::enfileirar($invoice);
-
-                if ($fila['enfileirado']) {
-                    $agtMessage = ' · ' . __('a comunicar à AGT');
-                } elseif ($fila['jaEnviado']) {
-                    $agtMessage = ' · ' . __('já comunicada à AGT');
-                }
-            }
-
-            $this->dispatch('notify', [
-                'type' => 'success',
-                // Frase inteira em cada caso: noutras línguas o particípio não
-                // se encaixa a meio da frase como em português.
-                'message' => ($this->isEdit
-                    ? __('Fatura atualizada com sucesso!')
-                    : __('Fatura criada com sucesso!')) . $agtMessage,
-            ]);
-            
-            // Verificar se deve imprimir automaticamente
-            if (DocumentConfigHelper::shouldAutoPrint()) {
-                // Abrir PDF automaticamente em nova aba
-                $this->dispatch('auto-print-pdf', [
-                    'url' => route('invoicing.sales.invoices.pdf', $invoice->id)
-                ]);
-            }
-            
-            // Disparar evento para abrir preview em nova aba
-            $this->dispatch('openInvoicePreview', ['invoiceId' => $invoice->id]);
-            
-            return redirect()->route('invoicing.sales.invoices');
-
+            return;
         } catch (\Exception $e) {
-            DB::rollback();
-
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => __('Erro ao salvar fatura: :erro', ['erro' => $e->getMessage()])
             ]);
-        }
-    }
 
+            return;
+        }
+
+        $invoice = $emitido['factura'];
+
+        Cart::session($this->cartInstance)->clear();
+        session()->forget('invoice_client_' . activeTenantId() . '_' . auth()->id());
+
+        $agtMessage = '';
+
+        if ($emitido['fila']['enfileirado']) {
+            $agtMessage = ' · ' . __('a comunicar à AGT');
+        } elseif (! empty($emitido['fila']['jaEnviado'])) {
+            $agtMessage = ' · ' . __('já comunicada à AGT');
+        }
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => ($this->isEdit
+                ? __('Fatura atualizada com sucesso!')
+                : __('Fatura criada com sucesso!')) . $agtMessage,
+        ]);
+
+        if (DocumentConfigHelper::shouldAutoPrint()) {
+            $this->dispatch('auto-print-pdf', [
+                'url' => route('invoicing.sales.invoices.pdf', $invoice->id)
+            ]);
+        }
+
+        $this->dispatch('openInvoicePreview', ['invoiceId' => $invoice->id]);
+
+        return redirect()->route('invoicing.sales.invoices');
+    }
     /* ─────────────── Fatura-Recibo (FR) ─────────────── */
 
     /** Documento é Fatura-Recibo? (só aplicável a documentos novos) */
@@ -1413,59 +1088,4 @@ class InvoiceCreate extends Component
             ->get();
     }
 
-    /**
-     * Entrada na tesouraria da Fatura-Recibo — mesma lógica do POS: resolve o
-     * método pelo código (case-insensitive), deriva a categoria e associa a
-     * caixa aberta quando é dinheiro.
-     */
-    protected function createTreasuryTransaction(SalesInvoice $invoice): void
-    {
-        $code = strtolower((string) ($this->payment_method ?: 'cash'));
-
-        $method = \App\Models\Treasury\PaymentMethod::where('tenant_id', activeTenantId())
-            ->whereRaw('LOWER(code) = ?', [$code])
-            ->first();
-
-        $typeToCategory = [
-            'cash' => 'cash', 'card' => 'card', 'bank_transfer' => 'bank_transfer',
-            'digital_wallet' => 'digital_payment', 'check' => 'bank_transfer',
-        ];
-        $codeToCategory = [
-            'cash' => 'cash', 'transfer' => 'bank_transfer', 'multicaixa' => 'card',
-            'mcx' => 'card', 'tpa' => 'card', 'card' => 'card',
-            'mbway' => 'digital_payment', 'mobile' => 'digital_payment',
-        ];
-
-        $category = $method
-            ? ($typeToCategory[$method->type] ?? 'cash')
-            : ($codeToCategory[$code] ?? 'cash');
-
-        if (!$method) {
-            throw new \RuntimeException('Método de pagamento sem correspondência na Tesouraria.');
-        }
-
-        $destination = app(\App\Services\Treasury\TreasuryMovementService::class)
-            ->destination($method, activeTenantId(), userId: auth()->id());
-
-        app(\App\Services\Treasury\TreasuryMovementService::class)->post([
-            'tenant_id'          => activeTenantId(),
-            'user_id'            => auth()->id(),
-            'account_id'         => $destination['account_id'],
-            'cash_register_id'   => $destination['cash_register_id'],
-            'payment_method_id'  => $method?->id,
-            'invoice_id'         => $invoice->id,
-            'transaction_number' => 'TRX-' . strtoupper(uniqid()),
-            'type'               => 'income',
-            'category'           => $category,
-            'amount'             => $invoice->total,
-            'currency'           => 'AOA',
-            'transaction_date'   => now(),
-            'reference'          => $invoice->invoice_number,
-            'description'        => 'Fatura-Recibo: ' . $invoice->invoice_number
-                . ($invoice->client ? ' - Cliente: ' . $invoice->client->name : ''),
-            'notes'              => $this->notes,
-            'status'             => 'completed',
-            'is_reconciled'      => false,
-        ]);
-    }
 }

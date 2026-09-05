@@ -387,6 +387,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/notas/{tipo}', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'guardar'])
             ->where('tipo', 'credito|debito')->name('notas.guardar');
 
+        // Factura de venda (FT/FR). Zero lógica fiscal aqui: tudo no
+        // EmissorDeFacturas, o mesmo que o Livewire chama.
+        Route::get('/factura/opcoes', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'opcoes'])->name('factura.opcoes');
+        Route::post('/factura/calcular', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'calcular'])->name('factura.calcular');
+        Route::post('/factura', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'guardar'])->name('factura.guardar');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');
