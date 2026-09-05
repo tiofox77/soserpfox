@@ -75,7 +75,7 @@ class SalesInvoiceApiController extends Controller
             // todos: para os outros, o escopo já fechou a porta e deixá-lo
             // passar aqui era dar a volta à permissão escolhendo um nome.
             ->when(
-                ($filtros['autor'] ?? null) && $this->veDocumentosDeTodos,
+                ($filtros['autor'] ?? null) && $this->getVeDocumentosDeTodosProperty(),
                 fn ($q) => $q->where('created_by', $filtros['autor'])
             )
             // Comparação directa e não whereDate: uma função sobre a coluna
@@ -123,10 +123,10 @@ class SalesInvoiceApiController extends Controller
 
             // Vazio para quem só vê as suas — os nomes dos colegas não são
             // dele. É o próprio trait que decide.
-            'autores' => $this->autoresDosDocumentos,
+            'autores' => $this->getAutoresDosDocumentosProperty(),
 
             'permissoes' => [
-                've_de_todos' => $this->veDocumentosDeTodos,
+                've_de_todos' => $this->getVeDocumentosDeTodosProperty(),
                 'pode_criar' => (bool) $request->user()?->can('invoicing.sales.invoices.create'),
                 'pode_creditar' => (bool) $request->user()?->can('invoicing.credit-notes.create'),
                 'pode_receber' => (bool) $request->user()?->can('invoicing.receipts.create'),

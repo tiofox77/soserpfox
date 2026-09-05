@@ -32,6 +32,14 @@ trait DocumentosPorAutor
         return 'created_by';
     }
 
+    /*
+     * POR DENTRO CHAMA-SE O MÉTODO, NUNCA $this->veDocumentosDeTodos.
+     *
+     * A propriedade mágica só existe dentro de um componente Livewire. Este
+     * trait passou a ser usado também no controlador da API que serve os
+     * ecrãs em React — e lá `$this->veDocumentosDeTodos` é «Undefined
+     * property», o que fazia o escopo do autor deixar de correr.
+     */
     public function getVeDocumentosDeTodosProperty(): bool
     {
         return (bool) auth()->user()?->can('invoicing.documents.all');
@@ -42,7 +50,7 @@ trait DocumentosPorAutor
     {
         $coluna = $coluna ?? $this->colunaDoAutor();
 
-        if (! $this->veDocumentosDeTodos) {
+        if (! $this->getVeDocumentosDeTodosProperty()) {
             // Sai já: deixar o filtro passar aqui era dar a volta à permissão
             // escolhendo o nome de um colega na lista.
             //
@@ -81,7 +89,7 @@ trait DocumentosPorAutor
      */
     public function getAutoresDosDocumentosProperty()
     {
-        if (! $this->veDocumentosDeTodos) {
+        if (! $this->getVeDocumentosDeTodosProperty()) {
             return collect();
         }
 
