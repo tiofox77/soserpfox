@@ -346,6 +346,19 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->name('sales-invoices.index');
         Route::get('/sales-invoices/opcoes', [\App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class, 'opcoes'])
             ->name('sales-invoices.opcoes');
+
+        // Clientes — o primeiro que também escreve. Cada verbo tem a sua
+        // permissão, verificada dentro do controlador.
+        Route::get('/clients/opcoes', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'opcoes'])
+            ->name('clients.opcoes');
+        Route::get('/clients', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'index'])
+            ->name('clients.index');
+        Route::post('/clients', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'store'])
+            ->name('clients.store');
+        Route::put('/clients/{id}', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'update'])
+            ->whereNumber('id')->name('clients.update');
+        Route::delete('/clients/{id}', [\App\Http\Controllers\Api\Invoicing\ClientApiController::class, 'destroy'])
+            ->whereNumber('id')->name('clients.destroy');
     });
 });
 
@@ -355,6 +368,15 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
     
     Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
+
+    // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
+    Route::middleware('permission:invoicing.clients.view')
+        ->get('/clients/novo-ecra', fn () => view('react.ecra', [
+            'ecra' => 'facturacao/clientes',
+            'titulo' => __('Clientes'),
+            'subtitulo' => __('Ecrã novo, em ensaio'),
+        ]))
+        ->name('clients.react');
     Route::middleware('permission:invoicing.suppliers.view')->get('/suppliers', \App\Livewire\Invoicing\Suppliers::class)->name('suppliers');
     Route::middleware('permission:invoicing.products.view')->get('/products', \App\Livewire\Invoicing\Products::class)->name('products');
     Route::middleware('permission:invoicing.categories.view')->get('/categories', \App\Livewire\Invoicing\Categories::class)->name('categories');

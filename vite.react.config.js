@@ -49,6 +49,16 @@ export default defineConfig({
      */
     publicDir: false,
 
+    /*
+     * DE ONDE SE PEDEM OS PEDAÇOS.
+     *
+     * Sem isto o Vite gera os `import()` a partir da raiz do site e o browser
+     * pedia `/pedacos/Clientes-x.js` — 404, porque eles vivem em
+     * `/react/pedacos/`. O ecrã abria a lista e depois não abria mais nada, e
+     * a única pista eram dois 404 na consola.
+     */
+    base: '/react/',
+
     build: {
         outDir: 'public/react',
         emptyOutDir: true,

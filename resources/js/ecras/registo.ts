@@ -16,4 +16,7 @@ type Ecra = () => Promise<{ default: ComponentType<Record<string, never>> }>;
 export const ecras: Record<string, Ecra> = {
     'facturacao/lista-de-facturas': () =>
         import('./facturacao/vendas/ListaDeFacturas'),
+
+    'facturacao/clientes': () =>
+        import('./facturacao/Clientes'),
 };

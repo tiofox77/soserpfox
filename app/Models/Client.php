@@ -107,9 +107,29 @@ class Client extends Authenticatable
         });
     }
 
+    /**
+     * ATENÇÃO: esta relação está PARTIDA e não é a que se quer.
+     *
+     * `App\Models\Invoice` é a tabela `invoices`, que são as facturas da
+     * PLATAFORMA ao dono da empresa (tem `subscription_id`, não tem
+     * `client_id`). Qualquer consulta por aqui rebenta com «Unknown column
+     * 'invoices.client_id'». Nada no sistema a usa — descobriu-se ao escrever
+     * a API dos clientes, e foi por isso que nasceu a `facturas()` abaixo.
+     *
+     * Fica por apagar num passo próprio, para não misturar limpeza com o que
+     * está a ser feito.
+     *
+     * @deprecated usar facturas()
+     */
     public function invoices()
     {
         return $this->hasMany(Invoice::class, 'client_id');
+    }
+
+    /** As facturas de venda deste cliente — as que a empresa lhe emitiu. */
+    public function facturas()
+    {
+        return $this->hasMany(\App\Models\Invoicing\SalesInvoice::class, 'client_id');
     }
 
     // Loyalty / Fidelidade
