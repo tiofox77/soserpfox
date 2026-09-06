@@ -70,4 +70,12 @@ export const ecras: Record<string, Ecra> = {
     // Registar (ou editar, com `id` nas props) um adiantamento.
     'facturacao/emitir-adiantamento': () =>
         import('./facturacao/EmitirAdiantamento'),
+
+    // As guias de transporte e de remessa: lista e registo.
+    'facturacao/guias-de-transporte': () =>
+        import('./facturacao/GuiasDeTransporte'),
+
+    // As importações: o processo, do pedido ao armazém.
+    'facturacao/importacoes': () =>
+        import('./facturacao/Importacoes'),
 };

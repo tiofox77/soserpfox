@@ -20,8 +20,10 @@ class CheckPermission
             return $next($request);
         }
 
-        // Verificar se o utilizador tem a permissão
-        if (!auth()->user()->can($permission)) {
+        // Verificar se o utilizador tem a permissão. Com `a|b` basta uma
+        // das duas — é o `@canany` do menu escrito numa rota (as guias de
+        // transporte abrem-se a quem vê as guias ou as notas de débito).
+        if (!auth()->user()->canAny(explode('|', $permission))) {
             abort(403, 'Você não tem permissão para aceder a esta funcionalidade.');
         }
 

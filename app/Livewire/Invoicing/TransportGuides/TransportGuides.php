@@ -6,13 +6,17 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Illuminate\Support\Facades\DB;
 use App\Models\Invoicing\TransportGuide;
-use App\Models\Invoicing\TransportGuideItem;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Product;
 use App\Models\Client;
+use App\Services\Invoicing\EmissorDeGuias;
 
+/*
+ * A EMISSÃO VIVE NO `EmissorDeGuias`: número por tipo e ano, série
+ * `transport`, valor da factura de origem, anular e comunicar à AGT. Este
+ * ecrã e o ecrã em React chamam o mesmo.
+ */
 #[Layout('layouts.app')]
 #[Title('Guias de Transporte')]
 class TransportGuides extends Component
@@ -79,13 +83,7 @@ class TransportGuides extends Component
             return;
         }
         $this->client_id = $invoice->client_id;
-        $this->items = $invoice->items->map(fn ($it) => [
-            'product_id' => $it->product_id,
-            'product_name' => $it->product_name ?? $it->description,
-            'description' => $it->description,
-            'quantity' => (float) $it->quantity,
-            'unit' => $it->unit ?? 'un',
-        ])->values()->all();
+        $this->items = app(EmissorDeGuias::class)->linhasDaFactura($invoice);
     }
 
     public function addProduct()
@@ -113,95 +111,42 @@ class TransportGuides extends Component
         $this->items = array_values($this->items);
     }
 
-    private function nextNumber(int $tenantId, string $type): string
-    {
-        $last = TransportGuide::withTrashed()
-            ->where('tenant_id', $tenantId)
-            ->where('type', $type)
-            ->whereYear('created_at', date('Y'))
-            ->orderByDesc('id')->first();
-        $n = $last ? ((int) substr($last->guide_number, -4)) + 1 : 1;
-        return $type . '-' . date('Y') . '-' . str_pad($n, 4, '0', STR_PAD_LEFT);
-    }
-
     public function save()
     {
         $this->validate();
 
-        $items = array_values(array_filter($this->items, fn ($i) => (float) ($i['quantity'] ?? 0) > 0));
-        if (empty($items)) {
-            $this->addError('items', 'Adicione pelo menos um item com quantidade.');
-            return;
-        }
-
-        DB::transaction(function () use ($items) {
-            $tenantId = activeTenantId();
-            // Valor da mercadoria transportada (da fatura de origem, se houver) — usado na assinatura SAFT-AO
-            $grossTotal = $this->sourceInvoiceId
-                ? (float) (SalesInvoice::where('tenant_id', $tenantId)->where('id', $this->sourceInvoiceId)->value('total') ?? 0)
-                : 0;
-
-            // Série AGT do tipo "transport" (se registada) — fornece o código de validação do ATCUD
-            $series = \App\Models\Invoicing\InvoicingSeries::where('tenant_id', $tenantId)
-                ->where('document_type', 'transport')
-                ->where('is_active', true)
-                ->orderByDesc('id')->first();
-
-            $guide = TransportGuide::create([
-                'tenant_id' => $tenantId,
-                'guide_number' => $this->nextNumber($tenantId, $this->type),
+        try {
+            app(EmissorDeGuias::class)->emitir([
                 'type' => $this->type,
-                'series_id' => $series?->id,
-                'invoice_id' => $this->sourceInvoiceId ?: null,
                 'client_id' => $this->client_id,
-                'gross_total' => $grossTotal,
-                'system_entry_date' => now(),
+                'invoice_id' => $this->sourceInvoiceId ?: null,
                 'issue_date' => $this->issue_date,
-                'loading_datetime' => $this->loading_datetime ?: null,
+                'loading_datetime' => $this->loading_datetime,
                 'vehicle_plate' => $this->vehicle_plate,
                 'driver_name' => $this->driver_name,
                 'driver_document' => $this->driver_document,
                 'load_address' => $this->load_address,
                 'unload_address' => $this->unload_address,
                 'notes' => $this->notes,
-                'status' => 'issued',
-                'created_by' => auth()->id(),
-            ]);
+            ], $this->items, activeTenantId(), auth()->id());
+        } catch (\DomainException $e) {
+            $this->addError('items', $e->getMessage());
 
-            foreach ($items as $it) {
-                TransportGuideItem::create([
-                    'transport_guide_id' => $guide->id,
-                    'product_id' => $it['product_id'] ?? null,
-                    'product_name' => $it['product_name'] ?? null,
-                    'description' => $it['description'] ?? ($it['product_name'] ?? ''),
-                    'quantity' => (float) $it['quantity'],
-                    'unit' => $it['unit'] ?? 'un',
-                ]);
-            }
-        });
+            return;
+        }
 
         $this->showModal = false;
         $this->dispatch('success', message: 'Guia registada com sucesso!');
     }
 
-    /** Comunicar a guia à AGT (DS.120) — transmite ao webservice conforme o ambiente do tenant (sandbox/produção). */
+    /** Comunicar a guia à AGT (DS.120) — conforme o ambiente da empresa (sandbox/produção). */
     public function submitAgt($id)
     {
         $guide = TransportGuide::where('tenant_id', activeTenantId())->findOrFail($id);
-        if (empty($guide->jws_signature)) {
-            $this->dispatch('error', message: 'A guia não está assinada (o tenant não tem chaves AGT).');
-            return;
-        }
-        try {
-            $result = $guide->submitToAGT();
-            if ($result['success'] ?? false) {
-                $this->dispatch('success', message: 'Guia comunicada à AGT. Referência: ' . ($result['requestID'] ?? '—'));
-            } else {
-                $this->dispatch('error', message: 'AGT: ' . ($result['error'] ?? 'submissão rejeitada'));
-            }
-        } catch (\Throwable $e) {
-            $this->dispatch('error', message: 'Erro ao comunicar à AGT: ' . $e->getMessage());
-        }
+
+        $r = app(EmissorDeGuias::class)->comunicar($guide);
+
+        $this->dispatch($r['ok'] ? 'success' : 'error', message: $r['mensagem']);
     }
 
     public function confirmDelete($id)
@@ -213,8 +158,7 @@ class TransportGuides extends Component
     public function deleteGuide()
     {
         if ($this->guideToDelete) {
-            $this->guideToDelete->update(['status' => 'cancelled']);
-            $this->guideToDelete->delete();
+            app(EmissorDeGuias::class)->anular($this->guideToDelete);
             $this->showDeleteModal = false;
             $this->guideToDelete = null;
             $this->dispatch('success', message: 'Guia anulada.');

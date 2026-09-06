@@ -26,6 +26,8 @@ export type OpcoesDosDocumentos = {
     parte: string;
     rota: string;
     tem_saldo: boolean;
+    /** Só nas facturas de compra, e só para quem pode emitir recibos. */
+    pode_pagar: boolean;
     estados: Array<{ valor: string; rotulo: string }>;
 };
 

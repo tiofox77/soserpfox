@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
     documentos,
@@ -7,6 +7,7 @@ import {
     type LinhaDeDocumento,
 } from '@/api/documentos';
 import { ErroDaApi } from '@/api/cliente';
+import { RegistarPagamento } from '@/ecras/facturacao/RegistarPagamento';
 import { Campo, Rotulo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
@@ -28,7 +29,11 @@ import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
  * recibos, e é por isso que serve os cinco.
  */
 export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
+    const cache = useQueryClient();
     const [filtros, porFiltros] = useState<FiltrosDeDocumentos>({ procura: '', page: 1 });
+    // A factura de compra que se está a pagar, e o que o servidor disse depois.
+    const [aPagar, porAPagar] = useState<LinhaDeDocumento | null>(null);
+    const [recado, porRecado] = useState('');
 
     const opcoes = useQuery({
         queryKey: ['documentos', tipo, 'opcoes'],
@@ -53,6 +58,23 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
 
     return (
         <div className="space-y-4">
+            {recado && (
+                <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
+                    <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
+                    <button type="button" onClick={() => porRecado('')} aria-label="Fechar" className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
+                </div>
+            )}
+
+            {/* Pagar uma factura de compra: o modal partilhado, o mesmo caminho do Livewire. */}
+            {aPagar && (
+                <RegistarPagamento
+                    tipo="purchase"
+                    id={aPagar.id}
+                    aoFechar={() => porAPagar(null)}
+                    aoRegistar={(m) => { porAPagar(null); porRecado(m); void cache.invalidateQueries({ queryKey: ['documentos', tipo] }); }}
+                />
+            )}
+
             <Cartao titulo="Filtros">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <label className="block lg:col-span-2">
@@ -144,7 +166,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {linhas.map((d) => (
-                                    <Linha key={d.id} d={d} rota={rota} temSaldo={temSaldo} />
+                                    <Linha key={d.id} d={d} rota={rota} temSaldo={temSaldo} aoPagar={opcoes.data?.pode_pagar ? () => porAPagar(d) : undefined} />
                                 ))}
                             </tbody>
                         </table>
@@ -179,7 +201,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     );
 }
 
-function Linha({ d, rota, temSaldo }: { d: LinhaDeDocumento; rota: string; temSaldo: boolean }) {
+function Linha({ d, rota, temSaldo, aoPagar }: { d: LinhaDeDocumento; rota: string; temSaldo: boolean; aoPagar?: () => void }) {
     return (
         <tr className="transition hover:bg-slate-50">
             <td className="px-4 py-3 font-semibold text-indigo-700">{d.numero}</td>
@@ -200,6 +222,18 @@ function Linha({ d, rota, temSaldo }: { d: LinhaDeDocumento; rota: string; temSa
             )}
             <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-1">
+                    {/* Pagar abre o modal partilhado; só com saldo por pagar. */}
+                    {aoPagar && temSaldo && (d.saldo ?? 0) > 0.01 && (
+                        <button
+                            type="button"
+                            onClick={aoPagar}
+                            title="Pagar"
+                            aria-label={`Pagar ${d.numero}`}
+                            className={cls('p-2 text-emerald-600 transition hover:bg-emerald-50', RAIO, FOCO)}
+                        >
+                            <i className="fas fa-money-bill-wave" aria-hidden="true" />
+                        </button>
+                    )}
                     {/* As acções continuam a apontar para as páginas de sempre.
                         Reescrever o gerador de PDF para migrar uma LISTA seria
                         trocar o risco de sítio sem ganhar nada. */}

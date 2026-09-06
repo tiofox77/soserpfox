@@ -111,6 +111,21 @@ Route::middleware('permission:invoicing.advances.edit')
     ->name('react.editar.adiantamento');
 
 /*
+ * AS GUIAS DE TRANSPORTE. A permissão é a do menu: quem vê as guias ou as
+ * notas de débito — o ecrã de sempre não tem guarda própria.
+ */
+Route::middleware('permission:invoicing.transport-guides.view|invoicing.debit-notes.view')
+    ->get('transport-guides/novo-ecra', $emReact('facturacao/guias-de-transporte', __('Guias de Transporte')))
+    ->name('react.guias');
+
+/*
+ * AS IMPORTAÇÕES.
+ */
+Route::middleware('permission:invoicing.imports.view')
+    ->get('imports/novo-ecra', $emReact('facturacao/importacoes', __('Importações')))
+    ->name('react.importacoes');
+
+/*
  * OS CATÁLOGOS. Seis ecrãs Livewire com a mesma forma saem todos do mesmo
  * Catalogo.tsx; o que muda vem do `Catalogos` e viaja no `tipo`.
  */

@@ -1,0 +1,284 @@
+import { useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { importacoes, type Importacao, type OpcoesDasImportacoes } from '@/api/importacoes';
+import { ErroDaApi } from '@/api/cliente';
+import { AvisoDeErro } from '@/ui/AvisoDeErro';
+import { Botao } from '@/ui/Botao';
+import { Campo, entrada } from '@/ui/Campo';
+import { Cartao } from '@/ui/Cartao';
+import { Carregando } from '@/ui/Carregando';
+import { Etiqueta } from '@/ui/Etiqueta';
+import { Modal } from '@/ui/Modal';
+import { FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
+
+/**
+ * AS IMPORTAÇÕES — o processo de trazer mercadoria de fora.
+ *
+ * Uma importação nasce em cotação e anda pelos estados até concluída. O CIF
+ * é sempre FOB + frete + seguro: o ecrã mostra a soma para o utilizador ver
+ * o que vai gravar, mas quem a grava é o servidor (`GestorDeImportacoes`),
+ * o mesmo que o ecrã Livewire chama.
+ */
+
+type Forma = {
+    supplier_id: string; warehouse_id: string; reference: string; order_date: string; expected_arrival_date: string;
+    origin_country: string; origin_port: string; destination_port: string; shipping_company: string;
+    transport_type: string; fob_value: string; freight_cost: string; insurance_cost: string; notes: string;
+};
+
+const VAZIA: Forma = {
+    supplier_id: '', warehouse_id: '', reference: '', order_date: new Date().toISOString().slice(0, 10), expected_arrival_date: '',
+    origin_country: '', origin_port: '', destination_port: 'Luanda', shipping_company: '',
+    transport_type: 'maritime', fob_value: '0', freight_cost: '0', insurance_cost: '0', notes: '',
+};
+
+const COR: Record<string, 'neutra' | 'primaria' | 'bom' | 'aviso' | 'perigo'> = {
+    gray: 'neutra', blue: 'primaria', yellow: 'aviso', green: 'bom', cyan: 'primaria', orange: 'aviso', emerald: 'bom', red: 'perigo',
+};
+
+export default function Importacoes() {
+    const cache = useQueryClient();
+    const [filtros, porFiltros] = useState<{ procura: string; estado: string; fornecedor: string; page: number }>({ procura: '', estado: '', fornecedor: '', page: 1 });
+    const [aEditar, porAEditar] = useState<Importacao | null>(null);
+    const [forma, porForma] = useState<Forma | null>(null);
+    const [erros, porErros] = useState<Record<string, string[]>>({});
+    const [aApagar, porAApagar] = useState<Importacao | null>(null);
+    const [recado, porRecado] = useState('');
+
+    const opcoes = useQuery({ queryKey: ['importacoes', 'opcoes'], queryFn: importacoes.opcoes, staleTime: 5 * 60_000 });
+    const lista = useQuery({ queryKey: ['importacoes', filtros], queryFn: () => importacoes.lista(filtros), placeholderData: keepPreviousData });
+
+    const invalidar = () => void cache.invalidateQueries({ queryKey: ['importacoes'] });
+
+    const gravar = useMutation({
+        mutationFn: (f: Forma) => {
+            const corpo = { ...f, supplier_id: Number(f.supplier_id) || null, warehouse_id: Number(f.warehouse_id) || null, expected_arrival_date: f.expected_arrival_date || null };
+            return aEditar ? importacoes.actualizar(aEditar.id, corpo) : importacoes.guardar(corpo);
+        },
+        onSuccess: (r) => { invalidar(); porForma(null); porAEditar(null); porErros({}); porRecado(r.message); },
+        onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
+    });
+
+    const estado = useMutation({
+        mutationFn: ({ i, e }: { i: Importacao; e: string }) => importacoes.estado(i.id, e),
+        onSuccess: (r) => { invalidar(); porRecado(r.message); },
+    });
+
+    const apagar = useMutation({
+        mutationFn: (i: Importacao) => importacoes.apagar(i.id),
+        onSuccess: (r) => { invalidar(); porAApagar(null); porRecado(r.message); },
+    });
+
+    if (opcoes.isPending) return <Carregando linhas={8} />;
+    if (opcoes.isError || lista.isError) {
+        const erro = opcoes.error ?? lista.error;
+        return (
+            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
+                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir as importações</h2>
+                <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : 'Verifique a ligação.'}</p>
+            </div>
+        );
+    }
+
+    const o = opcoes.data;
+    const linhas = lista.data?.data ?? [];
+    const contas = lista.data?.meta;
+    const resumo = lista.data?.resumo;
+
+    const abrirNova = () => { porAEditar(null); porErros({}); porForma({ ...VAZIA }); };
+    const abrirEdicao = (i: Importacao) => {
+        porAEditar(i); porErros({});
+        porForma({
+            supplier_id: String(i.supplier_id), warehouse_id: i.warehouse_id ? String(i.warehouse_id) : '', reference: i.reference ?? '',
+            order_date: i.order_date ?? '', expected_arrival_date: i.expected_arrival_date ?? '', origin_country: i.origin_country ?? '',
+            origin_port: i.origin_port ?? '', destination_port: i.destination_port ?? 'Luanda', shipping_company: i.shipping_company ?? '',
+            transport_type: i.transport_type, fob_value: String(i.fob_value), freight_cost: String(i.freight_cost), insurance_cost: String(i.insurance_cost), notes: i.notes ?? '',
+        });
+    };
+
+    return (
+        <div className="space-y-4">
+            {recado && (
+                <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
+                    <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
+                    <button type="button" onClick={() => porRecado('')} aria-label="Fechar" className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
+                </div>
+            )}
+
+            <AvisoDeErro erro={estado.error ?? apagar.error} />
+
+            {resumo && (
+                <div className="grid gap-3 sm:grid-cols-4">
+                    <Numero rotulo="Importações" valor={String(resumo.total)} icone="fa-ship" />
+                    <Numero rotulo="Em trânsito" valor={String(resumo.em_transito)} icone="fa-route" />
+                    <Numero rotulo="Na alfândega" valor={String(resumo.na_alfandega)} icone="fa-landmark" />
+                    <Numero rotulo="CIF em curso" valor={`${kz(resumo.valor_em_curso)} Kz`} icone="fa-coins" />
+                </div>
+            )}
+
+            <Cartao
+                titulo={<span className="flex items-center gap-2"><i className="fas fa-ship text-slate-400" aria-hidden="true" />Importações</span>}
+                accoes={o.permissoes.pode_criar && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNova}>Nova importação</Botao>}
+            >
+                <div className="flex flex-wrap items-end gap-3">
+                    <label className="min-w-[16rem] flex-1 text-sm">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Procurar</span>
+                        <input value={filtros.procura} onChange={(e) => porFiltros((f) => ({ ...f, procura: e.target.value, page: 1 }))} placeholder="Número, referência, contentor ou fornecedor" className={entrada} />
+                    </label>
+                    <label className="text-sm">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</span>
+                        <select value={filtros.estado} onChange={(e) => porFiltros((f) => ({ ...f, estado: e.target.value, page: 1 }))} className={entrada}>
+                            <option value="">Todos</option>
+                            {o.estados.map((e) => <option key={e.valor} value={e.valor}>{e.rotulo}</option>)}
+                        </select>
+                    </label>
+                    <label className="text-sm">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Fornecedor</span>
+                        <select value={filtros.fornecedor} onChange={(e) => porFiltros((f) => ({ ...f, fornecedor: e.target.value, page: 1 }))} className={entrada}>
+                            <option value="">Todos</option>
+                            {o.fornecedores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                    </label>
+                </div>
+            </Cartao>
+
+            <Cartao semPadding>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
+                                <th className="px-4 py-3 font-semibold">Número</th>
+                                <th className="px-4 py-3 font-semibold">Fornecedor</th>
+                                <th className="px-4 py-3 font-semibold">Origem</th>
+                                <th className="px-4 py-3 font-semibold">Pedido</th>
+                                <th className="px-4 py-3 font-semibold">Chegada prevista</th>
+                                <th className="px-4 py-3 text-right font-semibold">CIF</th>
+                                <th className="px-4 py-3 font-semibold">Estado</th>
+                                <th className="w-32 px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
+                            {linhas.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? 'A carregar…' : 'Nenhuma importação.'}</td></tr>}
+                            {linhas.map((i) => (
+                                <tr key={i.id}>
+                                    <td className="px-4 py-2 font-mono font-semibold text-slate-900">{i.numero}{i.reference && <span className="block font-sans text-xs font-normal text-slate-400">{i.reference}</span>}</td>
+                                    <td className="px-4 py-2">{i.fornecedor}</td>
+                                    <td className="px-4 py-2">{i.origin_country}{i.origin_port ? ` · ${i.origin_port}` : ''}</td>
+                                    <td className="px-4 py-2 tabular-nums">{i.order_date ? data(i.order_date) : ''}</td>
+                                    <td className="px-4 py-2 tabular-nums">{i.expected_arrival_date ? data(i.expected_arrival_date) : ''}</td>
+                                    <td className="px-4 py-2 text-right tabular-nums">{kz(i.cif_value)}</td>
+                                    <td className="px-4 py-2">
+                                        {o.permissoes.pode_editar ? (
+                                            <select value={i.estado} onChange={(e) => estado.mutate({ i, e: e.target.value })} aria-label={`Estado de ${i.numero}`} className={cls(entrada, 'h-8 py-0 text-xs')}>
+                                                {o.estados.map((e) => <option key={e.valor} value={e.valor}>{e.rotulo}</option>)}
+                                            </select>
+                                        ) : (
+                                            <Etiqueta cor={COR[i.estado_cor] ?? 'neutra'}>{i.estado_rotulo}</Etiqueta>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-2 text-right">
+                                        <span className="flex justify-end gap-1">
+                                            {o.permissoes.pode_editar && <button type="button" onClick={() => abrirEdicao(i)} aria-label={`Editar ${i.numero}`} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>}
+                                            {o.permissoes.pode_apagar && <button type="button" onClick={() => porAApagar(i)} aria-label={`Apagar ${i.numero}`} className={cls('p-2 text-slate-400 hover:text-red-600', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {contas && contas.last_page > 1 && (
+                    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
+                        <span>Página {contas.current_page} de {contas.last_page} · {contas.total}</span>
+                        <span className="flex gap-1">
+                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>Anterior</Botao>
+                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>Seguinte</Botao>
+                        </span>
+                    </div>
+                )}
+            </Cartao>
+
+            {forma && (
+                <Formulario o={o} forma={forma} erros={erros} titulo={aEditar ? `Editar ${aEditar.numero}` : 'Nova importação'} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={porForma} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />
+            )}
+
+            <Modal
+                aberto={aApagar !== null}
+                aoFechar={() => porAApagar(null)}
+                titulo="Eliminar a importação?"
+                rodape={<><Botao onClick={() => porAApagar(null)}>Cancelar</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>Eliminar</Botao></>}
+            >
+                <p className="text-sm text-slate-700">Vai eliminar <strong>{aApagar?.numero}</strong>. Não há volta.</p>
+            </Modal>
+        </div>
+    );
+}
+
+function Numero({ rotulo, valor, icone }: { rotulo: string; valor: string; icone: string }) {
+    return (
+        <div className={cls('flex items-center gap-3 border border-slate-200 bg-white px-4 py-3', RAIO)}>
+            <i className={cls('fas text-slate-300', icone)} aria-hidden="true" />
+            <div>
+                <p className="text-xs uppercase tracking-wider text-slate-500">{rotulo}</p>
+                <p className="text-lg font-bold tabular-nums text-slate-900">{valor}</p>
+            </div>
+        </div>
+    );
+}
+
+function Formulario({ o, forma, erros, titulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
+    o: OpcoesDasImportacoes; forma: Forma; erros: Record<string, string[]>; titulo: string; aGravar: boolean; erroGeral: unknown;
+    aoMudar: (f: Forma) => void; aoFechar: () => void; aoGravar: () => void;
+}) {
+    const m = (chave: keyof Forma) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => aoMudar({ ...forma, [chave]: e.target.value });
+    const cif = (Number(forma.fob_value) || 0) + (Number(forma.freight_cost) || 0) + (Number(forma.insurance_cost) || 0);
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            titulo={titulo}
+            largura="lg"
+            rodape={<><Botao onClick={aoFechar}>Cancelar</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>Guardar</Botao></>}
+        >
+            <AvisoDeErro erro={erroGeral} />
+            <div className="grid gap-4 sm:grid-cols-2">
+                <Campo etiqueta="Fornecedor" erro={erros.supplier_id} obrigatorio>
+                    <select value={forma.supplier_id} onChange={m('supplier_id')} className={entrada}>
+                        <option value="">Escolher…</option>
+                        {o.fornecedores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                </Campo>
+                <Campo etiqueta="Armazém de destino" erro={erros.warehouse_id}>
+                    <select value={forma.warehouse_id} onChange={m('warehouse_id')} className={entrada}>
+                        <option value="">—</option>
+                        {o.armazens.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                </Campo>
+                <Campo etiqueta="Referência" erro={erros.reference}><input value={forma.reference} onChange={m('reference')} className={entrada} /></Campo>
+                <Campo etiqueta="Transporte" erro={erros.transport_type} obrigatorio>
+                    <select value={forma.transport_type} onChange={m('transport_type')} className={entrada}>
+                        {o.transportes.map((t) => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
+                    </select>
+                </Campo>
+                <Campo etiqueta="Data do pedido" erro={erros.order_date} obrigatorio><input type="date" value={forma.order_date} onChange={m('order_date')} className={entrada} /></Campo>
+                <Campo etiqueta="Chegada prevista" erro={erros.expected_arrival_date}><input type="date" value={forma.expected_arrival_date} onChange={m('expected_arrival_date')} className={entrada} /></Campo>
+                <Campo etiqueta="País de origem" erro={erros.origin_country} obrigatorio><input value={forma.origin_country} onChange={m('origin_country')} className={entrada} /></Campo>
+                <Campo etiqueta="Porto de origem" erro={erros.origin_port}><input value={forma.origin_port} onChange={m('origin_port')} className={entrada} /></Campo>
+                <Campo etiqueta="Porto de destino" erro={erros.destination_port}><input value={forma.destination_port} onChange={m('destination_port')} className={entrada} /></Campo>
+                <Campo etiqueta="Transportadora" erro={erros.shipping_company}><input value={forma.shipping_company} onChange={m('shipping_company')} className={entrada} /></Campo>
+                <Campo etiqueta="FOB" erro={erros.fob_value} obrigatorio><input type="number" min="0" step="0.01" value={forma.fob_value} onChange={m('fob_value')} className={cls(entrada, 'text-right tabular-nums')} /></Campo>
+                <Campo etiqueta="Frete" erro={erros.freight_cost}><input type="number" min="0" step="0.01" value={forma.freight_cost} onChange={m('freight_cost')} className={cls(entrada, 'text-right tabular-nums')} /></Campo>
+                <Campo etiqueta="Seguro" erro={erros.insurance_cost}><input type="number" min="0" step="0.01" value={forma.insurance_cost} onChange={m('insurance_cost')} className={cls(entrada, 'text-right tabular-nums')} /></Campo>
+                <div className={cls('flex items-center justify-between border border-slate-200 bg-slate-50 px-4 py-2', RAIO)}>
+                    <span className="text-sm text-slate-500">CIF = FOB + frete + seguro</span>
+                    <span className="text-lg font-bold tabular-nums text-slate-900" data-cif>{kz(cif)}</span>
+                </div>
+                <Campo etiqueta="Observações" erro={erros.notes} className="sm:col-span-2">
+                    <textarea rows={2} value={forma.notes} onChange={m('notes')} className={cls(entrada, 'h-auto py-2')} />
+                </Campo>
+            </div>
+        </Modal>
+    );
+}

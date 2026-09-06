@@ -86,6 +86,8 @@ class DocumentosApiController extends Controller
             'parte' => $def['parte'],
             'rota' => $def['rota'],
             'tem_saldo' => $def['tem_saldo'],
+            // Pagar é emitir um recibo: a permissão é essa.
+            'pode_pagar' => $def['tem_saldo'] && (bool) $request->user()?->can('invoicing.receipts.create'),
 
             // Os estados que existem MESMO nesta tabela, e não uma lista
             // inventada: cada documento tem os seus, e um filtro com opções

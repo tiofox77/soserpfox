@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { facturacao, type FacturaDeVenda, type FiltrosDeFacturas } from '@/api/facturacao';
 import { ErroDaApi } from '@/api/cliente';
+import { RegistarPagamento } from '@/ecras/facturacao/RegistarPagamento';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
@@ -38,7 +39,11 @@ const FILTROS_VAZIOS: FiltrosDeFacturas = {
 };
 
 export default function ListaDeFacturas() {
+    const cache = useQueryClient();
     const [filtros, porFiltros] = useState<FiltrosDeFacturas>(FILTROS_VAZIOS);
+    // A factura que se está a pagar, e o que o servidor disse depois.
+    const [aPagar, porAPagar] = useState<FacturaDeVenda | null>(null);
+    const [recado, porRecado] = useState('');
 
     /**
      * Muda-se um filtro, volta-se à primeira página.
@@ -81,6 +86,23 @@ export default function ListaDeFacturas() {
 
     return (
         <div className="space-y-4">
+            {recado && (
+                <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
+                    <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
+                    <button type="button" onClick={() => porRecado('')} aria-label="Fechar" className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
+                </div>
+            )}
+
+            {/* Pagar: o modal partilhado, o mesmo caminho do Livewire. */}
+            {aPagar && (
+                <RegistarPagamento
+                    tipo="sale"
+                    id={aPagar.id}
+                    aoFechar={() => porAPagar(null)}
+                    aoRegistar={(m) => { porAPagar(null); porRecado(m); void cache.invalidateQueries({ queryKey: ['facturas'] }); }}
+                />
+            )}
+
             <Cartao titulo="Filtros">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Campo etiqueta="Procurar">
@@ -207,7 +229,7 @@ export default function ListaDeFacturas() {
                 <SemNada aoLimpar={() => porFiltros(FILTROS_VAZIOS)} />
             ) : (
                 <Cartao titulo="Facturas de venda" semPadding>
-                    <Tabela facturas={facturas} />
+                    <Tabela facturas={facturas} aoPagar={porAPagar} />
                 </Cartao>
             )}
 
@@ -224,7 +246,7 @@ export default function ListaDeFacturas() {
 
 /* ─── Tabela ──────────────────────────────────────────────────────────── */
 
-function Tabela({ facturas }: { facturas: FacturaDeVenda[] }) {
+function Tabela({ facturas, aoPagar: porAPagar }: { facturas: FacturaDeVenda[]; aoPagar: (f: FacturaDeVenda) => void }) {
     return (
         // A tabela rola dentro da sua caixa. Sem isto, uma linha larga põe a
         // PÁGINA a rolar de lado e o menu foge com ela.
@@ -287,7 +309,7 @@ function Tabela({ facturas }: { facturas: FacturaDeVenda[] }) {
                                 )}
                             </td>
                             <td className="px-4 py-3">
-                                <Accoes factura={f} />
+                                <Accoes factura={f} aoPagar={() => porAPagar(f)} />
                             </td>
                         </tr>
                     ))}
@@ -304,9 +326,21 @@ function Tabela({ facturas }: { facturas: FacturaDeVenda[] }) {
  * recibo, a nota de crédito. Reescrever o gerador de PDF para migrar uma
  * LISTA seria trocar o risco de sítio sem ganhar nada.
  */
-function Accoes({ factura }: { factura: FacturaDeVenda }) {
+function Accoes({ factura, aoPagar }: { factura: FacturaDeVenda; aoPagar: () => void }) {
     return (
         <div className="flex items-center justify-end gap-1">
+            {/* Pagar abre o modal partilhado; só com saldo por receber. */}
+            {factura.pode_receber && factura.saldo > 0.01 && (
+                <button
+                    type="button"
+                    onClick={aoPagar}
+                    title="Pagar"
+                    aria-label={`Pagar ${factura.numero}`}
+                    className={cls('p-2 text-emerald-600 transition hover:bg-emerald-50', RAIO, FOCO)}
+                >
+                    <i className="fas fa-money-bill-wave" aria-hidden="true" />
+                </button>
+            )}
             <Accao href={`/invoicing/sales/invoices/${factura.id}`} icone="fa-eye" titulo="Ver" />
             <Accao
                 href={`/invoicing/sales/invoices/${factura.id}/pdf`}

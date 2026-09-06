@@ -194,6 +194,24 @@ return [
                     'blade'    => 'resources/views/livewire/invoicing/advances/advance-create.blade.php',
                     'react'    => 'ecras/facturacao/EmitirAdiantamento.tsx',
                 ],
+                [
+                    'nome'     => 'Guias de transporte',
+                    'livewire' => 'app/Livewire/Invoicing/TransportGuides/TransportGuides.php',
+                    'blade'    => 'resources/views/livewire/invoicing/transport-guides/transport-guides.blade.php',
+                    'react'    => 'ecras/facturacao/GuiasDeTransporte.tsx',
+                ],
+                [
+                    'nome'     => 'Importações',
+                    'livewire' => 'app/Livewire/Invoicing/Imports/Imports.php',
+                    'blade'    => 'resources/views/livewire/invoicing/imports/imports.blade.php',
+                    'react'    => 'ecras/facturacao/Importacoes.tsx',
+                ],
+                [
+                    'nome'     => 'Modal de pagamento',
+                    'livewire' => 'app/Livewire/Invoicing/PaymentModal.php',
+                    'blade'    => 'resources/views/livewire/invoicing/payment-modal.blade.php',
+                    'react'    => 'ecras/facturacao/RegistarPagamento.tsx',
+                ],
             ],
         ],
 

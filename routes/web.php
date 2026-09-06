@@ -449,6 +449,28 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/adiantamentos', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'guardar'])->name('adiantamentos.guardar');
         Route::put('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'actualizar'])->whereNumber('id')->name('adiantamentos.actualizar');
 
+        // Guias de transporte: a emissão, a anulação e a AGT no EmissorDeGuias.
+        Route::get('/guias/opcoes', [\App\Http\Controllers\Api\Invoicing\GuiasApiController::class, 'opcoes'])->name('guias.opcoes');
+        Route::get('/guias', [\App\Http\Controllers\Api\Invoicing\GuiasApiController::class, 'index'])->name('guias.index');
+        Route::get('/guias/facturas/{factura}/linhas', [\App\Http\Controllers\Api\Invoicing\GuiasApiController::class, 'linhasDaFactura'])->whereNumber('factura')->name('guias.linhas');
+        Route::post('/guias', [\App\Http\Controllers\Api\Invoicing\GuiasApiController::class, 'guardar'])->name('guias.guardar');
+        Route::post('/guias/{id}/agt', [\App\Http\Controllers\Api\Invoicing\GuiasApiController::class, 'comunicar'])->whereNumber('id')->name('guias.agt');
+        Route::delete('/guias/{id}', [\App\Http\Controllers\Api\Invoicing\GuiasApiController::class, 'anular'])->whereNumber('id')->name('guias.anular');
+
+        // Importações: o registo e o percurso no GestorDeImportacoes.
+        Route::get('/importacoes/opcoes', [\App\Http\Controllers\Api\Invoicing\ImportacoesApiController::class, 'opcoes'])->name('importacoes.opcoes');
+        Route::get('/importacoes', [\App\Http\Controllers\Api\Invoicing\ImportacoesApiController::class, 'index'])->name('importacoes.index');
+        Route::post('/importacoes', [\App\Http\Controllers\Api\Invoicing\ImportacoesApiController::class, 'guardar'])->name('importacoes.guardar');
+        Route::put('/importacoes/{id}', [\App\Http\Controllers\Api\Invoicing\ImportacoesApiController::class, 'actualizar'])->whereNumber('id')->name('importacoes.actualizar');
+        Route::post('/importacoes/{id}/estado', [\App\Http\Controllers\Api\Invoicing\ImportacoesApiController::class, 'estado'])->whereNumber('id')->name('importacoes.estado');
+        Route::delete('/importacoes/{id}', [\App\Http\Controllers\Api\Invoicing\ImportacoesApiController::class, 'apagar'])->whereNumber('id')->name('importacoes.apagar');
+
+        // Pagar uma factura: recibo, tesouraria, adiantamento e AGT no RegistoDePagamento.
+        Route::get('/pagamentos/{tipo}/{factura}', [\App\Http\Controllers\Api\Invoicing\PagamentoApiController::class, 'contexto'])
+            ->where('tipo', 'sale|purchase')->whereNumber('factura')->name('pagamentos.contexto');
+        Route::post('/pagamentos/{tipo}/{factura}', [\App\Http\Controllers\Api\Invoicing\PagamentoApiController::class, 'registar'])
+            ->where('tipo', 'sale|purchase')->whereNumber('factura')->name('pagamentos.registar');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');
