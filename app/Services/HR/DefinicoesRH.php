@@ -209,6 +209,21 @@ class DefinicoesRH
                 'display_order' => 3,
             ],
             [
+                // Decide se a entrada «Turnos» aparece no menu de RH. Vinha de
+                // uma migração de 2025 e faltava aqui: as empresas nascidas
+                // depois nunca a viam no ecrã e o menu lia o valor escrito
+                // no PHP.
+                'category' => 'worktime',
+                'key' => 'uses_shifts',
+                'label' => 'Trabalha por Turnos?',
+                'description' => 'Ativar se a empresa opera com sistema de turnos',
+                'value' => '0',
+                'default_value' => '0',
+                'value_type' => 'boolean',
+                'validation_rules' => 'boolean',
+                'display_order' => 4,
+            ],
+            [
                 'category' => 'worktime',
                 'key' => 'work_on_saturday',
                 'label' => 'Trabalha ao Sábado',

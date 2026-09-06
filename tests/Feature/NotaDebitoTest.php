@@ -116,20 +116,29 @@ class NotaDebitoTest extends TenantTestCase
         // Guarda contra regressão do defeito bloqueante: net_total usava o
         // subtotal BRUTO enquanto as linhas descontavam, e o cliente era
         // debitado a mais exactamente no valor do desconto.
-        $codigo = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
+        //
+        // A emissão vive no EmissorDeNotas — o mesmo que o ecrã Livewire e a
+        // API em React chamam — e é lá que o net_total se fecha com a base
+        // líquida de descontos.
+        $servico = file_get_contents(app_path('Services/Invoicing/EmissorDeNotas.php'));
 
-        $this->assertStringContainsString('$ndNetTotal', $codigo);
-        $this->assertStringContainsString("\$debitNote->net_total   = round(\$ndNetTotal, 2)", $codigo);
-        $this->assertStringNotContainsString("'net_total' => \$totals['subtotal_original']", $codigo);
+        $this->assertStringContainsString('$netLiquido', $servico);
+        $this->assertStringContainsString("\$nota->net_total = round(\$netLiquido, 2)", $servico);
+
+        $ecra = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
+        $this->assertStringContainsString('emitirDebito', $ecra, 'o ecrã tem de passar pelo emissor');
+        $this->assertStringNotContainsString("'net_total' => \$totals['subtotal_original']", $ecra);
     }
 
     public function test_a_retencao_e_proporcional_a_base_da_nota(): void
     {
         // Copiar o withholding_tax_amount da factura fazia uma ND de 10.000 Kz
         // sobre uma factura de 1.000.000 Kz declarar 65.000 Kz de retenção.
-        $codigo = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
+        $servico = file_get_contents(app_path('Services/Invoicing/EmissorDeNotas.php'));
 
-        $this->assertStringContainsString('$ndNetTotal * $percentagem / 100', $codigo);
-        $this->assertStringNotContainsString("'withholding_tax_amount'      => \$ret->withholding_tax_amount", $codigo);
+        $this->assertStringContainsString('$proporcionalA * $percentagem / 100', $servico);
+
+        $ecra = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
+        $this->assertStringNotContainsString("'withholding_tax_amount'      => \$ret->withholding_tax_amount", $ecra);
     }
 }
