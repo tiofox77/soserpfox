@@ -36,6 +36,8 @@ export type ClienteParaGravar = Omit<
 > & {
     portal_password?: string;
     portal_repor_senha?: boolean;
+    /** Desligado, o acesso é dado sem email de boas-vindas. */
+    portal_avisar?: boolean;
 };
 
 export type FiltrosDeClientes = {
@@ -79,6 +81,11 @@ function paraGravar(dados: ClienteParaGravar): ClienteParaGravar {
 
     if (!corpo.portal_repor_senha) {
         delete corpo.portal_repor_senha;
+    }
+
+    // Avisar é a omissão do servidor: só viaja quando se DESLIGA.
+    if (corpo.portal_avisar !== false) {
+        delete corpo.portal_avisar;
     }
 
     return corpo;

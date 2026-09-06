@@ -297,4 +297,59 @@ class AcessoAoPortalTest extends TenantTestCase
         $this->assertStringContainsString('delete corpo.portal_repor_senha', $modulo);
         $this->assertStringContainsString('paraGravar(dados)', $modulo);
     }
+    /**
+     * DAR ACESSO SEM ANUNCIAR.
+     *
+     * Nem todo o acesso se anuncia: prepara-se a conta hoje e entrega-se a
+     * senha em mão na visita da semana que vem. O ecrã em Livewire deixava
+     * escolher (`portal_avisar`); ao migrar para React a API passou a avisar
+     * sempre — e um email de boas-vindas com a senha lá dentro não se
+     * desmanda depois de sair.
+     *
+     * @test
+     */
+    public function o_ecra_pode_dar_acesso_sem_mandar_email(): void
+    {
+        $this->comModulo("invoicing");
+        $this->comPermissoes("invoicing.clients.create", "invoicing.clients.view");
+
+        Mail::fake();
+
+        $id = $this->postJson("/api/v1/invoicing/react/clients", [
+            "name" => "Cliente Calado",
+            "type" => "pessoa_juridica",
+            "nif" => "5000000700",
+            "email" => "calado" . uniqid() . "@exemplo.ao",
+            "country" => "AO",
+            "portal_access" => true,
+            "portal_avisar" => false,
+        ])->assertCreated()->json("data.id");
+
+        $cliente = Client::find($id);
+
+        $this->assertTrue((bool) $cliente->portal_access, "o acesso liga-se na mesma");
+        $this->assertNotNull($cliente->password);
+
+        Mail::assertNothingSent();
+    }
+
+    /** E a omissão continua a ser avisar: quem não manda nada não vê diferença. @test */
+    public function por_omissao_o_cliente_continua_a_ser_avisado(): void
+    {
+        $this->comModulo("invoicing");
+        $this->comPermissoes("invoicing.clients.create", "invoicing.clients.view");
+
+        Mail::fake();
+
+        $this->postJson("/api/v1/invoicing/react/clients", [
+            "name" => "Cliente Avisado",
+            "type" => "pessoa_juridica",
+            "nif" => "5000000701",
+            "email" => "avisado" . uniqid() . "@exemplo.ao",
+            "country" => "AO",
+            "portal_access" => true,
+        ])->assertCreated();
+
+        Mail::assertSent(AcessoAoPortalDoCliente::class);
+    }
 }

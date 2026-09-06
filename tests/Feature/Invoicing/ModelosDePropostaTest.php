@@ -390,4 +390,26 @@ class ModelosDePropostaTest extends TenantTestCase
             'blocos' => [], 'estilos' => QuoteTemplate::ESTILOS_PADRAO,
         ]));
     }
+    /**
+     * ARRASTAR PARA ORDENAR, como o editor em Blade fazia.
+     *
+     * Passar para setas foi um passo atrás que ninguém pediu: mover um bloco
+     * do fim para o princípio pedia doze cliques. As setas ficam (é o caminho
+     * de quem usa teclado; arrastar não é acessível), e a ordem nova vai numa
+     * viagem só — não uma por passo.
+     *
+     * @test
+     */
+    public function o_editor_reordena_a_arrastar(): void
+    {
+        $ecra = file_get_contents(resource_path("js/ecras/facturacao/EditorDeModelo.tsx"));
+
+        $this->assertStringContainsString("draggable", $ecra, "os blocos arrastam-se");
+        $this->assertStringContainsString("onDragStart", $ecra);
+        $this->assertStringContainsString("accao: 'reordenar'", $ecra,
+            "largar manda a ordem inteira, e é o servidor que a grava");
+
+        // E as setas não desapareceram com o arrastar.
+        $this->assertStringContainsString("accao: 'mover'", $ecra);
+    }
 }

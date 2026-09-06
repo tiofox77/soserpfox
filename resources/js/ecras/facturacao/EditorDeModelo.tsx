@@ -44,12 +44,39 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
     const [seleccionado, porSeleccionado] = useState<string | null>(inicial.seleccionado);
     const [mostrarVariaveis, porMostrarVariaveis] = useState(false);
     const [recado, porRecado] = useState('');
+    // O bloco que se está a arrastar, e aquele por cima do qual paira.
+    const [arrastado, porArrastado] = useState<string | null>(null);
+    const [alvo, porAlvo] = useState<string | null>(null);
 
     const accao = useMutation({
         mutationFn: (corpo: Record<string, unknown>) => modelos.accao(id, { seleccionado, ...corpo }),
         onSuccess: (r) => { porEstado(r.estado); porPrevia(r.previa); porSeleccionado(r.estado.seleccionado); if (r.message) porRecado(r.message); },
     });
     const fazer = (corpo: Record<string, unknown>) => accao.mutate(corpo);
+
+    /**
+     * Larga-se o bloco: a ordem nova vai inteira, de uma vez.
+     *
+     * Quem decide é o servidor (`reordenar`), como em todas as outras acções
+     * deste editor — aqui só se diz a ordem em que os blocos ficaram.
+     */
+    const largar = () => {
+        if (!arrastado || !alvo || arrastado === alvo) {
+            porArrastado(null);
+            porAlvo(null);
+
+            return;
+        }
+
+        const ids = estado.blocos.map((b) => b.id).filter((id) => id !== arrastado);
+        const onde = ids.indexOf(alvo);
+
+        ids.splice(onde < 0 ? ids.length : onde, 0, arrastado);
+
+        porArrastado(null);
+        porAlvo(null);
+        fazer({ accao: 'reordenar', ids });
+    };
 
     const bloco = estado.blocos.find((b) => b.id === seleccionado) ?? null;
     const nomeDoTipo = (tipo: string) => catalogo.find((c) => c.tipo === tipo)?.nome ?? tipo;
@@ -91,9 +118,34 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                         </div>
                     </Cartao>
                     <Cartao titulo={t('Blocos')} semPadding>
-                        <ol className="divide-y divide-slate-100" data-blocos>
+                        {/* ARRASTAR PARA ORDENAR.
+                            O editor em Blade reordenava a arrastar, e passar
+                            para setas foi um passo atrás: mover um bloco do
+                            fim para o princípio pedia doze cliques. As setas
+                            ficam — são o caminho de quem usa teclado, e o
+                            arrastar não é acessível. A ordem final é UMA
+                            viagem ao servidor (`reordenar`), não uma por
+                            passo. */}
+                        <ol className="divide-y divide-slate-100" data-blocos onDragOver={(e) => e.preventDefault()}>
                             {estado.blocos.map((b, i) => (
-                                <li key={b.id} className={cls('flex items-center gap-1 px-2 py-1.5 text-sm', b.id === seleccionado && 'bg-indigo-50')}>
+                                <li
+                                    key={b.id}
+                                    draggable
+                                    onDragStart={() => porArrastado(b.id)}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        if (arrastado && arrastado !== b.id) porAlvo(b.id);
+                                    }}
+                                    onDragEnd={largar}
+                                    onDrop={largar}
+                                    className={cls(
+                                        'flex items-center gap-1 px-2 py-1.5 text-sm',
+                                        b.id === seleccionado && 'bg-indigo-50',
+                                        b.id === alvo && arrastado !== b.id && 'border-t-2 border-indigo-400',
+                                        b.id === arrastado && 'opacity-50',
+                                    )}
+                                >
+                                    <i className="fas fa-grip-vertical cursor-grab text-xs text-slate-300" aria-hidden="true" />
                                     <button type="button" onClick={() => porSeleccionado(b.id)} className={cls('flex-1 truncate text-left', FOCO, RAIO)} aria-current={b.id === seleccionado}>
                                         <span className="mr-1 text-xs text-slate-400">{i + 1}.</span>{nomeDoTipo(b.tipo)}{typeof b.titulo === 'string' && b.titulo && <span className="ml-1 text-xs text-slate-500">· {b.titulo}</span>}
                                     </button>

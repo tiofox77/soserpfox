@@ -792,6 +792,25 @@ function AcessoAoPortal({
                         </p>
                     )}
 
+                    {/* AVISAR, OU NÃO.
+                        Nem todo o acesso se anuncia: prepara-se a conta hoje e
+                        entrega-se a senha em mão na visita da semana que vem.
+                        Por omissão avisa-se, que é o caso normal. */}
+                    <label className="flex items-start gap-2 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            checked={dados.portal_avisar !== false}
+                            onChange={(e) => aoMudar({ ...dados, portal_avisar: e.target.checked })}
+                            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                        />
+                        <span>
+                            {t('Avisar o cliente por email')}
+                            <span className="mt-0.5 block text-xs text-slate-500">
+                                {t('Desligue se preferir entregar a senha em mão.')}
+                            </span>
+                        </span>
+                    </label>
+
                     <Campo etiqueta={t('Senha do portal')} erro={erros.portal_password}>
                         <input
                             type="text"

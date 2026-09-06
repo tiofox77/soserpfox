@@ -244,6 +244,7 @@ class ClientApiController extends Controller
             'portal_access' => ['nullable', 'boolean'],
             'portal_password' => ['nullable', 'string', 'min:6', 'max:60'],
             'portal_repor_senha' => ['nullable', 'boolean'],
+            'portal_avisar' => ['nullable', 'boolean'],
             'email' => [
                 Rule::requiredIf(fn () => $request->boolean('portal_access') || $request->boolean('portal_repor_senha')),
                 'nullable', 'email', 'max:150',
@@ -259,7 +260,7 @@ class ClientApiController extends Controller
 
         // Estes não são colunas do cliente — são uma ordem para o serviço do
         // portal, tratada depois de a ficha estar gravada.
-        unset($dados['portal_access'], $dados['portal_password'], $dados['portal_repor_senha']);
+        unset($dados['portal_access'], $dados['portal_password'], $dados['portal_repor_senha'], $dados['portal_avisar']);
 
         return $dados;
     }
@@ -278,6 +279,19 @@ class ClientApiController extends Controller
         $repoe = $request->boolean('portal_repor_senha');
         $escolhida = $request->input('portal_password') ?: null;
 
+        /*
+         * AVISAR O CLIENTE, OU NÃO.
+         *
+         * Nem todo o acesso se anuncia: prepara-se a conta hoje e entrega-se a
+         * senha em mão na visita da semana que vem. O ecrã em Livewire deixava
+         * escolher; ao migrar, a API passou a avisar sempre — e um email de
+         * boas-vindas com a senha lá dentro não se desmanda.
+         *
+         * A omissão é avisar, que é o que acontece na esmagadora maioria das
+         * vezes e o que a API já fazia: quem não manda nada não vê diferença.
+         */
+        $avisa = ! $request->has('portal_avisar') || $request->boolean('portal_avisar');
+
         if (!$request->has('portal_access') && !$repoe) {
             return;
         }
@@ -291,7 +305,7 @@ class ClientApiController extends Controller
         }
 
         if ($repoe || $escolhida || !$cliente->password) {
-            app(AcessoAoPortal::class)->conceder($cliente, $escolhida);
+            app(AcessoAoPortal::class)->conceder($cliente, $escolhida, $avisa);
         }
     }
 }

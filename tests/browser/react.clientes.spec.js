@@ -121,7 +121,9 @@ test('o acesso ao portal aparece e pede o email', async ({ page }) => {
     await expect(janela.getByLabel('Senha do portal')).toBeVisible();
 
     // Com email, o aviso sai da frente.
-    await janela.getByLabel('Email').fill('portal.ensaio@exemplo.ao');
+    // Exacto: o bloco do portal tem «Avisar o cliente por email», e o
+    // getByLabel por pedaço apanhava os dois.
+    await janela.getByLabel('Email', { exact: true }).fill('portal.ensaio@exemplo.ao');
     await expect(janela.getByText('é por lá que o cliente entra no portal')).toHaveCount(0);
 });
 
