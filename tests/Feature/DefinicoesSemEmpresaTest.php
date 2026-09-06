@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Settings;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -19,10 +17,21 @@ use Tests\TenantTestCase;
  * dava 500 em producao.
  *
  * Duas promessas a guardar: nunca se escreve uma linha sem empresa, e o ecra
- * diz o que se passa em vez de estoirar.
+ * diz o que se passa em vez de estoirar. O ecra passou a React e quem
+ * responde e a API `/api/v1/invoicing/react/definicoes` — a promessa e a
+ * mesma, so muda quem a cumpre.
  */
 class DefinicoesSemEmpresaTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/definicoes';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->comModulo('invoicing');
+    }
+
     private function utilizadorSemEmpresa(): User
     {
         $u = User::create([
@@ -72,19 +81,25 @@ class DefinicoesSemEmpresaTest extends TenantTestCase
         $this->assertFalse($definicoes->exists, 'nao pode estar gravado na base');
     }
 
-    /** O ecra abre e explica-se, em vez de dar 500. */
+    /**
+     * A API recusa-se a servir o ecra, e DIZ PORQUE.
+     *
+     * Nao e um 500 nem um corpo vazio: e uma recusa com um codigo que o ecra
+     * sabe ler para pedir a escolha da empresa. Um ecra em branco lia-se como
+     * avaria; isto le-se como o que e.
+     */
     public function test_o_ecra_diz_o_que_se_passa(): void
     {
         $this->actingAs($this->utilizadorSemEmpresa());
 
-        Livewire::test(Settings::class)
-            ->assertOk()
-            ->assertSee('Nenhuma empresa activa')
-            ->assertSee('Escolha primeiro a empresa');
+        $r = $this->getJson(self::RAIZ)->assertStatus(403);
+
+        $this->assertSame('no_active_tenant', $r->json('code'));
+        $this->assertStringContainsString('empresa', mb_strtolower((string) $r->json('error')));
     }
 
     /**
-     * E NAO mostra a ficha. Deixar o formulario a desenhar-se contra os valores
+     * E NAO manda a ficha. Deixar o formulario desenhar-se contra os valores
      * por omissao de uma linha que nao existe era pior do que o erro: quem o
      * preenchesse estaria a escrever para o vazio.
      */
@@ -92,23 +107,32 @@ class DefinicoesSemEmpresaTest extends TenantTestCase
     {
         $this->actingAs($this->utilizadorSemEmpresa());
 
-        $html = Livewire::test(Settings::class)->html();
+        $r = $this->getJson(self::RAIZ);
 
-        // Pelo campo desenhado e nao pelo nome da propriedade: o Livewire poe
-        // as propriedades publicas todas no snapshot, e procurar la o nome
-        // dava sempre positivo, com ficha ou sem ela.
-        $this->assertStringNotContainsString('wire:model="default_currency"', $html,
-            'a ficha esta la para ser preenchida');
-        $this->assertStringNotContainsString('wire:submit', $html);
-        $this->assertLessThan(20000, strlen($html), 'isto ainda parece a ficha toda');
+        $this->assertNull($r->json('definicoes'), 'a ficha esta la para ser preenchida');
+        $this->assertNull($r->json('series'));
+        $this->assertNull($r->json('permissoes.pode_editar'));
+    }
+
+    /** E gravar tambem nao passa: sem empresa nao ha onde escrever. */
+    public function test_sem_empresa_nao_se_grava_pela_api(): void
+    {
+        $this->actingAs($this->utilizadorSemEmpresa());
+
+        $this->putJson(self::RAIZ, ['default_currency' => 'USD'])->assertStatus(403);
+
+        $this->assertSame(0, DB::table('invoicing_settings')->whereNull('tenant_id')->count());
     }
 
     /** Com empresa, a ficha aparece na mesma. */
     public function test_com_empresa_a_ficha_continua_a_aparecer(): void
     {
-        Livewire::test(Settings::class)
-            ->assertOk()
-            ->assertDontSee('Nenhuma empresa activa');
+        $this->comPermissoes('invoicing.settings.view');
+
+        $r = $this->getJson(self::RAIZ)->assertOk();
+
+        $this->assertSame('AOA', $r->json('definicoes.default_currency'));
+        $this->assertNotEmpty($r->json('series.tipos'));
     }
 
     /** Com empresa continua tudo como estava: le, cria uma vez, e reaproveita. */

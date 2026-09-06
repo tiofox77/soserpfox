@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Products;
 use App\Models\Product;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -13,9 +11,16 @@ use Tests\TenantTestCase;
  * O POS já tem os seus testes. Estes cobrem o outro lado: gravar, editar,
  * filtrar — que é por onde os dados entram. Se a gravação falhar, o aviso de
  * receita no balcão nunca chega a ter o que avisar.
+ *
+ * O ecrã dos artigos deixou o Livewire: quem grava agora é a API em
+ * `/api/v1/invoicing/react/products`, e é a ela que estes ensaios se dirigem.
+ * As regras são as mesmas — nenhum destes campos é obrigatório, o género é
+ * uma lista fechada, e o que se grava tem de se voltar a ler.
  */
 class CatalogoFarmaciaVestuarioTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/products';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,57 +32,66 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
         );
     }
 
-    /**
-     * O formulário com o mínimo obrigatório já preenchido.
-     *
-     * A categoria e a taxa são exigidas pelo formulário há muito — e é bom
-     * sinal que sejam: um artigo sem imposto sai numa factura sem IVA e a AGT
-     * recusa-a. O que aqui se testa são os campos NOVOS, portanto o resto vai
-     * preenchido para não estorvar.
-     */
-    private function formulario()
+    private function categoria(): \App\Models\Category
     {
-        $categoria = \App\Models\Category::firstOrCreate(
+        return \App\Models\Category::firstOrCreate(
             ['tenant_id' => $this->tenant->id, 'name' => 'Geral'],
             ['is_active' => true]
         );
+    }
 
-        return Livewire::test(Products::class)
-            ->call('create')
-            ->set('name', 'Artigo de Teste')
-            ->set('code', 'T-' . uniqid())
-            ->set('price', 1000)
-            ->set('type', 'produto')
-            ->set('category_id', $categoria->id)
-            ->set('tax_rate_id', $this->imposto->id);
+    /**
+     * O corpo com o mínimo obrigatório já preenchido.
+     *
+     * A categoria e o imposto são exigidos pela API há muito — e é bom sinal
+     * que sejam: um artigo sem imposto sai numa factura sem IVA e a AGT
+     * recusa-a. O que aqui se testa são os campos de SECTOR, portanto o resto
+     * vai preenchido para não estorvar.
+     */
+    private function corpo(array $por = []): array
+    {
+        return array_merge([
+            'name' => 'Artigo de Teste',
+            'type' => 'produto',
+            'unit' => 'un',
+            'price' => 1000,
+            'category_id' => $this->categoria()->id,
+            'tax_type' => 'iva',
+            'tax_rate_id' => $this->imposto->id,
+        ], $por);
     }
 
     /**
      * Um artigo já gravado.
      *
-     * Leva categoria e taxa porque o formulário as exige: sem elas, um
-     * `save()` num teste de edição falha na validação em SILÊNCIO e o teste
-     * passa a medir a validação em vez do que queria medir. Custou-me dois
-     * falsos negativos.
+     * Leva categoria e taxa porque o formulário as exige: sem elas, uma
+     * gravação num teste de edição falha na validação e o teste passa a medir
+     * a validação em vez do que queria medir. Custou-me dois falsos negativos.
      */
     private function artigo(array $campos = []): Product
     {
-        $categoria = \App\Models\Category::firstOrCreate(
-            ['tenant_id' => $this->tenant->id, 'name' => 'Geral'],
-            ['is_active' => true]
-        );
-
         return Product::create(array_merge([
             'tenant_id'   => $this->tenant->id,
             'name'        => 'Artigo ' . uniqid(),
             'code'        => 'A-' . uniqid(),
             'price'       => 1000,
             'type'        => 'produto',
+            'unit'        => 'un',
             'is_active'   => true,
             'tax_id'      => $this->imposto->id,
-            'category_id' => $categoria->id,
+            'tax_type'    => 'iva',
+            'category_id' => $this->categoria()->id,
             'tax_rate_id' => $this->imposto->id,
         ], $campos));
+    }
+
+    /** A linha deste artigo na lista da API. */
+    private function daLista(int $id, array $filtros = []): ?array
+    {
+        $resposta = $this->getJson(self::RAIZ . '?' . http_build_query($filtros + ['por_pagina' => 100]))
+            ->assertOk();
+
+        return collect($resposta->json('data'))->firstWhere('id', $id);
     }
 
     // ==================== gravar ====================
@@ -85,16 +99,15 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
     /** Um medicamento grava os seus campos todos. */
     public function test_um_medicamento_grava_os_campos_de_farmacia(): void
     {
-        $this->formulario()
-            ->set('name', 'Paracetamol 500mg')
-            ->set('requires_prescription', true)
-            ->set('is_controlled', false)
-            ->set('active_ingredient', 'Paracetamol')
-            ->set('dosage', '500mg')
-            ->set('pharmaceutical_form', 'comprimido')
-            ->set('armed_registration', 'ARMED-12345')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->postJson(self::RAIZ, $this->corpo([
+            'name' => 'Paracetamol 500mg',
+            'requires_prescription' => true,
+            'is_controlled' => false,
+            'active_ingredient' => 'Paracetamol',
+            'dosage' => '500mg',
+            'pharmaceutical_form' => 'comprimido',
+            'armed_registration' => 'ARMED-12345',
+        ]))->assertCreated();
 
         $p = Product::where('tenant_id', $this->tenant->id)
             ->where('name', 'Paracetamol 500mg')
@@ -111,14 +124,13 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
     /** Uma peça de roupa grava os seus. */
     public function test_uma_peca_de_roupa_grava_os_campos_de_vestuario(): void
     {
-        $this->formulario()
-            ->set('name', 'T-shirt Algodão')
-            ->set('size', 'M')
-            ->set('color', 'Azul-marinho')
-            ->set('gender', 'unissexo')
-            ->set('material', '100% algodão')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->postJson(self::RAIZ, $this->corpo([
+            'name' => 'T-shirt Algodão',
+            'size' => 'M',
+            'color' => 'Azul-marinho',
+            'gender' => 'unissexo',
+            'material' => '100% algodão',
+        ]))->assertCreated();
 
         $p = Product::where('name', 'T-shirt Algodão')->first();
 
@@ -136,10 +148,8 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
      */
     public function test_um_artigo_comum_grava_sem_nenhum_destes_campos(): void
     {
-        $this->formulario()
-            ->set('name', 'Saco Plástico')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->postJson(self::RAIZ, $this->corpo(['name' => 'Saco Plástico']))
+            ->assertCreated();
 
         $p = Product::where('name', 'Saco Plástico')->first();
 
@@ -152,15 +162,27 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
     /** Um género inventado é recusado. */
     public function test_um_genero_invalido_nao_passa(): void
     {
-        $this->formulario()
-            ->set('gender', 'qualquer-coisa')
-            ->call('save')
-            ->assertHasErrors('gender');
+        $this->postJson(self::RAIZ, $this->corpo(['gender' => 'qualquer-coisa']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('gender');
+    }
+
+    /** E uma conservação inventada também: isto manda em que prateleira o artigo vive. */
+    public function test_uma_conservacao_invalida_nao_passa(): void
+    {
+        $this->postJson(self::RAIZ, $this->corpo(['storage_conditions' => 'no-carro']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('storage_conditions');
     }
 
     // ==================== editar ====================
 
-    /** Editar carrega os campos que já lá estavam. */
+    /**
+     * Editar carrega os campos que já lá estavam.
+     *
+     * O formulário em React lê a ficha da lista, e é por isso que os campos
+     * de sector VÃO SEMPRE na resposta — mesmo a null.
+     */
     public function test_editar_um_medicamento_carrega_os_campos(): void
     {
         $p = $this->artigo([
@@ -170,11 +192,17 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
             'dosage'                => '250mg',
         ]);
 
-        Livewire::test(Products::class)
-            ->call('edit', $p->id)
-            ->assertSet('requires_prescription', true)
-            ->assertSet('active_ingredient', 'Amoxicilina tri-hidratada')
-            ->assertSet('dosage', '250mg');
+        $linha = $this->daLista($p->id);
+
+        $this->assertTrue($linha['requires_prescription']);
+        $this->assertSame('Amoxicilina tri-hidratada', $linha['active_ingredient']);
+        $this->assertSame('250mg', $linha['dosage']);
+
+        // As chaves existem mesmo quando não há valor: uma chave omitida
+        // deixava no ecrã o valor do artigo anterior.
+        foreach (['size', 'color', 'gender', 'storage_conditions'] as $campo) {
+            $this->assertArrayHasKey($campo, $linha, "O campo {$campo} tem de vir sempre.");
+        }
     }
 
     /**
@@ -187,10 +215,10 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
     {
         $p = $this->artigo(['requires_prescription' => true]);
 
-        Livewire::test(Products::class)
-            ->call('edit', $p->id)
-            ->set('requires_prescription', false)
-            ->call('save');
+        $this->putJson(self::RAIZ . '/' . $p->id, $this->corpo([
+            'name' => $p->name,
+            'requires_prescription' => false,
+        ]))->assertOk();
 
         $this->assertFalse((bool) $p->fresh()->requires_prescription);
     }
@@ -203,15 +231,11 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
         $comReceita = $this->artigo(['name' => 'Antibiótico X', 'requires_prescription' => true]);
         $livre      = $this->artigo(['name' => 'Vitamina C', 'requires_prescription' => false]);
 
-        Livewire::test(Products::class)
-            ->set('filterPrescricao', 'sim')
-            ->assertSee('Antibiótico X')
-            ->assertDontSee('Vitamina C');
+        $this->assertNotNull($this->daLista($comReceita->id, ['prescricao' => 'sim']));
+        $this->assertNull($this->daLista($livre->id, ['prescricao' => 'sim']));
 
-        Livewire::test(Products::class)
-            ->set('filterPrescricao', 'nao')
-            ->assertSee('Vitamina C')
-            ->assertDontSee('Antibiótico X');
+        $this->assertNotNull($this->daLista($livre->id, ['prescricao' => 'nao']));
+        $this->assertNull($this->daLista($comReceita->id, ['prescricao' => 'nao']));
     }
 
     /**
@@ -235,26 +259,20 @@ class CatalogoFarmaciaVestuarioTest extends TenantTestCase
             'Sem valor, um artigo é de venda livre.'
         );
 
-        Livewire::test(Products::class)
-            ->set('filterPrescricao', 'nao')
-            ->assertSee('Artigo Migrado');
+        $this->assertNotNull($this->daLista($migrado->id, ['prescricao' => 'nao']));
     }
 
     /** Os filtros de tamanho e cor encontram a peça certa. */
     public function test_os_filtros_de_tamanho_e_cor_encontram_a_peca(): void
     {
-        $this->artigo(['name' => 'Calça Preta 42', 'size' => '42', 'color' => 'Preto']);
-        $this->artigo(['name' => 'Calça Azul 38', 'size' => '38', 'color' => 'Azul']);
+        $preta = $this->artigo(['name' => 'Calça Preta 42', 'size' => '42', 'color' => 'Preto']);
+        $azul  = $this->artigo(['name' => 'Calça Azul 38', 'size' => '38', 'color' => 'Azul']);
 
-        Livewire::test(Products::class)
-            ->set('filterTamanho', '42')
-            ->assertSee('Calça Preta 42')
-            ->assertDontSee('Calça Azul 38');
+        $this->assertNotNull($this->daLista($preta->id, ['tamanho' => '42']));
+        $this->assertNull($this->daLista($azul->id, ['tamanho' => '42']));
 
-        Livewire::test(Products::class)
-            ->set('filterCor', 'Azul')
-            ->assertSee('Calça Azul 38')
-            ->assertDontSee('Calça Preta 42');
+        $this->assertNotNull($this->daLista($azul->id, ['cor' => 'Azul']));
+        $this->assertNull($this->daLista($preta->id, ['cor' => 'Azul']));
     }
 
     // ==================== procurar ====================

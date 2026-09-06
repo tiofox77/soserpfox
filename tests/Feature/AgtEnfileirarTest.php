@@ -187,9 +187,9 @@ class AgtEnfileirarTest extends TenantTestCase
         ];
 
         foreach ([
-            'app/Livewire/Invoicing/Sales/InvoiceCreate.php',
-            'app/Livewire/Invoicing/CreditNotes/CreditNoteCreate.php',
-            'app/Livewire/Invoicing/DebitNotes/DebitNoteCreate.php',
+            'app/Http/Controllers/Api/Invoicing/FacturaApiController.php',
+            'app/Http/Controllers/Api/Invoicing/NotasApiController.php',
+            'app/Http/Controllers/Api/Invoicing/EmissorApiController.php',
         ] as $ecra) {
             $this->assertStringNotContainsString('submitToAGT(', file_get_contents(base_path($ecra)),
                 basename($ecra) . ' voltou a enviar à AGT no mesmo pedido.');

@@ -45,6 +45,24 @@ export type FiltrosDeFacturas = {
     page?: number;
 };
 
+/**
+ * Os cartões do topo da lista.
+ *
+ * Vêm somados do SERVIDOR sobre a consulta já filtrada — não são a soma da
+ * página à vista, que mudava ao carregar em «Seguinte». A regra («por receber»
+ * é o que falta, nunca o nome do estado) vive no `SomasDasFacturas`.
+ */
+export type SomasDasFacturas = {
+    facturado: number;
+    por_receber: number;
+    vencido: number;
+};
+
+/** A página de facturas traz as somas dentro do `meta`, ao lado das contagens. */
+export type PaginaDeFacturas = Omit<Pagina<FacturaDeVenda>, 'meta'> & {
+    meta: Pagina<FacturaDeVenda>['meta'] & { somas: SomasDasFacturas };
+};
+
 export type OpcoesDasFacturas = {
     armazens: Array<{ id: number; name: string }>;
     estados: Array<{ valor: string; rotulo: string }>;
@@ -59,7 +77,7 @@ export type OpcoesDasFacturas = {
 
 export const facturacao = {
     facturasDeVenda: (filtros: FiltrosDeFacturas) =>
-        api.ler<Pagina<FacturaDeVenda>>('/sales-invoices', filtros),
+        api.ler<PaginaDeFacturas>('/sales-invoices', filtros),
 
     opcoesDasFacturas: () => api.ler<OpcoesDasFacturas>('/sales-invoices/opcoes'),
 };

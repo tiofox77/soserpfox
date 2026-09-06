@@ -4,6 +4,7 @@ import { relatorios } from '@/api/relatorios';
 import { ErroDaApi } from '@/api/cliente';
 import { Carregando } from '@/ui/Carregando';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * A PORTA DOS RELATÓRIOS: as secções e os mapas de cada uma, como o
@@ -22,8 +23,8 @@ export default function RelatoriosHub() {
     if (q.isError) {
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir os relatórios</h2>
-                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : 'Verifique a ligação.'}</p>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir os relatórios')}</h2>
+                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}</p>
             </div>
         );
     }
@@ -31,8 +32,8 @@ export default function RelatoriosHub() {
     return (
         <div className="space-y-6" data-hub>
             <div className={cls('bg-gradient-to-r from-indigo-600 to-indigo-500 p-6 text-white', RAIO)}>
-                <h1 className="text-2xl font-bold">Relatórios</h1>
-                <p className="text-sm text-indigo-100">Análises e mapas operacionais da gestão de faturação</p>
+                <h1 className="text-2xl font-bold">{t('Relatórios')}</h1>
+                <p className="text-sm text-indigo-100">{t('Análises e mapas operacionais da gestão de faturação')}</p>
             </div>
             {q.data.seccoes.map((s) => (
                 <section key={s.titulo} aria-label={s.titulo}>

@@ -2,10 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Products;
 use App\Models\Product;
-use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -218,61 +215,91 @@ class ProdutosGerirStockTest extends TenantTestCase
     // ══════════════ a causa ══════════════
 
     /**
-     * Sem as permissões, o create() e o edit() devolvem cedo com um erro no
-     * ecrã e NÃO tocam nas propriedades — e um teste que só olhe para o valor
-     * inicial passaria pela razão errada, sem nunca ter corrido o código.
+     * O ecrã dos artigos é React e grava pela API. O que era o valor inicial
+     * de uma propriedade do componente é hoje a omissão do
+     * `ProductApiController` — e é lá que se prova.
+     *
+     * Sem as permissões o controlador responde 403 e não corre código nenhum,
+     * pelo que um ensaio sem elas passaria pela razão errada.
      */
+    private const ARTIGOS = '/api/v1/invoicing/react/products';
+
     private function comAcessoAProdutos(): void
     {
-        $this->comPermissoes('invoicing.products.create', 'invoicing.products.edit');
+        $this->comModulo('invoicing')
+             ->comPermissoes('invoicing.products.create', 'invoicing.products.edit');
     }
 
-    public function test_o_formulario_nasce_com_o_stock_ligado(): void
+    private function corpo(array $por = []): array
+    {
+        return array_merge([
+            'name' => 'Paracetamol 500mg',
+            'type' => 'produto',
+            'price' => 500,
+            'unit' => 'un',
+            'category_id' => \App\Models\Category::firstOrCreate(
+                ['tenant_id' => $this->tenant->id, 'name' => 'Geral'],
+                ['is_active' => true]
+            )->id,
+            'tax_type' => 'isento',
+            'exemption_reason' => 'M99',
+        ], $por);
+    }
+
+    /** UM ARTIGO NOVO NASCE A GERIR STOCK — é a correcção da causa. */
+    public function test_um_artigo_novo_nasce_com_o_stock_ligado(): void
     {
         $this->comAcessoAProdutos();
 
-        Livewire::actingAs($this->user)
-            ->test(Products::class)
-            ->call('create')
-            ->assertSet('manage_stock', true);
-    }
+        // Sem falar de `manage_stock`: é a omissão que interessa.
+        $id = $this->postJson(self::ARTIGOS, $this->corpo())->assertCreated()->json('data.id');
 
-    public function test_escolher_servico_desliga_o_stock(): void
-    {
-        $this->comAcessoAProdutos();
-        Livewire::actingAs($this->user)
-            ->test(Products::class)
-            ->call('create')
-            ->set('type', 'servico')
-            ->assertSet('manage_stock', false);
-    }
-
-    public function test_voltar_a_produto_volta_a_ligar(): void
-    {
-        $this->comAcessoAProdutos();
-        Livewire::actingAs($this->user)
-            ->test(Products::class)
-            ->call('create')
-            ->set('type', 'servico')
-            ->set('type', 'produto')
-            ->assertSet('manage_stock', true);
+        $this->assertTrue((bool) Product::find($id)->manage_stock);
     }
 
     /**
-     * A editar, quem manda é o que está gravado.
+     * A EDITAR, QUEM MANDA É O QUE ESTÁ GRAVADO.
      *
-     * Mexer nisso por se trocar o tipo apagaria uma decisão do utilizador.
+     * Um artigo a que alguém desligou o stock de propósito não pode voltar a
+     * ligá-lo só porque o pedido de edição não trouxe o campo — isso apagava
+     * uma decisão do utilizador sem ninguém dar por nada. (O simétrico do ecrã
+     * — trocar o tipo a editar não mexe na caixa — está no `Produtos.tsx`, e é
+     * o ensaio a seguir que o segura.)
      */
-    public function test_a_editar_o_tipo_nao_atropela_a_decisao_gravada(): void
+    public function test_a_edicao_nao_atropela_a_decisao_gravada(): void
     {
         $this->comAcessoAProdutos();
+
         $a = $this->artigo(['manage_stock' => false]);
 
-        Livewire::actingAs($this->user)
-            ->test(Products::class)
-            ->call('edit', $a->id)
-            ->assertSet('manage_stock', false)
-            ->set('type', 'produto')
-            ->assertSet('manage_stock', false);
+        $this->putJson(self::ARTIGOS . '/' . $a->id, $this->corpo(['name' => 'Nome Novo']))->assertOk();
+
+        $this->assertFalse((bool) $a->refresh()->manage_stock, 'a decisão gravada tem de ficar de pé');
+
+        // E quem a quiser mudar, muda-a de propósito.
+        $this->putJson(self::ARTIGOS . '/' . $a->id, $this->corpo(['manage_stock' => true]))->assertOk();
+
+        $this->assertTrue((bool) $a->refresh()->manage_stock);
+    }
+
+    /**
+     * Guarda de fonte: no ecrã, trocar o tipo A CRIAR acerta a caixa (um
+     * serviço não gere stock, um produto gere); A EDITAR não lhe toca.
+     *
+     * @test
+     */
+    public function o_ecra_so_acerta_a_caixa_do_stock_em_artigos_novos(): void
+    {
+        $ecra = file_get_contents(base_path('resources/js/ecras/facturacao/Produtos.tsx'));
+
+        // Sem prender o nome da variável: ela já mudou uma vez, quando o `t`
+        // do tipo passou a tapar o `t()` das traduções. O que se guarda é a
+        // REGRA — a editar muda só o tipo; num artigo novo é que a caixa do
+        // stock acompanha.
+        $this->assertMatchesRegularExpression(
+            '/aoMudar\(aEditar \? \{ \.\.\.dados, type: (\w+) \} : \{ \.\.\.dados, type: \1, manage_stock: \1 === ' . "'produto'" . ' \}\)/u',
+            $ecra,
+            'trocar o tipo a editar não pode mexer no «gerir stock» gravado'
+        );
     }
 }

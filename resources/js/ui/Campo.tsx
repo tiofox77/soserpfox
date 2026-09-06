@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cls } from './tokens';
+import { t } from '@/i18n';
 
 /**
  * UM CAMPO DE FORMULÁRIO: rótulo, o controlo, e o erro do servidor por baixo.
@@ -34,7 +35,7 @@ export function Campo({
                         <span className="ml-0.5 text-red-500" aria-hidden="true">
                             *
                         </span>
-                        <span className="sr-only"> (obrigatório)</span>
+                        <span className="sr-only"> {t('(obrigatório)')}</span>
                     </>
                 )}
             </span>

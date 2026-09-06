@@ -2,10 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Reports\StockAdjustmentsReport;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\StockMovement;
-use Livewire\Livewire;
+use Illuminate\Support\Facades\DB;
 use Tests\TenantTestCase;
 
 /**
@@ -14,9 +13,16 @@ use Tests\TenantTestCase;
  * O que este relatório tem de garantir é o que o torna legível: mostra o que
  * foi mexido À MÃO e deixa de fora o que teve documento por trás. Um mapa de
  * controlo que se enche de movimentos de vendas deixa de servir para controlar.
+ *
+ * O ecrã Livewire deu lugar ao ecrã genérico dos relatórios em React; o mapa é
+ * hoje o `stock-adjustments` do catálogo (classe `Relatorios\AjustesDeStock`) e
+ * chega ao ecrã por `/api/v1/invoicing/react/relatorios/stock-adjustments`. É a
+ * essa porta que estes ensaios batem.
  */
 class StockAdjustmentsReportTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/relatorios/stock-adjustments';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -37,11 +43,30 @@ class StockAdjustmentsReportTest extends TenantTestCase
         ], $dados)));
     }
 
+    /** Os dados do mapa, com os filtros do ecrã na query. */
+    private function mapa(array $filtros = []): array
+    {
+        return $this->getJson(self::RAIZ . ($filtros ? '?' . http_build_query($filtros) : ''))
+            ->assertOk()->json('dados');
+    }
+
+    /** Os artigos que o mapa mostra, na ordem em que os mostra. */
+    private function artigosDoMapa(array $filtros = []): array
+    {
+        return array_values(array_filter(array_map(
+            fn ($m) => $m['product']['name'] ?? null,
+            $this->mapa($filtros)['movimentos']
+        )));
+    }
+
     public function test_o_ecra_abre(): void
     {
-        $this->get(route('invoicing.reports.stock-adjustments'))
-            ->assertOk()
-            ->assertSee('Ajustes de Stock');
+        // A página é a casca do React; o título e as colunas vêm do esquema.
+        $this->get(route('invoicing.reports.stock-adjustments'))->assertOk();
+
+        $this->getJson(self::RAIZ)->assertOk()
+            ->assertJsonPath('esquema.titulo', 'Ajustes de Stock')
+            ->assertJsonPath('esquema.slug', 'stock-adjustments');
     }
 
     public function test_mostra_os_movimentos_manuais(): void
@@ -50,9 +75,11 @@ class StockAdjustmentsReportTest extends TenantTestCase
 
         $this->movimento(['product_id' => $p->id, 'notes' => 'Conferência de armazém']);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->assertSee($p->name)
-            ->assertSee('Conferência de armazém');
+        $movimentos = $this->mapa()['movimentos'];
+
+        $this->assertCount(1, $movimentos);
+        $this->assertSame($p->name, $movimentos[0]['product']['name']);
+        $this->assertSame('Conferência de armazém', $movimentos[0]['notes']);
     }
 
     public function test_esconde_os_movimentos_com_documento_por_tras(): void
@@ -73,9 +100,10 @@ class StockAdjustmentsReportTest extends TenantTestCase
             'notes'          => 'Venda - Fatura FT 1/1',
         ]);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->assertSee($manual->name)
-            ->assertDontSee($venda->name);
+        $artigos = $this->artigosDoMapa();
+
+        $this->assertContains($manual->name, $artigos);
+        $this->assertNotContains($venda->name, $artigos);
     }
 
     public function test_os_totais_nao_somam_ajustes_nem_transferencias(): void
@@ -89,8 +117,7 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $this->movimento(['product_id' => $p->id, 'type' => StockMovement::TYPE_ADJUSTMENT, 'quantity' => 999]);
         $this->movimento(['product_id' => $p->id, 'type' => StockMovement::TYPE_TRANSFER, 'quantity' => 500]);
 
-        $componente = Livewire::test(StockAdjustmentsReport::class);
-        $resumo     = $componente->viewData('resumo');
+        $resumo = $this->mapa()['resumo'];
 
         $this->assertEquals(7, $resumo['entradas_qtd'], 'só a entrada conta na quantidade');
         $this->assertSame(1, $resumo['ajustes_n']);
@@ -105,10 +132,10 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $this->movimento(['product_id' => $a->id, 'type' => StockMovement::TYPE_IN]);
         $this->movimento(['product_id' => $b->id, 'type' => StockMovement::TYPE_OUT]);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->set('typeFilter', 'out')
-            ->assertSee($b->name)
-            ->assertDontSee($a->name);
+        $artigos = $this->artigosDoMapa(['typeFilter' => 'out']);
+
+        $this->assertContains($b->name, $artigos);
+        $this->assertNotContains($a->name, $artigos);
     }
 
     public function test_a_procura_encontra_pela_referencia_do_lote(): void
@@ -119,10 +146,10 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $this->movimento(['product_id' => $a->id, 'batch_reference' => 'MOV/2026/000042']);
         $this->movimento(['product_id' => $b->id, 'batch_reference' => 'MOV/2026/000099']);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->set('search', 'MOV/2026/000042')
-            ->assertSee($a->name)
-            ->assertDontSee($b->name);
+        $artigos = $this->artigosDoMapa(['search' => 'MOV/2026/000042']);
+
+        $this->assertContains($a->name, $artigos);
+        $this->assertNotContains($b->name, $artigos);
     }
 
     public function test_o_periodo_exclui_o_que_esta_fora(): void
@@ -133,13 +160,14 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $this->movimento(['product_id' => $dentro->id]);
 
         $antigo = $this->movimento(['product_id' => $fora->id]);
-        \Illuminate\Support\Facades\DB::table('invoicing_stock_movements')
+        DB::table('invoicing_stock_movements')
             ->where('id', $antigo->id)
             ->update(['created_at' => now()->subYears(2)]);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->assertSee($dentro->name)
-            ->assertDontSee($fora->name);
+        $artigos = $this->artigosDoMapa();
+
+        $this->assertContains($dentro->name, $artigos);
+        $this->assertNotContains($fora->name, $artigos);
     }
 
     public function test_o_ultimo_dia_do_periodo_entra_inteiro(): void
@@ -149,13 +177,11 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $p = $this->produtoComStock(0);
 
         $m = $this->movimento(['product_id' => $p->id]);
-        \Illuminate\Support\Facades\DB::table('invoicing_stock_movements')
+        DB::table('invoicing_stock_movements')
             ->where('id', $m->id)
             ->update(['created_at' => now()->endOfMonth()->setTime(23, 30)]);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->set('period', 'month')
-            ->assertSee($p->name);
+        $this->assertContains($p->name, $this->artigosDoMapa(['period' => 'month']));
     }
 
     public function test_a_perna_negativa_de_uma_transferencia_nao_falseia_os_totais(): void
@@ -167,9 +193,7 @@ class StockAdjustmentsReportTest extends TenantTestCase
 
         $this->movimento(['product_id' => $p->id, 'type' => StockMovement::TYPE_OUT, 'quantity' => -4]);
 
-        $resumo = Livewire::test(StockAdjustmentsReport::class)->viewData('resumo');
-
-        $this->assertEquals(4, $resumo['saidas_qtd'], 'a saída conta pelo valor absoluto');
+        $this->assertEquals(4, $this->mapa()['resumo']['saidas_qtd'], 'a saída conta pelo valor absoluto');
     }
 
     public function test_um_ajuste_nao_apresenta_valor_de_movimento(): void
@@ -186,8 +210,10 @@ class StockAdjustmentsReportTest extends TenantTestCase
             'unit_cost'  => 450000,
         ]);
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->assertDontSee('4.500.000,00');
+        $movimentos = $this->mapa()['movimentos'];
+
+        $this->assertCount(1, $movimentos);
+        $this->assertNull($movimentos[0]['valor'], 'um ajuste não tem valor de movimento para mostrar');
     }
 
     public function test_o_resumo_por_operador_conta_quem_mexeu(): void
@@ -197,12 +223,12 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $this->movimento(['product_id' => $p->id, 'type' => StockMovement::TYPE_IN, 'quantity' => 3]);
         $this->movimento(['product_id' => $p->id, 'type' => StockMovement::TYPE_ADJUSTMENT, 'quantity' => 50]);
 
-        $linhas = Livewire::test(StockAdjustmentsReport::class)->viewData('porUtilizador');
+        $linhas = $this->mapa()['porUtilizador'];
 
         $this->assertCount(1, $linhas);
-        $this->assertSame($this->user->name, $linhas->first()->nome);
-        $this->assertEquals(2, $linhas->first()->n);
-        $this->assertEquals(1, $linhas->first()->ajustes);
+        $this->assertSame($this->user->name, $linhas[0]['nome']);
+        $this->assertEquals(2, $linhas[0]['n']);
+        $this->assertEquals(1, $linhas[0]['ajustes']);
     }
 
     public function test_o_mapa_de_uma_empresa_nao_mostra_o_da_outra(): void
@@ -231,9 +257,10 @@ class StockAdjustmentsReportTest extends TenantTestCase
             'unit_cost' => 10, 'user_id' => $this->user->id,
         ]));
 
-        Livewire::test(StockAdjustmentsReport::class)
-            ->assertSee($meu->name)
-            ->assertDontSee($artigoAlheio->name);
+        $artigos = $this->artigosDoMapa();
+
+        $this->assertContains($meu->name, $artigos);
+        $this->assertNotContains($artigoAlheio->name, $artigos);
     }
 
     public function test_a_exportacao_devolve_csv_com_o_periodo_filtrado(): void
@@ -241,20 +268,63 @@ class StockAdjustmentsReportTest extends TenantTestCase
         $p = $this->produtoComStock(0);
         $this->movimento(['product_id' => $p->id, 'notes' => 'Conferência anual']);
 
-        // Chamada directa ao método: o wrapper de teste do Livewire não devolve
-        // a resposta de um download, e o que interessa provar aqui é o conteúdo
-        // do ficheiro, não o transporte.
-        $componente = new StockAdjustmentsReport();
-        $componente->mount();
+        // Um movimento de há dois anos: não pode entrar nas contas do ficheiro.
+        $antigo = $this->movimento(['product_id' => $p->id, 'quantity' => 500]);
+        DB::table('invoicing_stock_movements')->where('id', $antigo->id)->update(['created_at' => now()->subYears(2)]);
 
-        $resposta = $componente->exportarCsv();
+        $resposta = $this->get('/invoicing/reports/stock-adjustments/csv');
+        $resposta->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $resposta->headers->get('content-type'));
 
-        ob_start();
-        $resposta->sendContent();
-        $conteudo = ob_get_clean();
+        $conteudo = $resposta->streamedContent();
 
-        $this->assertStringContainsString($p->name, $conteudo);
-        $this->assertStringContainsString('Conferência anual', $conteudo);
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $conteudo, 'o BOM para o Excel em português');
         $this->assertStringContainsString('Operador', $conteudo);
+        $this->assertStringContainsString($this->user->name, $conteudo);
+        // Um movimento no período — o de há dois anos ficou de fora (senão
+        // seriam 2 movimentos e 505 de quantidade entrada).
+        $this->assertStringContainsString('"' . $this->user->name . '";1;5,00;', $conteudo);
+
+    }
+
+    /**
+     * O PAPEL QUE SE LEVA PARA O ARMAZÉM.
+     *
+     * O ecrã genérico exportava sempre a PRIMEIRA tabela do mapa — aqui o
+     * resumo «Por operador». O que o ecrã em Livewire dava, e o que serve para
+     * conferir prateleira a prateleira, é a LISTA DE MOVIMENTOS: artigo, nota
+     * e documento. Sem escolher a tabela, esse papel deixou de existir.
+     */
+    public function test_a_exportacao_deixa_escolher_a_tabela(): void
+    {
+        $p = $this->produtoComStock(0);
+        $this->movimento(['product_id' => $p->id, 'notes' => 'Conferência anual']);
+
+        // Sem dizer qual, continua a ser a primeira: quem já tinha a ligação
+        // de sempre não vê o ficheiro mudar debaixo dos pés.
+        $primeira = $this->get('/invoicing/reports/stock-adjustments/csv');
+        $primeira->assertOk();
+        $this->assertStringContainsString('Operador', $primeira->streamedContent());
+
+        $movimentos = $this->get('/invoicing/reports/stock-adjustments/csv?tabela=movimentos');
+        $movimentos->assertOk();
+
+        $conteudo = $movimentos->streamedContent();
+
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $conteudo, 'o BOM para o Excel em português');
+        $this->assertStringContainsString('Produto', $conteudo, 'a lista de movimentos tem o artigo');
+        $this->assertStringContainsString('Documento', $conteudo, 'e o documento que o originou');
+        $this->assertStringContainsString($p->name, $conteudo);
+        $this->assertStringContainsString('Conferência anual', $conteudo, 'e a nota de quem contou');
+
+        // O nome do ficheiro diz qual das tabelas é.
+        $this->assertStringContainsString(
+            'stock-adjustments_movimentos_',
+            (string) $movimentos->headers->get('content-disposition')
+        );
+
+        // Uma tabela que não existe cai na primeira, não rebenta.
+        $this->get('/invoicing/reports/stock-adjustments/csv?tabela=inventada')
+            ->assertOk();
     }
 }

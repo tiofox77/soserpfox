@@ -37,6 +37,10 @@ class ClientResource extends JsonResource
             'country' => $this->country,
             'pais_nome' => Geografia::nomeDoPais($this->country),
 
+            // SE TEM PORTA ABERTA PARA O PORTAL — o facto, nunca a senha. É o
+            // que diz ao ecrã se há acesso para repor ou para dar.
+            'portal_access' => (bool) $this->portal_access,
+
             // Quantos documentos tem — é o que decide se pode ser apagado, e
             // vem contado do servidor para o ecrã não ter de adivinhar.
             'documentos' => (int) ($this->facturas_count ?? 0),

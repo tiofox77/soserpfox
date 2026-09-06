@@ -7,6 +7,8 @@ use App\Models\Client;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Services\Invoicing\CalculadoraDeDocumento;
+use App\Services\Invoicing\DuplicaDocumento;
+use App\Services\Invoicing\TaxResolver;
 use App\Services\Invoicing\TiposDeDocumento;
 use App\Traits\DocumentosPorAutor;
 use Illuminate\Http\JsonResponse;
@@ -91,6 +93,16 @@ class EmissorApiController extends Controller
                 ->orderBy('name')
                 ->limit(500)
                 ->get(['id', 'name', 'code', 'price', 'unit']),
+            // Cabinda tem regime de IVA próprio e o que o determina é o LOCAL
+            // DA OPERAÇÃO. Vazio é "automática": deriva da província da outra
+            // parte. Fixar 'AO' por omissão era o que fazia Cabinda passar
+            // despercebida numa proposta feita lá.
+            'regioes' => [
+                ['valor' => '', 'rotulo' => __('Pela província do :parte', ['parte' => $def['parte']])],
+                ['valor' => 'AO', 'rotulo' => 'Angola (continente)'],
+                ['valor' => 'AO-CAB', 'rotulo' => __('Cabinda (regime próprio)')],
+            ],
+
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can(str_replace('.view', '.create', $def['permissao'])),
             ],
@@ -100,14 +112,60 @@ class EmissorApiController extends Controller
     /** A proposta como o editor a precisa — e se ainda se pode mexer (só rascunhos). */
     public function abrir(Request $request, string $tipo, int $id): JsonResponse
     {
-        $def = $this->definicao($request, $tipo, 'view');
-        $editor = TiposDeDocumento::editaveis()[$tipo];
+        $this->definicao($request, $tipo, 'view');
+
+        return response()->json($this->paraEditor($tipo, $this->baseDoAutor()->findOrFail($id)));
+    }
+
+    /**
+     * DUPLICAR: o conteúdo desta proposta, para o editor abrir em branco.
+     *
+     * Não grava nada — devolve o conteúdo comercial, e o editor abre com ele
+     * como uma proposta nova. Uma proforma não tem número fiscal nem hash,
+     * mas tem número na série da casa, e esse não se copia: dois documentos
+     * com o mesmo número são dois documentos por explicar.
+     *
+     * Só nos tipos que a lista oferece (`TiposDeDocumento::duplicaveis`). Um
+     * tipo editável que não esteja lá dá 404: não é falta de permissão, é que
+     * ali não se duplica.
+     */
+    public function duplicar(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($request, $tipo, 'create');
+
+        abort_unless(TiposDeDocumento::eDuplicavel($tipo), 404, __('Este documento não se duplica.'));
 
         $d = $this->baseDoAutor()->findOrFail($id);
+        $aberta = $this->paraEditor($tipo, $d);
+
+        return response()->json(DuplicaDocumento::resposta(
+            $aberta['documento'],
+            $aberta['linhas'],
+            // De hoje, e a validade recomeça: uma proposta duplicada com a
+            // validade da antiga nascia expirada.
+            ['data' => now()->toDateString(), 'valido_ate' => null],
+            $d,
+            $d->{$def['numero']},
+        ));
+    }
+
+    /**
+     * A proposta na forma que o editor conhece.
+     *
+     * Serve o `abrir` e o `duplicar`: uma forma só, para o duplicado herdar
+     * exactamente o que a edição herdaria — e mais nada.
+     *
+     * @return array{documento: array<string,mixed>, linhas: mixed}
+     */
+    private function paraEditor(string $tipo, $d): array
+    {
+        $def = TiposDeDocumento::um($tipo);
+        $editor = TiposDeDocumento::editaveis()[$tipo];
+
         $linhas = $editor['itens']::where($editor['chave'], $d->id)->orderBy('order')->get();
         $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
 
-        return response()->json([
+        return [
             'documento' => [
                 'id' => $d->id,
                 'numero' => $d->{$def['numero']},
@@ -116,6 +174,8 @@ class EmissorApiController extends Controller
                 'parte_id' => $d->{$editor['parte_id']},
                 'data' => $data($d->{$def['data']}),
                 'valido_ate' => $data($d->valid_until ?? null),
+                // A região gravada é a das LINHAS: é lá que ela conta.
+                'tax_country_region' => $linhas->first()?->tax_country_region,
                 'notas' => $d->notes,
                 'pdf' => url(ltrim($def['rota'], '/') . '/' . $d->id . '/pdf'),
             ],
@@ -126,7 +186,7 @@ class EmissorApiController extends Controller
                 'price' => (float) $l->unit_price,
                 'discount_percent' => (float) ($l->discount_percent ?? 0),
             ])->values(),
-        ]);
+        ];
     }
 
     /** Grava a proposta. Recalcula tudo, ignorando os totais do pedido. */
@@ -160,6 +220,7 @@ class EmissorApiController extends Controller
             'data' => ['required', 'date'],
             'valido_ate' => ['nullable', 'date', 'after_or_equal:data'],
             'notas' => ['nullable', 'string', 'max:2000'],
+            'tax_country_region' => ['nullable', 'in:AO,AO-CAB'],
             'desconto_comercial' => ['nullable', 'numeric', 'min:0'],
             'desconto_financeiro' => ['nullable', 'numeric', 'min:0'],
             'linhas' => ['required', 'array', 'min:1'],
@@ -182,8 +243,9 @@ class EmissorApiController extends Controller
         );
 
         $modelo = $def['modelo'];
+        $regiao = $this->regiaoDaOperacao($dados, $editor);
 
-        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente) {
+        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente, $regiao) {
             if ($existente) {
                 $editor['itens']::where($editor['chave'], $existente->id)->delete();
             }
@@ -226,6 +288,7 @@ class EmissorApiController extends Controller
                     'discount_amount' => $l['desconto'],
                     'subtotal' => $l['base'],
                     'tax_rate' => $l['tax_rate'],
+                    'tax_country_region' => $regiao,
                     'tax_amount' => $l['imposto'],
                     'total' => $l['total'],
                     'order' => ++$ordem,
@@ -247,6 +310,33 @@ class EmissorApiController extends Controller
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
+
+    /**
+     * A REGIÃO FISCAL DA OPERAÇÃO, que desce às linhas.
+     *
+     * Cabinda tem regime de IVA próprio (AO-CAB) e quem o determina é o local
+     * da operação, não a sede de ninguém: a mesma entidade compra em Luanda e
+     * em Cabinda. Vazio significa AUTOMÁTICA — deriva da província da outra
+     * parte, como nas facturas de venda.
+     *
+     * Enquanto isto não existia, as linhas das propostas ficavam todas com o
+     * 'AO' por omissão da coluna: uma proposta feita em Cabinda saía com o
+     * imposto do continente, e a factura que dela nascia herdava o erro.
+     */
+    private function regiaoDaOperacao(array $dados, array $editor): string
+    {
+        $escolhida = $dados['tax_country_region'] ?? null;
+
+        if (in_array($escolhida, ['AO', 'AO-CAB'], true)) {
+            return $escolhida;
+        }
+
+        $parte = $editor['parte_id'] === 'supplier_id'
+            ? Supplier::where('tenant_id', activeTenantId())->find($dados['parte_id'])
+            : Client::where('tenant_id', activeTenantId())->find($dados['parte_id']);
+
+        return $parte ? TaxResolver::regionForClient($parte) : 'AO';
+    }
 
     /**
      * Resolve o tipo, exige a permissão certa para o verbo, e arma o escopo.

@@ -44,12 +44,29 @@ export type OpcoesDoEmissor = {
     rota: string;
     partes: Array<{ id: number; name: string; nif: string | null }>;
     artigos: Array<{ id: number; name: string; code: string | null; price: number; unit: string }>;
+    regioes: Array<{ valor: string; rotulo: string }>;
     permissoes: { pode_criar: boolean };
+};
+
+/** O CONTEÚDO COMERCIAL de uma proposta: o que se aproveita ao duplicar. */
+export type ConteudoDaProposta = {
+    parte_id: number | null;
+    data: string | null;
+    valido_ate: string | null;
+    tax_country_region: string | null;
+    notas: string | null;
 };
 
 /** Uma proposta aberta no editor — e se ainda se pode mexer (só rascunhos). */
 export type PropostaAberta = {
-    documento: { id: number; numero: string | null; estado: string; pode_editar: boolean; parte_id: number | null; data: string | null; valido_ate: string | null; notas: string | null; pdf: string };
+    documento: ConteudoDaProposta & { id: number; numero: string | null; estado: string; pode_editar: boolean; pdf: string };
+    linhas: LinhaDoEditor[];
+};
+
+/** O conteúdo de uma proposta para NASCER OUTRA VEZ — sem número nem estado. */
+export type PropostaDuplicada = {
+    origem: { id: number; numero: string | null };
+    documento: ConteudoDaProposta;
     linhas: LinhaDoEditor[];
 };
 
@@ -61,5 +78,7 @@ export const emissor = {
         api.criar<{ linhas: LinhaCalculada[]; totais: Totais }>(`/emissor/${tipo}/calcular`, corpo),
     guardar: (tipo: string, corpo: Record<string, unknown>) => api.criar<Gravada>(`/emissor/${tipo}`, corpo),
     abrir: (tipo: string, id: number) => api.ler<PropostaAberta>(`/emissor/${tipo}/${id}`),
+    /** Duplicar NÃO grava: traz o conteúdo para o editor abrir em branco. */
+    duplicar: (tipo: string, id: number) => api.ler<PropostaDuplicada>(`/emissor/${tipo}/${id}/duplicar`),
     actualizar: (tipo: string, id: number, corpo: Record<string, unknown>) => api.guardar<Gravada>(`/emissor/${tipo}/${id}`, corpo),
 };

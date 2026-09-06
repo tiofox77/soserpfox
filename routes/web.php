@@ -154,6 +154,23 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->back(fallback: route('home'));
     })->name('casca.livewire');
 
+    /*
+     * O DICIONÁRIO DOS ECRÃS EM REACT.
+     *
+     * O mesmo `lang/{lingua}.json` do Blade, servido uma vez a quem trabalha
+     * em inglês ou francês. Em português não se chega aqui — a chave já é a
+     * frase. A marca da versão vai na morada, por isso pode ficar guardado
+     * para sempre: um dicionário novo tem morada nova.
+     */
+    Route::get('/react/traducoes/{marca}.json', function (string $marca) {
+        abort_unless(\App\Support\DicionarioDoReact::precisa(), 404);
+
+        return response()
+            ->json(\App\Support\DicionarioDoReact::frases())
+            ->setMaxAge(31536000)
+            ->setPublic();
+    })->name('react.traducoes');
+
     // Dados da Empresa — identificação, contactos, endereço, logótipo e regime
     // fiscal AGT (a alteração de regime propaga-se via TaxRegimeSyncer).
     //
@@ -244,7 +261,7 @@ Route::post('/invoicing/offline/sair', \App\Http\Controllers\Invoicing\PwaSairCo
 
 Route::middleware(['auth'])->prefix('invoicing/offline')->name('invoicing.offline.')->group(function () {
     // O funcionario define/muda o PIN de turno (login offline no POS).
-    Route::get('pin', \App\Livewire\Invoicing\Offline\DefinirPin::class)->name('pin');
+    Route::get('pin', \App\Support\EcraReact::pagina('facturacao/definir-pin', 'PIN de turno'))->name('pin');
     // CADA ECRÃ TEM A PORTA QUE O MENU USA PARA O DESENHAR.
     //
     // O middleware `pwa:<chave>` pergunta o mesmo que o menu — módulo da
@@ -386,6 +403,10 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->where('tipo', '[a-z-]+')->name('emissor.calcular');
         Route::post('/emissor/{tipo}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'guardar'])
             ->where('tipo', '[a-z-]+')->name('emissor.guardar');
+        // Duplicar: devolve CONTEÚDO para o editor abrir em branco, e não um
+        // documento novo já gravado. Ver DuplicaDocumento. Antes do `{id}`
+        // genérico, que é onde acabaria se viesse depois.
+        Route::get('/emissor/{tipo}/{id}/duplicar', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'duplicar'])->where('tipo', '[a-z-]+')->whereNumber('id')->name('emissor.duplicar');
         Route::get('/emissor/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'abrir'])->where('tipo', '[a-z-]+')->whereNumber('id')->name('emissor.abrir');
         Route::put('/emissor/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'actualizar'])->where('tipo', '[a-z-]+')->whereNumber('id')->name('emissor.actualizar');
 
@@ -413,6 +434,7 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/factura/opcoes', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'opcoes'])->name('factura.opcoes');
         Route::post('/factura/calcular', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'calcular'])->name('factura.calcular');
         Route::post('/factura', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'guardar'])->name('factura.guardar');
+        Route::get('/factura/{id}/duplicar', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'duplicar'])->whereNumber('id')->name('factura.duplicar');
         Route::get('/factura/{id}', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'abrir'])->whereNumber('id')->name('factura.abrir');
         Route::put('/factura/{id}', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'actualizar'])->whereNumber('id')->name('factura.actualizar');
 
@@ -421,8 +443,18 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/compra/opcoes', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'opcoes'])->name('compra.opcoes');
         Route::post('/compra/calcular', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'calcular'])->name('compra.calcular');
         Route::post('/compra', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'guardar'])->name('compra.guardar');
+        Route::get('/compra/{id}/duplicar', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'duplicar'])->whereNumber('id')->name('compra.duplicar');
         Route::get('/compra/{id}', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'abrir'])->whereNumber('id')->name('compra.abrir');
         Route::put('/compra/{id}', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'actualizar'])->whereNumber('id')->name('compra.actualizar');
+        /*
+         * ANULAR uma factura de compra — o caminho certo, porque apagar não
+         * existe. É um POST e não um DELETE de propósito: a factura NÃO
+         * desaparece, muda de estado e o stock que entrou é revertido. Um
+         * `Route::delete` aqui seria a porta que o `PurchaseInvoiceImutavelTest`
+         * vigia para que nunca se abra.
+         */
+        Route::post('/compra/{id}/anular', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'anular'])->whereNumber('id')->name('compra.anular');
+        Route::post('/compra/{id}/pagar', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'marcarComoPaga'])->whereNumber('id')->name('compra.pagar');
 
         // As definições da facturação e as séries. As regras vivem no
         // DefinicoesDaFacturacao e no GestorDeSeries, os mesmos do Livewire.
@@ -602,61 +634,62 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->whereNumber('id')->name('products.update');
         Route::delete('/products/{id}', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'destroy'])
             ->whereNumber('id')->name('products.destroy');
+
+        // As imagens do artigo: destaque e galeria. Um ficheiro não viaja em
+        // JSON — vai em multipart, como o logótipo dos catálogos.
+        Route::post('/products/{id}/imagem', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'imagem'])
+            ->whereNumber('id')->name('products.imagem');
+        Route::delete('/products/{id}/imagem', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'apagarImagem'])
+            ->whereNumber('id')->name('products.imagem.apagar');
+        Route::post('/products/{id}/galeria', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'galeria'])
+            ->whereNumber('id')->name('products.galeria');
+        Route::delete('/products/{id}/galeria', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'apagarDaGaleria'])
+            ->whereNumber('id')->name('products.galeria.apagar');
     });
 });
 
 // Invoicing Module Routes
 Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->name('invoicing.')->group(function () {
     // Dashboard
-    Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Livewire\Invoicing\InvoicingDashboard::class)->name('dashboard');
+    Route::middleware('permission:invoicing.dashboard.view')->get('/dashboard', \App\Support\EcraReact::pagina('facturacao/painel', 'Dashboard de Faturação'))->name('dashboard');
     
-    Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Livewire\Invoicing\Clients::class)->name('clients');
+    Route::middleware('permission:invoicing.clients.view')->get('/clients', \App\Support\EcraReact::pagina('facturacao/clientes', 'Clientes'))->name('clients');
 
     // As cinco listas que partilham forma, num ficheiro à parte.
-    require __DIR__ . '/react-facturacao.php';
+    // O SAFT e o CSV dos relatórios descarregam-se com a sessão: um ficheiro não viaja em JSON.
+    Route::middleware('permission:invoicing.saft.generate')
+        ->get('/saft-generator/descarregar', [\App\Http\Controllers\Api\Invoicing\SaftApiController::class, 'descarregar'])
+        ->name('saft-generator.descarregar');
 
-    Route::middleware('permission:invoicing.dashboard.view')
-        ->get('/dashboard/novo-ecra', fn () => view('react.ecra', [
-            'ecra' => 'facturacao/painel',
-            'titulo' => __('Painel da Facturação'),
-            'subtitulo' => __('Ecrã novo, em ensaio'),
-        ]))
-        ->name('dashboard.react');
+    foreach (\App\Services\Invoicing\Relatorios\Catalogo::RELATORIOS as $slugDoMapa => $classeDoMapa) {
+        Route::middleware('permission:' . \App\Services\Invoicing\Relatorios\Catalogo::permissao($slugDoMapa))
+            ->get(($slugDoMapa === 'expiry-report' ? '/expiry-report' : '/reports/' . $slugDoMapa) . '/csv', [\App\Http\Controllers\Api\Invoicing\RelatoriosApiController::class, 'csv'])
+            ->defaults('slug', $slugDoMapa)
+            ->name('relatorio.' . $slugDoMapa . '.csv');
+    }
 
-    // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
-    Route::middleware('permission:invoicing.products.view')
-        ->get('/products/novo-ecra', fn () => view('react.ecra', [
-            'ecra' => 'facturacao/produtos',
-            'titulo' => __('Produtos'),
-            'subtitulo' => __('Ecrã novo, em ensaio'),
-        ]))
-        ->name('products.react');
 
     // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
-    Route::middleware('permission:invoicing.clients.view')
-        ->get('/clients/novo-ecra', fn () => view('react.ecra', [
-            'ecra' => 'facturacao/clientes',
-            'titulo' => __('Clientes'),
-            'subtitulo' => __('Ecrã novo, em ensaio'),
-        ]))
-        ->name('clients.react');
-    Route::middleware('permission:invoicing.suppliers.view')->get('/suppliers', \App\Livewire\Invoicing\Suppliers::class)->name('suppliers');
-    Route::middleware('permission:invoicing.products.view')->get('/products', \App\Livewire\Invoicing\Products::class)->name('products');
-    Route::middleware('permission:invoicing.categories.view')->get('/categories', \App\Livewire\Invoicing\Categories::class)->name('categories');
-    Route::middleware('permission:invoicing.brands.view')->get('/brands', \App\Livewire\Invoicing\Brands::class)->name('brands');
+
+    // O mesmo ecrã em React, na morada de ensaio. A de sempre fica intacta.
+    Route::middleware('permission:invoicing.suppliers.view')->get('/suppliers', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Fornecedores', ['tipo' => 'fornecedores',]))->name('suppliers');
+    Route::middleware('permission:invoicing.products.view')->get('/products', \App\Support\EcraReact::pagina('facturacao/produtos', 'Produtos'))->name('products');
+    Route::middleware('permission:invoicing.categories.view')->get('/categories', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Categorias', ['tipo' => 'categorias',]))->name('categories');
+    Route::middleware('permission:invoicing.brands.view')->get('/brands', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Marcas', ['tipo' => 'marcas',]))->name('brands');
     
     // Proformas e Faturas de Venda
     Route::prefix('sales')->name('sales.')->group(function () {
-        Route::middleware('permission:invoicing.sales.proformas.view')->get('/proformas', \App\Livewire\Invoicing\Sales\Proformas::class)->name('proformas');
-        Route::get('/proformas/create', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.create');
-        Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Sales\ProformaCreate::class)->name('proformas.edit');
+        Route::middleware('permission:invoicing.sales.proformas.view')->get('/proformas', \App\Support\EcraReact::pagina('facturacao/documentos', 'Proformas de Venda', ['tipo' => 'proformas-venda',]))->name('proformas');
+        // `?duplicar=123` traz o conteúdo de outra proforma — ver DuplicarNaMorada.
+        Route::get('/proformas/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Venda', ['tipo' => 'proformas-venda',], fn () => \App\Support\DuplicarNaMorada::props()))->name('proformas.create');
+        Route::get('/proformas/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Venda', ['tipo' => 'proformas-venda',]))->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\ProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\ProformaController::class, 'previewHtml'])->name('proformas.preview');
 
         // Orçamentos (documento comercial, não fiscal)
-        Route::middleware('permission:invoicing.sales.quotes.view')->get('/quotes', \App\Livewire\Invoicing\Sales\Quotes::class)->name('quotes');
-        Route::get('/quotes/create', \App\Livewire\Invoicing\Sales\QuoteCreate::class)->name('quotes.create');
-        Route::get('/quotes/{id}/edit', \App\Livewire\Invoicing\Sales\QuoteCreate::class)->name('quotes.edit');
+        Route::middleware('permission:invoicing.sales.quotes.view')->get('/quotes', \App\Support\EcraReact::pagina('facturacao/documentos', 'Orçamentos', ['tipo' => 'orcamentos',]))->name('quotes');
+        Route::get('/quotes/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Orçamentos', ['tipo' => 'orcamentos',]))->name('quotes.create');
+        Route::get('/quotes/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Orçamentos', ['tipo' => 'orcamentos',]))->name('quotes.edit');
         Route::get('/quotes/{id}/pdf', [\App\Http\Controllers\Invoicing\QuoteController::class, 'generatePdf'])->name('quotes.pdf');
         Route::get('/quotes/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewHtml'])->name('quotes.preview');
 
@@ -664,17 +697,19 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
         // Vive sob as permissões de orçamento — quem faz orçamentos é quem
         // precisa de mexer nos modelos.
         Route::middleware('permission:invoicing.sales.quotes.view')
-            ->get('/quote-templates', \App\Livewire\Invoicing\Propostas\ModelosDeProposta::class)
+            ->get('/quote-templates', \App\Support\EcraReact::pagina('facturacao/modelos-de-proposta', 'Modelos de Proposta'))
             ->name('quote-templates');
         Route::middleware('permission:invoicing.sales.quotes.edit')
-            ->get('/quote-templates/{id}/edit', \App\Livewire\Invoicing\Propostas\EditorDeModelo::class)
+            ->get('/quote-templates/{id}/edit', \App\Support\EcraReact::pagina('facturacao/editor-de-modelo', 'Editor de Modelo de Proposta'))
             ->name('quote-templates.edit');
         Route::middleware('permission:invoicing.sales.quotes.view')
             ->get('/quote-templates/{id}/preview', [\App\Http\Controllers\Invoicing\QuoteController::class, 'previewModelo'])
             ->name('quote-templates.preview');
 
         // Faturas de Venda
-        Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Sales\Invoices::class)->name('invoices');
+        // `?type=FR` é como o menu liga direito às Faturas-Recibo: a lista abre
+        // já filtrada, como abria em Livewire.
+        Route::middleware('permission:invoicing.sales.invoices.view')->get('/invoices', \App\Support\EcraReact::pagina('facturacao/lista-de-facturas', 'Faturas de Venda', [], fn () => in_array(request()->query('type'), ['FT', 'FR'], true) ? ['tipo' => request()->query('type')] : []))->name('invoices');
 
         /*
          * A MESMA LISTA, EM REACT, NOUTRA MORADA.
@@ -685,15 +720,8 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
          *
          * Mesma permissão. Um ecrã novo não é uma porta nova.
          */
-        Route::middleware('permission:invoicing.sales.invoices.view')
-            ->get('/invoices/novo-ecra', fn () => view('react.ecra', [
-                'ecra' => 'facturacao/lista-de-facturas',
-                'titulo' => __('Facturas de Venda'),
-                'subtitulo' => __('Ecrã novo, em ensaio'),
-            ]))
-            ->name('invoices.react');
-        Route::get('/invoices/create', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.create');
-        Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Sales\InvoiceCreate::class)->name('invoices.edit');
+        Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda', [], fn () => \App\Support\DuplicarNaMorada::props()))->name('invoices.create');
+        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura', 'Fatura de Venda'))->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\SalesInvoiceController::class, 'previewHtml'])->name('invoices.preview');
         Route::get('/invoices/{id}/download', [\App\Http\Controllers\Invoicing\InvoiceController::class, 'downloadPdf'])->name('invoices.download');
@@ -719,70 +747,70 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     
     // Proformas e Faturas de Compra
     Route::prefix('purchases')->name('purchases.')->group(function () {
-        Route::middleware('permission:invoicing.purchases.proformas.view')->get('/proformas', \App\Livewire\Invoicing\Purchases\Proformas::class)->name('proformas');
-        Route::get('/proformas/create', \App\Livewire\Invoicing\Purchases\ProformaCreate::class)->name('proformas.create');
-        Route::get('/proformas/{id}/edit', \App\Livewire\Invoicing\Purchases\ProformaCreate::class)->name('proformas.edit');
+        Route::middleware('permission:invoicing.purchases.proformas.view')->get('/proformas', \App\Support\EcraReact::pagina('facturacao/documentos', 'Proformas de Compra', ['tipo' => 'proformas-compra',]))->name('proformas');
+        Route::get('/proformas/create', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Compra', ['tipo' => 'proformas-compra',], fn () => \App\Support\DuplicarNaMorada::props()))->name('proformas.create');
+        Route::get('/proformas/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-proposta', 'Emitir · Proformas de Compra', ['tipo' => 'proformas-compra',]))->name('proformas.edit');
         Route::get('/proformas/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'generatePdf'])->name('proformas.pdf');
         Route::get('/proformas/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseProformaController::class, 'previewHtml'])->name('proformas.preview');
         
         // Faturas de Compra
-        Route::middleware('permission:invoicing.purchases.invoices.view')->get('/invoices', \App\Livewire\Invoicing\Purchases\Invoices::class)->name('invoices');
-        Route::get('/invoices/create', \App\Livewire\Invoicing\Purchases\InvoiceCreate::class)->name('invoices.create');
-        Route::get('/invoices/{id}/edit', \App\Livewire\Invoicing\Purchases\InvoiceCreate::class)->name('invoices.edit');
+        Route::middleware('permission:invoicing.purchases.invoices.view')->get('/invoices', \App\Support\EcraReact::pagina('facturacao/documentos', 'Faturas de Compra', ['tipo' => 'facturas-compra',]))->name('invoices');
+        Route::get('/invoices/create', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra', [], fn () => \App\Support\DuplicarNaMorada::props()))->name('invoices.create');
+        Route::get('/invoices/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-factura-de-compra', 'Fatura de Compra'))->name('invoices.edit');
         Route::get('/invoices/{id}/pdf', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'generatePdf'])->name('invoices.pdf');
         Route::get('/invoices/{id}/preview', [\App\Http\Controllers\Invoicing\PurchaseInvoiceController::class, 'previewHtml'])->name('invoices.preview');
     });
     
     // Recibos
     Route::prefix('receipts')->name('receipts.')->group(function () {
-        Route::middleware('permission:invoicing.receipts.view')->get('/', \App\Livewire\Invoicing\Receipts\Receipts::class)->name('index');
-        Route::get('/create', \App\Livewire\Invoicing\Receipts\ReceiptCreate::class)->name('create');
-        Route::get('/{id}/edit', \App\Livewire\Invoicing\Receipts\ReceiptCreate::class)->name('edit');
+        Route::middleware('permission:invoicing.receipts.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Recibos', ['tipo' => 'recibos',]))->name('index');
+        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo', [], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
+        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/registar-recibo', 'Recibo'))->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\ReceiptController::class, 'previewHtml'])->name('preview');
     });
     
     // Notas de Crédito
     Route::prefix('credit-notes')->name('credit-notes.')->group(function () {
-        Route::middleware('permission:invoicing.credit-notes.view')->get('/', \App\Livewire\Invoicing\CreditNotes\CreditNotes::class)->name('index');
-        Route::get('/create', \App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)->name('create');
-        Route::get('/{id}/edit', \App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)->name('edit');
+        Route::middleware('permission:invoicing.credit-notes.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Notas de Crédito', ['tipo' => 'notas-credito',]))->name('index');
+        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
+        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Crédito', ['tipo' => 'credito',]))->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\CreditNoteController::class, 'previewHtml'])->name('preview');
     });
     
     // Notas de Débito
     Route::prefix('debit-notes')->name('debit-notes.')->group(function () {
-        Route::middleware('permission:invoicing.debit-notes.view')->get('/', \App\Livewire\Invoicing\DebitNotes\DebitNotes::class)->name('index');
-        Route::get('/create', \App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)->name('create');
-        Route::get('/{id}/edit', \App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)->name('edit');
+        Route::middleware('permission:invoicing.debit-notes.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Notas de Débito', ['tipo' => 'notas-debito',]))->name('index');
+        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',], fn () => \App\Support\FacturaNaMorada::props()))->name('create');
+        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-nota', 'Nota de Débito', ['tipo' => 'debito',]))->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\DebitNoteController::class, 'previewHtml'])->name('preview');
     });
     
     // Importações
     Route::prefix('imports')->name('imports.')->group(function () {
-        Route::middleware('permission:invoicing.imports.view')->get('/', \App\Livewire\Invoicing\Imports\Imports::class)->name('index');
+        Route::middleware('permission:invoicing.imports.view')->get('/', \App\Support\EcraReact::pagina('facturacao/importacoes', 'Importações'))->name('index');
     });
 
     // Recuperar uma cópia de segurança do PWA (aparelho que não sincronizou).
     // A permissão é a de criar vendas no POS: quem pode emitir é quem pode
     // recuperar o que já foi emitido offline.
     Route::middleware('permission:invoicing.pos.sell')
-        ->get('/importar-copia-offline', \App\Livewire\Invoicing\ImportarCopiaOffline::class)
+        ->get('/importar-copia-offline', \App\Support\EcraReact::pagina('facturacao/importar-copia-offline', 'Importar Cópia Offline'))
         ->name('importar-copia-offline');
     
     // Adiantamentos
     Route::prefix('advances')->name('advances.')->group(function () {
-        Route::middleware('permission:invoicing.advances.view')->get('/', \App\Livewire\Invoicing\Advances\Advances::class)->name('index');
-        Route::get('/create', \App\Livewire\Invoicing\Advances\AdvanceCreate::class)->name('create');
-        Route::get('/{id}/edit', \App\Livewire\Invoicing\Advances\AdvanceCreate::class)->name('edit');
+        Route::middleware('permission:invoicing.advances.view')->get('/', \App\Support\EcraReact::pagina('facturacao/documentos', 'Adiantamentos', ['tipo' => 'adiantamentos',]))->name('index');
+        Route::get('/create', \App\Support\EcraReact::pagina('facturacao/emitir-adiantamento', 'Adiantamento'))->name('create');
+        Route::get('/{id}/edit', \App\Support\EcraReact::pagina('facturacao/emitir-adiantamento', 'Adiantamento'))->name('edit');
         Route::get('/{id}/pdf', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'generatePdf'])->name('pdf');
         Route::get('/{id}/preview', [\App\Http\Controllers\Invoicing\AdvanceController::class, 'previewHtml'])->name('preview');
     });
     
     // Configurações
-    Route::middleware('permission:invoicing.settings.view')->get('/settings', \App\Livewire\Invoicing\Settings::class)->name('settings');
+    Route::middleware('permission:invoicing.settings.view')->get('/settings', \App\Support\EcraReact::pagina('facturacao/definicoes', 'Configurações de Faturação'))->name('settings');
     Route::middleware('permission:invoicing.settings.view')
         ->get('/settings/notification-gateways', \App\Livewire\Settings\NotificationSettings::class)
         ->defaults('tab', 'sms')->name('notification-gateways');
@@ -790,28 +818,28 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     // Trilha de auditoria. Protegida pela mesma permissão das definições: quem
     // pode ver a configuração fiscal da empresa pode ver quem lhe mexeu.
     Route::middleware('permission:invoicing.settings.view')
-        ->get('/auditoria', \App\Livewire\Invoicing\AuditTrailViewer::class)->name('audit');
-    Route::middleware('permission:invoicing.series.view')->get('/series', \App\Livewire\Invoicing\SeriesManagement::class)->name('series');
-    Route::middleware('permission:invoicing.taxes.view')->get('/taxes', \App\Livewire\Invoicing\TaxManagement::class)->name('taxes');
-    Route::middleware('permission:invoicing.settings.view')->get('/payment-terms', \App\Livewire\Invoicing\PaymentTerms::class)->name('payment-terms');
-    Route::middleware('permission:invoicing.agt.view')->get('/agt-settings', \App\Livewire\Invoicing\AGTSettings::class)->name('agt-settings');
-    Route::middleware('permission:invoicing.agt.view')->get('/agt-credentials', \App\Livewire\Invoicing\AGTCredentials::class)->name('agt-credentials');
+        ->get('/auditoria', \App\Support\EcraReact::pagina('facturacao/auditoria', 'Auditoria'))->name('audit');
+    Route::middleware('permission:invoicing.series.view')->get('/series', \App\Support\EcraReact::pagina('facturacao/series', 'Séries de Documentos'))->name('series');
+    Route::middleware('permission:invoicing.taxes.view')->get('/taxes', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Impostos', ['tipo' => 'impostos',]))->name('taxes');
+    Route::middleware('permission:invoicing.settings.view')->get('/payment-terms', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Condições de Pagamento', ['tipo' => 'condicoes-de-pagamento',]))->name('payment-terms');
+    Route::middleware('permission:invoicing.agt.view')->get('/agt-settings', \App\Support\EcraReact::pagina('facturacao/agt', 'Configurações AGT'))->name('agt-settings');
+    Route::middleware('permission:invoicing.agt.view')->get('/agt-credentials', \App\Support\EcraReact::pagina('facturacao/credenciais-agt', 'Configuração AGT — Contribuinte'))->name('agt-credentials');
     
     // Armazéns e Stock
-    Route::get('/warehouses', \App\Livewire\Invoicing\Warehouses::class)->name('warehouses');
+    Route::get('/warehouses', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Armazéns', ['tipo' => 'armazens',]))->name('warehouses');
     // Com permissão, como todas as irmãs do módulo. Sem ela, qualquer papel com
     // acesso à faturação via o inventário e a valorização inteiros — as acções
     // já estavam travadas dentro do componente, mas a leitura não. Os papéis que
     // o seeder deliberadamente não contempla (restaurante e contabilidade)
     // deixam de entrar; quem precisar, o administrador da empresa concede.
     Route::middleware('permission:invoicing.stock.view')
-        ->get('/stock', \App\Livewire\Invoicing\StockManagement::class)->name('stock');
+        ->get('/stock', \App\Support\EcraReact::pagina('facturacao/stock', 'Gestão de Stock'))->name('stock');
 
     // As quebras: expirado/estragado/partido/perdido, com relatório próprio.
     // Genérico de propósito — salão, oficina e restaurante usam os mesmos
     // artigos, e a perda regista-se num sítio só.
     Route::middleware('permission:invoicing.stock.view')
-        ->get('/quebras', \App\Livewire\Invoicing\Quebras::class)->name('quebras');
+        ->get('/quebras', \App\Support\EcraReact::pagina('facturacao/quebras', 'Quebras de Stock'))->name('quebras');
 
     // Documento do lote de movimentação (MOV/AAAA/NNNNNN).
     // A referência leva barras, daí o `where` — sem ele o Laravel parte o
@@ -822,53 +850,65 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::get('/stock/movimentacao/{reference}/preview', [\App\Http\Controllers\Invoicing\StockMovementController::class, 'batchPreview'])
         ->where('reference', '[A-Za-z0-9/_-]+')
         ->name('stock.batch-preview');
-    Route::get('/product-batches', \App\Livewire\Invoicing\ProductBatches\ProductBatches::class)->name('product-batches');
-    Route::get('/warehouse-transfer', \App\Livewire\Invoicing\WarehouseTransfer::class)->name('warehouse-transfer');
-    Route::get('/inter-company-transfer', \App\Livewire\Invoicing\InterCompanyTransfer::class)->name('inter-company-transfer');
+    Route::get('/product-batches', \App\Support\EcraReact::pagina('facturacao/lotes', 'Lotes e Validades'))->name('product-batches');
+    Route::get('/warehouse-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-armazens', 'Transferências e Ajustes de Stock'))->name('warehouse-transfer');
+    Route::get('/inter-company-transfer', \App\Support\EcraReact::pagina('facturacao/transferencias-entre-empresas', 'Transferências Inter-Empresas'))->name('inter-company-transfer');
     
     // Relatórios
-    Route::get('/expiry-report', \App\Livewire\Invoicing\Reports\ExpiryReport::class)->name('expiry-report');
+    /*
+     * O aviso de validade manda `?type=expired` — é a ligação do email que diz
+     * «ACÇÃO URGENTE». O mapa chama àquilo `reportType`, e o endereço era
+     * ignorado: quem carregava caía na lista dos que estão A EXPIRAR e não na
+     * dos que JÁ EXPIRARAM. Traduz-se aqui, que é onde a ligação chega.
+     */
+    Route::get('/expiry-report', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Validade de Produtos', ['slug' => 'expiry-report',], function () {
+        $pedido = (string) request()->query('type', '');
+
+        return array_key_exists($pedido, \App\Services\Invoicing\Relatorios\Validades::TIPOS)
+            ? ['filtrosIniciais' => ['reportType' => $pedido]]
+            : [];
+    }))->name('expiry-report');
     
     Route::prefix('reports')->name('reports.')->middleware('permission:invoicing.reports.view')->group(function () {
-        Route::get('/', \App\Livewire\Invoicing\Reports\ReportsHub::class)->name('hub');
+        Route::get('/', \App\Support\EcraReact::pagina('facturacao/relatorios-hub', 'Relatórios - Faturação'))->name('hub');
 
         // Relatório em gráficos: a mesma facturação dos outros mapas, mas
         // vista de relance — serve a pergunta anterior a "quanto exactamente".
-        Route::get('/charts', \App\Livewire\Invoicing\Reports\GraficosReport::class)->name('charts');
+        Route::get('/charts', \App\Support\EcraReact::pagina('facturacao/graficos', 'Relatório em Gráficos'))->name('charts');
 
-        Route::get('/sales', \App\Livewire\Invoicing\Reports\SalesReport::class)->name('sales');
-        Route::get('/purchases', \App\Livewire\Invoicing\Reports\PurchasesReport::class)->name('purchases');
-        Route::get('/top-clients', \App\Livewire\Invoicing\Reports\TopClientsReport::class)->name('top-clients');
-        Route::get('/top-products', \App\Livewire\Invoicing\Reports\TopProductsReport::class)->name('top-products');
-        Route::get('/top-suppliers', \App\Livewire\Invoicing\Reports\TopSuppliersReport::class)->name('top-suppliers');
-        Route::get('/accounts-receivable', \App\Livewire\Invoicing\Reports\AccountsReceivableReport::class)->name('accounts-receivable');
-        Route::get('/accounts-payable', \App\Livewire\Invoicing\Reports\AccountsPayableReport::class)->name('accounts-payable');
-        Route::get('/aging-clients', \App\Livewire\Invoicing\Reports\AgingClientsReport::class)->name('aging-clients');
-        Route::get('/vat', \App\Livewire\Invoicing\Reports\VatReport::class)->name('vat');
-        Route::get('/documents', \App\Livewire\Invoicing\Reports\DocumentsReport::class)->name('documents');
-        Route::get('/profit-loss', \App\Livewire\Invoicing\Reports\ProfitLossReport::class)->name('profit-loss');
-        Route::get('/margin', \App\Livewire\Invoicing\Reports\MarginReport::class)->name('margin');
-        Route::get('/best-supplier', \App\Livewire\Invoicing\Reports\BestSupplierReport::class)->name('best-supplier');
-        Route::get('/comparative', \App\Livewire\Invoicing\Reports\ComparativeReport::class)->name('comparative');
-        Route::get('/product-performance', \App\Livewire\Invoicing\Reports\ProductPerformanceReport::class)->name('product-performance');
-        Route::get('/services', \App\Livewire\Invoicing\Reports\ServicesReport::class)->name('services');
-        Route::get('/price-list', \App\Livewire\Invoicing\Reports\PriceListReport::class)->name('price-list');
-        Route::get('/payment-methods', \App\Livewire\Invoicing\Reports\PaymentMethodsReport::class)->name('payment-methods');
-        Route::get('/sales-by-user', \App\Livewire\Invoicing\Reports\SalesByUserReport::class)->name('sales-by-user');
-        Route::get('/stock-adjustments', \App\Livewire\Invoicing\Reports\StockAdjustmentsReport::class)->name('stock-adjustments');
+        Route::get('/sales', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Mapa de Vendas', ['slug' => 'sales',]))->name('sales');
+        Route::get('/purchases', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Mapa de Compras', ['slug' => 'purchases',]))->name('purchases');
+        Route::get('/top-clients', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Top Clientes', ['slug' => 'top-clients',]))->name('top-clients');
+        Route::get('/top-products', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Top Produtos Vendidos', ['slug' => 'top-products',]))->name('top-products');
+        Route::get('/top-suppliers', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Top Fornecedores', ['slug' => 'top-suppliers',]))->name('top-suppliers');
+        Route::get('/accounts-receivable', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Contas a Receber', ['slug' => 'accounts-receivable',]))->name('accounts-receivable');
+        Route::get('/accounts-payable', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Contas a Pagar', ['slug' => 'accounts-payable',]))->name('accounts-payable');
+        Route::get('/aging-clients', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Aging de Clientes', ['slug' => 'aging-clients',]))->name('aging-clients');
+        Route::get('/vat', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Mapa de IVA', ['slug' => 'vat',]))->name('vat');
+        Route::get('/documents', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Mapa de Documentos', ['slug' => 'documents',]))->name('documents');
+        Route::get('/profit-loss', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Lucros e Perdas (DRE)', ['slug' => 'profit-loss',]))->name('profit-loss');
+        Route::get('/margin', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Análise de Margem', ['slug' => 'margin',]))->name('margin');
+        Route::get('/best-supplier', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Melhor Fornecedor', ['slug' => 'best-supplier',]))->name('best-supplier');
+        Route::get('/comparative', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Comparativo entre Períodos', ['slug' => 'comparative',]))->name('comparative');
+        Route::get('/product-performance', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Desempenho de Produtos', ['slug' => 'product-performance',]))->name('product-performance');
+        Route::get('/services', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Mapa de Serviços', ['slug' => 'services',]))->name('services');
+        Route::get('/price-list', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Tabela de Preços e Lucro', ['slug' => 'price-list',]))->name('price-list');
+        Route::get('/payment-methods', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Recebimentos por Meio de Pagamento', ['slug' => 'payment-methods',]))->name('payment-methods');
+        Route::get('/sales-by-user', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Vendas por Vendedor', ['slug' => 'sales-by-user',]))->name('sales-by-user');
+        Route::get('/stock-adjustments', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Ajustes de Stock', ['slug' => 'stock-adjustments',]))->name('stock-adjustments');
 
         // Extracto de conta corrente — serve cliente e fornecedor.
-        Route::get('/account-statement', \App\Livewire\Invoicing\Reports\AccountStatementReport::class)->name('account-statement');
+        Route::get('/account-statement', \App\Support\EcraReact::pagina('facturacao/relatorio', 'Extracto de Conta Corrente', ['slug' => 'account-statement',]))->name('account-statement');
         Route::get('/account-statement/pdf', [\App\Http\Controllers\Invoicing\AccountStatementController::class, 'pdf'])
             ->name('account-statement.pdf');
     });
     
     // Guias de Transporte / Remessa (GT / GR)
-    Route::get('/transport-guides', \App\Livewire\Invoicing\TransportGuides\TransportGuides::class)->name('transport-guides');
+    Route::get('/transport-guides', \App\Support\EcraReact::pagina('facturacao/guias-de-transporte', 'Guias de Transporte'))->name('transport-guides');
     Route::get('/transport-guides/{id}/pdf', [\App\Http\Controllers\Invoicing\TransportGuideController::class, 'pdf'])->name('transport-guides.pdf');
 
     // SAFT
-    Route::get('/saft-generator', \App\Livewire\Invoicing\SAFTGenerator::class)->name('saft-generator');
+    Route::get('/saft-generator', \App\Support\EcraReact::pagina('facturacao/saft', 'Gerador SAFT-AO'))->name('saft-generator');
 
     // Adquirente AGT (DS.120 §§4.3, 4.4, 4.7)
     Route::middleware('permission:invoicing.agt.view')
@@ -877,8 +917,8 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     
     // POS
     Route::get('/pos', \App\Livewire\POS\POSSystem::class)->name('pos');
-    Route::get('/pos/shifts', \App\Livewire\Invoicing\Pos\PosShiftManager::class)->name('pos.shifts');
-    Route::get('/pos/shift-history', \App\Livewire\Invoicing\Pos\ShiftHistory::class)->name('pos.shift-history');
+    Route::get('/pos/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->name('pos.shifts');
+    Route::get('/pos/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->name('pos.shift-history');
     Route::get('/pos/reports', \App\Livewire\POS\SalesReport::class)->name('pos.reports');
 
     // POS Exports (PDF / Excel)
@@ -1092,7 +1132,7 @@ Route::middleware(['auth', 'tenant.module:inventario'])->prefix('inventario')->n
     Route::middleware('permission:inventario.view')
         ->get('/dashboard', \App\Livewire\Inventario\Dashboard::class)->name('dashboard');
     Route::middleware('permission:inventario.view')
-        ->get('/armazens', \App\Livewire\Invoicing\Warehouses::class)->name('armazens');
+        ->get('/armazens', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Armazéns', ['tipo' => 'armazens',]))->name('armazens');
     Route::middleware('permission:inventario.view')
         ->get('/movimentos', \App\Livewire\Inventario\Movimentos::class)->name('movimentos');
     Route::middleware('permission:inventario.contagem.manage')
@@ -1107,7 +1147,7 @@ Route::middleware(['auth', 'tenant.module:compras'])->prefix('compras')->name('c
     Route::middleware('permission:compras.view')
         ->get('/dashboard', \App\Livewire\Compras\Dashboard::class)->name('dashboard');
     Route::middleware('permission:compras.view')
-        ->get('/fornecedores', \App\Livewire\Invoicing\Suppliers::class)->name('fornecedores');
+        ->get('/fornecedores', \App\Support\EcraReact::pagina('facturacao/catalogo', 'Fornecedores', ['tipo' => 'fornecedores',]))->name('fornecedores');
     Route::middleware('permission:compras.requisicoes.view')
         ->get('/requisicoes', \App\Livewire\Compras\Requisicoes::class)->name('requisicoes');
     Route::middleware('permission:compras.encomendas.view')
@@ -1234,7 +1274,7 @@ Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->n
     Route::middleware('permission:restaurant.orders.view')
         ->get('/pos', \App\Livewire\Restaurant\RestaurantPos::class)->name('pos');
     Route::middleware('permission:restaurant.orders.view')
-        ->get('/products', \App\Livewire\Invoicing\Products::class)->name('products');
+        ->get('/products', \App\Support\EcraReact::pagina('facturacao/produtos', 'Produtos'))->name('products');
     Route::middleware('permission:restaurant.orders.view')
         ->get('/contacts', \App\Livewire\Restaurant\ContactManagement::class)->name('contacts');
     Route::middleware('permission:restaurant.orders.view')
@@ -1244,9 +1284,9 @@ Route::middleware(['auth', 'tenant.module:restaurant'])->prefix('restaurant')->n
     Route::middleware('permission:restaurant.orders.view')
         ->get('/carta', \App\Livewire\Restaurant\MontarMenu::class)->name('carta');
     Route::middleware('permission:restaurant.orders.view')
-        ->get('/shifts', \App\Livewire\Invoicing\Pos\PosShiftManager::class)->name('shifts');
+        ->get('/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->name('shifts');
     Route::middleware('permission:restaurant.orders.view')
-        ->get('/shift-history', \App\Livewire\Invoicing\Pos\ShiftHistory::class)->name('shift-history');
+        ->get('/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->name('shift-history');
     Route::middleware('permission:restaurant.reports.view')
         ->get('/sales-report', \App\Livewire\POS\SalesReport::class)
         ->defaults('sourceModule', 'restaurant')->name('sales-report');

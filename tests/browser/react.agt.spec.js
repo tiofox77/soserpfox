@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('a agt abre com os dois ambientes e so propoe activar o outro', async ({ page }) => {
-    await page.goto('/invoicing/agt-settings/novo-ecra');
+    await page.goto('/invoicing/agt-settings');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para a AGT nesta bancada');
     }
@@ -43,7 +43,7 @@ test('a agt abre com os dois ambientes e so propoe activar o outro', async ({ pa
 });
 
 test('a ficha do contribuinte abre com o nif', async ({ page }) => {
-    await page.goto('/invoicing/agt-credentials/novo-ecra');
+    await page.goto('/invoicing/agt-credentials');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para a AGT nesta bancada');
     }
@@ -57,17 +57,10 @@ test('nenhum erro na consola', async ({ page }) => {
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
     page.on('pageerror', (e) => erros.push(String(e)));
 
-    await page.goto('/invoicing/agt-settings/novo-ecra');
+    await page.goto('/invoicing/agt-settings');
     await page.waitForLoadState('networkidle');
-    await page.goto('/invoicing/agt-credentials/novo-ecra');
+    await page.goto('/invoicing/agt-credentials');
     await page.waitForLoadState('networkidle');
 
     expect(erros).toEqual([]);
-});
-
-test('as moradas de sempre continuam em Livewire', async ({ page }) => {
-    for (const m of ['/invoicing/agt-settings', '/invoicing/agt-credentials']) {
-        await page.goto(m);
-        await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    }
 });

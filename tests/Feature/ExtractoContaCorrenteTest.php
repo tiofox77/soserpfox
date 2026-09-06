@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Reports\AccountStatementReport;
 use App\Models\Invoicing\CreditNote;
 use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
 use App\Services\Invoicing\ContaCorrenteQuery;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -16,9 +14,16 @@ use Tests\TenantTestCase;
  * Não existia nenhum: havia o mapa de contas a receber (quanto está por pagar,
  * hoje) e o aging (há quanto tempo), mas nada respondia à pergunta que um
  * cliente faz ao telefone — "o que é que eu devo, e porquê?".
+ *
+ * As contas vivem no `ContaCorrenteQuery` e o mapa é a
+ * `App\Services\Invoicing\Relatorios\ExtractoDeConta`, servida ao React pelo
+ * `RelatoriosApiController`. O ecrã mudou de tecnologia; as regras que se
+ * provam aqui são as mesmas.
  */
 class ExtractoContaCorrenteTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/relatorios/account-statement';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -252,33 +257,51 @@ class ExtractoContaCorrenteTest extends TenantTestCase
         $this->assertEquals(50000, $r['saldo_final'], 'positivo = devemos ao fornecedor');
     }
 
+    /**
+     * O MAPA ABRE E TRAZ O EXTRACTO — hoje pela API do ecrã genérico dos
+     * relatórios, que é quem serve o React. O «saldo transportado» que o ecrã
+     * escrevia em cima é o `resumo.saldo_anterior` que vem daqui.
+     */
     public function test_o_ecra_abre_e_mostra_o_extracto(): void
     {
         $f = $this->factura(10000, now()->subDays(10)->toDateString());
 
-        Livewire::test(AccountStatementReport::class)
-            ->set('dateFrom', now()->subYear()->toDateString())
-            ->set('dateTo', now()->addDay()->toDateString())
-            ->call('selecionar', $this->cliente->id)
-            ->assertSee($f->invoice_number)
-            ->assertSee('Saldo transportado');
+        $r = $this->getJson(self::RAIZ . '?' . http_build_query([
+            'entidade' => 'cliente',
+            'entidadeId' => $this->cliente->id,
+            'dateFrom' => now()->subYear()->toDateString(),
+            'dateTo' => now()->addDay()->toDateString(),
+        ]))->assertOk();
+
+        $this->assertContains($f->invoice_number, array_column($r->json('dados.movimentos'), 'numero'));
+        $this->assertArrayHasKey('saldo_anterior', $r->json('dados.resumo'));
+        $this->assertSame($this->cliente->id, $r->json('dados.entidade_escolhida.id'));
     }
 
     public function test_sem_conta_escolhida_o_ecra_pede_uma(): void
     {
-        Livewire::test(AccountStatementReport::class)
-            ->assertSee('Escolha um cliente para ver o extracto');
+        $r = $this->getJson(self::RAIZ)->assertOk();
+
+        $this->assertNull($r->json('dados.resumo'), 'sem conta escolhida não há saldo nenhum a mostrar');
+        $this->assertSame(
+            'Escolha um cliente ou fornecedor para ver o extracto.',
+            $r->json('esquema.tabelas.0.vazio'),
+            'e a tabela diz o que falta fazer, em vez de ficar vazia sem explicação'
+        );
     }
 
     public function test_trocar_de_tipo_de_conta_limpa_a_escolha(): void
     {
         // Um id de cliente não serve para procurar um fornecedor: sem limpar,
-        // o extracto passava a mostrar a conta do fornecedor com aquele id.
-        Livewire::test(AccountStatementReport::class)
-            ->call('selecionar', $this->cliente->id)
-            ->assertSet('entidadeId', $this->cliente->id)
-            ->set('entidade', 'fornecedor')
-            ->assertSet('entidadeId', null);
+        // o extracto passava a mostrar a conta do fornecedor com aquele id —
+        // outra conta, com o nome de ninguém por cima.
+        $this->factura(10000, now()->subDays(10)->toDateString());
+
+        $r = $this->getJson(self::RAIZ . '?entidade=fornecedor&entidadeId=' . $this->cliente->id)->assertOk();
+
+        $this->assertNull($r->json('dados.entidade_escolhida'));
+        $this->assertNull($r->json('dados.resumo'), 'um id que não é deste lado não abre conta nenhuma');
+        $this->assertSame([], $r->json('dados.movimentos'));
     }
 
     public function test_o_pdf_do_extracto_abre(): void

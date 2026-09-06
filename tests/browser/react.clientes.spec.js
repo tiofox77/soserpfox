@@ -12,7 +12,7 @@ import { entrar } from './apoio.js';
  * ensaio para dois ensaios não tropeçarem um no outro.
  */
 
-const ECRA = '/invoicing/clients/novo-ecra';
+const ECRA = '/invoicing/clients';
 
 /** Um NIF de empresa que passa no verificador: 10 dígitos. */
 function nifDeEnsaio() {
@@ -94,6 +94,67 @@ test('não deixa apagar quem tem documentos', async ({ page }) => {
     }
 });
 
+/**
+ * O ACESSO AO PORTAL DO CLIENTE ESTÁ NO FORMULÁRIO.
+ *
+ * A API aceitava-o desde sempre, mas o ecrã não o mostrava — e o que o ecrã
+ * não mostra ninguém usa: nenhum cliente conseguia receber uma senha.
+ *
+ * E o portal autentica pelo email: o ecrã diz-lo ANTES de o servidor recusar,
+ * porque descobrir a regra num 422 é descobri-la tarde.
+ */
+test('o acesso ao portal aparece e pede o email', async ({ page }) => {
+    await page.getByRole('button', { name: /Novo cliente/ }).click();
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible();
+
+    const caixa = janela.getByLabel('Dar acesso ao portal do cliente');
+    await expect(caixa).toBeVisible();
+
+    // Com o acesso desligado não há senha nenhuma para escrever.
+    await expect(janela.getByLabel('Senha do portal')).toHaveCount(0);
+
+    await caixa.check();
+
+    await expect(janela.getByText('é por lá que o cliente entra no portal')).toBeVisible();
+    await expect(janela.getByLabel('Senha do portal')).toBeVisible();
+
+    // Com email, o aviso sai da frente.
+    await janela.getByLabel('Email').fill('portal.ensaio@exemplo.ao');
+    await expect(janela.getByText('é por lá que o cliente entra no portal')).toHaveCount(0);
+});
+
+/**
+ * PROVÍNCIA → MUNICÍPIO, com as listas que vêm do servidor.
+ *
+ * O formulário só tinha província e cidade; o município e o bairro, que a API
+ * grava e o SAFT leva, não tinham por onde ser escritos.
+ */
+test('escolher a província enche os municípios', async ({ page }) => {
+    await page.getByRole('button', { name: /Novo cliente/ }).click();
+
+    const janela = page.getByRole('dialog');
+    // Ancorado no princípio: o nome acessível de um `select` leva-lhe a opção
+    // escolhida colada, e o «Escolha primeiro a província» do município fazia
+    // um `getByLabel('Província')` apanhar os dois campos.
+    const municipio = janela.getByLabel(/^Município/);
+
+    // Sem província escolhida não há município que faça sentido.
+    await expect(municipio).toBeDisabled();
+
+    await janela.getByLabel(/^Província/).selectOption('Benguela');
+
+    await expect(municipio).toBeEnabled();
+    await expect(municipio.locator('option', { hasText: 'Lobito' })).toHaveCount(1);
+
+    await municipio.selectOption('Lobito');
+    await expect(municipio).toHaveValue('Lobito');
+
+    // E o bairro sugere sem fechar: é um campo de texto com sugestões.
+    await expect(janela.getByLabel('Bairro')).toBeEditable();
+});
+
 test('nenhum erro na consola', async ({ page }) => {
     const erros = [];
 
@@ -108,8 +169,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecrã Livewire dos clientes continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/clients');
-
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

@@ -21,6 +21,8 @@ use Tests\TenantTestCase;
  */
 class MenuDoPwaTest extends TenantTestCase
 {
+    private const DEFINICOES = '/api/v1/invoicing/react/definicoes';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -253,15 +255,15 @@ class MenuDoPwaTest extends TenantTestCase
     /**
      * O ecrã de definições guarda mesmo a escolha — e o Início entra sempre,
      * escolha o utilizador o que escolher. Um PWA sem Início não tem saída.
+     *
+     * O ecrã passou a React; quem grava é a API das definições, pelo mesmo
+     * serviço (`DefinicoesDaFacturacao`) que o Livewire chamava.
      */
     public function test_o_ecra_de_definicoes_guarda_a_escolha(): void
     {
         $this->comAsPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\Settings::class)
-            ->set('pwa_menu', ['pos'])
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson(self::DEFINICOES, $this->ficha(['pwa_menu' => ['pos']]))->assertOk();
 
         $guardado = InvoicingSettings::forTenant($this->tenant->id)->fresh()->pwa_menu;
 
@@ -275,9 +277,14 @@ class MenuDoPwaTest extends TenantTestCase
     {
         $this->comAsPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\Settings::class)
-            ->set('pwa_menu', ['pos', 'entrada-inventada'])
-            ->call('save')
-            ->assertHasErrors('pwa_menu.1');
+        $this->putJson(self::DEFINICOES, $this->ficha(['pwa_menu' => ['pos', 'entrada-inventada']]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('pwa_menu.1');
+    }
+
+    /** A ficha inteira das definições, com o que o teste quer mudar por cima. */
+    private function ficha(array $por = []): array
+    {
+        return array_merge($this->getJson(self::DEFINICOES)->assertOk()->json('definicoes'), $por);
     }
 }

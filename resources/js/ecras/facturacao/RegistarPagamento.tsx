@@ -9,6 +9,7 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Carregando } from '@/ui/Carregando';
 import { Modal } from '@/ui/Modal';
 import { RAIO, cls, kz } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * REGISTAR O PAGAMENTO DE UMA FACTURA — o modal que as listas abrem.
@@ -83,62 +84,62 @@ export function RegistarPagamento({ tipo, id, aoFechar, aoRegistar }: {
         <Modal
             aberto
             aoFechar={aoFechar}
-            titulo={c ? `Pagar ${c.factura.numero}` : 'Pagar'}
+            titulo={c ? t('Pagar :numero', { numero: c.factura.numero }) : t('Pagar')}
             largura="md"
-            rodape={<><Botao onClick={aoFechar}>Cancelar</Botao><Botao cor="primaria" tom="solida" icone="fa-money-bill-wave" aTrabalhar={registar.isPending} disabled={!c} onClick={() => registar.mutate()}>Registar pagamento</Botao></>}
+            rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-money-bill-wave" aTrabalhar={registar.isPending} disabled={!c} onClick={() => registar.mutate()}>{t('Registar pagamento')}</Botao></>}
         >
             <AvisoDeErro erro={registar.error ?? ctx.error} />
             {!c ? <Carregando linhas={4} /> : (
                 <div className="space-y-4">
                     <div className={cls('grid grid-cols-3 gap-3 border border-slate-200 bg-slate-50 px-4 py-3 text-sm', RAIO)}>
                         <div><p className="text-xs uppercase tracking-wider text-slate-500">{c.factura.parte}</p><p className="font-semibold tabular-nums">{kz(c.factura.total)}</p></div>
-                        <div><p className="text-xs uppercase tracking-wider text-slate-500">Já pago</p><p className="font-semibold tabular-nums">{kz(c.factura.pago)}</p></div>
-                        <div><p className="text-xs uppercase tracking-wider text-slate-500">Falta</p><p className="font-bold tabular-nums text-amber-700" data-por-pagar>{kz(c.por_pagar)}</p></div>
+                        <div><p className="text-xs uppercase tracking-wider text-slate-500">{t('Já pago')}</p><p className="font-semibold tabular-nums">{kz(c.factura.pago)}</p></div>
+                        <div><p className="text-xs uppercase tracking-wider text-slate-500">{t('Falta')}</p><p className="font-bold tabular-nums text-amber-700" data-por-pagar>{kz(c.por_pagar)}</p></div>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <Campo etiqueta="Valor a pagar (Kz)" erro={erros.amount} obrigatorio>
+                        <Campo etiqueta={t('Valor a pagar (Kz)')} erro={erros.amount} obrigatorio>
                             <input type="number" min="0" step="0.01" value={valor} onChange={(e) => porValor(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
                         </Campo>
-                        <Campo etiqueta="Forma de pagamento" erro={erros.payment_method} obrigatorio>
+                        <Campo etiqueta={t('Forma de pagamento')} erro={erros.payment_method} obrigatorio>
                             <select value={forma} onChange={(e) => porForma(e.target.value)} className={entrada}>
                                 {c.formas.map((f) => <option key={f.valor} value={f.valor}>{f.rotulo}</option>)}
                             </select>
                         </Campo>
                         {c.contas.length > 0 && (
-                            <Campo etiqueta="Conta bancária" erro={erros.account_id}>
+                            <Campo etiqueta={t('Conta bancária')} erro={erros.account_id}>
                                 <select value={contaId} onChange={(e) => porContaId(e.target.value)} className={entrada}>
-                                    <option value="">A que a tesouraria decidir</option>
+                                    <option value="">{t('A que a tesouraria decidir')}</option>
                                     {c.contas.map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
                                 </select>
                             </Campo>
                         )}
                         {c.caixas.length > 0 && (
-                            <Campo etiqueta="Caixa" erro={erros.cash_register_id}>
+                            <Campo etiqueta={t('Caixa')} erro={erros.cash_register_id}>
                                 <select value={caixaId} onChange={(e) => porCaixaId(e.target.value)} className={entrada}>
-                                    <option value="">A que a tesouraria decidir</option>
+                                    <option value="">{t('A que a tesouraria decidir')}</option>
                                     {c.caixas.map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
                                 </select>
                             </Campo>
                         )}
-                        <Campo etiqueta="Referência" erro={erros.reference}><input value={referencia} onChange={(e) => porReferencia(e.target.value)} className={entrada} /></Campo>
-                        <Campo etiqueta="Observações" erro={erros.notes}><input value={notas} onChange={(e) => porNotas(e.target.value)} className={entrada} /></Campo>
+                        <Campo etiqueta={t('Referência')} erro={erros.reference}><input value={referencia} onChange={(e) => porReferencia(e.target.value)} className={entrada} /></Campo>
+                        <Campo etiqueta={t('Observações')} erro={erros.notes}><input value={notas} onChange={(e) => porNotas(e.target.value)} className={entrada} /></Campo>
                     </div>
 
                     {c.adiantamentos.length > 0 && (
                         <div className={cls('border border-indigo-200 bg-indigo-50 p-3', RAIO)}>
                             <label className="flex items-center gap-2 text-sm font-semibold text-indigo-900">
                                 <input type="checkbox" checked={usarAdiantamento} onChange={(e) => { porUsarAdiantamento(e.target.checked); if (e.target.checked && c.adiantamentos[0]) escolherAdiantamento(String(c.adiantamentos[0].id)); else { porDoAdiantamento(''); porValor(String(c.por_pagar)); } }} className="h-4 w-4 rounded border-slate-300" />
-                                Usar um adiantamento deste cliente
+                                {t('Usar um adiantamento deste cliente')}
                             </label>
                             {usarAdiantamento && (
                                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                    <Campo etiqueta="Adiantamento" erro={erros.advance_id}>
+                                    <Campo etiqueta={t('Adiantamento')} erro={erros.advance_id}>
                                         <select value={adiantamentoId} onChange={(e) => escolherAdiantamento(e.target.value)} className={entrada}>
                                             {c.adiantamentos.map((a) => <option key={a.id} value={a.id}>{a.numero} · {kz(a.disponivel)} Kz</option>)}
                                         </select>
                                     </Campo>
-                                    <Campo etiqueta="A abater (Kz)" erro={erros.advance_amount}>
+                                    <Campo etiqueta={t('A abater (Kz)')} erro={erros.advance_amount}>
                                         <input type="number" min="0" step="0.01" value={doAdiantamento} onChange={(e) => porDoAdiantamento(e.target.value)} className={cls(entrada, 'text-right tabular-nums')} />
                                     </Campo>
                                 </div>
@@ -148,10 +149,10 @@ export function RegistarPagamento({ tipo, id, aoFechar, aoRegistar }: {
 
                     <p className="text-sm text-slate-600" data-falta-depois>
                         {faltaDepois > 0
-                            ? <>Depois deste pagamento ficam a faltar <strong className="tabular-nums">{kz(faltaDepois)} Kz</strong>.</>
+                            ? <>{t('Depois deste pagamento ficam a faltar')}{' '}<strong className="tabular-nums">{kz(faltaDepois)} Kz</strong>.</>
                             : excedente > 0 && tipo === 'sale'
-                                ? <>Fica liquidada. O excedente de <strong className="tabular-nums">{kz(excedente)} Kz</strong> vira adiantamento do cliente.</>
-                                : <>Fica liquidada.</>}
+                                ? <>{t('Fica liquidada. O excedente de')}{' '}<strong className="tabular-nums">{kz(excedente)} Kz</strong>{' '}{t('vira adiantamento do cliente.')}</>
+                                : <>{t('Fica liquidada.')}</>}
                     </p>
                 </div>
             )}

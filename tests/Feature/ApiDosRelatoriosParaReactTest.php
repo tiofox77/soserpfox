@@ -82,8 +82,8 @@ class ApiDosRelatoriosParaReactTest extends TenantTestCase
         $this->assertCount(7, $seccoes);
         $todos = collect($seccoes)->flatMap(fn ($s) => $s['relatorios']);
         $this->assertCount(count(Catalogo::RELATORIOS), $todos, 'cada mapa do catálogo tem lugar na porta');
-        $this->assertSame('/invoicing/reports/sales/novo-ecra', $todos->firstWhere('slug', 'sales')['caminho']);
-        $this->assertSame('/invoicing/expiry-report/novo-ecra', $todos->firstWhere('slug', 'expiry-report')['caminho']);
+        $this->assertSame('/invoicing/reports/sales', $todos->firstWhere('slug', 'sales')['caminho']);
+        $this->assertSame('/invoicing/expiry-report', $todos->firstWhere('slug', 'expiry-report')['caminho']);
     }
 
     /** @test */
@@ -141,7 +141,7 @@ class ApiDosRelatoriosParaReactTest extends TenantTestCase
     {
         $this->comPermissoes('invoicing.reports.view');
 
-        $r = $this->get('/invoicing/reports/sales/novo-ecra/csv?period=month');
+        $r = $this->get('/invoicing/reports/sales/csv?period=month');
 
         $r->assertOk();
         $this->assertStringContainsString('text/csv', (string) $r->headers->get('content-type'));
@@ -149,6 +149,35 @@ class ApiDosRelatoriosParaReactTest extends TenantTestCase
         $this->assertStringStartsWith("\xEF\xBB\xBF", $conteudo, 'o BOM para o Excel em português');
         $this->assertStringContainsString('Nº;Data;Cliente;Subtotal;IVA;Total;Pago;Estado', $conteudo);
 
-        $this->get('/invoicing/reports/charts/novo-ecra/csv')->assertNotFound();
+        $this->get('/invoicing/reports/charts/csv')->assertNotFound();
+    }
+    /**
+     * O AVISO DE VALIDADE ABRE O MAPA JÁ NO FILTRO CERTO.
+     *
+     * O email de produtos expirados diz «ACÇÃO URGENTE» e liga para
+     * `/invoicing/expiry-report?type=expired`. O mapa chama àquele filtro
+     * `reportType` e o endereço era ignorado — quem carregava caía na lista
+     * dos que estão A EXPIRAR, não na dos que JÁ EXPIRARAM. Andou assim
+     * enquanto o ecrã era Livewire, e não havia razão para o levar adiante.
+     *
+     * @test
+     */
+    public function o_aviso_de_validade_abre_o_mapa_no_filtro_pedido(): void
+    {
+        $this->comPermissoes("invoicing.reports.view");
+
+        $this->get("/invoicing/expiry-report?type=expired")
+            ->assertOk()
+            ->assertSee("&quot;filtrosIniciais&quot;:{&quot;reportType&quot;:&quot;expired&quot;}", false);
+
+        // Sem nada no endereço, o mapa abre como sempre abriu.
+        $this->get("/invoicing/expiry-report")
+            ->assertOk()
+            ->assertDontSee("filtrosIniciais", false);
+
+        // E um valor inventado não passa para dentro.
+        $this->get("/invoicing/expiry-report?type=xpto")
+            ->assertOk()
+            ->assertDontSee("filtrosIniciais", false);
     }
 }

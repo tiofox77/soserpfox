@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoicing\CreditNote;
+use App\Models\Invoicing\PurchaseInvoice;
+use App\Models\Invoicing\SalesProforma;
+use App\Services\Invoicing\TiposDeDocumento;
 use Tests\TenantTestCase;
 
 /**
@@ -17,134 +21,215 @@ use Tests\TenantTestCase;
  * e o adiantamento, que não são documentos fiscais e nunca são enviados. Sem
  * essa distinção, a coluna dizia «pendente de envio» numa proforma e mandava
  * alguém procurar um envio que nunca vai existir.
+ *
+ * O selo era um partial Blade partilhado pelas nove listas. Hoje as listas são
+ * React e a decisão vem DECIDIDA do servidor: o ecrã recebe o rótulo e a cor,
+ * não o estado cru para concluir por si.
  */
 class ColunaAgtNasListasTest extends TenantTestCase
 {
-    /** As listas que comunicam à AGT: factura, notas e recibo. */
-    private const FISCAIS = [
-        'faturas-venda/invoices.blade.php',
-        'faturas-compra/invoices.blade.php',
-        'credit-notes/credit-notes.blade.php',
-        'debit-notes/debit-notes.blade.php',
-        'receipts/receipts.blade.php',
+    /** Os ecrãs em React que desenham as listas de documentos. */
+    private const ECRAS = [
+        'js/ecras/facturacao/vendas/ListaDeFacturas.tsx',
+        'js/ecras/facturacao/ListaDeDocumentos.tsx',
     ];
+
+    /** As listas que comunicam à AGT pela mão da empresa. */
+    private const FISCAIS = ['notas-credito', 'notas-debito', 'recibos'];
 
     /** As que nunca são comunicadas. */
-    private const NAO_FISCAIS = [
-        'proformas-venda/proformas.blade.php',
-        'proformas-compra/proformas.blade.php',
-        'orcamentos-venda/orcamentos.blade.php',
-        'advances/advances.blade.php',
-    ];
+    private const NAO_FISCAIS = ['proformas-venda', 'proformas-compra', 'orcamentos', 'adiantamentos'];
 
-    private function lista(string $ficheiro): string
+    protected function setUp(): void
     {
-        return file_get_contents(resource_path('views/livewire/invoicing/' . $ficheiro));
+        parent::setUp();
+
+        $this->comModulo('invoicing');
+    }
+
+    private function nota(?string $agt, string $estado = 'issued'): CreditNote
+    {
+        $n = CreditNote::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->clienteEmpresa()->id,
+            'credit_note_number' => 'NC ' . strtoupper(substr(uniqid(), -8)),
+            'issue_date' => now()->toDateString(),
+            'status' => $estado,
+            'reason' => 'return',
+            'subtotal' => 100,
+            'tax_amount' => 0,
+            'total' => 100,
+            'type' => 'total',
+            'created_by' => $this->user->id,
+        ]);
+
+        $n->forceFill(['agt_status' => $agt])->saveQuietly();
+
+        return $n;
+    }
+
+    private function linhaDe(string $tipo, int $id): ?array
+    {
+        return collect(
+            $this->getJson("/api/v1/invoicing/react/documentos/{$tipo}")->assertOk()->json('data')
+        )->firstWhere('id', $id);
     }
 
     /** @test */
     public function todas_as_listas_de_documentos_mostram_o_estado_da_agt(): void
     {
-        foreach (array_merge(self::FISCAIS, self::NAO_FISCAIS) as $ficheiro) {
-            $this->assertStringContainsString('agt-document-status', $this->lista($ficheiro),
-                "{$ficheiro}: falta a coluna do estado da AGT");
+        // Cada tipo diz, nas suas opções, o que a coluna vai dizer — é isso
+        // que o ecrã usa e é isso que impede um documento novo de entrar sem
+        // ninguém decidir a sua natureza fiscal.
+        foreach (TiposDeDocumento::todos() as $slug => $def) {
+            $this->comPermissoes($def['permissao']);
 
-            $this->assertStringContainsString("__('Portal AGT')", $this->lista($ficheiro),
-                "{$ficheiro}: falta o cabeçalho da coluna");
+            $this->getJson("/api/v1/invoicing/react/documentos/{$slug}/opcoes")
+                ->assertOk()
+                ->assertJsonPath('agt', $def['agt']);
+
+            $this->assertContains($def['agt'], ['propria', 'fornecedor', 'nao-fiscal'],
+                "{$slug}: a natureza fiscal tem de ser uma das três");
+        }
+
+        // E a coluna existe mesmo nos dois ecrãs.
+        foreach (self::ECRAS as $ficheiro) {
+            $fonte = file_get_contents(resource_path($ficheiro));
+
+            $this->assertMatchesRegularExpression('#(Portal AGT|>AGT<)#', $fonte,
+                "{$ficheiro}: falta o cabeçalho da coluna do estado da AGT");
+            $this->assertStringContainsString('.agt', $fonte,
+                "{$ficheiro}: falta a célula com o estado da AGT");
         }
     }
 
     /**
      * O QUE NÃO É FISCAL TEM DE SE DECLARAR.
      *
-     * Sem `natureza => 'nao-fiscal'` o selo cai no ramo por omissão e diz
+     * Sem a natureza `nao-fiscal` o selo cai no ramo por omissão e diz
      * «pendente de envio» — um alarme para uma coisa que nunca acontece.
      *
      * @test
      */
     public function as_listas_nao_fiscais_declaram_se_como_tal(): void
     {
-        foreach (self::NAO_FISCAIS as $ficheiro) {
-            $this->assertStringContainsString("'natureza' => 'nao-fiscal'", $this->lista($ficheiro),
-                "{$ficheiro}: uma proforma ou um orçamento não se comunicam à AGT");
+        $tipos = TiposDeDocumento::todos();
+
+        foreach (self::NAO_FISCAIS as $slug) {
+            $this->assertSame('nao-fiscal', $tipos[$slug]['agt'],
+                "{$slug}: uma proforma, um orçamento ou um adiantamento não se comunicam à AGT");
         }
 
-        foreach (self::FISCAIS as $ficheiro) {
-            $this->assertStringNotContainsString("'natureza' => 'nao-fiscal'", $this->lista($ficheiro),
-                "{$ficheiro}: este documento É comunicado à AGT");
+        foreach (self::FISCAIS as $slug) {
+            $this->assertSame('propria', $tipos[$slug]['agt'],
+                "{$slug}: este documento É comunicado à AGT pela empresa");
         }
+
+        // A factura de compra é fiscal, mas de quem a emitiu.
+        $this->assertSame('fornecedor', $tipos['facturas-compra']['agt']);
+    }
+
+    /** @test */
+    public function o_selo_diz_o_que_a_agt_respondeu(): void
+    {
+        $this->comPermissoes('invoicing.credit-notes.view');
+
+        $casos = [
+            'validated' => ['Emitida no Portal AGT', 'bom'],
+            'submitted' => ['Enviada — aguarda AGT', 'primaria'],
+            'rejected'  => ['Falhou — reenviar à AGT', 'perigo'],
+            ''          => ['Pendente de envio à AGT', 'aviso'],
+        ];
+
+        foreach ($casos as $estado => [$rotulo, $cor]) {
+            $nota = $this->nota($estado);
+
+            $linha = $this->linhaDe('notas-credito', $nota->id);
+
+            $this->assertSame($rotulo, $linha['agt']['rotulo'], "o estado '{$estado}' devia dizer «{$rotulo}»");
+            $this->assertSame($cor, $linha['agt']['cor'], 'a cor acompanha o rótulo — nunca só a cor');
+        }
+    }
+
+    /** Um rascunho ainda não foi emitido: não há envio nenhum por fazer. @test */
+    public function um_rascunho_nao_diz_que_esta_pendente_de_envio(): void
+    {
+        $this->comPermissoes('invoicing.credit-notes.view');
+
+        $linha = $this->linhaDe('notas-credito', $this->nota(null, 'draft')->id);
+
+        $this->assertSame('Ainda não emitida', $linha['agt']['rotulo']);
+    }
+
+    /** @test */
+    public function o_selo_do_nao_fiscal_nao_inventa_um_envio(): void
+    {
+        $this->comPermissoes('invoicing.sales.proformas.view');
+
+        $proforma = SalesProforma::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->clienteEmpresa()->id,
+            'proforma_number' => 'PRF/' . random_int(1000, 9999),
+            'proforma_date' => now()->toDateString(),
+            'status' => 'draft',
+            'total' => 100,
+            'created_by' => $this->user->id,
+        ]);
+
+        $selo = $this->linhaDe('proformas-venda', $proforma->id)['agt'];
+
+        $this->assertSame('nao-fiscal', $selo['natureza']);
+        $this->assertSame('Não comunicável à AGT', $selo['rotulo']);
+        $this->assertStringNotContainsString('Pendente', $selo['rotulo']);
+    }
+
+    /** @test */
+    public function a_factura_de_compra_continua_a_dizer_de_quem_e_a_responsabilidade(): void
+    {
+        $this->comPermissoes('invoicing.purchases.invoices.view');
+
+        $fornecedor = \App\Models\Supplier::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Fornecedor ' . uniqid(),
+            'is_active' => true,
+        ]);
+
+        $compra = PurchaseInvoice::create([
+            'tenant_id' => $this->tenant->id,
+            'supplier_id' => $fornecedor->id,
+            'invoice_number' => 'FC/' . random_int(1000, 9999),
+            'invoice_date' => now()->toDateString(),
+            'status' => 'pending',
+            'total' => 5000,
+            'paid_amount' => 0,
+            'created_by' => $this->user->id,
+        ]);
+
+        // Quem comunica uma factura de compra é o fornecedor que a emitiu.
+        $this->assertSame(
+            'Responsabilidade do fornecedor',
+            $this->linhaDe('facturas-compra', $compra->id)['agt']['rotulo']
+        );
     }
 
     /**
      * A TABELA TEM DE FECHAR.
      *
      * Uma coluna a mais no cabeçalho sem a célula correspondente no corpo
-     * desalinha a tabela toda, e o colspan da linha «sem resultados» deixa de
-     * atravessar a largura.
+     * desalinha a tabela toda.
      *
      * @test
      */
-    public function o_cabecalho_o_corpo_e_a_linha_de_vazio_tem_a_mesma_largura(): void
+    public function o_cabecalho_e_o_corpo_tem_a_mesma_largura(): void
     {
-        foreach (array_merge(self::FISCAIS, self::NAO_FISCAIS) as $ficheiro) {
-            $fonte = $this->lista($ficheiro);
+        foreach (self::ECRAS as $ficheiro) {
+            $fonte = file_get_contents(resource_path($ficheiro));
 
-            $cabecalho = substr($fonte, strpos($fonte, '<thead'), strpos($fonte, '</thead>') - strpos($fonte, '<thead'));
-            $colunas = preg_match_all('#<th[\s>]#', $cabecalho);
-
-            $corpo = substr($fonte, strpos($fonte, '@forelse'));
-            $celulas = preg_match_all('#<td[\s>]#', substr($corpo, 0, strpos($corpo, '</tr>')));
+            $colunas = preg_match_all('#<th[\s>]#', $fonte);
+            $celulas = preg_match_all('#<td[\s>]#', $fonte);
 
             $this->assertSame($colunas, $celulas,
                 "{$ficheiro}: {$colunas} colunas no cabeçalho e {$celulas} células na linha");
-
-            if (preg_match('#colspan="(\d+)"#', $fonte, $m)) {
-                $this->assertSame($colunas, (int) $m[1],
-                    "{$ficheiro}: o colspan da linha de vazio não atravessa a tabela");
-            }
         }
-    }
-
-    /** @test */
-    public function o_selo_diz_o_que_a_agt_respondeu(): void
-    {
-        $casos = [
-            'validated' => 'Emitida no Portal AGT',
-            'submitted' => 'Enviada — aguarda AGT',
-            'rejected'  => 'Falhou — reenviar à AGT',
-            ''          => 'Pendente de envio à AGT',
-        ];
-
-        foreach ($casos as $estado => $esperado) {
-            $documento = (object) ['agt_status' => $estado, 'status' => 'issued'];
-
-            $html = view('livewire.invoicing.partials.agt-document-status', ['document' => $documento])->render();
-
-            $this->assertStringContainsString($esperado, $html, "o estado '{$estado}' devia dizer «{$esperado}»");
-        }
-    }
-
-    /** @test */
-    public function o_selo_do_nao_fiscal_nao_inventa_um_envio(): void
-    {
-        $html = view('livewire.invoicing.partials.agt-document-status', [
-            'document' => (object) ['status' => 'issued'],
-            'natureza' => 'nao-fiscal',
-        ])->render();
-
-        $this->assertStringContainsString('Não comunicável à AGT', $html);
-        $this->assertStringNotContainsString('Pendente de envio', $html);
-    }
-
-    /** @test */
-    public function a_factura_de_compra_continua_a_dizer_de_quem_e_a_responsabilidade(): void
-    {
-        $html = view('livewire.invoicing.partials.agt-document-status', [
-            'document' => (object) ['status' => 'issued'],
-            'direction' => 'purchase',
-        ])->render();
-
-        // Quem comunica uma factura de compra é o fornecedor que a emitiu.
-        $this->assertStringContainsString('Responsabilidade do fornecedor', $html);
     }
 }

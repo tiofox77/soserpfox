@@ -174,7 +174,11 @@ class PainelDaFacturacao
 
         for ($m = 1; $m <= 12; $m++) {
             $meses[] = [
-                'rotulo' => Carbon::create($ano, $m, 1)->locale('pt')->isoFormat('MMM'),
+                // O NOME DO MÊS SEGUE A LÍNGUA de quem está a olhar. Estava
+                // 'pt' escrito à mão: a página inteira em inglês e o gráfico
+                // por baixo a dizer «ago.» — a meia-tradução que passa
+                // despercebida a quem revê o texto e salta à vista a quem usa.
+                'rotulo' => Carbon::create($ano, $m, 1)->locale(app()->getLocale())->isoFormat('MMM'),
                 'valor' => (float) ($somas[$m] ?? 0),
             ];
         }

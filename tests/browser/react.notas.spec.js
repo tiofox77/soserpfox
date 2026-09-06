@@ -5,8 +5,8 @@ import { entrar } from './apoio.js';
  * NOTAS DE CRÉDITO E DE DÉBITO EM REACT.
  *
  * O ecrã só acerta quantidades. A taxa, o código SAFT, a região e os totais
- * vêm da linha original, calculados no servidor pelo mesmo serviço que o
- * Livewire chama. É isso que estes ensaios olham: que as linhas chegam do
+ * vêm da linha original, calculados no servidor pelo mesmo serviço que a
+ * API chama. É isso que estes ensaios olham: que as linhas chegam do
  * servidor com o imposto delas, e que o travão do E43 aparece no ecrã sem a
  * nota ter nascido.
  */
@@ -16,8 +16,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const [tipo, morada, titulo] of [
-    ['credito', '/invoicing/credit-notes/create/novo-ecra', 'Nota de Crédito'],
-    ['debito', '/invoicing/debit-notes/create/novo-ecra', 'Nota de Débito'],
+    ['credito', '/invoicing/credit-notes/create', 'Nota de Crédito'],
+    ['debito', '/invoicing/debit-notes/create', 'Nota de Débito'],
 ]) {
     test(`${titulo}: abre e pede o cliente primeiro`, async ({ page }) => {
         const erros = [];
@@ -38,17 +38,13 @@ for (const [tipo, morada, titulo] of [
         expect(erros).toEqual([]);
     });
 
-    test(`${titulo}: a morada de sempre continua em Livewire`, async ({ page }) => {
-        await page.goto(morada.replace('/novo-ecra', ''));
-        await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    });
 }
 
 /**
  * AS LINHAS VÊM DO SERVIDOR, COM O IMPOSTO DA LINHA ORIGINAL.
  */
 test('Nota de Crédito: escolher a factura traz as linhas com a taxa delas', async ({ page }) => {
-    await page.goto('/invoicing/credit-notes/create/novo-ecra');
+    await page.goto('/invoicing/credit-notes/create');
     await expect(page.getByLabel(/^Cliente\b/)).toBeVisible({ timeout: 20_000 });
 
     // O primeiro cliente com facturas por creditar.

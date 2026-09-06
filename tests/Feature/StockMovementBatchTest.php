@@ -2,22 +2,30 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\StockManagement;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
-use Livewire\Livewire;
+use App\Models\Product;
+use Illuminate\Testing\TestResponse;
 use Tests\TenantTestCase;
 
 /**
  * Documento de Movimentação de Stock (lote MOV/AAAA/NNNNNN).
  *
- * O modal regista várias entradas e saídas de uma vez e imprime o lote como um
+ * O ecrã regista várias entradas e saídas de uma vez e imprime o lote como um
  * documento único. Cada asserção aqui corresponde a um defeito concreto: linhas
  * gravadas sem efeito no stock, referências repetidas entre operadores,
  * documentos de uma empresa legíveis por outra.
+ *
+ * O modal saiu do Livewire para o React e o lote entra agora por
+ * `POST /api/v1/invoicing/react/stock/entrada` — as regras não mudaram de sítio
+ * nenhum: continuam no `MovimentacaoDeStock` e nos ganchos do `StockMovement`.
+ * O documento impresso (PDF e pré-visualização) continua a ser servido pelo
+ * `StockMovementController`, nas mesmas moradas de sempre.
  */
 class StockMovementBatchTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/stock';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -26,39 +34,38 @@ class StockMovementBatchTest extends TenantTestCase
              ->comModulo('invoicing');
     }
 
-    private function modal()
+    /**
+     * Grava um lote com as linhas dadas e devolve a resposta da API.
+     *
+     * @param  array<int, array{produto: Product, qtd: float, op?: string, custo?: float}>  $linhas
+     */
+    private function gravarLote(array $linhas, string $nota = 'Conferência'): TestResponse
     {
-        return Livewire::test(StockManagement::class)->call('openEntryModal');
+        return $this->postJson(self::RAIZ . '/entrada', [
+            'armazem_id' => $this->armazem->id,
+            'notas' => $nota,
+            'itens' => array_map(fn (array $l) => [
+                'product_id' => $l['produto']->id,
+                'product_name' => $l['produto']->name,
+                'op' => $l['op'] ?? 'add',
+                'quantity' => $l['qtd'],
+                'unit_cost' => $l['custo'] ?? 100,
+            ], $linhas),
+        ]);
     }
 
-    /** Grava um lote com as linhas dadas e devolve o componente já testado. */
-    private function gravarLote(array $linhas, string $nota = 'Conferência')
+    /** A referência do lote acabado de gravar. */
+    private function referencia(array $linhas, string $nota = 'Conferência'): string
     {
-        $c = $this->modal()
-            ->set('entryWarehouseId', $this->armazem->id)
-            ->set('entryNotes', $nota);
-
-        foreach ($linhas as $linha) {
-            $c->call('addEntryItem', $linha['produto']->id);
-        }
-
-        $itens = $c->get('entryItems');
-
-        foreach ($linhas as $i => $linha) {
-            $itens[$i]['op']        = $linha['op'] ?? 'add';
-            $itens[$i]['quantity']  = $linha['qtd'];
-            $itens[$i]['unit_cost'] = $linha['custo'] ?? 100;
-        }
-
-        return $c->set('entryItems', $itens)->call('saveEntry');
+        return $this->gravarLote($linhas, $nota)->assertCreated()->json('referencia');
     }
 
     public function test_a_referencia_e_sequencial_por_empresa(): void
     {
         $p = $this->produtoComStock(50);
 
-        $ref1 = $this->gravarLote([['produto' => $p, 'qtd' => 1]])->get('batchReference');
-        $ref2 = $this->gravarLote([['produto' => $p, 'qtd' => 1]])->get('batchReference');
+        $ref1 = $this->referencia([['produto' => $p, 'qtd' => 1]]);
+        $ref2 = $this->referencia([['produto' => $p, 'qtd' => 1]]);
 
         $ano = now()->year;
 
@@ -69,7 +76,7 @@ class StockMovementBatchTest extends TenantTestCase
     public function test_cada_empresa_tem_a_sua_sequencia(): void
     {
         $p = $this->produtoComStock(50);
-        $this->gravarLote([['produto' => $p, 'qtd' => 1]]);
+        $this->gravarLote([['produto' => $p, 'qtd' => 1]])->assertCreated();
 
         $outra = \App\Models\Tenant::create([
             'name' => 'Outra', 'slug' => 'outra-' . uniqid(),
@@ -90,11 +97,11 @@ class StockMovementBatchTest extends TenantTestCase
         $b = $this->produtoComStock(20);
         $c = $this->produtoComStock(20);
 
-        $ref = $this->gravarLote([
+        $ref = $this->referencia([
             ['produto' => $a, 'qtd' => 5, 'op' => 'add'],
             ['produto' => $b, 'qtd' => 3, 'op' => 'add'],
             ['produto' => $c, 'qtd' => 2, 'op' => 'sub'],
-        ])->get('batchReference');
+        ]);
 
         $movimentos = StockMovement::doLote($ref)->get();
 
@@ -111,13 +118,11 @@ class StockMovementBatchTest extends TenantTestCase
         // passava a dizer uma coisa que nunca aconteceu.
         $p = $this->produtoComStock(10);
 
-        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 5, 'op' => 'add']])
-            ->get('batchReference');
+        $ref = $this->referencia([['produto' => $p, 'qtd' => 5, 'op' => 'add']]);
 
         $this->assertEquals(15, (float) StockMovement::doLote($ref)->first()->balance_after);
 
-        $ref2 = $this->gravarLote([['produto' => $p, 'qtd' => 3, 'op' => 'sub']])
-            ->get('batchReference');
+        $ref2 = $this->referencia([['produto' => $p, 'qtd' => 3, 'op' => 'sub']]);
 
         $this->assertEquals(12, (float) StockMovement::doLote($ref2)->first()->balance_after);
     }
@@ -130,15 +135,15 @@ class StockMovementBatchTest extends TenantTestCase
         $bom  = $this->produtoComStock(20);
         $seco = $this->produtoComStock(1);
 
-        $c = $this->gravarLote([
+        $r = $this->gravarLote([
             ['produto' => $bom,  'qtd' => 5,   'op' => 'add'],
             ['produto' => $seco, 'qtd' => 999, 'op' => 'sub'],
-        ]);
+        ])->assertCreated();
 
-        $ref = $c->get('batchReference');
+        $ref = $r->json('referencia');
 
-        $this->assertSame(1, $c->get('batchOk'), 'só uma linha podia passar');
-        $this->assertCount(1, $c->get('batchErrors'));
+        $this->assertSame(1, $r->json('ok'), 'só uma linha podia passar');
+        $this->assertCount(1, $r->json('erros'));
 
         $this->assertCount(1, StockMovement::doLote($ref)->get(),
             'a linha falhada não pode ficar no livro');
@@ -165,13 +170,13 @@ class StockMovementBatchTest extends TenantTestCase
 
         \App\Models\AuditTrail::where('tenant_id', $this->tenant->id)->delete();
 
-        $c = $this->gravarLote([
+        $r = $this->gravarLote([
             ['produto' => $bom1, 'qtd' => 5,   'op' => 'add'],
             ['produto' => $bom2, 'qtd' => 5,   'op' => 'add'],
             ['produto' => $seco, 'qtd' => 999, 'op' => 'sub'],
-        ]);
+        ])->assertCreated();
 
-        $this->assertSame(2, $c->get('batchOk'));
+        $this->assertSame(2, $r->json('ok'));
 
         app(\App\Services\Audit\AuditRecorder::class)->despejar();
 
@@ -180,7 +185,7 @@ class StockMovementBatchTest extends TenantTestCase
             ->where('event', 'created')
             ->pluck('auditable_id');
 
-        $gravados = StockMovement::doLote($c->get('batchReference'))->pluck('id');
+        $gravados = StockMovement::doLote($r->json('referencia'))->pluck('id');
 
         $this->assertCount(2, $gravados);
 
@@ -194,16 +199,20 @@ class StockMovementBatchTest extends TenantTestCase
     {
         $seco = $this->produtoComStock(0);
 
-        $c = $this->gravarLote([['produto' => $seco, 'qtd' => 5, 'op' => 'sub']]);
+        $r = $this->gravarLote([['produto' => $seco, 'qtd' => 5, 'op' => 'sub']]);
 
-        $this->assertNull($c->get('batchReference'), 'sem linhas gravadas não há documento a imprimir');
-        $this->assertSame(0, $c->get('batchOk'));
+        // Nada passou: a API recusa o lote inteiro e não devolve documento
+        // nenhum para imprimir.
+        $r->assertStatus(422)->assertJsonStructure(['errors' => ['itens']]);
+
+        $this->assertNull($r->json('referencia'), 'sem linhas gravadas não há documento a imprimir');
+        $this->assertSame(0, StockMovement::where('tenant_id', $this->tenant->id)->count());
     }
 
     public function test_o_pdf_do_lote_abre(): void
     {
         $p   = $this->produtoComStock(20);
-        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->get('batchReference');
+        $ref = $this->referencia([['produto' => $p, 'qtd' => 4]]);
 
         $resposta = $this->get(route('invoicing.stock.batch-pdf', ['reference' => $ref]));
 
@@ -221,9 +230,9 @@ class StockMovementBatchTest extends TenantTestCase
         // documento de duas.
         $produtos = collect(range(1, 8))->map(fn () => $this->produtoComStock(30));
 
-        $ref = $this->gravarLote(
+        $ref = $this->referencia(
             $produtos->map(fn ($p) => ['produto' => $p, 'qtd' => 3])->all()
-        )->get('batchReference');
+        );
 
         $binario = $this->get(route('invoicing.stock.batch-pdf', ['reference' => $ref]))->getContent();
 
@@ -235,17 +244,30 @@ class StockMovementBatchTest extends TenantTestCase
     public function test_a_rota_aceita_as_barras_da_referencia(): void
     {
         // A referência leva '/'. Sem o `where` na rota, o Laravel parte o
-        // parâmetro e o link do modal dava 404.
+        // parâmetro e o link do ecrã dava 404.
         $url = route('invoicing.stock.batch-pdf', ['reference' => 'MOV/2026/000001']);
 
         $this->assertStringContainsString('/MOV/2026/000001/pdf', $url);
         $this->assertStringNotContainsString('%2F', $url);
     }
 
+    /** E o ecrã do lote aponta mesmo para esse endereço — é o botão do PDF. */
+    public function test_a_api_devolve_o_endereco_do_documento(): void
+    {
+        $p = $this->produtoComStock(20);
+
+        $r = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->assertCreated();
+
+        $this->assertSame(
+            '/invoicing/stock/movimentacao/' . $r->json('referencia') . '/pdf',
+            $r->json('pdf')
+        );
+    }
+
     public function test_o_documento_de_uma_empresa_nao_se_le_de_outra(): void
     {
         $p   = $this->produtoComStock(20);
-        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->get('batchReference');
+        $ref = $this->referencia([['produto' => $p, 'qtd' => 4]]);
 
         // Como a sequência é por empresa, o MOV/AAAA/000001 existe em quase
         // todas: sem o filtro por empresa, esta referência abria o documento
@@ -289,7 +311,7 @@ class StockMovementBatchTest extends TenantTestCase
     public function test_movimentos_de_outra_origem_ficam_de_fora_do_lote(): void
     {
         $p   = $this->produtoComStock(20);
-        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->get('batchReference');
+        $ref = $this->referencia([['produto' => $p, 'qtd' => 4]]);
 
         // Um movimento de venda não tem lote. Se o NULL fosse tratado como
         // grupo, todas as vendas caíam dentro de qualquer documento.
@@ -310,7 +332,7 @@ class StockMovementBatchTest extends TenantTestCase
     public function test_o_preview_html_mostra_a_empresa_e_o_armazem(): void
     {
         $p   = $this->produtoComStock(20);
-        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->get('batchReference');
+        $ref = $this->referencia([['produto' => $p, 'qtd' => 4]]);
 
         $this->get(route('invoicing.stock.batch-preview', ['reference' => $ref]))
             ->assertOk()
@@ -325,7 +347,7 @@ class StockMovementBatchTest extends TenantTestCase
         // antigo trocava as linhas por "(produto removido)" e perdia o código —
         // e é na reimpressão que o documento serve para alguma coisa.
         $p   = $this->produtoComStock(20);
-        $ref = $this->gravarLote([['produto' => $p, 'qtd' => 4]])->get('batchReference');
+        $ref = $this->referencia([['produto' => $p, 'qtd' => 4]]);
 
         $p->delete();
 
@@ -349,11 +371,11 @@ class StockMovementBatchTest extends TenantTestCase
         // registada e nada acontecia.
         $p = $this->produtoComStock(10);
 
-        $c = $this->gravarLote([['produto' => $p, 'qtd' => 0.004]]);
+        $r = $this->gravarLote([['produto' => $p, 'qtd' => 0.004]]);
 
-        $c->assertHasErrors('entryItems.0.quantity');
+        $r->assertStatus(422)->assertJsonValidationErrors('itens.0.quantity');
 
-        $this->assertNull($c->get('batchReference'));
+        $this->assertNull($r->json('referencia'));
         $this->assertEquals(10, (float) Stock::where('product_id', $p->id)->sum('quantity'));
     }
 
@@ -374,12 +396,11 @@ class StockMovementBatchTest extends TenantTestCase
 
         $linha = Stock::where('product_id', $p->id)->where('warehouse_id', $this->armazem->id)->first();
 
-        Livewire::test(StockManagement::class)
-            ->call('openTransferModal', $linha->id)
-            ->set('transferToWarehouse', $destino->id)
-            ->set('transferQuantity', '0.004')
-            ->call('saveTransfer')
-            ->assertHasErrors('transferQuantity');
+        $this->postJson(self::RAIZ . '/transferir', [
+            'stock_id' => $linha->id,
+            'para_armazem_id' => $destino->id,
+            'quantidade' => '0.004',
+        ])->assertStatus(422)->assertJsonValidationErrors('quantidade');
 
         $this->assertEquals(10, (float) Stock::where('product_id', $p->id)
             ->where('warehouse_id', $this->armazem->id)->value('quantity'));

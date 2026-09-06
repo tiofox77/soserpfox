@@ -14,6 +14,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { carregarDicionario, lingua } from '@/i18n';
 import { LimiteDeErro } from '@/casca/LimiteDeErro';
 import { Carregando } from '@/ui/Carregando';
 import { ecras } from '@/ecras/registo';
@@ -89,7 +90,18 @@ function montarTudo(): void {
         });
 }
 
-montarTudo();
+/*
+ * O DICIONÁRIO PRIMEIRO, E SÓ QUANDO É PRECISO.
+ *
+ * Em português não há nada a carregar e monta-se já. Em inglês ou francês
+ * espera-se pelo dicionário, senão o ecrã aparecia em português e trocava de
+ * língua a meio — pior do que demorar um instante.
+ */
+if (lingua() === 'pt') {
+    montarTudo();
+} else {
+    void carregarDicionario().then(montarTudo);
+}
 
 /*
  * O `wire:navigate` troca o corpo da página sem recarregar, e o

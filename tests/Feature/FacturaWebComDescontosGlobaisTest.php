@@ -2,13 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Sales\InvoiceCreate;
 use App\Models\Invoicing\SalesInvoice;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
- * Descontos GLOBAIS no ecrã web de factura de venda.
+ * Descontos GLOBAIS na factura de venda emitida pelo ecrã da web.
  *
  * O Resumo do ecrã distribuía os descontos globais pelas linhas antes de
  * apurar o IVA; o save() ignorava-os e aplicava o IVA ao valor cheio. O
@@ -18,54 +16,42 @@ use Tests\TenantTestCase;
  * Regra fixada aqui, a mesma do caminho do PWA:
  *   base do IVA = líquido − desconto comercial (de linha e global)
  *   o desconto FINANCEIRO sai do total, já depois do imposto
+ *
+ * O ECRÃ É AGORA EM REACT e não faz contas nenhumas: pergunta os totais ao
+ * servidor (`/factura/calcular`) e grava pela mesma porta (`/factura`), que
+ * chama o `EmissorDeFacturas`. A divergência que este ensaio guarda passou a
+ * ser entre esses dois — o que o Resumo mostra e o que fica gravado.
  */
 class FacturaWebComDescontosGlobaisTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/factura';
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->comPermissoes('invoicing.sales.invoices.create')->comModulo('invoicing');
-
-        // O DiscountHelper compara o desconto (em kwanzas) contra
-        // max_discount_percent (uma percentagem) e repoe a zero tudo o que
-        // exceda 100. Isso e um defeito a parte; aqui levanta-se o limite
-        // para o teste poder exercitar o CALCULO e nao a validacao.
-        $def = \App\Models\Invoicing\InvoicingSettings::forTenant(activeTenantId());
-        $def->max_discount_percent = 999;
-        $def->allow_commercial_discount = true;
-        $def->allow_financial_discount = true;
-        $def->save();
     }
 
-    /** Emite uma factura de 2 linhas × 1000 (bruto 2000) com os descontos dados. */
+    /** Emite uma factura de 1 artigo × 2 × 1000 (bruto 2000) com os descontos dados. */
     private function emitir(array $campos = []): SalesInvoice
     {
         $produto = $this->produtoComStock(50, 1000);
-        $cliente = $this->clienteEmpresa();
 
-        $componente = Livewire::actingAs($this->user)
-            ->test(InvoiceCreate::class)
-            ->call('clearCart');
+        $resposta = $this->postJson(self::RAIZ, array_merge([
+            'client_id'    => $this->clienteEmpresa()->id,
+            'warehouse_id' => $this->armazem->id,
+            'invoice_type' => 'FT',
+            'invoice_date' => now()->toDateString(),
+            'status'       => 'draft',
+            'linhas'       => [['product_id' => $produto->id, 'quantity' => 2, 'price' => 1000]],
+        ], $campos))->assertCreated();
 
-        $componente->call('addProduct', $produto->id)
-                   ->call('updateQuantity', $produto->id, 2);
-
-        $componente->set('client_id', $cliente->id);
-
-        foreach ($campos as $campo => $valor) {
-            $componente->set($campo, $valor);
-        }
-
-        $componente->call('save', 'draft');
-
-        $doc = SalesInvoice::withoutGlobalScopes()->latest('id')->first();
-        $this->assertNotNull($doc, 'a factura não chegou a ser gravada');
-
-        return $doc;
+        return SalesInvoice::findOrFail($resposta->json('id'));
     }
 
-    public function test_o_desconto_comercial_global_baixa_o_imposto(): void
+    /** @test */
+    public function o_desconto_comercial_global_baixa_o_imposto(): void
     {
         $semDesconto = $this->emitir();
         $comDesconto = $this->emitir(['discount_commercial' => 200]);
@@ -77,7 +63,8 @@ class FacturaWebComDescontosGlobaisTest extends TenantTestCase
         );
     }
 
-    public function test_o_desconto_financeiro_NAO_baixa_o_imposto(): void
+    /** @test */
+    public function o_desconto_financeiro_NAO_baixa_o_imposto(): void
     {
         $semDesconto = $this->emitir();
         $comDesconto = $this->emitir(['discount_financial' => 200]);
@@ -90,7 +77,8 @@ class FacturaWebComDescontosGlobaisTest extends TenantTestCase
         );
     }
 
-    public function test_o_desconto_financeiro_baixa_o_total(): void
+    /** @test */
+    public function o_desconto_financeiro_baixa_o_total(): void
     {
         $semDesconto = $this->emitir();
         $comDesconto = $this->emitir(['discount_financial' => 200]);
@@ -105,8 +93,10 @@ class FacturaWebComDescontosGlobaisTest extends TenantTestCase
     /**
      * O fecho que a AGT valida: o cabeçalho tem de ser a soma das linhas.
      * Era isto que partia quando os descontos globais não desciam às linhas.
+     *
+     * @test
      */
-    public function test_as_linhas_fecham_com_o_cabecalho(): void
+    public function as_linhas_fecham_com_o_cabecalho(): void
     {
         $doc = $this->emitir([
             'discount_commercial' => 200,
@@ -135,37 +125,43 @@ class FacturaWebComDescontosGlobaisTest extends TenantTestCase
     }
 
     /**
-     * A divergência propriamente dita: o que o Resumo mostra tem de ser o
-     * que fica gravado.
+     * A DIVERGÊNCIA PROPRIAMENTE DITA: o que o Resumo mostra tem de ser o que
+     * fica gravado.
+     *
+     * O ecrã em React não conta nada — pede a conta a `/factura/calcular` e é
+     * isso que mostra. Se essa conta e a do `EmissorDeFacturas` divergirem, o
+     * utilizador volta a aprovar um total e a base de dados a guardar outro.
+     *
+     * @test
      */
-    public function test_o_resumo_do_ecra_bate_certo_com_o_documento_gravado(): void
+    public function o_resumo_do_ecra_bate_certo_com_o_documento_gravado(): void
     {
         $produto = $this->produtoComStock(50, 1000);
-        $cliente = $this->clienteEmpresa();
+        $linhas = [['product_id' => $produto->id, 'quantity' => 2, 'price' => 1000]];
 
-        $componente = Livewire::actingAs($this->user)
-            ->test(InvoiceCreate::class)
-            ->call('clearCart');
+        $resumo = $this->postJson(self::RAIZ . '/calcular', [
+            'linhas'              => $linhas,
+            'discount_commercial' => 200,
+            'discount_financial'  => 100,
+        ])->assertOk()->json('totais');
 
-        $componente->call('addProduct', $produto->id)
-                   ->call('updateQuantity', $produto->id, 2)
-                   ->set('client_id', $cliente->id)
-                   ->set('discount_commercial', 200)
-                   ->set('discount_financial', 100);
+        $gravada = $this->postJson(self::RAIZ, [
+            'client_id'           => $this->clienteEmpresa()->id,
+            'warehouse_id'        => $this->armazem->id,
+            'invoice_type'        => 'FT',
+            'invoice_date'        => now()->toDateString(),
+            'status'              => 'draft',
+            'discount_commercial' => 200,
+            'discount_financial'  => 100,
+            'linhas'              => $linhas,
+        ])->assertCreated();
 
-        // O que o utilizador vê no Resumo antes de gravar. O refresh força
-        // um render depois dos set(), senão lê-se o render do mount.
-        $componente->call('$refresh');
-        $impostoNoEcra = (float) $componente->viewData('tax_amount');
-        $totalNoEcra   = (float) $componente->viewData('total');
+        $doc = SalesInvoice::findOrFail($gravada->json('id'));
 
-        $componente->call('save', 'draft');
-        $doc = SalesInvoice::withoutGlobalScopes()->latest('id')->first();
-
-        $this->assertEqualsWithDelta($impostoNoEcra, (float) $doc->tax_amount, 0.02,
+        $this->assertEqualsWithDelta((float) $resumo['imposto'], (float) $doc->tax_amount, 0.02,
             'o imposto mostrado no ecrã não é o que ficou gravado');
 
-        $this->assertEqualsWithDelta($totalNoEcra, (float) $doc->total, 0.02,
+        $this->assertEqualsWithDelta((float) $resumo['total'], (float) $doc->total, 0.02,
             'o total mostrado no ecrã não é o que ficou gravado');
     }
 }

@@ -6,11 +6,11 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que abre com os cartões e a tabela, que o
  * modal da movimentação em lote se desenha e procura artigos no servidor, e
- * que a morada de sempre continua em Livewire. Mexer no stock a sério
+ * que a morada de sempre serve o React. Mexer no stock a sério
  * prova-se na API — a bancada é partilhada.
  */
 
-const ECRA = '/invoicing/stock/novo-ecra';
+const ECRA = '/invoicing/stock';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -45,7 +45,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecra Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/stock');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

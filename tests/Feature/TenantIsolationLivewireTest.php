@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Invoicing\Stock;
+use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use App\Models\Tenant;
@@ -10,16 +11,26 @@ use App\Models\User;
 use Tests\TenantTestCase;
 
 /**
- * Isolamento entre empresas nas acções do Livewire.
+ * Isolamento entre empresas nas acções que mexem no stock.
  *
- * O `IdentifyTenant` saltava por completo os pedidos `livewire/*`, e como é o
- * único sítio do caminho web que chama `setPermissionsTeamId()`, cada acção
- * Livewire corria com a equipa de permissões por omissão — `users.tenant_id` —
- * em vez da empresa activa da sessão. Quem pertencesse a duas empresas fazia na
- * segunda o que só tinha autorização para fazer na primeira.
+ * A HISTÓRIA: o `IdentifyTenant` saltava por completo os pedidos `livewire/*`,
+ * e como é o único sítio do caminho web que chama `setPermissionsTeamId()`,
+ * cada acção corria com a equipa de permissões por omissão —
+ * `users.tenant_id` — em vez da empresa activa da sessão. Quem pertencesse a
+ * duas empresas fazia na segunda o que só tinha autorização para fazer na
+ * primeira. A outra metade da mesma falha eram as regras `exists:` sem filtro
+ * de empresa: bastava um id alheio no pedido para escrever stock num armazém
+ * de outra empresa.
+ *
+ * O ecrã da gestão de stock é hoje React e fala por
+ * `/api/v1/invoicing/react/stock/*`, mas as duas metades da falha continuam
+ * possíveis do mesmo modo — um pedido é um pedido — e é por isso que os ensaios
+ * ficam, apontados à API.
  */
 class TenantIsolationLivewireTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/stock';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,32 +63,11 @@ class TenantIsolationLivewireTest extends TenantTestCase
         return $b;
     }
 
-    /** Snapshot do componente de stock, tal como o navegador o recebe. */
-    private function snapshotDoStock(): string
-    {
-        $html = $this->get('/invoicing/stock')->assertOk()->getContent();
-
-        preg_match_all('/wire:snapshot="([^"]+)"/', $html, $m);
-
-        foreach ($m[1] as $bruto) {
-            $cru = html_entity_decode($bruto, ENT_QUOTES);
-
-            if (str_contains($cru, 'entryWarehouseId')) {
-                return $cru;
-            }
-        }
-
-        $this->fail('snapshot do StockManagement não encontrado na página');
-    }
-
-    public function test_uma_accao_livewire_usa_as_permissoes_da_empresa_activa(): void
+    public function test_um_pedido_usa_as_permissoes_da_empresa_activa(): void
     {
         $b = $this->segundaEmpresa();
 
-        // O separador foi aberto na empresa A, onde tem permissão.
-        $snapshot = $this->snapshotDoStock();
-
-        // Noutro separador o utilizador trocou para a empresa B.
+        // O utilizador trocou para a empresa B, onde não tem permissão nenhuma.
         session(['active_tenant_id' => $b->id]);
 
         // Em produção cada pedido resolve o utilizador de novo a partir da
@@ -95,24 +85,13 @@ class TenantIsolationLivewireTest extends TenantTestCase
             'manage_stock' => true, 'is_active' => true,
         ]);
 
-        // Clique no separador antigo: um POST /livewire/update verdadeiro.
-        $this->withHeaders(['X-Livewire' => 'true'])->postJson('/livewire/update', [
-            '_token' => csrf_token(),
-            'components' => [[
-                'snapshot' => $snapshot,
-                'updates'  => [
-                    'entryWarehouseId' => (string) $armazemB->id,
-                    'entryItems'       => [[
-                        'product_id'   => $produtoB->id,
-                        'product_name' => $produtoB->name,
-                        'product_code' => $produtoB->code,
-                        'unit' => 'UN', 'op' => 'add',
-                        'quantity' => 7, 'unit_cost' => 500, 'current_qty' => 0,
-                    ]],
-                ],
-                'calls' => [['path' => '', 'method' => 'saveEntry', 'params' => []]],
+        $this->postJson(self::RAIZ . '/entrada', [
+            'armazem_id' => $armazemB->id,
+            'itens' => [[
+                'product_id' => $produtoB->id, 'product_name' => $produtoB->name,
+                'op' => 'add', 'quantity' => 7, 'unit_cost' => 500,
             ]],
-        ]);
+        ])->assertForbidden();
 
         $this->assertDatabaseMissing('invoicing_stock_movements', [
             'tenant_id'  => $b->id,
@@ -129,10 +108,9 @@ class TenantIsolationLivewireTest extends TenantTestCase
 
     public function test_o_armazem_de_outra_empresa_e_recusado(): void
     {
-        // A outra metade da mesma falha: as regras `exists:` não filtravam por
-        // empresa. Bastava um id alheio no pedido para escrever stock num
-        // armazém de outra empresa — e como o ecrã filtra por empresa, a linha
-        // fantasma nem sequer aparecia.
+        // As regras `exists:` têm de filtrar por empresa. Sem isso bastava um id
+        // alheio no pedido para escrever stock num armazém de outra empresa — e
+        // como o ecrã filtra por empresa, a linha fantasma nem sequer aparecia.
         $outra = Tenant::create([
             'name' => 'Alheia', 'slug' => 'alheia-' . uniqid(),
             'nif' => (string) random_int(700000000, 799999999),
@@ -145,15 +123,13 @@ class TenantIsolationLivewireTest extends TenantTestCase
 
         $p = $this->produtoComStock(10);
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\StockManagement::class)
-            ->call('openEntryModal')
-            ->set('entryWarehouseId', $armazemAlheio->id)
-            ->set('entryItems', [[
-                'product_id' => $p->id, 'product_name' => $p->name, 'product_code' => $p->code,
-                'unit' => 'UN', 'op' => 'add', 'quantity' => 5, 'unit_cost' => 100, 'current_qty' => 0,
-            ]])
-            ->call('saveEntry')
-            ->assertHasErrors('entryWarehouseId');
+        $this->postJson(self::RAIZ . '/entrada', [
+            'armazem_id' => $armazemAlheio->id,
+            'itens' => [[
+                'product_id' => $p->id, 'product_name' => $p->name,
+                'op' => 'add', 'quantity' => 5, 'unit_cost' => 100,
+            ]],
+        ])->assertStatus(422)->assertJsonValidationErrors('armazem_id');
 
         $this->assertEquals(
             0,
@@ -177,20 +153,19 @@ class TenantIsolationLivewireTest extends TenantTestCase
             'manage_stock' => true, 'is_active' => true,
         ]);
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\StockManagement::class)
-            ->call('openEntryModal')
-            ->set('entryWarehouseId', $this->armazem->id)
-            ->set('entryItems', [[
+        $this->postJson(self::RAIZ . '/entrada', [
+            'armazem_id' => $this->armazem->id,
+            'itens' => [[
                 'product_id' => $artigoAlheio->id, 'product_name' => $artigoAlheio->name,
-                'product_code' => $artigoAlheio->code,
-                'unit' => 'UN', 'op' => 'add', 'quantity' => 5, 'unit_cost' => 100, 'current_qty' => 0,
-            ]])
-            ->call('saveEntry')
-            ->assertHasErrors('entryItems.0.product_id');
+                'op' => 'add', 'quantity' => 5, 'unit_cost' => 100,
+            ]],
+        ])->assertStatus(422)->assertJsonValidationErrors('itens.0.product_id');
 
         $this->assertEquals(
             0,
             (float) Stock::withoutGlobalScopes()->where('product_id', $artigoAlheio->id)->sum('quantity')
         );
+
+        $this->assertSame(0, StockMovement::withoutGlobalScopes()->where('product_id', $artigoAlheio->id)->count());
     }
 }

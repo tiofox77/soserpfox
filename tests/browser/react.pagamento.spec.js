@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
     await entrar(page);
 });
 
-for (const lista of ['/invoicing/sales/invoices/novo-ecra', '/invoicing/purchases/invoices/novo-ecra']) {
+for (const lista of ['/invoicing/sales/invoices', '/invoicing/purchases/invoices']) {
     test(`a lista ${lista} abre sem erros com o modal a bordo`, async ({ page }) => {
         const erros = [];
         page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });

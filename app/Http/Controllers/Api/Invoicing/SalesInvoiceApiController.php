@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoicing\SalesInvoiceResource;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\Warehouse;
+use App\Services\Invoicing\SomasDasFacturas;
 use App\Traits\DocumentosPorAutor;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -31,6 +33,29 @@ class SalesInvoiceApiController extends Controller
         return SalesInvoice::class;
     }
 
+    /**
+     * Os seis caracteres finais de um número provisório do POS offline.
+     *
+     * O talão sai como PEND-20260817-A3F9C1, e esses seis são a cauda do
+     * `local_uuid` da venda — que já fica gravado, portanto não foi preciso
+     * guardar nada de novo. Aceita-se o número inteiro ou só a cauda, porque
+     * quem lê um talão amarrotado ao telefone dita o que consegue.
+     *
+     * Devolve null quando a pesquisa não tem ar de número provisório: sem
+     * isso, procurar por um nome ia bater contra os `local_uuid` todos e
+     * trazer facturas que não têm nada que ver com o que se procurou.
+     */
+    public static function caudaDoNumeroProvisorio(?string $termo): ?string
+    {
+        $termo = trim((string) $termo);
+
+        if (preg_match('/^PEND[-\s]?\d{6,8}[-\s]?([0-9A-Za-z]{6})$/i', $termo, $m)) {
+            return $m[1];
+        }
+
+        return preg_match('/^[0-9A-Fa-f]{6}$/', $termo) ? $termo : null;
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         abort_unless(
@@ -50,12 +75,51 @@ class SalesInvoiceApiController extends Controller
             'por_pagina'=> ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
-        $query = $this->baseDoAutor()
-            ->with(['client', 'warehouse', 'creator', 'series'])
-            // O que já foi anulado por notas de crédito vem na mesma consulta:
-            // é o que decide o `pode_creditar` de cada linha.
-            ->comCreditado();
+        $query = $this->comFiltros(
+            $this->baseDoAutor()
+                ->with(['client', 'warehouse', 'creator', 'series'])
+                // O que já foi anulado por notas de crédito vem na mesma
+                // consulta: é o que decide o `pode_creditar` de cada linha.
+                ->comCreditado(),
+            $filtros
+        );
 
+        $pagina = $query
+            ->orderByDesc('created_at')
+            ->paginate($filtros['por_pagina'] ?? 15)
+            ->withQueryString();
+
+        /*
+         * OS CARTÕES DO TOPO SOMAM O QUE ESTÁ FILTRADO, NÃO SÓ A PÁGINA.
+         *
+         * Uma soma da página seria um número que muda ao carregar em
+         * «Seguinte». A conta corre no servidor, sobre a MESMA consulta —
+         * mesmos filtros, mesmo escopo por autor — e a regra vive no serviço,
+         * não aqui: ver o `SomasDasFacturas`.
+         *
+         * Consulta limpa, sem os `with()` nem o subselect do creditado: quem
+         * soma não desenha linhas.
+         */
+        $somas = (new SomasDasFacturas)->de(
+            $this->comFiltros($this->baseDoAutor(), $filtros)
+        );
+
+        return SalesInvoiceResource::collection($pagina)->additional([
+            'meta' => ['somas' => $somas],
+        ]);
+    }
+
+    /**
+     * Os filtros da lista, aplicados a uma consulta qualquer.
+     *
+     * Vive à parte porque corre DUAS vezes: uma para as linhas da página,
+     * outra para as somas dos cartões. Escrever os filtros nos dois sítios era
+     * garantir que um dia o cartão somava um universo diferente do da tabela.
+     *
+     * @param  array<string, mixed>  $filtros
+     */
+    private function comFiltros(Builder $query, array $filtros): Builder
+    {
         if ($procura = ($filtros['procura'] ?? null)) {
             $query->where(function ($q) use ($procura) {
                 $q->where('invoice_number', 'like', "%{$procura}%")
@@ -64,10 +128,21 @@ class SalesInvoiceApiController extends Controller
                         $s->where('series_code', 'like', "%{$procura}%")
                             ->orWhere('agt_series_id', 'like', "%{$procura}%");
                     });
+
+                // Pelo número provisório do talão offline.
+                //
+                // Uma venda feita sem rede sai com um talão a dizer
+                // PEND-20260817-A3F9C1, e é esse papel que o cliente leva. Ao
+                // sincronizar, a venda recebe o número fiscal a sério e o
+                // provisório deixa de aparecer em lado nenhum — quem voltasse
+                // com o talão a pedir a factura não era encontrado.
+                if ($cauda = self::caudaDoNumeroProvisorio($procura)) {
+                    $q->orWhere('local_uuid', 'like', '%' . $cauda);
+                }
             });
         }
 
-        $query
+        return $query
             ->when($filtros['estado'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filtros['tipo'] ?? null, fn ($q, $v) => $q->where('invoice_type', $v))
             ->when($filtros['armazem'] ?? null, fn ($q, $v) => $q->where('warehouse_id', $v))
@@ -82,13 +157,6 @@ class SalesInvoiceApiController extends Controller
             // impede o MySQL de usar o índice, e são milhares de linhas.
             ->when($filtros['de'] ?? null, fn ($q, $v) => $q->where('invoice_date', '>=', $v))
             ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->where('invoice_date', '<=', $v));
-
-        $pagina = $query
-            ->orderByDesc('created_at')
-            ->paginate($filtros['por_pagina'] ?? 15)
-            ->withQueryString();
-
-        return SalesInvoiceResource::collection($pagina);
     }
 
     /**

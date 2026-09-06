@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { eLigacao, eSeparador, eSub, eTitulo, type Entrada, type Grupo, type Ligacao, type PropsDaCasca } from '@/api/casca';
 import { cls } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * A CASCA — a barra lateral com o menu, o suporte e o utilizador.
@@ -90,15 +91,15 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
                         )}
                     </div>
                     {movel && (
-                        <button type="button" onClick={() => porAberta(false)} aria-label="Fechar o menu" className="ml-2 p-1 text-blue-300 transition hover:text-white">
+                        <button type="button" onClick={() => porAberta(false)} aria-label={t('Fechar o menu')} className="ml-2 p-1 text-blue-300 transition hover:text-white">
                             <i className="fas fa-times text-lg" aria-hidden="true" />
                         </button>
                     )}
                 </div>
 
                 {/* O menu */}
-                <nav id="sidebar-menu" aria-label="Menu principal" className="flex-1 overflow-y-auto py-4">
-                    <Titulo aberta={aberta} primeiro>Menu Principal</Titulo>
+                <nav id="sidebar-menu" aria-label={t('Menu principal')} className="flex-1 overflow-y-auto py-4">
+                    <Titulo aberta={aberta} primeiro>{t('Menu Principal')}</Titulo>
 
                     {menu.principal.map((l) => <LigacaoDoMenu key={l.url} l={l} nivel="topo" aberta={aberta} aoClicar={fechar} />)}
 
@@ -119,7 +120,7 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
                 {/* FOX Friendly */}
                 {menu.fox && (
                     <div className="border-t border-blue-700 px-4 py-3">
-                        <div className="group relative flex cursor-help items-center justify-center" title="🦊 FOX Friendly Active! 3 meses grátis • Todos os módulos">
+                        <div className="group relative flex cursor-help items-center justify-center" title={t('🦊 FOX Friendly Active! 3 meses grátis • Todos os módulos')}>
                             <span className="text-3xl transition-transform duration-300 group-hover:scale-125" style={{ animation: 'foxFloat 3s ease-in-out infinite' }}>🦊</span>
                         </div>
                     </div>
@@ -164,12 +165,12 @@ export default function Casca({ menu, logo, nome, csrf, voltar }: PropsDaCasca) 
                             <div className="my-1 border-t border-gray-200" />
                             {/* Voltar à casca de sempre, enquanto as duas convivem. */}
                             <a href={voltar} className="block px-4 py-2 text-xs text-gray-500 hover:bg-gray-100">
-                                <i className="fas fa-rotate-left mr-2" aria-hidden="true" /> Ecrã de sempre
+                                <i className="fas fa-rotate-left mr-2" aria-hidden="true" /> {t('Ecrã de sempre')}
                             </a>
                             <form method="POST" action={menu.utilizador.sair}>
                                 <input type="hidden" name="_token" value={csrf} />
                                 <button type="submit" className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100">
-                                    <i className="fas fa-sign-out-alt mr-2" aria-hidden="true" /> Sair
+                                    <i className="fas fa-sign-out-alt mr-2" aria-hidden="true" /> {t('Sair')}
                                 </button>
                             </form>
                         </div>

@@ -6,7 +6,7 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que cada um abre com a sua tabela e o seu
  * botão de criar, que o formulário se desenha do esquema, e que a morada de
- * sempre continua em Livewire. Gravar a sério prova-se nos ensaios de API;
+ * sempre serve o React. Gravar a sério prova-se nos ensaios de API;
  * aqui cria-se e apaga-se uma marca, para não deixar rasto na bancada.
  */
 
@@ -25,7 +25,7 @@ test.beforeEach(async ({ page }) => {
 
 for (const c of CATALOGOS) {
     test(`abre: ${c.titulo}`, async ({ page }) => {
-        await page.goto(c.rota + '/novo-ecra');
+        await page.goto(c.rota);
         await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
         await expect(page.getByRole('heading', { name: c.titulo }).first()).toBeVisible();
 
@@ -39,7 +39,7 @@ for (const c of CATALOGOS) {
 test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
     const nome = 'Marca ensaio ' + Date.now();
 
-    await page.goto('/invoicing/brands/novo-ecra');
+    await page.goto('/invoicing/brands');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: /^Novo\(a\)/ }).click();
@@ -56,7 +56,7 @@ test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
 });
 
 test('o erro de validacao aparece no campo', async ({ page }) => {
-    await page.goto('/invoicing/warehouses/novo-ecra');
+    await page.goto('/invoicing/warehouses');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole('button', { name: /^Novo\(a\)/ }).click();
@@ -70,15 +70,8 @@ test('nenhum erro na consola', async ({ page }) => {
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
     page.on('pageerror', (e) => erros.push(String(e)));
 
-    await page.goto('/invoicing/taxes/novo-ecra');
+    await page.goto('/invoicing/taxes');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
     expect(erros).toEqual([]);
-});
-
-test('as moradas de sempre continuam em Livewire', async ({ page }) => {
-    for (const c of CATALOGOS) {
-        await page.goto(c.rota);
-        await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    }
 });

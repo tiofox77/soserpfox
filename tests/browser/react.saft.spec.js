@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('o gerador abre com o periodo e as contagens', async ({ page }) => {
-    await page.goto('/invoicing/saft-generator/novo-ecra');
+    await page.goto('/invoicing/saft-generator');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para o SAFT nesta bancada');
     }
@@ -31,13 +31,8 @@ test('nenhum erro na consola', async ({ page }) => {
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
     page.on('pageerror', (e) => erros.push(String(e)));
 
-    await page.goto('/invoicing/saft-generator/novo-ecra');
+    await page.goto('/invoicing/saft-generator');
     await page.waitForLoadState('networkidle');
 
     expect(erros).toEqual([]);
-});
-
-test('a morada de sempre continua em Livewire', async ({ page }) => {
-    await page.goto('/invoicing/saft-generator');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
 });

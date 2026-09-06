@@ -1104,6 +1104,14 @@
          aplicação abre na mesma. --}}
     @php($pacoteReact = \App\Support\PacoteReact::caminho())
     @if($pacoteReact)
+        {{-- A língua dos ecrãs em React. O dicionário só se anuncia a quem
+             precisa dele: em português a chave já é a frase. --}}
+        <script>
+            window.__reactLingua = @json(app()->getLocale());
+            @if(\App\Support\DicionarioDoReact::precisa())
+            window.__reactDicionarioUrl = @json(route('react.traducoes', ['marca' => \App\Support\DicionarioDoReact::marca()]));
+            @endif
+        </script>
         <script type="module" src="{{ $pacoteReact }}" defer></script>
     @endif
 

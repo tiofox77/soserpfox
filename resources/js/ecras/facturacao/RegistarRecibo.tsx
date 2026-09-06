@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { recibos, type FacturaPorReceber, type ReciboAberto } from '@/api/recibos';
@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { CARTAO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * REGISTAR UM RECIBO — ou abrir um que já existe, só para ler.
@@ -25,12 +26,12 @@ import { CARTAO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
  * Um recibo emitido é documento fiscal: abre-se para consultar, não para
  * editar. Recebeu-se mal, anula-se e faz-se outro.
  */
-export default function RegistarRecibo({ id }: { id?: number }) {
+export default function RegistarRecibo({ id, facturaId, clienteId }: { id?: number; facturaId?: number; clienteId?: number | null }) {
     if (id !== undefined) {
         return <ReciboEmitido id={id} />;
     }
 
-    return <Registar />;
+    return <Registar facturaId={facturaId} clienteId={clienteId} />;
 }
 
 function ReciboEmitido({ id }: { id: number }) {
@@ -40,8 +41,8 @@ function ReciboEmitido({ id }: { id: number }) {
     if (q.isError) {
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir o recibo</h2>
-                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : 'Verifique a ligação.'}</p>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o recibo')}</h2>
+                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}</p>
             </div>
         );
     }
@@ -51,32 +52,36 @@ function ReciboEmitido({ id }: { id: number }) {
     return (
         <div className="space-y-4" data-documento-aberto>
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-receipt text-slate-400" aria-hidden="true" />{r.numero ?? 'Recibo'}<Etiqueta cor={r.estado === 'cancelled' ? 'perigo' : 'bom'}>{r.estado}</Etiqueta></span>}
-                accoes={<span className="flex gap-2"><a href={r.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />PDF</a><Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/receipts')}>Ver os recibos</Botao></span>}
+                titulo={<span className="flex items-center gap-2"><i className="fas fa-receipt text-slate-400" aria-hidden="true" />{r.numero ?? t('Recibo')}<Etiqueta cor={r.estado === 'cancelled' ? 'perigo' : 'bom'}>{r.estado}</Etiqueta></span>}
+                accoes={<span className="flex gap-2"><a href={r.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('PDF')}</a><Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/receipts')}>{t('Ver os recibos')}</Botao></span>}
             >
-                <p className="mb-4 text-sm text-slate-500">Documento fiscal: abre-se para consultar, não para editar.</p>
+                <p className="mb-4 text-sm text-slate-500">{t('Documento fiscal: abre-se para consultar, não para editar.')}</p>
                 <dl className="grid gap-3 text-sm sm:grid-cols-3">
                     {[
-                        [r.type === 'sale' ? 'Recebido de' : 'Pago a', r.parte ?? '—'],
-                        ['Factura', r.factura ?? 'Sem factura (adiantamento)'],
-                        ['Data', fmtData(r.payment_date)],
-                        ['Forma', r.payment_method],
-                        ['Referência', r.reference ?? '—'],
-                        ['Observações', r.notes ?? '—'],
+                        [r.type === 'sale' ? t('Recebido de') : t('Pago a'), r.parte ?? '—'],
+                        [t('Factura'), r.factura ?? t('Sem factura (adiantamento)')],
+                        [t('Data'), fmtData(r.payment_date)],
+                        [t('Forma'), r.payment_method],
+                        [t('Referência'), r.reference ?? '—'],
+                        [t('Observações'), r.notes ?? '—'],
                     ].map(([rotulo, valor]) => (
                         <div key={rotulo}><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{rotulo}</dt><dd className="font-medium text-slate-900">{valor}</dd></div>
                     ))}
-                    <div className="sm:col-span-3 border-t border-slate-100 pt-3"><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Valor</dt><dd className="text-2xl font-bold tabular-nums text-emerald-700">{kz(r.amount_paid)} <span className="text-sm font-normal text-slate-400">Kz</span></dd></div>
+                    <div className="sm:col-span-3 border-t border-slate-100 pt-3"><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Valor')}</dt><dd className="text-2xl font-bold tabular-nums text-emerald-700">{kz(r.amount_paid)} <span className="text-sm font-normal text-slate-400">Kz</span></dd></div>
                 </dl>
             </Cartao>
         </div>
     );
 }
 
-function Registar() {
+function Registar({ facturaId: daMorada, clienteId: clienteDaMorada }: { facturaId?: number; clienteId?: number | null }) {
     const [tipo, porTipo] = useState<'sale' | 'purchase'>('sale');
-    const [parteId, porParteId] = useState('');
-    const [facturaId, porFacturaId] = useState('');
+
+    /* Da lista de facturas carrega-se «Receber» e chega-se aqui com
+       `?invoice=`: o cliente e a factura já vêm escolhidos pelo servidor, que
+       é quem sabe de quem é a factura. */
+    const [parteId, porParteId] = useState(clienteDaMorada ? String(clienteDaMorada) : '');
+    const [facturaId, porFacturaId] = useState(daMorada ? String(daMorada) : '');
     const [valor, porValor] = useState('');
     const [forma, porForma] = useState('cash');
     const [dia, porDia] = useState(() => new Date().toISOString().slice(0, 10));
@@ -96,6 +101,16 @@ function Registar() {
         queryFn: () => recibos.facturas(tipo, parteId || undefined),
         staleTime: 15_000,
     });
+
+    /* A factura que veio no endereço propõe o que falta, assim que a lista o
+       souber dizer. Depois disso o valor é de quem o escreve. */
+    useEffect(() => {
+        if (!daMorada || valor !== '') return;
+
+        const f = facturas.data?.data.find((x) => x.id === daMorada);
+
+        if (f) porValor(String(f.falta));
+    }, [daMorada, facturas.data, valor]);
 
     const guardar = useMutation({
         mutationFn: () =>
@@ -125,9 +140,9 @@ function Registar() {
     if (opcoes.isError) {
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir</h2>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir')}</h2>
                 <p className="text-sm text-red-800">
-                    {opcoes.error instanceof ErroDaApi ? opcoes.error.message : 'Verifique a ligação.'}
+                    {opcoes.error instanceof ErroDaApi ? opcoes.error.message : t('Verifique a ligação.')}
                 </p>
             </div>
         );
@@ -138,7 +153,7 @@ function Registar() {
             <div className={cls(CARTAO, 'p-8 text-center')}>
                 <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
                 <h2 className="text-xl font-bold text-slate-900">{feito.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">Recibo criado.</p>
+                <p className="mt-1 text-sm text-slate-500">{t('Recibo criado.')}</p>
                 {feito.agt && <p className="mt-1 text-xs text-slate-400">{feito.agt}</p>}
                 <div className="mt-6 flex justify-center gap-2">
                     <Botao
@@ -147,7 +162,7 @@ function Registar() {
                         icone="fa-list"
                         onClick={() => (window.location.href = '/invoicing/receipts')}
                     >
-                        Ver os recibos
+                        {t('Ver os recibos')}
                     </Botao>
                     <Botao
                         icone="fa-plus"
@@ -158,7 +173,7 @@ function Registar() {
                             porReferencia('');
                         }}
                     >
-                        Registar outro
+                        {t('Registar outro')}
                     </Botao>
                 </div>
             </div>
@@ -185,9 +200,9 @@ function Registar() {
         <div className="space-y-4">
             <AvisoDeErro erro={guardar.error} />
 
-            <Cartao titulo="De quem se recebe">
+            <Cartao titulo={t('De quem se recebe')}>
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Campo etiqueta="Tipo" obrigatorio>
+                    <Campo etiqueta={t('Tipo')} obrigatorio>
                         <select
                             value={tipo}
                             onChange={(e) => {
@@ -198,13 +213,13 @@ function Registar() {
                             }}
                             className={entrada}
                         >
-                            <option value="sale">Recebimento de cliente</option>
-                            <option value="purchase">Pagamento a fornecedor</option>
+                            <option value="sale">{t('Recebimento de cliente')}</option>
+                            <option value="purchase">{t('Pagamento a fornecedor')}</option>
                         </select>
                     </Campo>
 
                     <Campo
-                        etiqueta={tipo === 'sale' ? 'Cliente' : 'Fornecedor'}
+                        etiqueta={tipo === 'sale' ? t('Cliente') : t('Fornecedor')}
                         erro={erros.client_id ?? erros.supplier_id}
                         obrigatorio
                     >
@@ -216,7 +231,7 @@ function Registar() {
                             }}
                             className={entrada}
                         >
-                            <option value="">Escolher…</option>
+                            <option value="">{t('Escolher…')}</option>
                             {partes.map((p) => (
                                 <option key={p.id} value={p.id}>
                                     {p.name}
@@ -226,32 +241,33 @@ function Registar() {
                         </select>
                     </Campo>
 
-                    <Campo etiqueta="Data" erro={erros.payment_date} obrigatorio>
+                    <Campo etiqueta={t('Data')} erro={erros.payment_date} obrigatorio>
                         <input type="date" value={dia} onChange={(e) => porDia(e.target.value)} className={entrada} />
                     </Campo>
                 </div>
             </Cartao>
 
-            <Cartao titulo="Factura">
+            <Cartao titulo={t('Factura')}>
                 {facturas.isFetching ? (
-                    <p className="py-4 text-sm text-slate-400">A procurar facturas por receber…</p>
+                    <p className="py-4 text-sm text-slate-400">{t('A procurar facturas por receber…')}</p>
                 ) : lista.length === 0 ? (
                     <p className="py-4 text-sm text-slate-500">
-                        Não há facturas por receber
-                        {parteId ? ' deste ' + (tipo === 'sale' ? 'cliente' : 'fornecedor') : ''}. Pode registar
-                        um recibo sem factura — fica como adiantamento.
+                        {parteId
+                            ? t('Não há facturas por receber deste :parte.', { parte: tipo === 'sale' ? t('cliente') : t('fornecedor') })
+                            : t('Não há facturas por receber.')}{' '}
+                        {t('Pode registar um recibo sem factura — fica como adiantamento.')}
                     </p>
                 ) : (
-                    <Campo etiqueta="Factura a receber" erro={erros.invoice_id}>
+                    <Campo etiqueta={t('Factura a receber')} erro={erros.invoice_id}>
                         <select
                             value={facturaId}
                             onChange={(e) => escolherFactura(e.target.value)}
                             className={entrada}
                         >
-                            <option value="">Sem factura (adiantamento)</option>
+                            <option value="">{t('Sem factura (adiantamento)')}</option>
                             {lista.map((f) => (
                                 <option key={f.id} value={f.id}>
-                                    {f.numero} · {fmtData(f.data)} · faltam {kz(f.falta)} Kz
+                                    {f.numero} · {fmtData(f.data)} · {t('faltam :quanto Kz', { quanto: kz(f.falta) })}
                                 </option>
                             ))}
                         </select>
@@ -262,9 +278,9 @@ function Registar() {
                 {escolhida && <Saldo f={escolhida} />}
             </Cartao>
 
-            <Cartao titulo="Pagamento">
+            <Cartao titulo={t('Pagamento')}>
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Campo etiqueta="Valor recebido" erro={erros.amount_paid} obrigatorio>
+                    <Campo etiqueta={t('Valor recebido')} erro={erros.amount_paid} obrigatorio>
                         <input
                             type="number"
                             min="0.01"
@@ -275,7 +291,7 @@ function Registar() {
                         />
                     </Campo>
 
-                    <Campo etiqueta="Forma" erro={erros.payment_method} obrigatorio>
+                    <Campo etiqueta={t('Forma')} erro={erros.payment_method} obrigatorio>
                         <select value={forma} onChange={(e) => porForma(e.target.value)} className={entrada}>
                             {o.formas.map((f) => (
                                 <option key={f.valor} value={f.valor}>
@@ -285,17 +301,17 @@ function Registar() {
                         </select>
                     </Campo>
 
-                    <Campo etiqueta="Referência" erro={erros.reference}>
+                    <Campo etiqueta={t('Referência')} erro={erros.reference}>
                         <input
                             value={referencia}
                             onChange={(e) => porReferencia(e.target.value)}
-                            placeholder="Nº da transferência, cheque…"
+                            placeholder={t('Nº da transferência, cheque…')}
                             className={entrada}
                         />
                     </Campo>
 
                     <div className="sm:col-span-3">
-                        <Campo etiqueta="Observações" erro={erros.notes}>
+                        <Campo etiqueta={t('Observações')} erro={erros.notes}>
                             <textarea
                                 rows={2}
                                 value={notas}
@@ -308,7 +324,7 @@ function Registar() {
             </Cartao>
 
             <div className="flex items-center justify-end gap-2">
-                <Botao onClick={() => (window.location.href = '/invoicing/receipts')}>Cancelar</Botao>
+                <Botao onClick={() => (window.location.href = '/invoicing/receipts')}>{t('Cancelar')}</Botao>
                 <Botao
                     cor="bom"
                     tom="solida"
@@ -318,7 +334,7 @@ function Registar() {
                     disabled={!o.permissoes.pode_criar}
                     onClick={() => guardar.mutate()}
                 >
-                    Registar recibo
+                    {t('Registar recibo')}
                 </Botao>
             </div>
         </div>
@@ -329,15 +345,15 @@ function Saldo({ f }: { f: FacturaPorReceber }) {
     return (
         <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm">
             <div>
-                <dt className="text-xs uppercase tracking-wider text-slate-400">Total</dt>
+                <dt className="text-xs uppercase tracking-wider text-slate-400">{t('Total')}</dt>
                 <dd className="tabular-nums text-slate-800">{kz(f.total)}</dd>
             </div>
             <div>
-                <dt className="text-xs uppercase tracking-wider text-slate-400">Já recebido</dt>
+                <dt className="text-xs uppercase tracking-wider text-slate-400">{t('Já recebido')}</dt>
                 <dd className="tabular-nums text-slate-800">{kz(f.pago)}</dd>
             </div>
             <div>
-                <dt className="text-xs uppercase tracking-wider text-slate-400">Falta</dt>
+                <dt className="text-xs uppercase tracking-wider text-slate-400">{t('Falta')}</dt>
                 <dd className="text-lg font-bold tabular-nums text-amber-600">{kz(f.falta)}</dd>
             </div>
         </dl>

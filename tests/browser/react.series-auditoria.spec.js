@@ -6,7 +6,7 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que as séries abrem com a lista e o modal da
  * série nova se desenha; que a auditoria abre e a cadeia se verifica; e
- * que as moradas de sempre continuam em Livewire. As regras (o prefixo
+ * que as moradas de sempre servem o React. As regras (o prefixo
  * fiscal, a série registada na AGT) provam-se na API.
  */
 
@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('as series abrem com a lista e o modal da serie nova', async ({ page }) => {
-    await page.goto('/invoicing/series/novo-ecra');
+    await page.goto('/invoicing/series');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para as séries nesta bancada');
     }
@@ -34,7 +34,7 @@ test('as series abrem com a lista e o modal da serie nova', async ({ page }) => 
 });
 
 test('a auditoria abre e verifica a cadeia', async ({ page }) => {
-    await page.goto('/invoicing/auditoria/novo-ecra');
+    await page.goto('/invoicing/auditoria');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para a auditoria nesta bancada');
     }
@@ -51,17 +51,10 @@ test('nenhum erro na consola', async ({ page }) => {
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
     page.on('pageerror', (e) => erros.push(String(e)));
 
-    await page.goto('/invoicing/series/novo-ecra');
+    await page.goto('/invoicing/series');
     await page.waitForLoadState('networkidle');
-    await page.goto('/invoicing/auditoria/novo-ecra');
+    await page.goto('/invoicing/auditoria');
     await page.waitForLoadState('networkidle');
 
     expect(erros).toEqual([]);
-});
-
-test('as moradas de sempre continuam em Livewire', async ({ page }) => {
-    for (const m of ['/invoicing/series', '/invoicing/auditoria']) {
-        await page.goto(m);
-        await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    }
 });

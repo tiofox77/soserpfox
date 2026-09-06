@@ -7,11 +7,11 @@ import { entrar } from './apoio.js';
  * O que se prova no browser: que abre com os separadores, que a forma vem
  * preenchida do servidor, que as séries aparecem com o prefixo do catálogo
  * e que o modal da série nova mostra o prefixo sem o deixar editar. Guardar
- * a sério prova-se nos ensaios de API, contra o mesmo serviço que o Livewire
+ * a sério prova-se nos ensaios de API, contra o mesmo serviço que a API
  * usa — a empresa de bancada é partilhada e não se mexe nas definições dela.
  */
 
-const ECRA = '/invoicing/settings/novo-ecra';
+const ECRA = '/invoicing/settings';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -66,7 +66,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecra Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/settings');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

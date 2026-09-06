@@ -2,13 +2,11 @@
 
 namespace Tests\Feature\Invoicing;
 
-use App\Livewire\Invoicing\Quebras;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Waste;
 use App\Models\Product;
 use App\Services\Invoicing\QuebraDeStock;
 use InvalidArgumentException;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -22,9 +20,15 @@ use Tests\TenantTestCase;
  *     regra sagrada do stock desta casa);
  *   · o custo congela no momento e sobrevive a mudanças de preço;
  *   · nada se apaga: anular é o movimento contrário.
+ *
+ * O ecrã é hoje o React `Quebras.tsx`, servido pela API
+ * `/api/v1/invoicing/react/quebras`; a regra continua no `QuebraDeStock`, que
+ * é onde a maior parte destes ensaios bate.
  */
 class QuebrasDeStockTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/quebras';
+
     private Product $produto;
 
     protected function setUp(): void
@@ -189,18 +193,25 @@ class QuebrasDeStockTest extends TenantTestCase
             ->where('reference_type', 'quebra_anulada')->count());
     }
 
-    /** O ecrã regista pela linha rápida. */
+    /**
+     * O ecrã regista pela linha rápida.
+     *
+     * A quantidade com vírgula decimal («2,5») era lida pelo componente
+     * Livewire; hoje é o `Quebras.tsx` que a converte antes de a mandar, e a
+     * API recebe um número. As duas metades da regra provam-se aqui: a API
+     * grava o decimal certo, e o ecrã continua a traduzir a vírgula.
+     */
     public function test_o_ecra_regista_uma_quebra(): void
     {
+        $this->comPermissoes('invoicing.stock.edit');
         $this->comStock(100);
 
-        Livewire::actingAs($this->user)->test(Quebras::class)
-            ->call('escolherProduto', $this->produto->id)
-            ->set('quantidade', '2,5')
-            ->set('motivo', 'estragado')
-            ->call('registar')
-            ->assertHasNoErrors()
-            ->assertSet('produtoId', null);
+        $this->postJson(self::RAIZ, [
+            'product_id' => $this->produto->id,
+            'warehouse_id' => $this->armazem->id,
+            'quantity' => 2.5,
+            'reason' => 'estragado',
+        ])->assertCreated();
 
         $this->assertDatabaseHas('invoicing_wastes', [
             'tenant_id' => $this->tenant->id,
@@ -210,6 +221,9 @@ class QuebrasDeStockTest extends TenantTestCase
 
         $quebra = Waste::where('tenant_id', $this->tenant->id)->firstOrFail();
         $this->assertEqualsWithDelta(2.5, (float) $quebra->quantity, 0.001, 'a vírgula decimal tem de ser lida certa');
+
+        $ecra = file_get_contents(base_path('resources/js/ecras/facturacao/Quebras.tsx'));
+        $this->assertStringContainsString("replace(',', '.')", $ecra, 'o ecrã deixou de traduzir a vírgula decimal');
     }
 
     /**
@@ -227,15 +241,15 @@ class QuebrasDeStockTest extends TenantTestCase
         $anulavel = $this->servico()->registar(['product_id' => $this->produto->id, 'quantity' => 10, 'reason' => 'perdido'], $this->tenant->id, $this->user->id);
         $this->servico()->anular($anulavel, $this->tenant->id, $this->user->id);
 
-        $componente = Livewire::actingAs($this->user)->test(Quebras::class);
-
-        $resumo = $componente->viewData('resumo');
-        $porMotivo = collect($componente->viewData('porMotivo'));
+        $resumo = $this->getJson(self::RAIZ)->assertOk()->json('resumo');
 
         // 3 unidades expiradas × 200 = 600; a perdida (anulada) fica de fora.
         $this->assertSame(2, $resumo['registos']);
         $this->assertEqualsWithDelta(600, $resumo['custo'], 0.01);
-        $this->assertNull($porMotivo->firstWhere('reason', 'perdido'),
+
+        $porMotivo = collect($resumo['por_motivo']);
+        $this->assertEqualsWithDelta(600, $porMotivo->firstWhere('motivo', 'expirado')['custo'], 0.01);
+        $this->assertNull($porMotivo->firstWhere('motivo', 'perdido'),
             'uma quebra anulada não pode continuar a contar como perda');
     }
 

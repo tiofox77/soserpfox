@@ -81,14 +81,30 @@ class FormatoDeImpressaoDoPosTest extends TenantTestCase
         );
     }
 
-    /** @test */
+    /**
+     * O ecrã das definições continua a deixar escolher o papel.
+     *
+     * O ecrã passou a React: a guarda deixou de apontar ao blade (que já não
+     * existe) e passou a apontar ao `.tsx` e à API que o serve. A intenção é
+     * a mesma — se alguém tirar o selector, o papel deixa de se poder mudar e
+     * ninguém dá por isso até alguém ao balcão precisar de uma factura em A4.
+     *
+     * @test
+     */
     public function o_ecra_das_definicoes_deixa_escolher(): void
     {
-        $ecra = file_get_contents(resource_path('views/livewire/invoicing/settings.blade.php'));
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/Definicoes.tsx'));
 
-        $this->assertStringContainsString('wire:model="pos_formato_impressao"', $ecra);
-        $this->assertStringContainsString("__('Factura em A4')", $ecra);
-        $this->assertStringContainsString("__('Talão de 80 mm')", $ecra);
+        $this->assertStringContainsString("texto('pos_formato_impressao')", $ecra, 'o selector do papel saiu do ecrã');
+        $this->assertStringContainsString('value="talao"', $ecra);
+        $this->assertStringContainsString('value="a4"', $ecra);
+
+        // E a API entrega o valor para o ecrã o desenhar já escolhido.
+        $this->comModulo('invoicing')->comPermissoes('invoicing.settings.view');
+
+        $this->getJson('/api/v1/invoicing/react/definicoes')
+            ->assertOk()
+            ->assertJsonPath('definicoes.pos_formato_impressao', 'talao');
     }
 
     /**

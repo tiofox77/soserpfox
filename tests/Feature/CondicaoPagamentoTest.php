@@ -2,18 +2,49 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Sales\InvoiceCreate;
 use App\Models\Client;
 use App\Models\Invoicing\PaymentTerm;
-use Livewire\Livewire;
+use App\Models\Invoicing\SalesInvoice;
 use Tests\TenantTestCase;
 
 /**
  * Condições de pagamento por cliente: catálogo por empresa (com padrões), e o
  * vencimento da factura sai da condição do cliente.
+ *
+ * O ECRÃ DA FACTURA É AGORA EM REACT. O que o `selectClient` do Livewire fazia
+ * — preencher o vencimento assim que se escolhia o cliente — passou para dois
+ * sítios que TÊM de concordar: as opções do ecrã trazem os dias da condição de
+ * cada cliente (é com eles que o campo se preenche à frente de quem emite), e
+ * o servidor volta a aplicá-los ao gravar quando o pedido não traz vencimento
+ * nenhum. Sem a segunda metade, uma factura emitida pela API nascia sem prazo
+ * e aparecia vencida no próprio dia nas contas a receber.
  */
 class CondicaoPagamentoTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/factura';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->comPermissoes('invoicing.sales.invoices.create')->comModulo('invoicing');
+    }
+
+    private function clienteCom(int $dias, string $nome): Client
+    {
+        $termo = PaymentTerm::create([
+            'tenant_id' => $this->tenant->id, 'name' => $nome . ' termo', 'days' => $dias,
+        ]);
+
+        return Client::create([
+            'tenant_id'       => $this->tenant->id,
+            'name'            => $nome,
+            'nif'             => (string) random_int(100000000, 199999999),
+            'type'            => 'pessoa_juridica',
+            'payment_term_id' => $termo->id,
+        ]);
+    }
+
     public function test_provisiona_os_padroes_e_e_idempotente(): void
     {
         $criadas = PaymentTerm::provisionarPadroes($this->tenant->id);
@@ -34,55 +65,66 @@ class CondicaoPagamentoTest extends TenantTestCase
 
     public function test_cliente_liga_a_condicao(): void
     {
-        $term = PaymentTerm::create([
-            'tenant_id' => $this->tenant->id, 'name' => '30 dias', 'days' => 30,
-        ]);
-        $cliente = Client::create([
-            'tenant_id' => $this->tenant->id,
-            'name' => 'ACME',
-            'nif' => (string) random_int(100000000, 199999999),
-            'type' => 'pessoa_juridica',
-            'payment_term_id' => $term->id,
-        ]);
+        $cliente = $this->clienteCom(30, 'ACME');
 
         $this->assertSame(30, $cliente->paymentTerm->days);
     }
 
-    public function test_selecionar_cliente_define_o_vencimento(): void
+    /**
+     * O ECRÃ SABE O PRAZO DE CADA CLIENTE.
+     *
+     * As opções trazem os dias da condição junto de cada cliente: é com eles
+     * que o campo do vencimento se preenche mal se escolhe o cliente, como o
+     * `selectClient` fazia.
+     */
+    public function test_as_opcoes_trazem_os_dias_da_condicao_de_cada_cliente(): void
     {
-        $term = PaymentTerm::create([
-            'tenant_id' => $this->tenant->id, 'name' => '30 dias', 'days' => 30,
-        ]);
-        $cliente = Client::create([
-            'tenant_id' => $this->tenant->id,
-            'name' => 'Cliente 30d',
-            'nif' => (string) random_int(100000000, 199999999),
-            'type' => 'pessoa_juridica',
-            'payment_term_id' => $term->id,
-        ]);
+        $trinta = $this->clienteCom(30, 'Cliente 30d');
+        $pronto = $this->clienteCom(0, 'Cliente Pronto');
 
-        Livewire::test(InvoiceCreate::class)
-            ->set('invoice_date', '2026-01-01')
-            ->call('selectClient', $cliente->id)
-            ->assertSet('due_date', '2026-01-31'); // +30 dias
+        $clientes = collect($this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('clientes'))->keyBy('id');
+
+        $this->assertSame(30, $clientes[$trinta->id]['payment_term_days']);
+        $this->assertSame(0, $clientes[$pronto->id]['payment_term_days']);
+    }
+
+    public function test_o_cliente_escolhido_define_o_vencimento_da_factura(): void
+    {
+        $cliente = $this->clienteCom(30, 'Cliente 30d');
+
+        $id = $this->emitirPara($cliente, '2026-01-01');
+
+        $this->assertSame('2026-01-31', SalesInvoice::findOrFail($id)->due_date->format('Y-m-d')); // +30 dias
     }
 
     public function test_pronto_pagamento_vence_no_proprio_dia(): void
     {
-        $term = PaymentTerm::create([
-            'tenant_id' => $this->tenant->id, 'name' => 'Pronto', 'days' => 0,
-        ]);
-        $cliente = Client::create([
-            'tenant_id' => $this->tenant->id,
-            'name' => 'Cliente Pronto',
-            'nif' => (string) random_int(100000000, 199999999),
-            'type' => 'pessoa_juridica',
-            'payment_term_id' => $term->id,
-        ]);
+        $cliente = $this->clienteCom(0, 'Cliente Pronto');
 
-        Livewire::test(InvoiceCreate::class)
-            ->set('invoice_date', '2026-03-10')
-            ->call('selectClient', $cliente->id)
-            ->assertSet('due_date', '2026-03-10');
+        $id = $this->emitirPara($cliente, '2026-03-10');
+
+        $this->assertSame('2026-03-10', SalesInvoice::findOrFail($id)->due_date->format('Y-m-d'));
+    }
+
+    /** Um vencimento escrito à mão no ecrã é deliberado — não se corrige. */
+    public function test_o_vencimento_escolhido_a_mao_ganha_a_condicao(): void
+    {
+        $cliente = $this->clienteCom(30, 'Cliente 30d');
+
+        $id = $this->emitirPara($cliente, '2026-01-01', ['due_date' => '2026-02-15']);
+
+        $this->assertSame('2026-02-15', SalesInvoice::findOrFail($id)->due_date->format('Y-m-d'));
+    }
+
+    private function emitirPara(Client $cliente, string $data, array $por = []): int
+    {
+        return $this->postJson(self::RAIZ, array_merge([
+            'client_id'    => $cliente->id,
+            'warehouse_id' => $this->armazem->id,
+            'invoice_type' => 'FT',
+            'invoice_date' => $data,
+            'status'       => 'draft',
+            'linhas'       => [['product_id' => $this->produtoComStock(5, 1000)->id, 'quantity' => 1, 'price' => 1000]],
+        ], $por))->assertCreated()->json('id');
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Workshop;
 
-use App\Livewire\Invoicing\Products;
+use App\Livewire\Workshop\ArtigosDaOficina;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
@@ -34,7 +34,7 @@ use Livewire\Attributes\Title;
  */
 #[Layout('layouts.app')]
 #[Title('Peças - Oficina')]
-class PartManagement extends Products
+class PartManagement extends ArtigosDaOficina
 {
     public function mount(): void
     {

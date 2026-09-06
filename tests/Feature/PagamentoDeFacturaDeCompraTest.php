@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\PaymentModal;
 use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Supplier;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -25,9 +23,23 @@ use Tests\TenantTestCase;
  * registrar pagamento". Foi preciso a captura de erros (`erros_do_sistema`)
  * para o ver, e nessa altura já havia alguém há 45 minutos a tentar lançar um
  * pagamento de 109.168,68 Kz numa farmácia.
+ *
+ * O modal Livewire deu lugar ao das listas em React, que paga por
+ * `POST /api/v1/invoicing/react/pagamentos/{tipo}/{factura}`. A regra vive no
+ * `RegistoDePagamento` — a mesma para os dois caminhos — e é por essa porta
+ * que se prova.
  */
 class PagamentoDeFacturaDeCompraTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/pagamentos';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->comModulo('invoicing')->comPermissoes('invoicing.receipts.create');
+    }
+
     private function fornecedor(): Supplier
     {
         return Supplier::create([
@@ -54,51 +66,38 @@ class PagamentoDeFacturaDeCompraTest extends TenantTestCase
 
     private function pagar(PurchaseInvoice $factura, float $valor)
     {
-        return Livewire::actingAs($this->user)
-            ->test(PaymentModal::class)
-            ->call('openPaymentModal', 'purchase', $factura->id)
-            ->set('payment_method', 'multicaixa')
-            ->set('amount', $valor)
-            ->call('registerPayment');
+        return $this->postJson(self::RAIZ . '/purchase/' . $factura->id, [
+            'amount' => $valor,
+            'payment_method' => 'multicaixa',
+        ]);
     }
 
-    public function test_pagar_uma_factura_de_compra_grava_o_recibo(): void
+    private function ultimoRecibo(): ?Receipt
     {
-        $factura = $this->facturaDeCompra();
-
-        $this->pagar($factura, 109168.68);
-
-        $recibo = Receipt::where('tenant_id', $this->tenant->id)->latest('id')->first();
-
-        $this->assertNotNull($recibo, 'o recibo da compra tinha de ser gravado');
-        $this->assertSame('purchase', $recibo->type);
-        $this->assertEqualsWithDelta(109168.68, (float) $recibo->amount_paid, 0.01);
+        return Receipt::where('tenant_id', $this->tenant->id)->latest('id')->first();
     }
 
     /**
-     * O id da factura de compra vai na coluna DELE.
+     * O RECIBO GRAVA-SE, E O ID DA COMPRA VAI NA COLUNA DELE.
      *
      * Em `invoice_id` — que aponta para as facturas de venda — a base recusa a
      * linha, e era esse o defeito.
      */
-    public function test_o_recibo_fica_ligado_a_factura_de_compra_e_nao_a_uma_venda(): void
+    public function test_pagar_uma_factura_de_compra_grava_o_recibo_na_coluna_dele(): void
     {
         $factura = $this->facturaDeCompra();
 
-        $this->pagar($factura, 109168.68);
+        $this->pagar($factura, 109168.68)->assertCreated();
 
-        $recibo = Receipt::where('tenant_id', $this->tenant->id)->latest('id')->first();
+        $recibo = $this->ultimoRecibo();
+
+        $this->assertNotNull($recibo, 'o recibo da compra tinha de ser gravado');
+        $this->assertSame('purchase', $recibo->type);
+        $this->assertEqualsWithDelta(109168.68, (float) $recibo->amount_paid, 0.01);
 
         $this->assertSame($factura->id, $recibo->purchase_invoice_id);
         $this->assertNull($recibo->invoice_id, 'nunca em invoice_id: essa coluna é das vendas');
         $this->assertSame($factura->id, $recibo->purchaseInvoice->id);
-    }
-
-    public function test_a_factura_de_compra_fica_paga(): void
-    {
-        $factura = $this->facturaDeCompra();
-
-        $this->pagar($factura, 109168.68);
 
         $this->assertSame('paid', $factura->refresh()->status);
     }
@@ -107,7 +106,7 @@ class PagamentoDeFacturaDeCompraTest extends TenantTestCase
     {
         $factura = $this->facturaDeCompra();
 
-        $this->pagar($factura, 50000);
+        $this->pagar($factura, 50000)->assertCreated();
 
         $this->assertSame('partially_paid', $factura->refresh()->status);
     }
@@ -124,9 +123,9 @@ class PagamentoDeFacturaDeCompraTest extends TenantTestCase
     {
         $factura = $this->facturaDeCompra();
 
-        $this->pagar($factura, 109168.68);
+        $this->pagar($factura, 109168.68)->assertCreated();
 
-        $recibo = Receipt::where('tenant_id', $this->tenant->id)->latest('id')->first();
+        $recibo = $this->ultimoRecibo();
 
         $this->assertNull($recibo->agt_status, 'um recibo de compra não vai à AGT');
         $this->assertNull($recibo->agt_reference);
@@ -160,14 +159,12 @@ class PagamentoDeFacturaDeCompraTest extends TenantTestCase
             'created_by'     => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(PaymentModal::class)
-            ->call('openPaymentModal', 'sale', $venda->id)
-            ->set('payment_method', 'cash')
-            ->set('amount', 1000)
-            ->call('registerPayment');
+        $this->postJson(self::RAIZ . '/sale/' . $venda->id, [
+            'amount' => 1000,
+            'payment_method' => 'cash',
+        ])->assertCreated();
 
-        $recibo = Receipt::where('tenant_id', $this->tenant->id)->latest('id')->first();
+        $recibo = $this->ultimoRecibo();
 
         $this->assertSame('sale', $recibo->type);
         $this->assertSame($venda->id, $recibo->invoice_id);

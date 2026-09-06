@@ -12,7 +12,7 @@ export type LinhaDaFactura = {
 };
 
 export type OpcoesDaFactura = {
-    clientes: Array<{ id: number; name: string; nif: string | null; province: string | null }>;
+    clientes: Array<{ id: number; name: string; nif: string | null; province: string | null; payment_term_days: number }>;
     artigos: Array<{ id: number; name: string; code: string | null; price: number; unit: string; type: string }>;
     armazens: Array<{ id: number; name: string }>;
     series: Array<{ id: number; series_code: string; name: string; document_type: string; is_default: boolean }>;
@@ -22,16 +22,41 @@ export type OpcoesDaFactura = {
     permissoes: { pode_criar: boolean };
 };
 
+/**
+ * O CONTEÚDO COMERCIAL de uma factura: o que se aproveita ao duplicar.
+ *
+ * Está separado da identidade (número, série, hash, estado) de propósito: é
+ * exactamente esta a fronteira que o `DuplicaDocumento` guarda do lado do
+ * servidor, e tê-la também no tipo faz o compilador recusar um duplicado que
+ * traga o que não deve.
+ */
+export type ConteudoDaFactura = {
+    client_id: number | null; warehouse_id: number | null; invoice_type: string;
+    invoice_date: string | null; due_date: string | null; delivery_date: string | null;
+    tax_country_region: string | null; payment_method: string | null;
+    discount_commercial: number; discount_financial: number;
+    withholding_type: string | null; withholding_percentage: number; notes: string | null;
+};
+
 /** Uma factura aberta no editor: o cabeçalho, as linhas, e se ainda se pode mexer. */
 export type FacturaAberta = {
-    documento: {
+    documento: ConteudoDaFactura & {
         id: number; numero: string | null; estado: string; pode_editar: boolean;
-        client_id: number | null; warehouse_id: number | null; invoice_type: string; series_id: number | null;
-        invoice_date: string | null; due_date: string | null; delivery_date: string | null;
-        tax_country_region: string | null; payment_method: string | null;
-        discount_commercial: number; discount_financial: number;
-        withholding_type: string | null; withholding_percentage: number; notes: string | null; pdf: string;
+        series_id: number | null; pdf: string;
     };
+    linhas: LinhaDaFactura[];
+};
+
+/**
+ * O conteúdo de uma factura para NASCER OUTRA VEZ.
+ *
+ * Sem `id`, sem número, sem série e sem estado — não é um documento, é o que
+ * se escreve num documento. `origem` existe só para o ecrã poder dizer de
+ * onde isto veio.
+ */
+export type FacturaDuplicada = {
+    origem: { id: number; numero: string | null };
+    documento: ConteudoDaFactura;
     linhas: LinhaDaFactura[];
 };
 
@@ -46,6 +71,9 @@ export const factura = {
     guardar: (corpo: Record<string, unknown>) => api.criar<Gravada>('/factura', corpo),
 
     abrir: (id: number) => api.ler<FacturaAberta>(`/factura/${id}`),
+
+    /** Duplicar NÃO grava: traz o conteúdo para o editor abrir em branco. */
+    duplicar: (id: number) => api.ler<FacturaDuplicada>(`/factura/${id}/duplicar`),
 
     actualizar: (id: number, corpo: Record<string, unknown>) => api.guardar<Gravada>(`/factura/${id}`, corpo),
 };

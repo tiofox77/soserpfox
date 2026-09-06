@@ -1,4 +1,5 @@
 import { cls } from './tokens';
+import { t } from '@/i18n';
 
 /**
  * O que se vê enquanto o ecrã não chegou.
@@ -9,7 +10,7 @@ import { cls } from './tokens';
 export function Carregando({ linhas = 6 }: { linhas?: number }) {
     return (
         <div className="animate-pulse space-y-3" aria-busy="true" aria-live="polite">
-            <span className="sr-only">A carregar…</span>
+            <span className="sr-only">{t('A carregar…')}</span>
             <div className="h-9 w-1/3 rounded-xl bg-slate-200" />
             {Array.from({ length: linhas }).map((_, i) => (
                 <div

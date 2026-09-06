@@ -16,6 +16,8 @@
  * `perigo` é destruir, `aviso` é ter cuidado — e o resto é tinta neutra.
  */
 
+import { etiquetaIntl } from '@/i18n';
+
 /** Um raio, e é este. */
 export const RAIO = 'rounded-xl';
 
@@ -83,8 +85,22 @@ export function cls(...partes: Array<string | false | null | undefined>): string
     return partes.filter(Boolean).join(' ');
 }
 
+/*
+ * O FORMATO SEGUE A LÍNGUA, e não o sítio onde o código foi escrito.
+ *
+ * Estava 'pt-PT' escrito à mão nos dois formatadores que se seguem. O ecrã
+ * traduzia-se e os números por baixo não: quem trabalha em inglês lia
+ * «1.234,56» onde esperava «1,234.56». É a meia-tradução que passa
+ * despercebida a quem revê o texto e salta à vista a quem usa.
+ *
+ * Quem sabe a língua é o `i18n` — daqui só se pergunta. Em português nada
+ * muda: sem escolha, `lingua()` devolve 'pt' e 'pt' dá o mesmo 'pt-PT' que
+ * estava fixo, com vírgula decimal e ponto nos milhares.
+ */
+
 /**
- * Dinheiro em kwanzas, à maneira daqui: 1.234,56.
+ * Dinheiro em kwanzas, à maneira de quem está a olhar: 1.234,56 em português,
+ * 1,234.56 em inglês.
  *
  * Uma só função. A máscara existe hoje em `mascara-dinheiro.js` e outra vez no
  * `MoneyHelper` do servidor — é para deixar de haver uma terceira.
@@ -93,16 +109,19 @@ export function kz(valor: number | string | null | undefined, casas = 2): string
     const n = typeof valor === 'string' ? Number(valor) : (valor ?? 0);
 
     if (!Number.isFinite(n)) {
-        return '0,00';
+        return (0).toLocaleString(etiquetaIntl(), {
+            minimumFractionDigits: casas,
+            maximumFractionDigits: casas,
+        });
     }
 
-    return n.toLocaleString('pt-PT', {
+    return n.toLocaleString(etiquetaIntl(), {
         minimumFractionDigits: casas,
         maximumFractionDigits: casas,
     });
 }
 
-/** Uma data como se lê aqui: 04/09/2026. */
+/** Uma data como se lê na língua de quem está a olhar: 04/09/2026. */
 export function data(iso: string | null | undefined): string {
     if (!iso) {
         return '—';
@@ -112,5 +131,5 @@ export function data(iso: string | null | undefined): string {
 
     return Number.isNaN(d.getTime())
         ? '—'
-        : d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        : d.toLocaleDateString(etiquetaIntl(), { day: '2-digit', month: '2-digit', year: 'numeric' });
 }

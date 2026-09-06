@@ -6,11 +6,11 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que a lista abre com o resumo, que o
  * formulário mostra o CIF a somar à medida que se escreve, que o servidor
- * recusa sem fornecedor e diz onde, e que a morada de sempre continua em
- * Livewire.
+ * recusa sem fornecedor e diz onde, e que a morada de sempre serve o
+ * React.
  */
 
-const ECRA = '/invoicing/imports/novo-ecra';
+const ECRA = '/invoicing/imports';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -48,7 +48,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecra Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/imports');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

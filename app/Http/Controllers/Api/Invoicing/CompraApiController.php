@@ -9,6 +9,7 @@ use App\Traits\DocumentosPorAutor;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Services\Invoicing\CalculadoraDeDocumento;
+use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\EmissorDeCompras;
 use App\Services\Invoicing\TaxResolver;
 use DomainException;
@@ -42,10 +43,99 @@ class CompraApiController extends Controller
     {
         $this->exigir($request, 'invoicing.purchases.invoices.view');
 
+        return response()->json($this->paraEditor($this->baseDoAutor()->with('items')->findOrFail($id)));
+    }
+
+    /**
+     * DUPLICAR: o conteúdo desta compra, para o editor abrir em branco.
+     *
+     * Não grava nada. Devolve o conteúdo comercial — fornecedor, armazém,
+     * linhas com preços, lotes e validades — e o editor abre com ele como
+     * rascunho novo. O número, o hash e o estado ficam para trás; o que viaja
+     * e o que fica está no `DuplicaDocumento`.
+     *
+     * NÃO ENTRA STOCK NENHUM AQUI, e é por isso que duplicar uma compra já
+     * recebida é seguro: o stock só se mexe quando o duplicado for mesmo
+     * gravado, pelo `EmissorDeCompras`, como qualquer compra nova.
+     */
+    public function duplicar(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.purchases.invoices.create');
+
         $f = $this->baseDoAutor()->with('items')->findOrFail($id);
-        $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
+        $aberta = $this->paraEditor($f);
+
+        return response()->json(DuplicaDocumento::resposta(
+            $aberta['documento'],
+            $aberta['linhas'],
+            // Um duplicado é de hoje; o vencimento volta a combinar-se com o
+            // fornecedor e não se herda o prazo de uma factura antiga.
+            ['invoice_date' => now()->toDateString(), 'due_date' => null],
+            $f,
+            $f->invoice_number,
+        ));
+    }
+
+    /**
+     * ANULAR uma compra registada — o caminho certo, porque apagar não existe.
+     *
+     * A regra inteira (rascunho não se anula, anulada não se reanula, e uma
+     * compra com dinheiro pago não se anula sem primeiro desfazer o
+     * pagamento) vive no `EmissorDeCompras`. Aqui só se resolve o documento
+     * da empresa e se traduz a recusa em 422.
+     */
+    public function anular(Request $request, EmissorDeCompras $emissor, int $id): JsonResponse
+    {
+        // Anular É o eliminar de uma factura de compra: é a única forma de a
+        // tirar de circulação, e por isso é a permissão de eliminar que manda.
+        $this->exigir($request, 'invoicing.purchases.invoices.delete');
+
+        $f = $this->baseDoAutor()->findOrFail($id);
+
+        try {
+            $emissor->anular($f);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         return response()->json([
+            'estado' => $f->status,
+            'message' => __('Factura de compra :n anulada. O stock que tinha entrado foi revertido.', ['n' => $f->invoice_number]),
+        ]);
+    }
+
+    /** Marcar como paga sem lançar recibo — o acerto de quem já pagou por fora. */
+    public function marcarComoPaga(Request $request, EmissorDeCompras $emissor, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.purchases.invoices.edit');
+
+        $f = $this->baseDoAutor()->findOrFail($id);
+
+        try {
+            $emissor->marcarComoPaga($f);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'estado' => $f->status,
+            'message' => __('Factura de compra :n marcada como paga.', ['n' => $f->invoice_number]),
+        ]);
+    }
+
+    /**
+     * A compra na forma que o editor conhece.
+     *
+     * Serve o `abrir` e o `duplicar`: uma forma só, para o duplicado herdar
+     * exactamente o que a edição herdaria — e mais nada.
+     *
+     * @return array{documento: array<string,mixed>, linhas: mixed}
+     */
+    private function paraEditor(PurchaseInvoice $f): array
+    {
+        $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
+
+        return [
             'documento' => [
                 'id' => $f->id,
                 'numero' => $f->invoice_number,
@@ -70,8 +160,9 @@ class CompraApiController extends Controller
                 'batch_number' => $i->batch_number ?? '',
                 'expiry_date' => $data($i->expiry_date) ?? '',
             ])->values(),
-        ]);
+        ];
     }
+
     public function opcoes(Request $request): JsonResponse
     {
         $this->exigir($request, 'invoicing.purchases.invoices.create');

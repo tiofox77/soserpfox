@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Client;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\User;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -52,6 +51,12 @@ class PaineisRestritosTest extends TenantTestCase
         ]);
     }
 
+    /** O painel do ecrã em React — os mesmos números, pela API. */
+    private function painel(): array
+    {
+        return $this->getJson('/api/v1/invoicing/react/painel')->assertOk()->json();
+    }
+
     /** @test */
     public function o_painel_da_facturacao_conta_so_as_do_proprio(): void
     {
@@ -63,12 +68,10 @@ class PaineisRestritosTest extends TenantTestCase
         $this->comPermissoes('invoicing.dashboard.view');
         $this->actingAs($this->user);
 
-        $ecra = Livewire::test(\App\Livewire\Invoicing\InvoicingDashboard::class);
-        $stats = $ecra->viewData('stats');
-        $documentos = $ecra->viewData('documents');
+        $painel = $this->painel();
 
-        $this->assertSame(1000.0, (float) $stats['total_invoiced']);
-        $this->assertSame(1, (int) $documentos['invoices']);
+        $this->assertSame(1000.0, (float) $painel['stats']['total_invoiced']);
+        $this->assertSame(1, (int) $painel['documentos']['invoices']);
     }
 
     /** @test */
@@ -81,16 +84,14 @@ class PaineisRestritosTest extends TenantTestCase
         $this->comPermissoes('invoicing.dashboard.view', 'invoicing.documents.all');
         $this->actingAs($this->user);
 
-        $ecra = Livewire::test(\App\Livewire\Invoicing\InvoicingDashboard::class);
-        $stats = $ecra->viewData('stats');
-        $documentos = $ecra->viewData('documents');
+        $painel = $this->painel();
 
-        $this->assertSame(10000.0, (float) $stats['total_invoiced']);
-        $this->assertSame(2, (int) $documentos['invoices']);
+        $this->assertSame(10000.0, (float) $painel['stats']['total_invoiced']);
+        $this->assertSame(2, (int) $painel['documentos']['invoices']);
     }
 
     /**
-     * As listas do painel — pendentes, melhores clientes, actividade — também.
+     * As listas do painel — pendentes e melhores clientes — também.
      *
      * @test
      */
@@ -103,14 +104,14 @@ class PaineisRestritosTest extends TenantTestCase
         $this->comPermissoes('invoicing.dashboard.view');
         $this->actingAs($this->user);
 
-        $ecra = Livewire::test(\App\Livewire\Invoicing\InvoicingDashboard::class);
-
-        $pendentes = $ecra->viewData('pendingInvoices')->pluck('id')->all();
-        $recentes = $ecra->viewData('recentActivities')->pluck('id')->all();
+        $painel = $this->painel();
+        $pendentes = array_column($painel['por_cobrar'], 'id');
 
         $this->assertContains($minha->id, $pendentes);
         $this->assertNotContains($dela->id, $pendentes);
-        $this->assertNotContains($dela->id, $recentes);
+
+        // E o dinheiro do colega não entra por nenhuma outra porta da resposta.
+        $this->assertStringNotContainsString('9000', json_encode($painel['melhores_clientes']));
     }
 
     /** @test */

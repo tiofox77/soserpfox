@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\StockManagement;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -16,9 +14,15 @@ use Tests\TenantTestCase;
  * armazém filtrava as linhas e deixava os totais quietos. Quem confere a
  * prateleira lê o número grande, não conta as linhas — e o número grande
  * estava a dizer outra coisa.
+ *
+ * O ecrã é React e os cartões vêm no `resumo` da mesma resposta que traz a
+ * lista (`GET /api/v1/invoicing/react/stock`), calculado sobre a MESMA consulta
+ * filtrada. É essa promessa que estes ensaios seguram.
  */
 class GestaoStockCartoesFiltradosTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/stock';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -62,6 +66,12 @@ class GestaoStockCartoesFiltradosTest extends TenantTestCase
         return $p;
     }
 
+    /** @return array{artigos: int, quantidade: float, valor: float, baixo: int} */
+    private function cartoes(array $filtros = []): array
+    {
+        return $this->getJson(self::RAIZ . '?' . http_build_query($filtros))->assertOk()->json('resumo');
+    }
+
     public function test_os_cartoes_seguem_o_filtro_de_armazem(): void
     {
         $loja = $this->armazem('Loja');
@@ -70,18 +80,19 @@ class GestaoStockCartoesFiltradosTest extends TenantTestCase
         $this->artigoComStock($loja, 'Na loja', 10, 100);
         $this->artigoComStock($deposito, 'No deposito', 5, 200);
 
-        $componente = Livewire::test(StockManagement::class);
-
         // Sem filtro: os dois armazéns.
-        $componente->assertViewHas('stats', fn ($s) => $s['total_products'] === 2
-            && (float) $s['total_quantity'] === 15.0
-            && (float) $s['total_value'] === 2000.0);
+        $todos = $this->cartoes();
+
+        $this->assertSame(2, $todos['artigos']);
+        $this->assertEqualsWithDelta(15, $todos['quantidade'], 0.001);
+        $this->assertEqualsWithDelta(2000, $todos['valor'], 0.01);
 
         // Com filtro: só a loja — 10 unidades a 100.
-        $componente->set('warehouseFilter', $loja->id)
-            ->assertViewHas('stats', fn ($s) => $s['total_products'] === 1
-                && (float) $s['total_quantity'] === 10.0
-                && (float) $s['total_value'] === 1000.0);
+        $so = $this->cartoes(['armazem' => $loja->id]);
+
+        $this->assertSame(1, $so['artigos']);
+        $this->assertEqualsWithDelta(10, $so['quantidade'], 0.001);
+        $this->assertEqualsWithDelta(1000, $so['valor'], 0.01);
     }
 
     public function test_os_cartoes_seguem_a_procura(): void
@@ -90,11 +101,11 @@ class GestaoStockCartoesFiltradosTest extends TenantTestCase
         $this->artigoComStock($w, 'PARACETAMOL 500', 7, 50);
         $this->artigoComStock($w, 'IBUPROFENO 400', 3, 80);
 
-        Livewire::test(StockManagement::class)
-            ->set('search', 'PARACETAMOL')
-            ->assertViewHas('stats', fn ($s) => $s['total_products'] === 1
-                && (float) $s['total_quantity'] === 7.0
-                && (float) $s['total_value'] === 350.0);
+        $r = $this->cartoes(['procura' => 'PARACETAMOL']);
+
+        $this->assertSame(1, $r['artigos']);
+        $this->assertEqualsWithDelta(7, $r['quantidade'], 0.001);
+        $this->assertEqualsWithDelta(350, $r['valor'], 0.01);
     }
 
     public function test_o_cartao_de_stock_baixo_tambem_segue_o_filtro(): void
@@ -107,30 +118,29 @@ class GestaoStockCartoesFiltradosTest extends TenantTestCase
         $this->artigoComStock($deposito, 'Pouco no deposito', 1, 10, 5);
         $this->artigoComStock($loja, 'Cheio na loja', 50, 10, 5);
 
-        $componente = Livewire::test(StockManagement::class);
-
-        $componente->assertViewHas('stats', fn ($s) => $s['low_stock'] === 2);
-
-        $componente->set('warehouseFilter', $loja->id)
-            ->assertViewHas('stats', fn ($s) => $s['low_stock'] === 1);
+        $this->assertSame(2, $this->cartoes()['baixo']);
+        $this->assertSame(1, $this->cartoes(['armazem' => $loja->id])['baixo']);
     }
 
-    public function test_ligar_o_filtro_de_stock_baixo_volta_a_primeira_pagina(): void
+    /**
+     * Ligar um filtro volta à primeira página.
+     *
+     * Guarda de fonte: a paginação passou para o cliente, e é o ecrã que tem de
+     * repor `page: 1` sempre que um filtro muda. Ficar na página 2 com a lista
+     * filtrada dava um ecrã vazio — e a lista e os cartões a discordar.
+     *
+     * @test
+     */
+    public function mudar_um_filtro_volta_a_primeira_pagina(): void
     {
-        $w = $this->armazem('Loja');
+        $ecra = file_get_contents(base_path('resources/js/ecras/facturacao/Stock.tsx'));
 
-        foreach (range(1, 20) as $i) {
-            $this->artigoComStock($w, 'Artigo ' . $i, 50, 10, 5);
+        foreach (['procura: e.target.value', 'armazem: e.target.value', 'conservacao: e.target.value', 'baixo: e.target.checked'] as $filtro) {
+            $this->assertMatchesRegularExpression(
+                '/' . preg_quote($filtro, '/') . ',\s*page:\s*1/',
+                $ecra,
+                "o filtro «{$filtro}» tem de repor a página"
+            );
         }
-
-        $this->artigoComStock($w, 'Abaixo do minimo', 1, 10, 5);
-
-        $componente = Livewire::test(StockManagement::class)->call('gotoPage', 2);
-
-        $this->assertSame(2, $componente->instance()->getPage());
-
-        $componente->set('lowStockFilter', true);
-
-        $this->assertSame(1, $componente->instance()->getPage(), 'ficar na página 2 dava um ecrã vazio');
     }
 }

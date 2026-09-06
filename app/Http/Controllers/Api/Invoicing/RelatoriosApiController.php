@@ -81,9 +81,23 @@ class RelatoriosApiController extends Controller
         abort_unless($esquema['csv'] && !empty($esquema['tabelas']), 404);
 
         $dados = $relatorio->dados((int) activeTenantId(), $this->filtros($request));
-        $tabela = $esquema['tabelas'][0];
+
+        /*
+         * QUAL DAS TABELAS.
+         *
+         * Um mapa pode ter mais do que uma, e exportar sempre a primeira dava
+         * o papel errado: nos ajustes de stock, a primeira é o resumo «Por
+         * operador» e o que se leva para o armazém é a LISTA DE MOVIMENTOS.
+         * Sem `tabela`, continua a ser a primeira — que é o que quem já usa a
+         * ligação de sempre espera.
+         */
+        $pedida = (string) $request->query('tabela', '');
+        $tabela = collect($esquema['tabelas'])->firstWhere('chave', $pedida) ?? $esquema['tabelas'][0];
+
         $linhas = $this->linhas($dados, $tabela['chave']);
-        $ficheiro = $slug . '_' . now()->format('Y-m-d') . '.csv';
+        $ficheiro = $slug
+            . ($pedida !== '' && count($esquema['tabelas']) > 1 ? '_' . $tabela['chave'] : '')
+            . '_' . now()->format('Y-m-d') . '.csv';
 
         return response()->streamDownload(function () use ($tabela, $linhas) {
             $saida = fopen('php://output', 'w');

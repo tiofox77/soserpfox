@@ -9,7 +9,7 @@ import { entrar } from './apoio.js';
  * à frente não tem de abrir a factura noutro separador para saber quanto pedir.
  */
 
-const ECRA = '/invoicing/receipts/create/novo-ecra';
+const ECRA = '/invoicing/receipts/create';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -41,10 +41,17 @@ test('troca entre cliente e fornecedor', async ({ page }) => {
  */
 test('escolher a factura propoe o que falta', async ({ page }) => {
     const selector = page.getByLabel('Factura a receber');
+    const semFacturas = page.getByText('Não há facturas por receber');
+
+    // As facturas pedem-se ao servidor: espera-se pela resposta antes de
+    // decidir se há ou não há. Sem isto o ensaio lia o ecrã a meio do
+    // caminho, concluía que a bancada não tinha nada, e falhava quando a
+    // lista chegava um instante depois.
+    await expect(selector.or(semFacturas).first()).toBeVisible({ timeout: 20_000 });
 
     // A bancada pode não ter facturas por receber; nesse caso o ecrã diz-o.
     if ((await selector.count()) === 0) {
-        await expect(page.getByText('Não há facturas por receber')).toBeVisible();
+        await expect(semFacturas).toBeVisible();
         return;
     }
 
@@ -83,8 +90,30 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecra Livewire do recibo continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/receipts/create');
+/**
+ * A FACTURA QUE VEM DA LISTA ABRE JÁ ESCOLHIDA.
+ *
+ * Da lista de facturas carrega-se «Receber» e chega-se aqui com
+ * `?invoice=`. O ecrã em Livewire lia-o no mount; ao passar para React
+ * ficou por ler — quem recebe ao balcão tinha de procurar a factura outra
+ * vez. Quem resolve é o servidor, que é quem sabe de que cliente ela é.
+ */
+test('vir da lista pela accao Receber abre com a factura e o valor', async ({ page }) => {
+    await page.goto('/invoicing/sales/invoices');
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
+    const receber = page.locator('a[href*="/invoicing/receipts/create?invoice="]').first();
+
+    test.skip((await receber.count()) === 0, 'a bancada não tem facturas por receber');
+
+    await receber.click();
+
+    await expect(page.getByLabel(/^Cliente\b/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByLabel(/^Cliente\b/)).not.toHaveValue('');
+
+    const factura = page.getByLabel('Factura a receber');
+    await expect(factura).not.toHaveValue('');
+
+    const valor = await page.getByLabel(/^Valor recebido\b/).inputValue();
+    expect(Number(valor)).toBeGreaterThan(0);
 });

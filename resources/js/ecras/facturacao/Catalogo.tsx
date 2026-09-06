@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { t, tPartes } from '@/i18n';
 
 /**
  * UM CATÁLOGO — fornecedores, categorias, marcas, armazéns, condições de
@@ -87,7 +88,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
                     <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
-                    <button type="button" onClick={() => porRecado('')} aria-label="Fechar" className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
+                    <button type="button" onClick={() => porRecado('')} aria-label={t('Fechar')} className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
                 </div>
             )}
 
@@ -95,18 +96,18 @@ export default function Catalogo({ tipo }: { tipo: string }) {
 
             <Cartao
                 titulo={<span className="flex items-center gap-2"><i className={cls('fas', o.icone, 'text-slate-400')} aria-hidden="true" />{o.titulo}</span>}
-                accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>{`Novo(a) ${o.singular.toLowerCase()}`}</Botao>}
+                accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>{t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
                     <label className="flex-1 min-w-[16rem] text-sm">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Procurar</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Procurar')}</span>
                         <input value={filtros.procura ?? ''} onChange={(e) => porFiltros((f) => ({ ...f, procura: e.target.value, page: 1 }))} placeholder={o.pesquisa} className={entrada} />
                     </label>
                     {o.filtros.map((f) => (
                         <label key={f.chave} className="text-sm">
                             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{f.rotulo}</span>
                             <select value={String(filtros[f.chave] ?? '')} onChange={(e) => porFiltros((x) => ({ ...x, [f.chave]: e.target.value, page: 1 }))} className={entrada}>
-                                <option value="">Todos</option>
+                                <option value="">{t('Todos')}</option>
                                 {f.opcoes.map((op) => <option key={op.valor} value={op.valor}>{op.rotulo}</option>)}
                             </select>
                         </label>
@@ -126,7 +127,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                         </thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
-                                <tr><td colSpan={o.colunas.length + 2} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? 'A carregar…' : 'Nada para mostrar.'}</td></tr>
+                                <tr><td colSpan={o.colunas.length + 2} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nada para mostrar.')}</td></tr>
                             )}
                             {linhas.map((l) => (
                                 <tr key={l.id} className={cls(l.is_active === false && 'text-slate-400')}>
@@ -140,21 +141,21 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                         {o.permissoes.pode_escrever && (
                                             <span className="flex justify-end gap-1">
                                                 {o.accoes.padrao && !l.is_default && (
-                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title="Tornar padrão" aria-label={`Tornar padrão: ${String(l.name ?? l.id)}`} className={cls('p-2 text-slate-400 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
+                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'padrao' })} title={t('Tornar padrão')} aria-label={t('Tornar padrão: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-amber-500', RAIO, FOCO)}><i className="fas fa-star" aria-hidden="true" /></button>
                                                 )}
                                                 {o.accoes.activar && (
-                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? 'Desactivar' : 'Activar'} aria-label={`${l.is_active ? 'Desactivar' : 'Activar'}: ${String(l.name ?? l.id)}`} className={cls('p-2 text-slate-400 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
+                                                    <button type="button" onClick={() => accao.mutate({ l, qual: 'activar' })} title={l.is_active ? t('Desactivar') : t('Activar')} aria-label={t(l.is_active ? 'Desactivar: :nome' : 'Activar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-slate-700', RAIO, FOCO)}><i className={cls('fas', l.is_active ? 'fa-toggle-on text-emerald-500' : 'fa-toggle-off')} aria-hidden="true" /></button>
                                                 )}
                                                 {o.accoes.logotipo && (
-                                                    <label title="Logótipo" className={cls('cursor-pointer p-2 text-slate-400 hover:text-indigo-600', RAIO)}>
+                                                    <label title={t('Logótipo')} className={cls('cursor-pointer p-2 text-slate-400 hover:text-indigo-600', RAIO)}>
                                                         <i className="fas fa-image" aria-hidden="true" />
-                                                        <span className="sr-only">Logótipo de {String(l.name ?? l.id)}</span>
+                                                        <span className="sr-only">{t('Logótipo de :nome', { nome: String(l.name ?? l.id) })}</span>
                                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) logotipo.mutate({ l, ficheiro: f }); e.target.value = ''; }} />
                                                     </label>
                                                 )}
-                                                <button type="button" onClick={() => abrirEdicao(l)} aria-label={`Editar: ${String(l.name ?? l.id)}`} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
+                                                <button type="button" onClick={() => abrirEdicao(l)} aria-label={t('Editar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
                                                 {o.accoes.apagar && (
-                                                    <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? 'Apagar' : 'Em uso — não se pode apagar'} aria-label={`Apagar: ${String(l.name ?? l.id)}`} className={cls('p-2 text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                                    <button type="button" disabled={!l.pode_apagar} onClick={() => porAApagar(l)} title={l.pode_apagar ? t('Apagar') : t('Em uso — não se pode apagar')} aria-label={t('Apagar: :nome', { nome: String(l.name ?? l.id) })} className={cls('p-2 text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
                                                 )}
                                             </span>
                                         )}
@@ -166,10 +167,10 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 </div>
                 {contas && contas.last_page > 1 && (
                     <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
-                        <span>{contas.from}–{contas.to} de {contas.total}</span>
+                        <span>{t(':inicio–:fim de :total', { inicio: contas.from ?? '', fim: contas.to ?? '', total: contas.total })}</span>
                         <span className="flex gap-1">
-                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>Anterior</Botao>
-                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>Seguinte</Botao>
+                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
+                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>{t('Seguinte')}</Botao>
                         </span>
                     </div>
                 )}
@@ -180,7 +181,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                     o={o}
                     valores={formulario}
                     erros={erros}
-                    titulo={aEditar ? `Editar ${o.singular.toLowerCase()}` : `Novo(a) ${o.singular.toLowerCase()}`}
+                    titulo={aEditar ? t('Editar :nome', { nome: o.singular.toLowerCase() }) : t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}
                     aGravar={gravar.isPending}
                     erroGeral={gravar.error}
                     aoMudar={porFormulario}
@@ -192,10 +193,10 @@ export default function Catalogo({ tipo }: { tipo: string }) {
             <Modal
                 aberto={aApagar !== null}
                 aoFechar={() => porAApagar(null)}
-                titulo={`Apagar ${o.singular.toLowerCase()}?`}
-                rodape={<><Botao onClick={() => porAApagar(null)}>Cancelar</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>Apagar</Botao></>}
+                titulo={t('Apagar :nome?', { nome: o.singular.toLowerCase() })}
+                rodape={<><Botao onClick={() => porAApagar(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={apagar.isPending} onClick={() => aApagar && apagar.mutate(aApagar)}>{t('Apagar')}</Botao></>}
             >
-                <p className="text-sm text-slate-700">Vai apagar <strong>{String(aApagar?.name ?? '')}</strong>. Não há volta.</p>
+                <p className="text-sm text-slate-700">{tPartes('Vai apagar :nome. Não há volta.', { nome: <strong>{String(aApagar?.name ?? '')}</strong> })}</p>
             </Modal>
         </div>
     );
@@ -210,9 +211,9 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
         case 'escolha':
             return <>{l.rotulos[c.chave] ?? (v === null || v === undefined ? '' : String(v))}</>;
         case 'booleano':
-            return v ? <Etiqueta cor="bom">Sim</Etiqueta> : <Etiqueta>Não</Etiqueta>;
+            return v ? <Etiqueta cor="bom">{t('Sim')}</Etiqueta> : <Etiqueta>{t('Não')}</Etiqueta>;
         case 'padrao':
-            return v ? <Etiqueta cor="aviso" icone="fa-star">Padrão</Etiqueta> : null;
+            return v ? <Etiqueta cor="aviso" icone="fa-star">{t('Padrão')}</Etiqueta> : null;
         case 'numero':
             return <span className="tabular-nums">{v === null || v === undefined ? '' : String(v)}</span>;
         case 'percentagem':
@@ -269,7 +270,7 @@ function Formulario({ o, valores, erros, titulo, aGravar, erroGeral, aoMudar, ao
             aoFechar={aoFechar}
             titulo={titulo}
             largura="lg"
-            rodape={<><Botao onClick={aoFechar}>Cancelar</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>Guardar</Botao></>}
+            rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}
         >
             <AvisoDeErro erro={erroGeral} />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -383,8 +384,8 @@ function CampoDeEsquema({ c, valor, erro, o, valores, aoMudar }: {
 function Falhou({ erro }: { erro: unknown }) {
     return (
         <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-            <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir o catálogo</h2>
-            <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : 'Verifique a ligação.'}</p>
+            <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o catálogo')}</h2>
+            <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : t('Verifique a ligação.')}</p>
         </div>
     );
 }

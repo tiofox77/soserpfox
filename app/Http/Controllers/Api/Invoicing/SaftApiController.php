@@ -27,7 +27,7 @@ class SaftApiController extends Controller
             'seccoes' => collect(GeradorDeSaft::SECCOES)->map(fn ($rotulo, $chave) => ['chave' => $chave, 'rotulo' => __($rotulo)])->values(),
             'periodo' => ['de' => now()->startOfMonth()->toDateString(), 'ate' => now()->endOfMonth()->toDateString()],
             'permissoes' => ['pode_gerar' => (bool) $request->user()?->can('invoicing.saft.generate')],
-            'descarga' => url('invoicing/saft-generator/novo-ecra/descarregar'),
+            'descarga' => url('invoicing/saft-generator/descarregar'),
         ]);
     }
 

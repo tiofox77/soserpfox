@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { facturacao, type FacturaDeVenda, type FiltrosDeFacturas } from '@/api/facturacao';
+import {
+    facturacao,
+    type FacturaDeVenda,
+    type FiltrosDeFacturas,
+    type SomasDasFacturas,
+} from '@/api/facturacao';
 import { ErroDaApi } from '@/api/cliente';
+import { t } from '@/i18n';
 import { RegistarPagamento } from '@/ecras/facturacao/RegistarPagamento';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
+import { PdfDoEcra } from '@/ui/PdfDoEcra';
 import { CARTAO, FOCO, RAIO, cls, data, kz } from '@/ui/tokens';
 
 /**
@@ -38,9 +45,11 @@ const FILTROS_VAZIOS: FiltrosDeFacturas = {
     page: 1,
 };
 
-export default function ListaDeFacturas() {
+export default function ListaDeFacturas({ tipo }: { tipo?: 'FT' | 'FR' }) {
     const cache = useQueryClient();
-    const [filtros, porFiltros] = useState<FiltrosDeFacturas>(FILTROS_VAZIOS);
+    // O menu tem uma entrada só para as Faturas-Recibo (`?type=FR`): a lista
+    // abre já filtrada, e o filtro continua a poder mudar-se.
+    const [filtros, porFiltros] = useState<FiltrosDeFacturas>(tipo ? { ...FILTROS_VAZIOS, tipo } : FILTROS_VAZIOS);
     // A factura que se está a pagar, e o que o servidor disse depois.
     const [aPagar, porAPagar] = useState<FacturaDeVenda | null>(null);
     const [recado, porRecado] = useState('');
@@ -83,15 +92,19 @@ export default function ListaDeFacturas() {
     const facturas = lista.data?.data ?? [];
     const contas = lista.data?.meta;
     const podeVerAutores = (opcoes.data?.autores.length ?? 0) > 0;
+    // Duplicar é começar uma factura nova: quem pode criar, pode duplicar.
+    const podeDuplicar = opcoes.data?.permissoes.pode_criar ?? false;
 
     return (
         <div className="space-y-4">
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
                     <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
-                    <button type="button" onClick={() => porRecado('')} aria-label="Fechar" className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
+                    <button type="button" onClick={() => porRecado('')} aria-label={t('Fechar')} className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
                 </div>
             )}
+
+            <Totais contas={contas} somas={contas?.somas} aActualizar={lista.isFetching} />
 
             {/* Pagar: o modal partilhado, o mesmo caminho do Livewire. */}
             {aPagar && (
@@ -103,25 +116,25 @@ export default function ListaDeFacturas() {
                 />
             )}
 
-            <Cartao titulo="Filtros">
+            <Cartao titulo={t('Filtros')}>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Campo etiqueta="Procurar">
+                    <Campo etiqueta={t('Procurar')}>
                         <input
                             type="search"
                             value={filtros.procura ?? ''}
                             onChange={(e) => mudar('procura', e.target.value)}
-                            placeholder="Número, série ou cliente"
+                            placeholder={t('Número, série ou cliente')}
                             className={entrada}
                         />
                     </Campo>
 
-                    <Campo etiqueta="Estado">
+                    <Campo etiqueta={t('Estado')}>
                         <select
                             value={filtros.estado ?? ''}
                             onChange={(e) => mudar('estado', e.target.value)}
                             className={entrada}
                         >
-                            <option value="">Todos</option>
+                            <option value="">{t('Todos')}</option>
                             {opcoes.data?.estados.map((e) => (
                                 <option key={e.valor} value={e.valor}>
                                     {e.rotulo}
@@ -130,25 +143,25 @@ export default function ListaDeFacturas() {
                         </select>
                     </Campo>
 
-                    <Campo etiqueta="Tipo">
+                    <Campo etiqueta={t('Tipo')}>
                         <select
                             value={filtros.tipo ?? ''}
                             onChange={(e) => mudar('tipo', e.target.value)}
                             className={entrada}
                         >
-                            <option value="">Todos</option>
-                            <option value="FT">Factura (FT)</option>
-                            <option value="FR">Factura-Recibo (FR)</option>
+                            <option value="">{t('Todos')}</option>
+                            <option value="FT">{t('Factura (FT)')}</option>
+                            <option value="FR">{t('Factura-Recibo (FR)')}</option>
                         </select>
                     </Campo>
 
-                    <Campo etiqueta="Armazém">
+                    <Campo etiqueta={t('Armazém')}>
                         <select
                             value={filtros.armazem ?? ''}
                             onChange={(e) => mudar('armazem', e.target.value)}
                             className={entrada}
                         >
-                            <option value="">Todos</option>
+                            <option value="">{t('Todos')}</option>
                             {opcoes.data?.armazens.map((a) => (
                                 <option key={a.id} value={a.id}>
                                     {a.name}
@@ -157,7 +170,7 @@ export default function ListaDeFacturas() {
                         </select>
                     </Campo>
 
-                    <Campo etiqueta="De">
+                    <Campo etiqueta={t('De')}>
                         <input
                             type="date"
                             value={filtros.de ?? ''}
@@ -166,7 +179,7 @@ export default function ListaDeFacturas() {
                         />
                     </Campo>
 
-                    <Campo etiqueta="Até">
+                    <Campo etiqueta={t('Até')}>
                         <input
                             type="date"
                             value={filtros.ate ?? ''}
@@ -179,13 +192,13 @@ export default function ListaDeFacturas() {
                         os outros a lista vem vazia do servidor, e um selector
                         vazio só levanta perguntas. */}
                     {podeVerAutores && (
-                        <Campo etiqueta="Emitida por">
+                        <Campo etiqueta={t('Emitida por')}>
                             <select
                                 value={filtros.autor ?? ''}
                                 onChange={(e) => mudar('autor', e.target.value)}
                                 className={entrada}
                             >
-                                <option value="">Todos</option>
+                                <option value="">{t('Todos')}</option>
                                 {opcoes.data?.autores.map((u) => (
                                     <option key={u.id} value={u.id}>
                                         {u.name}
@@ -195,7 +208,7 @@ export default function ListaDeFacturas() {
                         </Campo>
                     )}
 
-                    <Campo etiqueta="Por página">
+                    <Campo etiqueta={t('Por página')}>
                         <select
                             value={filtros.por_pagina ?? 15}
                             onChange={(e) => mudar('por_pagina', Number(e.target.value))}
@@ -213,12 +226,12 @@ export default function ListaDeFacturas() {
                 <div className="mt-4 flex items-center justify-between gap-4">
                     <p className="text-sm text-slate-500">
                         {contas
-                            ? `${contas.total.toLocaleString('pt-PT')} documento(s)`
-                            : 'A contar…'}
-                        {lista.isFetching && <span className="ml-2 text-xs">a actualizar…</span>}
+                            ? t(':quantos documento(s)', { quantos: contas.total.toLocaleString('pt-PT') })
+                            : t('A contar…')}
+                        {lista.isFetching && <span className="ml-2 text-xs">{t('a actualizar…')}</span>}
                     </p>
                     <Botao icone="fa-eraser" onClick={() => porFiltros(FILTROS_VAZIOS)}>
-                        Limpar
+                        {t('Limpar')}
                     </Botao>
                 </div>
             </Cartao>
@@ -228,8 +241,8 @@ export default function ListaDeFacturas() {
             ) : facturas.length === 0 ? (
                 <SemNada aoLimpar={() => porFiltros(FILTROS_VAZIOS)} />
             ) : (
-                <Cartao titulo="Facturas de venda" semPadding>
-                    <Tabela facturas={facturas} aoPagar={porAPagar} />
+                <Cartao titulo={t('Facturas de venda')} semPadding>
+                    <Tabela facturas={facturas} podeDuplicar={podeDuplicar} aoPagar={porAPagar} />
                 </Cartao>
             )}
 
@@ -244,9 +257,93 @@ export default function ListaDeFacturas() {
     );
 }
 
+/* ─── Os cartões do topo ──────────────────────────────────────────────── */
+
+/**
+ * O QUE ESTES CARTÕES SOMAM.
+ *
+ * O que está FILTRADO, não a página à vista: uma soma da página mudava ao
+ * carregar em «Seguinte» e não queria dizer nada. E somam pelo SALDO, nunca
+ * pelo nome do estado — quem só vê os documentos que emitiu vê aqui só os
+ * seus, porque a conta corre no servidor sobre a mesma consulta da tabela.
+ *
+ * Os números vêm do `meta.somas`; ver o `SomasDasFacturas`.
+ */
+function Totais({
+    contas,
+    somas,
+    aActualizar,
+}: {
+    contas?: { total: number };
+    somas?: SomasDasFacturas;
+    aActualizar: boolean;
+}) {
+    return (
+        <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
+            <Total rotulo={t('Documentos')} valor={contas?.total} contagem cor="primaria" icone="fa-file-invoice" />
+            <Total rotulo={t('Facturado')} valor={somas?.facturado} cor="bom" icone="fa-money-bill-wave" />
+            <Total rotulo={t('Por receber')} valor={somas?.por_receber} cor="aviso" icone="fa-clock" />
+            <Total rotulo={t('Vencido')} valor={somas?.vencido} cor="perigo" icone="fa-triangle-exclamation" />
+        </div>
+    );
+}
+
+function Total({
+    rotulo,
+    valor,
+    contagem = false,
+    cor,
+    icone,
+}: {
+    rotulo: string;
+    valor?: number;
+    /** Uma contagem escreve-se inteira e sem moeda; um valor leva «Kz». */
+    contagem?: boolean;
+    cor: 'primaria' | 'bom' | 'aviso' | 'perigo';
+    icone: string;
+}) {
+    const risca = {
+        primaria: 'border-l-indigo-500',
+        bom: 'border-l-emerald-500',
+        aviso: 'border-l-amber-500',
+        perigo: 'border-l-red-500',
+    } as const;
+
+    return (
+        <div className={cls(CARTAO, 'border-l-4 p-4', risca[cor])}>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <i className={`fas ${icone}`} aria-hidden="true" />
+                {rotulo}
+            </p>
+            <p className="mt-1.5 text-2xl font-bold tabular-nums text-slate-900">
+                {/* Enquanto não há resposta escreve-se um traço, não um zero:
+                    um zero é uma afirmação, e ainda ninguém contou nada. */}
+                {valor === undefined ? (
+                    <span className="text-slate-300">—</span>
+                ) : contagem ? (
+                    valor.toLocaleString('pt-PT')
+                ) : (
+                    <>
+                        {kz(valor)}
+                        <span className="ml-1 text-sm font-normal text-slate-400">Kz</span>
+                    </>
+                )}
+            </p>
+        </div>
+    );
+}
+
 /* ─── Tabela ──────────────────────────────────────────────────────────── */
 
-function Tabela({ facturas, aoPagar: porAPagar }: { facturas: FacturaDeVenda[]; aoPagar: (f: FacturaDeVenda) => void }) {
+function Tabela({
+    facturas,
+    podeDuplicar,
+    aoPagar: porAPagar,
+}: {
+    facturas: FacturaDeVenda[];
+    podeDuplicar: boolean;
+    aoPagar: (f: FacturaDeVenda) => void;
+}) {
     return (
         // A tabela rola dentro da sua caixa. Sem isto, uma linha larga põe a
         // PÁGINA a rolar de lado e o menu foge com ela.
@@ -254,14 +351,14 @@ function Tabela({ facturas, aoPagar: porAPagar }: { facturas: FacturaDeVenda[]; 
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                        <th className="px-4 py-3 font-semibold">Número</th>
-                        <th className="px-4 py-3 font-semibold">Cliente</th>
-                        <th className="px-4 py-3 font-semibold">Data</th>
-                        <th className="px-4 py-3 font-semibold">Vencimento</th>
-                        <th className="px-4 py-3 font-semibold">Estado</th>
+                        <th className="px-4 py-3 font-semibold">{t('Número')}</th>
+                        <th className="px-4 py-3 font-semibold">{t('Cliente')}</th>
+                        <th className="px-4 py-3 font-semibold">{t('Data')}</th>
+                        <th className="px-4 py-3 font-semibold">{t('Vencimento')}</th>
+                        <th className="px-4 py-3 font-semibold">{t('Estado')}</th>
                         <th className="px-4 py-3 font-semibold">AGT</th>
-                        <th className="px-4 py-3 text-right font-semibold">Total</th>
-                        <th className="px-4 py-3 text-right font-semibold">Acções</th>
+                        <th className="px-4 py-3 text-right font-semibold">{t('Total')}</th>
+                        <th className="px-4 py-3 text-right font-semibold">{t('Acções')}</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -304,12 +401,12 @@ function Tabela({ facturas, aoPagar: porAPagar }: { facturas: FacturaDeVenda[]; 
                                 <div className="font-bold tabular-nums text-slate-900">{kz(f.total)}</div>
                                 {f.saldo > 0.01 && (
                                     <div className="text-xs tabular-nums text-amber-600">
-                                        falta {kz(f.saldo)}
+                                        {t('falta :quanto', { quanto: kz(f.saldo) })}
                                     </div>
                                 )}
                             </td>
                             <td className="px-4 py-3">
-                                <Accoes factura={f} aoPagar={() => porAPagar(f)} />
+                                <Accoes factura={f} podeDuplicar={podeDuplicar} aoPagar={() => porAPagar(f)} />
                             </td>
                         </tr>
                     ))}
@@ -326,7 +423,15 @@ function Tabela({ facturas, aoPagar: porAPagar }: { facturas: FacturaDeVenda[]; 
  * recibo, a nota de crédito. Reescrever o gerador de PDF para migrar uma
  * LISTA seria trocar o risco de sítio sem ganhar nada.
  */
-function Accoes({ factura, aoPagar }: { factura: FacturaDeVenda; aoPagar: () => void }) {
+function Accoes({
+    factura,
+    podeDuplicar,
+    aoPagar,
+}: {
+    factura: FacturaDeVenda;
+    podeDuplicar: boolean;
+    aoPagar: () => void;
+}) {
     return (
         <div className="flex items-center justify-end gap-1">
             {/* Pagar abre o modal partilhado; só com saldo por receber. */}
@@ -334,25 +439,57 @@ function Accoes({ factura, aoPagar }: { factura: FacturaDeVenda; aoPagar: () => 
                 <button
                     type="button"
                     onClick={aoPagar}
-                    title="Pagar"
-                    aria-label={`Pagar ${factura.numero}`}
+                    title={t('Pagar')}
+                    aria-label={t('Pagar :numero', { numero: factura.numero })}
                     className={cls('p-2 text-emerald-600 transition hover:bg-emerald-50', RAIO, FOCO)}
                 >
                     <i className="fas fa-money-bill-wave" aria-hidden="true" />
                 </button>
             )}
-            <Accao href={`/invoicing/sales/invoices/${factura.id}`} icone="fa-eye" titulo="Ver" />
+            <Accao href={`/invoicing/sales/invoices/${factura.id}`} icone="fa-eye" titulo={t('Ver')} />
+
+            {/* TRÊS CAMINHOS PARA O MESMO DOCUMENTO, e nenhum substitui outro.
+                A PRÉ-VISUALIZAÇÃO é a origem de tudo: abre num separador e é
+                de lá que se imprime e se confere antes de mandar. */}
+            <Accao
+                href={`/invoicing/sales/invoices/${factura.id}/preview`}
+                icone="fa-print"
+                titulo={t('Pré-visualizar / Imprimir')}
+                novoSeparador
+            />
             <Accao
                 href={`/invoicing/sales/invoices/${factura.id}/pdf`}
                 icone="fa-file-pdf"
-                titulo="PDF"
+                titulo={t('PDF')}
             />
+
+            {/* E o PDF DO ECRÃ: a própria pré-visualização, fotografada. É
+                isso que garante que o papel não diverge do que se vê — o do
+                servidor sai do DomPDF e tem texto para copiar e pesquisar. */}
+            <PdfDoEcra
+                url={`/invoicing/sales/invoices/${factura.id}/preview`}
+                titulo={t('Descarregar :numero em PDF', { numero: factura.numero })}
+            />
+
+            {/* DUPLICAR: aproveita o trabalho, não a identidade.
+                Vale para QUALQUER factura, incluindo as já emitidas — copiar o
+                conteúdo de um documento fiscal para um novo não lhe toca. O que
+                nunca se copia (número, série, hash, ATCUD, datas, estado) fica
+                do lado do servidor, no `DuplicaDocumento`. */}
+            {podeDuplicar && (
+                <Accao
+                    href={`/invoicing/sales/invoices/create?duplicar=${factura.id}`}
+                    icone="fa-copy"
+                    titulo={t('Duplicar para novo documento')}
+                    cor="text-teal-600 hover:bg-teal-50"
+                />
+            )}
 
             {factura.pode_receber && (
                 <Accao
                     href={`/invoicing/receipts/create?invoice=${factura.id}`}
                     icone="fa-receipt"
-                    titulo="Receber"
+                    titulo={t('Receber')}
                     cor="text-emerald-600 hover:bg-emerald-50"
                 />
             )}
@@ -364,12 +501,12 @@ function Accoes({ factura, aoPagar }: { factura: FacturaDeVenda; aoPagar: () => 
                 <Accao
                     href={`/invoicing/credit-notes/create?invoice=${factura.id}`}
                     icone="fa-file-circle-minus"
-                    titulo="Nota de crédito"
+                    titulo={t('Nota de crédito')}
                     cor="text-amber-600 hover:bg-amber-50"
                 />
             ) : (
                 <span
-                    title="Já totalmente creditada — não há nada por anular"
+                    title={t('Já totalmente creditada — não há nada por anular')}
                     aria-disabled="true"
                     className={cls('cursor-not-allowed p-2 text-slate-300', RAIO)}
                 >
@@ -385,14 +522,23 @@ function Accao({
     icone,
     titulo,
     cor = 'text-slate-500 hover:bg-slate-100',
+    novoSeparador = false,
 }: {
     href: string;
     icone: string;
     titulo: string;
     cor?: string;
+    /** A pré-visualização abre à parte: quem imprime não perde a lista. */
+    novoSeparador?: boolean;
 }) {
     return (
-        <a href={href} title={titulo} aria-label={titulo} className={cls('p-2 transition', RAIO, cor, FOCO)}>
+        <a
+            href={href}
+            title={titulo}
+            aria-label={titulo}
+            {...(novoSeparador ? { target: '_blank', rel: 'noopener' } : {})}
+            className={cls('p-2 transition', RAIO, cor, FOCO)}
+        >
             <i className={`fas ${icone}`} aria-hidden="true" />
         </a>
     );
@@ -425,17 +571,17 @@ function Paginacao({
     aMudar: (p: number) => void;
 }) {
     return (
-        <nav className={cls(CARTAO, 'flex items-center justify-between px-5 py-3')} aria-label="Páginas">
+        <nav className={cls(CARTAO, 'flex items-center justify-between px-5 py-3')} aria-label={t('Páginas')}>
             <Botao
                 icone="fa-chevron-left"
                 disabled={pagina <= 1}
                 onClick={() => aMudar(pagina - 1)}
                 altura="pequeno"
             >
-                Anterior
+                {t('Anterior')}
             </Botao>
             <span className="text-sm tabular-nums text-slate-600">
-                Página {pagina} de {paginas}
+                {t('Página :pagina de :paginas', { pagina, paginas })}
             </span>
             <Botao
                 icone="fa-chevron-right"
@@ -443,7 +589,7 @@ function Paginacao({
                 onClick={() => aMudar(pagina + 1)}
                 altura="pequeno"
             >
-                Seguinte
+                {t('Seguinte')}
             </Botao>
         </nav>
     );
@@ -453,13 +599,13 @@ function SemNada({ aoLimpar }: { aoLimpar: () => void }) {
     return (
         <div className={cls(CARTAO, 'px-6 py-14 text-center')}>
             <i className="fas fa-file-invoice mb-3 text-4xl text-slate-300" aria-hidden="true" />
-            <p className="font-semibold text-slate-700">Nenhuma factura com estes filtros</p>
+            <p className="font-semibold text-slate-700">{t('Nenhuma factura com estes filtros')}</p>
             <p className="mt-1 text-sm text-slate-500">
-                Alargue as datas ou limpe os filtros para ver mais.
+                {t('Alargue as datas ou limpe os filtros para ver mais.')}
             </p>
             <div className="mt-5 flex justify-center">
                 <Botao icone="fa-eraser" onClick={aoLimpar}>
-                    Limpar filtros
+                    {t('Limpar filtros')}
                 </Botao>
             </div>
         </div>
@@ -473,10 +619,10 @@ function Falhou({ erro }: { erro: unknown }) {
     // precisa de voltar a entrar manda a pessoa reiniciar o router.
     if (daApi?.eSessaoMorta) {
         return (
-            <Aviso cor="amber" titulo="A sessão expirou">
-                <p className="mb-4 text-sm">Entre outra vez para continuar. Nada se perdeu.</p>
+            <Aviso cor="amber" titulo={t('A sessão expirou')}>
+                <p className="mb-4 text-sm">{t('Entre outra vez para continuar. Nada se perdeu.')}</p>
                 <Botao cor="primaria" tom="solida" onClick={() => window.location.reload()}>
-                    Voltar a entrar
+                    {t('Voltar a entrar')}
                 </Botao>
             </Aviso>
         );
@@ -484,17 +630,17 @@ function Falhou({ erro }: { erro: unknown }) {
 
     if (daApi?.eDePermissao) {
         return (
-            <Aviso cor="slate" titulo="Sem acesso a este ecrã">
+            <Aviso cor="slate" titulo={t('Sem acesso a este ecrã')}>
                 <p className="text-sm">{daApi.message}</p>
             </Aviso>
         );
     }
 
     return (
-        <Aviso cor="red" titulo="Não foi possível carregar as facturas">
-            <p className="mb-4 text-sm">{daApi?.message ?? 'Verifique a ligação e tente outra vez.'}</p>
+        <Aviso cor="red" titulo={t('Não foi possível carregar as facturas')}>
+            <p className="mb-4 text-sm">{daApi?.message ?? t('Verifique a ligação e tente outra vez.')}</p>
             <Botao cor="perigo" tom="solida" onClick={() => window.location.reload()}>
-                Tentar outra vez
+                {t('Tentar outra vez')}
             </Botao>
         </Aviso>
     );

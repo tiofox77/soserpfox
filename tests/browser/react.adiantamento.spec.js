@@ -6,10 +6,10 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que abre com o dia de hoje e a forma de
  * pagamento, que o servidor recusa sem cliente e diz onde, e que a morada
- * de sempre continua em Livewire. Registar a sério prova-se na API.
+ * de sempre serve o React. Registar a sério prova-se na API.
  */
 
-const ECRA = '/invoicing/advances/create/novo-ecra';
+const ECRA = '/invoicing/advances/create';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -40,7 +40,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecra Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/advances/create');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

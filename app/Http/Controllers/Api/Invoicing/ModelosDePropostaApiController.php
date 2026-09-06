@@ -196,7 +196,7 @@ class ModelosDePropostaApiController extends Controller
             'orcamentos_n' => (int) ($m->orcamentos_count ?? 0),
             'cor' => ($m->estilos['cor_principal'] ?? QuoteTemplate::ESTILOS_PADRAO['cor_principal']),
             'actualizado' => optional($m->updated_at)->format('d/m/Y H:i'),
-            'editor' => url("invoicing/sales/quote-templates/{$m->id}/edit/novo-ecra"),
+            'editor' => url("invoicing/sales/quote-templates/{$m->id}/edit"),
             'previa' => url("invoicing/sales/quote-templates/{$m->id}/preview"),
         ];
     }

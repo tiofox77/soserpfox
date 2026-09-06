@@ -155,7 +155,7 @@ class NotasApiController extends Controller
             abort_unless($factura, 422, __('Factura não encontrada nesta empresa.'));
         }
 
-        $linhas = $this->linhasDoPedido($factura, $dados['linhas'], $emissor);
+        $linhas = $this->linhasDoPedido($factura, $dados['linhas'], $emissor, (int) $dados['client_id']);
 
         try {
             $r = $tipo === 'credito'
@@ -205,12 +205,22 @@ class NotasApiController extends Controller
      * Com `origem_line_id`, HERDA-SE tudo da linha original — o browser só
      * manda a quantidade. Sem origem, a linha é livre e o imposto resolve-se
      * pelo `TaxResolver`; o preço vem do pedido (ou do artigo).
+     *
+     * A REGIÃO DE UMA LINHA LIVRE É A DO ADQUIRENTE. Estava fixa em 'AO', e
+     * isso declarava como continental uma nota a cliente de Cabinda, que tem
+     * regime próprio (AO-CAB). O ecrã Livewire já resolvia pelo cliente; a API
+     * não, e a nota saía assinada e comunicada com a região errada.
      */
-    private function linhasDoPedido(?SalesInvoice $factura, array $pedidas, EmissorDeNotas $emissor): Collection
+    private function linhasDoPedido(?SalesInvoice $factura, array $pedidas, EmissorDeNotas $emissor, int $clienteId): Collection
     {
         $daFactura = $factura ? $emissor->linhasDaFactura($factura)->keyBy(fn ($l) => $l->attributes['origem_line_id']) : collect();
 
-        return collect($pedidas)->map(function (array $p) use ($daFactura) {
+        // Uma vez por pedido: a região é do cliente, não da linha.
+        $regiao = TaxResolver::regionForClient(
+            Client::where('tenant_id', activeTenantId())->find($clienteId)
+        );
+
+        return collect($pedidas)->map(function (array $p) use ($daFactura, $regiao) {
             $origem = $p['origem_line_id'] ?? null;
 
             if ($origem && $daFactura->has($origem)) {
@@ -237,7 +247,7 @@ class NotasApiController extends Controller
                     'exemption_reason' => $imposto['exemption_code'],
                     'discount_percent' => (float) ($p['discount_percent'] ?? 0),
                     'tax_code' => $imposto['tax_code'],
-                    'tax_country_region' => 'AO',
+                    'tax_country_region' => $regiao,
                 ],
             ];
         })->values();

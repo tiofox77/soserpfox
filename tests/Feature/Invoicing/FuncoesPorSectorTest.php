@@ -2,9 +2,6 @@
 
 namespace Tests\Feature\Invoicing;
 
-use App\Livewire\Invoicing\Products;
-use App\Livewire\Invoicing\Reports\ExpiryReport;
-use App\Livewire\Invoicing\Settings;
 use App\Livewire\POS\POSSystem;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\ProductBatch;
@@ -21,12 +18,32 @@ use Tests\TenantTestCase;
  * quem paga, e o que se testa aqui é o COMPORTAMENTO que a frase promete. Se
  * amanhã alguém mexer no POS ou nos filtros, é aqui que rebenta — antes de
  * rebentar ao balcão de uma farmácia.
+ *
+ * O POS continua em Livewire e prova-se aí. A lista de artigos, o stock, os
+ * relatórios e as definições passaram a React: provam-se contra a API, que é
+ * onde as regras passaram a viver.
  */
 class FuncoesPorSectorTest extends TenantTestCase
 {
+    private const ARTIGOS = '/api/v1/invoicing/react/products';
+
+    private const STOCK = '/api/v1/invoicing/react/stock';
+
+    private const DEFINICOES = '/api/v1/invoicing/react/definicoes';
+
+    private const VALIDADES = '/api/v1/invoicing/react/relatorios/expiry-report';
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->comModulo('invoicing')->comPermissoes(
+            'invoicing.products.view',
+            'invoicing.stock.view',
+            'invoicing.reports.view',
+            'invoicing.settings.view',
+            'invoicing.settings.edit',
+        );
 
         // Todos os perfis ligados: o que se mede aqui são as funções, não o
         // interruptor que as mostra (esse tem teste próprio no fim).
@@ -39,6 +56,7 @@ class FuncoesPorSectorTest extends TenantTestCase
                 'profile_grocery'   => true,
             ]
         );
+        InvoicingSettings::esquecerMemoria();
     }
 
     private function artigo(array $campos = []): Product
@@ -50,6 +68,15 @@ class FuncoesPorSectorTest extends TenantTestCase
             'price'     => 1000,
             'is_active' => true,
         ], $campos));
+    }
+
+    /** Os artigos que a lista da API devolve com estes filtros. */
+    private function listados(array $filtros = []): array
+    {
+        $r = $this->getJson(self::ARTIGOS . '?' . http_build_query($filtros + ['por_pagina' => 100]))
+            ->assertOk();
+
+        return collect($r->json('data'))->pluck('name', 'id')->all();
     }
 
     /**
@@ -90,15 +117,13 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->assertTrue($comReceita->refresh()->requires_prescription);
 
         // O filtro da lista separa mesmo os dois.
-        Livewire::test(Products::class)
-            ->set('filterPrescricao', 'sim')
-            ->assertSee('Antibiótico')
-            ->assertDontSee('Vitamina C');
+        $sim = $this->listados(['prescricao' => 'sim']);
+        $this->assertArrayHasKey($comReceita->id, $sim);
+        $this->assertArrayNotHasKey($semReceita->id, $sim);
 
-        Livewire::test(Products::class)
-            ->set('filterPrescricao', 'nao')
-            ->assertSee('Vitamina C')
-            ->assertDontSee('Antibiótico');
+        $nao = $this->listados(['prescricao' => 'nao']);
+        $this->assertArrayHasKey($semReceita->id, $nao);
+        $this->assertArrayNotHasKey($comReceita->id, $nao);
 
         $this->assertSame($semReceita->id, Product::where('tenant_id', $this->tenant->id)
             ->where('requires_prescription', false)->orWhereNull('requires_prescription')->first()->id);
@@ -215,10 +240,10 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->lote($artigo, 'PERTO', now()->addDays(15));
         $this->lote($artigo, 'LONGE', now()->addMonths(18));
 
-        Livewire::test(ExpiryReport::class)
-            ->set('daysFilter', 30)
-            ->assertSee('PERTO')
-            ->assertDontSee('LONGE');
+        $lotes = $this->lotesDoRelatorio(30);
+
+        $this->assertContains('PERTO', $lotes);
+        $this->assertNotContains('LONGE', $lotes);
     }
 
     /** "Dosagem, forma farmacêutica e n.º ARMED — na ficha, ao lado do preço" */
@@ -257,26 +282,24 @@ class FuncoesPorSectorTest extends TenantTestCase
         $this->artigo(['name' => 'Calças', 'size' => 'L', 'color' => 'Preto']);
         $this->artigo(['name' => 'Sem variantes']);
 
-        $catalogo = Livewire::test(Products::class)->instance()->getVariantesCatalogoProperty();
+        $variantes = $this->getJson(self::ARTIGOS . '/opcoes')->assertOk()->json('variantes');
 
-        $this->assertSame(['L', 'M'], $catalogo['tamanhos']);
-        $this->assertSame(['Azul-marinho', 'Preto'], $catalogo['cores']);
+        $this->assertSame(['L', 'M'], $variantes['tamanhos']);
+        $this->assertSame(['Azul-marinho', 'Preto'], $variantes['cores']);
     }
 
     public function test_vestuario_filtrar_por_tamanho_e_por_cor(): void
     {
-        $this->artigo(['name' => 'Camisa Média', 'size' => 'M', 'color' => 'Azul-marinho']);
-        $this->artigo(['name' => 'Calças Grandes', 'size' => 'L', 'color' => 'Preto']);
+        $media   = $this->artigo(['name' => 'Camisa Média', 'size' => 'M', 'color' => 'Azul-marinho']);
+        $grandes = $this->artigo(['name' => 'Calças Grandes', 'size' => 'L', 'color' => 'Preto']);
 
-        Livewire::test(Products::class)
-            ->set('filterTamanho', 'M')
-            ->assertSee('Camisa Média')
-            ->assertDontSee('Calças Grandes');
+        $porTamanho = $this->listados(['tamanho' => 'M']);
+        $this->assertArrayHasKey($media->id, $porTamanho);
+        $this->assertArrayNotHasKey($grandes->id, $porTamanho);
 
-        Livewire::test(Products::class)
-            ->set('filterCor', 'Preto')
-            ->assertSee('Calças Grandes')
-            ->assertDontSee('Camisa Média');
+        $porCor = $this->listados(['cor' => 'Preto']);
+        $this->assertArrayHasKey($grandes->id, $porCor);
+        $this->assertArrayNotHasKey($media->id, $porCor);
     }
 
     /** "Procurar pelo tamanho no POS — 't-shirt M' chega" */
@@ -331,13 +354,13 @@ class FuncoesPorSectorTest extends TenantTestCase
      */
     public function test_cosmetica_o_tom_regista_se_na_cor_e_e_filtravel(): void
     {
-        $this->artigo(['name' => 'Batom mate', 'color' => 'Vermelho rubi', 'net_content' => '4 g']);
-        $this->artigo(['name' => 'Batom cremoso', 'color' => 'Rosa velho', 'net_content' => '4 g']);
+        $mate    = $this->artigo(['name' => 'Batom mate', 'color' => 'Vermelho rubi', 'net_content' => '4 g']);
+        $cremoso = $this->artigo(['name' => 'Batom cremoso', 'color' => 'Rosa velho', 'net_content' => '4 g']);
 
-        Livewire::test(Products::class)
-            ->set('filterCor', 'Vermelho rubi')
-            ->assertSee('Batom mate')
-            ->assertDontSee('Batom cremoso');
+        $porTom = $this->listados(['cor' => 'Vermelho rubi']);
+
+        $this->assertArrayHasKey($mate->id, $porTom);
+        $this->assertArrayNotHasKey($cremoso->id, $porTom);
     }
 
     /** "Validades e lotes, como na farmácia" */
@@ -346,9 +369,7 @@ class FuncoesPorSectorTest extends TenantTestCase
         $artigo = $this->artigo(['name' => 'Perfume', 'track_batches' => true]);
         $this->lote($artigo, 'PERF-A', now()->addDays(20));
 
-        Livewire::test(ExpiryReport::class)
-            ->set('daysFilter', 30)
-            ->assertSee('PERF-A');
+        $this->assertContains('PERF-A', $this->lotesDoRelatorio(30));
     }
 
     // ═══ MERCEARIA ══════════════════════════════════════════════════════
@@ -356,13 +377,13 @@ class FuncoesPorSectorTest extends TenantTestCase
     /** "Conservação à vista — ambiente, refrigerado ou congelado" */
     public function test_mercearia_conservacao_guarda_e_filtra(): void
     {
-        $this->artigo(['name' => 'Leite fresco', 'storage_conditions' => 'refrigerado']);
-        $this->artigo(['name' => 'Arroz', 'storage_conditions' => 'ambiente']);
+        $leite = $this->artigo(['name' => 'Leite fresco', 'storage_conditions' => 'refrigerado']);
+        $arroz = $this->artigo(['name' => 'Arroz', 'storage_conditions' => 'ambiente']);
 
-        Livewire::test(Products::class)
-            ->set('filterConservacao', 'refrigerado')
-            ->assertSee('Leite fresco')
-            ->assertDontSee('Arroz');
+        $frio = $this->listados(['conservacao' => 'refrigerado']);
+
+        $this->assertArrayHasKey($leite->id, $frio);
+        $this->assertArrayNotHasKey($arroz->id, $frio);
     }
 
     /**
@@ -378,9 +399,18 @@ class FuncoesPorSectorTest extends TenantTestCase
             'name' => 'Leite fresco', 'storage_conditions' => 'refrigerado',
         ]));
 
-        Livewire::test(\App\Livewire\Invoicing\StockManagement::class)
-            ->assertSee('Leite fresco')
-            ->assertSee('Conservação');
+        $this->assertTrue(
+            $this->getJson(self::STOCK . '/opcoes')->assertOk()->json('mostra_conservacao'),
+            'a coluna da conservação tem de estar à vista de quem arruma'
+        );
+
+        $linha = collect($this->getJson(self::STOCK)->assertOk()->json('data'))
+            ->firstWhere('product_id', $leite->id);
+
+        $this->assertNotNull($linha, 'o artigo tem de aparecer na lista de stock');
+        $this->assertSame('Leite fresco', $linha['artigo']);
+        $this->assertSame('refrigerado', $linha['conservacao']);
+        $this->assertSame('Refrigerado', $linha['conservacao_rotulo']);
 
         $this->assertSame('refrigerado', $leite->refresh()->storage_conditions);
     }
@@ -411,12 +441,14 @@ class FuncoesPorSectorTest extends TenantTestCase
     /** "Liga-se num interruptor nas definições de faturação." */
     public function test_os_perfis_ligam_e_desligam_nas_definicoes(): void
     {
-        Livewire::test(Settings::class)
-            ->set('profile_pharmacy', true)
-            ->set('profile_clothing', false)
-            ->set('profile_cosmetics', false)
-            ->set('profile_grocery', true)
-            ->call('save');
+        $ficha = $this->getJson(self::DEFINICOES)->assertOk()->json('definicoes');
+
+        $this->putJson(self::DEFINICOES, array_merge($ficha, [
+            'profile_pharmacy'  => true,
+            'profile_clothing'  => false,
+            'profile_cosmetics' => false,
+            'profile_grocery'   => true,
+        ]))->assertOk();
 
         $d = InvoicingSettings::where('tenant_id', $this->tenant->id)->first();
 
@@ -436,6 +468,7 @@ class FuncoesPorSectorTest extends TenantTestCase
     public function test_desligar_o_perfil_nao_cala_o_aviso_de_psicotropico(): void
     {
         InvoicingSettings::where('tenant_id', $this->tenant->id)->update(['profile_pharmacy' => false]);
+        InvoicingSettings::esquecerMemoria();
 
         $this->abrirTurno();
         $controlado = $this->comStock($this->artigo(['name' => 'Metadona', 'is_controlled' => true]));
@@ -446,6 +479,17 @@ class FuncoesPorSectorTest extends TenantTestCase
     }
 
     // ── Auxiliares ───────────────────────────────────────────────────────
+
+    /** Os números de lote que o relatório de validade traz para esta janela. */
+    private function lotesDoRelatorio(int $dias): array
+    {
+        $r = $this->getJson(self::VALIDADES . '?' . http_build_query([
+            'reportType' => 'expiring_soon',
+            'daysFilter' => $dias,
+        ]))->assertOk();
+
+        return collect($r->json('dados.batches'))->pluck('batch_number')->all();
+    }
 
     private function lote(Product $artigo, string $numero, $validade): ProductBatch
     {

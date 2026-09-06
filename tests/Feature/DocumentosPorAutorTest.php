@@ -6,7 +6,7 @@ use App\Models\Client;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesProforma;
 use App\Models\User;
-use Livewire\Livewire;
+use App\Services\Invoicing\TiposDeDocumento;
 use Tests\TenantTestCase;
 
 /**
@@ -20,9 +20,24 @@ use Tests\TenantTestCase;
  * A regra vive num sítio só (App\Traits\DocumentosPorAutor) e vale para as
  * nove listas: facturas e proformas de venda e de compra, orçamentos, notas
  * de crédito e de débito, recibos e adiantamentos.
+ *
+ * OS ECRÃS SÃO HOJE REACT, e o ecrã novo não pode ser uma porta nova: se a
+ * API mostrar um documento que o Livewire escondia, a migração não trocou de
+ * tecnologia — abriu um buraco. Por isso a regra prova-se agora contra a API
+ * que serve as listas: `sales-invoices` para as facturas e `documentos/{tipo}`
+ * para as outras oito.
  */
 class DocumentosPorAutorTest extends TenantTestCase
 {
+    private const FACTURAS = '/api/v1/invoicing/react/sales-invoices';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->comModulo('invoicing');
+    }
+
     private function colega(): User
     {
         $colega = User::create([
@@ -75,27 +90,46 @@ class DocumentosPorAutorTest extends TenantTestCase
         ]);
     }
 
-    /** @test */
+    /** Os ids que a lista de facturas devolve a quem está autenticado. */
+    private function listaDeFacturas(string $cauda = ''): \Illuminate\Support\Collection
+    {
+        return collect($this->getJson(self::FACTURAS . $cauda)->assertOk()->json('data'))->pluck('id');
+    }
+
+    /**
+     * O vendedor vê as suas — e a conta do topo conta o mesmo que a lista
+     * mostra, senão via uma lista de 1 e um total de 200.
+     *
+     * @test
+     */
     public function um_vendedor_so_ve_as_facturas_que_emitiu(): void
     {
         $colega = $this->colega();
         $minha = $this->factura($this->user->id, 'FT MINHA/001');
         $dele = $this->factura($colega->id, 'FT DELE/002');
+        $this->factura($colega->id, 'FT DELE/003');
 
         $this->comPermissoes('invoicing.sales.invoices.view');
         $this->actingAs($this->user);
 
-        $ecra = Livewire::test(\App\Livewire\Invoicing\Sales\Invoices::class);
-        $vistas = $ecra->viewData('invoices')->pluck('id')->all();
+        $resposta = $this->getJson(self::FACTURAS)->assertOk();
+        $vistas = collect($resposta->json('data'))->pluck('id');
 
-        $this->assertContains($minha->id, $vistas);
-        $this->assertNotContains($dele->id, $vistas, 'a factura do colega apareceu na lista');
-        $ecra->assertDontSee('FT DELE/002');
+        $this->assertTrue($vistas->contains($minha->id));
+        $this->assertFalse($vistas->contains($dele->id), 'a factura do colega apareceu na lista');
+        $this->assertStringNotContainsString('FT DELE/002', $resposta->content());
+
+        $this->assertSame(1, $resposta->json('meta.total'),
+            'a conta do topo segue a mesma regra da lista');
     }
 
     /**
-     * Os contadores no topo contam o mesmo que a lista mostra — senão o
-     * vendedor via uma lista de 1 e um total de 200.
+     * OS CARTÕES DE TOTAIS AINDA NÃO EXISTEM DO LADO DA API.
+     *
+     * O ecrã Livewire tinha, por cima da tabela, os contadores do período —
+     * quantas facturas e quanto somam — e seguiam a mesma regra do escopo. A
+     * lista em React ainda não os tem: a API devolve a CONTAGEM (`meta.total`,
+     * provada acima) mas não a soma dos valores.
      *
      * @test
      */
@@ -104,15 +138,26 @@ class DocumentosPorAutorTest extends TenantTestCase
         $colega = $this->colega();
         $this->factura($this->user->id, 'FT MINHA/010');
         $this->factura($colega->id, 'FT DELE/011');
-        $this->factura($colega->id, 'FT DELE/012');
 
         $this->comPermissoes('invoicing.sales.invoices.view');
         $this->actingAs($this->user);
 
-        $stats = Livewire::test(\App\Livewire\Invoicing\Sales\Invoices::class)->viewData('stats');
+        $resposta = $this->getJson(self::FACTURAS)->assertOk();
 
-        $this->assertSame(1, $stats['total']);
-        $this->assertSame(1000.0, (float) $stats['total_amount']);
+        $this->assertSame(1, $resposta->json('meta.total'));
+
+        /*
+         * E OS CARTÕES DE TOPO CONTAM O MESMO.
+         *
+         * De nada servia esconder a linha do colega na tabela se a soma por
+         * cima dela continuasse a incluí-la: quem não pode ver o que os outros
+         * facturaram, deduzia-o da diferença.
+         */
+        $this->assertSame(
+            round((float) SalesInvoice::where('created_by', $this->user->id)->sum('total'), 2),
+            round((float) $resposta->json('meta.somas.facturado'), 2),
+            'a soma do cartão conta só as do próprio'
+        );
     }
 
     /** @test */
@@ -125,37 +170,18 @@ class DocumentosPorAutorTest extends TenantTestCase
         $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.documents.all');
         $this->actingAs($this->user);
 
-        $vistas = Livewire::test(\App\Livewire\Invoicing\Sales\Invoices::class)
-            ->viewData('invoices')->pluck('id')->all();
+        $vistas = $this->listaDeFacturas();
 
-        $this->assertContains($minha->id, $vistas);
-        $this->assertContains($dele->id, $vistas);
+        $this->assertTrue($vistas->contains($minha->id));
+        $this->assertTrue($vistas->contains($dele->id));
     }
 
     /**
-     * O filtro por autor é para quem pode ver todos. A quem não pode, não lhe
-     * serve de atalho.
+     * Com a permissão, o filtro escolhe mesmo o autor.
      *
-     * @test
+     * (Que o filtro NÃO dá a volta à permissão de quem só vê as suas está
+     * provado em ApiDasFacturasParaReactTest::o_filtro_por_autor_nao_e_uma_porta_lateral.)
      */
-    public function o_filtro_por_autor_nao_da_a_volta_a_permissao(): void
-    {
-        $colega = $this->colega();
-        $dele = $this->factura($colega->id, 'FT DELE/030');
-        $this->factura($this->user->id, 'FT MINHA/031');
-
-        $this->comPermissoes('invoicing.sales.invoices.view');
-        $this->actingAs($this->user);
-
-        $ecra = Livewire::test(\App\Livewire\Invoicing\Sales\Invoices::class)
-            ->set('autorId', $colega->id);
-
-        $this->assertNotContains($dele->id, $ecra->viewData('invoices')->pluck('id')->all());
-        $this->assertTrue($ecra->instance()->autoresDosDocumentos->isEmpty(),
-            'a lista de colegas não devia estar disponível');
-    }
-
-    /** Com a permissão, o filtro escolhe mesmo o autor. */
     public function test_com_a_permissao_o_filtro_funciona(): void
     {
         $colega = $this->colega();
@@ -165,29 +191,28 @@ class DocumentosPorAutorTest extends TenantTestCase
         $this->comPermissoes('invoicing.sales.invoices.view', 'invoicing.documents.all');
         $this->actingAs($this->user);
 
-        $vistas = Livewire::test(\App\Livewire\Invoicing\Sales\Invoices::class)
-            ->set('autorId', $colega->id)
-            ->viewData('invoices')->pluck('id')->all();
+        $vistas = $this->listaDeFacturas('?autor=' . $colega->id);
 
-        $this->assertContains($dele->id, $vistas);
-        $this->assertNotContains($minha->id, $vistas);
+        $this->assertTrue($vistas->contains($dele->id));
+        $this->assertFalse($vistas->contains($minha->id));
     }
 
     /**
      * Pelo id também não: os botões da linha recebem um número e abriam
-     * qualquer documento da empresa.
+     * qualquer documento da empresa. A API que abre o documento aplica o mesmo
+     * escopo e responde 404.
      */
     public function test_abrir_a_factura_de_um_colega_pelo_id_nao_mostra_nada(): void
     {
         $colega = $this->colega();
         $dele = $this->factura($colega->id, 'FT DELE/050');
+        $minha = $this->factura($this->user->id, 'FT MINHA/051');
 
         $this->comPermissoes('invoicing.sales.invoices.view');
         $this->actingAs($this->user);
 
-        Livewire::test(\App\Livewire\Invoicing\Sales\Invoices::class)
-            ->call('viewInvoice', $dele->id)
-            ->assertSet('selectedInvoice', null);
+        $this->getJson('/api/v1/invoicing/react/factura/' . $dele->id)->assertNotFound();
+        $this->getJson('/api/v1/invoicing/react/factura/' . $minha->id)->assertOk();
     }
 
     /** A regra não é só das facturas: as proformas seguem-na na mesma. */
@@ -200,11 +225,12 @@ class DocumentosPorAutorTest extends TenantTestCase
         $this->comPermissoes('invoicing.sales.proformas.view');
         $this->actingAs($this->user);
 
-        $vistas = Livewire::test(\App\Livewire\Invoicing\Sales\Proformas::class)
-            ->viewData('proformas')->pluck('id')->all();
+        $vistas = collect(
+            $this->getJson('/api/v1/invoicing/react/documentos/proformas-venda')->assertOk()->json('data')
+        )->pluck('id');
 
-        $this->assertContains($minha->id, $vistas);
-        $this->assertNotContains($dela->id, $vistas);
+        $this->assertTrue($vistas->contains($minha->id));
+        $this->assertFalse($vistas->contains($dela->id));
     }
 
     /**
@@ -238,33 +264,45 @@ class DocumentosPorAutorTest extends TenantTestCase
         $this->comPermissoes('invoicing.purchases.invoices.view');
         $this->actingAs($this->user);
 
-        $vistas = Livewire::test(\App\Livewire\Invoicing\Purchases\Invoices::class)
-            ->viewData('invoices')->pluck('id')->all();
+        $vistas = collect(
+            $this->getJson('/api/v1/invoicing/react/documentos/facturas-compra')->assertOk()->json('data')
+        )->pluck('id');
 
-        $this->assertContains($orfa->id, $vistas, 'um documento sem autor não pode ficar inalcançável');
+        $this->assertTrue($vistas->contains($orfa->id), 'um documento sem autor não pode ficar inalcançável');
     }
 
-    /** As nove listas usam mesmo a regra — nenhuma ficou de fora. */
+    /**
+     * As nove listas usam mesmo a regra — nenhuma ficou de fora.
+     *
+     * Eram nove componentes Livewire; são hoje dois controladores: o das
+     * facturas de venda, que tem ecrã próprio, e o genérico que serve os
+     * outros oito documentos. Ambos usam o MESMO trait — se a regra mudar,
+     * muda nos dois ao mesmo tempo.
+     */
     public function test_todas_as_listas_de_documentos_usam_a_regra(): void
     {
-        $ecras = [
-            \App\Livewire\Invoicing\Sales\Invoices::class,
-            \App\Livewire\Invoicing\Sales\Proformas::class,
-            \App\Livewire\Invoicing\Sales\Quotes::class,
-            \App\Livewire\Invoicing\CreditNotes\CreditNotes::class,
-            \App\Livewire\Invoicing\DebitNotes\DebitNotes::class,
-            \App\Livewire\Invoicing\Receipts\Receipts::class,
-            \App\Livewire\Invoicing\Advances\Advances::class,
-            \App\Livewire\Invoicing\Purchases\Invoices::class,
-            \App\Livewire\Invoicing\Purchases\Proformas::class,
+        $controladores = [
+            \App\Http\Controllers\Api\Invoicing\SalesInvoiceApiController::class,
+            \App\Http\Controllers\Api\Invoicing\DocumentosApiController::class,
         ];
 
-        foreach ($ecras as $ecra) {
+        foreach ($controladores as $controlador) {
             $this->assertContains(
                 \App\Traits\DocumentosPorAutor::class,
-                class_uses_recursive($ecra),
-                "{$ecra} não segue a regra de quem vê que documentos"
+                class_uses_recursive($controlador),
+                "{$controlador} não segue a regra de quem vê que documentos"
             );
+        }
+
+        // E as outras oito listas estão mesmo servidas pelo controlador
+        // genérico: uma que ficasse de fora do registo ficava sem escopo.
+        $tipos = array_keys(TiposDeDocumento::todos());
+
+        foreach ([
+            'proformas-venda', 'orcamentos', 'notas-credito', 'notas-debito',
+            'recibos', 'adiantamentos', 'facturas-compra', 'proformas-compra',
+        ] as $tipo) {
+            $this->assertContains($tipo, $tipos, "a lista {$tipo} ficou fora do registo");
         }
     }
 }

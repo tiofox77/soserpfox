@@ -1,4 +1,5 @@
 import { cls, kz } from './tokens';
+import { t } from '@/i18n';
 
 /**
  * Um gráfico de barras em SVG, sem biblioteca nenhuma.
@@ -24,7 +25,7 @@ export function GraficoDeBarras({
     titulo: string;
 }) {
     if (dados.length === 0) {
-        return <p className="py-8 text-center text-sm text-slate-400">Ainda não há nada para mostrar.</p>;
+        return <p className="py-8 text-center text-sm text-slate-400">{t('Ainda não há nada para mostrar.')}</p>;
     }
 
     const maximo = Math.max(...dados.map((d) => d.valor), 0);

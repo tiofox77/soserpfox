@@ -50,7 +50,7 @@ final class Catalogo
     /** O caminho da página em React. O de validades vive fora de /reports. */
     public static function caminho(string $slug): string
     {
-        return $slug === 'expiry-report' ? '/invoicing/expiry-report/novo-ecra' : "/invoicing/reports/{$slug}/novo-ecra";
+        return $slug === 'expiry-report' ? '/invoicing/expiry-report' : "/invoicing/reports/{$slug}";
     }
 
     /** A permissão que abre cada mapa: o das validades também serve quem gere stock. */

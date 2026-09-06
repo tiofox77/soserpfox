@@ -2,13 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Sales\QuoteCreate;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Invoicing\SalesQuote;
 use App\Models\Invoicing\SalesQuoteItem;
 use App\Models\Product;
 use Illuminate\Support\Facades\Schema;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -17,6 +15,10 @@ use Tests\TenantTestCase;
  * Documento comercial, não fiscal: numeração própria por empresa, descrição
  * longa por linha, e conversão em factura que resolve a taxa no momento.
  * Cobre o que distingue o orçamento da proforma — não deve ter série nem hash.
+ *
+ * O ECRÃ DE EMISSÃO É AGORA EM REACT e grava pelo `EmissorApiController`
+ * (`/emissor/orcamentos`), a mesma porta das proformas. A numeração e a
+ * conversão continuam a ser do MODELO, que é onde sempre estiveram.
  */
 class OrcamentoTest extends TenantTestCase
 {
@@ -74,22 +76,46 @@ class OrcamentoTest extends TenantTestCase
 
     public function test_guardar_persiste_a_descricao_por_linha(): void
     {
+        $this->comModulo('invoicing')->comPermissoes('invoicing.sales.quotes.create');
+
         $produto = $this->produto();
         $descricao = "Instalação de quadro eléctrico trifásico.\nInclui material e 8 horas de mão de obra.";
 
-        Livewire::test(QuoteCreate::class)
-            ->set('client_id', $this->cliente->id)
-            ->call('addProduct', $produto->id)
-            ->call('updateDescription', $produto->id, $descricao)
-            ->call('save', 'sent');
+        $id = $this->postJson('/api/v1/invoicing/react/emissor/orcamentos', [
+            'parte_id' => $this->cliente->id,
+            'data'     => now()->toDateString(),
+            'linhas'   => [[
+                'product_id'  => $produto->id,
+                'description' => $descricao,
+                'quantity'    => 1,
+                'price'       => 1000,
+            ]],
+        ])->assertCreated()->json('id');
 
-        $item = SalesQuoteItem::query()
-            ->whereHas('quote', fn ($q) => $q->where('tenant_id', $this->tenant->id))
-            ->where('product_id', $produto->id)
-            ->first();
+        $item = SalesQuoteItem::where('sales_quote_id', $id)->where('product_id', $produto->id)->first();
 
         $this->assertNotNull($item, 'a linha do orçamento tinha de ficar gravada');
+        // A descrição longa é o que distingue o orçamento: é ela que descreve
+        // o trabalho proposto, e tem de sobreviver inteira, quebras incluídas.
         $this->assertSame($descricao, $item->description);
+    }
+
+    /** O orçamento gravado pela API é do mesmo tipo: numerado ORC, em rascunho. */
+    public function test_o_orcamento_gravado_pela_api_nasce_numerado_e_em_rascunho(): void
+    {
+        $this->comModulo('invoicing')->comPermissoes('invoicing.sales.quotes.create');
+
+        $r = $this->postJson('/api/v1/invoicing/react/emissor/orcamentos', [
+            'parte_id' => $this->cliente->id,
+            'data'     => now()->toDateString(),
+            'linhas'   => [['product_id' => $this->produto()->id, 'quantity' => 2, 'price' => 1000]],
+        ])->assertCreated();
+
+        $q = SalesQuote::findOrFail($r->json('id'));
+
+        $this->assertStringStartsWith('ORC-', (string) $q->quote_number);
+        $this->assertSame('draft', $q->status);
+        $this->assertNull($q->getAttribute('saft_hash'), 'não é documento fiscal: não se assina');
     }
 
     // ── conversão em factura ─────────────────────────────────────────────────

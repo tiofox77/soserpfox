@@ -9,6 +9,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { GraficoDeBarras } from '@/ui/GraficoDeBarras';
 import { RAIO, cls } from '@/ui/tokens';
+import { t } from '@/i18n';
 import { formatar, valor } from './Relatorio';
 
 /**
@@ -33,8 +34,8 @@ export default function Graficos() {
     if (q.isError) {
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir os gráficos</h2>
-                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : 'Verifique a ligação.'}</p>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir os gráficos')}</h2>
+                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}</p>
             </div>
         );
     }
@@ -44,35 +45,35 @@ export default function Graficos() {
     const intervalo = dados.intervalo;
 
     const paineis: Array<{ titulo: string; dados: Array<{ rotulo: string; valor: number }> }> = [
-        { titulo: 'Evolução das vendas', dados: serie(g.evolucao) },
-        { titulo: 'Vendas', dados: serie(g.vendasCompras, 'vendas') },
-        { titulo: 'Compras', dados: serie(g.vendasCompras, 'compras') },
-        { titulo: 'Facturado', dados: serie(g.cobranca, 'facturado') },
-        { titulo: 'Recebido', dados: serie(g.cobranca, 'recebido') },
-        { titulo: 'Top clientes', dados: serie(g.topClientes) },
-        { titulo: 'Top produtos', dados: serie(g.topProdutos) },
-        { titulo: 'Vendas por vendedor', dados: serie(g.vendedores) },
-        { titulo: 'Estado das facturas', dados: serie(g.estados) },
-        { titulo: 'Recebimentos por meio', dados: serie(g.meiosPagamento) },
-        { titulo: 'Vendas por dia da semana', dados: serie(g.diasDaSemana) },
-        { titulo: 'IVA liquidado', dados: serie(g.iva, 'liquidado') },
-        { titulo: 'IVA suportado', dados: serie(g.iva, 'suportado') },
+        { titulo: t('Evolução das vendas'), dados: serie(g.evolucao) },
+        { titulo: t('Vendas'), dados: serie(g.vendasCompras, 'vendas') },
+        { titulo: t('Compras'), dados: serie(g.vendasCompras, 'compras') },
+        { titulo: t('Facturado'), dados: serie(g.cobranca, 'facturado') },
+        { titulo: t('Recebido'), dados: serie(g.cobranca, 'recebido') },
+        { titulo: t('Top clientes'), dados: serie(g.topClientes) },
+        { titulo: t('Top produtos'), dados: serie(g.topProdutos) },
+        { titulo: t('Vendas por vendedor'), dados: serie(g.vendedores) },
+        { titulo: t('Estado das facturas'), dados: serie(g.estados) },
+        { titulo: t('Recebimentos por meio'), dados: serie(g.meiosPagamento) },
+        { titulo: t('Vendas por dia da semana'), dados: serie(g.diasDaSemana) },
+        { titulo: t('IVA liquidado'), dados: serie(g.iva, 'liquidado') },
+        { titulo: t('IVA suportado'), dados: serie(g.iva, 'suportado') },
     ];
 
     return (
         <div className={cls('space-y-4', q.isFetching && 'opacity-70')} data-relatorio="charts">
             <Cartao
                 titulo={<span className="flex items-center gap-2"><i className="fas fa-chart-area text-slate-400" aria-hidden="true" />{e.titulo}</span>}
-                accoes={<span className="flex gap-2"><a href="/invoicing/reports/novo-ecra" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />Todos os relatórios</a><Botao icone="fa-print" onClick={() => window.print()}>Imprimir</Botao></span>}
+                accoes={<span className="flex gap-2"><a href="/invoicing/reports" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Todos os relatórios')}</a><Botao icone="fa-print" onClick={() => window.print()}>{t('Imprimir')}</Botao></span>}
             >
                 <div className="grid gap-3 sm:grid-cols-3">
-                    <Campo etiqueta="Período">
+                    <Campo etiqueta={t('Período')}>
                         <select value={filtros.period ?? 'year'} onChange={(ev) => porFiltros({ period: ev.target.value })} className={entrada}>
                             {atalhos.map((a) => <option key={a.valor} value={a.valor}>{a.rotulo}</option>)}
                         </select>
                     </Campo>
-                    <Campo etiqueta="De"><input type="date" value={filtros.dateFrom ?? intervalo?.de ?? ''} onChange={(ev) => porFiltros((f) => ({ ...f, period: 'custom', dateFrom: ev.target.value, dateTo: f.dateTo ?? intervalo?.ate ?? '' }))} className={entrada} /></Campo>
-                    <Campo etiqueta="Até"><input type="date" value={filtros.dateTo ?? intervalo?.ate ?? ''} onChange={(ev) => porFiltros((f) => ({ ...f, period: 'custom', dateTo: ev.target.value, dateFrom: f.dateFrom ?? intervalo?.de ?? '' }))} className={entrada} /></Campo>
+                    <Campo etiqueta={t('De')}><input type="date" value={filtros.dateFrom ?? intervalo?.de ?? ''} onChange={(ev) => porFiltros((f) => ({ ...f, period: 'custom', dateFrom: ev.target.value, dateTo: f.dateTo ?? intervalo?.ate ?? '' }))} className={entrada} /></Campo>
+                    <Campo etiqueta={t('Até')}><input type="date" value={filtros.dateTo ?? intervalo?.ate ?? ''} onChange={(ev) => porFiltros((f) => ({ ...f, period: 'custom', dateTo: ev.target.value, dateFrom: f.dateFrom ?? intervalo?.de ?? '' }))} className={entrada} /></Campo>
                 </div>
             </Cartao>
 

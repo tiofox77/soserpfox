@@ -81,8 +81,19 @@ class ExtractoDeConta extends Base
         $entidade = ($this->filtro($f, 'entidade') ?? '') === ContaCorrenteQuery::FORNECEDOR ? ContaCorrenteQuery::FORNECEDOR : ContaCorrenteQuery::CLIENTE;
         $id = (int) ($this->filtro($f, 'entidadeId') ?? 0) ?: null;
 
-        $consulta = new ContaCorrenteQuery($tenantId, $entidade, $id, $de, $ate);
         $escolhida = $this->entidade($tenantId, $entidade, $id);
+
+        /*
+         * UM ID DE CLIENTE NÃO SERVE PARA PROCURAR UM FORNECEDOR.
+         *
+         * Trocar de tipo de conta deixava o id anterior no endereço, e o
+         * extracto passava a mostrar a conta do fornecedor com aquele número —
+         * outra conta, com o nome de ninguém por cima. Se a entidade não
+         * existe neste lado, não há conta escolhida.
+         */
+        $id = $escolhida?->id;
+
+        $consulta = new ContaCorrenteQuery($tenantId, $entidade, $id, $de, $ate);
 
         return [
             'movimentos' => $id ? $consulta->movimentos() : collect(),

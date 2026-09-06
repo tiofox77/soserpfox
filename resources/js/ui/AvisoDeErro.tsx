@@ -1,5 +1,6 @@
 import { ErroDaApi } from '@/api/cliente';
 import { RAIO, cls } from './tokens';
+import { t } from '@/i18n';
 
 /**
  * O QUE CORREU MAL AO GRAVAR, DITO SEMPRE.
@@ -40,10 +41,10 @@ export function AvisoDeErro({ erro }: { erro: unknown }) {
         >
             <p className="font-semibold">
                 <i className="fas fa-circle-exclamation mr-2" aria-hidden="true" />
-                Não foi possível gravar
+                {t('Não foi possível gravar')}
             </p>
             <p className="mt-1 break-words">
-                {daApi?.message ?? 'O servidor não respondeu. Verifique a ligação e tente outra vez.'}
+                {daApi?.message ?? t('O servidor não respondeu. Verifique a ligação e tente outra vez.')}
             </p>
         </div>
     );

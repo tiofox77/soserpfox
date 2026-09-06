@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Receipts\ReceiptCreate;
 use App\Models\Client;
 use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -20,17 +18,22 @@ use Tests\TenantTestCase;
  * dinheiro recebido não estavam registados em factura nenhuma.
  *
  * Agora a conta vive num sítio só — `SalesInvoice::recalcularPago()` — e é
- * refeita sempre que um recibo nasce, muda ou é anulado.
+ * refeita sempre que um recibo nasce, muda ou é anulado. O ecrã dos recibos é
+ * hoje React e emite por `POST /api/v1/invoicing/react/recibos`: a conta é a
+ * mesma, e é por essa porta que se prova.
  */
 class PagamentoGeraReciboTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/recibos';
+
     private Client $facturado;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->comModulo('invoicing');
+        $this->comModulo('invoicing')
+            ->comPermissoes('invoicing.receipts.view', 'invoicing.receipts.create');
 
         $this->facturado = $this->clienteEmpresa();
 
@@ -53,6 +56,7 @@ class PagamentoGeraReciboTest extends TenantTestCase
             'client_id'      => $this->facturado->id,
             'invoice_number' => 'FT ENSAIO/' . random_int(100000, 999999),
             'invoice_date'   => now(),
+            'invoice_type'   => 'FT',
             'status'         => $estado,
             'subtotal'       => $total,
             'total'          => $total,
@@ -68,23 +72,22 @@ class PagamentoGeraReciboTest extends TenantTestCase
 
     private function receber(SalesInvoice $f, float $valor): void
     {
-        $ecra = Livewire::test(ReceiptCreate::class, ['invoice' => $f->id])
-            ->set('amount_paid', $valor)
-            ->call('save');
+        $this->postJson(self::RAIZ, [
+            'type' => 'sale',
+            'client_id' => $this->facturado->id,
+            'invoice_id' => $f->id,
+            'payment_date' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'amount_paid' => $valor,
+        ])->assertCreated();
+    }
 
-        $ecra->assertHasNoErrors();
-
-        // O save() apanha as excepcoes e avisa por notify: sem isto, um erro
-        // interno passava por "sem erros de validacao" e o ensaio falhava
-        // mais a frente, longe da causa.
-        $recibo = Receipt::where('invoice_id', $f->id)->latest('id')->first();
-
-        if (! $recibo) {
-            $avisos = collect($ecra->effects['dispatches'] ?? [])
-                ->map(fn ($d) => json_encode($d['params'] ?? $d))->implode(' | ');
-
-            $this->fail('o recibo não foi criado. Avisos: ' . $avisos);
-        }
+    /** O que a lista do ecrã diz sobre esta factura: total, pago e falta. */
+    private function saldo(SalesInvoice $f): ?array
+    {
+        return collect(
+            $this->getJson(self::RAIZ . '/facturas?tipo=sale&parte_id=' . $this->facturado->id)->json('data')
+        )->firstWhere('id', $f->id);
     }
 
     /**
@@ -94,7 +97,7 @@ class PagamentoGeraReciboTest extends TenantTestCase
      *
      * @test
      */
-    public function um_recibo_desconta_na_factura(): void
+    public function um_recibo_desconta_na_factura_e_acerta_lhe_o_estado(): void
     {
         $f = $this->factura(100000);
 
@@ -112,34 +115,32 @@ class PagamentoGeraReciboTest extends TenantTestCase
      * A SEGUNDA PRESTAÇÃO JÁ SABE QUANTO FALTA.
      *
      * É o que quem está na caixa precisa: abrir e ver o que falta, sem contas
-     * de cabeça. O ecrã propõe-o e mostra os três números.
+     * de cabeça. A conta é do servidor e viaja na linha da factura — o ecrã só
+     * a propõe.
      *
      * @test
      */
-    public function o_ecra_propoe_o_que_falta_receber(): void
+    public function a_lista_diz_o_que_falta_receber(): void
     {
         $f = $this->factura(100000);
 
         $this->receber($f, 40000);
 
-        $ecra = Livewire::test(ReceiptCreate::class, ['invoice' => $f->id]);
-
-        $this->assertEqualsWithDelta(60000, (float) $ecra->get('amount_paid'), 0.01,
-            'o valor proposto é o que falta, não o total');
-
-        $saldo = $ecra->instance()->saldoDaFactura;
+        $saldo = $this->saldo($f);
 
         $this->assertEqualsWithDelta(100000, $saldo['total'], 0.01);
         $this->assertEqualsWithDelta(40000, $saldo['pago'], 0.01);
-        $this->assertEqualsWithDelta(60000, $saldo['falta'], 0.01);
+        $this->assertEqualsWithDelta(60000, $saldo['falta'], 0.01,
+            'o valor proposto é o que falta, não o total');
 
-        // E o resto fecha a factura.
+        // E o resto fecha a factura — que deixa de aparecer para receber.
         $this->receber($f, 60000);
 
         $f->refresh();
 
         $this->assertSame('paid', $f->status);
         $this->assertEqualsWithDelta(100000, (float) $f->paid_amount, 0.01);
+        $this->assertNull($this->saldo($f), 'uma factura sem saldo não se oferece outra vez');
     }
 
     /**

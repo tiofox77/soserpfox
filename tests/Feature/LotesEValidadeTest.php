@@ -2,14 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\ProductBatches\ProductBatches;
 use App\Models\Invoicing\ProductBatch;
-use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use App\Models\Tenant;
-use App\Models\User;
 use App\Services\BatchAllocationService;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -19,9 +15,16 @@ use Tests\TenantTestCase;
  * aqui corresponde a um defeito concreto encontrado a ler o código, e a razão
  * de existir de cada uma está escrita no teste, porque daqui a seis meses o
  * "porquê" é o que se perde primeiro.
+ *
+ * O ecrã dos lotes é hoje o React `Lotes.tsx`, servido pela API
+ * `/api/v1/invoicing/react/lotes` (regras no `GestorDeLotes`), e o relatório
+ * de validades é o mapa `expiry-report` do catálogo dos relatórios. A alocação
+ * e o modelo nunca passaram pelo Livewire — continuam a ser provados de frente.
  */
 class LotesEValidadeTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/lotes';
+
     private Product $artigo;
 
     protected function setUp(): void
@@ -29,6 +32,7 @@ class LotesEValidadeTest extends TenantTestCase
         parent::setUp();
 
         $this->comModulo('invoicing')->comPermissoes(
+            'invoicing.stock.view',
             'invoicing.product-batches.view',
             'invoicing.product-batches.create',
             'invoicing.product-batches.edit',
@@ -63,6 +67,41 @@ class LotesEValidadeTest extends TenantTestCase
         ], $campos));
     }
 
+    /** O corpo que a API espera para criar ou corrigir um lote. */
+    private function corpo(array $por = []): array
+    {
+        return array_merge([
+            'product_id'   => $this->artigo->id,
+            'warehouse_id' => $this->armazem->id,
+            'batch_number' => 'L' . uniqid(),
+            'expiry_date'  => now()->addDays(90)->toDateString(),
+            'quantity'     => 100,
+            'cost_price'   => 600,
+            'alert_days'   => 30,
+        ], $por);
+    }
+
+    /** Um lote de uma empresa vizinha, a que este utilizador não tem acesso. */
+    private function loteAlheio(): ProductBatch
+    {
+        $outra = Tenant::create([
+            'name' => 'Empresa Vizinha', 'slug' => 'vizinha-' . uniqid(),
+            'nif' => (string) random_int(500000000, 599999999),
+            'email' => 'v' . uniqid() . '@exemplo.ao', 'is_active' => true,
+        ]);
+
+        return ProductBatch::create([
+            'tenant_id'          => $outra->id,
+            'product_id'         => $this->artigo->id,
+            'warehouse_id'       => $this->armazem->id,
+            'batch_number'       => 'ALHEIO',
+            'quantity'           => 50,
+            'quantity_available' => 50,
+            'status'             => 'active',
+            'alert_days'         => 30,
+        ]);
+    }
+
     // ==================== isolamento entre empresas ====================
 
     /**
@@ -70,73 +109,36 @@ class LotesEValidadeTest extends TenantTestCase
      *
      * O ProductBatch é o único modelo deste módulo sem o BelongsToTenant — o
      * Warehouse tem-no, a PurchaseInvoice tem-no. Sem o trait não há global
-     * scope, e o edit($id) do componente vai buscar o lote por id em bruto:
-     * o id vem do cliente, portanto qualquer id serve.
+     * scope, e o id vem do cliente: qualquer id serve.
      *
-     * Pior do que ler: o save() escreve 'tenant_id' => activeTenantId(), ou
-     * seja, editar o lote de outra empresa transferia-o para a nossa.
+     * Pior do que ler: gravar escrevia 'tenant_id' => activeTenantId(), ou
+     * seja, editar o lote de outra empresa transferia-o para a nossa. Hoje a
+     * API procura o lote JÁ filtrado pela empresa activa.
      */
     public function test_nao_se_edita_um_lote_de_outra_empresa(): void
     {
-        $outra = Tenant::create([
-            'name' => 'Empresa Vizinha', 'slug' => 'vizinha-' . uniqid(),
-            'nif' => (string) random_int(500000000, 599999999),
-            'email' => 'v' . uniqid() . '@exemplo.ao', 'is_active' => true,
-        ]);
-
-        $loteAlheio = ProductBatch::create([
-            'tenant_id'          => $outra->id,
-            'product_id'         => $this->artigo->id,
-            'warehouse_id'       => $this->armazem->id,
-            'batch_number'       => 'ALHEIO',
-            'quantity'           => 50,
-            'quantity_available' => 50,
-            'status'             => 'active',
-            'alert_days'         => 30,
-        ]);
+        $alheio = $this->loteAlheio();
 
         // 404 e não 403 de propósito: um 403 confirmaria a quem sonda que
         // aquele id existe nalguma empresa. O lote simplesmente não existe
         // para quem está a olhar.
-        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        $this->putJson(self::RAIZ . '/' . $alheio->id, $this->corpo(['quantity' => 5]))->assertNotFound();
 
-        try {
-            Livewire::test(ProductBatches::class)->call('edit', $loteAlheio->id);
-        } finally {
-            $this->assertSame(
-                $outra->id,
-                ProductBatch::withoutGlobalScopes()->find($loteAlheio->id)?->tenant_id,
-                'O lote mudou de empresa.'
-            );
-        }
+        $depois = ProductBatch::withoutGlobalScopes()->find($alheio->id);
+
+        $this->assertSame($alheio->tenant_id, $depois?->tenant_id, 'O lote mudou de empresa.');
+        $this->assertEquals(50, $depois->quantity, 'O lote da outra empresa foi alterado.');
     }
 
     /** O mesmo para apagar. */
     public function test_nao_se_apaga_um_lote_de_outra_empresa(): void
     {
-        $outra = Tenant::create([
-            'name' => 'Empresa Vizinha', 'slug' => 'vizinha-' . uniqid(),
-            'nif' => (string) random_int(500000000, 599999999),
-            'email' => 'v' . uniqid() . '@exemplo.ao', 'is_active' => true,
-        ]);
+        $alheio = $this->loteAlheio();
 
-        $loteAlheio = ProductBatch::create([
-            'tenant_id'          => $outra->id,
-            'product_id'         => $this->artigo->id,
-            'warehouse_id'       => $this->armazem->id,
-            'batch_number'       => 'ALHEIO',
-            'quantity'           => 50,
-            'quantity_available' => 50,
-            'status'             => 'active',
-            'alert_days'         => 30,
-        ]);
-
-        // O delete() apanha a excepção no seu try/catch e devolve uma
-        // mensagem de erro — o que interessa é que o lote sobrevive.
-        Livewire::test(ProductBatches::class)->call('delete', $loteAlheio->id);
+        $this->deleteJson(self::RAIZ . '/' . $alheio->id)->assertNotFound();
 
         $this->assertNotNull(
-            ProductBatch::withoutGlobalScopes()->find($loteAlheio->id),
+            ProductBatch::withoutGlobalScopes()->find($alheio->id),
             'O lote da outra empresa foi apagado.'
         );
     }
@@ -146,47 +148,22 @@ class LotesEValidadeTest extends TenantTestCase
     /**
      * Editar um lote com quantidade zero não rebenta a página.
      *
-     * O save() calculava `$this->quantity / $batch->quantity` para ajustar a
-     * disponibilidade em proporção. Com quantidade zero — que a validação
-     * permite, porque é `min:0` — isso é uma divisão por zero. Em PHP 8 o
-     * DivisionByZeroError é um Error e não uma Exception, portanto o
-     * catch (\Exception) à volta não o apanha: a página dá 500.
+     * A regra antiga calculava `$this->quantity / $batch->quantity` para
+     * ajustar a disponibilidade em proporção. Com quantidade zero — que a
+     * validação permite, porque é `min:0` — isso é uma divisão por zero. Em
+     * PHP 8 o DivisionByZeroError é um Error e não uma Exception, portanto o
+     * catch (\Exception) à volta não o apanhava: a página dava 500.
      */
     public function test_editar_um_lote_de_quantidade_zero_nao_rebenta(): void
     {
         $lote = $this->lote(['quantity' => 0, 'quantity_available' => 0]);
 
-        Livewire::test(ProductBatches::class)
-            ->call('edit', $lote->id)
-            ->set('quantity', 25)
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson(self::RAIZ . '/' . $lote->id, $this->corpo(['quantity' => 25]))
+            ->assertOk()
+            ->assertJsonPath('data.quantity', 25);
 
         $this->assertEquals(25, $lote->fresh()->quantity);
-    }
-
-    /**
-     * Corrigir o total de um lote não pode inventar stock.
-     *
-     * A regra era proporcional: 100 no total, 40 disponíveis (60 vendidos),
-     * corrigir o total para 90 dava 90 × 0,4 = 36 disponíveis. Mas venderam-se
-     * 60 — o disponível certo é 30. A proporção inventava 6 unidades que não
-     * existem, e o stock passava a mentir sem que nada acusasse.
-     */
-    public function test_corrigir_o_total_preserva_o_que_ja_saiu(): void
-    {
-        $lote = $this->lote(['quantity' => 100, 'quantity_available' => 40]);
-
-        Livewire::test(ProductBatches::class)
-            ->call('edit', $lote->id)
-            ->set('quantity', 90)
-            ->call('save');
-
-        $this->assertEquals(
-            30,
-            $lote->fresh()->quantity_available,
-            'Saíram 60 unidades; de 90 sobram 30.'
-        );
+        $this->assertEquals(25, $lote->fresh()->quantity_available, 'nada tinha saído de um lote a zero');
     }
 
     // ==================== a alocação FIFO ====================
@@ -340,6 +317,10 @@ class LotesEValidadeTest extends TenantTestCase
             ProductBatch::where('tenant_id', $this->tenant->id)->expired()->count(),
             'O crachá e a lista têm de concordar.'
         );
+
+        // E a lista do ecrã, que filtra pelo mesmo scope, também não o mostra.
+        $this->assertSame(0, $this->getJson(self::RAIZ . '?estado=expired')->assertOk()->json('meta.total'));
+        $this->assertSame(0, $this->getJson(self::RAIZ)->assertOk()->json('resumo.expirados'));
     }
 
     /** E no dia seguinte já não. */
@@ -349,6 +330,7 @@ class LotesEValidadeTest extends TenantTestCase
 
         $this->assertTrue($lote->is_expired);
         $this->assertSame(1, ProductBatch::where('tenant_id', $this->tenant->id)->expired()->count());
+        $this->assertSame(1, $this->getJson(self::RAIZ . '?estado=expired')->assertOk()->json('meta.total'));
     }
 
     /**
@@ -365,6 +347,11 @@ class LotesEValidadeTest extends TenantTestCase
 
         $this->assertIsInt($lote->days_until_expiry);
         $this->assertSame(30, $lote->days_until_expiry);
+
+        // A API entrega o mesmo inteiro ao ecrã, e não um número com horas
+        // dentro.
+        $linha = collect($this->getJson(self::RAIZ)->assertOk()->json('data'))->firstWhere('id', $lote->id);
+        $this->assertSame(30, $linha['dias']);
     }
 
     /** Já expirado conta em negativo, para o ecrã poder dizer há quantos dias. */
@@ -395,10 +382,11 @@ class LotesEValidadeTest extends TenantTestCase
             'quantity'    => 10, 'quantity_available' => 10, 'cost_price' => 250,
         ]);
 
-        $html = $this->get('/invoicing/expiry-report')->assertOk()->getContent();
+        $r = $this->getJson('/api/v1/invoicing/react/relatorios/expiry-report')->assertOk();
 
         // 10 × 250 = 2.500,00
-        $this->assertStringContainsString('2.500,00', $html);
+        $this->assertEqualsWithDelta(2500, $r->json('dados.stats.value_at_risk'), 0.01);
+        $this->assertEqualsWithDelta(2500, collect($r->json('dados.batches'))->sum('valor'), 0.01);
     }
 
     /**
@@ -416,7 +404,7 @@ class LotesEValidadeTest extends TenantTestCase
             'quantity'     => 10, 'quantity_available' => 10, 'cost_price' => 250,
         ]);
 
-        $csv = $this->conteudoDe($this->relatorio()->exportReport());
+        $csv = $this->csvDoRelatorio();
 
         $this->assertStringContainsString('L-EXPORTA', $csv);
         $this->assertStringContainsString('Leite UHT', $csv);
@@ -445,37 +433,25 @@ class LotesEValidadeTest extends TenantTestCase
             'expiry_date'  => now()->addDays(300)->toDateString(),
         ]);
 
-        $relatorio = $this->relatorio();
-        $relatorio->reportType = 'expiring_soon';
-        $relatorio->daysFilter = 30;
-
-        $csv = $this->conteudoDe($relatorio->exportReport());
+        $csv = $this->csvDoRelatorio(['reportType' => 'expiring_soon', 'daysFilter' => 30]);
 
         $this->assertStringContainsString('PERTO', $csv);
         $this->assertStringNotContainsString('LONGE', $csv);
     }
 
     /**
-     * O componente em instância directa.
+     * O CSV do mapa de validades, com os filtros do ecrã na query.
      *
-     * O wrapper de teste do Livewire não devolve a resposta de um download —
-     * e o que interessa provar aqui é o conteúdo do ficheiro, não o
-     * transporte. É o mesmo caminho que o StockAdjustmentsReportTest usa.
+     * Descarrega-se pela rota de página (com a sessão) e não pela API: um
+     * ficheiro não viaja em JSON.
      */
-    private function relatorio(): \App\Livewire\Invoicing\Reports\ExpiryReport
+    private function csvDoRelatorio(array $filtros = []): string
     {
-        $componente = new \App\Livewire\Invoicing\Reports\ExpiryReport();
-        $componente->mount();
+        $resposta = $this->get('/invoicing/expiry-report/csv' . ($filtros ? '?' . http_build_query($filtros) : ''));
 
-        return $componente;
-    }
+        $resposta->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $resposta->headers->get('content-type'));
 
-    /** O streamDownload só escreve quando alguém o consome. */
-    private function conteudoDe($resposta): string
-    {
-        ob_start();
-        $resposta->sendContent();
-
-        return ob_get_clean();
+        return $resposta->streamedContent();
     }
 }

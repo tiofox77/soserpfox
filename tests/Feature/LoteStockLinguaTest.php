@@ -70,38 +70,55 @@ class LoteStockLinguaTest extends TenantTestCase
         );
     }
 
+    /**
+     * Os seis ecrãs do lote — hoje todos em React.
+     *
+     * As cadeias do miolo mudaram-se para os `.tsx` e já não passam por
+     * `__()`: o que continua a poder medir-se por HTTP é a página abrir e o
+     * LAYOUT à volta falar a língua escolhida. A dívida do miolo está marcada
+     * no `TraducoesTest::test_os_ecras_em_react_ainda_nao_falam_as_tres_linguas`.
+     */
     public static function ecras(): array
     {
         return [
-            'produtos'    => ['/invoicing/products',    'Product List',   'Liste des produits',    'Lista de Produtos'],
-            'armazéns'    => ['/invoicing/warehouses',  'Warehouse',      'Entrepôt',              'Armazém'],
-            'categorias'  => ['/invoicing/categories',  'Category List',  'Liste des catégories',  'Lista de Categorias'],
-            'marcas'      => ['/invoicing/brands',      'Brand List',     'Liste des marques',     'Lista de Marcas'],
-            'clientes'    => ['/invoicing/clients',     'Customer List',  'Liste des clients',     'Lista de Clientes'],
-            'fornecedores' => ['/invoicing/suppliers',  'Supplier List',  'Liste des fournisseurs', 'Lista de Fornecedores'],
+            'produtos'     => ['/invoicing/products'],
+            'armazéns'     => ['/invoicing/warehouses'],
+            'categorias'   => ['/invoicing/categories'],
+            'marcas'       => ['/invoicing/brands'],
+            'clientes'     => ['/invoicing/clients'],
+            'fornecedores' => ['/invoicing/suppliers'],
         ];
     }
 
     /** @dataProvider ecras */
-    public function test_o_ecra_fala_ingles(string $rota, string $en): void
+    public function test_o_ecra_fala_ingles(string $rota): void
     {
         $this->user->update(['locale' => 'en']);
 
-        $this->assertStringContainsString($en, $this->comoSeLe($rota));
+        $html = $this->comoSeLe($rota);
+
+        $this->assertStringContainsString('Session expired', $html);
+        $this->assertStringContainsString('Support', $html);
     }
 
     /** @dataProvider ecras */
-    public function test_o_ecra_fala_frances(string $rota, string $en, string $fr): void
+    public function test_o_ecra_fala_frances(string $rota): void
     {
         $this->user->update(['locale' => 'fr']);
 
-        $this->assertStringContainsString($fr, $this->comoSeLe($rota));
+        $html = $this->comoSeLe($rota);
+
+        $this->assertStringContainsString('Session expirée', $html);
+        $this->assertStringNotContainsString('Session expired', $html);
     }
 
     /** @dataProvider ecras */
-    public function test_sem_escolha_o_ecra_fala_portugues(string $rota, string $en, string $fr, string $pt): void
+    public function test_sem_escolha_o_ecra_fala_portugues(string $rota): void
     {
-        $this->assertStringContainsString($pt, $this->comoSeLe($rota));
+        $html = $this->comoSeLe($rota);
+
+        $this->assertStringContainsString('Sessão expirada', $html);
+        $this->assertStringNotContainsString('Session expired', $html);
     }
 
     /**
@@ -134,7 +151,7 @@ class LoteStockLinguaTest extends TenantTestCase
      */
     public function test_nenhuma_mensagem_tem_texto_corrompido(): void
     {
-        $ficheiros = glob(app_path('Livewire/Invoicing/*.php'));
+        $ficheiros = array_merge(glob(app_path('Services/Invoicing/*.php')), glob(app_path('Http/Controllers/Api/Invoicing/*.php')));
 
         foreach ($ficheiros as $f) {
             $conteudo = file_get_contents($f);
@@ -148,57 +165,41 @@ class LoteStockLinguaTest extends TenantTestCase
     }
 
     /**
-     * Nenhuma directiva Blade ficou partida pelo script de embrulho.
+     * NEM UM ACENTO PARTIDO NOS ECRÃS.
      *
-     * Uma regex de parênteses equilibrados só desce um nível, e
-     * @foreach(Brand::where('t', auth()->user()->tenant_id)->get() as $b) tem
-     * três. O resto da linha passava a parecer texto e saía dentro de um
-     * __(), com a página a rebentar em produção e nada nos testes a acusá-lo.
+     * Aqui vigiavam-se os Blades destes oito ecrãs, à procura de directivas
+     * partidas pelo script que embrulhou 800 e tal cadeias — uma regex de
+     * parênteses equilibrados só desce um nível, e havia `@foreach` com três.
+     * Esses Blades foram-se com a migração para React e as cadeias mudaram-se
+     * para os `.tsx`: é lá que o texto do utilizador vive agora, e é lá que um
+     * acidente de codificação passa a viver também.
+     *
+     * A intenção é a mesma que a do ensaio das mensagens: "Sem permissÃ£o" é
+     * o que o utilizador vê, e num ficheiro de ecrã ninguém repara nele — não
+     * há tradução por aprovar que o denuncie.
      */
-    public function test_nenhuma_directiva_blade_ficou_partida(): void
+    public function test_nenhum_ecra_tem_texto_corrompido(): void
     {
-        $vistas = [];
+        $ecras = array_merge(
+            glob(resource_path('js/ecras/facturacao/*.tsx')),
+            glob(resource_path('js/ecras/facturacao/*/*.tsx'))
+        );
 
-        foreach (['products', 'stock', 'warehouses', 'categories', 'brands', 'product-batches', 'clients', 'suppliers'] as $d) {
-            $vistas = array_merge(
-                $vistas,
-                glob(resource_path("views/livewire/invoicing/{$d}/*.blade.php")),
-                glob(resource_path("views/livewire/invoicing/{$d}/partials/*.blade.php"))
+        $this->assertNotEmpty($ecras, 'o varrimento tem de encontrar os ecrãs da facturação');
+
+        foreach ($ecras as $f) {
+            $conteudo = file_get_contents($f);
+
+            $this->assertDoesNotMatchRegularExpression(
+                '/Ã[£§µ©¡º­³ª´‡ƒ‰•]|â€[""™"“–]|Â[§ºª´]/u',
+                $conteudo,
+                basename($f) . ' tem texto com a codificação partida.'
             );
-        }
 
-        $this->assertNotEmpty($vistas);
-
-        foreach ($vistas as $f) {
-            foreach (file($f) as $i => $linha) {
-                if (!preg_match('/@(if|elseif|foreach|forelse|for|while|can|cannot|isset|empty|unless|switch|case)\s*\(/', $linha)) {
-                    continue;
-                }
-
-                $abre = strpos($linha, '(', strpos($linha, '@'));
-                $nivel = 0;
-                $fim = null;
-
-                for ($j = $abre; $j < strlen($linha); $j++) {
-                    if ($linha[$j] === '(') {
-                        $nivel++;
-                    } elseif ($linha[$j] === ')') {
-                        $nivel--;
-                        if ($nivel === 0) {
-                            $fim = $j;
-                            break;
-                        }
-                    }
-                }
-
-                $dentro = $fim === null ? substr($linha, $abre) : substr($linha, $abre, $fim - $abre);
-
-                $this->assertStringNotContainsString(
-                    '{{',
-                    $dentro,
-                    basename($f) . ":" . ($i + 1) . ' — a directiva Blade tem um {{ }} dentro dos parênteses.'
-                );
-            }
+            $this->assertTrue(
+                (bool) preg_match('//u', $conteudo),
+                basename($f) . ' não é UTF-8 válido.'
+            );
         }
     }
 

@@ -9,6 +9,7 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * O EDITOR DE UM MODELO DE PROPOSTA.
@@ -26,8 +27,8 @@ export default function EditorDeModelo({ id }: { id: number }) {
     if (q.isError) {
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir o modelo</h2>
-                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : 'Verifique a ligação.'}</p>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o modelo')}</h2>
+                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : t('Verifique a ligação.')}</p>
             </div>
         );
     }
@@ -60,13 +61,13 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
 
             <Cartao>
                 <div className="flex flex-wrap items-end gap-3">
-                    <Campo etiqueta="Nome do modelo" className="min-w-[16rem] flex-1"><input key={`nome-${estado.id}`} defaultValue={estado.nome} onBlur={(e) => e.target.value !== estado.nome && fazer({ accao: 'renomear', nome: e.target.value, descricao: estado.descricao })} className={entrada} /></Campo>
-                    <Campo etiqueta="Descrição" className="min-w-[16rem] flex-1"><input key={`desc-${estado.id}`} defaultValue={estado.descricao} onBlur={(e) => e.target.value !== estado.descricao && fazer({ accao: 'renomear', nome: estado.nome, descricao: e.target.value })} className={entrada} /></Campo>
+                    <Campo etiqueta={t('Nome do modelo')} className="min-w-[16rem] flex-1"><input key={`nome-${estado.id}`} defaultValue={estado.nome} onBlur={(e) => e.target.value !== estado.nome && fazer({ accao: 'renomear', nome: e.target.value, descricao: estado.descricao })} className={entrada} /></Campo>
+                    <Campo etiqueta={t('Descrição')} className="min-w-[16rem] flex-1"><input key={`desc-${estado.id}`} defaultValue={estado.descricao} onBlur={(e) => e.target.value !== estado.descricao && fazer({ accao: 'renomear', nome: estado.nome, descricao: e.target.value })} className={entrada} /></Campo>
                     <span className="flex flex-wrap gap-2">
-                        <a href="/invoicing/sales/quote-templates/novo-ecra" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />Modelos</a>
-                        <Botao icone="fa-braces" onClick={() => porMostrarVariaveis((v) => !v)}>Variáveis</Botao>
-                        <Botao icone="fa-file-circle-plus" onClick={() => fazer({ accao: 'pagina' })}>Página ({estado.paginas})</Botao>
-                        <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={accao.isPending} onClick={() => fazer({ accao: 'guardar' })}>Guardar</Botao>
+                        <a href="/invoicing/sales/quote-templates" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-arrow-left" aria-hidden="true" />{t('Modelos')}</a>
+                        <Botao icone="fa-braces" onClick={() => porMostrarVariaveis((v) => !v)}>{t('Variáveis')}</Botao>
+                        <Botao icone="fa-file-circle-plus" onClick={() => fazer({ accao: 'pagina' })}>{t('Página (:n)', { n: estado.paginas })}</Botao>
+                        <Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={accao.isPending} onClick={() => fazer({ accao: 'guardar' })}>{t('Guardar')}</Botao>
                     </span>
                 </div>
                 {mostrarVariaveis && (
@@ -80,7 +81,7 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
 
             <div className="grid gap-3 lg:grid-cols-[16rem_1fr_20rem]">
                 <div className="space-y-3">
-                    <Cartao titulo="Acrescentar">
+                    <Cartao titulo={t('Acrescentar')}>
                         <div className="grid grid-cols-2 gap-1">
                             {catalogo.map((c) => (
                                 <button key={c.tipo} type="button" title={c.ajuda} onClick={() => fazer({ accao: 'adicionar', tipo: c.tipo })} className={cls('flex items-center gap-2 border border-slate-200 px-2 py-1.5 text-left text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/40', RAIO, FOCO)} data-adicionar={c.tipo}>
@@ -89,29 +90,29 @@ function Editor({ id, inicial, previaInicial, catalogo, variaveis }: { id: numbe
                             ))}
                         </div>
                     </Cartao>
-                    <Cartao titulo="Blocos" semPadding>
+                    <Cartao titulo={t('Blocos')} semPadding>
                         <ol className="divide-y divide-slate-100" data-blocos>
                             {estado.blocos.map((b, i) => (
                                 <li key={b.id} className={cls('flex items-center gap-1 px-2 py-1.5 text-sm', b.id === seleccionado && 'bg-indigo-50')}>
                                     <button type="button" onClick={() => porSeleccionado(b.id)} className={cls('flex-1 truncate text-left', FOCO, RAIO)} aria-current={b.id === seleccionado}>
                                         <span className="mr-1 text-xs text-slate-400">{i + 1}.</span>{nomeDoTipo(b.tipo)}{typeof b.titulo === 'string' && b.titulo && <span className="ml-1 text-xs text-slate-500">· {b.titulo}</span>}
                                     </button>
-                                    <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: -1 })} aria-label="Subir" className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-up" aria-hidden="true" /></button>
-                                    <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: 1 })} aria-label="Descer" className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-down" aria-hidden="true" /></button>
-                                    <button type="button" onClick={() => fazer({ accao: 'duplicar', id: b.id })} aria-label="Duplicar" className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-copy" aria-hidden="true" /></button>
-                                    <button type="button" onClick={() => fazer({ accao: 'remover', id: b.id })} aria-label="Remover" className={cls('p-1 text-slate-400 hover:text-red-600', FOCO, RAIO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                    <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: -1 })} aria-label={t('Subir')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-up" aria-hidden="true" /></button>
+                                    <button type="button" onClick={() => fazer({ accao: 'mover', id: b.id, direccao: 1 })} aria-label={t('Descer')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-chevron-down" aria-hidden="true" /></button>
+                                    <button type="button" onClick={() => fazer({ accao: 'duplicar', id: b.id })} aria-label={t('Duplicar')} className={cls('p-1 text-slate-400 hover:text-slate-800', FOCO, RAIO)}><i className="fas fa-copy" aria-hidden="true" /></button>
+                                    <button type="button" onClick={() => fazer({ accao: 'remover', id: b.id })} aria-label={t('Remover')} className={cls('p-1 text-slate-400 hover:text-red-600', FOCO, RAIO)}><i className="fas fa-trash" aria-hidden="true" /></button>
                                 </li>
                             ))}
                         </ol>
                     </Cartao>
                 </div>
 
-                <Cartao titulo="A folha, como vai sair" semPadding>
-                    <iframe title="Pré-visualização do modelo" srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100', accao.isPending && 'opacity-60')} data-previa />
+                <Cartao titulo={t('A folha, como vai sair')} semPadding>
+                    <iframe title={t('Pré-visualização do modelo')} srcDoc={previa} className={cls('h-[80vh] w-full bg-slate-100', accao.isPending && 'opacity-60')} data-previa />
                 </Cartao>
 
                 <div className="space-y-3">
-                    {bloco ? <OpcoesDoBloco key={bloco.id} bloco={bloco} nome={nomeDoTipo(bloco.tipo)} fazer={fazer} /> : <Cartao titulo="Bloco"><p className="text-sm text-slate-400">Escolha um bloco na lista.</p></Cartao>}
+                    {bloco ? <OpcoesDoBloco key={bloco.id} bloco={bloco} nome={nomeDoTipo(bloco.tipo)} fazer={fazer} /> : <Cartao titulo={t('Bloco')}><p className="text-sm text-slate-400">{t('Escolha um bloco na lista.')}</p></Cartao>}
                     <Estilos estilos={estado.estilos} fazer={fazer} />
                 </div>
             </div>
@@ -129,7 +130,7 @@ function OpcoesDoBloco({ bloco, nome, fazer }: { bloco: Bloco; nome: string; faz
     return (
         <Cartao titulo={nome}>
             <div className="space-y-3" data-opcoes>
-                {campos.length === 0 && <p className="text-sm text-slate-400">Este bloco não tem opções.</p>}
+                {campos.length === 0 && <p className="text-sm text-slate-400">{t('Este bloco não tem opções.')}</p>}
                 {campos.map(([k, v]) => {
                     const rotulo = k.replace(/_/g, ' ');
                     if (typeof v === 'boolean') {
@@ -150,13 +151,13 @@ function OpcoesDoBloco({ bloco, nome, fazer }: { bloco: Bloco; nome: string; faz
                 })}
                 {l && (
                     <fieldset className="border-t border-slate-100 pt-3">
-                        <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">Posição na folha</legend>
+                        <legend className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Posição na folha')}</legend>
                         <div className="mt-2 grid grid-cols-3 gap-2">
                             {(['pagina', 'x', 'y', 'largura', 'altura', 'z'] as const).map((k) => (
                                 <Campo key={k} etiqueta={k}><input type="number" defaultValue={l[k]} onBlur={(e) => Number(e.target.value) !== l[k] && layout(k, Number(e.target.value))} className={cls(entrada, 'tabular-nums')} /></Campo>
                             ))}
                         </div>
-                        <label className="mt-2 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={l.bloqueado} onChange={(e) => layout('bloqueado', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />Bloqueado</label>
+                        <label className="mt-2 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={l.bloqueado} onChange={(e) => layout('bloqueado', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />{t('Bloqueado')}</label>
                     </fieldset>
                 )}
             </div>
@@ -169,14 +170,14 @@ function Estilos({ estilos, fazer }: { estilos: Record<string, unknown>; fazer: 
     const s = (k: string) => String(estilos[k] ?? '');
 
     return (
-        <Cartao titulo="Estilos">
+        <Cartao titulo={t('Estilos')}>
             <div className="space-y-3" data-estilos>
-                <Campo etiqueta="Cor principal"><input type="color" defaultValue={s('cor_principal') || '#4f46e5'} onBlur={(e) => e.target.value !== s('cor_principal') && estilo('cor_principal', e.target.value)} className={cls(entrada, 'h-10 p-1')} /></Campo>
-                <Campo etiqueta="Fonte"><input defaultValue={s('fonte')} onBlur={(e) => e.target.value !== s('fonte') && estilo('fonte', e.target.value)} className={entrada} /></Campo>
-                <Campo etiqueta="Tamanho base"><input type="number" min={8} max={20} defaultValue={Number(estilos.tamanho_base ?? 12)} onBlur={(e) => Number(e.target.value) !== Number(estilos.tamanho_base) && estilo('tamanho_base', Number(e.target.value))} className={entrada} /></Campo>
-                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(estilos.mostrar_rodape)} onChange={(e) => estilo('mostrar_rodape', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />Mostrar rodapé</label>
-                <Campo etiqueta="Texto do rodapé"><input defaultValue={s('texto_rodape')} onBlur={(e) => e.target.value !== s('texto_rodape') && estilo('texto_rodape', e.target.value)} className={entrada} /></Campo>
-                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(estilos.numerar_paginas)} onChange={(e) => estilo('numerar_paginas', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />Numerar páginas</label>
+                <Campo etiqueta={t('Cor principal')}><input type="color" defaultValue={s('cor_principal') || '#4f46e5'} onBlur={(e) => e.target.value !== s('cor_principal') && estilo('cor_principal', e.target.value)} className={cls(entrada, 'h-10 p-1')} /></Campo>
+                <Campo etiqueta={t('Fonte')}><input defaultValue={s('fonte')} onBlur={(e) => e.target.value !== s('fonte') && estilo('fonte', e.target.value)} className={entrada} /></Campo>
+                <Campo etiqueta={t('Tamanho base')}><input type="number" min={8} max={20} defaultValue={Number(estilos.tamanho_base ?? 12)} onBlur={(e) => Number(e.target.value) !== Number(estilos.tamanho_base) && estilo('tamanho_base', Number(e.target.value))} className={entrada} /></Campo>
+                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(estilos.mostrar_rodape)} onChange={(e) => estilo('mostrar_rodape', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />{t('Mostrar rodapé')}</label>
+                <Campo etiqueta={t('Texto do rodapé')}><input defaultValue={s('texto_rodape')} onBlur={(e) => e.target.value !== s('texto_rodape') && estilo('texto_rodape', e.target.value)} className={entrada} /></Campo>
+                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={Boolean(estilos.numerar_paginas)} onChange={(e) => estilo('numerar_paginas', e.target.checked)} className="h-4 w-4 rounded border-slate-300" />{t('Numerar páginas')}</label>
             </div>
         </Cartao>
     );

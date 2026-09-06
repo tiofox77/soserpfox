@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Receipts\ReceiptCreate;
 use App\Models\Invoicing\SalesInvoice;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -17,10 +15,14 @@ use Tests\TenantTestCase;
  * num total de 15,4 milhões.
  *
  * A regra certa não é o nome do estado — é o SALDO, a mesma do painel da
- * facturação e do portal do cliente.
+ * facturação e do portal do cliente. O ecrã é hoje React e pede a lista a
+ * `GET /api/v1/invoicing/react/recibos/facturas`; a regra é a mesma e é aí
+ * que se prova.
  */
 class ReciboEscolheAFacturaTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/recibos';
+
     // O nome `$cliente` já existe no TenantTestCase; aqui é o cliente das
     // facturas deste ensaio, e tem de ser o MESMO em todas elas.
     private \App\Models\Client $facturado;
@@ -43,6 +45,7 @@ class ReciboEscolheAFacturaTest extends TenantTestCase
             'client_id'      => $this->facturado->id,
             'invoice_number' => 'FT ENSAIO/' . random_int(100000, 999999),
             'invoice_date'   => now(),
+            'invoice_type'   => 'FT',
             'status'         => $estado,
             'subtotal'       => $total,
             'total'          => $total,
@@ -56,13 +59,13 @@ class ReciboEscolheAFacturaTest extends TenantTestCase
         return $f;
     }
 
-    private function lista(array $parametros = []): \Illuminate\Support\Collection
+    /** A lista que o ecrã pede, já filtrada pelo cliente escolhido. */
+    private function lista(): \Illuminate\Support\Collection
     {
         return collect(
-            Livewire::test(ReceiptCreate::class, $parametros)
-                ->set('type', 'sale')
-                ->set('client_id', $this->facturado->id)
-                ->viewData('invoices')
+            $this->getJson(self::RAIZ . '/facturas?tipo=sale&parte_id=' . $this->facturado->id)
+                ->assertOk()
+                ->json('data')
         );
     }
 
@@ -73,6 +76,8 @@ class ReciboEscolheAFacturaTest extends TenantTestCase
      */
     public function o_recibo_ve_as_facturas_com_saldo_seja_qual_for_o_nome_do_estado(): void
     {
+        $this->comPermissoes('invoicing.receipts.view');
+
         $enviada = $this->factura('sent', 100000);
         $atrasada = $this->factura('overdue', 50000);
         $parcial  = $this->factura('partially_paid', 80000, 30000);
@@ -81,10 +86,6 @@ class ReciboEscolheAFacturaTest extends TenantTestCase
         $paga     = $this->factura('paid', 20000, 20000);
         $anulada  = $this->factura('cancelled', 90000);
         $rascunho = $this->factura('draft', 70000);
-
-        foreach ([$enviada, $atrasada, $parcial, $paga, $anulada, $rascunho] as $f) {
-            $f->update(['client_id' => $this->facturado->id]);
-        }
 
         $ids = $this->lista()->pluck('id');
 
@@ -100,49 +101,56 @@ class ReciboEscolheAFacturaTest extends TenantTestCase
     /**
      * VINDO DA LISTA DE FACTURAS, FICA TUDO ESCOLHIDO.
      *
-     * O botão de receber leva `?invoice=`, e o ecrã abre com o cliente, a
-     * factura e o valor em falta — que é o que a caixa recebe quase sempre.
+     * O botão de receber leva `?invoice=`, e o ecrã abre com o cliente e a
+     * factura escolhidos. Quem resolve é o SERVIDOR (`FacturaNaMorada`), e de
+     * propósito: o React não sabe de que cliente é a factura, e a lista de
+     * facturas do ecrã pede-se por cliente.
      *
      * @test
      */
-    public function a_factura_do_endereco_vem_escolhida_e_com_o_valor_em_falta(): void
+    public function a_factura_do_endereco_vem_escolhida_com_o_cliente_dela(): void
     {
+        $this->comPermissoes('invoicing.receipts.view', 'invoicing.receipts.create');
+
         $f = $this->factura('sent', 120000, 20000);
-        $f->update(['client_id' => $this->facturado->id]);
 
-        $ecra = Livewire::test(ReceiptCreate::class, ['invoice' => $f->id]);
-
-        $this->assertSame('sale', $ecra->get('type'));
-        $this->assertSame($this->facturado->id, $ecra->get('client_id'));
-        $this->assertSame($f->id, $ecra->get('invoice_id'));
-
-        $this->assertEqualsWithDelta(100000, (float) $ecra->get('amount_paid'), 0.01,
-            'o valor proposto é o que falta receber, não o total da factura');
+        $this->get('/invoicing/receipts/create?invoice=' . $f->id)
+            ->assertOk()
+            // O `data-props` vai como JSON escapado pelo Blade.
+            ->assertSee('facturaId&quot;:' . $f->id, false)
+            ->assertSee('clienteId&quot;:' . $this->facturado->id, false);
     }
 
     /**
-     * A FACTURA DO ENDEREÇO ENTRA SEMPRE NA LISTA.
+     * E O VALOR PROPOSTO É O QUE FALTA, NÃO O TOTAL.
      *
-     * Sem a opção no `<select>`, o `wire:model.live` devolvia vazio e o recibo
-     * ficava sem factura nenhuma — foi assim que as notas de crédito nasceram
-     * sem referência ao documento que corrigem.
+     * É o que a caixa recebe quase sempre. A conta é do servidor: o ecrã lê o
+     * `falta` da linha da factura e propõe-no.
      *
      * @test
      */
-    public function a_factura_do_endereco_aparece_no_selector(): void
+    public function a_factura_do_endereco_aparece_na_lista_com_o_valor_em_falta(): void
     {
-        $f = $this->factura('sent', 60000);
-        $f->update(['client_id' => $this->facturado->id]);
+        $this->comPermissoes('invoicing.receipts.view');
 
-        $this->assertTrue(
-            $this->lista(['invoice' => $f->id])->pluck('id')->contains($f->id),
-            'a factura que veio no endereço tem de estar entre as opções'
-        );
+        $f = $this->factura('sent', 120000, 20000);
+
+        $linha = $this->lista()->firstWhere('id', $f->id);
+
+        $this->assertNotNull($linha,
+            'a factura que veio no endereço tem de estar entre as opções — sem ela o recibo saía sem factura nenhuma');
+
+        $this->assertEqualsWithDelta(100000, $linha['falta'], 0.01,
+            'o valor proposto é o que falta receber, não o total da factura');
     }
 
     /** O ecrã do recibo continua a abrir sem factura nenhuma. @test */
     public function o_ecra_abre_sem_factura(): void
     {
-        Livewire::test(ReceiptCreate::class)->assertOk();
+        $this->comPermissoes('invoicing.receipts.view', 'invoicing.receipts.create');
+
+        $this->get('/invoicing/receipts/create')
+            ->assertOk()
+            ->assertSee('data-ecra="facturacao/registar-recibo"', false);
     }
 }

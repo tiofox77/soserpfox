@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Livewire\Company\CompanyProfile;
-use App\Livewire\Invoicing\Clients;
 use App\Models\Client;
 use App\Support\Geografia;
 use Livewire\Livewire;
@@ -223,10 +222,18 @@ class GeografiaDaMoradaTest extends TenantTestCase
         $this->actingAs($this->user);
 
         // Era aqui o furo: a propriedade nascia 'AO' e o resetForm() punha
-        // 'Angola' por cima a cada formulário novo.
-        Livewire::test(Clients::class)
-            ->call('create')
-            ->assertSet('country', 'AO');
+        // 'Angola' por cima a cada formulário novo. O ecrã é hoje React e o
+        // valor de partida vem do servidor, nas opções — e o formulário vazio
+        // do ecrã também tem de nascer com o CÓDIGO, não com o nome.
+        $this->getJson('/api/v1/invoicing/react/clients/opcoes')
+            ->assertOk()
+            ->assertJsonPath('pais_padrao', 'AO');
+
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/Clientes.tsx'));
+
+        $this->assertStringContainsString("country: 'AO'", $ecra,
+            'o formulário vazio nasce com o código ISO, que é o que viaja para a AGT');
+        $this->assertStringNotContainsString("country: 'Angola'", $ecra);
     }
 
     public function test_o_cliente_grava_municipio_e_bairro(): void
@@ -234,16 +241,15 @@ class GeografiaDaMoradaTest extends TenantTestCase
         $this->comPermissoes('invoicing.clients.create', 'invoicing.clients.view');
         $this->actingAs($this->user);
 
-        Livewire::test(Clients::class)
-            ->call('create')
-            ->set('name', 'Cliente da Geografia')
-            ->set('nif', '5417654999')
-            ->set('country', 'AO')
-            ->set('province', 'Benguela')
-            ->set('municipality', 'Lobito')
-            ->set('neighbourhood', 'Restinga')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->postJson('/api/v1/invoicing/react/clients', [
+            'type' => 'pessoa_juridica',
+            'name' => 'Cliente da Geografia',
+            'nif' => '5417654999',
+            'country' => 'AO',
+            'province' => 'Benguela',
+            'municipality' => 'Lobito',
+            'neighbourhood' => 'Restinga',
+        ])->assertCreated();
 
         $c = Client::where('nif', '5417654999')->first();
 
@@ -251,6 +257,8 @@ class GeografiaDaMoradaTest extends TenantTestCase
         $this->assertSame('AO', $c->country);
         $this->assertSame('Lobito', $c->municipality);
         $this->assertSame('Restinga', $c->neighbourhood);
+        // A cidade segue o município quando não foi escrita: é `city` que as
+        // listas mostram, e sem isto o cliente aparecia sem localidade.
         $this->assertSame('Lobito', $c->city);
     }
 

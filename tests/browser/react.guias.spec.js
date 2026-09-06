@@ -6,11 +6,11 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que a lista abre, que o modal da guia nova se
  * desenha com o tipo e as linhas, que o servidor recusa sem cliente e diz
- * onde, e que a morada de sempre continua em Livewire. Emitir a sério
+ * onde, e que a morada de sempre serve o React. Emitir a sério
  * prova-se na API.
  */
 
-const ECRA = '/invoicing/transport-guides/novo-ecra';
+const ECRA = '/invoicing/transport-guides';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -53,7 +53,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o ecra Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/transport-guides');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

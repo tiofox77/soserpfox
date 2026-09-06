@@ -70,46 +70,122 @@ class PdfDoEcraTest extends TenantTestCase
         $this->assertFileExists(public_path('vendor/js/jspdf.umd.min.js'));
     }
 
+    /** As duas listas em React que mostram documentos da facturação. */
+    private function listasEmReact(): array
+    {
+        return [
+            'js/ecras/facturacao/vendas/ListaDeFacturas.tsx',
+            'js/ecras/facturacao/ListaDeDocumentos.tsx',
+        ];
+    }
+
     /**
-     * A PRÉ-VISUALIZAÇÃO NÃO SE TOCA.
+     * CADA DOCUMENTO CONTINUA A TER O SEU PAPEL À MÃO — OS DOIS PAPÉIS.
      *
-     * O botão novo ACRESCENTA. Quem confere um documento antes de o mandar
-     * abre-o num separador, e é de lá que se imprime.
+     * As listas da facturação eram Blade e cada uma levava o botão do PDF do
+     * ecrã ao lado da ligação ao PDF do servidor. Passaram a React e, durante
+     * um tempo, só o do servidor sobreviveu: o desenho aprovado (a
+     * pré-visualização) deixou de poder sair em papel tal como se vê.
+     *
+     * O que se prende aqui é que os DOIS continuam oferecidos, lado a lado:
+     * nenhum substitui o outro. O do servidor tem texto para copiar; o do ecrã
+     * é a própria pré-visualização, e por isso nunca diverge dela.
      *
      * @test
      */
-    public function cada_documento_mantem_a_pre_visualizacao_ao_lado_do_pdf(): void
+    public function cada_documento_mantem_a_ligacao_ao_seu_pdf(): void
     {
-        $listas = array_merge(
-            glob(resource_path('views/livewire/invoicing/*/*.blade.php')),
-            glob(resource_path('views/livewire/invoicing/*/*/*.blade.php')),
-        );
+        foreach ($this->listasEmReact() as $ficheiro) {
+            $s = file_get_contents(resource_path($ficheiro));
+            $nome = basename($ficheiro);
 
-        $comBotao = 0;
+            $this->assertStringContainsString('/pdf', $s,
+                "{$nome}: a lista tem de deixar chegar ao papel do documento");
 
-        foreach ($listas as $f) {
-            $s = file_get_contents($f);
+            $this->assertStringContainsString('PdfDoEcra', $s,
+                "{$nome}: falta o botão do PDF feito do próprio ecrã");
 
-            // Os ecrãs de relatório fotografam a própria página; aqui só
-            // interessam os documentos, que saem da sua pré-visualização.
-            if (!str_contains($s, '<x-pdf-descarregar :url=')) continue;
+            // O botão vive da pré-visualização, não de uma rota nova.
+            $this->assertStringContainsString('/preview', $s,
+                "{$nome}: o PDF do ecrã fotografa a PRÉ-VISUALIZAÇÃO — é esse o endereço que leva");
+        }
+    }
 
-            $comBotao++;
-            $this->assertMatchesRegularExpression("#route\(\s*'[a-z0-9_.\-]+\.preview'#i", $s,
-                basename($f) . ': o botão de PDF ficou, mas a ligação da pré-visualização desapareceu');
+    /**
+     * O CONTRATO DO BOTÃO É O MESMO EM BLADE E EM REACT.
+     *
+     * O gerador (`/js/pdf-do-documento.js`) ouve o clique por DELEGAÇÃO no
+     * documento e não sabe nada de React nem de Livewire: reconhece um botão
+     * pelos seus `data-*`. Enquanto a peça em React escrever os mesmos
+     * atributos que o `<x-pdf-descarregar>`, os dois mundos partilham a mesma
+     * mecânica — e é por isso que não houve nada a reescrever.
+     *
+     * @test
+     */
+    public function a_peca_em_react_escreve_os_mesmos_atributos_do_componente_blade(): void
+    {
+        $peca = resource_path('js/ui/PdfDoEcra.tsx');
+
+        $this->assertFileExists($peca, 'a peça partilhada dos ecrãs em React');
+
+        $tsx = file_get_contents($peca);
+        $blade = file_get_contents(resource_path('views/components/pdf-descarregar.blade.php'));
+
+        // O gerador lê-os pelo `dataset`, onde o traço vira maiúscula.
+        $atributos = [
+            'data-pdf-preview' => 'pdfPreview',
+            'data-pdf-nome' => 'pdfNome',
+            'data-pdf-erro' => 'pdfErro',
+        ];
+
+        foreach ($atributos as $atributo => $noDataset) {
+            $this->assertStringContainsString($atributo, $tsx, "falta {$atributo} na peça em React");
+            $this->assertStringContainsString($atributo, $blade, "falta {$atributo} no componente Blade");
+            $this->assertStringContainsString($noDataset, $this->gerador(),
+                "o gerador tem de reconhecer {$atributo}");
         }
 
-        $this->assertGreaterThanOrEqual(20, $comBotao,
-            'todos os documentos levam o botão — facturas, proformas, notas, recibos, adiantamentos e orçamentos');
+        // Sem `onClick`: quem trata do clique é o ouvinte por delegação. Um
+        // manipulador próprio no React seria uma segunda mecânica a divergir.
+        $this->assertStringNotContainsString('onClick', $tsx,
+            'o clique é do ouvinte por delegação — não se duplica aqui');
+    }
+
+    /**
+     * A PRÉ-VISUALIZAÇÃO EXISTE PARA TODOS OS DOCUMENTOS QUE A LISTA MOSTRA.
+     *
+     * O botão do PDF do ecrã aponta para `{rota}/{id}/preview`, construído a
+     * partir da `rota` que o servidor manda em `TiposDeDocumento`. Se um tipo
+     * novo entrar nesse registo sem ter pré-visualização, o botão aparece na
+     * lista e falha ao ser carregado — este ensaio apanha isso antes.
+     *
+     * @test
+     */
+    public function todos_os_documentos_da_lista_tem_pre_visualizacao(): void
+    {
+        $uris = collect(app('router')->getRoutes())->map(fn ($r) => $r->uri())->all();
+
+        $rotas = collect(\App\Services\Invoicing\TiposDeDocumento::todos())
+            ->pluck('rota')
+            // As facturas de venda têm lista própria, mas o botão é o mesmo.
+            ->push('/invoicing/sales/invoices');
+
+        foreach ($rotas as $rota) {
+            $esperada = ltrim($rota, '/') . '/{id}/preview';
+
+            $this->assertContains($esperada, $uris,
+                "sem {$esperada} o botão do PDF do ecrã não tem o que fotografar");
+        }
     }
 
     /** @test */
     public function os_relatorios_do_pos_tem_o_botao_e_deixam_a_barra_de_fora(): void
     {
+        // O POS continua em Livewire — o gestor de turnos, esse, passou a
+        // React e leva a ligação ao PDF do servidor (ver TurnosDoPos.tsx).
         $relatorio = file_get_contents(resource_path('views/livewire/p-o-s/sales-report.blade.php'));
-        $turnos = file_get_contents(resource_path('views/livewire/invoicing/pos/pos-shift-manager.blade.php'));
 
-        foreach ([['relatório de vendas', $relatorio, 'relatorio-pos'], ['gestor de turnos', $turnos, 'turno-pos']] as [$nome, $s, $alvo]) {
+        foreach ([['relatório de vendas', $relatorio, 'relatorio-pos']] as [$nome, $s, $alvo]) {
             $this->assertStringContainsString('data-pdf-alvo="' . $alvo . '"', $s, "{$nome}: falta o que fotografar");
             $this->assertStringContainsString('x-pdf-descarregar', $s, "{$nome}: falta o botão");
             $this->assertStringContainsString('data-pdf-fora', $s,

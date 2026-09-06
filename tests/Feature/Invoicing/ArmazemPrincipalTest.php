@@ -2,11 +2,9 @@
 
 namespace Tests\Feature\Invoicing;
 
-use App\Livewire\Invoicing\Settings;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Tenant;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -17,10 +15,23 @@ use Tests\TenantTestCase;
  * lêem (facturas, orçamentos, compras, POS, SAFT). Escolher o armazém nas
  * definições não fazia efeito nenhum — só marcá-lo em Armazéns é que pegava.
  *
- * Estes testes fixam a ligação nos dois sentidos.
+ * O ecrã de definições é hoje React e guarda por
+ * `PUT /api/v1/invoicing/react/definicoes`; a ligação nos dois sentidos vive no
+ * `DefinicoesDaFacturacao::fixarArmazemPrincipal()` e no `Warehouse::setAsDefault()`.
+ * É isso que estes ensaios fixam.
  */
 class ArmazemPrincipalTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/definicoes';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit')
+             ->comModulo('invoicing');
+    }
+
     private function armazem(string $nome, bool $padrao = false): Warehouse
     {
         return Warehouse::create([
@@ -37,36 +48,32 @@ class ArmazemPrincipalTest extends TenantTestCase
         return InvoicingSettings::firstOrCreate(['tenant_id' => $this->tenant->id]);
     }
 
+    /** O corpo que o ecrã manda, com o que se quiser trocar por cima. */
+    private function corpo(array $por = []): array
+    {
+        return array_merge($this->getJson(self::RAIZ)->assertOk()->json('definicoes'), $por);
+    }
+
     // ── Definições → Armazéns ────────────────────────────────────────────
 
-    /** O DEFEITO REPORTADO: escolher nas definições não marcava o armazém. */
+    /**
+     * O DEFEITO REPORTADO: escolher nas definições não marcava o armazém — e
+     * os formulários, que lêem o `is_default`, continuavam no antigo.
+     */
     public function test_escolher_nas_definicoes_marca_mesmo_o_armazem(): void
     {
         $this->definicoes();
         $velho = $this->armazem('Armazém Central', true);
         $novo  = $this->armazem('Armazém do Porto');
 
-        Livewire::test(Settings::class)
-            ->set('default_warehouse_id', $novo->id)
-            ->call('save');
+        $this->putJson(self::RAIZ, $this->corpo(['default_warehouse_id' => $novo->id]))
+            ->assertOk()->assertJsonPath('aviso', null);
 
         $this->assertTrue($novo->refresh()->is_default, 'O armazém escolhido tem de ficar padrão.');
         $this->assertFalse($velho->refresh()->is_default, 'O anterior tem de deixar de ser.');
-    }
 
-    /** E os formulários passam a apanhá-lo — é isto que o utilizador vê. */
-    public function test_os_formularios_passam_a_apanhar_o_armazem_escolhido(): void
-    {
-        $this->definicoes();
-        $this->armazem('Armazém Central', true);
-        $novo = $this->armazem('Armazém do Porto');
-
-        Livewire::test(Settings::class)
-            ->set('default_warehouse_id', $novo->id)
-            ->call('save');
-
-        // O mesmo caminho que InvoiceCreate, QuoteCreate, PurchaseCreate e o
-        // POS usam para escolher o armazém de um documento novo.
+        // O mesmo caminho que os editores de documentos e o POS usam para
+        // escolher o armazém de um documento novo — é isto que o utilizador vê.
         $this->assertSame($novo->id, Warehouse::getDefault($this->tenant->id)?->id);
         $this->assertSame($novo->id, defaultWarehouseId());
     }
@@ -105,10 +112,15 @@ class ArmazemPrincipalTest extends TenantTestCase
     // ── Guardas ──────────────────────────────────────────────────────────
 
     /**
-     * Um armazém de outra empresa não pode ser marcado a partir daqui — e a
-     * definição fica limpa em vez de apontar para o nada.
+     * Um armazém de outra empresa não pode ser marcado a partir daqui.
+     *
+     * Que a definição fica limpa e volta com aviso está provado em
+     * `ApiDasDefinicoesParaReactTest::o_armazem_de_outra_empresa_e_recusado_com_aviso`.
+     * O que se guarda AQUI é a outra metade, que ninguém mais vê: o padrão da
+     * própria empresa não pode cair no meio da recusa — sem padrão, todo o
+     * documento novo nasce sem armazém.
      */
-    public function test_armazem_de_outra_empresa_e_recusado(): void
+    public function test_armazem_de_outra_empresa_nao_desmarca_o_meu(): void
     {
         $this->definicoes();
         $meu = $this->armazem('O meu', true);
@@ -124,13 +136,10 @@ class ArmazemPrincipalTest extends TenantTestCase
             'code' => 'ARM-VIZ-' . uniqid(), 'is_active' => true, 'is_default' => true,
         ]));
 
-        Livewire::test(Settings::class)
-            ->set('default_warehouse_id', $alheio->id)
-            ->call('save');
+        $this->putJson(self::RAIZ, $this->corpo(['default_warehouse_id' => $alheio->id]))->assertOk();
 
         $this->assertTrue($alheio->refresh()->is_default, 'O armazém da outra empresa não pode mudar.');
         $this->assertTrue($meu->refresh()->is_default, 'O meu padrão tem de continuar de pé.');
-        $this->assertNull($this->definicoes()->refresh()->default_warehouse_id);
     }
 
     /** Guardar sem escolher armazém não desmarca o que já lá estava. */
@@ -139,9 +148,7 @@ class ArmazemPrincipalTest extends TenantTestCase
         $this->definicoes();
         $actual = $this->armazem('Armazém Central', true);
 
-        Livewire::test(Settings::class)
-            ->set('default_warehouse_id', null)
-            ->call('save');
+        $this->putJson(self::RAIZ, $this->corpo(['default_warehouse_id' => null]))->assertOk();
 
         $this->assertTrue($actual->refresh()->is_default);
     }
@@ -152,10 +159,8 @@ class ArmazemPrincipalTest extends TenantTestCase
         $this->definicoes();
         $actual = $this->armazem('Armazém Central', true);
 
-        Livewire::test(Settings::class)
-            ->set('default_warehouse_id', $actual->id)
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson(self::RAIZ, $this->corpo(['default_warehouse_id' => $actual->id]))
+            ->assertOk()->assertJsonPath('aviso', null);
 
         $this->assertTrue($actual->refresh()->is_default);
         $this->assertSame($actual->id, $this->definicoes()->refresh()->default_warehouse_id);

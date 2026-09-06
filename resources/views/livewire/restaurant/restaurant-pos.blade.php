@@ -136,7 +136,7 @@
                     @forelse($products as $product)
                         <button wire:click="quickAddProduct({{ $product->id }})" wire:loading.attr="disabled" @disabled(!$selectedOrder || !in_array($selectedOrder->status, ['draft','confirmed','in_preparation','ready','served'])) class="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-400 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-45">
                             <div class="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-orange-50 to-amber-100">
-                                @if($product->featured_image)<img src="{{ $product->featured_image_url }}" alt="" class="h-full w-full object-cover transition group-hover:scale-105">@else<div class="grid h-full place-items-center text-4xl text-orange-300"><i class="fas fa-bowl-food"></i></div>@endif
+                                @if($product->featured_image)<img src="{{ $product->image_url }}" alt="" class="h-full w-full object-cover transition group-hover:scale-105">@else<div class="grid h-full place-items-center text-4xl text-orange-300"><i class="fas fa-bowl-food"></i></div>@endif
                                 <span class="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-xs font-black text-orange-700 shadow">{{ number_format($product->price, 0, ',', '.') }} Kz</span>
                             </div>
                             <div class="p-3"><h3 class="line-clamp-2 min-h-10 text-sm font-black text-slate-900">{{ $product->name }}</h3><p class="mt-1 truncate text-[11px] font-semibold text-slate-400">{{ $product->category?->name ?? $product->code }}</p></div>

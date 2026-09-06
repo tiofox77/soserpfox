@@ -263,7 +263,7 @@ class LeituraDaTrilhaTest extends TenantTestCase
 
     public function test_o_ecra_da_auditoria_mostra_a_frase(): void
     {
-        $this->comPermissoes('invoicing.settings.edit')->comModulo('invoicing');
+        $this->comPermissoes('invoicing.settings.view')->comModulo('invoicing');
 
         Stock::create([
             'tenant_id'    => $this->tenant->id,
@@ -281,9 +281,15 @@ class LeituraDaTrilhaTest extends TenantTestCase
             'user_id'      => $this->user->id,
         ]);
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\AuditTrailViewer::class)
-            ->assertSee('SEGURO-72HORAS')
-            ->assertSee('Saída de 1')
-            ->assertDontSee('warehouse_id:');
+        // O ecrã é React e lê a trilha pela API. O que se guarda é o mesmo: a
+        // linha chega em português legível, com o nome do artigo, e sem os
+        // nomes crus das colunas — que era o que estava lá antes de haver
+        // frase nenhuma.
+        $linhas = $this->getJson('/api/v1/invoicing/react/auditoria')->assertOk()->json('data');
+        $frases = implode("\n", array_column($linhas, 'frase'));
+
+        $this->assertStringContainsString('SEGURO-72HORAS', $frases);
+        $this->assertStringContainsString('Saída de 1', $frases);
+        $this->assertStringNotContainsString('warehouse_id:', $frases);
     }
 }

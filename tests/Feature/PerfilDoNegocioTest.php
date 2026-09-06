@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\Products;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Product;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -14,9 +12,17 @@ use Tests\TenantTestCase;
  * O perfil decide o que APARECE por omissão. Não decide o que existe, e não
  * decide o que protege. Essas duas linhas são o que estes testes guardam —
  * o resto é conveniência e pode mudar; estas não.
+ *
+ * O ecrã dos artigos passou a React: quem responde é a API
+ * `/api/v1/invoicing/react/products`. O contrato que o ecrã usa para decidir
+ * o que mostrar vem em `opcoes`: os `perfis` ligados E o que o catálogo já
+ * TEM (`variantes`). É esse OU que garante que desligar o perfil nunca
+ * esconde dados gravados.
  */
 class PerfilDoNegocioTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/products';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,11 +54,24 @@ class PerfilDoNegocioTest extends TenantTestCase
             'code'        => 'A-' . uniqid(),
             'price'       => 1000,
             'type'        => 'produto',
+            'unit'        => 'un',
             'is_active'   => true,
             'tax_id'      => $this->imposto->id,
+            'tax_type'    => 'iva',
             'category_id' => $categoria->id,
             'tax_rate_id' => $this->imposto->id,
         ], $campos));
+    }
+
+    private function opcoes(): array
+    {
+        return $this->getJson(self::RAIZ . '/opcoes')->assertOk()->json();
+    }
+
+    private function daLista(int $id): ?array
+    {
+        return collect($this->getJson(self::RAIZ . '?por_pagina=100')->assertOk()->json('data'))
+            ->firstWhere('id', $id);
     }
 
     // ==================== a definição ====================
@@ -88,13 +107,14 @@ class PerfilDoNegocioTest extends TenantTestCase
     // ==================== a linha que não se cruza (1) ====================
 
     /**
-     * Um campo com valor aparece SEMPRE, mesmo com o perfil desligado.
+     * Um campo com valor volta SEMPRE do servidor, mesmo com o perfil
+     * desligado.
      *
      * É a diferença entre esconder uma secção e perder dados de vista. Se
-     * desligar o perfil escondesse o que já lá está, o utilizador ficava com
-     * dados gravados que não conseguia ver nem corrigir — e o artigo
-     * continuava a comportar-se como medicamento no POS sem que nada no ecrã
-     * o explicasse.
+     * desligar o perfil apagasse o que já lá está da resposta, o utilizador
+     * ficava com dados gravados que não conseguia ver nem corrigir — e o
+     * artigo continuava a comportar-se como medicamento no POS sem que nada
+     * no ecrã o explicasse.
      */
     public function test_um_medicamento_mostra_os_campos_com_o_perfil_desligado(): void
     {
@@ -108,20 +128,15 @@ class PerfilDoNegocioTest extends TenantTestCase
 
         // Duas coisas separadas, e as duas necessárias:
         //
-        //   1. o BLOCO aparece — sem ele não há onde ver nem corrigir;
-        //   2. as PROPRIEDADES vêm carregadas.
-        //
-        // Não se procura o valor no HTML: um input com wire:model não traz
-        // value="" na resposta inicial — o Livewire preenche-o do lado do
-        // cliente, a partir do estado. Procurá-lo aqui dava um teste que
-        // falhava com o código certo (e, ao contrário, um que passava porque
-        // o texto aparecia noutro sítio qualquer da página).
-        $componente = Livewire::test(Products::class)->call('edit', $p->id);
+        //   1. os VALORES vêm na ficha — sem eles não há onde ver nem corrigir;
+        //   2. o ecrã fica a saber que há receituário no catálogo, e é por aí
+        //      que revela a secção mesmo com o perfil desligado.
+        $linha = $this->daLista($p->id);
 
-        $componente->assertSee('Substância activa (DCI)');
+        $this->assertSame('Amoxicilina tri-hidratada', $linha['active_ingredient']);
+        $this->assertSame('250mg', $linha['dosage']);
 
-        $componente->assertSet('active_ingredient', 'Amoxicilina tri-hidratada');
-        $componente->assertSet('dosage', '250mg');
+        $this->assertSame([], $this->opcoes()['perfis'], 'o perfil está mesmo desligado');
     }
 
     /** O mesmo para o vestuário. */
@@ -131,12 +146,15 @@ class PerfilDoNegocioTest extends TenantTestCase
 
         $p = $this->artigo(['name' => 'Casaco', 'size' => 'L', 'color' => 'Verde']);
 
-        $componente = Livewire::test(Products::class)->call('edit', $p->id);
+        $linha = $this->daLista($p->id);
 
-        $componente->assertSee('Composição');
+        $this->assertSame('L', $linha['size']);
+        $this->assertSame('Verde', $linha['color']);
 
-        $componente->assertSet('size', 'L');
-        $componente->assertSet('color', 'Verde');
+        $variantes = $this->opcoes()['variantes'];
+
+        $this->assertContains('L', $variantes['tamanhos'], 'sem isto o filtro de tamanho não aparecia');
+        $this->assertContains('Verde', $variantes['cores']);
     }
 
     /**
@@ -150,11 +168,16 @@ class PerfilDoNegocioTest extends TenantTestCase
 
         $p = $this->artigo(['name' => 'Ibuprofeno', 'dosage' => '400mg']);
 
-        Livewire::test(Products::class)
-            ->call('edit', $p->id)
-            ->set('dosage', '600mg')
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->putJson(self::RAIZ . '/' . $p->id, [
+            'name' => 'Ibuprofeno',
+            'type' => 'produto',
+            'unit' => 'un',
+            'price' => 1000,
+            'category_id' => $p->category_id,
+            'tax_type' => 'iva',
+            'tax_rate_id' => $this->imposto->id,
+            'dosage' => '600mg',
+        ])->assertOk();
 
         $this->assertSame('600mg', $p->fresh()->dosage);
     }
@@ -219,12 +242,16 @@ class PerfilDoNegocioTest extends TenantTestCase
 
     // ==================== o que o perfil faz mesmo ====================
 
-    /** Com o perfil de farmácia, o filtro de receita aparece. */
+    /** Com o perfil de farmácia, o ecrã recebe ordem de mostrar o filtro de receita. */
     public function test_o_perfil_de_farmacia_mostra_o_filtro_de_receita(): void
     {
         $this->perfil(farmacia: true);
 
-        Livewire::test(Products::class)->assertSee('Receita');
+        $this->assertContains(
+            InvoicingSettings::PERFIL_FARMACIA,
+            $this->opcoes()['perfis'],
+            'é por aqui que o ecrã sabe que há-de mostrar o filtro de receita'
+        );
     }
 
     /**
@@ -237,9 +264,11 @@ class PerfilDoNegocioTest extends TenantTestCase
         $this->perfil();
         $this->artigo(['name' => 'Parafuso M8']);
 
-        Livewire::test(Products::class)
-            ->assertDontSee('Exige receita')
-            ->assertDontSee('Venda livre');
+        $o = $this->opcoes();
+
+        $this->assertSame([], $o['perfis']);
+        $this->assertFalse($o['variantes']['ha_receituario']);
+        $this->assertSame([], $o['variantes']['tamanhos']);
     }
 
     /**
@@ -254,19 +283,37 @@ class PerfilDoNegocioTest extends TenantTestCase
         $this->perfil(farmacia: false);
         $this->artigo(['name' => 'Antibiótico', 'requires_prescription' => true]);
 
-        Livewire::test(Products::class)->assertSee('Receita');
+        $o = $this->opcoes();
+
+        $this->assertSame([], $o['perfis'], 'o perfil continua desligado');
+        $this->assertTrue($o['variantes']['ha_receituario'], 'e mesmo assim o filtro tem de aparecer');
     }
 
-    /** O ecrã de definições mostra os dois perfis e o que cada um liga. */
+    /** O ecrã de definições mostra os quatro perfis e deixa-os gravar. */
     public function test_o_ecra_de_definicoes_explica_os_perfis(): void
     {
         $this->comPermissoes('invoicing.settings.view');
 
-        $this->get('/invoicing/settings')
-            ->assertOk()
-            ->assertSee('Perfil do Negócio')
-            ->assertSee('Trabalha com medicamentos')
-            ->assertSee('Trabalha com vestuário')
-            ->assertSee('O que fica activo');
+        // A página continua na morada de sempre — agora serve a casca do
+        // React, portanto o que se prova aqui é que ABRE.
+        $this->get('/invoicing/settings')->assertOk();
+
+        // E o ecrã que ela carrega tem mesmo os quatro interruptores. É uma
+        // guarda de fonte: sem ela, tirar um perfil do ecrã passava
+        // despercebido — a coluna continuava lá e ninguém a conseguia ligar.
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/Definicoes.tsx'));
+
+        $this->assertStringContainsString('Perfil do negócio', $ecra);
+
+        foreach (['profile_pharmacy', 'profile_clothing', 'profile_cosmetics', 'profile_grocery'] as $campo) {
+            $this->assertStringContainsString($campo, $ecra, "o interruptor de {$campo} desapareceu do ecrã");
+        }
+
+        // E a API entrega-os para o ecrã os desenhar.
+        $definicoes = $this->getJson('/api/v1/invoicing/react/definicoes')->assertOk()->json('definicoes');
+
+        foreach (['profile_pharmacy', 'profile_clothing', 'profile_cosmetics', 'profile_grocery'] as $campo) {
+            $this->assertArrayHasKey($campo, $definicoes);
+        }
     }
 }

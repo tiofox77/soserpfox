@@ -2,23 +2,28 @@
 
 namespace Tests\Feature\Invoicing;
 
-use App\Livewire\Invoicing\Propostas\EditorDeModelo;
-use App\Livewire\Invoicing\Propostas\ModelosDeProposta;
 use App\Models\Invoicing\QuoteTemplate;
 use App\Models\Invoicing\SalesQuote;
 use App\Models\Invoicing\SalesQuoteItem;
 use App\Models\Tenant;
 use App\Services\Invoicing\Propostas\ModelosDeArranque;
 use App\Services\Invoicing\Propostas\RenderizadorDeProposta;
-use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Tests\TenantTestCase;
 
 /**
  * Modelos de proposta: o desenho do orçamento, separado dos seus números.
+ *
+ * O renderizador e os modelos de arranque são serviços e provam-se em
+ * directo. A lista e o editor são hoje ecrãs em React, servidos pelo
+ * `ModelosDePropostaApiController` — que grava pela `GestaoDeModelos` e pela
+ * `EdicaoDeModelo`, as mesmas de sempre. As regras não mudaram: é contra a
+ * API que se provam.
  */
 class ModelosDePropostaTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/modelos-de-proposta';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -31,9 +36,9 @@ class ModelosDePropostaTest extends TenantTestCase
     }
 
     /**
-     * As rotas vivem atrás de `tenant.module:invoicing`. Um teste que só chama
-     * Livewire::test() salta o middleware e nunca dá por isso — mas quem abre
-     * o ecrã no browser leva 403 se o módulo não estiver ligado.
+     * As páginas vivem atrás de `tenant.module:invoicing`. Um ensaio que só
+     * chame a API salta o middleware da página e nunca dá por isso — mas quem
+     * abre o ecrã no browser leva 403 se o módulo não estiver ligado.
      */
     private function ligarModuloDeFacturacao(): void
     {
@@ -236,24 +241,31 @@ class ModelosDePropostaTest extends TenantTestCase
 
     // ── Editor ───────────────────────────────────────────────────────────
 
+    /** Uma acção do editor, como o ecrã em React a faz. */
+    private function editor(int $id, array $accao)
+    {
+        return $this->postJson(self::RAIZ . '/' . $id . '/editor', $accao);
+    }
+
     public function test_editor_acrescenta_remove_e_reordena(): void
     {
         $modelo = $this->modelo();
+        $primeiro = $modelo->blocos[0]['id'];
 
-        $c = Livewire::test(EditorDeModelo::class, ['id' => $modelo->id])
-            ->call('adicionarBloco', 'texto');
+        // Entra a seguir ao SELECCIONADO (aqui o primeiro), não no fim: é onde
+        // quem está a desenhar espera vê-lo aparecer.
+        $r = $this->editor($modelo->id, ['accao' => 'adicionar', 'tipo' => 'texto', 'seleccionado' => $primeiro])->assertOk();
 
-        $blocos = $c->get('blocos');
+        $blocos = $r->json('estado.blocos');
         $this->assertCount(4, $blocos);
-        // Entra a seguir ao seleccionado (o primeiro), não no fim.
         $this->assertSame('texto', $blocos[1]['tipo']);
 
         $ids = array_column($blocos, 'id');
-        $c->call('reordenar', array_reverse($ids));
-        $this->assertSame(array_reverse($ids), array_column($c->get('blocos'), 'id'));
+        $r = $this->editor($modelo->id, ['accao' => 'reordenar', 'ids' => array_reverse($ids)])->assertOk();
+        $this->assertSame(array_reverse($ids), array_column($r->json('estado.blocos'), 'id'));
 
-        $c->call('removerBloco', $ids[0]);
-        $this->assertCount(3, $c->get('blocos'));
+        $r = $this->editor($modelo->id, ['accao' => 'remover', 'id' => $ids[0]])->assertOk();
+        $this->assertCount(3, $r->json('estado.blocos'));
     }
 
     /** Duplicar um campo livre tem de lhe dar chave própria. */
@@ -263,10 +275,9 @@ class ModelosDePropostaTest extends TenantTestCase
             ['id' => 'cl', 'tipo' => 'campo_livre', 'chave' => 'ambito', 'rotulo' => 'Âmbito', 'titulo' => 'Âmbito'],
         ]);
 
-        $c = Livewire::test(EditorDeModelo::class, ['id' => $modelo->id])
-            ->call('duplicarBloco', 'cl');
+        $r = $this->editor($modelo->id, ['accao' => 'duplicar', 'id' => 'cl'])->assertOk();
 
-        $chaves = array_column($c->get('blocos'), 'chave');
+        $chaves = array_column($r->json('estado.blocos'), 'chave');
         $this->assertSame(['ambito', 'ambito_2'], $chaves);
     }
 
@@ -274,10 +285,8 @@ class ModelosDePropostaTest extends TenantTestCase
     {
         $modelo = $this->modelo();
 
-        Livewire::test(EditorDeModelo::class, ['id' => $modelo->id])
-            ->set('nome', 'Proposta de Software')
-            ->call('actualizarEstilo', 'cor_principal', '#db2777')
-            ->call('guardar');
+        $this->editor($modelo->id, ['accao' => 'renomear', 'nome' => 'Proposta de Software'])->assertOk();
+        $this->editor($modelo->id, ['accao' => 'estilo', 'chave' => 'cor_principal', 'valor' => '#db2777'])->assertOk();
 
         $modelo->refresh();
         $this->assertSame('Proposta de Software', $modelo->nome);
@@ -291,31 +300,29 @@ class ModelosDePropostaTest extends TenantTestCase
             ['id' => 'cl', 'tipo' => 'campo_livre', 'chave' => 'ambito', 'rotulo' => 'X', 'titulo' => 'X'],
         ]);
 
-        $c = Livewire::test(EditorDeModelo::class, ['id' => $modelo->id])
-            ->call('seleccionar', 'cl')
-            ->call('actualizarCampo', 'chave', 'Âmbito do Trabalho!!');
+        $r = $this->editor($modelo->id, [
+            'accao' => 'campo', 'id' => 'cl', 'campo' => 'chave', 'valor' => 'Âmbito do Trabalho!!',
+        ])->assertOk();
 
-        $this->assertSame('ambito_do_trabalho', $c->get('blocos')[0]['chave']);
+        $this->assertSame('ambito_do_trabalho', $r->json('estado.blocos.0.chave'));
     }
 
     /**
-     * O ecrã do editor tem de abrir por HTTP, não só em Livewire::test().
+     * O ecrã do editor tem de abrir por HTTP.
      *
-     * O QUE ISTO APANHA: um `<style>` (ou qualquer coisa) fora do elemento de
-     * raiz faz o Livewire rebentar com "Multiple root elements detected" — e o
-     * service worker do PWA responde com a página de "Sem ligação à internet",
-     * que faz parecer falha de rede e esconde o erro por completo. O
-     * Livewire::test() não apanhava isto; só o pedido inteiro apanha.
+     * As rotas vivem atrás de `tenant.module:invoicing` e de uma permissão. O
+     * ecrã é hoje React — a página traz a casca —, mas continua a ser o pedido
+     * inteiro que prova que o caminho está de pé: rota, módulo, permissão e
+     * layout. É como se descobriu, no tempo do Livewire, que a página do
+     * editor rebentava com "Multiple root elements" e o service worker do PWA
+     * a disfarçava de falha de rede.
      */
     public function test_o_ecra_do_editor_abre_por_http(): void
     {
         $this->ligarModuloDeFacturacao();
         $modelo = $this->modelo();
 
-        $resposta = $this->get(route('invoicing.sales.quote-templates.edit', $modelo->id));
-
-        $resposta->assertOk();
-        $resposta->assertDontSee('Multiple root elements', false);
+        $this->get(route('invoicing.sales.quote-templates.edit', $modelo->id))->assertOk();
     }
 
     public function test_a_lista_de_modelos_abre_por_http(): void
@@ -328,26 +335,20 @@ class ModelosDePropostaTest extends TenantTestCase
 
     public function test_editor_recusa_modelo_de_outra_empresa(): void
     {
-        $outra = Tenant::create([
-            'name' => 'Vizinha', 'slug' => 'viz-' . uniqid(),
-            'nif' => (string) random_int(500000000, 599999999),
-            'email' => 'v' . uniqid() . '@x.ao', 'is_active' => true,
-        ]);
+        $alheio = $this->modeloAlheio();
 
-        $alheio = QuoteTemplate::withoutEvents(fn () => QuoteTemplate::create([
-            'tenant_id' => $outra->id, 'nome' => 'Alheio',
-            'blocos' => [], 'estilos' => QuoteTemplate::ESTILOS_PADRAO,
-        ]));
+        $this->getJson(self::RAIZ . '/' . $alheio->id . '/editor')->assertNotFound();
 
-        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
-        Livewire::test(EditorDeModelo::class, ['id' => $alheio->id]);
+        $this->editor($alheio->id, ['accao' => 'adicionar', 'tipo' => 'texto'])->assertNotFound();
+
+        $this->assertCount(0, $alheio->fresh()->blocos, 'não se escreve no desenho de outra empresa');
     }
 
     // ── Lista ────────────────────────────────────────────────────────────
 
     public function test_lista_cria_modelo_de_arranque(): void
     {
-        Livewire::test(ModelosDeProposta::class)->call('criarDeArranque', 'informatica');
+        $this->postJson(self::RAIZ, ['arranque' => 'informatica'])->assertCreated();
 
         $this->assertDatabaseHas('quote_templates', [
             'tenant_id' => $this->tenant->id, 'sector' => 'informatica',
@@ -357,7 +358,7 @@ class ModelosDePropostaTest extends TenantTestCase
     /** Nem "do zero" nasce sem itens: um PDF sem preços parece avariado. */
     public function test_modelo_vazio_ja_traz_itens_e_totais(): void
     {
-        Livewire::test(ModelosDeProposta::class)->call('criarVazio');
+        $this->postJson(self::RAIZ, [])->assertCreated();
 
         $modelo = QuoteTemplate::where('tenant_id', $this->tenant->id)->latest('id')->firstOrFail();
         $tipos = array_column($modelo->blocos, 'tipo');
@@ -368,19 +369,25 @@ class ModelosDePropostaTest extends TenantTestCase
 
     public function test_nao_elimina_modelo_de_outra_empresa(): void
     {
+        $alheio = $this->modeloAlheio();
+
+        $this->deleteJson(self::RAIZ . '/' . $alheio->id)->assertStatus(422);
+
+        $this->assertNull($alheio->fresh()->deleted_at);
+    }
+
+    /** Um modelo de uma empresa vizinha, para provar que não se lhe toca. */
+    private function modeloAlheio(): QuoteTemplate
+    {
         $outra = Tenant::create([
-            'name' => 'Vizinha2', 'slug' => 'viz2-' . uniqid(),
+            'name' => 'Vizinha', 'slug' => 'viz-' . uniqid(),
             'nif' => (string) random_int(500000000, 599999999),
-            'email' => 'v2' . uniqid() . '@x.ao', 'is_active' => true,
+            'email' => 'v' . uniqid() . '@x.ao', 'is_active' => true,
         ]);
 
-        $alheio = QuoteTemplate::withoutEvents(fn () => QuoteTemplate::create([
+        return QuoteTemplate::withoutEvents(fn () => QuoteTemplate::create([
             'tenant_id' => $outra->id, 'nome' => 'Alheio',
             'blocos' => [], 'estilos' => QuoteTemplate::ESTILOS_PADRAO,
         ]));
-
-        Livewire::test(ModelosDeProposta::class)->call('eliminar', $alheio->id);
-
-        $this->assertNull($alheio->fresh()->deleted_at);
     }
 }

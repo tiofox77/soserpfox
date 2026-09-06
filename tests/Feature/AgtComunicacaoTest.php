@@ -205,8 +205,8 @@ class AgtComunicacaoTest extends TenantTestCase
         $this->assertStringContainsString('AutoSubmissao::enfileirar', $servico,
             'a Nota de Débito tem de ser enfileirada para a AGT');
 
-        $ecra = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
+        $ecra = file_get_contents(app_path('Http/Controllers/Api/Invoicing/NotasApiController.php'));
         $this->assertStringContainsString('emitirDebito', $ecra,
-            'o ecrã da Nota de Débito tem de passar pelo emissor');
+            'o ecrã da Nota de Débito (a API que o React chama) tem de passar pelo emissor');
     }
 }

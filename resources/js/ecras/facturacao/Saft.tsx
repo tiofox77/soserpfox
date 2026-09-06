@@ -9,6 +9,7 @@ import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { RAIO, cls } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * O GERADOR SAFT-AO.
@@ -27,8 +28,8 @@ export default function Saft() {
     if (opcoes.isError) {
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir o gerador</h2>
-                <p className="text-sm text-red-800">{opcoes.error instanceof ErroDaApi ? opcoes.error.message : 'Verifique a ligação.'}</p>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o gerador')}</h2>
+                <p className="text-sm text-red-800">{opcoes.error instanceof ErroDaApi ? opcoes.error.message : t('Verifique a ligação.')}</p>
             </div>
         );
     }
@@ -68,20 +69,20 @@ function Gerador({ o }: { o: OpcoesDoSaft }) {
             <AvisoDeErro erro={stats.error} />
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-file-code text-slate-400" aria-hidden="true" />SAFT-AO do período</span>}
-                accoes={o.permissoes.pode_gerar && <Botao cor="primaria" tom="solida" icone="fa-download" disabled={!completo || stats.isPending} onClick={descarregar}>Gerar e descarregar</Botao>}
+                titulo={<span className="flex items-center gap-2"><i className="fas fa-file-code text-slate-400" aria-hidden="true" />{t('SAFT-AO do período')}</span>}
+                accoes={o.permissoes.pode_gerar && <Botao cor="primaria" tom="solida" icone="fa-download" disabled={!completo || stats.isPending} onClick={descarregar}>{t('Gerar e descarregar')}</Botao>}
             >
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Campo etiqueta="De" obrigatorio><input type="date" value={periodo.startDate} onChange={(ev) => porPeriodo({ ...periodo, startDate: ev.target.value })} className={entrada} /></Campo>
-                    <Campo etiqueta="Até" obrigatorio><input type="date" value={periodo.endDate} onChange={(ev) => porPeriodo({ ...periodo, endDate: ev.target.value })} className={entrada} /></Campo>
-                    <Campo etiqueta="Documentos">
+                    <Campo etiqueta={t('De')} obrigatorio><input type="date" value={periodo.startDate} onChange={(ev) => porPeriodo({ ...periodo, startDate: ev.target.value })} className={entrada} /></Campo>
+                    <Campo etiqueta={t('Até')} obrigatorio><input type="date" value={periodo.endDate} onChange={(ev) => porPeriodo({ ...periodo, endDate: ev.target.value })} className={entrada} /></Campo>
+                    <Campo etiqueta={t('Documentos')}>
                         <select value={periodo.documentType} onChange={(ev) => porPeriodo({ ...periodo, documentType: ev.target.value })} className={entrada}>
                             {o.tipos.map((t) => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
                         </select>
                     </Campo>
                 </div>
                 <fieldset className="mt-4">
-                    <legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Secções a incluir</legend>
+                    <legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Secções a incluir')}</legend>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                         {o.seccoes.map((s) => (
                             <label key={s.chave} className="flex items-center gap-2 text-sm text-slate-700">
@@ -91,7 +92,7 @@ function Gerador({ o }: { o: OpcoesDoSaft }) {
                         ))}
                     </div>
                 </fieldset>
-                {!o.permissoes.pode_gerar && <p className="mt-4 text-sm text-slate-500">Pode ver as contagens; gerar o ficheiro é permissão à parte.</p>}
+                {!o.permissoes.pode_gerar && <p className="mt-4 text-sm text-slate-500">{t('Pode ver as contagens; gerar o ficheiro é permissão à parte.')}</p>}
             </Cartao>
 
             <div data-estatisticas className={cls('grid gap-3 sm:grid-cols-3', stats.isFetching && 'opacity-60')}>
@@ -100,7 +101,7 @@ function Gerador({ o }: { o: OpcoesDoSaft }) {
                     <div key={c.rotulo} className={cls('flex items-center gap-3 border border-slate-200 bg-white p-4', RAIO)}>
                         <i className={cls('fas text-xl text-slate-300', c.icone)} aria-hidden="true" />
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{c.rotulo}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t(c.rotulo)}</p>
                             <p className="text-lg font-bold tabular-nums text-slate-900">{c.valor}</p>
                         </div>
                     </div>

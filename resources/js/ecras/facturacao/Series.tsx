@@ -11,6 +11,7 @@ import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { FOCO, RAIO, cls } from '@/ui/tokens';
+import { t, tPartes } from '@/i18n';
 
 /**
  * A GESTÃO DAS SÉRIES DE DOCUMENTOS — a ficha inteira.
@@ -56,8 +57,8 @@ export default function Series() {
         const erro = opcoes.error ?? lista.error;
         return (
             <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir as séries</h2>
-                <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : 'Verifique a ligação.'}</p>
+                <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir as séries')}</h2>
+                <p className="text-sm text-red-800">{erro instanceof ErroDaApi ? erro.message : t('Verifique a ligação.')}</p>
             </div>
         );
     }
@@ -81,19 +82,19 @@ export default function Series() {
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
                     <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
-                    <button type="button" onClick={() => porRecado('')} aria-label="Fechar" className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
+                    <button type="button" onClick={() => porRecado('')} aria-label={t('Fechar')} className={cls('p-1 text-emerald-700', FOCO, RAIO)}><i className="fas fa-times" aria-hidden="true" /></button>
                 </div>
             )}
             <AvisoDeErro erro={eliminar.error} />
 
             <Cartao
-                titulo={<span className="flex items-center gap-2"><i className="fas fa-hashtag text-slate-400" aria-hidden="true" />Séries de Documentos</span>}
-                accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNova}>Nova série</Botao>}
+                titulo={<span className="flex items-center gap-2"><i className="fas fa-hashtag text-slate-400" aria-hidden="true" />{t('Séries de Documentos')}</span>}
+                accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNova}>{t('Nova série')}</Botao>}
             >
                 <div className="flex flex-wrap items-end gap-3">
-                    <label className="min-w-[14rem] flex-1 text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Procurar</span><input value={filtros.procura} onChange={(e) => porFiltros((f) => ({ ...f, procura: e.target.value, page: 1 }))} placeholder="Nome ou código" className={entrada} /></label>
-                    <label className="text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Tipo</span>
-                        <select value={filtros.tipo} onChange={(e) => porFiltros((f) => ({ ...f, tipo: e.target.value, page: 1 }))} className={entrada}><option value="">Todos</option>{o.tipos.map((t) => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}</select>
+                    <label className="min-w-[14rem] flex-1 text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Procurar')}</span><input value={filtros.procura} onChange={(e) => porFiltros((f) => ({ ...f, procura: e.target.value, page: 1 }))} placeholder={t('Nome ou código')} className={entrada} /></label>
+                    <label className="text-sm"><span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Tipo')}</span>
+                        <select value={filtros.tipo} onChange={(e) => porFiltros((f) => ({ ...f, tipo: e.target.value, page: 1 }))} className={entrada}><option value="">{t('Todos')}</option>{o.tipos.map((t) => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}</select>
                     </label>
                 </div>
             </Cartao>
@@ -101,22 +102,22 @@ export default function Series() {
             <Cartao semPadding>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">Tipo</th><th className="px-4 py-3 font-semibold">Código</th><th className="px-4 py-3 font-semibold">Nome</th><th className="px-4 py-3 font-semibold">Próximo número</th><th className="px-4 py-3 text-right font-semibold">Emitidos</th><th className="px-4 py-3 font-semibold">AGT</th><th className="w-28 px-4 py-3"></th></tr></thead>
+                        <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">{t('Tipo')}</th><th className="px-4 py-3 font-semibold">{t('Código')}</th><th className="px-4 py-3 font-semibold">{t('Nome')}</th><th className="px-4 py-3 font-semibold">{t('Próximo número')}</th><th className="px-4 py-3 text-right font-semibold">{t('Emitidos')}</th><th className="px-4 py-3 font-semibold">AGT</th><th className="w-28 px-4 py-3"></th></tr></thead>
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
-                            {linhas.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? 'A carregar…' : 'Nenhuma série.'}</td></tr>}
+                            {linhas.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">{lista.isPending ? t('A carregar…') : t('Nenhuma série.')}</td></tr>}
                             {linhas.map((s) => (
                                 <tr key={s.id} className={cls(!s.is_active && 'text-slate-400')}>
                                     <td className="px-4 py-2">{s.tipo_rotulo}<span className="ml-2 font-mono text-xs text-slate-400">{s.prefix}</span></td>
-                                    <td className="px-4 py-2 font-mono font-semibold text-slate-900">{s.series_code}{s.is_default && <span className="ml-2"><Etiqueta cor="aviso" icone="fa-star">Padrão</Etiqueta></span>}</td>
-                                    <td className="px-4 py-2">{s.name}{!s.is_active && <span className="ml-2 text-xs">(inactiva)</span>}</td>
+                                    <td className="px-4 py-2 font-mono font-semibold text-slate-900">{s.series_code}{s.is_default && <span className="ml-2"><Etiqueta cor="aviso" icone="fa-star">{t('Padrão')}</Etiqueta></span>}</td>
+                                    <td className="px-4 py-2">{s.name}{!s.is_active && <span className="ml-2 text-xs">{t('(inactiva)')}</span>}</td>
                                     <td className="px-4 py-2 font-mono text-xs text-slate-600">{s.exemplo}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{s.emitidos}</td>
-                                    <td className="px-4 py-2">{s.registada ? <Etiqueta cor="primaria" icone="fa-shield">{s.agt_series_id}</Etiqueta> : <Etiqueta>Por registar</Etiqueta>}</td>
+                                    <td className="px-4 py-2">{s.registada ? <Etiqueta cor="primaria" icone="fa-shield">{s.agt_series_id}</Etiqueta> : <Etiqueta>{t('Por registar')}</Etiqueta>}</td>
                                     <td className="px-4 py-2 text-right">
                                         {o.permissoes.pode_escrever && (
                                             <span className="flex justify-end gap-1">
-                                                <button type="button" onClick={() => abrirEdicao(s)} aria-label={`Editar série ${s.series_code}`} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
-                                                <button type="button" disabled={s.registada} onClick={() => porAEliminar(s)} title={s.registada ? 'Registada na AGT — não se elimina' : 'Eliminar'} aria-label={`Eliminar série ${s.series_code}`} className={cls('p-2 text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
+                                                <button type="button" onClick={() => abrirEdicao(s)} aria-label={t('Editar série :codigo', { codigo: s.series_code })} className={cls('p-2 text-slate-400 hover:text-indigo-600', RAIO, FOCO)}><i className="fas fa-pen" aria-hidden="true" /></button>
+                                                <button type="button" disabled={s.registada} onClick={() => porAEliminar(s)} title={s.registada ? t('Registada na AGT — não se elimina') : t('Eliminar')} aria-label={t('Eliminar série :codigo', { codigo: s.series_code })} className={cls('p-2 text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40', RAIO, FOCO)}><i className="fas fa-trash" aria-hidden="true" /></button>
                                             </span>
                                         )}
                                     </td>
@@ -127,19 +128,19 @@ export default function Series() {
                 </div>
                 {contas && contas.last_page > 1 && (
                     <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-500">
-                        <span>Página {contas.current_page} de {contas.last_page}</span>
+                        <span>{t('Página :pagina de :paginas', { pagina: contas.current_page, paginas: contas.last_page })}</span>
                         <span className="flex gap-1">
-                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>Anterior</Botao>
-                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>Seguinte</Botao>
+                            <Botao icone="fa-chevron-left" disabled={contas.current_page <= 1} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page - 1 }))}>{t('Anterior')}</Botao>
+                            <Botao icone="fa-chevron-right" disabled={contas.current_page >= contas.last_page} onClick={() => porFiltros((f) => ({ ...f, page: contas.current_page + 1 }))}>{t('Seguinte')}</Botao>
                         </span>
                     </div>
                 )}
             </Cartao>
 
-            {forma && <Formulario o={o} forma={forma} registada={aEditar?.registada ?? false} erros={erros} titulo={aEditar ? `Editar série ${aEditar.series_code}` : 'Nova série'} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={(f) => porForma({ ...f, prefix: prefixoDe(f.document_type) || f.prefix })} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />}
+            {forma && <Formulario o={o} forma={forma} registada={aEditar?.registada ?? false} erros={erros} titulo={aEditar ? t('Editar série :codigo', { codigo: aEditar.series_code }) : t('Nova série')} aGravar={gravar.isPending} erroGeral={gravar.error} aoMudar={(f) => porForma({ ...f, prefix: prefixoDe(f.document_type) || f.prefix })} aoFechar={() => { porForma(null); porAEditar(null); }} aoGravar={() => gravar.mutate(forma)} />}
 
-            <Modal aberto={aEliminar !== null} aoFechar={() => porAEliminar(null)} titulo="Eliminar a série?" rodape={<><Botao onClick={() => porAEliminar(null)}>Cancelar</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={eliminar.isPending} onClick={() => aEliminar && eliminar.mutate(aEliminar)}>Eliminar</Botao></>}>
-                <p className="text-sm text-slate-700">Vai eliminar a série <strong>{aEliminar?.series_code}</strong>. Não há volta.</p>
+            <Modal aberto={aEliminar !== null} aoFechar={() => porAEliminar(null)} titulo={t('Eliminar a série?')} rodape={<><Botao onClick={() => porAEliminar(null)}>{t('Cancelar')}</Botao><Botao cor="perigo" tom="solida" icone="fa-trash" aTrabalhar={eliminar.isPending} onClick={() => aEliminar && eliminar.mutate(aEliminar)}>{t('Eliminar')}</Botao></>}>
+                <p className="text-sm text-slate-700">{tPartes('Vai eliminar a série :codigo. Não há volta.', { codigo: <strong>{aEliminar?.series_code}</strong> })}</p>
             </Modal>
         </div>
     );
@@ -154,31 +155,31 @@ function Formulario({ o, forma, registada, erros, titulo, aGravar, erroGeral, ao
     const temPrefixoFiscal = (o.tipos.find((t) => t.valor === forma.document_type)?.prefixo ?? null) !== null;
 
     return (
-        <Modal aberto aoFechar={aoFechar} titulo={titulo} largura="lg" rodape={<><Botao onClick={aoFechar}>Cancelar</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>Guardar</Botao></>}>
+        <Modal aberto aoFechar={aoFechar} titulo={titulo} largura="lg" rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}>
             <AvisoDeErro erro={erroGeral} />
-            {registada && <p role="status" className={cls('mb-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>Série registada na AGT: só o nome, a descrição e a preferência de padrão se alteram.</p>}
+            {registada && <p role="status" className={cls('mb-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900', RAIO)}>{t('Série registada na AGT: só o nome, a descrição e a preferência de padrão se alteram.')}</p>}
             <div className="grid gap-4 sm:grid-cols-3">
-                <Campo etiqueta="Tipo de documento" erro={erros.document_type} obrigatorio>
+                <Campo etiqueta={t('Tipo de documento')} erro={erros.document_type} obrigatorio>
                     <select value={forma.document_type} onChange={m('document_type')} disabled={registada} className={entrada}>{o.tipos.map((t) => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}</select>
                 </Campo>
                 {/* O prefixo mostra-se pelo tipo; só os tipos internos o deixam escrever. */}
-                <Campo etiqueta="Prefixo" erro={erros.prefix} obrigatorio>
+                <Campo etiqueta={t('Prefixo')} erro={erros.prefix} obrigatorio>
                     <input value={forma.prefix} onChange={m('prefix')} readOnly={temPrefixoFiscal || registada} className={cls(entrada, (temPrefixoFiscal || registada) && 'bg-slate-50 text-slate-500')} />
                 </Campo>
-                <Campo etiqueta="Código" erro={erros.series_code} obrigatorio><input value={forma.series_code} onChange={m('series_code')} maxLength={10} readOnly={registada} className={cls(entrada, registada && 'bg-slate-50 text-slate-500')} /></Campo>
-                <Campo etiqueta="Nome" erro={erros.name} obrigatorio className="sm:col-span-2"><input value={forma.name} onChange={m('name')} maxLength={100} className={entrada} /></Campo>
-                <Campo etiqueta="Exercício" erro={erros.series_year}><input type="number" min="2024" max="2099" value={forma.series_year} onChange={m('series_year')} readOnly={registada} className={cls(entrada, 'text-right tabular-nums', registada && 'bg-slate-50 text-slate-500')} /></Campo>
-                <Campo etiqueta="Próximo número" erro={erros.next_number} obrigatorio><input type="number" min="1" value={forma.next_number} onChange={m('next_number')} readOnly={registada} className={cls(entrada, 'text-right tabular-nums', registada && 'bg-slate-50 text-slate-500')} /></Campo>
-                <Campo etiqueta="Dígitos do número" erro={erros.number_padding} obrigatorio><input type="number" min="1" max="10" value={forma.number_padding} onChange={m('number_padding')} readOnly={registada} className={cls(entrada, 'text-right tabular-nums', registada && 'bg-slate-50 text-slate-500')} /></Campo>
-                <Campo etiqueta="Estabelecimento" erro={erros.establishment_number}><input value={forma.establishment_number} onChange={m('establishment_number')} readOnly={registada} className={cls(entrada, registada && 'bg-slate-50 text-slate-500')} /></Campo>
-                <Campo etiqueta="Método de facturação" erro={erros.invoicing_method}>
+                <Campo etiqueta={t('Código')} erro={erros.series_code} obrigatorio><input value={forma.series_code} onChange={m('series_code')} maxLength={10} readOnly={registada} className={cls(entrada, registada && 'bg-slate-50 text-slate-500')} /></Campo>
+                <Campo etiqueta={t('Nome')} erro={erros.name} obrigatorio className="sm:col-span-2"><input value={forma.name} onChange={m('name')} maxLength={100} className={entrada} /></Campo>
+                <Campo etiqueta={t('Exercício')} erro={erros.series_year}><input type="number" min="2024" max="2099" value={forma.series_year} onChange={m('series_year')} readOnly={registada} className={cls(entrada, 'text-right tabular-nums', registada && 'bg-slate-50 text-slate-500')} /></Campo>
+                <Campo etiqueta={t('Próximo número')} erro={erros.next_number} obrigatorio><input type="number" min="1" value={forma.next_number} onChange={m('next_number')} readOnly={registada} className={cls(entrada, 'text-right tabular-nums', registada && 'bg-slate-50 text-slate-500')} /></Campo>
+                <Campo etiqueta={t('Dígitos do número')} erro={erros.number_padding} obrigatorio><input type="number" min="1" max="10" value={forma.number_padding} onChange={m('number_padding')} readOnly={registada} className={cls(entrada, 'text-right tabular-nums', registada && 'bg-slate-50 text-slate-500')} /></Campo>
+                <Campo etiqueta={t('Estabelecimento')} erro={erros.establishment_number}><input value={forma.establishment_number} onChange={m('establishment_number')} readOnly={registada} className={cls(entrada, registada && 'bg-slate-50 text-slate-500')} /></Campo>
+                <Campo etiqueta={t('Método de facturação')} erro={erros.invoicing_method}>
                     <select value={forma.invoicing_method} onChange={m('invoicing_method')} disabled={registada} className={entrada}>{o.metodos.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}</select>
                 </Campo>
-                <Campo etiqueta="Descrição" erro={erros.description} className="sm:col-span-3"><input value={forma.description} onChange={m('description')} className={entrada} /></Campo>
-                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={forma.include_year} onChange={b('include_year')} disabled={registada} className="h-4 w-4 rounded border-slate-300" />Ano no número</label>
-                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={forma.reset_yearly} onChange={b('reset_yearly')} disabled={registada} className="h-4 w-4 rounded border-slate-300" />Recomeça cada ano</label>
-                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={forma.is_active} onChange={b('is_active')} disabled={registada} className="h-4 w-4 rounded border-slate-300" />Activa</label>
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 sm:col-span-3"><input type="checkbox" checked={forma.is_default} onChange={b('is_default')} className="h-4 w-4 rounded border-slate-300" />Série padrão deste tipo de documento</label>
+                <Campo etiqueta={t('Descrição')} erro={erros.description} className="sm:col-span-3"><input value={forma.description} onChange={m('description')} className={entrada} /></Campo>
+                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={forma.include_year} onChange={b('include_year')} disabled={registada} className="h-4 w-4 rounded border-slate-300" />{t('Ano no número')}</label>
+                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={forma.reset_yearly} onChange={b('reset_yearly')} disabled={registada} className="h-4 w-4 rounded border-slate-300" />{t('Recomeça cada ano')}</label>
+                <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={forma.is_active} onChange={b('is_active')} disabled={registada} className="h-4 w-4 rounded border-slate-300" />{t('Activa')}</label>
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 sm:col-span-3"><input type="checkbox" checked={forma.is_default} onChange={b('is_default')} className="h-4 w-4 rounded border-slate-300" />{t('Série padrão deste tipo de documento')}</label>
             </div>
         </Modal>
     );

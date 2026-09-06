@@ -179,25 +179,26 @@ class CondicaoDePagamentoPorOmissaoTest extends TenantTestCase
         $this->assertSame($viva->id, PaymentTerm::padraoDe($this->tenant->id)?->id);
     }
 
-    // ── O ecrã de Configurações ───────────────────────────────────────
+    // ── O ecrã de Configurações (agora em React, pela API) ────────────
 
     /**
      * UMA SÓ AUTORIDADE. As Configurações escrevem o `is_default` da condição
      * escolhida, e não uma cópia noutra tabela: com duas definições, este ecrã
      * dizia uma coisa e o das Condições dizia outra.
+     *
+     * O ecrã passou para React; quem grava é o `DefinicoesApiController`, que
+     * chama o mesmo `DefinicoesDaFacturacao` de sempre. A regra não mudou de
+     * conteúdo, só de porta.
      */
     public function test_as_configuracoes_marcam_a_condicao_escolhida(): void
     {
-        $this->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
+        $this->comModulo('invoicing')->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
 
         PaymentTerm::withoutGlobalScopes()->where('tenant_id', $this->tenant->id)->delete();
         $antiga = $this->condicao('Antiga', 0, padrao: true, ordem: 1);
         $nova = $this->condicao('Nova', 30, ordem: 2);
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\Settings::class)
-            ->set('default_payment_term_id', $nova->id)
-            ->call('save')
-            ->assertHasNoErrors();
+        $this->guardarDefinicoes(['default_payment_term_id' => $nova->id])->assertOk();
 
         $this->assertTrue($nova->fresh()->is_default);
         $this->assertFalse($antiga->fresh()->is_default, 'duas padrão é o mesmo que nenhuma');
@@ -207,7 +208,7 @@ class CondicaoDePagamentoPorOmissaoTest extends TenantTestCase
     /** Não se pode apontar os clientes novos para a condição de outra empresa. */
     public function test_as_configuracoes_recusam_condicao_de_outra_empresa(): void
     {
-        $this->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
+        $this->comModulo('invoicing')->comPermissoes('invoicing.settings.view', 'invoicing.settings.edit');
 
         $outra = Tenant::create([
             'name' => 'Outra', 'slug' => 'outra-' . uniqid(),
@@ -220,12 +221,22 @@ class CondicaoDePagamentoPorOmissaoTest extends TenantTestCase
             'is_default' => false, 'is_active' => true, 'sort_order' => 1,
         ]);
 
-        \Livewire\Livewire::test(\App\Livewire\Invoicing\Settings::class)
-            ->set('default_payment_term_id', $alheia->id)
-            ->call('save')
-            ->assertHasErrors('default_payment_term_id');
+        $this->guardarDefinicoes(['default_payment_term_id' => $alheia->id])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('default_payment_term_id');
 
         $this->assertFalse($alheia->fresh()->is_default);
+    }
+
+    /**
+     * Gravar as Configurações como o ecrã as grava: o formulário INTEIRO,
+     * relido do servidor, com o que se quer mudar por cima.
+     */
+    private function guardarDefinicoes(array $por): \Illuminate\Testing\TestResponse
+    {
+        $formulario = $this->getJson('/api/v1/invoicing/react/definicoes')->assertOk()->json('definicoes');
+
+        return $this->putJson('/api/v1/invoicing/react/definicoes', array_merge($formulario, $por));
     }
 
     // ── Os clientes antigos ───────────────────────────────────────────

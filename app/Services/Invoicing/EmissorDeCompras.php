@@ -177,4 +177,108 @@ class EmissorDeCompras
             return $factura;
         });
     }
+
+    /**
+     * ANULAR UMA COMPRA REGISTADA. É o único caminho — apagar não existe.
+     *
+     * O documento é do FORNECEDOR e o que aqui fica registado é que ele foi
+     * recebido: deu entrada de stock, criou dívida a pagar e vai para o
+     * SAFT-AO. Apagar a linha não desfaz nada disso; desfaz só a prova de que
+     * aconteceu. A anulação faz o que é preciso: o estado passa a `cancelled`,
+     * o `PurchaseInvoiceObserver` reverte a entrada de stock (e nada reverte
+     * quando o `stock_ja_entrou` diz que a mercadoria entrou pela recepção da
+     * encomenda, no módulo Compras — nesse caso a mercadoria está mesmo no
+     * armazém e sai por devolução ou contagem, não por um estado), e o
+     * documento continua visível e auditável.
+     *
+     * AS TRÊS RECUSAS, e cada uma tem uma razão diferente:
+     *
+     *  · JÁ ANULADA — anular outra vez não é ideia nenhuma, mas gravar de novo
+     *    faria o observer olhar para uma mudança de estado que não existe.
+     *  · RASCUNHO — não chegou a entrar nada: não há o que reverter. Um
+     *    rascunho corrige-se, como o ecrã sempre disse.
+     *  · JÁ TEM DINHEIRO PAGO — o pagamento lançou recibo e movimento de
+     *    tesouraria. Anular a factura por baixo deles deixava um recibo a
+     *    apontar para um documento anulado e o dinheiro sem contrapartida.
+     *    Desfaz-se primeiro o pagamento; a factura anula-se depois.
+     *
+     * @throws DomainException
+     */
+    public function anular(PurchaseInvoice $factura): PurchaseInvoice
+    {
+        if ($factura->status === 'cancelled') {
+            throw new DomainException(__('Esta factura já está anulada.'));
+        }
+
+        if ($factura->status === 'draft') {
+            throw new DomainException(__('Um rascunho não precisa de ser anulado — corrija-o ou deixe-o como está.'));
+        }
+
+        if (self::temDinheiroPago($factura)) {
+            throw new DomainException(__(
+                'Esta compra já tem :v Kz pagos. Desfaça primeiro o pagamento — anular por cima dele deixava o recibo a apontar para um documento anulado.',
+                ['v' => number_format((float) $factura->paid_amount, 2, ',', '.')]
+            ));
+        }
+
+        // É esta mudança de estado que o observer vê para reverter o stock.
+        $factura->status = 'cancelled';
+        $factura->save();
+
+        return $factura;
+    }
+
+    /**
+     * MARCAR COMO PAGA sem lançar recibo — o acerto de quem pagou por fora.
+     *
+     * Não passa pelo `RegistoDePagamento` de propósito: aqui não se lança
+     * dinheiro nenhum em tesouraria, só se dá a dívida por saldada. Quem quer
+     * o recibo e o movimento usa o botão de pagar.
+     *
+     * De rascunho para paga a mercadoria passa a contar: `paid` é um dos
+     * `ESTADOS_COM_STOCK` e o observer dá a entrada que faltava — é o mesmo
+     * que acontecia no ecrã em Blade.
+     *
+     * @throws DomainException
+     */
+    public function marcarComoPaga(PurchaseInvoice $factura): PurchaseInvoice
+    {
+        if ($factura->status === 'paid') {
+            throw new DomainException(__('Esta factura já está paga.'));
+        }
+
+        if ($factura->status === 'cancelled') {
+            throw new DomainException(__('Uma factura anulada não se marca como paga.'));
+        }
+
+        $factura->status = 'paid';
+        $factura->paid_amount = $factura->total;
+        $factura->save();
+
+        return $factura;
+    }
+
+    /**
+     * As mesmas regras, em pergunta, para a lista saber que botões mostrar.
+     *
+     * Vivem aqui e não no controlador para que o botão que aparece e a porta
+     * que aceita digam sempre a mesma coisa: um botão que aparece e depois
+     * recusa é pior do que um botão que não aparece.
+     */
+    public static function podeAnular(PurchaseInvoice $factura): bool
+    {
+        return ! in_array($factura->status, ['draft', 'cancelled'], true)
+            && ! self::temDinheiroPago($factura);
+    }
+
+    public static function podeMarcarPaga(PurchaseInvoice $factura): bool
+    {
+        return ! in_array($factura->status, ['paid', 'cancelled'], true);
+    }
+
+    /** Um cêntimo de tolerância: o que interessa é se entrou dinheiro. */
+    private static function temDinheiroPago(PurchaseInvoice $factura): bool
+    {
+        return (float) ($factura->paid_amount ?? 0) > 0.01;
+    }
 }

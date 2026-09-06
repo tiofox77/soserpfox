@@ -14,6 +14,7 @@ use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use App\Models\Treasury\PaymentMethod;
 use App\Services\Invoicing\CalculadoraDeDocumento;
+use App\Services\Invoicing\DuplicaDocumento;
 use App\Services\Invoicing\EmissorDeFacturas;
 use App\Services\Invoicing\TaxResolver;
 use DomainException;
@@ -50,12 +51,60 @@ class FacturaApiController extends Controller
     {
         $this->exigir($request, 'invoicing.sales.invoices.view');
 
+        return response()->json($this->paraEditor($this->baseDoAutor()->with('items')->findOrFail($id)));
+    }
+
+    /**
+     * DUPLICAR: o conteúdo desta factura, para o editor abrir em branco.
+     *
+     * Não grava nada e não devolve documento nenhum — devolve o CONTEÚDO
+     * COMERCIAL, e o editor abre com ele como se a pessoa o tivesse escrito.
+     * O número, a série, o hash, o ATCUD, o estado e o pagamento ficam para
+     * trás: quem decide o que viaja é o `DuplicaDocumento`, num sítio só.
+     *
+     * Vale para QUALQUER factura, incluindo as já emitidas — copiar o
+     * conteúdo de um documento fiscal para um novo não lhe toca. A permissão
+     * é a de CRIAR, porque é isso que isto começa.
+     */
+    public function duplicar(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.sales.invoices.create');
+
         $f = $this->baseDoAutor()->with('items')->findOrFail($id);
+        $aberta = $this->paraEditor($f);
+        $hoje = now()->toDateString();
+
+        return response()->json(DuplicaDocumento::resposta(
+            $aberta['documento'],
+            $aberta['linhas'],
+            [
+                // Um duplicado é de HOJE, e o vencimento sai outra vez da
+                // condição de pagamento do cliente — não do prazo que a
+                // factura antiga tinha.
+                'invoice_date' => $hoje,
+                'due_date' => $this->vencimentoDoCliente((int) $f->client_id, $hoje),
+                'delivery_date' => null,
+            ],
+            $f,
+            $f->invoice_number,
+        ));
+    }
+
+    /**
+     * A factura na forma que o editor conhece.
+     *
+     * Serve o `abrir` e o `duplicar`: uma forma só, para o duplicado herdar
+     * exactamente o que a edição herdaria — e mais nada.
+     *
+     * @return array{documento: array<string,mixed>, linhas: mixed}
+     */
+    private function paraEditor(SalesInvoice $f): array
+    {
         $retencao = DB::table('invoicing_withholding_taxes')->where('document_type', SalesInvoice::class)->where('document_id', $f->id)->first();
         $extras = LineTax::where('line_type', SalesInvoiceItem::class)->whereIn('line_id', $f->items->pluck('id'))->get()->groupBy('line_id');
         $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
 
-        return response()->json([
+        return [
             'documento' => [
                 'id' => $f->id,
                 'numero' => $f->invoice_number,
@@ -86,8 +135,9 @@ class FacturaApiController extends Controller
                 'iec' => $extras->get($i->id)?->firstWhere('tax_type', 'IEC')?->pautal_code,
                 'is' => $extras->get($i->id)?->firstWhere('tax_type', 'IS')?->verba_no,
             ])->values(),
-        ]);
+        ];
     }
+
     public function opcoes(Request $request): JsonResponse
     {
         $this->exigir($request, 'invoicing.sales.invoices.create');
@@ -95,7 +145,16 @@ class FacturaApiController extends Controller
         $tenantId = activeTenantId();
 
         return response()->json([
-            'clientes' => Client::where('tenant_id', $tenantId)->orderBy('name')->limit(500)->get(['id', 'name', 'nif', 'province']),
+            // `payment_term_days` vai junto de propósito: é dele que sai o
+            // vencimento quando se escolhe o cliente. O ecrã em Livewire
+            // preenchia-o no `selectClient`; sem este campo, o ecrã em React
+            // não teria por onde o saber e a factura nascia sem prazo.
+            'clientes' => Client::where('tenant_id', $tenantId)->with('paymentTerm')->orderBy('name')->limit(500)
+                ->get(['id', 'name', 'nif', 'province', 'payment_term_id', 'payment_term_days'])
+                ->map(fn ($c) => [
+                    'id' => $c->id, 'name' => $c->name, 'nif' => $c->nif, 'province' => $c->province,
+                    'payment_term_days' => $this->diasDaCondicao($c),
+                ]),
             'artigos' => Product::where('tenant_id', $tenantId)->where('is_active', true)
                 ->orderBy('name')->limit(500)->get(['id', 'name', 'code', 'price', 'unit', 'type']),
             'armazens' => Warehouse::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
@@ -204,6 +263,14 @@ class FacturaApiController extends Controller
             'linhas.min' => __('Uma factura sem linhas não é uma factura.'),
         ]);
 
+        // O VENCIMENTO SAI DA CONDIÇÃO DE PAGAMENTO DO CLIENTE quando o pedido
+        // não traz nenhum. No ecrã em Livewire era o `selectClient` que o
+        // preenchia; uma factura gravada sem prazo aparece vencida no próprio
+        // dia nas contas a receber e nos avisos.
+        if (empty($dados['due_date'])) {
+            $dados['due_date'] = $this->vencimentoDoCliente((int) $dados['client_id'], (string) $dados['invoice_date']);
+        }
+
         // O armazém só é obrigatório havendo artigos físicos.
         [$linhas, $iec, $is, $temFisicos] = $this->linhasDoPedido($dados['linhas']);
 
@@ -251,6 +318,41 @@ class FacturaApiController extends Controller
     private function linhasDoPedido(array $pedidas): array
     {
         return EmissorDeFacturas::linhasDoPedido($pedidas);
+    }
+
+    /**
+     * OS DIAS DE PRAZO DE UM CLIENTE, numa regra só.
+     *
+     * A condição ligada manda; `payment_term_days` é o valor legado e só vale
+     * quando não há condição nenhuma (clientes antigos, importados). Os dois
+     * sítios que precisam disto — a lista que o ecrã recebe e o vencimento que
+     * se grava — leem daqui, senão o ecrã propunha um prazo e o servidor
+     * gravava outro.
+     */
+    private function diasDaCondicao(Client $cliente): int
+    {
+        return $cliente->payment_term_id
+            ? (int) ($cliente->paymentTerm?->days ?? 0)
+            : (int) ($cliente->payment_term_days ?? 0);
+    }
+
+    /**
+     * O vencimento que a condição de pagamento do cliente manda.
+     *
+     * Sem cliente, ou sem condição nenhuma e sem prazo legado, não se inventa
+     * data: fica por preencher, como ficava.
+     */
+    private function vencimentoDoCliente(int $clienteId, string $dataDaFactura): ?string
+    {
+        $cliente = Client::where('tenant_id', activeTenantId())->find($clienteId);
+
+        if (! $cliente || (! $cliente->payment_term_id && ! $cliente->payment_term_days)) {
+            return null;
+        }
+
+        return \Illuminate\Support\Carbon::parse($dataDaFactura)
+            ->addDays($this->diasDaCondicao($cliente))
+            ->toDateString();
     }
 
     private function exigir(Request $request, string $permissao): void

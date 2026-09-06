@@ -28,10 +28,21 @@ use InvalidArgumentException;
 class TiposDeDocumento
 {
     /**
+     * A CHAVE `agt` DIZ O QUE A COLUNA DO PORTAL AGT MOSTRA, e é por isso que
+     * vive aqui e não no ecrã:
+     *
+     *   · `propria`     — a empresa comunica-o (recibo, notas de crédito e de
+     *                     débito): o selo lê o `agt_status` do documento;
+     *   · `fornecedor`  — factura de compra: comunica-a quem a emitiu;
+     *   · `nao-fiscal`  — proformas, orçamentos e adiantamentos, que NUNCA são
+     *                     enviados. Sem esta distinção o selo caía no ramo por
+     *                     omissão e dizia «pendente de envio» numa proforma —
+     *                     um alarme para uma coisa que nunca vai acontecer.
+     *
      * @return array<string, array{
      *   modelo: class-string, titulo: string, numero: string, data: string,
      *   parte: string, relacao: string, permissao: string, valor: string,
-     *   rota: string, tem_saldo: bool
+     *   rota: string, tem_saldo: bool, agt: string
      * }>
      */
     public static function todos(): array
@@ -48,6 +59,7 @@ class TiposDeDocumento
                 'valor' => 'total',
                 'rota' => '/invoicing/sales/proformas',
                 'tem_saldo' => false,
+                'agt' => 'nao-fiscal',
             ],
 
             'orcamentos' => [
@@ -61,6 +73,7 @@ class TiposDeDocumento
                 'valor' => 'total',
                 'rota' => '/invoicing/sales/quotes',
                 'tem_saldo' => false,
+                'agt' => 'nao-fiscal',
             ],
 
             'facturas-compra' => [
@@ -75,6 +88,7 @@ class TiposDeDocumento
                 'rota' => '/invoicing/purchases/invoices',
                 // A única com pagamentos: mostra quanto falta pagar.
                 'tem_saldo' => true,
+                'agt' => 'fornecedor',
             ],
 
             'proformas-compra' => [
@@ -88,6 +102,7 @@ class TiposDeDocumento
                 'valor' => 'total',
                 'rota' => '/invoicing/purchases/proformas',
                 'tem_saldo' => false,
+                'agt' => 'nao-fiscal',
             ],
 
             'recibos' => [
@@ -102,6 +117,7 @@ class TiposDeDocumento
                 'valor' => 'amount_paid',
                 'rota' => '/invoicing/receipts',
                 'tem_saldo' => false,
+                'agt' => 'propria',
             ],
 
             // As notas e os adiantamentos listam-se da mesma maneira; o que
@@ -118,6 +134,7 @@ class TiposDeDocumento
                 'valor' => 'total',
                 'rota' => '/invoicing/credit-notes',
                 'tem_saldo' => false,
+                'agt' => 'propria',
             ],
 
             'notas-debito' => [
@@ -131,6 +148,7 @@ class TiposDeDocumento
                 'valor' => 'total',
                 'rota' => '/invoicing/debit-notes',
                 'tem_saldo' => false,
+                'agt' => 'propria',
             ],
 
             'adiantamentos' => [
@@ -144,6 +162,7 @@ class TiposDeDocumento
                 'valor' => 'amount',
                 'rota' => '/invoicing/advances',
                 'tem_saldo' => false,
+                'agt' => 'nao-fiscal',
             ],
         ];
     }
@@ -193,6 +212,35 @@ class TiposDeDocumento
     public static function eEditavel(string $slug): bool
     {
         return isset(self::editaveis()[$slug]);
+    }
+
+    /**
+     * OS DOCUMENTOS QUE A LISTA DEIXA DUPLICAR.
+     *
+     * São os mesmos quatro que o ecrã em Blade deixava, e a escolha não é
+     * arbitrária: duplica-se o que se volta a fazer parecido — a proforma que
+     * se repete, a compra ao mesmo fornecedor. Um RECIBO, uma nota de crédito
+     * ou um adiantamento nascem sempre de outro documento e de um valor
+     * concreto; duplicá-los seria oferecer um atalho para dar por recebido
+     * dinheiro que não entrou.
+     *
+     * A factura de VENDA também se duplica, mas tem lista e editor próprios
+     * (`SalesInvoiceApiController` / `FacturaApiController`) e por isso não
+     * está aqui: esta lista serve só o ecrã genérico.
+     *
+     * O que viaja e o que fica está no `DuplicaDocumento` — aqui só se diz
+     * ONDE se oferece o botão.
+     *
+     * @return array<int, string>
+     */
+    public static function duplicaveis(): array
+    {
+        return ['proformas-venda', 'proformas-compra', 'facturas-compra'];
+    }
+
+    public static function eDuplicavel(string $slug): bool
+    {
+        return in_array($slug, self::duplicaveis(), true);
     }
 
     /** @return array<string, mixed> */

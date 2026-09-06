@@ -6,7 +6,7 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que os ecrãs abrem, que o modal de transferir
  * exige o armazém de origem antes de deixar juntar artigos, e que as
- * moradas de sempre continuam em Livewire. Mexer no stock a sério prova-se
+ * moradas de sempre servem o React. Mexer no stock a sério prova-se
  * na API.
  */
 
@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('entre armazens: abre e o carrinho espera pelo armazem de origem', async ({ page }) => {
-    await page.goto('/invoicing/warehouse-transfer/novo-ecra');
+    await page.goto('/invoicing/warehouse-transfer');
     await expect(page.getByRole('heading', { name: /Transferências e Ajustes de Stock/ }).first()).toBeVisible({ timeout: 20_000 });
 
     const transferir = page.getByRole('button', { name: /^Transferir$/ });
@@ -29,7 +29,7 @@ test('entre armazens: abre e o carrinho espera pelo armazem de origem', async ({
 });
 
 test('entre empresas: abre com o historico, ou diz que a porta esta fechada', async ({ page }) => {
-    await page.goto('/invoicing/inter-company-transfer/novo-ecra');
+    await page.goto('/invoicing/inter-company-transfer');
 
     // A morada nova exige a permissão das transferências entre empresas — a
     // de sempre não exigia nada. Quem não a tem vê a porta fechada, e isso
@@ -48,15 +48,8 @@ test('nenhum erro na consola', async ({ page }) => {
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
     page.on('pageerror', (e) => erros.push(String(e)));
 
-    await page.goto('/invoicing/warehouse-transfer/novo-ecra');
+    await page.goto('/invoicing/warehouse-transfer');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
     expect(erros).toEqual([]);
-});
-
-test('as moradas de sempre continuam em Livewire', async ({ page }) => {
-    for (const m of ['/invoicing/warehouse-transfer', '/invoicing/inter-company-transfer']) {
-        await page.goto(m);
-        await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    }
 });

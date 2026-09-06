@@ -13,7 +13,7 @@ import { entrar } from './apoio.js';
  * credenciais são fixas e conhecidas de propósito.
  */
 
-const ECRA = '/invoicing/sales/invoices/novo-ecra';
+const ECRA = '/invoicing/sales/invoices';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -88,14 +88,128 @@ test('nenhum erro na consola', async ({ page }) => {
 });
 
 /**
- * E O ECRÃ DE SEMPRE CONTINUA LÁ.
+ * A ENTRADA DO MENU DAS FATURAS-RECIBO ABRE FILTRADA.
  *
- * Enquanto a migração durar, a morada antiga não pode deixar de funcionar por
- * um segundo — é o que permite voltar atrás sem publicar nada.
+ * O menu liga-as por `?type=FR`. A lista em React nascia sempre sem filtro:
+ * a entrada existia e mostrava tudo.
  */
-test('a lista Livewire continua a abrir na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/sales/invoices');
+test('a morada das faturas-recibo abre com o filtro posto', async ({ page }) => {
+    await page.goto('/invoicing/sales/invoices?type=FR');
+    await expect(page.locator('[data-ecra]')).toBeVisible({ timeout: 20_000 });
 
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    await expect(page.getByText('Lista de Faturas de Venda')).toBeVisible();
+    // O rótulo é desenhado em maiúsculas por CSS: em texto (que o Playwright
+    // compara sem ligar a maiúsculas), não em expressão regular.
+    await expect(page.getByLabel('Tipo')).toHaveValue('FR', { timeout: 20_000 });
+});
+
+/**
+ * DUPLICAR: aproveita o trabalho, nunca a identidade.
+ *
+ * O botão leva ao ecrã de emissão de sempre, com `?duplicar=` na morada — a
+ * mesma morada que o ecrã em Livewire usava. O que chega lá é CONTEÚDO: o
+ * cliente e as linhas ficam preenchidos, mas o documento nasce novo, sem
+ * número e sem série, e nada foi gravado por se ter carregado no botão.
+ */
+test('duplicar leva o conteúdo da factura para um documento novo', async ({ page }) => {
+    await page.goto(ECRA);
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 20_000 });
+
+    const duplicar = page.getByRole('link', { name: 'Duplicar para novo documento' }).first();
+
+    await expect(duplicar).toBeVisible();
+    await expect(duplicar).toHaveAttribute(
+        'href',
+        /\/invoicing\/sales\/invoices\/create\?duplicar=\d+$/,
+    );
+
+    await duplicar.click();
+
+    // O ecrã diz de onde isto veio — quem duplicou quer ver que apanhou o
+    // documento certo antes de emitir.
+    await expect(page.locator('[data-duplicado-de]')).toBeVisible({ timeout: 20_000 });
+
+    // E NÃO é uma edição: a faixa do documento aberto não existe aqui.
+    await expect(page.locator('[data-documento-aberto]')).toHaveCount(0);
+
+    // O conteúdo veio: cliente escolhido e pelo menos uma linha com artigo.
+    //
+    // Em expressão regular e sem ligar a maiúsculas: `getByLabel('Cliente')`
+    // compara por pedaço e apanhava também a «Região fiscal», cuja opção
+    // escolhida diz «Pela província do cliente».
+    await expect(page.getByLabel(/^cliente\b/i)).not.toHaveValue('');
+    await expect(page.getByLabel('Artigo da linha 1')).not.toHaveValue('');
+
+    // A data é a de hoje, e não a do original.
+    const hoje = new Date();
+    const iso = [
+        hoje.getFullYear(),
+        String(hoje.getMonth() + 1).padStart(2, '0'),
+        String(hoje.getDate()).padStart(2, '0'),
+    ].join('-');
+    // Pela posição e não pelo rótulo: 'Data' compara por pedaço e apanhava
+    // também a «Data de entrega» e o «Vencimento». A primeira data do
+    // formulário é a data do documento.
+    await expect(page.locator('input[type="date"]').first()).toHaveValue(iso);
+});
+/**
+ * OS CARTÕES DO TOPO SOMAM VALORES, E SOMAM O QUE ESTÁ FILTRADO.
+ *
+ * O ecrã em Blade tinha-os e a migração deixou só a contagem. As somas vêm do
+ * SERVIDOR, dentro do `meta` da mesma resposta da lista — não se somam aqui as
+ * linhas da página, que mudariam ao carregar em «Seguinte».
+ */
+test('os cartões do topo mostram as somas que vêm do servidor', async ({ page }) => {
+    const resposta = page.waitForResponse(
+        (r) => r.url().includes('/sales-invoices?') || r.url().endsWith('/sales-invoices'),
+        { timeout: 20_000 },
+    );
+
+    await page.goto(ECRA);
+
+    const somas = (await (await resposta).json()).meta.somas;
+
+    expect(somas).toMatchObject({
+        facturado: expect.any(Number),
+        por_receber: expect.any(Number),
+        vencido: expect.any(Number),
+    });
+
+    // Os quatro cartões estão à vista, e os de dinheiro escrevem-se à maneira
+    // daqui: milhares separados, vírgula decimal e a moeda ao lado.
+    for (const rotulo of ['Documentos', 'Facturado', 'Por receber', 'Vencido']) {
+        await expect(page.getByText(rotulo, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    }
+
+    const facturado = page.getByText('Facturado', { exact: true }).first().locator('..');
+
+    await expect(facturado).toContainText('Kz');
+    await expect(facturado).toContainText(/\d{1,3}([  .]\d{3})*,\d{2}/);
+});
+
+/**
+ * CADA LINHA OFERECE OS DOIS PAPÉIS.
+ *
+ * O do servidor (DomPDF) tem texto para copiar e pesquisar. O do ECRÃ é a
+ * própria pré-visualização fotografada — é isso que garante que o papel nunca
+ * diverge do que se vê. Nenhum substitui o outro, e a lista em React tinha
+ * ficado só com o primeiro.
+ */
+test('cada factura tem o PDF do servidor e o PDF do ecrã', async ({ page }) => {
+    await page.goto(ECRA);
+
+    const linha = page.locator('tbody tr').first();
+
+    await expect(linha).toBeVisible({ timeout: 20_000 });
+
+    await expect(linha.locator('a[href$="/pdf"]')).toHaveCount(1);
+
+    // O botão do PDF do ecrã não é uma ligação: é os seus `data-*`, que o
+    // ouvinte por delegação em /js/pdf-do-documento.js reconhece.
+    const doEcra = linha.locator('button[data-pdf-preview]');
+
+    await expect(doEcra).toHaveCount(1);
+    await expect(doEcra).toHaveAttribute(
+        'data-pdf-preview',
+        /^\/invoicing\/sales\/invoices\/\d+\/preview$/,
+    );
 });

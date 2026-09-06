@@ -1,0 +1,102 @@
+<?php
+
+namespace App\Services\Invoicing;
+
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+
+/**
+ * OS CARTÕES DO TOPO DA LISTA DE FACTURAS — a conta, num sítio só.
+ *
+ * O ecrã em Blade somava os valores no próprio componente Livewire. Ao passar
+ * para React a lista ficou só com a contagem (`meta.total`) e os cartões
+ * desapareceram. Repô-los dentro do controlador era escrever a mesma conta uma
+ * segunda vez — que é exactamente como o painel da facturação e a lista
+ * passariam a dizer números diferentes da mesma empresa.
+ *
+ * DUAS REGRAS QUE ISTO GUARDA:
+ *
+ * 1. CONTA-SE PELO SALDO, NUNCA PELO NOME DO ESTADO. É a mesma regra do
+ *    `PainelDaFacturacao`: nomear os estados que contam deixa de fora tudo o
+ *    que ainda não tem nome. O que está liquidado sai; o resto está por
+ *    receber, e entra pelo que FALTA e não pelo total.
+ *
+ * 2. A SOMA TEM DE BATER CERTO COM AS LINHAS. Cada linha da lista mostra o seu
+ *    «falta X», decidido pelo `SalesInvoiceResource::porReceber()`. Um cartão
+ *    que somasse por outra regra dizia um número que não sai de nenhuma das
+ *    linhas à vista. Por isso a expressão daqui é a MESMA, em SQL: uma FR está
+ *    paga por definição (não tem recibo, e o `paid_amount` fica em zero para
+ *    sempre), e o que está pago, anulado ou creditado não deve nada.
+ *
+ * E soma-se sobre a consulta JÁ FILTRADA — mesmos filtros da lista, mesmo
+ * escopo por autor. Quem só vê os documentos que emitiu vê cartões só com os
+ * seus; um total que incluísse as vendas dos colegas é a mesma fuga de
+ * informação que a lista teria.
+ */
+class SomasDasFacturas
+{
+    /** O que já não se cobra — a mesma lista do `SalesInvoiceResource`. */
+    private const LIQUIDADAS = ['paid', 'cancelled', 'credited'];
+
+    /**
+     * As somas de uma consulta de facturas de venda.
+     *
+     * UMA consulta com três somas, e não três consultas: numa empresa com
+     * dezenas de milhares de facturas a diferença é entre uma varredura e três.
+     *
+     * @param  Builder  $query  a consulta da lista, já com filtros e escopo
+     * @return array{facturado: float, por_receber: float, vencido: float}
+     */
+    public function de(Builder $query): array
+    {
+        $t = $query->getModel()->getTable();
+        $porReceber = self::sqlPorReceber($t);
+
+        /*
+         * A CONSULTA DA LISTA NÃO SE SOMA COMO ESTÁ.
+         *
+         * Traz `with()`, `withSum()` e uma ordem para desenhar as linhas. O
+         * subselect do creditado deixa ligações (`bindings`) no grupo dos
+         * selects: trocar as colunas por agregados sem as limpar dá um número
+         * de ligações diferente do número de interrogações, e o MySQL recusa a
+         * consulta inteira. É a mesma limpeza que o Laravel faz para contar as
+         * linhas de uma página.
+         */
+        $soma = $query->clone()
+            ->toBase()
+            ->cloneWithout(['columns', 'orders', 'limit', 'offset'])
+            ->cloneWithoutBindings(['select', 'order'])
+            ->selectRaw(
+                "COALESCE(SUM(CASE WHEN {$t}.status = 'cancelled' THEN 0 ELSE COALESCE({$t}.total, 0) END), 0) AS facturado, "
+                . "COALESCE(SUM({$porReceber}), 0) AS por_receber, "
+                . "COALESCE(SUM(CASE WHEN {$t}.due_date IS NOT NULL AND {$t}.due_date < ? THEN {$porReceber} ELSE 0 END), 0) AS vencido",
+                [Carbon::today()->toDateString()]
+            )
+            ->first();
+
+        return [
+            'facturado' => round((float) ($soma->facturado ?? 0), 2),
+            'por_receber' => round((float) ($soma->por_receber ?? 0), 2),
+            'vencido' => round((float) ($soma->vencido ?? 0), 2),
+        ];
+    }
+
+    /**
+     * O «falta receber» de uma factura, em SQL.
+     *
+     * Traduz, linha a linha, o `SalesInvoiceResource::porReceber()`. Se um dia
+     * um deles mudar sem o outro, o ensaio que compara a soma do cartão com a
+     * soma dos saldos das linhas cai — e é para isso que ele existe.
+     *
+     * Os estados são constantes escritas aqui, nunca coisa que venha do
+     * pedido: não há aqui nada por onde entre um valor de fora.
+     */
+    public static function sqlPorReceber(string $tabela): string
+    {
+        $liquidadas = "'" . implode("', '", self::LIQUIDADAS) . "'";
+
+        return "CASE WHEN COALESCE({$tabela}.invoice_type, 'FT') = 'FR'"
+            . " OR {$tabela}.status IN ({$liquidadas}) THEN 0"
+            . " ELSE GREATEST(COALESCE({$tabela}.total, 0) - COALESCE({$tabela}.paid_amount, 0), 0) END";
+    }
+}

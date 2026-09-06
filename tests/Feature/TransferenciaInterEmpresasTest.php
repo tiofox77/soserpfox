@@ -2,30 +2,34 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\InterCompanyTransfer;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
  * Transferência de stock entre EMPRESAS.
  *
  * O mesmo tratamento dado às transferências entre armazéns — referência
- * legível, saldos, documento, quantidade corrigível, grelha que não carrega o
- * catálogo todo — com uma diferença que muda o desenho: são duas empresas, e a
- * numeração MOV/AAAA/NNNNNN é sequencial POR EMPRESA.
+ * legível, saldos, documento, quantidade corrigível — com uma diferença que
+ * muda o desenho: são duas empresas, e a numeração MOV/AAAA/NNNNNN é
+ * sequencial POR EMPRESA.
  *
  * Daí as DUAS referências. Escrever a da origem nas linhas do destino corrompia
  * a sequência do destino: se ele já tivesse ido mais longe, passavam a existir
  * lá dois documentos com o mesmo número.
+ *
+ * O ecrã é hoje o React `TransferenciasEntreEmpresas.tsx`; a regra vive no
+ * serviço `TransferenciaDeStock` e entra pela API
+ * `/api/v1/invoicing/react/transferencias/entre-empresas`.
  */
 class TransferenciaInterEmpresasTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/transferencias';
+
     protected Tenant $empresaB;
     protected Warehouse $armazemB;
     protected Product $produto;
@@ -42,7 +46,7 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
             'is_active' => true,
         ]);
 
-        // O utilizador tem de ter acesso às duas: o ecrã resolve o destino a
+        // O utilizador tem de ter acesso às duas: o serviço resolve o destino a
         // partir das empresas DO UTILIZADOR, e bem — um id arbitrário permitia
         // escrever stock em qualquer empresa da plataforma.
         $this->user->tenants()->syncWithoutDetaching([$this->empresaB->id]);
@@ -72,7 +76,8 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
             'stock_quantity' => 0,
         ]);
 
-        $this->comModulo('invoicing');
+        $this->comModulo('invoicing')
+             ->comPermissoes('invoicing.inter-company-transfer.create', 'invoicing.stock.view');
     }
 
     private function comStock(float $q): Stock
@@ -86,22 +91,20 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
         ]);
     }
 
-    private function transferir(float $q = 4)
+    private function transferir(float $q = 4, ?int $paraEmpresa = null)
     {
-        return Livewire::test(InterCompanyTransfer::class)
-            ->set('warehouseFromId', $this->armazem->id)
-            ->set('tenantToId', $this->empresaB->id)
-            ->set('warehouseToId', $this->armazemB->id)
-            ->set('notes', 'Reposição entre lojas')
-            ->set('transferItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => $q,
-                'unit_cost'     => 700,
-                'ultima_valida' => $q,
-            ]])
-            ->call('saveTransfer');
+        return $this->postJson(self::RAIZ . '/entre-empresas', [
+            'de_armazem'   => $this->armazem->id,
+            'para_empresa' => $paraEmpresa ?? $this->empresaB->id,
+            'para_armazem' => $this->armazemB->id,
+            'notas'        => 'Reposição entre lojas',
+            'itens'        => [[
+                'product_id'   => $this->produto->id,
+                'product_name' => $this->produto->name,
+                'quantity'     => $q,
+                'unit_cost'    => 700,
+            ]],
+        ]);
     }
 
     /** As duas pernas: a da empresa activa e a da empresa destino. */
@@ -123,12 +126,18 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
     public function test_cada_empresa_recebe_a_sua_referencia(): void
     {
         $this->comStock(20);
-        $this->transferir(4);
+        $resposta = $this->transferir(4)->assertCreated();
 
         [$saida, $entrada] = $this->pernas();
 
         $this->assertMatchesRegularExpression('#^MOV/\d{4}/\d{6}$#', (string) $saida->batch_reference);
         $this->assertMatchesRegularExpression('#^MOV/\d{4}/\d{6}$#', (string) $entrada->batch_reference);
+
+        // E a API entrega as duas, com o nome de quem recebeu — é o que o ecrã
+        // mostra no comprovativo.
+        $this->assertSame($saida->batch_reference, $resposta->json('referencia_origem'));
+        $this->assertSame($entrada->batch_reference, $resposta->json('referencia_destino'));
+        $this->assertSame('Empresa Destino', $resposta->json('destino_nome'));
     }
 
     public function test_a_referencia_do_destino_sai_da_sequencia_do_destino(): void
@@ -151,7 +160,7 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
         ]));
 
         $this->comStock(20);
-        $this->transferir(4);
+        $this->transferir(4)->assertCreated();
 
         [$saida, $entrada] = $this->pernas();
 
@@ -165,7 +174,7 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
         // automático lê o stock com o global scope da empresa activa — a
         // origem — e para o destino não devolvia nada.
         $this->comStock(20);
-        $this->transferir(4);
+        $resposta = $this->transferir(4)->assertCreated();
 
         [$saida, $entrada] = $this->pernas();
 
@@ -174,67 +183,22 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
 
         $this->assertSame(0.0, (float) $entrada->balance_before, 'o destino não tinha nenhum');
         $this->assertSame(4.0, (float) $entrada->balance_after);
-    }
 
-    public function test_o_agregado_do_produto_no_destino_e_actualizado(): void
-    {
-        // O defeito: a linha de stock do destino era gravada com saveQuietly(),
-        // que salta o StockObserver — quem mantém `stock_quantity` igual à soma
-        // das linhas. Um artigo que chegava pela primeira vez à empresa destino
-        // ficava com linha preenchida e agregado a zero: invisível no POS e na
-        // gestão de stock.
-        $this->comStock(20);
-        $this->transferir(4);
-
-        $produtoNoDestino = Product::withoutGlobalScopes()
-            ->where('tenant_id', $this->empresaB->id)
-            ->where('name', $this->produto->name)
-            ->first();
-
-        $this->assertNotNull($produtoNoDestino, 'o artigo é copiado para a empresa destino');
-
-        $linha = (float) DB::table('invoicing_stocks')
-            ->where('tenant_id', $this->empresaB->id)
-            ->where('product_id', $produtoNoDestino->id)
-            ->sum('quantity');
-
-        $this->assertSame(4.0, $linha, 'a linha de stock');
-        $this->assertSame(
-            4.0,
-            (float) $produtoNoDestino->stock_quantity,
-            'o agregado tem de acompanhar a linha, senão o artigo é invisível no POS'
-        );
-    }
-
-    public function test_o_stock_sai_de_uma_empresa_e_entra_na_outra(): void
-    {
-        $this->comStock(20);
-        $this->transferir(4);
-
-        $this->assertSame(
-            16.0,
-            (float) DB::table('invoicing_stocks')
-                ->where('tenant_id', $this->tenant->id)
-                ->where('product_id', $this->produto->id)
-                ->sum('quantity')
-        );
-
-        $this->assertSame(
-            4.0,
-            (float) DB::table('invoicing_stocks')
-                ->where('tenant_id', $this->empresaB->id)
-                ->sum('quantity')
-        );
+        // Os mesmos quatro no resumo que o ecrã mostra.
+        $this->assertEqualsWithDelta(20, $resposta->json('resumo.0.origem_antes'), 0.001);
+        $this->assertEqualsWithDelta(16, $resposta->json('resumo.0.origem_depois'), 0.001);
+        $this->assertEqualsWithDelta(0, $resposta->json('resumo.0.destino_antes'), 0.001);
+        $this->assertEqualsWithDelta(4, $resposta->json('resumo.0.destino_depois'), 0.001);
     }
 
     public function test_o_documento_do_lote_abre(): void
     {
-        $this->comPermissoes('invoicing.stock.view');
-
         $this->comStock(20);
-        $this->transferir(4);
+        $resposta = $this->transferir(4)->assertCreated();
 
         [$saida] = $this->pernas();
+
+        $this->assertSame('/invoicing/stock/movimentacao/' . $saida->batch_reference . '/pdf', $resposta->json('pdf'));
 
         // Dentro de cada empresa a movimentação tem UM lado só — a outra perna
         // pertence à outra empresa. Por isso vai no documento de entradas e
@@ -246,109 +210,52 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
             ->assertSee('Empresa Destino');   // vem na nota do movimento
     }
 
-    public function test_corrigir_a_quantidade_no_carrinho(): void
-    {
-        $this->comStock(20);
-
-        Livewire::test(InterCompanyTransfer::class)
-            ->set('warehouseFromId', $this->armazem->id)
-            ->set('transferItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => 4,
-                'unit_cost'     => 700,
-                'ultima_valida' => 4,
-            ]])
-            ->set('transferItems.0.quantity', 7)
-            ->assertSet('transferItems.0.quantity', 7.0);
-    }
-
-    public function test_uma_quantidade_negativa_nao_passa_pela_correcao(): void
+    public function test_uma_quantidade_nao_positiva_nao_passa(): void
     {
         // Um negativo aqui tira stock ao destino e dá-o à origem — o contrário
-        // do que se pediu, em duas empresas ao mesmo tempo.
+        // do que se pediu, em duas empresas ao mesmo tempo. O carrinho em React
+        // já o recusa, mas quem grava é a API.
         $this->comStock(20);
 
-        Livewire::test(InterCompanyTransfer::class)
-            ->set('warehouseFromId', $this->armazem->id)
-            ->set('transferItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => 4,
-                'unit_cost'     => 700,
-                'ultima_valida' => 4,
-            ]])
-            ->set('transferItems.0.quantity', -2)
-            ->assertSet('transferItems.0.quantity', 4.0);
+        foreach ([0, -2] as $quantidade) {
+            $this->transferir($quantidade)->assertStatus(422)->assertJsonValidationErrors('itens.0.quantity');
+        }
+
+        $this->assertSame(0, StockMovement::withoutGlobalScopes()->where('reference_type', 'inter_company')->count());
     }
 
-    public function test_corrigir_acima_do_disponivel_limita(): void
+    public function test_acima_do_disponivel_nao_se_transfere(): void
     {
         $this->comStock(6);
 
-        Livewire::test(InterCompanyTransfer::class)
-            ->set('warehouseFromId', $this->armazem->id)
-            ->set('transferItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => 4,
-                'unit_cost'     => 700,
-                'ultima_valida' => 4,
-            ]])
-            ->set('transferItems.0.quantity', 99)
-            ->assertSet('transferItems.0.quantity', 6.0);
+        $this->transferir(99)->assertStatus(422)->assertJsonValidationErrors('itens');
+
+        $this->assertSame(
+            6.0,
+            (float) DB::table('invoicing_stocks')->where('tenant_id', $this->tenant->id)->where('product_id', $this->produto->id)->sum('quantity'),
+            'o stock da origem não mexe'
+        );
+        $this->assertSame(0.0, (float) DB::table('invoicing_stocks')->where('tenant_id', $this->empresaB->id)->sum('quantity'));
     }
 
-    public function test_a_grelha_nao_carrega_o_catalogo_todo(): void
+    public function test_sem_motivo_a_transferencia_e_recusada(): void
     {
-        // Carregava TODOS os artigos com stock e, com `with('stocks')`, todas
-        // as linhas de stock de cada um, de todos os armazéns.
-        for ($i = 0; $i < 60; $i++) {
-            $p = Product::create([
-                'tenant_id'      => $this->tenant->id,
-                'name'           => sprintf('ARTIGO %03d', $i),
-                'sku'            => "ART-{$i}",
-                'code'           => "ART-{$i}",
-                'price'          => 100,
-                'type'           => 'produto',
-                'manage_stock'   => true,
-                'stock_quantity' => 0,
-            ]);
-
-            Stock::create([
-                'tenant_id'    => $this->tenant->id,
-                'warehouse_id' => $this->armazem->id,
-                'product_id'   => $p->id,
-                'quantity'     => 10,
-            ]);
-        }
-
-        $artigos = Livewire::test(InterCompanyTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('warehouseFromId', $this->armazem->id)
-            ->viewData('products');
-
-        $this->assertLessThanOrEqual(50, $artigos->count());
-        $this->assertSame(10.0, (float) $artigos->first()->disponivel_na_origem, 'o disponível vem na mesma consulta');
-    }
-
-    public function test_sem_modal_aberto_nao_se_carrega_catalogo_nenhum(): void
-    {
+        // Uma transferência entre empresas move património de uma para a
+        // outra: sem motivo escrito, não há como justificá-la mais tarde.
         $this->comStock(20);
 
-        $this->assertCount(
-            0,
-            Livewire::test(InterCompanyTransfer::class)->viewData('products')
-        );
+        $this->postJson(self::RAIZ . '/entre-empresas', [
+            'de_armazem'   => $this->armazem->id,
+            'para_empresa' => $this->empresaB->id,
+            'para_armazem' => $this->armazemB->id,
+            'itens'        => [['product_id' => $this->produto->id, 'quantity' => 1]],
+        ])->assertStatus(422)->assertJsonValidationErrors('notas');
     }
 
-    public function test_uma_empresa_a_que_o_utilizador_nao_tem_acesso_e_recusada(): void
+    public function test_nada_se_escreve_numa_empresa_a_que_o_utilizador_nao_tem_acesso(): void
     {
         // A defesa que já existia e que não pode partir-se: um id arbitrário
-        // permitia escrever stock e artigos em qualquer empresa da plataforma.
+        // permitia escrever stock E ARTIGOS em qualquer empresa da plataforma.
         $alheia = Tenant::create([
             'name'      => 'Empresa Alheia',
             'slug'      => 'alheia-' . uniqid(),
@@ -359,25 +266,18 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
 
         $this->comStock(20);
 
-        Livewire::test(InterCompanyTransfer::class)
-            ->set('warehouseFromId', $this->armazem->id)
-            ->set('tenantToId', $alheia->id)
-            ->set('warehouseToId', $this->armazemB->id)
-            ->set('notes', 'tentativa')
-            ->set('transferItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => 4,
-                'unit_cost'     => 700,
-                'ultima_valida' => 4,
-            ]])
-            ->call('saveTransfer');
+        $this->transferir(4, $alheia->id)->assertStatus(422);
 
         $this->assertSame(
             0,
             StockMovement::withoutGlobalScopes()->where('tenant_id', $alheia->id)->count(),
             'nada escrito numa empresa a que o utilizador não tem acesso'
+        );
+
+        $this->assertSame(
+            0,
+            Product::withoutGlobalScopes()->where('tenant_id', $alheia->id)->where('name', $this->produto->name)->count(),
+            'nem sequer a cópia do artigo'
         );
 
         $this->assertSame(
@@ -388,5 +288,21 @@ class TransferenciaInterEmpresasTest extends TenantTestCase
                 ->sum('quantity'),
             'o stock da origem não mexe'
         );
+    }
+
+    public function test_o_historico_entre_empresas_mostra_a_perna_desta_empresa(): void
+    {
+        // Cada empresa vê o seu lado: a origem vê a saída, o destino veria a
+        // entrada. Misturá-los mostraria a uma empresa o movimento da outra.
+        $this->comStock(20);
+        $this->transferir(4)->assertCreated();
+
+        $linhas = $this->getJson(self::RAIZ . '/entre-empresas/historico')->assertOk()->json('data');
+
+        $this->assertCount(1, $linhas);
+        $this->assertSame('saida', $linhas[0]['sentido']);
+        $this->assertEqualsWithDelta(4, $linhas[0]['quantidade'], 0.001);
+        $this->assertSame($this->produto->name, $linhas[0]['artigo']);
+        $this->assertSame($this->user->name, $linhas[0]['quem']);
     }
 }

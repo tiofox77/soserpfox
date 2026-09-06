@@ -10,6 +10,7 @@ import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
+import { t } from '@/i18n';
 
 /**
  * EMITIR UMA PROPOSTA — proforma de venda, orçamento ou proforma de compra —
@@ -24,6 +25,10 @@ import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
  *
  * Com `id`, abre a proposta: um rascunho edita-se; uma que já seguiu abre-se
  * só para ler. O servidor é que diz qual é qual.
+ *
+ * Com `duplicarDe` (`?duplicar=123` na morada), abre com o CONTEÚDO de outra
+ * proposta e mais nada: sem `id` e sem número, gravar cria um documento novo.
+ * O que viaja e o que fica está no `DuplicaDocumento`, do lado do servidor.
  */
 
 const LINHA_NOVA: LinhaDoEditor = {
@@ -34,10 +39,11 @@ const LINHA_NOVA: LinhaDoEditor = {
     discount_percent: 0,
 };
 
-export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number }) {
+export default function EmitirProposta({ tipo, id, duplicarDe }: { tipo: string; id?: number; duplicarDe?: number }) {
     const [parteId, porParteId] = useState('');
     const [data, porData] = useState(() => new Date().toISOString().slice(0, 10));
     const [validoAte, porValidoAte] = useState('');
+    const [regiao, porRegiao] = useState('');
     const [notas, porNotas] = useState('');
     const [linhas, porLinhas] = useState<LinhaDoEditor[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
@@ -49,17 +55,25 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
         staleTime: 5 * 60_000,
     });
     const aberta = useQuery({ queryKey: ['emissor', tipo, 'abrir', id], queryFn: () => emissor.abrir(tipo, id ?? 0), enabled: id !== undefined });
+    const copia = useQuery({ queryKey: ['emissor', tipo, 'duplicar', duplicarDe], queryFn: () => emissor.duplicar(tipo, duplicarDe ?? 0), enabled: id === undefined && duplicarDe !== undefined });
 
-    /* A proposta aberta entra no formulário tal como está. */
+    /*
+     * O conteúdo que entra no formulário — venha de uma proposta aberta ou de
+     * uma duplicada. É o MESMO carregamento: o duplicado herda o que a edição
+     * herdaria, e o que ele não herda é o que o servidor não mandou.
+     */
+    const carregado = aberta.data ?? copia.data ?? null;
+
     useEffect(() => {
-        const d = aberta.data?.documento;
+        const d = carregado?.documento;
         if (!d) return;
         porParteId(d.parte_id ? String(d.parte_id) : '');
         porData(d.data ?? new Date().toISOString().slice(0, 10));
         porValidoAte(d.valido_ate ?? '');
+        porRegiao(d.tax_country_region ?? '');
         porNotas(d.notas ?? '');
-        porLinhas(aberta.data && aberta.data.linhas.length > 0 ? aberta.data.linhas : [{ ...LINHA_NOVA }]);
-    }, [aberta.data]);
+        porLinhas(carregado.linhas.length > 0 ? carregado.linhas : [{ ...LINHA_NOVA }]);
+    }, [carregado]);
 
     const [totais, porTotais] = useState<Totais | null>(null);
     const [aContar, porAContar] = useState(false);
@@ -87,7 +101,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
 
         porAContar(true);
 
-        const t = setTimeout(() => {
+        const pausa = setTimeout(() => {
             emissor
                 .calcular(tipo, { linhas: comLinhas })
                 .then((r) => {
@@ -103,7 +117,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
 
         return () => {
             cancelado = true;
-            clearTimeout(t);
+            clearTimeout(pausa);
         };
     }, [linhas, tipo]);
 
@@ -113,6 +127,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                 parte_id: Number(parteId),
                 data,
                 valido_ate: validoAte || null,
+                tax_country_region: regiao || null,
                 notas: notas || null,
                 linhas: linhas.filter(comConteudo),
             };
@@ -125,12 +140,12 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
 
-    if (opcoes.isPending || (id !== undefined && aberta.isPending)) {
+    if (opcoes.isPending || (id !== undefined && aberta.isPending) || (copia.isPending && copia.fetchStatus !== 'idle')) {
         return <Carregando linhas={6} />;
     }
 
-    if (opcoes.isError || aberta.isError) {
-        return <Falhou erro={opcoes.error ?? aberta.error} />;
+    if (opcoes.isError || aberta.isError || copia.isError) {
+        return <Falhou erro={opcoes.error ?? aberta.error ?? copia.error} />;
     }
 
     const o = opcoes.data;
@@ -145,8 +160,15 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                 <h2 className="text-xl font-bold text-slate-900">{gravado.numero}</h2>
                 <p className="mt-1 text-sm text-slate-500">{gravado.mensagem}</p>
                 <div className="mt-6 flex justify-center gap-2">
-                    <Botao cor="primaria" tom="solida" icone="fa-list" onClick={() => (window.location.href = o.rota)}>
-                        Ver a lista
+                    {/* ABRIR O QUE SE ACABOU DE GRAVAR.
+                        O servidor sempre devolveu a morada do documento, e o
+                        ecrã nunca a usava: quem grava um rascunho para o
+                        continuar tinha de ir procurá-lo à lista. */}
+                    <Botao cor="primaria" tom="solida" icone="fa-up-right-from-square" onClick={() => (window.location.href = gravado.abrir)}>
+                        {t('Abrir o documento')}
+                    </Botao>
+                    <Botao icone="fa-list" onClick={() => (window.location.href = o.rota)}>
+                        {t('Ver a lista')}
                     </Botao>
                     {id === undefined && (
                         <Botao
@@ -158,7 +180,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                 porNotas('');
                             }}
                         >
-                            Emitir outro
+                            {t('Emitir outro')}
                         </Botao>
                     )}
                 </div>
@@ -194,24 +216,35 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
             {doc && (
                 <div className={cls('flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm', RAIO, soLeitura ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-900')} data-documento-aberto>
                     <span className="flex items-center gap-2">
-                        <strong>{doc.numero ?? 'Rascunho'}</strong>
+                        <strong>{doc.numero ?? t('Rascunho')}</strong>
                         <Etiqueta cor={soLeitura ? 'neutra' : 'aviso'}>{doc.estado}</Etiqueta>
-                        {soLeitura ? 'Este documento já seguiu: só leitura.' : 'Rascunho: pode alterar.'}
+                        {soLeitura ? t('Este documento já seguiu: só leitura.') : t('Rascunho: pode alterar.')}
                     </span>
-                    <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />PDF</a>
+                    <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />{t('PDF')}</a>
+                </div>
+            )}
+
+            {/* Duplicado: diz de onde veio, e diz que não é o mesmo documento. */}
+            {copia.data && (
+                <div className={cls('flex flex-wrap items-center gap-2 border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900', RAIO)} data-duplicado-de={copia.data.origem.numero ?? ''}>
+                    <i className="fas fa-copy" aria-hidden="true" />
+                    <span>
+                        {t('Duplicado de')} <strong>{copia.data.origem.numero ?? t('documento sem número')}</strong>{' '}
+                        {t('— nasce como documento novo, sem número. Confira a data e a validade.')}
+                    </span>
                 </div>
             )}
 
             <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
-            <Cartao titulo="Dados do documento">
+            <Cartao titulo={t('Dados do documento')}>
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Campo
-                        etiqueta={o.parte === 'fornecedor' ? 'Fornecedor' : 'Cliente'}
+                        etiqueta={o.parte === 'fornecedor' ? t('Fornecedor') : t('Cliente')}
                         erro={erros.parte_id}
                         obrigatorio
                     >
                         <select value={parteId} onChange={(e) => porParteId(e.target.value)} className={entrada}>
-                            <option value="">Escolher…</option>
+                            <option value="">{t('Escolher…')}</option>
                             {o.partes.map((p) => (
                                 <option key={p.id} value={p.id}>
                                     {p.name}
@@ -221,11 +254,11 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                         </select>
                     </Campo>
 
-                    <Campo etiqueta="Data" erro={erros.data} obrigatorio>
+                    <Campo etiqueta={t('Data')} erro={erros.data} obrigatorio>
                         <input type="date" value={data} onChange={(e) => porData(e.target.value)} className={entrada} />
                     </Campo>
 
-                    <Campo etiqueta="Válido até" erro={erros.valido_ate}>
+                    <Campo etiqueta={t('Válido até')} erro={erros.valido_ate}>
                         <input
                             type="date"
                             value={validoAte}
@@ -233,15 +266,28 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                             className={entrada}
                         />
                     </Campo>
+
+                    {/* Cabinda tem regime próprio, e é o LOCAL DA OPERAÇÃO que
+                        decide — não a sede de ninguém. Vazio deriva da
+                        província da outra parte. */}
+                    <Campo etiqueta={t('Região fiscal')} erro={erros.tax_country_region}>
+                        <select value={regiao} onChange={(e) => porRegiao(e.target.value)} className={entrada}>
+                            {o.regioes.map((r) => (
+                                <option key={r.valor} value={r.valor}>
+                                    {r.rotulo}
+                                </option>
+                            ))}
+                        </select>
+                    </Campo>
                 </div>
             </Cartao>
 
             <Cartao
-                titulo="Linhas"
+                titulo={t('Linhas')}
                 accoes={
                     !soLeitura && (
                         <Botao icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>
-                            Nova linha
+                            {t('Nova linha')}
                         </Botao>
                     )
                 }
@@ -251,11 +297,11 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500">
-                                <th className="px-4 py-3 font-semibold">Artigo</th>
-                                <th className="px-4 py-3 font-semibold">Descrição</th>
-                                <th className="w-24 px-4 py-3 text-right font-semibold">Qtd.</th>
-                                <th className="w-32 px-4 py-3 text-right font-semibold">Preço</th>
-                                <th className="w-24 px-4 py-3 text-right font-semibold">Desc. %</th>
+                                <th className="px-4 py-3 font-semibold">{t('Artigo')}</th>
+                                <th className="px-4 py-3 font-semibold">{t('Descrição')}</th>
+                                <th className="w-24 px-4 py-3 text-right font-semibold">{t('Qtd.')}</th>
+                                <th className="w-32 px-4 py-3 text-right font-semibold">{t('Preço')}</th>
+                                <th className="w-24 px-4 py-3 text-right font-semibold">{t('Desc. %')}</th>
                                 <th className="w-12 px-4 py-3"></th>
                             </tr>
                         </thead>
@@ -266,10 +312,10 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                         <select
                                             value={l.product_id ?? ''}
                                             onChange={(e) => mudarLinha(i, 'product_id', e.target.value)}
-                                            aria-label={`Artigo da linha ${i + 1}`}
+                                            aria-label={t('Artigo da linha :n', { n: i + 1 })}
                                             className={entrada}
                                         >
-                                            <option value="">Escolher…</option>
+                                            <option value="">{t('Escolher…')}</option>
                                             {o.artigos.map((a) => (
                                                 <option key={a.id} value={a.id}>
                                                     {a.name}
@@ -281,7 +327,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                         <input
                                             value={l.description}
                                             onChange={(e) => mudarLinha(i, 'description', e.target.value)}
-                                            aria-label={`Descrição da linha ${i + 1}`}
+                                            aria-label={t('Descrição da linha :n', { n: i + 1 })}
                                             className={entrada}
                                         />
                                     </td>
@@ -292,7 +338,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                             step="0.001"
                                             value={l.quantity}
                                             onChange={(e) => mudarLinha(i, 'quantity', e.target.value)}
-                                            aria-label={`Quantidade da linha ${i + 1}`}
+                                            aria-label={t('Quantidade da linha :n', { n: i + 1 })}
                                             className={cls(entrada, 'text-right tabular-nums')}
                                         />
                                     </td>
@@ -303,7 +349,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                             step="0.01"
                                             value={l.price}
                                             onChange={(e) => mudarLinha(i, 'price', e.target.value)}
-                                            aria-label={`Preço da linha ${i + 1}`}
+                                            aria-label={t('Preço da linha :n', { n: i + 1 })}
                                             className={cls(entrada, 'text-right tabular-nums')}
                                         />
                                     </td>
@@ -315,7 +361,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                             step="0.01"
                                             value={l.discount_percent}
                                             onChange={(e) => mudarLinha(i, 'discount_percent', e.target.value)}
-                                            aria-label={`Desconto da linha ${i + 1}`}
+                                            aria-label={t('Desconto da linha :n', { n: i + 1 })}
                                             className={cls(entrada, 'text-right tabular-nums')}
                                         />
                                     </td>
@@ -326,7 +372,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                                             <button
                                                 type="button"
                                                 onClick={() => porLinhas((ls) => ls.filter((_, j) => j !== i))}
-                                                aria-label={`Apagar linha ${i + 1}`}
+                                                aria-label={t('Apagar linha :n', { n: i + 1 })}
                                                 className={cls('p-2 text-red-500 transition hover:bg-red-50', RAIO, FOCO)}
                                             >
                                                 <i className="fas fa-trash" aria-hidden="true" />
@@ -347,41 +393,41 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
             </Cartao>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                <Cartao titulo="Observações">
+                <Cartao titulo={t('Observações')}>
                     <textarea
                         rows={4}
                         value={notas}
                         onChange={(e) => porNotas(e.target.value)}
-                        aria-label="Observações"
+                        aria-label={t('Observações')}
                         className={cls(entrada, 'h-auto py-2')}
                     />
                 </Cartao>
 
                 {/* OS TOTAIS SÃO OS DO SERVIDOR. Este bloco não calcula nada. */}
-                <Cartao titulo="Totais">
+                <Cartao titulo={t('Totais')}>
                     {totais ? (
                         <dl className={cls('space-y-1.5 text-sm', aContar && 'opacity-50')}>
-                            <Total rotulo="Valor bruto" valor={totais.bruto} />
+                            <Total rotulo={t('Valor bruto')} valor={totais.bruto} />
                             {totais.desconto_por_linha > 0 && (
-                                <Total rotulo="Desconto nas linhas" valor={-totais.desconto_por_linha} />
+                                <Total rotulo={t('Desconto nas linhas')} valor={-totais.desconto_por_linha} />
                             )}
-                            <Total rotulo="Valor líquido" valor={totais.liquido} />
-                            <Total rotulo="Incidência de IVA" valor={totais.base} />
-                            <Total rotulo="Imposto" valor={totais.imposto} />
-                            {totais.retencao > 0 && <Total rotulo="Retenção" valor={-totais.retencao} />}
+                            <Total rotulo={t('Valor líquido')} valor={totais.liquido} />
+                            <Total rotulo={t('Incidência de IVA')} valor={totais.base} />
+                            <Total rotulo={t('Imposto')} valor={totais.imposto} />
+                            {totais.retencao > 0 && <Total rotulo={t('Retenção')} valor={-totais.retencao} />}
                             <div className="mt-2 flex items-baseline justify-between border-t border-slate-200 pt-2">
-                                <dt className="font-bold text-slate-900">Total</dt>
+                                <dt className="font-bold text-slate-900">{t('Total')}</dt>
                                 <dd className="text-xl font-bold tabular-nums text-slate-900">
                                     {kz(totais.total)} <span className="text-sm font-normal text-slate-400">Kz</span>
                                 </dd>
                             </div>
                             <p className="pt-1 text-xs text-slate-400">
-                                Contado no servidor — é o mesmo cálculo que vai para o documento.
+                                {t('Contado no servidor — é o mesmo cálculo que vai para o documento.')}
                             </p>
                         </dl>
                     ) : (
                         <p className="py-6 text-center text-sm text-slate-400">
-                            Escolha um artigo e uma quantidade para ver os totais.
+                            {t('Escolha um artigo e uma quantidade para ver os totais.')}
                         </p>
                     )}
                 </Cartao>
@@ -389,7 +435,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
             </fieldset>
 
             <div className="flex items-center justify-end gap-2">
-                <Botao onClick={() => (window.location.href = o.rota)}>{soLeitura ? 'Voltar à lista' : 'Cancelar'}</Botao>
+                <Botao onClick={() => (window.location.href = o.rota)}>{soLeitura ? t('Voltar à lista') : t('Cancelar')}</Botao>
                 {!soLeitura && (
                     <Botao
                         cor="primaria"
@@ -400,7 +446,7 @@ export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number
                         disabled={!o.permissoes.pode_criar && id === undefined}
                         onClick={() => guardar.mutate()}
                     >
-                        {id !== undefined ? 'Guardar alterações' : 'Gravar rascunho'}
+                        {id !== undefined ? t('Guardar alterações') : t('Gravar rascunho')}
                     </Botao>
                 )}
             </div>
@@ -424,8 +470,8 @@ function Falhou({ erro }: { erro: unknown }) {
 
     return (
         <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
-            <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir o emissor</h2>
-            <p className="text-sm text-red-800">{daApi?.message ?? 'Verifique a ligação.'}</p>
+            <h2 className="mb-2 text-lg font-bold text-red-900">{t('Não foi possível abrir o emissor')}</h2>
+            <p className="text-sm text-red-800">{daApi?.message ?? t('Verifique a ligação.')}</p>
         </div>
     );
 }

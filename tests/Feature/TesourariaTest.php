@@ -6,7 +6,6 @@ use App\Livewire\Treasury\Banks;
 use App\Livewire\Treasury\CashRegisters;
 use App\Livewire\Treasury\Reports;
 use App\Livewire\Treasury\Transactions;
-use App\Livewire\Invoicing\Pos\PosShiftManager;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Treasury\Bank;
 use App\Models\Treasury\CashRegister;
@@ -104,22 +103,24 @@ class TesourariaTest extends TenantTestCase
             'is_default' => true,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(PosShiftManager::class)
-            ->set('opening_balance', 500)
-            ->set('opening_notes', 'Abertura conjunta')
-            ->call('openShift')
-            ->assertHasNoErrors();
+        $this->actingAs($this->user)
+            ->postJson('/api/v1/invoicing/react/turnos/abrir', [
+                'opening_balance' => 500,
+                'opening_notes' => 'Abertura conjunta',
+            ])
+            ->assertCreated();
 
         $cash->refresh();
         $this->assertSame('open', $cash->status);
         $this->assertEquals(500, (float) $cash->opening_balance);
         $this->assertEquals(500, (float) $cash->current_balance);
 
-        $component->set('actual_cash', 650)
-            ->set('closing_notes', 'Fecho conjunto')
-            ->call('closeShift')
-            ->assertHasNoErrors();
+        $this->actingAs($this->user)
+            ->postJson('/api/v1/invoicing/react/turnos/fechar', [
+                'actual_cash' => 650,
+                'closing_notes' => 'Fecho conjunto',
+            ])
+            ->assertOk();
 
         $cash->refresh();
         $this->assertSame('closed', $cash->status);

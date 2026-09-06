@@ -2,20 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\InvoicingDashboard;
 use App\Models\Invoicing\SalesInvoice;
 use App\Services\Invoicing\PainelDaFacturacao;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
- * O painel em React e o painel em Blade dizem O MESMO.
+ * O painel em React diz o que o serviço diz — e não uma segunda versão.
  *
  * É esta a razão de o `PainelDaFacturacao` existir. Enquanto as contas
- * estivessem escritas dentro do componente Livewire, o controlador da API
- * teria de as repetir — e a partir do primeiro ajuste os dois ecrãs davam
- * números diferentes sem ninguém saber qual acreditar. Este ensaio compara-os
- * lado a lado.
+ * estivessem escritas dentro do componente do ecrã, quem servisse o outro
+ * ecrã teria de as repetir — e a partir do primeiro ajuste os dois davam
+ * números diferentes sem ninguém saber qual acreditar. Foi assim que o painel
+ * conviveu, durante a migração, com o de Blade. O de Blade já não existe; a
+ * fonte única fica, e é ela que estes ensaios comparam com a resposta da API.
  */
 class PainelApiReactTest extends TenantTestCase
 {
@@ -49,7 +48,7 @@ class PainelApiReactTest extends TenantTestCase
     }
 
     /** @test */
-    public function os_dois_paineis_dizem_o_mesmo(): void
+    public function a_api_diz_exactamente_o_que_o_servico_conta(): void
     {
         $this->comPermissoes('invoicing.dashboard.view');
 
@@ -59,21 +58,21 @@ class PainelApiReactTest extends TenantTestCase
 
         $daApi = $this->getJson(self::ROTA)->assertOk()->json();
 
-        $doBlade = Livewire::test(InvoicingDashboard::class)->viewData('stats');
+        $doServico = app(PainelDaFacturacao::class)->numeros((int) $this->tenant->id);
 
         foreach (['total_invoiced', 'total_pending', 'total_overdue', 'year_invoiced'] as $numero) {
             $this->assertEqualsWithDelta(
-                (float) $doBlade[$numero],
+                (float) $doServico['stats'][$numero],
                 (float) $daApi['stats'][$numero],
                 0.01,
-                "o painel em React e o em Blade discordam em {$numero}"
+                "o painel em React e o serviço discordam em {$numero}"
             );
         }
 
         $this->assertSame(
-            Livewire::test(InvoicingDashboard::class)->viewData('invoiceStatus'),
+            $doServico['invoiceStatus'],
             $daApi['estado_das_facturas'],
-            'as quatro caixas têm de bater certo nos dois'
+            'as quatro caixas são as do serviço, sem contas pelo caminho'
         );
     }
 
@@ -128,14 +127,26 @@ class PainelApiReactTest extends TenantTestCase
         $this->assertStringNotContainsString('jws_signature', $corpo);
     }
 
-    /** O serviço é o mesmo objecto para os dois — não há segunda cópia. @test */
-    public function o_componente_ja_nao_tem_contas_dentro(): void
+    /**
+     * O CONTROLADOR NÃO TEM CONTAS DENTRO — só formato.
+     *
+     * Era o componente Livewire que não podia ter uma segunda cópia das
+     * contas; hoje é o controlador da API que fica com a mesma proibição. Uma
+     * soma escrita aqui divergiria do serviço ao primeiro ajuste, e os
+     * relatórios que bebem do mesmo sítio passavam a discordar do painel.
+     *
+     * @test
+     */
+    public function o_controlador_bebe_do_servico_e_nao_faz_contas(): void
     {
-        $fonte = file_get_contents(app_path('Livewire/Invoicing/InvoicingDashboard.php'));
+        $fonte = file_get_contents(app_path('Http/Controllers/Api/Invoicing/PainelApiController.php'));
 
         $this->assertStringContainsString(PainelDaFacturacao::class, $fonte,
-            'o painel Livewire tem de beber do serviço');
-        $this->assertStringNotContainsString('private const LIQUIDADAS', $fonte,
-            'as contas mudaram-se para o serviço; uma segunda cópia aqui volta a divergir');
+            'o painel tem de beber do serviço');
+
+        foreach (['private const LIQUIDADAS', 'whereNotIn(', 'sum(', 'selectRaw('] as $conta) {
+            $this->assertStringNotContainsString($conta, $fonte,
+                "as contas vivem no serviço; «{$conta}» aqui é uma segunda cópia à espera de divergir");
+        }
     }
 }

@@ -151,18 +151,104 @@ class LoteMenuLinguaTest extends TenantTestCase
 
     // ==================== o painel ====================
 
+    /*
+     * O PAINEL MUDOU DE CASA, E OS ENSAIOS FORAM ATRÁS DELE.
+     *
+     * Estes cinco ensaios nasceram contra o painel em Blade, onde tudo — os
+     * cartões, o rótulo do gráfico, os valores do CSV — vinha escrito no HTML
+     * e se lia com um assertSee. O painel é hoje um ecrã em React
+     * (`resources/js/ecras/facturacao/Painel.tsx`) e o HTML da página traz o
+     * ponto de montagem e mais nada: os mesmos assertSee passariam a acusar
+     * uma tradução partida que não existe, ou — pior — a passar por a palavra
+     * portuguesa também já não estar lá.
+     *
+     * O que eles guardam continua a valer todo, palavra por palavra. O que
+     * mudou foi ONDE cada metade se prova:
+     *
+     *   — o que o servidor desenha (o título da página, os nomes dos meses do
+     *     gráfico, o dicionário que a página anuncia) prova-se por HTTP, como
+     *     antes;
+     *   — o que o ecrã desenha prova-se pelo PAR que o faz acontecer: a frase
+     *     portuguesa que o ecrã usa como chave, e a tradução que o dicionário
+     *     tem para ela. Uma sem a outra não traduz nada, e é sempre uma das
+     *     duas que falta;
+     *   — e o resultado com olhos de ver fica em `tests/browser/react.painel.spec.js`,
+     *     que abre o painel em inglês num browser a sério.
+     */
+
+    /** O ecrã do painel, tal como está escrito hoje. */
+    private function fonteDoPainel(): string
+    {
+        return $this->fonte('resources/js/ecras/facturacao/Painel.tsx');
+    }
+
+    private function fonte(string $caminho): string
+    {
+        $completo = base_path($caminho);
+
+        $this->assertFileExists($completo, "Mudou de sítio: {$caminho}. O ensaio tem de ir atrás.");
+
+        return (string) file_get_contents($completo);
+    }
+
+    /**
+     * O PAR QUE TRADUZ: a chave que o ecrã usa e a tradução que existe.
+     *
+     * Não chega provar que o `lang/en.json` tem «Monthly Revenue» — tinha-o já
+     * quando o painel em React mostrava «Facturado este mês» a toda a gente,
+     * porque a frase que o ecrã escrevia não era a frase que o dicionário
+     * conhecia. E também não chega provar que o ecrã embrulha em `t()`: sem
+     * entrada no dicionário, o `t()` devolve a própria frase e o ecrã fica em
+     * português com ar de traduzido.
+     *
+     * @param array<string, string> $paresEsperados chave portuguesa => tradução
+     */
+    private function assertOPainelTraduz(array $paresEsperados, string $lingua): void
+    {
+        $fonte = $this->fonteDoPainel();
+        $frases = \App\Support\DicionarioDoReact::frases($lingua);
+
+        foreach ($paresEsperados as $portugues => $traduzida) {
+            $this->assertStringContainsString(
+                "t('{$portugues}')",
+                $fonte,
+                "O painel devia usar «{$portugues}» como chave: é a frase que o dicionário conhece."
+            );
+
+            $this->assertSame(
+                $traduzida,
+                $frases[$portugues] ?? null,
+                "Falta a tradução de «{$portugues}» em lang/{$lingua}.json."
+            );
+        }
+    }
+
+    /**
+     * O que o SERVIDOR ainda desenha do painel prova-se por HTTP.
+     *
+     * O título da página não é do React: sai do `EcraReact::pagina()`, passa
+     * por `__()` e vem no HTML. É a primeira coisa que se lê ao chegar, e por
+     * isso é a que mais depressa denuncia uma página meio traduzida.
+     */
     public function test_o_painel_fala_ingles(): void
     {
         $this->user->update(['locale' => 'en']);
 
         $html = $this->comoSeLe($this->painel());
 
-        foreach (['Invoicing Dashboard', 'Monthly Revenue', 'Awaiting payment'] as $esperado) {
-            $this->assertStringContainsString($esperado, $html);
-        }
-
+        $this->assertStringContainsString('Invoicing Dashboard', $html);
         $this->assertStringNotContainsString('Dashboard de Faturação', $html);
-        $this->assertStringNotContainsString('Aguardando pagamento', $html);
+
+        // E a página manda o ecrã buscar o dicionário inglês — sem isto o
+        // React monta e traduz para lado nenhum.
+        $this->assertStringContainsString('window.__reactLingua = "en"', $html);
+        $this->assertStringContainsString('__reactDicionarioUrl', $html);
+
+        $this->assertOPainelTraduz([
+            'Dashboard de Faturação' => 'Invoicing Dashboard',
+            'Faturação do Mês' => 'Monthly Revenue',
+            'Aguardando pagamento' => 'Awaiting payment',
+        ], 'en');
     }
 
     public function test_o_painel_fala_frances(): void
@@ -172,18 +258,32 @@ class LoteMenuLinguaTest extends TenantTestCase
         $html = $this->comoSeLe($this->painel());
 
         $this->assertStringContainsString('Tableau de bord de facturation', $html);
-        $this->assertStringContainsString('En attente de paiement', $html);
         $this->assertStringNotContainsString('Dashboard de Faturação', $html);
+        $this->assertStringContainsString('window.__reactLingua = "fr"', $html);
+
+        $this->assertOPainelTraduz([
+            'Dashboard de Faturação' => 'Tableau de bord de facturation',
+            'Aguardando pagamento' => 'En attente de paiement',
+        ], 'fr');
     }
 
     /**
      * O gráfico não vem do nosso dicionário.
      *
-     * Os nomes dos meses e os separadores decimais saem do Intl do navegador,
-     * e o Intl precisa da etiqueta da língua. Estava 'pt-PT' escrito à mão em
-     * quatro sítios: a página ficava em inglês e o gráfico por baixo continuava
-     * a dizer "ago." com vírgula decimal. É o tipo de meia-tradução que passa
-     * despercebida a quem revê o texto e salta à vista a quem usa.
+     * Os nomes dos meses e os separadores decimais saem do `Intl`, e o `Intl`
+     * precisa da ETIQUETA da língua ('en-GB'), não da língua ('en'). Estava
+     * 'pt-PT' escrito à mão: a página ficava em inglês e o gráfico por baixo
+     * continuava a dizer «ago.» com vírgula decimal. É o tipo de
+     * meia-tradução que passa despercebida a quem revê o texto e salta à
+     * vista a quem usa.
+     *
+     * A conta está partida em dois, e as duas metades provam-se aqui:
+     *
+     *   — os NOMES DOS MESES são do servidor (o `PainelDaFacturacao` monta-os
+     *     com o Carbon), e viajam na resposta da API: prova-se por HTTP;
+     *   — a ETIQUETA para o `Intl` do navegador é do `i18n.ts`, e daí sai para
+     *     os formatadores do `tokens.ts` e para o nó da exportação. Aqui
+     *     guarda-se a fonte; o valor formatado prova-se no `tokens.test.ts`.
      */
     public function test_o_grafico_recebe_a_etiqueta_da_lingua(): void
     {
@@ -192,51 +292,124 @@ class LoteMenuLinguaTest extends TenantTestCase
         // teste — depois de visitar em inglês, um utilizador sem língua no
         // perfil continua, e bem, a ver inglês. Testar o "sem escolha" no fim
         // media o cookie, não o valor por omissão.
-        foreach (['' => 'pt-PT', 'en' => 'en-GB', 'fr' => 'fr-FR'] as $escolhida => $etiqueta) {
+        foreach (['' => 'jan', 'en' => 'Jan', 'fr' => 'janv'] as $escolhida => $mes) {
             $this->user->update(['locale' => $escolhida ?: null]);
 
+            // A página diz ao ecrã em que língua se está a trabalhar: é dela
+            // que sai a etiqueta do Intl.
             $this->assertStringContainsString(
-                '"intl":"' . $etiqueta . '"',
-                $this->comoSeLe($this->painel()),
-                'Com locale ' . ($escolhida ?: 'nenhum') . " o gráfico devia receber {$etiqueta}."
+                'window.__reactLingua = "' . ($escolhida ?: 'pt') . '"',
+                $this->comoSeLe($this->painel())
+            );
+
+            $rotulos = array_column(
+                $this->getJson('/api/v1/invoicing/react/painel')->assertOk()->json('por_mes'),
+                'rotulo'
+            );
+
+            $this->assertCount(12, $rotulos);
+            $this->assertStringStartsWith(
+                $mes,
+                $rotulos[0],
+                'Com locale ' . ($escolhida ?: 'nenhum') . " o primeiro mês devia começar por «{$mes}»."
             );
         }
+
+        // A tabela língua → etiqueta vive num sítio só, e é o que sabe a
+        // língua que a tem.
+        $i18n = $this->fonte('resources/js/i18n.ts');
+
+        foreach (["pt: 'pt-PT'", "en: 'en-GB'", "fr: 'fr-FR'"] as $par) {
+            $this->assertStringContainsString($par, $i18n, "Falta o par {$par} na tabela do Intl.");
+        }
+
+        $this->assertStringContainsString('export function etiquetaIntl()', $i18n);
+
+        // E os formatadores perguntam-lhe, em vez de escreverem 'pt-PT'.
+        $tokens = $this->fonte('resources/js/ui/tokens.ts');
+
+        $this->assertStringContainsString("toLocaleString(etiquetaIntl()", $tokens);
+        $this->assertStringContainsString("toLocaleDateString(etiquetaIntl()", $tokens);
+        $this->assertStringNotContainsString(
+            "toLocaleString('pt-PT'",
+            $tokens,
+            "Voltou a haver um 'pt-PT' escrito à mão: quem trabalha em inglês vê os números à portuguesa."
+        );
+        $this->assertStringNotContainsString("toLocaleDateString('pt-PT'", $tokens);
+
+        // O mesmo para o que vai no nó da exportação, que é o que o PDF e o
+        // CSV lêem para formatarem datas e números.
+        $this->assertStringContainsString('intl: etiquetaIntl(),', $this->fonteDoPainel());
     }
 
-    /** O rótulo da série e o do período acompanham a língua. */
+    /**
+     * O rótulo da série e o do período acompanham a língua.
+     *
+     * A frase do período é UMA chave com um `:periodo` lá dentro, e não duas
+     * metades coladas: a ordem das palavras noutras línguas não é a
+     * portuguesa. Por isso o que se prova aqui é a frase JÁ COMPOSTA.
+     */
     public function test_os_rotulos_do_grafico_sao_traduzidos(): void
     {
-        $this->user->update(['locale' => 'en']);
+        $this->assertOPainelTraduz([
+            'Vendas (AOA)' => 'Sales (AOA)',
+            'Este Ano' => 'This Year',
+        ], 'en');
 
-        $html = $this->comoSeLe($this->painel());
+        $fonte = $this->fonteDoPainel();
+        $frases = \App\Support\DicionarioDoReact::frases('en');
 
-        $this->assertStringContainsString('Sales (AOA)', $html);
-        $this->assertStringContainsString('Sales Trend - This Month', $html);
+        $this->assertStringContainsString(
+            "t('Evolução de Vendas - :periodo', { periodo: t('Este Ano') })",
+            $fonte,
+            'O título do gráfico devia compor-se de uma chave só, com o período por dentro.'
+        );
+
+        $this->assertSame(
+            'Sales Trend - This Year',
+            str_replace(':periodo', $frases['Este Ano'], $frases['Evolução de Vendas - :periodo']),
+            'A frase composta é o que a pessoa lê — e é ela que tem de fazer sentido em inglês.'
+        );
     }
 
     /**
      * O CSV não pode levar separador de milhares.
      *
-     * O number_format() por omissão escreve "1,234.56" — uma vírgula dentro
-     * de um ficheiro separado por vírgulas. A folha de calculo abria a linha
-     * com uma coluna a mais e o valor partido em dois.
+     * Um «1.234,56» dentro de um ficheiro separado por vírgulas abria na folha
+     * de cálculo com uma coluna a mais e o valor partido em dois. Era um risco
+     * teórico enquanto o número saía sempre em português; passou a ser certo
+     * no dia em que o formato começou a seguir a língua, porque em inglês
+     * `kz()` devolve mesmo «1,234.56».
+     *
+     * Daí os campos `…Cru` do nó `textosPainel`: os mesmos quatro valores,
+     * escritos com `toFixed`, que dá `1234.56` seja qual for a língua. O nó é
+     * hoje escrito pelo ecrã, e por isso não chega ao HTML — o que se lê aqui
+     * é como ele é montado; que o nó real não leva vírgula nenhuma prova-se em
+     * `tests/browser/react.painel.spec.js`.
      */
     public function test_o_csv_leva_numeros_sem_separador_de_milhares(): void
     {
-        $html = $this->comoSeLe($this->painel());
+        $fonte = $this->fonteDoPainel();
 
-        // Os valores crus do CSV viajam no nó dos textos, um campo por
-        // cartão: "facturadoCru", "recebidoCru", e assim por diante.
-        preg_match_all('/"\w+Cru":"([0-9.,]*)"/', $html, $m);
+        $this->assertStringContainsString(
+            'const cru = (v: number) => (Number.isFinite(v) ? v : 0).toFixed(2);',
+            $fonte,
+            'O valor cru do CSV escreve-se sem separador nenhum, e o toFixed é quem o garante.'
+        );
 
-        $this->assertNotEmpty($m[1], 'Não encontrei os valores do CSV na página.');
+        foreach (['facturado', 'recebido', 'pendente', 'vencido'] as $cartao) {
+            // Formatado para o PDF, que é para uma pessoa ler...
+            $this->assertStringContainsString("{$cartao}: kz(s.total_", $fonte);
 
-        foreach ($m[1] as $valor) {
-            $this->assertStringNotContainsString(
-                ',',
-                $valor,
-                "O valor {$valor} leva vírgula — parte a coluna do CSV."
-            );
+            // ...e cru para o CSV, que é para uma folha de cálculo abrir.
+            $this->assertStringContainsString("{$cartao}Cru: cru(s.total_", $fonte);
+        }
+
+        // E o nó continua a chamar-se o que o exportador procura: o
+        // `/js/painel-facturacao.js` lê-o pelo id, e não recebe nada por
+        // argumento.
+        foreach (['id="textosPainel"', 'id="dadosVendas"'] as $no) {
+            $this->assertStringContainsString($no, $fonte, "O exportador procura o nó {$no} e não o encontra.");
         }
     }
 

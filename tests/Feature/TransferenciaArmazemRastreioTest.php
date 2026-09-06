@@ -2,12 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Invoicing\WarehouseTransfer;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
-use Livewire\Livewire;
+use Illuminate\Support\Facades\DB;
 use Tests\TenantTestCase;
 
 /**
@@ -22,9 +21,16 @@ use Tests\TenantTestCase;
  * preenchidos, e sem eles o carimbo de saldos não distingue as duas pernas da
  * transferência. Derivava o saldo anterior do DESTINO somando em vez de
  * subtrair — e escrevia no histórico um "antes" que nunca existiu.
+ *
+ * O ecrã é hoje o React `TransferenciasEntreArmazens.tsx`; a regra vive no
+ * serviço `TransferenciaDeStock` e entra pela API
+ * `/api/v1/invoicing/react/transferencias`. É a essa porta que estes ensaios
+ * batem — o rasto tem de continuar igual, venha de onde vier.
  */
 class TransferenciaArmazemRastreioTest extends TenantTestCase
 {
+    private const RAIZ = '/api/v1/invoicing/react/transferencias';
+
     protected Warehouse $destino;
     protected Product $produto;
 
@@ -69,26 +75,42 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
     /** Transfere $q unidades do armazém principal para o secundário. */
     private function transferir(float $q, string $nota = 'Reposição de loja')
     {
-        return Livewire::test(WarehouseTransfer::class)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->set('transferToWarehouse', $this->destino->id)
-            ->set('transferNotes', $nota)
-            ->set('transferItems', [[
+        return $this->postJson(self::RAIZ . '/entre-armazens', [
+            'de'    => $this->armazem->id,
+            'para'  => $this->destino->id,
+            'notas' => $nota,
+            'itens' => [[
                 'product_id'   => $this->produto->id,
                 'product_name' => $this->produto->name,
-                'product_code' => $this->produto->code,
                 'quantity'     => $q,
-            ]])
-            ->call('saveTransfer');
+            ]],
+        ]);
+    }
+
+    /** O ajuste em lote, num armazém só e com um sentido. */
+    private function ajustar(string $tipo, float $q, string $motivo)
+    {
+        return $this->postJson(self::RAIZ . '/ajuste', [
+            'armazem' => $this->armazem->id,
+            'tipo'    => $tipo,
+            'motivo'  => $motivo,
+            'itens'   => [[
+                'product_id'   => $this->produto->id,
+                'product_name' => $this->produto->name,
+                'quantity'     => $q,
+            ]],
+        ]);
     }
 
     public function test_a_transferencia_recebe_uma_referencia_legivel(): void
     {
         $this->comStock($this->armazem, 20);
 
-        $this->transferir(5)->assertSet('batchReference', fn ($ref) => $ref !== null);
+        $resposta = $this->transferir(5)->assertCreated();
 
         $referencia = StockMovement::where('product_id', $this->produto->id)->value('batch_reference');
+
+        $this->assertSame($resposta->json('referencia'), $referencia, 'a API devolve a referência que gravou');
 
         $this->assertMatchesRegularExpression(
             '#^MOV/\d{4}/\d{6}$#',
@@ -101,7 +123,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
     {
         $this->comStock($this->armazem, 20);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertCreated();
 
         $referencias = StockMovement::where('product_id', $this->produto->id)
             ->pluck('batch_reference')
@@ -117,7 +139,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $this->comStock($this->armazem, 20);
         $this->comStock($this->destino, 3);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertCreated();
 
         $saida = StockMovement::where('warehouse_id', $this->armazem->id)
             ->where('product_id', $this->produto->id)->first();
@@ -141,7 +163,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $this->comStock($this->armazem, 20);
         $this->comStock($this->destino, 3);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertCreated();
 
         $entrada = StockMovement::where('warehouse_id', $this->destino->id)
             ->where('product_id', $this->produto->id)->first();
@@ -158,7 +180,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
     {
         $this->comStock($this->armazem, 20);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertCreated();
 
         foreach (StockMovement::where('product_id', $this->produto->id)->get() as $m) {
             $this->assertSame($this->armazem->id, (int) $m->from_warehouse_id);
@@ -170,7 +192,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
     {
         $this->comStock($this->armazem, 20);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertCreated();
 
         foreach (StockMovement::where('product_id', $this->produto->id)->get() as $m) {
             $this->assertSame($this->user->id, (int) $m->user_id);
@@ -182,7 +204,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $this->comStock($this->armazem, 20);
         $this->comStock($this->destino, 3);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertCreated();
 
         $origem  = Stock::where('warehouse_id', $this->armazem->id)->where('product_id', $this->produto->id)->first();
         $destino = Stock::where('warehouse_id', $this->destino->id)->where('product_id', $this->produto->id)->first();
@@ -196,19 +218,22 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $this->comStock($this->armazem, 20);
         $this->comStock($this->destino, 3);
 
-        $this->transferir(5);
+        $resposta = $this->transferir(5)->assertCreated();
+        $referencia = $resposta->json('referencia');
 
-        $referencia = StockMovement::where('product_id', $this->produto->id)->value('batch_reference');
+        // A API entrega o caminho do PDF já feito — é o que o ecrã põe no
+        // botão do comprovativo.
+        $this->assertSame('/invoicing/stock/movimentacao/' . $referencia . '/pdf', $resposta->json('pdf'));
 
-        $resposta = $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]));
+        $papel = $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]));
 
-        $resposta->assertOk();
-        $resposta->assertSee('Transferência de Stock');
-        $resposta->assertSee($referencia);
-        $resposta->assertSee('Armazém Secundário');
+        $papel->assertOk();
+        $papel->assertSee('Transferência de Stock');
+        $papel->assertSee($referencia);
+        $papel->assertSee('Armazém Secundário');
         // Os saldos dos dois lados no papel: 20 → 15 na origem, 3 → 8 no destino.
-        $resposta->assertSee('Armazém de origem');
-        $resposta->assertSee('Armazém de destino');
+        $papel->assertSee('Armazém de origem');
+        $papel->assertSee('Armazém de destino');
     }
 
     public function test_uma_transferencia_nao_usa_o_documento_de_entradas_e_saidas(): void
@@ -218,9 +243,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // com sinais opostos e sem dizer de onde para onde foi.
         $this->comStock($this->armazem, 20);
 
-        $this->transferir(5);
-
-        $referencia = StockMovement::where('product_id', $this->produto->id)->value('batch_reference');
+        $referencia = $this->transferir(5)->assertCreated()->json('referencia');
 
         $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]))
             ->assertDontSee('Movimentação de Stock');
@@ -232,17 +255,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // anterior, "+6" no histórico é ilegível.
         $this->comStock($this->armazem, 12);
 
-        Livewire::test(WarehouseTransfer::class)
-            ->set('adjustWarehouse', $this->armazem->id)
-            ->set('adjustType', 'in')
-            ->set('adjustReason', 'Contagem física')
-            ->set('adjustItems', [[
-                'product_id'   => $this->produto->id,
-                'product_name' => $this->produto->name,
-                'product_code' => $this->produto->code,
-                'quantity'     => 6,
-            ]])
-            ->call('saveAdjust');
+        $this->ajustar('in', 6, 'Contagem física')->assertCreated();
 
         $m = StockMovement::where('product_id', $this->produto->id)->first();
 
@@ -258,19 +271,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // elas apareciam na tabela sem entrar em nenhum dos totais.
         $this->comStock($this->armazem, 12);
 
-        Livewire::test(WarehouseTransfer::class)
-            ->set('adjustWarehouse', $this->armazem->id)
-            ->set('adjustType', 'out')
-            ->set('adjustReason', 'Quebra')
-            ->set('adjustItems', [[
-                'product_id'   => $this->produto->id,
-                'product_name' => $this->produto->name,
-                'product_code' => $this->produto->code,
-                'quantity'     => 4,
-            ]])
-            ->call('saveAdjust');
-
-        $referencia = StockMovement::where('product_id', $this->produto->id)->value('batch_reference');
+        $referencia = $this->ajustar('out', 4, 'Quebra')->assertCreated()->json('referencia');
 
         $this->get(route('invoicing.stock.batch-preview', ['reference' => $referencia]))
             ->assertOk()
@@ -282,18 +283,14 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         $this->comStock($this->armazem, 20);
         $this->comStock($this->destino, 3);
 
-        $this->transferir(5);
+        $referencia = $this->transferir(5)->assertCreated()->json('referencia');
 
-        $referencia = StockMovement::where('product_id', $this->produto->id)->value('batch_reference');
-
-        $detalhe = Livewire::test(WarehouseTransfer::class)
-            ->set('selectedBatchRef', $referencia)
-            ->call('openDetailsModal')
-            ->get('selectedBatchDetails');
+        $detalhe = $this->getJson(self::RAIZ . '/detalhes?referencia=' . urlencode($referencia))
+            ->assertOk()->json('data');
 
         $this->assertCount(2, $detalhe, 'saída e entrada');
 
-        $saldos = array_map(fn ($d) => [(float) $d['balance_before'], (float) $d['balance_after']], $detalhe);
+        $saldos = array_map(fn ($d) => [(float) $d['antes'], (float) $d['depois']], $detalhe);
 
         $this->assertContains([20.0, 15.0], $saldos, 'a perna da origem');
         $this->assertContains([3.0, 8.0], $saldos, 'a perna do destino');
@@ -306,21 +303,16 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // movimentações. Procurar pela referência MOV/ fecha essa porta.
         $this->comStock($this->armazem, 40);
 
-        $this->transferir(5);
-        $primeira = StockMovement::where('product_id', $this->produto->id)->value('batch_reference');
+        $primeira = $this->transferir(5)->assertCreated()->json('referencia');
+        $this->transferir(7)->assertCreated();
 
-        $this->transferir(7);
-
-        $detalhe = Livewire::test(WarehouseTransfer::class)
-            ->set('selectedBatchRef', $primeira)
-            ->call('openDetailsModal')
-            ->get('selectedBatchDetails');
+        $detalhe = $this->getJson(self::RAIZ . '/detalhes?referencia=' . urlencode($primeira))
+            ->assertOk()->json('data');
 
         $this->assertCount(2, $detalhe);
 
         foreach ($detalhe as $linha) {
-            $this->assertSame($primeira, $linha['batch_reference']);
-            $this->assertSame(5.0, abs((float) $linha['quantity']), 'só as linhas do primeiro lote');
+            $this->assertSame(5.0, abs((float) $linha['quantidade']), 'só as linhas do primeiro lote');
         }
     }
 
@@ -350,6 +342,14 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         }
     }
 
+    /** A grelha de artigos do carrinho, com o que há no armazém de origem. */
+    private function artigos(array $filtros = []): array
+    {
+        $filtros += ['armazem' => $this->armazem->id, 'so_com_stock' => 1];
+
+        return $this->getJson(self::RAIZ . '/artigos?' . http_build_query($filtros))->assertOk()->json('data');
+    }
+
     public function test_a_grelha_de_artigos_nao_custa_uma_consulta_por_artigo(): void
     {
         // A razão de o ecrã ser inutilizável numa farmácia: carregava o
@@ -358,16 +358,13 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // cada tecla premida no campo de pesquisa.
         $this->catalogo(60);
 
-        \Illuminate\Support\Facades\DB::enableQueryLog();
-        \Illuminate\Support\Facades\DB::flushQueryLog();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
 
-        Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->set('productSearch', 'ARTIGO 01');
+        $this->artigos(['procura' => 'ARTIGO 01']);
 
-        $consultas = count(\Illuminate\Support\Facades\DB::getQueryLog());
-        \Illuminate\Support\Facades\DB::disableQueryLog();
+        $consultas = count(DB::getQueryLog());
+        DB::disableQueryLog();
 
         $this->assertLessThan(
             40,
@@ -380,15 +377,12 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
     {
         $this->catalogo(3);
 
-        $artigos = Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->viewData('products');
+        $artigos = $this->artigos();
 
         $this->assertNotEmpty($artigos);
 
         foreach ($artigos as $a) {
-            $this->assertSame(10.0, (float) $a->stock_no_armazem, 'o stock tem de vir na consulta dos artigos');
+            $this->assertSame(10.0, (float) $a['disponivel'], 'o stock tem de vir na consulta dos artigos');
         }
     }
 
@@ -397,23 +391,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // Sem limite eram 5.729 cartões no DOM.
         $this->catalogo(60);
 
-        $artigos = Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->viewData('products');
-
-        $this->assertLessThanOrEqual(50, $artigos->count());
-    }
-
-    public function test_sem_modal_aberto_nao_se_carrega_catalogo_nenhum(): void
-    {
-        // A listagem do histórico não precisa de artigo nenhum, e carregava o
-        // catálogo à mesma só para o deitar fora.
-        $this->catalogo(10);
-
-        $artigos = Livewire::test(WarehouseTransfer::class)->viewData('products');
-
-        $this->assertCount(0, $artigos);
+        $this->assertLessThanOrEqual(50, count($this->artigos()));
     }
 
     public function test_a_pesquisa_encontra_pelo_codigo_de_barras(): void
@@ -422,14 +400,10 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
         // para o nome e o código.
         $this->catalogo(3);
 
-        $artigos = Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->set('productSearch', '7890000000001')
-            ->viewData('products');
+        $artigos = $this->artigos(['procura' => '7890000000001']);
 
         $this->assertCount(1, $artigos);
-        $this->assertSame('ARTIGO 001', $artigos->first()->name);
+        $this->assertSame('ARTIGO 001', $artigos[0]['name']);
     }
 
     public function test_sem_pesquisa_a_transferencia_so_mostra_o_que_ha_na_origem(): void
@@ -450,12 +424,7 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
             'stock_quantity' => 0,
         ]);
 
-        $artigos = Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->viewData('products');
-
-        $nomes = $artigos->pluck('name')->all();
+        $nomes = array_column($this->artigos(), 'name');
 
         $this->assertNotContains('AAA SEM STOCK', $nomes, 'não se transfere o que não existe na origem');
         $this->assertContains('ARTIGO 000', $nomes);
@@ -478,149 +447,54 @@ class TransferenciaArmazemRastreioTest extends TenantTestCase
             'stock_quantity' => 0,
         ]);
 
-        $artigos = Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->set('productSearch', 'SEM STOCK')
-            ->viewData('products');
+        $artigos = $this->artigos(['procura' => 'SEM STOCK']);
 
         $this->assertCount(1, $artigos);
-        $this->assertSame('AAA SEM STOCK', $artigos->first()->name);
-        $this->assertNull($artigos->first()->stock_no_armazem, 'sem linha de stock neste armazém');
+        $this->assertSame('AAA SEM STOCK', $artigos[0]['name']);
+        // Sem linha de stock neste armazém a API responde zero — e o ecrã
+        // pinta-o a vermelho em vez de o esconder.
+        $this->assertSame(0.0, (float) $artigos[0]['disponivel']);
     }
 
-    /** O ecrã com um artigo já no carrinho, pronto a ter a quantidade corrigida. */
-    private function comCarrinho(float $q = 5)
+    public function test_uma_quantidade_nao_positiva_e_recusada(): void
     {
-        return Livewire::test(WarehouseTransfer::class)
-            ->set('showTransferModal', true)
-            ->set('transferFromWarehouse', $this->armazem->id)
-            ->set('transferToWarehouse', $this->destino->id)
-            ->set('transferItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => $q,
-                'ultima_valida' => $q,
-            ]]);
-    }
-
-    public function test_corrigir_a_quantidade_no_carrinho(): void
-    {
-        // O erro mais banal deste ecrã, e a única saída era apagar a linha e
-        // voltar a procurar o artigo no meio de cinco mil.
+        // Isto é o que mais preocupava na correcção da quantidade no carrinho:
+        // um negativo INVERTE a transferência — aumenta a origem e diminui o
+        // destino. O carrinho já o recusava; a API tem de o recusar também,
+        // porque é ela que grava.
         $this->comStock($this->armazem, 20);
 
-        $this->comCarrinho(5)
-            ->set('transferItems.0.quantity', 8)
-            ->assertSet('transferItems.0.quantity', 8.0);
+        foreach ([0, -3] as $quantidade) {
+            $this->transferir($quantidade)
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('itens.0.quantity');
+        }
+
+        $this->assertSame(0, StockMovement::where('product_id', $this->produto->id)->count());
+        $this->assertSame(20.0, (float) Stock::where('warehouse_id', $this->armazem->id)->value('quantity'));
     }
 
-    public function test_a_correcao_e_o_que_fica_gravado(): void
-    {
-        $this->comStock($this->armazem, 20);
-
-        $this->comCarrinho(5)
-            ->set('transferItems.0.quantity', 8)
-            ->call('saveTransfer');
-
-        $saida = StockMovement::where('warehouse_id', $this->armazem->id)
-            ->where('product_id', $this->produto->id)->first();
-
-        $this->assertSame(-8.0, (float) $saida->quantity);
-        $this->assertSame(12.0, (float) $saida->balance_after, '20 − 8');
-    }
-
-    public function test_corrigir_acima_do_stock_limita_ao_disponivel(): void
+    public function test_acima_do_disponivel_a_api_recusa_e_o_carrinho_limita(): void
     {
         // Quem escreve 50 quando há 9 quer transferir o que houver: dizer-lhe
-        // quanto é mais útil do que recusar. E sem este tecto o erro só
-        // aparecia lá ao fundo, no gravar, com o modal já fechado.
+        // quanto é mais útil do que recusar, e o carrinho em React limita ao
+        // disponível ainda antes de gravar. Mas o tecto do ecrã é conforto, não
+        // é a defesa: a defesa é a API recusar.
         $this->comStock($this->armazem, 9);
 
-        $this->comCarrinho(5)
-            ->set('transferItems.0.quantity', 50)
-            ->assertSet('transferItems.0.quantity', 9.0);
-    }
+        $this->transferir(50)->assertStatus(422)->assertJsonValidationErrors('itens');
 
-    public function test_uma_quantidade_negativa_nao_passa_pela_correcao(): void
-    {
-        // Isto é o que mais me preocupa nesta alteração: a adição já recusava
-        // negativos porque um negativo INVERTE a transferência — aumenta a
-        // origem e diminui o destino. A edição não pode ser a porta por onde
-        // ele entra.
-        $this->comStock($this->armazem, 20);
+        $carrinho = file_get_contents(base_path('resources/js/ecras/facturacao/transferencias/Carrinho.tsx'));
 
-        $this->comCarrinho(5)
-            ->set('transferItems.0.quantity', -3)
-            ->assertSet('transferItems.0.quantity', 5.0, 'repõe o valor anterior');
-    }
-
-    public function test_apagar_o_campo_repoe_o_valor_anterior(): void
-    {
-        // Uma linha de carrinho sem quantidade é um documento por gravar à
-        // espera de rebentar mais à frente.
-        $this->comStock($this->armazem, 20);
-
-        $this->comCarrinho(5)
-            ->set('transferItems.0.quantity', '')
-            ->assertSet('transferItems.0.quantity', 5.0);
-    }
-
-    public function test_zero_nao_passa(): void
-    {
-        $this->comStock($this->armazem, 20);
-
-        $this->comCarrinho(5)
-            ->set('transferItems.0.quantity', 0)
-            ->assertSet('transferItems.0.quantity', 5.0);
-    }
-
-    public function test_corrigir_a_quantidade_de_um_ajuste_de_saida(): void
-    {
-        $this->comStock($this->armazem, 12);
-
-        Livewire::test(WarehouseTransfer::class)
-            ->set('showAdjustModal', true)
-            ->set('adjustWarehouse', $this->armazem->id)
-            ->set('adjustType', 'out')
-            ->set('adjustItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => 4,
-                'ultima_valida' => 4,
-            ]])
-            ->set('adjustItems.0.quantity', 30)
-            ->assertSet('adjustItems.0.quantity', 12.0, 'não se tira mais do que há');
-    }
-
-    public function test_num_ajuste_de_entrada_nao_ha_tecto(): void
-    {
-        // Limitar uma ENTRADA ao stock actual impediria justamente a correcção
-        // mais comum, que é dar entrada do que faltava.
-        $this->comStock($this->armazem, 2);
-
-        Livewire::test(WarehouseTransfer::class)
-            ->set('showAdjustModal', true)
-            ->set('adjustWarehouse', $this->armazem->id)
-            ->set('adjustType', 'in')
-            ->set('adjustItems', [[
-                'product_id'    => $this->produto->id,
-                'product_name'  => $this->produto->name,
-                'product_code'  => $this->produto->code,
-                'quantity'      => 4,
-                'ultima_valida' => 4,
-            ]])
-            ->set('adjustItems.0.quantity', 500)
-            ->assertSet('adjustItems.0.quantity', 500.0);
+        $this->assertStringContainsString('n > i.disponivel', $carrinho, 'o carrinho deixou de limitar ao disponível');
+        $this->assertStringContainsString('n <= 0', $carrinho, 'o carrinho deixou de recusar zero e negativos');
     }
 
     public function test_stock_insuficiente_nao_deixa_nada_gravado(): void
     {
         $this->comStock($this->armazem, 2);
 
-        $this->transferir(5);
+        $this->transferir(5)->assertStatus(422);
 
         $this->assertSame(
             0,

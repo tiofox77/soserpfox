@@ -7,10 +7,10 @@ import { entrar } from './apoio.js';
  * O que se prova no browser: que abre, que os totais vêm do servidor, que o
  * armazém é obrigatório (a compra dá entrada de stock) e que o servidor
  * recusa sem fornecedor e diz onde. O registo a sério — stock, lotes, custo —
- * é provado nos ensaios de API, contra o mesmo serviço que o Livewire usa.
+ * é provado nos ensaios de API, contra o mesmo serviço que a API usa.
  */
 
-const ECRA = '/invoicing/purchases/invoices/create/novo-ecra';
+const ECRA = '/invoicing/purchases/invoices/create';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -55,7 +55,52 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o emissor Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/purchases/invoices/create');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
+
+/**
+ * DUPLICAR UMA COMPRA: o conteúdo viaja, o stock não se mexe.
+ *
+ * Da lista carrega-se em duplicar e chega-se aqui com `?duplicar=` — o
+ * fornecedor e as linhas já preenchidos, sem número e sem estado. Abrir este
+ * ecrã não regista nada e não dá entrada de nada: o stock só entra quando a
+ * compra for mesmo registada.
+ */
+test('duplicar traz o conteudo da compra e nao regista nada', async ({ page }) => {
+    await page.goto('/invoicing/purchases/invoices');
+
+    await expect(
+        page.getByRole('table').or(page.getByText('Nenhum documento com estes filtros')),
+    ).toBeVisible({ timeout: 20_000 });
+
+    if (!(await page.getByRole('table').isVisible())) {
+        test.skip(true, 'a empresa de bancada não tem facturas de compra');
+    }
+
+    await page.getByRole('link', { name: /^Duplicar / }).first().click();
+
+    await expect(page.locator('[data-duplicado-de]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-documento-aberto]')).toHaveCount(0);
+
+    // O conteúdo veio. Em expressão regular e sem ligar a maiúsculas: o
+    // rótulo dos campos obrigatórios é «Fornecedor* (obrigatório)».
+    await expect(page.getByLabel(/^fornecedor\b/i)).not.toHaveValue('');
+    await expect(page.getByLabel('Artigo da linha 1')).not.toHaveValue('');
+
+    // E o que se pode fazer é REGISTAR uma compra nova — não actualizar a velha.
+    await expect(page.getByRole('button', { name: /^Registar compra$/ })).toBeVisible();
+});
+
+/**
+ * UM `?duplicar=` QUE NÃO EXISTE DIZ-SE — e não abre um formulário meio feito.
+ *
+ * Acontece com um atalho guardado, um separador aberto de antes, ou o id de
+ * outra empresa colado na barra de endereço: o servidor responde 404 (com o
+ * escopo da empresa e o do autor já aplicados) e o ecrã tem de o mostrar. Um
+ * formulário em branco, sem uma palavra, mandava a pessoa registar de novo uma
+ * compra que ela julgava estar a duplicar.
+ */
+test('duplicar um documento que nao existe diz que nao abriu', async ({ page }) => {
+    await page.goto('/invoicing/purchases/invoices/create?duplicar=99999999');
+
+    await expect(page.getByRole('alert')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Não foi possível abrir o registo de compras')).toBeVisible();
 });

@@ -10,7 +10,7 @@ import { entrar } from './apoio.js';
  * vem de lá, e que o documento gravado tem o número da série.
  */
 
-const ECRA = '/invoicing/sales/proformas/create/novo-ecra';
+const ECRA = '/invoicing/sales/proformas/create';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -97,8 +97,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o emissor Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/sales/proformas/create');
-
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

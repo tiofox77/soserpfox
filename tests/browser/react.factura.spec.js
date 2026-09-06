@@ -7,10 +7,10 @@ import { entrar } from './apoio.js';
  * O ecrã mais delicado da casa. O que se prova no browser: que abre, que os
  * totais vêm do servidor, que a FR troca os campos (forma de pagamento) e que
  * o armazém só se exige com artigos físicos. A emissão a sério é provada nos
- * ensaios de API, contra o mesmo serviço que o Livewire usa.
+ * ensaios de API, contra o mesmo serviço que a API usa.
  */
 
-const ECRA = '/invoicing/sales/invoices/create/novo-ecra';
+const ECRA = '/invoicing/sales/invoices/create';
 
 test.beforeEach(async ({ page }) => {
     await entrar(page);
@@ -62,7 +62,3 @@ test('nenhum erro na consola', async ({ page }) => {
     expect(erros).toEqual([]);
 });
 
-test('o emissor Livewire continua na morada de sempre', async ({ page }) => {
-    await page.goto('/invoicing/sales/invoices/create');
-    await expect(page.locator('[data-ecra]')).toHaveCount(0);
-});

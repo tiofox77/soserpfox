@@ -47,7 +47,10 @@ class LoteVendasLinguaTest extends TenantTestCase
     {
         return [
             'facturas'         => ['/invoicing/sales/invoices', 'Faturas de Venda', 'Sales Invoices', 'Factures de vente'],
-            'proformas'        => ['/invoicing/sales/proformas', 'Lista de Proformas', 'Proforma Invoice List', 'Liste des factures proforma'],
+            // O título da página é o do documento, como nas outras quatro
+            // linhas — «Lista de …» era o cabeçalho que o ecrã em Blade
+            // desenhava por dentro, e o miolo hoje é do browser.
+            'proformas'        => ['/invoicing/sales/proformas', 'Proformas de Venda', 'Sales Proforma Invoices', 'Factures proforma de vente'],
             'recibos'          => ['/invoicing/receipts', 'Recibos', 'Receipts', 'Reçus'],
             'notas de crédito' => ['/invoicing/credit-notes', 'Notas de Crédito', 'Credit Notes', 'Avoirs'],
             'notas de débito'  => ['/invoicing/debit-notes', 'Notas de Débito', 'Debit Notes', 'Notes de débit'],

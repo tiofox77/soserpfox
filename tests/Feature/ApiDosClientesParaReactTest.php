@@ -10,8 +10,10 @@ use Tests\TenantTestCase;
  * A API dos clientes — a PRIMEIRA que escreve.
  *
  * É aqui que a promessa fica difícil: uma API que aceite o que o ecrã recusava
- * não trocou de tecnologia, abriu uma porta. Estes ensaios comparam-na com as
- * regras do `App\Livewire\Invoicing\Clients`, não com o que seria cómodo.
+ * não trocou de tecnologia, abriu uma porta. Estes ensaios guardam as regras
+ * que o ecrã de clientes sempre teve — o NIF único por empresa, o país em
+ * código ISO, um cliente com documentos que não se apaga —, e não o que seria
+ * cómodo para quem chama a API.
  */
 class ApiDosClientesParaReactTest extends TenantTestCase
 {
@@ -295,5 +297,76 @@ class ApiDosClientesParaReactTest extends TenantTestCase
             ->assertJsonPath('permissoes.pode_editar', false)
             ->assertJsonPath('permissoes.pode_apagar', false)
             ->assertJsonStructure(['provincias', 'paises', 'tipos']);
+    }
+
+    /**
+     * A CASCATA DA MORADA VEM RESOLVIDA DO SERVIDOR.
+     *
+     * O ecrã precisa dos municípios da província escolhida e das sugestões de
+     * bairro do município. Se não viessem daqui, viriam de uma lista escrita
+     * à mão em TypeScript — que é como as províncias acabaram escritas cinco
+     * vezes e diferentes umas das outras.
+     *
+     * @test
+     */
+    public function as_opcoes_entregam_os_municipios_de_cada_provincia(): void
+    {
+        $this->comPermissoes('invoicing.clients.view');
+
+        $opcoes = $this->getJson(self::RAIZ . '/opcoes')->assertOk()->json();
+
+        $this->assertCount(21, $opcoes['provincias']);
+
+        foreach ($opcoes['provincias'] as $provincia) {
+            $this->assertNotEmpty(
+                $opcoes['municipios'][$provincia] ?? [],
+                "a província «{$provincia}» chegou ao ecrã sem municípios"
+            );
+        }
+
+        $this->assertContains('Lobito', $opcoes['municipios']['Benguela']);
+        $this->assertContains('Talatona', $opcoes['municipios']['Luanda']);
+
+        // As da reforma de 2024 vêm assinaladas, para ninguém achar que são engano.
+        $this->assertContains('Icolo e Bengo', $opcoes['provincias_novas']);
+
+        // Os bairros SUGEREM — só os municípios que têm sugestões aparecem, e
+        // o campo aceita o que se escrever.
+        $this->assertContains('Ingombota', $opcoes['bairros']['Luanda']);
+        $this->assertArrayNotHasKey('Lobito', $opcoes['municipios'],
+            'o mapa é província => municípios, e «Lobito» é município');
+
+        // E o ecrã sabe dizer onde é que o cliente entra no portal.
+        $this->assertStringContainsString('/client/login', $opcoes['portal_url']);
+    }
+
+    /**
+     * O ECRÃ MOSTRA A MORADA INTEIRA.
+     *
+     * A API grava `municipality` e `neighbourhood` desde sempre; o formulário
+     * em React só tinha província e cidade, e o que o ecrã não mostra não se
+     * grava — na prática o município e o bairro estavam inalcançáveis.
+     *
+     * @test
+     */
+    public function o_formulario_tem_municipio_e_bairro(): void
+    {
+        $ecra = file_get_contents(resource_path('js/ecras/facturacao/Clientes.tsx'));
+
+        // O rótulo pode estar em texto simples ou pelo tradutor (`t('…')`),
+        // que é como os ecrãs falam as três línguas — o que se guarda é que o
+        // CAMPO existe, não a forma como o rótulo foi escrito.
+        foreach (['Município', 'Bairro'] as $campo) {
+            $this->assertMatchesRegularExpression(
+                '/etiqueta=("' . $campo . '"|\{t\(' . "'" . $campo . "'" . '\)\})/u',
+                $ecra,
+                "falta o campo {$campo} no formulário"
+            );
+        }
+
+        // A cascata é a do servidor, não uma segunda lista escrita aqui.
+        $this->assertStringContainsString('opcoes?.municipios', $ecra);
+        $this->assertStringNotContainsString("'Luanda',", $ecra,
+            'o ecrã voltou a ter a sua própria lista de geografia');
     }
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Invoicing;
 
-use App\Livewire\Invoicing\Reports\GraficosReport;
 use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
@@ -10,7 +9,6 @@ use App\Models\Invoicing\SalesInvoiceItem;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Services\Invoicing\Analytics\GraficosDeFacturacao;
-use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Tests\TenantTestCase;
 
@@ -23,6 +21,9 @@ use Tests\TenantTestCase;
  */
 class GraficosDeFacturacaoTest extends TenantTestCase
 {
+    /** O mapa em gráficos é o relatório `charts` do catálogo. */
+    private const RAIZ = '/api/v1/invoicing/react/relatorios/charts';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -301,42 +302,67 @@ class GraficosDeFacturacaoTest extends TenantTestCase
     // ── O ecrã ───────────────────────────────────────────────────────────
 
     /**
-     * O ecrã abre E traz o Chart.js LOCAL.
+     * O ecrã abre E os gráficos são da casa.
      *
-     * Sem a segunda parte, um erro no caminho do ficheiro passava despercebido
-     * aqui e só aparecia no browser — como quadrados brancos no lugar dos
-     * gráficos, sem erro nenhum a dizer porquê.
+     * Era o Chart.js servido de `/vendor/js/chart.min.js`, e o que este ensaio
+     * guardava era o caminho do ficheiro: errado, dava quadrados brancos no
+     * browser sem erro nenhum a dizer porquê. O ecrã em React desenha as
+     * barras com a marcação da própria página e não carrega biblioteca
+     * nenhuma — a mesma regra, sem o ficheiro: nada de CDN, nada de `<canvas>`
+     * por preencher.
      */
-    public function test_o_ecra_abre_por_http_com_o_chartjs_local(): void
+    public function test_o_ecra_abre_por_http_e_os_graficos_sao_da_casa(): void
     {
         $this->ligarModulo();
 
-        $resposta = $this->get(route('invoicing.reports.charts'));
+        $this->get(route('invoicing.reports.charts'))->assertOk();
 
-        $resposta->assertOk();
-        $resposta->assertSee('vendor/js/chart.min.js', false);
-        $resposta->assertDontSee('cdn.jsdelivr.net/npm/chart.js', false);
+        foreach ([
+            resource_path('js/ecras/facturacao/Graficos.tsx'),
+            resource_path('js/ui/GraficoDeBarras.tsx'),
+        ] as $ficheiro) {
+            $fonte = file_get_contents($ficheiro);
+
+            $this->assertStringNotContainsString('cdn.jsdelivr.net', $fonte, basename($ficheiro));
+            $this->assertStringNotContainsString('cdnjs.cloudflare.com', $fonte, basename($ficheiro));
+            $this->assertStringNotContainsString('new Chart(', $fonte, basename($ficheiro));
+            $this->assertStringNotContainsString('getContext(', $fonte, basename($ficheiro));
+        }
+
+        $this->assertStringContainsString('role="img"', file_get_contents(resource_path('js/ui/GraficoDeBarras.tsx')),
+            'o gráfico é do próprio ecrã, e quem não o vê tem o mesmo nomeado em texto');
     }
 
+    /**
+     * Os atalhos de período do ecrã — hoje um parâmetro da API, resolvido
+     * pelo `Periodo` para todos os mapas de uma vez.
+     */
     public function test_atalhos_de_periodo(): void
     {
+        $this->ligarModulo();
         $hoje = now();
 
-        Livewire::test(GraficosReport::class)
-            ->call('aplicarAtalho', 'mes')
-            ->assertSet('de', $hoje->copy()->startOfMonth()->format('Y-m-d'))
-            ->assertSet('ate', $hoje->copy()->endOfMonth()->format('Y-m-d'))
-            ->call('aplicarAtalho', 'ano_passado')
-            ->assertSet('de', $hoje->copy()->subYear()->startOfYear()->format('Y-m-d'));
+        $this->getJson(self::RAIZ . '?period=month')->assertOk()
+            ->assertJsonPath('dados.intervalo.de', $hoje->copy()->startOfMonth()->format('Y-m-d'))
+            ->assertJsonPath('dados.intervalo.ate', $hoje->copy()->endOfMonth()->format('Y-m-d'));
+
+        $this->getJson(self::RAIZ . '?period=last_year')->assertOk()
+            ->assertJsonPath('dados.intervalo.de', $hoje->copy()->subYear()->startOfYear()->format('Y-m-d'))
+            ->assertJsonPath('dados.intervalo.ate', $hoje->copy()->subYear()->endOfYear()->format('Y-m-d'));
+
+        // E o ecrã tem mesmo o botão: os atalhos viajam com o relatório.
+        $atalhos = array_column($this->getJson(self::RAIZ)->assertOk()->json('atalhos'), 'valor');
+        $this->assertContains('month', $atalhos);
+        $this->assertContains('last_year', $atalhos);
     }
 
     /** Fim antes do início devolvia gráficos vazios e parecia avaria. */
     public function test_datas_ao_contrario_sao_trocadas(): void
     {
-        Livewire::test(GraficosReport::class)
-            ->set('de', '2026-12-31')
-            ->set('ate', '2026-01-01')
-            ->assertSet('de', '2026-01-01')
-            ->assertSet('ate', '2026-12-31');
+        $this->ligarModulo();
+
+        $this->getJson(self::RAIZ . '?dateFrom=2026-12-31&dateTo=2026-01-01')->assertOk()
+            ->assertJsonPath('dados.intervalo.de', '2026-01-01')
+            ->assertJsonPath('dados.intervalo.ate', '2026-12-31');
     }
 }

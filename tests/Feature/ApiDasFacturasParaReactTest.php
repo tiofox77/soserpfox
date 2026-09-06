@@ -231,6 +231,121 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
         }
     }
 
+    /**
+     * OS CARTÕES DO TOPO SOMAM VALORES, E SOMAM O QUE ESTÁ FILTRADO.
+     *
+     * O ecrã em Blade tinha-os; ao passar para React ficou só a contagem
+     * (`meta.total`) e os valores desapareceram. E não se soma a PÁGINA: um
+     * número que mudasse ao carregar em «Seguinte» não queria dizer nada.
+     *
+     * @test
+     */
+    public function os_cartoes_somam_os_valores_do_que_esta_filtrado(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        // Por receber inteira, por receber em parte, paga e anulada.
+        $this->factura(['status' => 'sent', 'total' => 1000, 'paid_amount' => 0]);
+        $this->factura(['status' => 'partially_paid', 'total' => 1000, 'paid_amount' => 400]);
+        $this->factura(['status' => 'paid', 'total' => 1000, 'paid_amount' => 1000]);
+        $this->factura(['status' => 'cancelled', 'total' => 5000, 'paid_amount' => 0]);
+
+        $somas = $this->getJson(self::LISTA)->assertOk()->json('meta.somas');
+
+        // O anulado não se facturou: 1000 + 1000 + 1000.
+        $this->assertEqualsWithDelta(3000, $somas['facturado'], 0.01);
+        // Por receber: 1000 da primeira + 600 da segunda. Nem a paga nem a
+        // anulada devem nada.
+        $this->assertEqualsWithDelta(1600, $somas['por_receber'], 0.01);
+
+        // E com um filtro posto, somam só o que o filtro deixou passar.
+        $comFiltro = $this->getJson(self::LISTA . '?estado=sent')->assertOk();
+
+        $this->assertSame(1, $comFiltro->json('meta.total'));
+        $this->assertEqualsWithDelta(1000, $comFiltro->json('meta.somas.facturado'), 0.01);
+        $this->assertEqualsWithDelta(1000, $comFiltro->json('meta.somas.por_receber'), 0.01);
+    }
+
+    /**
+     * O CARTÃO E AS LINHAS TÊM DE DIZER O MESMO.
+     *
+     * A conta do cartão é SQL (`SomasDasFacturas`) e a de cada linha é PHP
+     * (`SalesInvoiceResource::porReceber`). São duas escritas da mesma regra, e
+     * é este ensaio que as prende uma à outra: uma FR está paga por definição,
+     * e o que está pago, anulado ou creditado não deve nada.
+     *
+     * @test
+     */
+    public function a_soma_do_cartao_bate_certo_com_os_saldos_das_linhas(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->factura(['invoice_type' => 'FR', 'status' => 'paid', 'total' => 570, 'paid_amount' => 0]);
+        $this->factura(['invoice_type' => 'FT', 'status' => 'sent', 'total' => 900, 'paid_amount' => 250]);
+        $this->factura(['invoice_type' => 'FT', 'status' => 'overdue', 'total' => 300, 'paid_amount' => 0]);
+        $this->factura(['invoice_type' => 'FT', 'status' => 'credited', 'total' => 800, 'paid_amount' => 0]);
+
+        $resposta = $this->getJson(self::LISTA)->assertOk();
+
+        $dasLinhas = collect($resposta->json('data'))->sum('saldo');
+
+        $this->assertEqualsWithDelta(950, $dasLinhas, 0.01, 'as linhas: 650 + 300');
+        $this->assertEqualsWithDelta(
+            $dasLinhas,
+            $resposta->json('meta.somas.por_receber'),
+            0.01,
+            'o cartão não pode dizer um número que não sai de nenhuma linha à vista'
+        );
+    }
+
+    /** Vencido é o que está por receber e passou do prazo. @test */
+    public function o_cartao_do_vencido_conta_o_que_passou_do_prazo(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->factura(['status' => 'sent', 'total' => 400, 'due_date' => now()->subDays(10)->toDateString()]);
+        $this->factura(['status' => 'sent', 'total' => 700, 'due_date' => now()->addDays(10)->toDateString()]);
+        // Já paga: passou do prazo mas não há nada a receber.
+        $this->factura(['status' => 'paid', 'total' => 900, 'paid_amount' => 900, 'due_date' => now()->subDays(30)->toDateString()]);
+
+        $somas = $this->getJson(self::LISTA)->assertOk()->json('meta.somas');
+
+        $this->assertEqualsWithDelta(1100, $somas['por_receber'], 0.01);
+        $this->assertEqualsWithDelta(400, $somas['vencido'], 0.01);
+    }
+
+    /**
+     * OS CARTÕES OBEDECEM AO MESMO ESCOPO DA LISTA.
+     *
+     * Esconder a linha do colega e depois somá-la no cartão do topo era contar
+     * pela porta do lado o que a tabela recusa mostrar.
+     *
+     * @test
+     */
+    public function quem_so_ve_os_seus_nao_soma_as_facturas_do_colega(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->factura(['status' => 'sent', 'total' => 1000, 'paid_amount' => 0]);
+
+        $colega = User::factory()->create(['tenant_id' => $this->tenant->id]);
+        $this->factura(['created_by' => $colega->id, 'status' => 'sent', 'total' => 7777, 'paid_amount' => 0]);
+
+        $somas = $this->getJson(self::LISTA)->assertOk()->json('meta.somas');
+
+        $this->assertEqualsWithDelta(1000, $somas['facturado'], 0.01, 'a do colega não entra');
+        $this->assertEqualsWithDelta(1000, $somas['por_receber'], 0.01);
+
+        // Com a permissão de ver os documentos de todos, a soma abre-se.
+        $this->comPermissoes('invoicing.documents.all');
+
+        $this->assertEqualsWithDelta(
+            8777,
+            $this->getJson(self::LISTA)->assertOk()->json('meta.somas.facturado'),
+            0.01
+        );
+    }
+
     /** Os filtros filtram, e a paginação pagina. @test */
     public function os_filtros_e_a_paginacao_funcionam(): void
     {
@@ -271,11 +386,11 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
      */
     public function a_pagina_do_ecra_novo_pede_a_mesma_permissao(): void
     {
-        $this->get('/invoicing/sales/invoices/novo-ecra')->assertForbidden();
+        $this->get('/invoicing/sales/invoices')->assertForbidden();
 
         $this->comPermissoes('invoicing.sales.invoices.view');
 
-        $this->get('/invoicing/sales/invoices/novo-ecra')
+        $this->get('/invoicing/sales/invoices')
             ->assertOk()
             ->assertSee('data-ecra="facturacao/lista-de-facturas"', false);
     }

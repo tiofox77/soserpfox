@@ -46,18 +46,59 @@ class PrecoNoPosTest extends TenantTestCase
         $this->assertFalse((bool) $this->artigo()->preco_no_pos);
     }
 
-    /** @test */
+    /**
+     * O QUE SE MARCA NO ECRÃ É O QUE FICA GRAVADO.
+     *
+     * A marca perdeu-se ao migrar o ecrã de artigos para React: o formulário
+     * em Livewire tinha-a, a API que o substituiu nunca a aceitou, e quem
+     * vende trabalhos à medida ficou sem maneira de a ligar.
+     *
+     * @test
+     */
     public function o_formulario_do_produto_tem_a_opcao(): void
     {
-        $form = file_get_contents(resource_path('views/livewire/invoicing/products/partials/form-modal.blade.php'));
+        $this->comModulo('invoicing');
+        $this->comPermissoes('invoicing.products.create', 'invoicing.products.edit', 'invoicing.products.view');
 
-        $this->assertStringContainsString('wire:model="preco_no_pos"', $form);
-        $this->assertStringContainsString("__('Perguntar o preço no POS')", $form);
+        $categoria = \App\Models\Category::create([
+            'tenant_id' => $this->tenant->id,
+            'name' => 'Trabalhos ' . uniqid(),
+            'is_active' => true,
+        ]);
 
-        $componente = file_get_contents(app_path('Livewire/Invoicing/Products.php'));
-        $this->assertStringContainsString('public $preco_no_pos', $componente);
-        $this->assertStringContainsString("'preco_no_pos' => (bool) \$this->preco_no_pos", $componente,
-            'o que se marca no ecrã tem de ser gravado');
+        $base = [
+            'name' => 'Bancada em inox à medida',
+            'type' => 'servico',
+            'price' => 0,
+            'unit' => 'UN',
+            'category_id' => $categoria->id,
+            'tax_type' => 'iva',
+            'tax_rate_id' => $this->imposto->id,
+        ];
+
+        $id = $this->postJson('/api/v1/invoicing/react/products', $base + ['preco_no_pos' => true])
+            ->assertCreated()
+            ->assertJsonPath('data.preco_no_pos', true)
+            ->json('data.id');
+
+        $this->assertTrue((bool) Product::find($id)->preco_no_pos);
+
+        // A editar, um pedido que não traga o campo não desmarca a decisão.
+        $this->putJson("/api/v1/invoicing/react/products/{$id}", $base + ['name' => 'Bancada em inox'])
+            ->assertOk()
+            ->assertJsonPath('data.preco_no_pos', true);
+
+        // E desmarcar de propósito desmarca.
+        $this->putJson("/api/v1/invoicing/react/products/{$id}", $base + ['preco_no_pos' => false])
+            ->assertOk()
+            ->assertJsonPath('data.preco_no_pos', false);
+
+        // O ecrã tem a caixa: sem ela não há como marcar seja o que for.
+        $this->assertStringContainsString(
+            'preco_no_pos',
+            file_get_contents(resource_path('js/ecras/facturacao/Produtos.tsx')),
+            'o formulário do produto em React tem a opção'
+        );
     }
 
     /**
@@ -168,8 +209,8 @@ class PrecoNoPosTest extends TenantTestCase
     {
         // A regra é só do balcão. Se um dia alguém a levar para a factura, isto
         // avisa — lá o preço da linha sempre foi escrito à mão.
-        foreach (['Sales/InvoiceCreate.php', 'Sales/ProformaCreate.php'] as $ecra) {
-            $this->assertStringNotContainsString('preco_no_pos', file_get_contents(app_path('Livewire/Invoicing/' . $ecra)),
+        foreach (['Services/Invoicing/EmissorDeFacturas.php', 'Http/Controllers/Api/Invoicing/FacturaApiController.php', 'Http/Controllers/Api/Invoicing/EmissorApiController.php'] as $ecra) {
+            $this->assertStringNotContainsString('preco_no_pos', file_get_contents(app_path($ecra)),
                 "{$ecra}: a factura não muda por causa disto");
         }
     }

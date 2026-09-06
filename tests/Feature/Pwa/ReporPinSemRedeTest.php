@@ -276,7 +276,8 @@ class ReporPinSemRedeTest extends TenantTestCase
     {
         foreach ([
             app_path('Livewire/Users/UserManagement.php'),
-            app_path('Livewire/Invoicing/Offline/DefinirPin.php'),
+            app_path('Services/POS/DefinicaoDePin.php'),
+            app_path('Http/Controllers/Api/Invoicing/OfflineApiController.php'),
             app_path('Console/Commands/DefinirPinPos.php'),
         ] as $ficheiro) {
             $this->assertStringNotContainsString("['0000', '1111'", file_get_contents($ficheiro),

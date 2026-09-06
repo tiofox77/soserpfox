@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\DefinirLingua;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -16,6 +15,20 @@ use Tests\TenantTestCase;
  */
 class TraducoesTest extends TenantTestCase
 {
+    /*
+     * O CRACHÁ «Novo» DO MENU LATERAL, tal como sai desenhado.
+     *
+     * Serve de sonda da língua porque diz três coisas diferentes nas três, e
+     * porque se mede na MARCAÇÃO: procurar a palavra solta apanhava-a dentro
+     * do dicionário que a página leva embutido (as chaves são portuguesas) e
+     * dizia que a página fala português quando fala inglês. Foi assim que o
+     * `LoteMenuLinguaTest` descobriu que precisava de limpar o dicionário
+     * antes de olhar para o HTML.
+     */
+    private const EM_PORTUGUES = '>Novo</span>';
+    private const EM_INGLES = '>New</span>';
+    private const EM_FRANCES = '>Nouveau</span>';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,68 +52,20 @@ class TraducoesTest extends TenantTestCase
      * momento, qualquer cadeia usada sem tradução põe a suite vermelha.
      */
     private const ONDE = [
-        // Fase 0 — piloto
-        'resources/views/livewire/invoicing/warehouse-transfer',
-        'app/Livewire/Invoicing/WarehouseTransfer.php',
+        // Fase 0 — piloto (e, desde o lote 3, o menu lateral).
+        //
+        // O menu foi trazido para a frente do plano por uma razão que só se vê
+        // com o sistema à frente: é a primeira coisa que aparece. Quem escolhe
+        // inglês e cai num menu inteiro em português conclui que a tradução
+        // não funciona, mesmo com 700 cadeias já traduzidas por trás.
         'resources/views/layouts/app.blade.php',
-
-        // Fase 1, lote 1 — vendas
-        'resources/views/livewire/invoicing/faturas-venda',
-        'resources/views/livewire/invoicing/proformas-venda',
-        'resources/views/livewire/invoicing/receipts',
-        'resources/views/livewire/invoicing/credit-notes',
-        'resources/views/livewire/invoicing/debit-notes',
-        'app/Livewire/Invoicing/Sales',
-        'app/Livewire/Invoicing/Receipts',
-        'app/Livewire/Invoicing/CreditNotes',
-        'app/Livewire/Invoicing/DebitNotes',
 
         // Fase 1, lote 2 — POS (inclui o JavaScript do PWA offline)
         'resources/views/invoicing/offline/pos.blade.php',
         'resources/views/livewire/pos',
-        'resources/views/livewire/invoicing/pos',
         'app/Livewire/POS',
-        'app/Livewire/Invoicing/POS',
         'public/js/pwa-invoicing.js',
         'public/js/pos-offline-ticket.js',
-
-        // Fase 1, lote 3 — o menu lateral e o painel.
-        //
-        // Foram trazidos para a frente do plano (estavam no lote 5) por uma
-        // razão que só se vê com o sistema à frente: são a primeira coisa que
-        // aparece. Quem escolhe inglês e cai num menu inteiro em português
-        // conclui que a tradução não funciona, mesmo com 700 cadeias já
-        // traduzidas por trás. O app.blade.php já cá estava desde a fase 0,
-        // mas na altura ainda não tinha um único __().
-        'resources/views/livewire/invoicing/invoicing-dashboard.blade.php',
-        'app/Livewire/Invoicing/InvoicingDashboard.php',
-
-        // Fase 1, lote 4 — stock, catálogo e dados-mestre.
-        'resources/views/livewire/invoicing/products',
-        'resources/views/livewire/invoicing/stock',
-        'resources/views/livewire/invoicing/warehouses',
-        'resources/views/livewire/invoicing/categories',
-        'resources/views/livewire/invoicing/brands',
-        'resources/views/livewire/invoicing/product-batches',
-        'resources/views/livewire/invoicing/clients',
-        'resources/views/livewire/invoicing/suppliers',
-        'app/Livewire/Invoicing/Products.php',
-        'app/Livewire/Invoicing/StockManagement.php',
-        'app/Livewire/Invoicing/Warehouses.php',
-        'app/Livewire/Invoicing/Categories.php',
-        'app/Livewire/Invoicing/Brands.php',
-        'app/Livewire/Invoicing/InterCompanyTransfer.php',
-        'app/Livewire/Invoicing/Clients.php',
-        'app/Livewire/Invoicing/Suppliers.php',
-
-        // Fase 1, lote 5 — compras, relatórios, séries, AGT e definições.
-        //
-        // O directório raiz das vistas entra inteiro: apanha os ecrãs soltos
-        // (agt-*, saftgenerator, series-management, settings, tax-management)
-        // que não vivem numa pasta própria e por isso escapariam a uma lista
-        // feita à mão.
-        'resources/views/livewire/invoicing',
-        'app/Livewire/Invoicing',
 
         // Os MODELOS também falam com o utilizador.
         //
@@ -109,6 +74,16 @@ class TraducoesTest extends TenantTestCase
         // e quem revê um ecrã traduzido não os encontra lá para reparar que
         // a coluna "Estado" continua a dizer "Expirado" em inglês.
         'app/Models/Invoicing',
+
+        /*
+         * OS ECRÃS DA FACTURAÇÃO SAÍRAM DAQUI, e não por estarem traduzidos.
+         *
+         * Eram dezassete caminhos em `resources/views/livewire/invoicing/**`,
+         * apagados com a migração para React. As cadeias mudaram-se para os
+         * `.tsx`, que não passam por `__()` — hoje falam português e mais
+         * nada. Ver `test_os_ecras_em_react_ainda_nao_falam_as_tres_linguas`,
+         * que marca a dívida em vez de a deixar desaparecer com os ficheiros.
+         */
     ];
 
     // ==================== o detector ====================
@@ -172,15 +147,23 @@ class TraducoesTest extends TenantTestCase
 
     // ==================== o circuito ====================
 
+    /**
+     * A língua escolhida chega mesmo ao ecrã.
+     *
+     * O ecrã piloto era o das transferências, em Blade; hoje a página serve a
+     * casca do React e as cadeias do miolo já não passam por `__()`. O que se
+     * mede aqui continua a ser o que interessa e é do Laravel: o middleware
+     * `DefinirLingua` escolhe a língua, e o LAYOUT — menu, cabeçalho, avisos —
+     * sai traduzido à volta do ecrã, seja ele qual for.
+     */
     public function test_o_utilizador_com_locale_en_ve_o_piloto_em_ingles(): void
     {
         $this->user->update(['locale' => 'en']);
 
         $this->get('/invoicing/warehouse-transfer')
             ->assertOk()
-            ->assertSee('Stock Transfers and Adjustments')
-            ->assertSee('Movement History')
-            ->assertDontSee('Histórico de Movimentações');
+            ->assertSee(self::EM_INGLES, false)
+            ->assertDontSee(self::EM_PORTUGUES, false);
     }
 
     public function test_o_utilizador_com_locale_fr_ve_o_piloto_em_frances(): void
@@ -189,15 +172,16 @@ class TraducoesTest extends TenantTestCase
 
         $this->get('/invoicing/warehouse-transfer')
             ->assertOk()
-            ->assertSee('Transferts et ajustements de stock')
-            ->assertDontSee('Histórico de Movimentações');
+            ->assertSee(self::EM_FRANCES, false)
+            ->assertDontSee(self::EM_INGLES, false);
     }
 
     public function test_sem_escolha_o_ecra_fala_portugues(): void
     {
         $this->get('/invoicing/warehouse-transfer')
             ->assertOk()
-            ->assertSee('Histórico de Movimentações');
+            ->assertSee(self::EM_PORTUGUES, false)
+            ->assertDontSee(self::EM_INGLES, false);
     }
 
     /** ?lang= muda a língua e guarda-a no perfil. */
@@ -205,14 +189,14 @@ class TraducoesTest extends TenantTestCase
     {
         $this->get('/invoicing/warehouse-transfer?lang=en')
             ->assertOk()
-            ->assertSee('Movement History');
+            ->assertSee(self::EM_INGLES, false);
 
         $this->assertSame('en', $this->user->refresh()->locale);
 
         // E a visita seguinte, sem parâmetro, continua em inglês.
         $this->get('/invoicing/warehouse-transfer')
             ->assertOk()
-            ->assertSee('Movement History');
+            ->assertSee(self::EM_INGLES, false);
     }
 
     /** Uma língua inventada não passa. */
@@ -230,18 +214,67 @@ class TraducoesTest extends TenantTestCase
 
         $this->get('/invoicing/warehouse-transfer')
             ->assertOk()
-            ->assertSee('Transferts et ajustements de stock');
+            ->assertSee(self::EM_FRANCES, false);
     }
 
-    /** As mensagens do componente saem na língua do utilizador. */
+    /** As mensagens que o servidor devolve saem na língua do utilizador. */
     public function test_as_mensagens_do_componente_saem_traduzidas(): void
     {
         $this->user->update(['locale' => 'en']);
         app()->setLocale('en');
 
-        Livewire::test(\App\Livewire\Invoicing\WarehouseTransfer::class)
-            ->call('addProductToTransfer')
-            ->assertDispatched('error', message: 'Select the source warehouse first.');
+        // O ecrã é React e a recusa vem da API, mas o texto continua a ser do
+        // servidor — é ele que sabe a língua de quem está do outro lado. A
+        // mesma frase que o componente de transferências dizia, agora dita
+        // pelo serviço `TransferenciaDeStock`.
+        $this->assertSame('Select the source warehouse.', __('Selecione o armazém de origem.'));
+
+        app()->setLocale('fr');
+
+        $this->assertSame("Sélectionnez l'entrepôt d'origine.", __('Selecione o armazém de origem.'));
+    }
+
+    /**
+     * A DÍVIDA QUE A MIGRAÇÃO PARA REACT DEIXOU.
+     *
+     * Dezassete caminhos de vistas da facturação saíram da lista `ONDE` porque
+     * os ficheiros deixaram de existir. As cadeias que lá estavam vivem hoje
+     * nos `.tsx`, escritas em português e sem passar por `__()`: quem escolhe
+     * inglês continua a ver o menu em inglês e o miolo do ecrã em português.
+     *
+     * Fica escrito aqui, e não numa nota de rodapé, para que o dia em que o
+     * React ganhar dicionário se saiba exactamente o que estava por fazer.
+     */
+    public function test_os_ecras_em_react_falam_as_tres_linguas(): void
+    {
+        $ecras = glob(resource_path('js/ecras/facturacao/*.tsx'))
+            + glob(resource_path('js/ecras/facturacao/*/*.tsx'));
+
+        $semTradutor = [];
+
+        foreach ($ecras as $ficheiro) {
+            if (str_ends_with($ficheiro, '.test.tsx')) {
+                continue;
+            }
+
+            $fonte = file_get_contents($ficheiro);
+
+            // Um ecrã sem frase nenhuma escrita (só monta peças) não precisa
+            // de tradutor; o que se persegue é o que tem texto e o ignora.
+            if (! str_contains($fonte, "from '@/i18n'")) {
+                $semTradutor[] = basename($ficheiro);
+            }
+        }
+
+        $this->assertSame([], $semTradutor,
+            'estes ecrãs da facturação não importam o tradutor: falam sempre português — ' . implode(', ', $semTradutor));
+
+        // E o mecanismo está ligado: o arranque carrega o dicionário antes de
+        // montar, senão os `t()` à cabeça de um módulo apanhavam-no vazio.
+        $arranque = file_get_contents(resource_path('js/react.tsx'));
+
+        $this->assertStringContainsString('carregarDicionario', $arranque,
+            'o arranque tem de carregar o dicionário antes de montar os ecrãs');
     }
 
     // ==================== o varrimento ====================

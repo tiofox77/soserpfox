@@ -17,6 +17,9 @@ final class Periodo
         'month' => 'Este mês',
         'quarter' => 'Este trimestre',
         'year' => 'Este ano',
+        // O ano fechado, que o ecrã dos gráficos sempre teve: comparar o
+        // corrente com o anterior é metade do que se lá vai ver.
+        'last_year' => 'Ano passado',
         'ytd' => 'Este ano até hoje',
         'custom' => 'Personalizado',
     ];
@@ -31,6 +34,7 @@ final class Periodo
             'week' => [$agora->copy()->startOfWeek(), $agora->copy()->endOfWeek()],
             'quarter' => [$agora->copy()->startOfQuarter(), $agora->copy()->endOfQuarter()],
             'year' => [$agora->copy()->startOfYear(), $agora->copy()->endOfYear()],
+            'last_year' => [$agora->copy()->subYear()->startOfYear(), $agora->copy()->subYear()->endOfYear()],
             // Um extracto de conta corrente lê-se para trás, não para o mês.
             'ytd' => [$agora->copy()->startOfYear(), $agora->copy()->endOfDay()],
             default => [$agora->copy()->startOfMonth(), $agora->copy()->endOfMonth()],

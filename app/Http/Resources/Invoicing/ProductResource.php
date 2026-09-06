@@ -4,6 +4,7 @@ namespace App\Http\Resources\Invoicing;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * A forma de um artigo quando sai para o React.
@@ -45,6 +46,8 @@ class ProductResource extends JsonResource
             'exemption_reason' => $this->exemption_reason,
 
             'manage_stock' => $gereStock,
+            // Trabalhos à medida: o preço escreve-se na hora, no balcão.
+            'preco_no_pos' => (bool) $this->preco_no_pos,
             'stock' => $gereStock ? $stock : null,
             'stock_min' => $this->stock_min,
             'stock_max' => $this->stock_max,
@@ -54,6 +57,67 @@ class ProductResource extends JsonResource
             'esgotado' => $gereStock && $stock <= 0,
 
             'is_active' => (bool) $this->is_active,
+
+            /*
+             * OS CAMPOS DE SECTOR VÃO SEMPRE, mesmo a null.
+             *
+             * Duas razões, e as duas doeram: o formulário carrega a ficha
+             * daqui, e uma chave omitida deixava o valor anterior no ecrã —
+             * um artigo que deixasse de exigir receita continuava a
+             * aparecer marcado. E o PWA junta o catálogo com bulkPut, onde
+             * uma chave em falta é «não mexer», não «apagar».
+             */
+            'requires_prescription' => (bool) $this->requires_prescription,
+            'is_controlled' => (bool) $this->is_controlled,
+            'active_ingredient' => $this->active_ingredient,
+            'dosage' => $this->dosage,
+            'pharmaceutical_form' => $this->pharmaceutical_form,
+            'armed_registration' => $this->armed_registration,
+            'size' => $this->size,
+            'color' => $this->color,
+            'gender' => $this->gender,
+            'material' => $this->material,
+            'net_content' => $this->net_content,
+            'pao_months' => $this->pao_months === null ? null : (int) $this->pao_months,
+            'inci_ingredients' => $this->inci_ingredients,
+            'storage_conditions' => $this->storage_conditions,
+            'allergens' => $this->allergens,
+            'origin_country' => $this->origin_country,
+
+            /*
+             * AS IMAGENS SAEM EM DOIS FORMATOS, e os dois são precisos.
+             *
+             * O CAMINHO é o que está gravado na coluna — é a chave com que se
+             * pede para apagar uma imagem da galeria, e a única que não muda
+             * quando o domínio das imagens muda. A URL é para mostrar.
+             *
+             * Devolver só a URL obrigava o ecrã a desfazê-la para adivinhar o
+             * caminho, e um `str_replace('/storage/', '')` é exactamente o
+             * género de adivinha que parte no dia em que o disco mudar.
+             */
+            'imagem' => self::url($this->featured_image),
+            'imagem_caminho' => $this->featured_image,
+            'galeria' => collect($this->gallery ?? [])
+                ->filter(fn ($c) => filled($c))
+                ->map(fn ($c) => ['caminho' => $c, 'url' => self::url($c)])
+                ->values()
+                ->all(),
         ];
+    }
+
+    /**
+     * A morada de uma imagem guardada.
+     *
+     * Um artigo importado pode trazer um endereço completo em vez de um
+     * caminho no disco — passá-lo pelo `Storage::url` dava
+     * `/storage/https://…`, uma imagem partida sem explicação nenhuma.
+     */
+    private static function url(?string $caminho): ?string
+    {
+        if (! filled($caminho)) {
+            return null;
+        }
+
+        return filter_var($caminho, FILTER_VALIDATE_URL) ? $caminho : Storage::disk('public')->url($caminho);
     }
 }

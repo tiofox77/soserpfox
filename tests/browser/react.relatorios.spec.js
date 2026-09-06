@@ -6,7 +6,7 @@ import { entrar } from './apoio.js';
  *
  * O que se prova no browser: que a porta abre com as secções; que um mapa
  * abre no ecrã genérico com os cartões, a tabela e o CSV; que os gráficos se
- * desenham; e que as moradas de sempre continuam em Livewire.
+ * desenham; e que as moradas de sempre servem o React.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('a porta abre com as seccoes e leva ao mapa de vendas', async ({ page }) => {
-    await page.goto('/invoicing/reports/novo-ecra');
+    await page.goto('/invoicing/reports');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para os relatórios nesta bancada');
     }
@@ -26,7 +26,7 @@ test('a porta abre com as seccoes e leva ao mapa de vendas', async ({ page }) =>
     await expect(page.locator('[data-relatorio="sales"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-cartoes]').getByText('Documentos', { exact: true })).toBeVisible();
     await expect(page.locator('[data-relatorio="sales"]').getByRole('table')).toBeVisible();
-    await expect(page.locator('[data-csv]')).toHaveAttribute('href', /novo-ecra\/csv/);
+    await expect(page.locator('[data-csv]')).toHaveAttribute('href', /csv/);
 
     // Mudar o período volta a pedir os números.
     await page.getByLabel(/^Período/).selectOption('year');
@@ -34,20 +34,20 @@ test('a porta abre com as seccoes e leva ao mapa de vendas', async ({ page }) =>
 });
 
 test('os mapas sem periodo e com duas tabelas abrem', async ({ page }) => {
-    await page.goto('/invoicing/reports/vat/novo-ecra');
+    await page.goto('/invoicing/reports/vat');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para os relatórios nesta bancada');
     }
     await expect(page.locator('[data-relatorio="vat"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-relatorio="vat"]').getByRole('table')).toHaveCount(2);
 
-    await page.goto('/invoicing/reports/aging-clients/novo-ecra');
+    await page.goto('/invoicing/reports/aging-clients');
     await expect(page.locator('[data-relatorio="aging-clients"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByLabel(/^Período/)).toHaveCount(0);
 });
 
 test('os graficos desenham-se', async ({ page }) => {
-    await page.goto('/invoicing/reports/charts/novo-ecra');
+    await page.goto('/invoicing/reports/charts');
     if (!(await page.locator('[data-ecra]').count())) {
         test.skip(true, 'sem permissão para os relatórios nesta bancada');
     }
@@ -61,17 +61,10 @@ test('nenhum erro na consola', async ({ page }) => {
     page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
     page.on('pageerror', (e) => erros.push(String(e)));
 
-    for (const m of ['/invoicing/reports/novo-ecra', '/invoicing/reports/sales/novo-ecra', '/invoicing/reports/account-statement/novo-ecra', '/invoicing/expiry-report/novo-ecra']) {
+    for (const m of ['/invoicing/reports', '/invoicing/reports/sales', '/invoicing/reports/account-statement', '/invoicing/expiry-report']) {
         await page.goto(m);
         await page.waitForLoadState('networkidle');
     }
 
     expect(erros).toEqual([]);
-});
-
-test('as moradas de sempre continuam em Livewire', async ({ page }) => {
-    for (const m of ['/invoicing/reports', '/invoicing/reports/sales', '/invoicing/expiry-report']) {
-        await page.goto(m);
-        await expect(page.locator('[data-ecra]')).toHaveCount(0);
-    }
 });

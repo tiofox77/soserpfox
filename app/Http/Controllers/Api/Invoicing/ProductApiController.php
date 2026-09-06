@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Api\Invoicing;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoicing\ProductResource;
 use App\Models\Category;
+use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\Tax;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Os artigos, para o ecrã em React.
@@ -28,12 +32,45 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  *    de cada linha de documento é o `TaxResolver`, e este ecrã não o
  *    contorna.
  *
- * O QUE ESTE ECRÃ AINDA NÃO FAZ, e é dito para ninguém o descobrir tarde:
- * imagens (destaque e galeria) e os campos de sector (medicamento, vestuário,
- * cosmética). Ficam no ecrã Livewire, que continua na morada de sempre.
+ * 3. OS CAMPOS DE SECTOR (farmácia, vestuário, cosmética, mercearia) gravam-se
+ *    e filtram-se por aqui. Nenhum é obrigatório: a maioria do catálogo não
+ *    preenche nenhum, e um campo tornado obrigatório para servir dois sectores
+ *    partia o sistema de toda a gente. O género e a conservação são listas
+ *    fechadas porque alimentam filtros e relatórios — texto livre daria "M",
+ *    "masc" e "Homem" a significarem o mesmo.
+ *
+ * 4. AS IMAGENS (destaque e galeria) gravam-se NO MESMO SÍTIO E FORMATO de
+ *    sempre: caminho relativo no disco `public`, coluna `featured_image` para
+ *    a de destaque e a coluna JSON `gallery` para as restantes. É o que o POS
+ *    do restaurante, a carta e a transferência entre empresas já lêem — um
+ *    segundo esquema deixaria metade do sistema a ver imagens e a outra
+ *    metade a ver caixas vazias.
  */
 class ProductApiController extends Controller
 {
+    /**
+     * Tecto da galeria.
+     *
+     * Não é um número mágico: sem tecto, um formulário com o dedo preso na
+     * tecla enche o disco da empresa com a mesma fotografia, e o JSON da
+     * coluna cresce sem ninguém dar por isso. Dez chegam para mostrar um
+     * artigo por todos os lados.
+     */
+    private const MAXIMO_DA_GALERIA = 10;
+
+    /** Lista fechada: o género alimenta filtros e relatórios. */
+    private const GENEROS = [
+        'masculino' => 'Masculino', 'feminino' => 'Feminino',
+        'unissexo' => 'Unissexo', 'crianca' => 'Criança',
+    ];
+
+    /** Lista fechada: isto manda no stock — prateleira, frigorífico ou arca. */
+    private const CONSERVACAO = ['ambiente' => 'Ambiente', 'refrigerado' => 'Refrigerado', 'congelado' => 'Congelado'];
+
+    private const LISTA_GENEROS = 'masculino,feminino,unissexo,crianca';
+
+    private const LISTA_CONSERVACAO = 'ambiente,refrigerado,congelado';
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->exigir($request, 'invoicing.products.view');
@@ -44,6 +81,13 @@ class ProductApiController extends Controller
             'categoria' => ['nullable', 'integer'],
             'activo' => ['nullable', 'in:1,0'],
             'so_em_falta' => ['nullable', 'in:1'],
+            // Os filtros de sector. `prescricao` é 'sim'/'nao' e não um
+            // booleano: 'nao' é um filtro a sério, e um `false` seria
+            // indistinguível de "sem filtro".
+            'prescricao' => ['nullable', 'in:sim,nao'],
+            'tamanho' => ['nullable', 'string', 'max:20'],
+            'cor' => ['nullable', 'string', 'max:40'],
+            'conservacao' => ['nullable', 'in:ambiente,refrigerado,congelado'],
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
@@ -86,7 +130,23 @@ class ProductApiController extends Controller
                 fn ($q) => $q->where('manage_stock', true)
                     ->whereNotNull('stock_min')->where('stock_min', '>', 0)
                     ->whereColumn('stock_quantity', '<=', 'stock_min')
-            );
+            )
+            // Receita: quem NÃO exige inclui os que chegaram sem valor. A
+            // coluna tem omissão `false`, mas artigos migrados de sistemas
+            // antigos chegam a NULL e desapareciam da venda livre.
+            ->when(
+                ($filtros['prescricao'] ?? null) === 'sim',
+                fn ($q) => $q->comReceita()
+            )
+            ->when(
+                ($filtros['prescricao'] ?? null) === 'nao',
+                fn ($q) => $q->where(function ($x) {
+                    $x->where('requires_prescription', false)->orWhereNull('requires_prescription');
+                })
+            )
+            ->when($filtros['tamanho'] ?? null, fn ($q, $v) => $q->porTamanho($v))
+            ->when($filtros['cor'] ?? null, fn ($q, $v) => $q->porCor($v))
+            ->when($filtros['conservacao'] ?? null, fn ($q, $v) => $q->porConservacao($v));
 
         return ProductResource::collection(
             $query->orderBy('name')->paginate($filtros['por_pagina'] ?? 15)->withQueryString()
@@ -123,7 +183,7 @@ class ProductApiController extends Controller
          * recusar, e recusar um campo que o ecrã não mostra confunde mais do
          * que ajuda. Quem ajusta stock fá-lo na Gestão de Stock, com movimento.
          */
-        $artigo->update($this->validar($request, $artigo->id));
+        $artigo->update($this->validar($request, $artigo->id, $artigo));
 
         return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
     }
@@ -157,6 +217,133 @@ class ProductApiController extends Controller
         return response()->json(['message' => __('Artigo apagado.'), 'desactivado' => false]);
     }
 
+    /* ─── As imagens ──────────────────────────────────────────────────── */
+
+    /**
+     * A imagem de destaque. Uma só, e substitui a anterior.
+     *
+     * Vive sob `invoicing.products.edit` e não sob uma permissão própria:
+     * trocar a fotografia de um artigo é editá-lo.
+     */
+    public function imagem(Request $request, int $id): ProductResource
+    {
+        $this->exigir($request, 'invoicing.products.edit');
+
+        $artigo = $this->doCatalogo($id);
+
+        $request->validate(['imagem' => ['required', 'image', 'max:2048']]);
+
+        $anterior = $artigo->featured_image;
+        $ficheiro = $request->file('imagem');
+
+        $caminho = $ficheiro->storeAs(
+            'products/' . $artigo->id,
+            'featured_' . Str::slug($artigo->name) . '.' . $ficheiro->getClientOriginalExtension(),
+            'public'
+        );
+
+        /*
+         * A ANTERIOR SÓ SE APAGA DEPOIS, E SÓ SE FOR OUTRA.
+         *
+         * O nome sai do nome do artigo: substituir um JPEG por outro JPEG dá o
+         * MESMO caminho, e apagar «a anterior» apagava o ficheiro acabado de
+         * escrever — o artigo ficava com um caminho gravado a apontar para o
+         * vazio. Era o que o ecrã de sempre fazia.
+         */
+        if (filled($anterior) && $anterior !== $caminho) {
+            $this->apagarDoDisco($anterior);
+        }
+
+        $artigo->update(['featured_image' => $caminho]);
+
+        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+    }
+
+    /** Tira a imagem de destaque — do artigo e do disco. */
+    public function apagarImagem(Request $request, int $id): ProductResource
+    {
+        $this->exigir($request, 'invoicing.products.edit');
+
+        $artigo = $this->doCatalogo($id);
+
+        $this->apagarDoDisco($artigo->featured_image);
+        $artigo->update(['featured_image' => null]);
+
+        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+    }
+
+    /** Junta imagens à galeria. ACRESCENTA — nunca substitui o que já lá está. */
+    public function galeria(Request $request, int $id): ProductResource
+    {
+        $this->exigir($request, 'invoicing.products.edit');
+
+        $artigo = $this->doCatalogo($id);
+
+        $request->validate([
+            'imagens' => ['required', 'array', 'min:1', 'max:' . self::MAXIMO_DA_GALERIA],
+            'imagens.*' => ['image', 'max:2048'],
+        ]);
+
+        $galeria = array_values(array_filter($artigo->gallery ?? []));
+        $aChegar = count($request->file('imagens'));
+
+        if (count($galeria) + $aChegar > self::MAXIMO_DA_GALERIA) {
+            throw ValidationException::withMessages([
+                'imagens' => [__('A galeria só leva :max imagens. Apague alguma antes de juntar mais.', [
+                    'max' => self::MAXIMO_DA_GALERIA,
+                ])],
+            ]);
+        }
+
+        foreach ($request->file('imagens') as $ficheiro) {
+            /*
+             * NOME AO ACASO, e não `gallery_<índice>_<time>`.
+             *
+             * O nome de sempre juntava a posição na lista ao segundo do
+             * relógio: duas imagens acrescentadas no mesmo segundo a um
+             * artigo com a galeria vazia davam ambas `gallery_1_…` e a
+             * segunda apagava a primeira em silêncio.
+             */
+            $galeria[] = $ficheiro->storeAs(
+                'products/' . $artigo->id . '/gallery',
+                Str::lower(Str::random(16)) . '.' . $ficheiro->getClientOriginalExtension(),
+                'public'
+            );
+        }
+
+        $artigo->update(['gallery' => $galeria]);
+
+        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+    }
+
+    /** Tira UMA imagem da galeria. */
+    public function apagarDaGaleria(Request $request, int $id): ProductResource
+    {
+        $this->exigir($request, 'invoicing.products.edit');
+
+        $artigo = $this->doCatalogo($id);
+
+        $pedido = (string) $request->query('caminho', '');
+
+        /*
+         * O CAMINHO CONFIRMA-SE CONTRA A GALERIA DESTE ARTIGO.
+         *
+         * Vem do pedido, e um caminho do pedido é um caminho que alguém pode
+         * escrever à mão. Sem esta confirmação, um `../../.env` bem posto
+         * apagava o que não era dele — e, mesmo sem má intenção, apagava a
+         * imagem de outra empresa.
+         */
+        $galeria = array_values(array_filter($artigo->gallery ?? []));
+
+        abort_unless(in_array($pedido, $galeria, true), 404, __('Essa imagem não é deste artigo.'));
+
+        $this->apagarDoDisco($pedido);
+
+        $artigo->update(['gallery' => array_values(array_filter($galeria, fn ($c) => $c !== $pedido))]);
+
+        return new ProductResource($artigo->fresh()->load(['category', 'taxRate']));
+    }
+
     public function opcoes(Request $request): JsonResponse
     {
         $this->exigir($request, 'invoicing.products.view');
@@ -175,6 +362,20 @@ class ProductApiController extends Controller
 
             'unidades' => ['un', 'kg', 'g', 'l', 'ml', 'm', 'cm', 'm2', 'm3', 'cx', 'pct', 'par', 'hora'],
 
+            'generos' => collect(self::GENEROS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
+            'conservacao' => collect(self::CONSERVACAO)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
+
+            // O PERFIL DECIDE O QUE APARECE POR OMISSÃO — e mais nada.
+            //
+            // Nunca decide o que existe nem o que protege: os avisos do POS
+            // seguem os dados do artigo, sempre. E não esconde o que já está
+            // gravado: por isso vai junto o que o catálogo TEM, para o ecrã
+            // mostrar os campos e os filtros a quem desligou o perfil (ou
+            // nunca o ligou) mas já tem artigos marcados. Sem isto, desligar
+            // o perfil deixava dados gravados sem forma de os ver nem filtrar.
+            'perfis' => InvoicingSettings::forTenant(activeTenantId())->perfisActivos(),
+            'variantes' => $this->variantesDoCatalogo(),
+
             'permissoes' => [
                 'pode_criar' => (bool) $request->user()?->can('invoicing.products.create'),
                 'pode_editar' => (bool) $request->user()?->can('invoicing.products.edit'),
@@ -190,8 +391,62 @@ class ProductApiController extends Controller
         abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
     }
 
-    /** As mesmas regras do ecrã Livewire, nos campos que este ecrã trata. */
-    private function validar(Request $request, ?int $exceptoId = null): array
+    /** O artigo desta empresa, ou 404. Um `id` do pedido confirma-se sempre. */
+    private function doCatalogo(int $id): Product
+    {
+        return Product::where('tenant_id', activeTenantId())->findOrFail($id);
+    }
+
+    /**
+     * Tira um ficheiro do disco, se lá estiver.
+     *
+     * Um endereço completo (artigo importado) não é ficheiro nosso e não se
+     * apaga: só se esquece a referência.
+     */
+    private function apagarDoDisco(?string $caminho): void
+    {
+        if (! filled($caminho) || filter_var($caminho, FILTER_VALIDATE_URL)) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($caminho)) {
+            Storage::disk('public')->delete($caminho);
+        }
+    }
+
+    /**
+     * O que o catálogo TEM de sector — tamanhos e cores reais, e se há
+     * artigos de receituário ou de conservação.
+     *
+     * Serve para mostrar os filtros a quem já tem artigos marcados mesmo com
+     * o perfil desligado: numa oficina (sem perfil e sem dados) continuam
+     * escondidos, que é o que se pretende.
+     */
+    private function variantesDoCatalogo(): array
+    {
+        $catalogo = fn () => Product::where('tenant_id', activeTenantId());
+
+        return [
+            'tamanhos' => $catalogo()->whereNotNull('size')->where('size', '<>', '')
+                ->distinct()->orderBy('size')->pluck('size')->all(),
+            'cores' => $catalogo()->whereNotNull('color')->where('color', '<>', '')
+                ->distinct()->orderBy('color')->pluck('color')->all(),
+            'ha_receituario' => $catalogo()->where(
+                fn ($q) => $q->where('requires_prescription', true)->orWhere('is_controlled', true)
+            )->exists(),
+            'ha_conservacao' => $catalogo()->whereNotNull('storage_conditions')
+                ->where('storage_conditions', '<>', '')->exists(),
+        ];
+    }
+
+    /**
+     * As mesmas regras de sempre, nos campos que este ecrã trata.
+     *
+     * `$actual` é o artigo que se está a editar — serve para os campos cujo
+     * valor por omissão, numa edição, é o que JÁ ESTÁ GRAVADO e não o que é
+     * bom para um artigo novo.
+     */
+    private function validar(Request $request, ?int $exceptoId = null, ?Product $actual = null): array
     {
         $dados = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:200'],
@@ -207,17 +462,78 @@ class ProductApiController extends Controller
             'tax_rate_id' => ['required_if:tax_type,iva', 'nullable', 'integer', 'exists:invoicing_taxes,id'],
             'exemption_reason' => ['required_if:tax_type,isento', 'nullable', 'string', 'max:255'],
             'manage_stock' => ['nullable', 'boolean'],
+            // Trabalhos à medida: o preço escreve-se na hora, no POS.
+            'preco_no_pos' => ['nullable', 'boolean'],
             'stock_min' => ['nullable', 'integer', 'min:0'],
             'stock_max' => ['nullable', 'integer', 'min:0', 'gte:stock_min'],
             'is_active' => ['nullable', 'boolean'],
+
+            // FARMÁCIA — nenhum obrigatório. Um artigo comum não preenche
+            // nada disto e tem de continuar a poder ser gravado.
+            'requires_prescription' => ['nullable', 'boolean'],
+            'is_controlled' => ['nullable', 'boolean'],
+            'active_ingredient' => ['nullable', 'string', 'max:255'],
+            'dosage' => ['nullable', 'string', 'max:60'],
+            'pharmaceutical_form' => ['nullable', 'string', 'max:40'],
+            'armed_registration' => ['nullable', 'string', 'max:60'],
+
+            // VESTUÁRIO.
+            'size' => ['nullable', 'string', 'max:20'],
+            'color' => ['nullable', 'string', 'max:40'],
+            'gender' => ['nullable', 'in:' . self::LISTA_GENEROS],
+            'material' => ['nullable', 'string', 'max:120'],
+
+            // COSMÉTICA E MERCEARIA. Os meses depois de aberto são um prazo
+            // real: 0 não quer dizer nada e 120 (dez anos) já é engano.
+            'net_content' => ['nullable', 'string', 'max:40'],
+            'pao_months' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'inci_ingredients' => ['nullable', 'string'],
+            'storage_conditions' => ['nullable', 'in:' . self::LISTA_CONSERVACAO],
+            'allergens' => ['nullable', 'string', 'max:255'],
+            'origin_country' => ['nullable', 'string', 'max:60'],
         ]);
 
-        // Um SERVIÇO não gere stock. Deixá-lo ligado punha-o a desaparecer do
-        // POS assim que a «quantidade» chegasse a zero — e um serviço não tem
-        // quantidade nenhuma.
+        /*
+         * AS MARCAS DE FARMÁCIA SÃO BOOLEANOS QUE TAMBÉM SE DESLIGAM.
+         *
+         * As colunas são NOT NULL com omissão `false`. Um `null` vindo do
+         * formulário atropelava a omissão e o MySQL recusava; e um booleano
+         * que só sabe ligar-se é pior do que não existir — o artigo ficava
+         * marcado como sujeito a receita para sempre.
+         */
+        foreach (['requires_prescription', 'is_controlled'] as $marca) {
+            if (array_key_exists($marca, $dados)) {
+                $dados[$marca] = (bool) $dados[$marca];
+            }
+        }
+
+        /*
+         * Um SERVIÇO não gere stock. Deixá-lo ligado punha-o a desaparecer do
+         * POS assim que a «quantidade» chegasse a zero — e um serviço não tem
+         * quantidade nenhuma.
+         *
+         * Um PRODUTO nasce a gerir stock: a caixa desmarcada por omissão deixou
+         * farmácias inteiras com artigos que se vendiam e nunca desciam, e o
+         * sintoma só aparecia semanas depois, com as contagens já fora.
+         *
+         * MAS A EDITAR QUEM MANDA É O QUE ESTÁ GRAVADO. Um artigo a que alguém
+         * desligou o stock de propósito não pode voltar a ligá-lo só porque um
+         * pedido de edição não trouxe o campo — isso apagava uma decisão do
+         * utilizador sem ninguém dar por nada.
+         */
         $dados['manage_stock'] = $dados['type'] === 'servico'
             ? false
-            : (bool) ($dados['manage_stock'] ?? true);
+            : (bool) ($dados['manage_stock'] ?? $actual?->manage_stock ?? true);
+
+        /*
+         * PERGUNTAR O PREÇO NO POS.
+         *
+         * Como o `manage_stock`: a editar, a omissão é o que está gravado —
+         * um pedido que não traga o campo não pode desmarcar a decisão de
+         * quem a tomou. Na factura de venda o preço escreve-se na linha, como
+         * sempre; isto é só do balcão (`App\Livewire\POS\POSSystem`).
+         */
+        $dados['preco_no_pos'] = (bool) ($dados['preco_no_pos'] ?? $actual?->preco_no_pos ?? false);
 
         // Um dos dois, nunca os dois.
         $dados['tax_rate_id'] = $dados['tax_type'] === 'iva' ? ($dados['tax_rate_id'] ?? null) : null;

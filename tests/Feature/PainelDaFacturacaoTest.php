@@ -3,9 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
-use App\Livewire\Invoicing\InvoicingDashboard;
 use App\Models\Invoicing\SalesInvoice;
-use Livewire\Livewire;
 use Tests\TenantTestCase;
 
 /**
@@ -22,10 +20,19 @@ use Tests\TenantTestCase;
  *
  *   · os gráficos viviam num `<script>` da própria página. Chegando ao painel
  *     pela barra lateral — `wire:navigate`, sem recarregar — esse script não
- *     volta a correr, e os cinco gráficos ficavam em branco.
+ *     voltava a correr, e os cinco gráficos ficavam em branco.
+ *
+ * O PAINEL É HOJE REACT (`resources/js/ecras/facturacao/Painel.tsx`) e os
+ * números saem todos do serviço `PainelDaFacturacao`, pela API. A primeira
+ * regra continua a ser a mesma e prova-se contra a API. A segunda deixou de
+ * poder acontecer: o gráfico é SVG desenhado pelo próprio componente, que é
+ * dono do seu ciclo — e é isso que se guarda aqui, para ninguém voltar a
+ * pendurar o desenho num script da página.
  */
 class PainelDaFacturacaoTest extends TenantTestCase
 {
+    private const ROTA = '/api/v1/invoicing/react/painel';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,10 +43,10 @@ class PainelDaFacturacaoTest extends TenantTestCase
         $this->comModulo('invoicing')->comPermissoes('invoicing.dashboard.view');
     }
 
-    /** Os dados que o painel poe no ecra. */
-    private function painel(): \Livewire\Features\SupportTesting\Testable
+    /** Os dados que o painel põe no ecrã. */
+    private function painel(): array
     {
-        return Livewire::test(InvoicingDashboard::class);
+        return $this->getJson(self::ROTA)->assertOk()->json();
     }
 
     private function factura(string $estado, float $total, float $pago = 0, ?string $vencimento = null): SalesInvoice
@@ -86,11 +93,11 @@ class PainelDaFacturacaoTest extends TenantTestCase
         $this->factura('cancelled', 8888);
         $this->factura('credited', 7777);
 
-        // A pagina propriamente dita tem de abrir: foi assim que se viu que
+        // A página propriamente dita tem de abrir: foi assim que se viu que
         // uma factura sem data de vencimento a deitava abaixo com erro 500.
         $this->get('/invoicing/dashboard')->assertOk();
 
-        $stats = $this->painel()->viewData('stats');
+        $stats = $this->painel()['stats'];
 
         // 1000 + 500 + 300 + (400 − 100) = 2100
         $this->assertEqualsWithDelta(2100, (float) $stats['total_pending'], 0.01,
@@ -112,7 +119,7 @@ class PainelDaFacturacaoTest extends TenantTestCase
         $this->factura('sent', 2000, 0, now()->addDays(10)->toDateString());
         $this->factura('paid', 9999, 9999, now()->subDays(60)->toDateString());
 
-        $stats = $this->painel()->viewData('stats');
+        $stats = $this->painel()['stats'];
 
         $this->assertEqualsWithDelta(1500, (float) $stats['total_overdue'], 0.01,
             'vencido é o que passou da data e não está pago — 500 + 1000');
@@ -123,130 +130,121 @@ class PainelDaFacturacaoTest extends TenantTestCase
     {
         $this->factura('sent', 1000, 0, now()->addDays(5)->toDateString());
 
-        $lista = $this->painel()->viewData('pendingInvoices');
+        $lista = $this->painel()['por_cobrar'];
 
         $this->assertCount(1, $lista,
             'se o cartão conta uma factura, a lista tem de a mostrar — senão o número e a lista não batem certo');
+        $this->assertEqualsWithDelta(1000, (float) $lista[0]['saldo'], 0.01, 'a lista mostra o SALDO, não o total');
     }
 
     /**
-     * OS GRÁFICOS DESENHAM-SE MESMO QUANDO SE CHEGA PELA BARRA LATERAL.
+     * O DESENHO DOS GRÁFICOS É DO PRÓPRIO ECRÃ.
      *
-     * O desenho saiu do Blade para um ficheiro carregado pelo layout, com os
-     * ouvintes presos ao `document`: é a única forma que sobrevive a uma
-     * navegação do Livewire. Os dados viajam em nós JSON que o Livewire volta a
-     * escrever, para trocar de período mudar mesmo a linha do gráfico.
+     * Em Blade o desenho teve de sair da página para um ficheiro carregado
+     * pelo layout, com os ouvintes presos ao `document`: era a única forma de
+     * sobreviver a uma navegação do Livewire, em que a página não volta a
+     * correr os seus `<script>`. Em React o componente é dono do seu ciclo e o
+     * problema não existe — desde que o desenho continue lá dentro, em SVG, e
+     * ninguém volte a pendurá-lo num script global ou numa biblioteca de fora.
      *
      * @test
      */
-    public function o_desenho_dos_graficos_sobrevive_a_navegacao(): void
+    public function o_desenho_dos_graficos_vive_dentro_do_ecra(): void
     {
-        $modulo = public_path('js/painel-facturacao.js');
-        $this->assertFileExists($modulo);
+        $painel = file_get_contents(resource_path('js/ecras/facturacao/Painel.tsx'));
 
-        $js = file_get_contents($modulo);
+        $this->assertStringContainsString('GraficoDeBarras', $painel,
+            'o gráfico é um componente do ecrã, não um script da página');
+        $this->assertStringNotContainsString('new Chart(', $painel);
+        $this->assertStringNotContainsString('addEventListener(', $painel,
+            'nada de ouvintes globais: o ciclo é do componente');
 
-        $this->assertStringContainsString("addEventListener('livewire:navigated'", $js,
-            'pela barra lateral não há recarregamento: é este o momento de desenhar');
-        $this->assertStringContainsString("morph.updated", $js,
-            'trocar de período troca o HTML: redesenhar a seguir');
-        $this->assertStringContainsString('dadosVendas', $js,
-            'os dados vêm do DOM, senão ficam presos ao primeiro desenho');
+        $grafico = file_get_contents(resource_path('js/ui/GraficoDeBarras.tsx'));
 
-        $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
-        $this->assertStringContainsString('/js/painel-facturacao.js', $layout,
-            'tem de ser carregado pelo layout: um script na página não volta a correr');
+        $this->assertStringContainsString('role="img"', $grafico,
+            'as barras são marcação da própria página, sem biblioteca nenhuma');
+        $this->assertStringNotContainsString('getContext(', $grafico,
+            'desenhar num canvas é imperativo: obriga a criar, destruir e apanhar o instante certo');
 
-        // E o Blade deixa de ter o desenho lá dentro.
-        $painel = file_get_contents(resource_path('views/livewire/invoicing/invoicing-dashboard.blade.php'));
-        $this->assertStringNotContainsString('new Chart(', $painel,
-            'o desenho vive no ficheiro, não na página');
-        $this->assertStringContainsString('id="dadosVendas"', $painel);
-        $this->assertStringContainsString('id="dadosPainel"', $painel);
-        $this->assertStringContainsString('id="textosPainel"', $painel);
+        // E OS DADOS VÊM DO SERVIDOR, não de números escritos no ecrã: trocar
+        // de período tem de mudar mesmo a linha do gráfico.
+        $this->assertStringContainsString("from '@/api/painel'", $painel);
+        $this->assertStringContainsString('por_mes', $painel);
     }
 
     /**
-     * O QUADRO "ESTADO DAS FATURAS" E DO MES, E DESTE ANO.
+     * O QUADRO "ESTADO DAS FATURAS" É DO MÊS, E DESTE ANO.
      *
      * Contava com `whereMonth` sem `whereYear`: em Setembro de 2026 somava
-     * tambem Setembro de 2025 e de todos os anos anteriores. E chamava
-     * "pendente" so ao estado `pending`, deixando de fora as `sent`.
+     * também Setembro de 2025 e de todos os anos anteriores. E chamava
+     * "pendente" só ao estado `pending`, deixando de fora as `sent`.
      *
      * @test
      */
     public function o_quadro_do_estado_conta_o_mes_deste_ano_e_pelo_saldo(): void
     {
-        // Deste mes.
+        // Deste mês.
         $this->factura('sent', 1000, 0, now()->addDays(5)->toDateString());       // por cobrar
         $this->factura('sent', 800, 300, now()->addDays(5)->toDateString());      // parte paga
         $this->factura('overdue', 600, 0, now()->subDays(5)->toDateString());     // vencida
         $this->factura('paid', 400, 400, now()->subDays(5)->toDateString());      // paga
 
-        // Mesmo mes, ANO PASSADO: nao pode entrar em caixa nenhuma.
+        // Mesmo mês, ANO PASSADO: não pode entrar em caixa nenhuma.
         $this->factura('sent', 9999, 0, now()->addDays(5)->toDateString())
             ->forceFill(['invoice_date' => now()->subYear()])->save();
 
-        $estado = $this->painel()->viewData('invoiceStatus');
+        $estado = $this->painel()['estado_das_facturas'];
 
         $this->assertSame(1, $estado['pending'],
-            'uma factura enviada e dentro do prazo e uma pendente — e a do ano passado nao conta');
+            'uma factura enviada e dentro do prazo é uma pendente — e a do ano passado não conta');
         $this->assertSame(1, $estado['partially_paid'], 'a que tem parte paga conta uma vez');
-        $this->assertSame(1, $estado['overdue'], 'vencida e a que passou da data');
-        $this->assertSame(1, $estado['paid'], 'paga e a que nao tem saldo');
+        $this->assertSame(1, $estado['overdue'], 'vencida é a que passou da data');
+        $this->assertSame(1, $estado['paid'], 'paga é a que não tem saldo');
     }
 
     /**
-     * ESCOLHER O ANO NAO PODE DAR 365 PONTOS.
+     * O ANO É DOZE PONTOS, NUNCA TREZENTOS E SESSENTA E CINCO.
      *
-     * A consulta agrupava sempre por dia, fosse qual fosse o periodo. Numa
+     * A consulta agrupava sempre por dia, fosse qual fosse o período. Numa
      * empresa com movimento, "Este Ano" dava uma linha com uma marca por cada
-     * dia do ano e os rotulos por cima uns dos outros.
+     * dia do ano e os rótulos por cima uns dos outros. O painel em React não
+     * tem sequer selector: o ano vem sempre mês a mês, do servidor.
      *
      * @test
      */
     public function o_grafico_do_ano_agrupa_por_mes(): void
     {
-        // Tres dias do mesmo mes: uma so coluna no grafico do ano.
+        // Três dias do mesmo mês: uma só coluna no gráfico do ano.
         foreach ([1, 2, 3] as $dia) {
             $this->factura('sent', 100)->forceFill([
                 'invoice_date' => now()->startOfYear()->addMonths(2)->addDays($dia),
             ])->save();
         }
 
-        $this->factura('sent', 500)->forceFill([
-            'invoice_date' => now()->startOfYear()->addMonths(5),
-        ])->save();
+        $ano = $this->painel()['por_mes'];
 
-        $ano = $this->painel()->set('selectedPeriod', 'year')->get('chartData');
+        $this->assertCount(12, $ano, 'os doze meses estão sempre lá, mesmo os que não tiveram nada');
 
-        $this->assertCount(2, $ano,
-            'tres facturas do mesmo mes sao um ponto so quando se olha para o ano');
+        $marco = $ano[2];
 
-        $this->assertEqualsWithDelta(300, (float) $ano[0]['total'], 0.01,
-            'o ponto do mes soma o que se facturou nesse mes');
+        $this->assertEqualsWithDelta(300, (float) $marco['valor'], 0.01,
+            'o ponto do mês soma o que se facturou nesse mês');
 
-        $this->assertArrayHasKey('rotulo', $ano[0],
-            'o rotulo do eixo vem do servidor: e ele que sabe se a linha e um dia ou um mes');
-
-        $this->assertStringNotContainsString('/', $ano[0]['rotulo'],
-            'por mes o rotulo e o nome do mes, nao uma data com barras');
-
-        // E por mes continua a ser dia a dia.
-        $mes = $this->painel()->set('selectedPeriod', 'month')->get('chartData');
-
-        foreach ($mes as $ponto) {
-            $this->assertMatchesRegularExpression('#^\d{2}/\d{2}$#', $ponto['rotulo'],
-                'dentro do mes cada ponto e um dia');
-        }
+        // O rótulo do eixo vem do servidor — é ele que sabe se a linha é um dia
+        // ou um mês, e é assim que o painel escreve "Mar" sempre da mesma
+        // maneira, esteja em que ecrã estiver.
+        $this->assertArrayHasKey('rotulo', $marco);
+        $this->assertStringNotContainsString('/', $marco['rotulo'],
+            'por mês o rótulo é o nome do mês, não uma data com barras');
     }
+
     /**
-     * OS GRAFICOS SEGUEM A MESMA REGRA DOS CARTOES.
+     * OS GRÁFICOS SEGUEM A MESMA REGRA DOS CARTÕES.
      *
-     * Os cartoes ja filtravam por autor; os graficos da mesma pagina liam a
-     * empresa inteira. Quem so ve o que emitiu tinha, lado a lado, um cartao
-     * com os seus numeros e um grafico com os de todos — ao mesmo tempo uma
-     * fuga e a razao por que a pagina se contradizia a si propria.
+     * Os cartões já filtravam por autor; os gráficos da mesma página liam a
+     * empresa inteira. Quem só vê o que emitiu tinha, lado a lado, um cartão
+     * com os seus números e um gráfico com os de todos — ao mesmo tempo uma
+     * fuga e a razão por que a página se contradizia a si própria.
      *
      * @test
      */
@@ -264,33 +262,34 @@ class PainelDaFacturacaoTest extends TenantTestCase
         $this->factura('sent', 1000);                       // minha
         $this->factura('sent', 2000)->forceFill(['created_by' => $colega->id])->save();
 
-        // Sem `invoicing.documents.all`, so vejo o que emiti.
-        $painel = $this->painel()->get('graficos');
-        $meu = array_sum($painel['estados']['valores'] ?? []);
+        // Sem `invoicing.documents.all`, só vejo o que emiti.
+        $meu = array_sum(array_column($this->painel()['por_mes'], 'valor'));
 
         $this->assertEqualsWithDelta(1000, $meu, 0.01,
-            'o grafico tem de contar o mesmo que o cartao: so o que este utilizador emitiu');
+            'o gráfico tem de contar o mesmo que o cartão: só o que este utilizador emitiu');
 
-        // Com a permissao de ver tudo, o grafico abre.
+        // Com a permissão de ver tudo, o gráfico abre.
         $this->comPermissoes('invoicing.documents.all');
 
-        $tudo = array_sum($this->painel()->get('graficos')['estados']['valores'] ?? []);
+        $tudo = array_sum(array_column($this->painel()['por_mes'], 'valor'));
 
         $this->assertEqualsWithDelta(3000, $tudo, 0.01,
-            'quem pode ver os documentos todos ve tambem o grafico todo');
+            'quem pode ver os documentos todos vê também o gráfico todo');
     }
 
     /** @test */
     public function as_bibliotecas_sao_da_casa_e_nao_de_um_cdn(): void
     {
         foreach ([
-            public_path('js/painel-facturacao.js'),
-            resource_path('views/livewire/invoicing/invoicing-dashboard.blade.php'),
+            resource_path('js/ecras/facturacao/Painel.tsx'),
+            resource_path('js/ui/GraficoDeBarras.tsx'),
         ] as $f) {
-            $this->assertStringNotContainsString('cdnjs.cloudflare.com', file_get_contents($f),
-                basename($f) . ': um CDN bloqueado deixava o painel sem gráficos e sem aviso');
-        }
+            $fonte = file_get_contents($f);
 
-        $this->assertFileExists(public_path('vendor/js/chart.min.js'));
+            foreach (['cdnjs.cloudflare.com', 'cdn.jsdelivr.net', 'unpkg.com'] as $cdn) {
+                $this->assertStringNotContainsString($cdn, $fonte,
+                    basename($f) . ": um CDN bloqueado deixava o painel sem gráficos e sem aviso");
+            }
+        }
     }
 }

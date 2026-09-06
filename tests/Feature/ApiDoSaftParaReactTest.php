@@ -16,7 +16,7 @@ class ApiDoSaftParaReactTest extends TenantTestCase
 {
     private const RAIZ = '/api/v1/invoicing/react/saft';
 
-    private const DESCARGA = '/invoicing/saft-generator/novo-ecra/descarregar';
+    private const DESCARGA = '/invoicing/saft-generator/descarregar';
 
     protected function setUp(): void
     {
