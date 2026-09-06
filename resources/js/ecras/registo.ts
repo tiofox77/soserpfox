@@ -96,4 +96,37 @@ export const ecras: Record<string, Ecra> = {
         import('./facturacao/TransferenciasEntreArmazens'),
     'facturacao/transferencias-entre-empresas': () =>
         import('./facturacao/TransferenciasEntreEmpresas'),
+    // As séries de documentos e a trilha de auditoria.
+    'facturacao/series': () =>
+        import('./facturacao/Series'),
+    'facturacao/auditoria': () =>
+        import('./facturacao/Auditoria'),
+    // O gerador SAFT-AO.
+    'facturacao/saft': () =>
+        import('./facturacao/Saft'),
+    // A AGT: os dois ambientes, e a ficha do contribuinte.
+    'facturacao/agt': () =>
+        import('./facturacao/Agt'),
+    'facturacao/credenciais-agt': () =>
+        import('./facturacao/CredenciaisAgt'),
+    // Os relatórios: a porta, o ecrã genérico de qualquer mapa, e os gráficos.
+    'facturacao/relatorios-hub': () =>
+        import('./facturacao/RelatoriosHub'),
+    'facturacao/relatorio': () =>
+        import('./facturacao/Relatorio'),
+    'facturacao/graficos': () =>
+        import('./facturacao/Graficos'),
+    // Os turnos do POS, o modo offline e os modelos de proposta.
+    'facturacao/turnos': () =>
+        import('./facturacao/TurnosDoPos'),
+    'facturacao/historico-de-turnos': () =>
+        import('./facturacao/HistoricoDeTurnos'),
+    'facturacao/importar-copia-offline': () =>
+        import('./facturacao/ImportarCopiaOffline'),
+    'facturacao/definir-pin': () =>
+        import('./facturacao/DefinirPin'),
+    'facturacao/modelos-de-proposta': () =>
+        import('./facturacao/ModelosDeProposta'),
+    'facturacao/editor-de-modelo': () =>
+        import('./facturacao/EditorDeModelo'),
 };

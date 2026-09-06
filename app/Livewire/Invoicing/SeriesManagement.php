@@ -161,111 +161,63 @@ class SeriesManagement extends Component
         $this->showModal = true;
     }
 
+    /*
+     * A FICHA DA SÉRIE GRAVA-SE NO `GestaoDeSeries`: o prefixo do catálogo, a
+     * série registada na AGT que quase não se mexe, a janela do exercício,
+     * uma só padrão por tipo. Este ecrã e o ecrã em React chamam o mesmo.
+     */
     public function save()
     {
-        // Derivar ANTES de validar. A regra Rule::in fica como rede — apanha
-        // quem lá chegue por outra via — mas quem usa o formulário não pode ser
-        // parado por um campo que não é dele para preencher: o prefixo é uma
-        // consequência do tipo de documento, não uma escolha.
-        $this->prefix = $this->prefixoParaGravar();
+        $gestao = app(\App\Services\Invoicing\GestaoDeSeries::class);
 
-        $this->validate();
+        // Derivar ANTES de validar: o prefixo é consequência do tipo, não uma
+        // escolha de quem preenche.
+        $this->prefix = $gestao->prefixoParaGravar((string) $this->document_type, $this->prefix);
 
-        // DS.120 §4.5: validar janela 15-Dez para series_year
-        if ($this->series_year) {
-            try {
-                $settings = \App\Models\Invoicing\InvoicingSettings::where('tenant_id', activeTenantId())->first()
-                    ?: new \App\Models\Invoicing\InvoicingSettings();
-                (new \App\Services\AGT\SeriesService($settings))
-                    ->validateSeriesYearWindow((int) $this->series_year);
-            } catch (\InvalidArgumentException $e) {
-                $this->addError('series_year', $e->getMessage());
-                return;
-            }
-        }
+        $this->validate($gestao->regras((string) $this->document_type));
+
+        $dados = [
+            'document_type' => $this->document_type,
+            'series_code' => $this->series_code,
+            'name' => $this->name,
+            'prefix' => $this->prefix,
+            'include_year' => $this->include_year,
+            'next_number' => $this->next_number,
+            'number_padding' => $this->number_padding,
+            'is_default' => $this->is_default,
+            'is_active' => $this->is_active,
+            'reset_yearly' => $this->reset_yearly,
+            'description' => $this->description,
+            'series_year' => $this->series_year,
+            'establishment_number' => $this->establishment_number,
+            'invoicing_method' => $this->invoicing_method,
+        ];
 
         try {
-            // Se marcar como padrão, desmarcar outras séries do mesmo tipo
-            if ($this->is_default) {
-                $defaultDocumentType = $this->document_type;
-                if ($this->isEdit) {
-                    $existingSeries = InvoicingSeries::forTenant(activeTenantId())->findOrFail($this->seriesId);
-                    if ($existingSeries->isAGTRegistered()) {
-                        $defaultDocumentType = $existingSeries->document_type;
-                    }
-                }
-                InvoicingSeries::where('tenant_id', activeTenantId())
-                    ->where('document_type', $defaultDocumentType)
-                    ->update(['is_default' => false]);
-            }
-
             if ($this->isEdit) {
                 $series = InvoicingSeries::forTenant(activeTenantId())->findOrFail($this->seriesId);
-                $data = [
-                    'document_type' => $this->document_type,
-                    'series_code' => $this->series_code,
-                    'name' => $this->name,
-                    'prefix' => $this->prefix,
-                    'include_year' => $this->include_year,
-                    'next_number' => $this->next_number,
-                    'number_padding' => $this->number_padding,
-                    'is_default' => $this->is_default,
-                    'is_active' => $this->is_active,
-                    'reset_yearly' => $this->reset_yearly,
-                    'description' => $this->description,
-                    'current_year' => now()->year,
-                    'series_year' => $this->series_year,
-                    'establishment_number' => $this->establishment_number,
-                    'invoicing_method' => $this->invoicing_method,
-                ];
-
-                if ($series->isAGTRegistered()) {
-                    $data = [
-                        'name' => $this->name,
-                        'description' => $this->description,
-                        'is_default' => $this->is_default,
-                    ];
-                }
-
-                $series->update($data);
-                
-                $message = $series->isAGTRegistered()
-                    ? 'Série registada: apenas nome, descrição e preferência padrão foram actualizados.'
-                    : 'Série atualizada com sucesso!';
+                $message = $gestao->actualizar($series, $dados, activeTenantId());
             } else {
-                InvoicingSeries::create([
-                    'tenant_id' => activeTenantId(),
-                    'document_type' => $this->document_type,
-                    'series_code' => $this->series_code,
-                    'name' => $this->name,
-                    'prefix' => $this->prefix,
-                    'include_year' => $this->include_year,
-                    'next_number' => $this->next_number,
-                    'number_padding' => $this->number_padding,
-                    'is_default' => $this->is_default,
-                    'is_active' => $this->is_active,
-                    'reset_yearly' => $this->reset_yearly,
-                    'description' => $this->description,
-                    'current_year' => now()->year,
-                    'series_year' => $this->series_year,
-                    'establishment_number' => $this->establishment_number,
-                    'invoicing_method' => $this->invoicing_method,
-                ]);
-                
+                $gestao->criar($dados, activeTenantId());
                 $message = 'Série criada com sucesso!';
             }
+        } catch (\DomainException $e) {
+            $this->addError('series_year', $e->getMessage());
 
-            $this->showModal = false;
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => $message
-            ]);
-            
+            return;
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => __('Erro: :detalhe', ['detalhe' => $e->getMessage()])]);
+
+            return;
         }
+
+        $this->showModal = false;
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => $message
+        ]);
     }
 
     public function confirmDelete($id)
@@ -278,21 +230,16 @@ class SeriesManagement extends Component
     {
         try {
             $series = InvoicingSeries::forTenant(activeTenantId())->findOrFail($this->seriesToDelete);
-            if ($series->isAGTRegistered()) {
-                $this->showDeleteModal = false;
-                $this->dispatch('notify', [
-                    'type' => 'error',
-                    'message' => __('Uma série registada na AGT não pode ser eliminada. Encerre-a pelo fluxo fiscal apropriado.'),
-                ]);
-                return;
-            }
-            $series->delete();
-            
+            app(\App\Services\Invoicing\GestaoDeSeries::class)->eliminar($series);
+
             $this->showDeleteModal = false;
             $this->dispatch('notify', [
                 'type' => 'success',
                 'message' => __('Série eliminada com sucesso!')
             ]);
+        } catch (\DomainException $e) {
+            $this->showDeleteModal = false;
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
         } catch (\Exception $e) {
             $this->dispatch('notify', [
                 'type' => 'error',

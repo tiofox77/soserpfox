@@ -155,7 +155,7 @@ class SeriesService
      *
      * @throws \InvalidArgumentException quando o ano está fora da janela.
      */
-    public function validateSeriesYearWindow(int $year, ?\DateTimeInterface $now = null): void
+    public static function validateSeriesYearWindow(int $year, ?\DateTimeInterface $now = null): void
     {
         $now ??= now();
         $currentYear = (int) $now->format('Y');

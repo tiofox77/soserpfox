@@ -293,6 +293,233 @@ return [
             ],
         ],
 
+        'Facturação: fiscal e AGT' => [
+            'nota' => 'O XML do SAFT saiu do ecrã para o GeradorDeSaft e as séries gravam pelo GestaoDeSeries. AGTDocumentGenerator e AGTValidationModal não têm rota nem vista que os use — não contam.',
+            'ecras' => [
+                [
+                    'nome'     => 'Séries de documentos',
+                    'livewire' => 'app/Livewire/Invoicing/SeriesManagement.php',
+                    'blade'    => 'resources/views/livewire/invoicing/series-management.blade.php',
+                    'react'    => 'ecras/facturacao/Series.tsx',
+                ],
+                [
+                    'nome'     => 'Auditoria',
+                    'livewire' => 'app/Livewire/Invoicing/AuditTrailViewer.php',
+                    'blade'    => 'resources/views/livewire/invoicing/audit-trail-viewer.blade.php',
+                    'react'    => 'ecras/facturacao/Auditoria.tsx',
+                ],
+                [
+                    'nome'     => 'Gerador SAFT-AO',
+                    'livewire' => 'app/Livewire/Invoicing/SAFTGenerator.php',
+                    'blade'    => 'resources/views/livewire/invoicing/saftgenerator.blade.php',
+                    'react'    => 'ecras/facturacao/Saft.tsx',
+                ],
+                [
+                    'nome'     => 'Configurações AGT',
+                    'livewire' => 'app/Livewire/Invoicing/AGTSettings.php',
+                    'blade'    => 'resources/views/livewire/invoicing/agt-settings.blade.php',
+                    'react'    => 'ecras/facturacao/Agt.tsx',
+                ],
+                [
+                    'nome'     => 'Credenciais AGT do contribuinte',
+                    'livewire' => 'app/Livewire/Invoicing/AGTCredentials.php',
+                    'blade'    => 'resources/views/livewire/invoicing/agt-credentials.blade.php',
+                    'react'    => 'ecras/facturacao/CredenciaisAgt.tsx',
+                ],
+            ],
+        ],
+        'Facturação: relatórios' => [
+            'nota' => 'Cada mapa é uma classe em Services\\Invoicing\\Relatorios (esquema + dados); os 22 mapas de tabela saem todos do mesmo Relatorio.tsx, e o Livewire pede os números ao mesmo Catalogo.',
+            'ecras' => [
+                [
+                    'nome'     => 'Relatórios (porta)',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/ReportsHub.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/reports-hub.blade.php',
+                    'react'    => 'ecras/facturacao/RelatoriosHub.tsx',
+                ],
+                [
+                    'nome'     => 'Relatório em Gráficos',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/GraficosReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/graficos-report.blade.php',
+                    'react'    => 'ecras/facturacao/Graficos.tsx',
+                ],
+                [
+                    'nome'     => 'Lucros e Perdas (DRE)',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/ProfitLossReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/profit-loss-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Análise de Margem',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/MarginReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/margin-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Desempenho de Produtos',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/ProductPerformanceReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/product-performance-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Comparativo entre Períodos',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/ComparativeReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/comparative-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Mapa de Vendas',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/SalesReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/sales-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Top Clientes',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/TopClientsReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/top-clients-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Top Produtos Vendidos',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/TopProductsReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/top-products-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Vendas por Vendedor',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/SalesByUserReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/sales-by-user-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Mapa de Compras',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/PurchasesReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/purchases-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Top Fornecedores',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/TopSuppliersReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/top-suppliers-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Melhor Fornecedor',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/BestSupplierReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/best-supplier-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Contas a Receber',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/AccountsReceivableReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/accounts-receivable-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Contas a Pagar',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/AccountsPayableReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/accounts-payable-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Recebimentos por Meio de Pagamento',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/PaymentMethodsReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/payment-methods-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Aging de Clientes',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/AgingClientsReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/aging-clients-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Extracto de Conta Corrente',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/AccountStatementReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/account-statement-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Mapa de IVA',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/VatReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/vat-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Mapa de Documentos',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/DocumentsReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/documents-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Tabela de Preços e Lucro',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/PriceListReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/price-list-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Mapa de Serviços',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/ServicesReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/services-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Validade de Produtos',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/ExpiryReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/expiry-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+                [
+                    'nome'     => 'Ajustes de Stock',
+                    'livewire' => 'app/Livewire/Invoicing/Reports/StockAdjustmentsReport.php',
+                    'blade'    => 'resources/views/livewire/invoicing/reports/stock-adjustments-report.blade.php',
+                    'react'    => 'ecras/facturacao/Relatorio.tsx',
+                ],
+            ],
+        ],
+
+        'Facturação: POS, offline e propostas' => [
+            'nota' => 'Os turnos gravam pela TurnosDoPos, a cópia pela LeituraDeCopiaOffline, o PIN pela DefinicaoDePin e os modelos pela GestaoDeModelos/EdicaoDeModelo. O editor em React posiciona os blocos por números, não por arrastar.',
+            'ecras' => [
+                [
+                    'nome'     => 'Turno do POS',
+                    'livewire' => 'app/Livewire/Invoicing/Pos/PosShiftManager.php',
+                    'blade'    => 'resources/views/livewire/invoicing/pos/pos-shift-manager.blade.php',
+                    'react'    => 'ecras/facturacao/TurnosDoPos.tsx',
+                ],
+                [
+                    'nome'     => 'Histórico de turnos',
+                    'livewire' => 'app/Livewire/Invoicing/Pos/ShiftHistory.php',
+                    'blade'    => 'resources/views/livewire/invoicing/pos/shift-history.blade.php',
+                    'react'    => 'ecras/facturacao/HistoricoDeTurnos.tsx',
+                ],
+                [
+                    'nome'     => 'Importar cópia offline',
+                    'livewire' => 'app/Livewire/Invoicing/ImportarCopiaOffline.php',
+                    'blade'    => 'resources/views/livewire/invoicing/importar-copia-offline.blade.php',
+                    'react'    => 'ecras/facturacao/ImportarCopiaOffline.tsx',
+                ],
+                [
+                    'nome'     => 'PIN de turno',
+                    'livewire' => 'app/Livewire/Invoicing/Offline/DefinirPin.php',
+                    'blade'    => 'resources/views/livewire/invoicing/offline/definir-pin.blade.php',
+                    'react'    => 'ecras/facturacao/DefinirPin.tsx',
+                ],
+                [
+                    'nome'     => 'Modelos de proposta',
+                    'livewire' => 'app/Livewire/Invoicing/Propostas/ModelosDeProposta.php',
+                    'blade'    => 'resources/views/livewire/invoicing/propostas/modelos-de-proposta.blade.php',
+                    'react'    => 'ecras/facturacao/ModelosDeProposta.tsx',
+                ],
+                [
+                    'nome'     => 'Editor de modelo de proposta',
+                    'livewire' => 'app/Livewire/Invoicing/Propostas/EditorDeModelo.php',
+                    'blade'    => 'resources/views/livewire/invoicing/propostas/editor-de-modelo.blade.php',
+                    'react'    => 'ecras/facturacao/EditorDeModelo.tsx',
+                ],
+            ],
+        ],
+
     ],
 
 ];

@@ -286,7 +286,7 @@ class GeografiaDaMoradaTest extends TenantTestCase
                 "a coluna country_code passou a existir em {$tabela} — rever o SAFT");
         }
 
-        $fonte = file_get_contents(app_path('Livewire/Invoicing/SAFTGenerator.php'));
+        $fonte = file_get_contents(app_path('Services/Invoicing/GeradorDeSaft.php'));
 
         $this->assertStringNotContainsString('$client->country_code', $fonte);
         $this->assertStringNotContainsString('$supplier->country_code', $fonte);
@@ -325,7 +325,7 @@ class GeografiaDaMoradaTest extends TenantTestCase
      */
     public function test_o_saft_da_empresa_nao_segue_o_pais_herdado(): void
     {
-        $fonte = file_get_contents(app_path('Livewire/Invoicing/SAFTGenerator.php'));
+        $fonte = file_get_contents(app_path('Services/Invoicing/GeradorDeSaft.php'));
 
         $this->assertStringContainsString(
             "\$companyAddress->addChild('Country', \\App\\Support\\Geografia::PAIS_PADRAO)",

@@ -2,19 +2,16 @@
 
 namespace App\Livewire\Invoicing\Offline;
 
-use Illuminate\Support\Facades\Hash;
+use App\Services\POS\DefinicaoDePin;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * O funcionário define ou muda o seu PIN de turno.
- *
- * O PIN abre turno offline no POS. É uma credencial de chão de loja,
- * separada da password da conta: confirma-se com a password (para ninguém
- * definir um PIN a partir de uma sessão deixada aberta), mas o que fica
- * guardado é só o bcrypt do PIN, que segue para os tablets na próxima
- * sincronização.
+ * O funcionário define ou muda o seu PIN de turno — o ecrã de sempre.
+ * A regra (password a confirmar, PIN que proteja alguma coisa) vive na
+ * `DefinicaoDePin`, partilhada com o ecrã em React.
  */
 #[Layout('layouts.app')]
 #[Title('PIN de turno')]
@@ -23,23 +20,17 @@ class DefinirPin extends Component
     public string $pin = '';
     public string $pin_confirmation = '';
     public string $password = '';
-
     public bool $jaTemPin = false;
 
     protected function rules(): array
     {
-        return [
-            'pin' => ['required', 'digits_between:4,6', 'confirmed'],
-            'password' => ['required', 'string'],
-        ];
+        return DefinicaoDePin::regras();
     }
 
-    protected array $messages = [
-        'pin.required'        => 'Escreva o PIN.',
-        'pin.digits_between'  => 'O PIN tem de ter 4 a 6 dígitos.',
-        'pin.confirmed'       => 'Os dois PIN não coincidem.',
-        'password.required'   => 'Confirme com a sua palavra-passe.',
-    ];
+    protected function messages(): array
+    {
+        return DefinicaoDePin::mensagens();
+    }
 
     public function mount(): void
     {
@@ -50,33 +41,18 @@ class DefinirPin extends Component
     {
         $this->validate();
 
-        // A password confirma que é mesmo o dono da conta a definir o PIN.
-        if (!Hash::check($this->password, auth()->user()->password)) {
-            // Limpar o PIN também nos early-return: é propriedade pública e
-            // ficaria no snapshot devolvido ao cliente até nova submissão.
-            $this->reset(['pin', 'pin_confirmation']);
-            $this->addError('password', 'Palavra-passe incorrecta.');
-            return;
-        }
-
-        // PIN óbvio é um PIN que não protege nada.
-        if (\App\Support\PinDeTurno::ehObvio($this->pin)) {
-            $this->reset(['pin', 'pin_confirmation']);
-            $this->addError('pin', 'Escolha um PIN menos óbvio.');
-            return;
-        }
-
         try {
-            auth()->user()->definirPinPos($this->pin);
-        } catch (\InvalidArgumentException $e) {
+            app(DefinicaoDePin::class)->definir(auth()->user(), $this->pin, $this->password);
+        } catch (ValidationException $e) {
+            // Limpar o PIN também na recusa: é propriedade pública e ficaria
+            // no snapshot devolvido ao cliente até nova submissão.
             $this->reset(['pin', 'pin_confirmation']);
-            $this->addError('pin', $e->getMessage());
-            return;
+
+            throw $e;
         }
 
         $this->reset(['pin', 'pin_confirmation', 'password']);
         $this->jaTemPin = true;
-
         $this->dispatch('notify', type: 'success', message: __(
             'PIN definido. Vai para os tablets na próxima sincronização com internet.'
         ));

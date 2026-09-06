@@ -2,24 +2,16 @@
 
 namespace App\Livewire\Invoicing\Pos;
 
-use App\Models\Invoicing\PosShift;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Services\POS\TurnosDoPos;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
- * Histórico de turnos.
- *
- * QUEM VÊ O QUÊ. Um turno diz quanto é que aquele operador vendeu, quanto
- * abriu e fechou a caixa, e que diferença deu. É a mesma informação que o
- * relatório do POS protege atrás de `invoicing.pos.reports.all` — e este
- * ecrã mostrava-a TODA a quem entrasse: a lista trazia os turnos de todos,
- * o filtro por utilizador era só uma conveniência, e o detalhe abria
- * qualquer turno da empresa pelo id.
- *
- * Passa a valer a mesma regra do relatório, uma só no sistema inteiro: sem
- * `invoicing.pos.reports.all`, cada um vê os SEUS turnos.
+ * O histórico de turnos, o ecrã de sempre. A regra de quem vê o quê vive na
+ * `TurnosDoPos`, partilhada com o ecrã em React: quem não pode ver todos
+ * fica preso aos seus, e não escapa pelo filtro.
  */
 #[Layout('layouts.app')]
 #[Title('Histórico de Turnos')]
@@ -46,38 +38,15 @@ class ShiftHistory extends Component
         return !auth()->user()?->can('invoicing.pos.reports.all');
     }
 
-    /**
-     * A restrição por operador, aplicada a QUALQUER consulta de turnos.
-     *
-     * Igual ao applyScope do relatório do POS: quem não pode ver todos não
-     * escapa pelo filtro — escolher outro nome na lista era dar a volta à
-     * permissão.
-     */
-    protected function applyScope($query)
+    private function turnos(): TurnosDoPos
     {
-        if ($this->ownOnly) {
-            return $query->where('user_id', auth()->id());
-        }
-
-        if ($this->userId) {
-            $query->where('user_id', $this->userId);
-        }
-
-        return $query;
+        return new TurnosDoPos((int) activeTenantId(), (int) auth()->id());
     }
 
     public function viewDetails($shiftId)
     {
-        // Pelo id abria-se qualquer turno da empresa, incluindo os movimentos
-        // de caixa de um colega. A mesma regra da lista vale aqui.
-        $query = PosShift::with(['user', 'closedBy', 'transactions'])
-            ->where('tenant_id', activeTenantId());
-        $this->applyScope($query);
-
-        $this->selectedShift = $query->find($shiftId);
-
+        $this->selectedShift = $this->turnos()->turno((int) $shiftId, !$this->ownOnly);
         abort_unless($this->selectedShift, 404, __('Turno não encontrado ou sem acesso.'));
-
         $this->showDetailModal = true;
     }
 
@@ -104,29 +73,15 @@ class ShiftHistory extends Component
 
     public function render()
     {
-        $query = PosShift::with(['user', 'closedBy'])
-            ->where('tenant_id', activeTenantId())
-            ->when($this->dateFrom, function($query) {
-                $query->whereDate('opened_at', '>=', $this->dateFrom);
-            })
-            ->when($this->dateTo, function($query) {
-                $query->whereDate('opened_at', '<=', $this->dateTo);
-            })
-            ->when($this->status, function($query) {
-                $query->where('status', $this->status);
-            });
-
-        $shifts = $this->applyScope($query)
-            ->orderBy('opened_at', 'desc')
+        $shifts = $this->turnos()
+            ->historico(['dateFrom' => $this->dateFrom, 'dateTo' => $this->dateTo, 'userId' => $this->userId, 'status' => $this->status], !$this->ownOnly)
             ->paginate(20);
 
         // A lista de nomes é ela própria informação: quem só vê os seus
         // turnos não precisa da lista de colegas nem do filtro.
         $users = $this->ownOnly
             ? collect()
-            : \App\Models\User::where('tenant_id', activeTenantId())
-                ->orderBy('name')
-                ->get();
+            : \App\Models\User::where('tenant_id', activeTenantId())->orderBy('name')->get();
 
         return view('livewire.invoicing.pos.shift-history', [
             'shifts' => $shifts,

@@ -174,3 +174,96 @@ foreach (\App\Services\Invoicing\Catalogos::todos() as $slug => $def) {
 Route::middleware('permission:invoicing.settings.view')
     ->get('settings/novo-ecra', $emReact('facturacao/definicoes', __('Configurações de Faturação')))
     ->name('react.definicoes');
+
+/*
+ * O BLOCO FISCAL: as séries e a auditoria. Ver séries é uma permissão;
+ * escrever é outra, exigida pela API em cada verbo.
+ */
+Route::middleware('permission:invoicing.series.view')
+    ->get('series/novo-ecra', $emReact('facturacao/series', __('Séries de Documentos')))
+    ->name('react.series');
+
+Route::middleware('permission:invoicing.settings.view')
+    ->get('auditoria/novo-ecra', $emReact('facturacao/auditoria', __('Auditoria')))
+    ->name('react.auditoria');
+
+/*
+ * O SAFT-AO. Ver as contagens é uma permissão; gerar o ficheiro é outra. A
+ * descarga é rota de página porque um ficheiro não viaja em JSON — vai com
+ * a sessão, e o ecrã em React só a abre.
+ */
+Route::middleware('permission:invoicing.saft.view')
+    ->get('saft-generator/novo-ecra', $emReact('facturacao/saft', __('Gerador SAFT-AO')))
+    ->name('react.saft');
+
+Route::middleware('permission:invoicing.saft.generate')
+    ->get('saft-generator/novo-ecra/descarregar', [\App\Http\Controllers\Api\Invoicing\SaftApiController::class, 'descarregar'])
+    ->name('react.saft.descarregar');
+
+/*
+ * A AGT. Ver é uma permissão; escrever é outra, exigida pela API em cada
+ * verbo. O super admin da plataforma escolhe a empresa no próprio ecrã.
+ */
+Route::middleware('permission:invoicing.agt.view')
+    ->get('agt-settings/novo-ecra', $emReact('facturacao/agt', __('Configurações AGT')))
+    ->name('react.agt');
+
+Route::middleware('permission:invoicing.agt.view')
+    ->get('agt-credentials/novo-ecra', $emReact('facturacao/credenciais-agt', __('Configuração AGT — Contribuinte')))
+    ->name('react.agt.contribuinte');
+
+/*
+ * OS RELATÓRIOS. Vinte e tantos mapas saem todos do mesmo Relatorio.tsx; o
+ * esquema de cada um vem do Catalogo e viaja no `slug`. O CSV é rota de
+ * página, com a sessão, porque um ficheiro não viaja em JSON.
+ */
+Route::middleware('permission:invoicing.reports.view')
+    ->get('reports/novo-ecra', $emReact('facturacao/relatorios-hub', __('Relatórios - Faturação')))
+    ->name('react.relatorios');
+
+foreach (\App\Services\Invoicing\Relatorios\Catalogo::RELATORIOS as $slug => $classe) {
+    $esquema = (new $classe())->esquema();
+    $caminho = substr(ltrim(\App\Services\Invoicing\Relatorios\Catalogo::caminho($slug), '/'), strlen('invoicing/'));
+    $permissao = 'permission:' . \App\Services\Invoicing\Relatorios\Catalogo::permissao($slug);
+    $ecra = $slug === 'charts' ? 'facturacao/graficos' : 'facturacao/relatorio';
+
+    Route::middleware($permissao)
+        ->get($caminho, $emReact($ecra, __($esquema['titulo']), ['slug' => $slug]))
+        ->name('react.relatorio.' . $slug);
+
+    Route::middleware($permissao)
+        ->get($caminho . '/csv', [\App\Http\Controllers\Api\Invoicing\RelatoriosApiController::class, 'csv'])
+        ->defaults('slug', $slug)
+        ->name('react.relatorio.' . $slug . '.csv');
+}
+
+/*
+ * OS TURNOS DO POS. As moradas de sempre não têm guarda própria; o servidor
+ * é que restringe o histórico a quem não pode ver todos.
+ */
+Route::get('pos/shifts/novo-ecra', $emReact('facturacao/turnos', __('POS - Ponto de Venda')))->name('react.turnos');
+Route::get('pos/shift-history/novo-ecra', $emReact('facturacao/historico-de-turnos', __('Histórico de Turnos')))->name('react.turnos.historico');
+
+/*
+ * O MODO OFFLINE: recuperar uma cópia do PWA (quem pode emitir é quem pode
+ * recuperar o que já foi emitido) e o PIN de turno (qualquer funcionário).
+ */
+Route::middleware('permission:invoicing.pos.sell')
+    ->get('importar-copia-offline/novo-ecra', $emReact('facturacao/importar-copia-offline', __('Importar Cópia Offline')))
+    ->name('react.copia-offline');
+
+Route::get('offline/pin/novo-ecra', $emReact('facturacao/definir-pin', __('PIN de turno')))->name('react.pin');
+
+/*
+ * OS MODELOS DE PROPOSTA: a lista e o editor, sob as permissões de orçamento.
+ */
+Route::middleware('permission:invoicing.sales.quotes.view')
+    ->get('sales/quote-templates/novo-ecra', $emReact('facturacao/modelos-de-proposta', __('Modelos de Proposta')))
+    ->name('react.propostas.modelos');
+
+Route::middleware('permission:invoicing.sales.quotes.edit')
+    ->get('sales/quote-templates/{id}/edit/novo-ecra', function (int $id) use ($emReact) {
+        return $emReact('facturacao/editor-de-modelo', __('Editor de Modelo de Proposta'), ['id' => $id])();
+    })
+    ->whereNumber('id')
+    ->name('react.propostas.editor');

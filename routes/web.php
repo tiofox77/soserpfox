@@ -506,6 +506,66 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/transferencias/ajuste', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'ajuste'])->name('transferencias.ajuste');
         Route::post('/transferencias/entre-empresas', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'entreEmpresas'])->name('transferencias.entre-empresas');
 
+        // As séries de documentos: a ficha inteira, com a AGT a mandar no que se mexe.
+        Route::get('/series/opcoes', [\App\Http\Controllers\Api\Invoicing\SeriesApiController::class, 'opcoes'])->name('series.opcoes');
+        Route::get('/series', [\App\Http\Controllers\Api\Invoicing\SeriesApiController::class, 'index'])->name('series.index');
+        Route::post('/series', [\App\Http\Controllers\Api\Invoicing\SeriesApiController::class, 'guardar'])->name('series.guardar');
+        Route::put('/series/{id}', [\App\Http\Controllers\Api\Invoicing\SeriesApiController::class, 'actualizar'])->whereNumber('id')->name('series.actualizar');
+        Route::delete('/series/{id}', [\App\Http\Controllers\Api\Invoicing\SeriesApiController::class, 'eliminar'])->whereNumber('id')->name('series.eliminar');
+
+        // A trilha de auditoria: só leitura, por construção.
+        Route::get('/auditoria/opcoes', [\App\Http\Controllers\Api\Invoicing\AuditoriaApiController::class, 'opcoes'])->name('auditoria.opcoes');
+        Route::get('/auditoria/integridade', [\App\Http\Controllers\Api\Invoicing\AuditoriaApiController::class, 'integridade'])->name('auditoria.integridade');
+        Route::get('/auditoria', [\App\Http\Controllers\Api\Invoicing\AuditoriaApiController::class, 'index'])->name('auditoria.index');
+        Route::get('/auditoria/{id}', [\App\Http\Controllers\Api\Invoicing\AuditoriaApiController::class, 'mostrar'])->whereNumber('id')->name('auditoria.mostrar');
+
+        // O SAFT-AO: as contagens do período. A descarga é rota de página, com a sessão.
+        Route::get('/saft/opcoes', [\App\Http\Controllers\Api\Invoicing\SaftApiController::class, 'opcoes'])->name('saft.opcoes');
+        Route::get('/saft/estatisticas', [\App\Http\Controllers\Api\Invoicing\SaftApiController::class, 'estatisticas'])->name('saft.estatisticas');
+
+        // A AGT: os dois ambientes em separado, as chaves de cada um, as séries, as submissões e a ficha do contribuinte.
+        Route::get('/agt/opcoes', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'opcoes'])->name('agt.opcoes');
+        Route::get('/agt/estado', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'estado'])->name('agt.estado');
+        Route::post('/agt/definicoes', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardar'])->name('agt.guardar');
+        Route::post('/agt/ambiente', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'activarAmbiente'])->name('agt.ambiente');
+        Route::post('/agt/chaves', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardarChaves'])->name('agt.chaves');
+        Route::post('/agt/chaves/remover', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'removerChaves'])->name('agt.chaves.remover');
+        Route::post('/agt/ligacao', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'testarLigacao'])->name('agt.ligacao');
+        Route::post('/agt/series/sincronizar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'sincronizarSeries'])->name('agt.series.sincronizar');
+        Route::post('/agt/submissoes/actualizar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'actualizarEstados'])->name('agt.submissoes.actualizar');
+        Route::post('/agt/submissoes/{id}/reenviar', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'reenviar'])->whereNumber('id')->name('agt.submissoes.reenviar');
+        Route::post('/agt/consulta', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'consultar'])->name('agt.consulta');
+        Route::get('/agt/contribuinte', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'contribuinte'])->name('agt.contribuinte');
+        Route::post('/agt/contribuinte', [\App\Http\Controllers\Api\Invoicing\AgtApiController::class, 'guardarContribuinte'])->name('agt.contribuinte.guardar');
+
+        // Os relatórios: o esquema e os números de cada mapa, pelo mesmo serviço do ecrã de sempre.
+        Route::get('/relatorios', [\App\Http\Controllers\Api\Invoicing\RelatoriosApiController::class, 'seccoes'])->name('relatorios.seccoes');
+        Route::get('/relatorios/{slug}/entidades', [\App\Http\Controllers\Api\Invoicing\RelatoriosApiController::class, 'entidades'])->name('relatorios.entidades');
+        Route::get('/relatorios/{slug}', [\App\Http\Controllers\Api\Invoicing\RelatoriosApiController::class, 'mostrar'])->name('relatorios.mostrar');
+
+        // Os turnos do POS: o do balcão e o histórico.
+        Route::get('/turnos/estado', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'estado'])->name('turnos.estado');
+        Route::post('/turnos/abrir', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'abrir'])->name('turnos.abrir');
+        Route::post('/turnos/fechar', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'fechar'])->name('turnos.fechar');
+        Route::get('/turnos/historico', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'historico'])->name('turnos.historico');
+        Route::get('/turnos/{id}', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'mostrar'])->whereNumber('id')->name('turnos.mostrar');
+
+        // O modo offline: recuperar uma cópia do PWA, e o PIN de turno.
+        Route::post('/copia-offline/analisar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'analisar'])->name('copia-offline.analisar');
+        Route::post('/copia-offline/importar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'importar'])->name('copia-offline.importar');
+        Route::get('/pin', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'pin'])->name('pin');
+        Route::post('/pin', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'definirPin'])->name('pin.definir');
+
+        // Os modelos de proposta: a lista e o editor.
+        Route::get('/modelos-de-proposta/opcoes', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'opcoes'])->name('modelos.opcoes');
+        Route::get('/modelos-de-proposta', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'index'])->name('modelos.index');
+        Route::post('/modelos-de-proposta', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'criar'])->name('modelos.criar');
+        Route::post('/modelos-de-proposta/{id}/duplicar', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'duplicar'])->whereNumber('id')->name('modelos.duplicar');
+        Route::post('/modelos-de-proposta/{id}/padrao', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'tornarPadrao'])->whereNumber('id')->name('modelos.padrao');
+        Route::delete('/modelos-de-proposta/{id}', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'eliminar'])->whereNumber('id')->name('modelos.eliminar');
+        Route::get('/modelos-de-proposta/{id}/editor', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'editor'])->whereNumber('id')->name('modelos.editor');
+        Route::post('/modelos-de-proposta/{id}/editor', [\App\Http\Controllers\Api\Invoicing\ModelosDePropostaApiController::class, 'accao'])->whereNumber('id')->name('modelos.editor.accao');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');

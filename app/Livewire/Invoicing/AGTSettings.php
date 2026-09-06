@@ -2,18 +2,22 @@
 
 namespace App\Livewire\Invoicing;
 
-use App\Models\Invoicing\InvoicingSettings;
-use App\Models\Invoicing\InvoicingSeries;
-use App\Models\AGT\AGTSubmission;
-use App\Models\AGT\AGTCommunicationLog;
-use App\Services\AGT\AGTService;
-use App\Services\AGT\AGTClient;
-use Illuminate\Support\Facades\Storage;
-use Livewire\Component;
+use App\Models\Tenant;
+use App\Services\AGT\AGTProducerStore;
+use App\Services\AGT\AmbienteErradoException;
+use App\Services\AGT\GestaoAgt;
+use DomainException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Component;
 
+/**
+ * CONFIGURAÇÕES AGT — o ecrã de sempre.
+ *
+ * Tudo o que fala com a AGT vive na `GestaoAgt`, partilhada com o ecrã em
+ * React. Aqui fica só o estado do ecrã e a tradução do resultado em avisos.
+ */
 #[Layout('layouts.app')]
 #[Title('Configurações AGT')]
 class AGTSettings extends Component
@@ -38,11 +42,8 @@ class AGTSettings extends Component
     public bool $agt_auto_submit = false;
 
     /**
-     * Código de actividade económica (CAE) da empresa.
-     *
-     * Vai em `eacCode` em cada documento do payload. Sem ele o mapper usava o
-     * marcador '00000', que não identifica actividade nenhuma — a AGT espera
-     * uma classe real da tabela CAE.
+     * Código de actividade económica (CAE) da empresa. Vai em `eacCode` em
+     * cada documento do payload — a AGT espera uma classe real da tabela.
      */
     public $agt_eac_code = '';
     public bool $agt_require_validation = true;
@@ -81,7 +82,7 @@ class AGTSettings extends Component
         $requestedTenantId = request()->integer('tenant') ?: null;
         $this->currentTenantId = $this->resolveAllowedTenantId($requestedTenantId)
             ?? $this->resolveAllowedTenantId(activeTenantId());
-        
+
         $this->loadSettings();
         $this->checkStatus();
         $this->apiDateFrom = now()->subDays(30)->format('Y-m-d');
@@ -90,16 +91,7 @@ class AGTSettings extends Component
 
     private function resolveAllowedTenantId(?int $tenantId): ?int
     {
-        if (!$tenantId || !\App\Models\Tenant::whereKey($tenantId)->exists()) {
-            return null;
-        }
-
-        $user = auth()->user();
-        if ($user?->isPlatformSuperAdmin()) {
-            return $tenantId;
-        }
-
-        return $user?->tenants()->whereKey($tenantId)->exists() ? $tenantId : null;
+        return GestaoAgt::empresaPermitida(auth()->user(), $tenantId);
     }
 
     private function ensureTenantAccess(): void
@@ -110,6 +102,20 @@ class AGTSettings extends Component
             403,
             'Empresa não seleccionada ou sem acesso.'
         );
+    }
+
+    private function exigirEdicao(): void
+    {
+        abort_unless(
+            auth()->user()?->isPlatformSuperAdmin()
+                || auth()->user()?->can('invoicing.agt.edit'),
+            403
+        );
+    }
+
+    private function gestao(): GestaoAgt
+    {
+        return new GestaoAgt((int) $this->currentTenantId);
     }
 
     public function selectTenant($tenantId): void
@@ -132,18 +138,12 @@ class AGTSettings extends Component
         $this->agt_auto_submit = false;
         $this->agt_require_validation = true;
 
-        // Se não tem tenant, usa valores padrão
-        if (!$this->currentTenantId) {
-            return;
-        }
-        
-        $settings = InvoicingSettings::where('tenant_id', $this->currentTenantId)->first();
-
-        if ($settings) {
-            $this->agt_environment = $settings->agt_environment ?? 'sandbox';
-            $this->agt_auto_submit = $settings->agt_auto_submit ?? false;
-            $this->agt_eac_code = $settings->agt_eac_code ?? '';
-            $this->agt_require_validation = $settings->agt_require_validation ?? true;
+        if ($this->currentTenantId) {
+            $d = $this->gestao()->ler();
+            $this->agt_environment = $d['agt_environment'];
+            $this->agt_auto_submit = $d['agt_auto_submit'];
+            $this->agt_eac_code = $d['agt_eac_code'];
+            $this->agt_require_validation = $d['agt_require_validation'];
         }
 
         // Abre no ambiente activo — é o que interessa a quem entra.
@@ -152,34 +152,16 @@ class AGTSettings extends Component
 
     private function checkStatus()
     {
-        // Chaves DO AMBIENTE seleccionado: o Portal do Contribuinte entrega
-        // pares diferentes para homologação e para produção.
         $ambiente = $this->ambienteActual();
-        $this->hasPublicKey = $this->currentTenantId && Storage::disk('local')->exists(
-            \App\Services\AGT\AGTKeyStore::publicKeyPath((int) $this->currentTenantId, $ambiente)
-        );
-        $this->hasPrivateKey = $this->currentTenantId && Storage::disk('local')->exists(
-            \App\Services\AGT\AGTKeyStore::privateKeyPath((int) $this->currentTenantId, $ambiente)
-        );
-        $this->hasKeys = $this->hasPublicKey && $this->hasPrivateKey;
-        // Credenciais do produtor DESTE ambiente: as de homologação não
-        // autenticam contra a AGT real.
-        $this->hasGlobalCredentials = \App\Services\AGT\AGTProducerStore::temCredenciais($ambiente);
-        
-        // Só carregar relatório se tiver tenant ativo
-        if ($this->currentTenantId) {
-            $agtService = new AGTService($this->currentTenantId);
-            // Ambiente do seletor, não o gravado — os cartões têm de mudar
-            // assim que se troca, antes sequer de guardar.
-            $this->complianceReport = $agtService->getComplianceReport($this->ambienteActual());
-            $this->loadLogs();
-            $this->loadPendingSubmissions();
-        } else {
-            // Para admin sem tenant, mostrar relatório vazio
+
+        if (!$this->currentTenantId) {
+            // Para admin sem tenant: sem chaves, relatório vazio.
+            $this->hasPublicKey = $this->hasPrivateKey = $this->hasKeys = false;
+            $this->hasGlobalCredentials = AGTProducerStore::temCredenciais($ambiente);
             $this->complianceReport = [
                 'tenant_id' => null,
                 'generated_at' => now()->toDateTimeString(),
-                'keys_configured' => $this->hasKeys,
+                'keys_configured' => false,
                 'api_configured' => false,
                 'environment' => 'sandbox',
                 'series' => ['total' => 0, 'registered' => 0, 'pending' => 0],
@@ -188,72 +170,56 @@ class AGTSettings extends Component
             ];
             $this->recentLogs = [];
             $this->pendingSubmissions = [];
+
+            return;
         }
+
+        $g = $this->gestao();
+        $chaves = $g->chaves($ambiente);
+        $this->hasPublicKey = $chaves['publica'];
+        $this->hasPrivateKey = $chaves['privada'];
+        $this->hasKeys = $this->hasPublicKey && $this->hasPrivateKey;
+        $this->hasGlobalCredentials = $chaves['produtor'];
+        // Ambiente do seletor, não o gravado — os cartões têm de mudar
+        // assim que se troca, antes sequer de guardar.
+        $this->complianceReport = $g->relatorio($ambiente);
+        $this->loadLogs();
+        $this->loadPendingSubmissions();
     }
 
     private function loadLogs()
     {
-        if (!$this->currentTenantId) {
-            $this->recentLogs = [];
-            return;
-        }
-        
-        // Só o ambiente seleccionado: homologação e produção são universos
-        // separados e misturá-los faz um documento de teste passar por real.
-        $this->recentLogs = AGTCommunicationLog::where('tenant_id', $this->currentTenantId)
-            ->where('agt_environment', $this->ambienteActual())
-            ->orderBy('created_at', 'desc')
-            ->limit(20)
-            ->get()
-            ->toArray();
+        $this->recentLogs = $this->currentTenantId
+            ? $this->gestao()->logs($this->ambienteActual())->toArray()
+            : [];
     }
 
     private function loadPendingSubmissions()
     {
-        if (!$this->currentTenantId) {
-            $this->pendingSubmissions = [];
-            return;
-        }
-        
-        // Histórico completo: documentos processados não podem "desaparecer"
-        // quando passam de submitted para validated/rejected.
-        $this->pendingSubmissions = AGTSubmission::where('tenant_id', $this->currentTenantId)
-            ->where('agt_environment', $this->ambienteActual())
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get()
-            ->toArray();
+        $this->pendingSubmissions = $this->currentTenantId
+            ? $this->gestao()->submissoes($this->ambienteActual())->toArray()
+            : [];
     }
 
     /**
-     * Trocar o separador de ambiente recarrega tudo o que é específico dele.
-     * Sem isto, as submissões e os logs continuavam a mostrar os do ambiente
-     * anterior — misturando homologação com produção.
+     * Trocar o separador de ambiente recarrega tudo o que é específico dele:
+     * os cartões do topo, o estado das chaves, as submissões e os logs.
      */
     public function updatedAmbienteVista(): void
     {
-        // checkStatus() recarrega os cartões do topo E o estado das chaves —
-        // cada ambiente tem o seu par.
         $this->checkStatus();
-        $this->loadPendingSubmissions();
-        $this->loadLogs();
     }
 
-    /**
-     * Ambiente que se está a ver no ecrã — chaves, séries, submissões e logs.
-     * Não é o activo: ver produção não põe a empresa em produção.
-     */
+    /** Ambiente que se está a ver no ecrã. Não é o activo. */
     private function ambienteActual(): string
     {
-        return in_array($this->ambienteVista, ['sandbox', 'production'], true)
-            ? $this->ambienteVista
-            : 'sandbox';
+        return GestaoAgt::normalizar($this->ambienteVista);
     }
 
     /** O ambiente que está mesmo a emitir, venha o seletor de onde vier. */
     public function ambienteActivo(): string
     {
-        return $this->agt_environment === 'production' ? 'production' : 'sandbox';
+        return GestaoAgt::normalizar($this->agt_environment);
     }
 
     public function aVerOAmbienteActivo(): bool
@@ -261,146 +227,58 @@ class AGTSettings extends Component
         return $this->ambienteActual() === $this->ambienteActivo();
     }
 
-    /**
-     * Acções que escrevem na AGT (registar séries, reenviar documentos) correm
-     * sempre no ambiente ACTIVO. Executá-las enquanto se olha para o outro
-     * registava séries em produção com o ecrã a dizer homologação.
-     */
-    private function ambienteConfere(string $accao): bool
-    {
-        if ($this->aVerOAmbienteActivo()) {
-            return true;
-        }
-
-        $aVer   = $this->ambienteActual() === 'production' ? 'Produção' : 'Homologação';
-        $activo = $this->ambienteActivo() === 'production' ? 'Produção' : 'Homologação';
-
-        $this->dispatch('notify', type: 'error',
-            message: "Está a ver {$aVer} mas a empresa emite em {$activo}. {$accao} iria para {$activo}. Volte ao ambiente activo ou active este.");
-
-        return false;
-    }
-
-    /**
-     * Estado dos DOIS ambientes de uma vez. Ver um de cada vez escondia o
-     * essencial: que produção ainda não tem chaves e portanto não pode ser
-     * activada.
-     */
+    /** Estado dos DOIS ambientes de uma vez. */
     public function estadoAmbientes(): array
     {
+        if ($this->currentTenantId) {
+            return $this->gestao()->estadoAmbientes($this->ambienteActual());
+        }
+
         $estado = [];
-
-        foreach (['sandbox' => 'Homologação', 'production' => 'Produção'] as $ambiente => $rotulo) {
-            $temChaves = $this->currentTenantId && \App\Services\AGT\AGTKeyStore::hasKeyPair(
-                (int) $this->currentTenantId, $ambiente
-            );
-
+        foreach (GestaoAgt::AMBIENTES as $ambiente => $rotulo) {
             $estado[$ambiente] = [
-                'rotulo'     => $rotulo,
-                'chaves'     => (bool) $temChaves,
-                'activo'     => $this->ambienteActivo() === $ambiente,
-                'a_ver'      => $this->ambienteActual() === $ambiente,
-                'produtor'   => \App\Services\AGT\AGTProducerStore::temChaves($ambiente)
-                                && \App\Services\AGT\AGTProducerStore::temCredenciais($ambiente),
+                'rotulo' => $rotulo,
+                'chaves' => false,
+                'activo' => $this->ambienteActivo() === $ambiente,
+                'a_ver' => $this->ambienteActual() === $ambiente,
+                'produtor' => AGTProducerStore::temChaves($ambiente) && AGTProducerStore::temCredenciais($ambiente),
             ];
         }
 
         return $estado;
     }
 
-    /**
-     * Passa a emitir pelo ambiente que se está a ver. Acção deliberada e
-     * separada do Guardar: é ela que decide se os documentos desta empresa
-     * vão para a AGT real ou para a de testes.
-     */
+    /** Passa a emitir pelo ambiente que se está a ver. */
     public function activarAmbiente(): void
     {
         $this->ensureTenantAccess();
-        abort_unless(
-            auth()->user()?->isPlatformSuperAdmin()
-                || auth()->user()?->can('invoicing.agt.edit'),
-            403
-        );
+        $this->exigirEdicao();
 
-        $novo = $this->ambienteActual();
+        try {
+            $r = $this->gestao()->activarAmbiente($this->ambienteActual());
+        } catch (DomainException $e) {
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
 
-        if ($novo === $this->ambienteActivo()) {
-            $this->dispatch('notify', type: 'info', message: __('Já é este o ambiente activo.'));
             return;
         }
 
-        // Activar produção sem o par RSA de produção não dá para assinar
-        // documento nenhum: a empresa ficava a falhar toda a facturação.
-        if ($novo === 'production' && !\App\Services\AGT\AGTKeyStore::hasKeyPair((int) $this->currentTenantId, 'production')) {
-            $this->dispatch('notify', type: 'error',
-                message: __('Instale primeiro o par RSA de Produção do Portal do Contribuinte. Sem ele nenhum documento é assinado.'));
-            return;
-        }
-
-        InvoicingSettings::firstOrCreate(
-            ['tenant_id' => $this->currentTenantId],
-            ['default_currency' => 'AOA']
-        )->update(['agt_environment' => $novo]);
-
-        $this->agt_environment = $novo;
+        $this->agt_environment = $this->gestao()->ambienteActivo();
         $this->checkStatus();
-
-        $rotulo = $novo === 'production' ? 'PRODUÇÃO' : 'Homologação';
-        $this->dispatch('notify', type: 'success',
-            message: "Ambiente activo: {$rotulo}. Os próximos documentos seguem por aqui.");
+        $this->dispatch('notify', type: $r['tipo'], message: $r['mensagem']);
     }
 
     public function refreshSubmissionStatuses(): void
     {
         $this->ensureTenantAccess();
-        $service = new \App\Services\AGT\QueryService(
-            InvoicingSettings::forTenant($this->currentTenantId)
-        );
-        $updated = 0;
 
-        $submissions = AGTSubmission::where('tenant_id', $this->currentTenantId)
-            ->whereIn('status', ['pending', 'submitted'])
-            ->whereNotNull('agt_reference')
-            ->latest('id')
-            ->limit(20)
-            ->get();
+        $actualizadas = $this->gestao()->actualizarEstados();
 
-        foreach ($submissions as $submission) {
-            try {
-                $result = $service->consultByRequestId($submission->agt_reference);
-                $code = (string) ($result['resultCode'] ?? '');
-                $body = $result['response'] ?? [];
-
-                if ($code === '0') {
-                    $submission->markAsValidated($submission->agt_reference, $submission->atcud, $body);
-                    $updated++;
-                } elseif ($code === '2') {
-                    $errors = collect($body['documentStatusList'] ?? [])
-                        ->flatMap(fn ($row) => $row['errorList'] ?? [])
-                        ->filter(fn ($error) => is_array($error) && !empty($error['descriptionError']));
-                    $submission->markAsRejected(
-                        'RESULT_CODE_2',
-                        $errors->pluck('descriptionError')->implode('; ') ?: 'Documento rejeitado pela AGT.',
-                        $body
-                    );
-                    $updated++;
-                }
-            } catch (\Throwable $e) {
-                \Log::warning('AGTSettings: falha ao actualizar submissao', [
-                    'tenant_id' => $this->currentTenantId,
-                    'submission_id' => $submission->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        $this->loadPendingSubmissions();
         $this->checkStatus();
         $this->dispatch(
             'notify',
             type: 'success',
-            message: $updated
-                ? "{$updated} estado(s) actualizado(s) com a AGT."
+            message: $actualizadas
+                ? "{$actualizadas} estado(s) actualizado(s) com a AGT."
                 : 'Estados consultados. Nenhuma alteracao encontrada.'
         );
     }
@@ -409,25 +287,18 @@ class AGTSettings extends Component
     {
         if (!$this->currentTenantId) {
             $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para guardar configurações.'));
+
             return;
         }
         $this->ensureTenantAccess();
 
-        $settings = InvoicingSettings::firstOrCreate(
-            ['tenant_id' => $this->currentTenantId],
-            ['default_currency' => 'AOA']
-        );
-
         // Sem agt_environment de propósito: mudar de ambiente é a acção
         // activarAmbiente(), não um efeito lateral de guardar o CAE.
-        $updateData = [
+        $this->gestao()->guardar([
             'agt_auto_submit' => $this->agt_auto_submit,
-            // CAE: vazio grava NULL, para o mapper cair no marcador em vez de ''
-            'agt_eac_code' => $this->agt_eac_code ?: null,
+            'agt_eac_code' => $this->agt_eac_code,
             'agt_require_validation' => $this->agt_require_validation,
-        ];
-
-        $settings->update($updateData);
+        ]);
 
         $this->dispatch('notify', type: 'success', message: __('Configurações AGT guardadas com sucesso!'));
     }
@@ -435,131 +306,60 @@ class AGTSettings extends Component
     public function saveContributorKeys(): void
     {
         $this->ensureTenantAccess();
-        abort_unless(
-            auth()->user()?->isPlatformSuperAdmin()
-                || auth()->user()?->can('invoicing.agt.edit'),
-            403
-        );
+        $this->exigirEdicao();
 
         $this->validate([
             'contributorPublicKey' => 'required|string|max:20000',
             'contributorPrivateKey' => 'required|string|max:20000',
         ]);
 
-        $publicKey = trim($this->contributorPublicKey) . PHP_EOL;
-        $privateKey = trim($this->contributorPrivateKey) . PHP_EOL;
-        $publicResource = @openssl_pkey_get_public($publicKey);
-        $privateResource = @openssl_pkey_get_private($privateKey);
-
-        if (!$publicResource) {
-            $this->addError('contributorPublicKey', 'A chave pública não é um PEM RSA válido.');
-            return;
-        }
-        if (!$privateResource) {
-            $this->addError('contributorPrivateKey', 'A chave privada não é um PEM RSA válido ou está protegida por password.');
-            return;
-        }
-
-        $publicDetails = openssl_pkey_get_details($publicResource);
-        $privateDetails = openssl_pkey_get_details($privateResource);
-        if (
-            empty($publicDetails['rsa']['n'])
-            || empty($privateDetails['rsa']['n'])
-            || !hash_equals($publicDetails['rsa']['n'], $privateDetails['rsa']['n'])
-        ) {
-            $this->addError('contributorPrivateKey', 'As chaves pública e privada não pertencem ao mesmo par RSA.');
-            return;
-        }
-
-        // Guardar no ambiente seleccionado, para não sobrepor o outro par.
-        $ambiente = $this->ambienteActual();
-        \App\Services\AGT\AGTKeyStore::store(
-            (int) $this->currentTenantId, $publicKey, $privateKey, $ambiente
-        );
+        // Uma chave errada sai do serviço como erro de validação, no campo
+        // certo — o Livewire põe-no no sítio.
+        $mensagem = $this->gestao()->guardarChaves($this->ambienteActual(), $this->contributorPublicKey, $this->contributorPrivateKey);
 
         $this->contributorPublicKey = '';
         $this->contributorPrivateKey = '';
         $this->checkStatus();
-        $rotulo = $ambiente === 'production' ? 'Produção' : 'Homologação';
-        $this->dispatch('notify', type: 'success',
-            message: "Par de chaves guardado para {$rotulo}. O outro ambiente não foi alterado.");
+        $this->dispatch('notify', type: 'success', message: $mensagem);
     }
 
     public function removeContributorKeys(): void
     {
         $this->ensureTenantAccess();
-        abort_unless(
-            auth()->user()?->isPlatformSuperAdmin()
-                || auth()->user()?->can('invoicing.agt.edit'),
-            403
-        );
+        $this->exigirEdicao();
 
-        // Só as do ambiente seleccionado — o outro par tem de sobreviver.
-        $ambiente = $this->ambienteActual();
-        $dir = \App\Services\AGT\AGTKeyStore::directory((int) $this->currentTenantId, $ambiente);
-        Storage::disk('local')->delete(["{$dir}/public_key.pem", "{$dir}/private_key.pem"]);
-
-        // Legado (sem ambiente): só se apaga quando se está no ambiente a que
-        // essas chaves pertenciam, que a migração assumiu ser homologação.
-        if ($ambiente === 'sandbox') {
-            $legado = \App\Services\AGT\AGTKeyStore::legacyDirectory((int) $this->currentTenantId);
-            Storage::disk('local')->delete(["{$legado}/public_key.pem", "{$legado}/private_key.pem"]);
-        }
+        $mensagem = $this->gestao()->removerChaves($this->ambienteActual());
 
         $this->contributorPublicKey = '';
         $this->contributorPrivateKey = '';
         $this->checkStatus();
-        $rotulo = $ambiente === 'production' ? 'Produção' : 'Homologação';
-        $this->dispatch('notify', type: 'success',
-            message: "Chaves de {$rotulo} removidas. O outro ambiente não foi alterado.");
+        $this->dispatch('notify', type: 'success', message: $mensagem);
     }
 
     public function testConnection()
     {
         if (!$this->currentTenantId) {
             $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para testar a conexão.'));
+
             return;
         }
         $this->ensureTenantAccess();
 
-        $missing = [];
-        if (!$this->hasGlobalCredentials) {
-            $missing[] = 'credenciais globais do produtor';
-        }
-        if (!$this->hasPublicKey) {
-            $missing[] = 'chave pública do Portal AGT';
-        }
-        if (!$this->hasPrivateKey) {
-            $missing[] = 'chave privada do Portal AGT';
-        }
-        if ($missing !== []) {
-            $message = 'Não foi enviado nenhum pedido à AGT. Falta configurar: ' . implode(', ', $missing) . '.';
-            $this->syncResult = [
-                'total' => 0,
-                'success' => 0,
-                'failed' => 1,
-                'error' => $message,
-                'details' => [],
-            ];
-            $this->dispatch('notify', type: 'error', message: $message);
+        try {
+            $this->connectionTest = $this->gestao()->testarLigacao($this->ambienteActual());
+        } catch (DomainException $e) {
+            $this->syncResult = ['total' => 0, 'success' => 0, 'failed' => 1, 'error' => $e->getMessage(), 'details' => []];
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+
             return;
         }
-        
-        try {
-            // Testa o ambiente que se está a VER — é o que permite validar as
-            // chaves de produção antes de as pôr a emitir.
-            $client = new AGTClient($this->currentTenantId, $this->ambienteActual());
-            $this->connectionTest = $client->testConnection();
-            $this->isConnected = $this->connectionTest['success'] ?? false;
 
-            if ($this->isConnected) {
-                $this->dispatch('notify', type: 'success', message: __('Conexão estabelecida com sucesso!'));
-            } else {
-                $this->dispatch('notify', type: 'error', message: $this->connectionTest['error'] ?? 'Falha na conexão');
-            }
-        } catch (\Exception $e) {
-            $this->connectionTest = ['success' => false, 'error' => $e->getMessage()];
-            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
+        $this->isConnected = $this->connectionTest['success'] ?? false;
+
+        if ($this->isConnected) {
+            $this->dispatch('notify', type: 'success', message: __('Conexão estabelecida com sucesso!'));
+        } else {
+            $this->dispatch('notify', type: 'error', message: $this->connectionTest['error'] ?? 'Falha na conexão');
         }
     }
 
@@ -567,200 +367,99 @@ class AGTSettings extends Component
     {
         if (!$this->currentTenantId) {
             $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para sincronizar séries.'));
+
             return;
         }
         $this->ensureTenantAccess();
 
-        if (!$this->ambienteConfere('A sincronização de séries')) {
-            return;
-        }
-
-        $missing = [];
-        if (!$this->hasGlobalCredentials) {
-            $missing[] = 'credenciais globais do produtor';
-        }
-        if (!$this->hasPublicKey) {
-            $missing[] = 'chave pública do Portal AGT';
-        }
-        if (!$this->hasPrivateKey) {
-            $missing[] = 'chave privada do Portal AGT';
-        }
-        if ($missing !== []) {
-            $message = 'Não foi enviado nenhum pedido à AGT. Falta configurar: ' . implode(', ', $missing) . '.';
-            $this->syncResult = [
-                'total' => 0,
-                'success' => 0,
-                'failed' => 1,
-                'error' => $message,
-                'details' => [],
-            ];
-            $this->dispatch('notify', type: 'error', message: $message);
-            return;
-        }
-        
         try {
-            $agtService = new AGTService($this->currentTenantId);
-            $result = $agtService->syncAllSeries();
-            $this->syncResult = $result;
+            $result = $this->gestao()->sincronizarSeries($this->ambienteActual());
+        } catch (AmbienteErradoException $e) {
+            // Só o aviso: não se registou nada, e o resultado anterior fica.
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
 
-            if (($result['total'] ?? 0) === 0) {
-                $this->dispatch('notify', type: 'info',
-                    message: __('Não existem séries activas pendentes de sincronização.'));
-            } elseif ($result['success'] > 0 && $result['failed'] === 0) {
-                $this->dispatch('notify', type: 'success', 
-                    message: "{$result['success']} série(s) sincronizada(s) com sucesso!");
-            } elseif ($result['failed'] > 0) {
-                $this->dispatch('notify', type: 'warning', 
-                    message: "{$result['success']} sincronizada(s); {$result['failed']} falharam.");
-            }
-
-            $this->checkStatus();
-
+            return;
         } catch (\Exception $e) {
-            $this->syncResult = [
-                'total' => 0,
-                'success' => 0,
-                'failed' => 1,
-                'error' => $e->getMessage(),
-                'details' => [],
-            ];
-            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
+            $this->syncResult = ['total' => 0, 'success' => 0, 'failed' => 1, 'error' => $e->getMessage(), 'details' => []];
+            $this->dispatch('notify', type: 'error', message: $e instanceof DomainException ? $e->getMessage() : __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
+
+            return;
         }
+
+        $this->syncResult = $result;
+
+        if (($result['total'] ?? 0) === 0) {
+            $this->dispatch('notify', type: 'info', message: __('Não existem séries activas pendentes de sincronização.'));
+        } elseif ($result['success'] > 0 && $result['failed'] === 0) {
+            $this->dispatch('notify', type: 'success', message: "{$result['success']} série(s) sincronizada(s) com sucesso!");
+        } elseif ($result['failed'] > 0) {
+            $this->dispatch('notify', type: 'warning', message: "{$result['success']} sincronizada(s); {$result['failed']} falharam.");
+        }
+
+        $this->checkStatus();
     }
 
-    /**
-     * Repor as tentativas de uma submissão esgotada e reenviá-la já.
-     *
-     * Quando a recusa foi culpa NOSSA (versão do schema fora de prazo,
-     * imposto mal arredondado), o documento fica com as tentativas gastas e
-     * o ecrã escondia o botão — ficava «—» e ninguém conseguia reenviar sem
-     * ir à base. Corrigido o código, quem gere a empresa carrega aqui: o
-     * contador volta a zero e o documento segue no acto.
-     */
+    /** Repor as tentativas de uma submissão esgotada e reenviá-la já. */
     public function reporEReenviar(int $submissionId): void
     {
         if (!$this->currentTenantId) {
             $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para reenviar.'));
+
             return;
         }
         $this->ensureTenantAccess();
 
-        if (!$this->ambienteConfere('O reenvio do documento')) {
-            return;
-        }
-
-        $submission = AGTSubmission::find($submissionId);
-
-        if (!$submission || (int) $submission->tenant_id !== (int) $this->currentTenantId) {
-            $this->dispatch('notify', type: 'error', message: __('Submissão não encontrada'));
-            return;
-        }
-
-        if ($submission->status === AGTSubmission::STATUS_VALIDATED) {
-            $this->dispatch('notify', type: 'error', message: __('Este documento já foi validado pela AGT.'));
-            return;
-        }
-
-        // O acto fica com rasto próprio (auditoria por modelo): quem, quando,
-        // e o erro que se estava a apagar.
-        $submission->update([
-            'status'        => AGTSubmission::STATUS_PENDING,
-            'retry_count'   => 0,
-            'error_code'    => null,
-            'error_message' => null,
-        ]);
-
-        $this->retrySubmission($submissionId);
+        $this->reenviarComAvisos(fn () => $this->gestao()->reporEReenviar($submissionId, $this->ambienteActual()));
     }
 
     public function retrySubmission(int $submissionId)
     {
         if (!$this->currentTenantId) {
             $this->dispatch('notify', type: 'error', message: __('Selecione um tenant para reenviar.'));
+
             return;
         }
         $this->ensureTenantAccess();
 
-        if (!$this->ambienteConfere('O reenvio do documento')) {
+        $this->reenviarComAvisos(fn () => $this->gestao()->reenviar($submissionId, $this->ambienteActual()));
+    }
+
+    private function reenviarComAvisos(callable $reenvio): void
+    {
+        try {
+            $result = $reenvio();
+        } catch (DomainException $e) {
+            $this->dispatch('notify', type: 'error', message: $e->getMessage());
+
+            return;
+        } catch (\Exception $e) {
+            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
+
             return;
         }
 
-        try {
-            $submission = AGTSubmission::find($submissionId);
-            
-            if (!$submission || (int) $submission->tenant_id !== (int) $this->currentTenantId) {
-                $this->dispatch('notify', type: 'error', message: __('Submissão não encontrada'));
-                return;
-            }
-
-            if (!$submission->canRetry()) {
-                $this->dispatch('notify', type: 'error', message: __('Máximo de tentativas atingido'));
-                return;
-            }
-
-            $document = $submission->document;
-            if (!$document) {
-                $this->dispatch('notify', type: 'error', message: __('Documento não encontrado'));
-                return;
-            }
-
-            $agtService = new AGTService($this->currentTenantId);
-            $result = $agtService->submitToAGT($document);
-
-            if ($result['success']) {
-                $this->dispatch('notify', type: 'success', message: __('Documento reenviado com sucesso!'));
-            } else {
-                $this->dispatch('notify', type: 'error', message: $result['error'] ?? 'Falha no reenvio');
-            }
-
-            $this->loadPendingSubmissions();
-
-        } catch (\Exception $e) {
-            $this->dispatch('notify', type: 'error', message: __('Erro: :detalhe', ['detalhe' => $e->getMessage()]));
+        if ($result['success'] ?? false) {
+            $this->dispatch('notify', type: 'success', message: __('Documento reenviado com sucesso!'));
+        } else {
+            $this->dispatch('notify', type: 'error', message: $result['error'] ?? 'Falha no reenvio');
         }
+
+        $this->loadPendingSubmissions();
     }
 
     public function runApiOperation(): void
     {
         $this->ensureTenantAccess();
-        $this->validate([
-            'apiOperation' => 'required|in:listarFacturas,consultarFactura,obterEstado',
-            'apiRequestId' => 'required_if:apiOperation,obterEstado|nullable|string|max:100',
-            'apiDocumentNo' => 'required_if:apiOperation,consultarFactura|nullable|string|max:100',
-            'apiDateFrom' => 'required_if:apiOperation,listarFacturas|nullable|date',
-            'apiDateTo' => 'required_if:apiOperation,listarFacturas|nullable|date|after_or_equal:apiDateFrom',
-        ]);
+        $this->validate(GestaoAgt::regrasDaConsulta());
 
-        $startedAt = microtime(true);
+        $this->apiOperationResult = $this->gestao()->consultar($this->apiOperation, [
+            'apiRequestId' => $this->apiRequestId,
+            'apiDocumentNo' => $this->apiDocumentNo,
+            'apiDateFrom' => $this->apiDateFrom,
+            'apiDateTo' => $this->apiDateTo,
+        ], $this->ambienteActual());
 
-        try {
-            // Consulta: corre no ambiente que se está a ver. É só leitura.
-            $client = new AGTClient($this->currentTenantId, $this->ambienteActual());
-            $result = match ($this->apiOperation) {
-                'obterEstado' => $client->getStatus(trim($this->apiRequestId)),
-                'consultarFactura' => $client->getInvoice(trim($this->apiDocumentNo)),
-                default => $client->listInvoices([
-                    'date_from' => $this->apiDateFrom,
-                    'date_to' => $this->apiDateTo,
-                ]),
-            };
-
-            $this->apiOperationResult = array_merge($result, [
-                'operation' => $this->apiOperation,
-                'elapsed_ms' => (int) ((microtime(true) - $startedAt) * 1000),
-                'tested_at' => now()->format('d/m/Y H:i:s'),
-            ]);
-            $this->loadLogs();
-        } catch (\Throwable $e) {
-            report($e);
-            $this->apiOperationResult = [
-                'success' => false,
-                'operation' => $this->apiOperation,
-                'error' => $e->getMessage(),
-                'elapsed_ms' => (int) ((microtime(true) - $startedAt) * 1000),
-                'tested_at' => now()->format('d/m/Y H:i:s'),
-            ];
-        }
+        $this->loadLogs();
     }
 
     public function refreshReport()
@@ -779,35 +478,13 @@ class AGTSettings extends Component
 
     public function render()
     {
-        // Classes CAE (5 dígitos) — é o nível que a AGT espera em eacCode.
-        $caeCodes = \Illuminate\Support\Facades\Cache::remember('agt_cae_classes', 3600, fn () =>
-            \Illuminate\Support\Facades\DB::table('agt_cae_codes')
-                ->where('is_active', true)
-                ->where('level', 'class')
-                ->orderBy('code')
-                ->get(['code', 'description']));
-
-        // Séries registadas noutro ambiente não são mostradas como registadas:
-        // uma série de homologação não existe em produção.
-        $series = $this->currentTenantId
-            ? InvoicingSeries::where('tenant_id', $this->currentTenantId)
-                ->where('is_active', true)
-                ->where(function ($q) {
-                    $q->whereNull('agt_series_id')
-                      ->orWhere('agt_environment', $this->ambienteActual());
-                })
-                ->get()
-            : collect();
-
         return view('livewire.invoicing.agt-settings', [
-            'series' => $series,
-            'caeCodes' => $caeCodes,
+            'series' => $this->currentTenantId ? $this->gestao()->series($this->ambienteActual()) : collect(),
+            'caeCodes' => GestaoAgt::classesCae(),
             'hasTenant' => (bool) $this->currentTenantId,
-            'currentTenant' => $this->currentTenantId
-                ? \App\Models\Tenant::find($this->currentTenantId)
-                : null,
+            'currentTenant' => $this->currentTenantId ? Tenant::find($this->currentTenantId) : null,
             'availableTenants' => $this->isAdmin
-                ? \App\Models\Tenant::orderBy('name')->get(['id', 'name', 'nif'])
+                ? Tenant::orderBy('name')->get(['id', 'name', 'nif'])
                 : collect(),
         ]);
     }
