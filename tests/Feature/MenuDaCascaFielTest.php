@@ -1,0 +1,146 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Module;
+use Tests\TenantTestCase;
+
+/**
+ * O MENU LATERAL NÃO MUDA SEM SE DAR POR ISSO.
+ *
+ * O menu saiu de 1.500 linhas de Blade para o `MenuDaCasca`, que o Blade e o
+ * ecrã em React passam a desenhar. Antes da mudança gravou-se o que o menu
+ * de sempre mostrava a dois utilizadores — um vulgar com todas as permissões
+ * e todos os módulos, e o super admin da plataforma — e este ensaio compara
+ * o menu de hoje com essa gravação: as mesmas ligações, com os mesmos textos,
+ * pela mesma ordem, com o mesmo acesso.
+ *
+ * Para voltar a gravar (só quando a mudança no menu é deliberada):
+ *   GRAVAR_MENU=1 php artisan test --filter=MenuDaCascaFielTest
+ */
+class MenuDaCascaFielTest extends TenantTestCase
+{
+    private const PASTA = __DIR__ . '/../fixtures/menu-da-casca/';
+
+    /** Os módulos que existem — a base de ensaio nasce sem nenhum. */
+    private const MODULOS = [
+        'compras', 'contabilidade', 'crm', 'eventos', 'hotel', 'inventario', 'invoicing',
+        'notifications', 'oficina', 'projetos', 'restaurant', 'rh', 'salon', 'treasury',
+    ];
+
+    /** Todas as permissões que o menu pergunta. */
+    private const PERMISSOES = [
+        'invoicing.dashboard.view', 'invoicing.pos.access', 'invoicing.pos.sell', 'invoicing.pos.reports',
+        'invoicing.clients.view', 'invoicing.suppliers.view', 'invoicing.products.view', 'invoicing.categories.view',
+        'invoicing.brands.view', 'invoicing.sales.proformas.view', 'invoicing.sales.quotes.view',
+        'invoicing.sales.invoices.view', 'invoicing.purchases.proformas.view', 'invoicing.purchases.invoices.view',
+        'invoicing.imports.view', 'invoicing.receipts.view', 'invoicing.credit-notes.view', 'invoicing.debit-notes.view',
+        'invoicing.transport-guides.view', 'invoicing.advances.view', 'invoicing.warehouses.view', 'invoicing.stock.view',
+        'invoicing.warehouse-transfer.view', 'invoicing.inter-company-transfer.view', 'invoicing.reports.view',
+        'invoicing.taxes.view', 'invoicing.series.view', 'invoicing.settings.view', 'invoicing.saft.view', 'invoicing.agt.view',
+        'treasury.reports.view', 'treasury.accounts.view', 'treasury.transactions.view', 'treasury.transfers.view',
+        'treasury.payment-methods.view', 'treasury.banks.view', 'treasury.cash-registers.view',
+        'events.dashboard.view', 'hr.dashboard.view', 'accounting.dashboard.view', 'workshop.dashboard.view',
+        'hotel.dashboard.view', 'salon.dashboard.view', 'notifications.view', 'inventario.dashboard.view',
+        'restaurant.dashboard.view', 'restaurant.floor.view', 'restaurant.orders.view', 'restaurant.settings.view',
+        'restaurant.kitchen.view', 'restaurant.reservations.view', 'restaurant.recipes.view', 'restaurant.stock.view',
+        'restaurant.reports.view',
+        'crm.dashboard.view', 'crm.integrations.manage', 'compras.dashboard.view', 'compras.requisicoes.view',
+        'compras.encomendas.view', 'projetos.dashboard.view', 'projetos.tarefas.view', 'projetos.horas.registar',
+        'settings.view',
+    ];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Uma empresa inactiva não tem módulo nenhum — e a de bancada nasce sem a marca.
+        $this->tenant->forceFill(['is_active' => true])->save();
+    }
+
+    /** @test */
+    public function o_menu_de_um_utilizador_com_tudo_e_o_de_sempre(): void
+    {
+        foreach (self::MODULOS as $slug) {
+            $this->comModulo($slug);
+        }
+        $this->comPermissoes(...self::PERMISSOES);
+
+        $this->comparar('utilizador-com-tudo', $this->menuDe('/home'));
+    }
+
+    /** @test */
+    public function o_menu_do_super_admin_e_o_de_sempre(): void
+    {
+        $this->user->forceFill(['is_super_admin' => true])->save();
+
+        // O /home do super admin tem outro layout; a conta é a página comum a todos.
+        $this->comparar('super-admin', $this->menuDe('/my-account'));
+    }
+
+    /* ─── Por dentro ──────────────────────────────────────────────────── */
+
+    /** As ligações, cabeçalhos e títulos do menu, pela ordem em que aparecem. */
+    private function menuDe(string $caminho): array
+    {
+        $r = $this->get($caminho);
+
+        if ($r->isRedirect()) {
+            $r = $this->get($r->headers->get('Location'));
+        }
+
+        $r->assertOk();
+
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8" ?>' . $r->getContent());
+        libxml_clear_errors();
+
+        $x = new \DOMXPath($dom);
+        $origem = rtrim(config('app.url'), '/');
+
+        $linha = function (\DOMElement $e) use ($origem) {
+            $texto = trim(preg_replace('/\s+/u', ' ', $e->textContent));
+            $classe = $e->getAttribute('class');
+
+            return array_filter([
+                'tag' => $e->tagName,
+                'href' => $e->tagName === 'a' ? str_replace($origem, '', $e->getAttribute('href')) : null,
+                'texto' => $texto,
+                'activo' => str_contains($classe, 'border-l-4') ? true : null,
+            ], fn ($v) => $v !== null);
+        };
+
+        $nav = [];
+        foreach ($x->query('//nav[@id="sidebar-menu"]//*[self::a or self::button or self::p]') as $e) {
+            $nav[] = $linha($e);
+        }
+
+        $rodape = [];
+        foreach ($x->query('//aside[@id="app-sidebar"]//*[self::a or self::button][not(ancestor::nav)]') as $e) {
+            $rodape[] = $linha($e);
+        }
+
+        return ['nav' => $nav, 'rodape' => $rodape];
+    }
+
+    private function comparar(string $nome, array $menu): void
+    {
+        $ficheiro = self::PASTA . $nome . '.json';
+
+        if (getenv('GRAVAR_MENU')) {
+            @mkdir(self::PASTA, 0777, true);
+            file_put_contents($ficheiro, json_encode($menu, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+            $this->assertFileExists($ficheiro);
+
+            return;
+        }
+
+        $this->assertFileExists($ficheiro, 'Falta a gravação — corre com GRAVAR_MENU=1 uma vez, com o menu de sempre.');
+
+        $gravado = json_decode(file_get_contents($ficheiro), true);
+
+        $this->assertSame($gravado['nav'], $menu['nav'], 'O menu lateral deixou de ser o que era.');
+        $this->assertSame($gravado['rodape'], $menu['rodape'], 'O rodapé da barra lateral deixou de ser o que era.');
+    }
+}

@@ -1,0 +1,614 @@
+{
+    "nav": [
+        {
+            "tag": "p",
+            "texto": "Menu Principal"
+        },
+        {
+            "tag": "a",
+            "href": "/home",
+            "texto": "Início"
+        },
+        {
+            "tag": "button",
+            "texto": "Utilizadores"
+        },
+        {
+            "tag": "a",
+            "href": "/users",
+            "texto": "Gestão de Utilizadores"
+        },
+        {
+            "tag": "a",
+            "href": "/users/roles-permissions",
+            "texto": "Roles & Permissões"
+        },
+        {
+            "tag": "button",
+            "texto": "Facturação"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/pos/shifts",
+            "texto": "⏰ Turnos de Caixa"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/pos/shift-history",
+            "texto": "📋 Histórico de Turnos"
+        },
+        {
+            "tag": "button",
+            "texto": "Documentos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/product-batches",
+            "texto": "Lotes e Validades"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/expiry-report",
+            "texto": "📊 Relatório Validade"
+        },
+        {
+            "tag": "button",
+            "texto": "Tesouraria"
+        },
+        {
+            "tag": "button",
+            "texto": "Eventos"
+        },
+        {
+            "tag": "a",
+            "href": "/events/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/events/calendar",
+            "texto": "Calendário"
+        },
+        {
+            "tag": "a",
+            "href": "/events/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/events/equipment",
+            "texto": "Equipamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/events/venues",
+            "texto": "Locais"
+        },
+        {
+            "tag": "a",
+            "href": "/events/types",
+            "texto": "Tipos de Eventos"
+        },
+        {
+            "tag": "a",
+            "href": "/events/technicians",
+            "texto": "Técnicos"
+        },
+        {
+            "tag": "button",
+            "texto": "Recursos Humanos"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/employees",
+            "texto": "Funcionários"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/departments",
+            "texto": "Departamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/attendance",
+            "texto": "Presenças"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/vacations",
+            "texto": "Férias"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/leaves",
+            "texto": "Licenças e Faltas"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/overtime",
+            "texto": "Horas Extras"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/overtime-night-shift",
+            "texto": "Turno Noturno"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/salary-discounts",
+            "texto": "Descontos Salariais"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/payroll",
+            "texto": "Folha de Pagamento"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/advances",
+            "texto": "Adiantamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/irt-map",
+            "texto": "Mapa de IRT"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/settings",
+            "texto": "Configurações RH"
+        },
+        {
+            "tag": "button",
+            "texto": "Contabilidade"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/accounts",
+            "texto": "Plano de Contas"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/journals",
+            "texto": "Diários"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/document-types",
+            "texto": "Tipos de Documentos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/moves",
+            "texto": "Lançamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/periods",
+            "texto": "Períodos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/reconciliation",
+            "texto": "Reconciliação"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/fixed-assets",
+            "texto": "Imobilizado"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/currencies",
+            "texto": "Moedas"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/cost-centers",
+            "texto": "Centros Custo"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/analytics",
+            "texto": "Analítica"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/budgets",
+            "texto": "Orçamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "button",
+            "texto": "Gestão de Oficina"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/vehicles",
+            "texto": "Veículos"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/mechanics",
+            "texto": "Mecânicos"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/services",
+            "texto": "Serviços"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/parts",
+            "texto": "Peças"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/work-orders",
+            "texto": "Ordens de Serviço"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "button",
+            "texto": "Gestão de Hotel"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/reservations",
+            "texto": "Reservas"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/walk-in",
+            "texto": "Walk-in"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/checkout",
+            "texto": "Check-out"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/calendar",
+            "texto": "Calendário"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/housekeeping",
+            "texto": "Housekeeping"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/maintenance",
+            "texto": "Manutenção"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/staff",
+            "texto": "Funcionários"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/rooms",
+            "texto": "Quartos"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/room-types",
+            "texto": "Tipos de Quarto"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/guests",
+            "texto": "Hóspedes"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/rates",
+            "texto": "Tarifas"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/packages",
+            "texto": "Pacotes"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/kiandastay",
+            "texto": "KiandaStay"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "button",
+            "texto": "Salão de Beleza"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/appointments",
+            "texto": "Agendamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/clients",
+            "texto": "Clientes"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/services",
+            "texto": "Serviços"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/services/categories",
+            "texto": "Categorias"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/professionals",
+            "texto": "Profissionais"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/products",
+            "texto": "Produtos"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/pos",
+            "texto": "POS / Faturar"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/reports/time",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "button",
+            "texto": "Restaurante"
+        },
+        {
+            "tag": "a",
+            "href": "/notifications/settings",
+            "texto": "Notificações"
+        },
+        {
+            "tag": "a",
+            "href": "/notifications/templates",
+            "texto": "Modelos"
+        },
+        {
+            "tag": "button",
+            "texto": "CRM"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/leads",
+            "texto": "Leads"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/oportunidades",
+            "texto": "Oportunidades"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/funil-vendas",
+            "texto": "Funil de Vendas"
+        },
+        {
+            "tag": "button",
+            "texto": "Inventário"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/armazens",
+            "texto": "Armazéns"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/movimentos",
+            "texto": "Movimentos"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/contagem",
+            "texto": "Contagem de Stock"
+        },
+        {
+            "tag": "button",
+            "texto": "Compras"
+        },
+        {
+            "tag": "a",
+            "href": "/compras/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/compras/fornecedores",
+            "texto": "Fornecedores"
+        },
+        {
+            "tag": "button",
+            "texto": "Projetos"
+        },
+        {
+            "tag": "a",
+            "href": "/projetos/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/projetos/lista",
+            "texto": "Projetos"
+        },
+        {
+            "tag": "p",
+            "texto": "Super Admin"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/tenants",
+            "texto": "Tenants"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/modules",
+            "texto": "Módulos"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/plans",
+            "texto": "Planos"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/billing",
+            "texto": "Billing"
+        },
+        {
+            "tag": "p",
+            "texto": "Sistema"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/system-updates",
+            "texto": "Atualizações do Sistema"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/script-runner",
+            "texto": "Executar Scripts"
+        },
+        {
+            "tag": "p",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/system-settings",
+            "texto": "Configurações do Sistema"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/saft-configuration",
+            "texto": "SAFT Configurações"
+        },
+        {
+            "tag": "a",
+            "href": "/superadmin/system-optimization",
+            "texto": "Optimização & OPcache"
+        }
+    ],
+    "rodape": [
+        {
+            "tag": "button",
+            "texto": ""
+        },
+        {
+            "tag": "a",
+            "href": "/support/tickets",
+            "texto": "Suporte Novo"
+        },
+        {
+            "tag": "button",
+            "texto": "Operador de Teste Super Admin"
+        },
+        {
+            "tag": "a",
+            "href": "/my-account",
+            "texto": "Minha Conta"
+        },
+        {
+            "tag": "a",
+            "href": "/my-account?tab=companies",
+            "texto": "Minhas Empresas"
+        },
+        {
+            "tag": "a",
+            "href": "/my-account?tab=plan",
+            "texto": "Meu Plano"
+        },
+        {
+            "tag": "a",
+            "href": "/changelog",
+            "texto": "Atualizações v2026.08.19.1"
+        },
+        {
+            "tag": "button",
+            "texto": "Sair"
+        }
+    ]
+}

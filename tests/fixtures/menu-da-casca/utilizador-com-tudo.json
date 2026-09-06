@@ -1,0 +1,983 @@
+{
+    "nav": [
+        {
+            "tag": "p",
+            "texto": "Menu Principal"
+        },
+        {
+            "tag": "a",
+            "href": "/home",
+            "texto": "Início",
+            "activo": true
+        },
+        {
+            "tag": "button",
+            "texto": "Facturação"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/dashboard",
+            "texto": "📊 Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/pos",
+            "texto": "🛒 POS - Ponto de Venda"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/offline/pos",
+            "texto": "📱 POS Offline (PWA)"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/importar-copia-offline",
+            "texto": "Importar Cópia Offline"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/pos/shifts",
+            "texto": "⏰ Turnos de Caixa"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/pos/shift-history",
+            "texto": "📋 Histórico de Turnos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/pos/reports",
+            "texto": "📊 Relatórios POS"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/clients",
+            "texto": "Clientes"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/suppliers",
+            "texto": "Fornecedores"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/products",
+            "texto": "Produtos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/categories",
+            "texto": "Categorias"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/brands",
+            "texto": "Marcas"
+        },
+        {
+            "tag": "button",
+            "texto": "Documentos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/sales/proformas",
+            "texto": "Proformas Venda"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/sales/quotes",
+            "texto": "Orçamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/sales/quote-templates",
+            "texto": "Modelos de Proposta"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/sales/invoices",
+            "texto": "Faturas Venda"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/sales/invoices?type=FR",
+            "texto": "Faturas-Recibo"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/purchases/proformas",
+            "texto": "Proformas Compra"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/purchases/invoices",
+            "texto": "Faturas Compra"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/imports",
+            "texto": "Importações"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/receipts",
+            "texto": "Recibos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/credit-notes",
+            "texto": "Notas Crédito"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/debit-notes",
+            "texto": "Notas Débito"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/transport-guides",
+            "texto": "Guias Transporte"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/advances",
+            "texto": "Adiantamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/warehouses",
+            "texto": "Armazéns"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/stock",
+            "texto": "Gestão Stock"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/quebras",
+            "texto": "Quebras e Desperdício"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/product-batches",
+            "texto": "Lotes e Validades"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/expiry-report",
+            "texto": "📊 Relatório Validade"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/warehouse-transfer",
+            "texto": "Transfer. Armazéns"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/inter-company-transfer",
+            "texto": "Transfer. Inter-Empresa"
+        },
+        {
+            "tag": "button",
+            "texto": "📈 Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports",
+            "texto": "Painel de Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/profit-loss",
+            "texto": "Lucros e Perdas (DRE)"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/margin",
+            "texto": "Análise de Margem"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/product-performance",
+            "texto": "Desempenho de Produtos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/comparative",
+            "texto": "Comparativo"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/sales",
+            "texto": "Mapa de Vendas"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/top-clients",
+            "texto": "Top Clientes"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/top-products",
+            "texto": "Top Produtos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/sales-by-user",
+            "texto": "Vendas por Vendedor"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/purchases",
+            "texto": "Mapa de Compras"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/top-suppliers",
+            "texto": "Top Fornecedores"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/best-supplier",
+            "texto": "Melhor Fornecedor"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/accounts-receivable",
+            "texto": "Contas a Receber"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/accounts-payable",
+            "texto": "Contas a Pagar"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/payment-methods",
+            "texto": "Recebimentos por Meio"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/aging-clients",
+            "texto": "Aging de Clientes"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/account-statement",
+            "texto": "Extracto de Conta Corrente"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/vat",
+            "texto": "Mapa de IVA"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/documents",
+            "texto": "Mapa de Documentos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/price-list",
+            "texto": "Tabela de Preços e Lucro"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/services",
+            "texto": "Mapa de Serviços"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/expiry-report",
+            "texto": "Validade de Produtos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/reports/stock-adjustments",
+            "texto": "Ajustes de Stock"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/taxes",
+            "texto": "Impostos (IVA)"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/series",
+            "texto": "Séries de Documentos"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/payment-terms",
+            "texto": "Condições de Pagamento"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/saft-generator",
+            "texto": "Gerador SAFT-AO"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/auditoria",
+            "texto": "Auditoria"
+        },
+        {
+            "tag": "a",
+            "href": "/invoicing/agt-settings",
+            "texto": "AGT Angola"
+        },
+        {
+            "tag": "button",
+            "texto": "Tesouraria"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/accounts",
+            "texto": "Contas Bancárias"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/transactions",
+            "texto": "Transações"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/transaction-types",
+            "texto": "Tipos de Transação"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/transaction-categories",
+            "texto": "Categorias de Transação"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/transfers",
+            "texto": "Transferências"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/payment-methods",
+            "texto": "Métodos de Pagamento"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/banks",
+            "texto": "Bancos"
+        },
+        {
+            "tag": "a",
+            "href": "/treasury/cash-registers",
+            "texto": "Caixas"
+        },
+        {
+            "tag": "button",
+            "texto": "Eventos"
+        },
+        {
+            "tag": "a",
+            "href": "/events/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/events/calendar",
+            "texto": "Calendário"
+        },
+        {
+            "tag": "a",
+            "href": "/events/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/events/equipment",
+            "texto": "Equipamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/events/venues",
+            "texto": "Locais"
+        },
+        {
+            "tag": "a",
+            "href": "/events/types",
+            "texto": "Tipos de Eventos"
+        },
+        {
+            "tag": "a",
+            "href": "/events/technicians",
+            "texto": "Técnicos"
+        },
+        {
+            "tag": "button",
+            "texto": "Recursos Humanos"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/employees",
+            "texto": "Funcionários"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/departments",
+            "texto": "Departamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/attendance",
+            "texto": "Presenças"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/vacations",
+            "texto": "Férias"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/leaves",
+            "texto": "Licenças e Faltas"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/overtime",
+            "texto": "Horas Extras"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/overtime-night-shift",
+            "texto": "Turno Noturno"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/salary-discounts",
+            "texto": "Descontos Salariais"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/payroll",
+            "texto": "Folha de Pagamento"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/advances",
+            "texto": "Adiantamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/irt-map",
+            "texto": "Mapa de IRT"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/hr/settings",
+            "texto": "Configurações RH"
+        },
+        {
+            "tag": "button",
+            "texto": "Contabilidade"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/accounts",
+            "texto": "Plano de Contas"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/journals",
+            "texto": "Diários"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/document-types",
+            "texto": "Tipos de Documentos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/moves",
+            "texto": "Lançamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/periods",
+            "texto": "Períodos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/reconciliation",
+            "texto": "Reconciliação"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/fixed-assets",
+            "texto": "Imobilizado"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/currencies",
+            "texto": "Moedas"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/cost-centers",
+            "texto": "Centros Custo"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/analytics",
+            "texto": "Analítica"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/budgets",
+            "texto": "Orçamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/accounting/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "button",
+            "texto": "Gestão de Oficina"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/vehicles",
+            "texto": "Veículos"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/mechanics",
+            "texto": "Mecânicos"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/services",
+            "texto": "Serviços"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/parts",
+            "texto": "Peças"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/work-orders",
+            "texto": "Ordens de Serviço"
+        },
+        {
+            "tag": "a",
+            "href": "/workshop/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "button",
+            "texto": "Gestão de Hotel"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/reservations",
+            "texto": "Reservas"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/walk-in",
+            "texto": "Walk-in"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/checkout",
+            "texto": "Check-out"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/calendar",
+            "texto": "Calendário"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/housekeeping",
+            "texto": "Housekeeping"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/maintenance",
+            "texto": "Manutenção"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/staff",
+            "texto": "Funcionários"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/rooms",
+            "texto": "Quartos"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/room-types",
+            "texto": "Tipos de Quarto"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/guests",
+            "texto": "Hóspedes"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/rates",
+            "texto": "Tarifas"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/packages",
+            "texto": "Pacotes"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/kiandastay",
+            "texto": "KiandaStay"
+        },
+        {
+            "tag": "a",
+            "href": "/hotel/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "button",
+            "texto": "Salão de Beleza"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/appointments",
+            "texto": "Agendamentos"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/clients",
+            "texto": "Clientes"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/services",
+            "texto": "Serviços"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/services/categories",
+            "texto": "Categorias"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/professionals",
+            "texto": "Profissionais"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/products",
+            "texto": "Produtos"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/pos",
+            "texto": "POS / Faturar"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/reports/time",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/salon/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "button",
+            "texto": "Restaurante"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/floor",
+            "texto": "Sala e Mesas"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/pos",
+            "texto": "POS Restaurante"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/orders",
+            "texto": "Comandas"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/products",
+            "texto": "Produtos e Menu"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/carta",
+            "texto": "Montar o Menu"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/carta/aparencia",
+            "texto": "Aparência da Carta"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/contacts",
+            "texto": "Clientes e Fornecedores"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/shifts",
+            "texto": "Abrir / Fechar Turno"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/shift-history",
+            "texto": "Histórico de Turnos"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/kitchen",
+            "texto": "Cozinha / KDS"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/reservations",
+            "texto": "Reservas"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/recipes",
+            "texto": "Fichas Técnicas"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/stock",
+            "texto": "Stock e Desperdícios"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/sales-report",
+            "texto": "Vendas e Caixa"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/reports",
+            "texto": "Relatórios"
+        },
+        {
+            "tag": "a",
+            "href": "/restaurant/settings",
+            "texto": "Configurações"
+        },
+        {
+            "tag": "a",
+            "href": "/notifications/settings",
+            "texto": "Notificações"
+        },
+        {
+            "tag": "a",
+            "href": "/notifications/templates",
+            "texto": "Modelos"
+        },
+        {
+            "tag": "button",
+            "texto": "CRM"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/leads",
+            "texto": "Leads"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/oportunidades",
+            "texto": "Oportunidades"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/funil-vendas",
+            "texto": "Funil de Vendas"
+        },
+        {
+            "tag": "a",
+            "href": "/crm/integracoes",
+            "texto": "Integração Meta"
+        },
+        {
+            "tag": "button",
+            "texto": "Inventário"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/armazens",
+            "texto": "Armazéns"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/movimentos",
+            "texto": "Movimentos"
+        },
+        {
+            "tag": "a",
+            "href": "/inventario/contagem",
+            "texto": "Contagem de Stock"
+        },
+        {
+            "tag": "button",
+            "texto": "Compras"
+        },
+        {
+            "tag": "a",
+            "href": "/compras/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/compras/fornecedores",
+            "texto": "Fornecedores"
+        },
+        {
+            "tag": "a",
+            "href": "/compras/requisicoes",
+            "texto": "Requisições"
+        },
+        {
+            "tag": "a",
+            "href": "/compras/encomendas",
+            "texto": "Encomendas"
+        },
+        {
+            "tag": "button",
+            "texto": "Projetos"
+        },
+        {
+            "tag": "a",
+            "href": "/projetos/dashboard",
+            "texto": "Dashboard"
+        },
+        {
+            "tag": "a",
+            "href": "/projetos/lista",
+            "texto": "Projetos"
+        },
+        {
+            "tag": "a",
+            "href": "/projetos/tarefas",
+            "texto": "Tarefas"
+        },
+        {
+            "tag": "a",
+            "href": "/projetos/timesheet",
+            "texto": "Folha de Horas"
+        }
+    ],
+    "rodape": [
+        {
+            "tag": "button",
+            "texto": ""
+        },
+        {
+            "tag": "a",
+            "href": "/support/tickets",
+            "texto": "Suporte Novo"
+        },
+        {
+            "tag": "button",
+            "texto": "Operador de Teste Utilizador"
+        },
+        {
+            "tag": "a",
+            "href": "/my-account",
+            "texto": "Minha Conta"
+        },
+        {
+            "tag": "a",
+            "href": "/empresa",
+            "texto": "Dados da Empresa"
+        },
+        {
+            "tag": "a",
+            "href": "/changelog",
+            "texto": "Atualizações v2026.08.19.1"
+        },
+        {
+            "tag": "button",
+            "texto": "Sair"
+        }
+    ]
+}

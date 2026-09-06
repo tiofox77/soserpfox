@@ -160,7 +160,8 @@ class ProgressoDaMigracaoReact extends Command
      * O estado sai do disco, nunca de um campo escrito à mão.
      *
      * A casca (menu, barra do topo) não tem componente Livewire próprio — vive
-     * dentro do layout — por isso aí «feito» é o React existir.
+     * dentro do layout — por isso aí o «velho» é o próprio Blade: enquanto o
+     * layout desenhar a barra lateral, as duas versões convivem.
      */
     private function estadoDo(array $ecra, string $raiz): string
     {
@@ -170,7 +171,7 @@ class ProgressoDaMigracaoReact extends Command
             return self::POR_FAZER;
         }
 
-        $velho = $ecra['livewire'] ?? null;
+        $velho = $ecra['livewire'] ?? $ecra['blade'] ?? null;
 
         if ($velho === null) {
             return self::FEITO;

@@ -197,12 +197,16 @@ class AgtComunicacaoTest extends TenantTestCase
             'DebitNote tem de usar HasAGTSignature'
         );
 
-        $codigo = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
-
-        // O ecrã ENFILEIRA (não envia no mesmo pedido). O submitToAGT do
-        // trait continua a existir — é o que o DespacharAgtPendentes usa
-        // depois, à boleia do tráfego.
-        $this->assertStringContainsString('AutoSubmissao::enfileirar', $codigo,
+        // A emissão vive no EmissorDeNotas — o mesmo que o ecrã Livewire e a
+        // API em React chamam. É lá que se ENFILEIRA (não se envia no mesmo
+        // pedido). O submitToAGT do trait continua a existir — é o que o
+        // DespacharAgtPendentes usa depois, à boleia do tráfego.
+        $servico = file_get_contents(app_path('Services/Invoicing/EmissorDeNotas.php'));
+        $this->assertStringContainsString('AutoSubmissao::enfileirar', $servico,
             'a Nota de Débito tem de ser enfileirada para a AGT');
+
+        $ecra = file_get_contents(app_path('Livewire/Invoicing/DebitNotes/DebitNoteCreate.php'));
+        $this->assertStringContainsString('emitirDebito', $ecra,
+            'o ecrã da Nota de Débito tem de passar pelo emissor');
     }
 }

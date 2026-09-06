@@ -57,4 +57,8 @@ export const ecras: Record<string, Ecra> = {
     // As definições da facturação e as séries de numeração.
     'facturacao/definicoes': () =>
         import('./facturacao/Definicoes'),
+
+    // A casca: a barra lateral com o menu, o suporte e o utilizador.
+    'casca': () =>
+        import('./casca/Casca'),
 };

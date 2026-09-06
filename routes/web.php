@@ -137,6 +137,23 @@ Route::get('/offline', function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/my-account', \App\Livewire\MyAccount::class)->name('my-account');
 
+    /*
+     * A CASCA EM REACT, em ensaio. Não é uma página: é um interruptor de
+     * sessão que troca a barra lateral de sempre pela nova, em todos os
+     * ecrãs, só para quem o ligou. O menu é o mesmo (MenuDaCasca).
+     */
+    Route::get('/casca/novo-ecra', function () {
+        session(['casca_react' => true]);
+
+        return redirect()->back(fallback: route('home'));
+    })->name('casca.react');
+
+    Route::get('/casca/ecra-de-sempre', function () {
+        session()->forget('casca_react');
+
+        return redirect()->back(fallback: route('home'));
+    })->name('casca.livewire');
+
     // Dados da Empresa — identificação, contactos, endereço, logótipo e regime
     // fiscal AGT (a alteração de regime propaga-se via TaxRegimeSyncer).
     //
