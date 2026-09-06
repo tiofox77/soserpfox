@@ -65,7 +65,8 @@ async function pedir<T>(caminho: string, opcoes: RequestInit = {}, parametros?: 
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRF-TOKEN': csrf(),
-            ...(opcoes.body ? { 'Content-Type': 'application/json' } : {}),
+            // Um FormData leva o seu próprio Content-Type, com a fronteira; só o JSON o declara aqui.
+            ...(opcoes.body && !(opcoes.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
             ...opcoes.headers,
         },
     });
@@ -101,6 +102,10 @@ export const api = {
         pedir<T>(caminho, { method: 'PUT', body: JSON.stringify(corpo) }),
 
     apagar: <T>(caminho: string) => pedir<T>(caminho, { method: 'DELETE' }),
+
+    /** Um ficheiro: vai em multipart, e o browser é que põe o Content-Type. */
+    enviar: <T>(caminho: string, corpo: FormData) =>
+        pedir<T>(caminho, { method: 'POST', body: corpo }),
 };
 
 /** A forma de uma lista paginada, tal como o Laravel a devolve. */

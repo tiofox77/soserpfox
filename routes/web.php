@@ -426,6 +426,23 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/definicoes/series/{serie}/padrao', [\App\Http\Controllers\Api\Invoicing\DefinicoesApiController::class, 'tornarPadrao'])
             ->whereNumber('serie')->name('definicoes.series.padrao');
 
+        // OS CATÁLOGOS: fornecedores, categorias, marcas, armazéns, condições
+        // de pagamento e impostos — uma API só, o esquema vem do Catalogos.
+        Route::get('/catalogos/{tipo}/opcoes', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'opcoes'])
+            ->where('tipo', '[a-z-]+')->name('catalogos.opcoes');
+        Route::get('/catalogos/{tipo}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'index'])
+            ->where('tipo', '[a-z-]+')->name('catalogos.index');
+        Route::post('/catalogos/{tipo}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'store'])
+            ->where('tipo', '[a-z-]+')->name('catalogos.store');
+        Route::put('/catalogos/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'update'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.update');
+        Route::delete('/catalogos/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'destroy'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.destroy');
+        Route::post('/catalogos/{tipo}/{id}/logotipo', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'logotipo'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('catalogos.logotipo');
+        Route::post('/catalogos/{tipo}/{id}/{accao}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'accao'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->where('accao', 'activar|padrao')->name('catalogos.accao');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');

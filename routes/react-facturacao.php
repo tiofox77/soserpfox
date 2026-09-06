@@ -94,6 +94,18 @@ Route::middleware('permission:invoicing.purchases.invoices.create')
     ->name('react.emitir.compra');
 
 /*
+ * OS CATÁLOGOS. Seis ecrãs Livewire com a mesma forma saem todos do mesmo
+ * Catalogo.tsx; o que muda vem do `Catalogos` e viaja no `tipo`.
+ */
+foreach (\App\Services\Invoicing\Catalogos::todos() as $slug => $def) {
+    $caminho = ltrim(str_replace('/invoicing', '', $def['rota']), '/') . '/novo-ecra';
+
+    Route::middleware('permission:' . $def['permissoes']['ver'])
+        ->get($caminho, $emReact('facturacao/catalogo', __($def['titulo']), ['tipo' => $slug]))
+        ->name('react.catalogo.' . $slug);
+}
+
+/*
  * AS DEFINIÇÕES DA FACTURAÇÃO. Ver é uma permissão, editar é outra — a
  * segunda é exigida pela API em cada escrita.
  */

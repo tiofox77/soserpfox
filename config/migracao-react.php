@@ -173,6 +173,48 @@ return [
             ],
         ],
 
+        'Facturação: catálogos' => [
+            'nota' => 'Seis ecrãs com a mesma forma saem todos do mesmo Catalogo.tsx — o esquema de cada um vem do Catalogos.',
+            'ecras' => [
+                [
+                    'nome'     => 'Fornecedores',
+                    'livewire' => 'app/Livewire/Invoicing/Suppliers.php',
+                    'blade'    => 'resources/views/livewire/invoicing/suppliers/suppliers.blade.php',
+                    'react'    => 'ecras/facturacao/Catalogo.tsx',
+                ],
+                [
+                    'nome'     => 'Categorias',
+                    'livewire' => 'app/Livewire/Invoicing/Categories.php',
+                    'blade'    => 'resources/views/livewire/invoicing/categories/categories.blade.php',
+                    'react'    => 'ecras/facturacao/Catalogo.tsx',
+                ],
+                [
+                    'nome'     => 'Marcas',
+                    'livewire' => 'app/Livewire/Invoicing/Brands.php',
+                    'blade'    => 'resources/views/livewire/invoicing/brands/brands.blade.php',
+                    'react'    => 'ecras/facturacao/Catalogo.tsx',
+                ],
+                [
+                    'nome'     => 'Armazéns',
+                    'livewire' => 'app/Livewire/Invoicing/Warehouses.php',
+                    'blade'    => 'resources/views/livewire/invoicing/warehouses/warehouses.blade.php',
+                    'react'    => 'ecras/facturacao/Catalogo.tsx',
+                ],
+                [
+                    'nome'     => 'Condições de pagamento',
+                    'livewire' => 'app/Livewire/Invoicing/PaymentTerms.php',
+                    'blade'    => 'resources/views/livewire/invoicing/payment-terms.blade.php',
+                    'react'    => 'ecras/facturacao/Catalogo.tsx',
+                ],
+                [
+                    'nome'     => 'Impostos',
+                    'livewire' => 'app/Livewire/Invoicing/TaxManagement.php',
+                    'blade'    => 'resources/views/livewire/invoicing/tax-management.blade.php',
+                    'react'    => 'ecras/facturacao/Catalogo.tsx',
+                ],
+            ],
+        ],
+
     ],
 
 ];
