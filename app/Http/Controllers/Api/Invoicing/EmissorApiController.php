@@ -97,12 +97,64 @@ class EmissorApiController extends Controller
         ]);
     }
 
+    /** A proposta como o editor a precisa — e se ainda se pode mexer (só rascunhos). */
+    public function abrir(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($request, $tipo, 'view');
+        $editor = TiposDeDocumento::editaveis()[$tipo];
+
+        $d = $this->baseDoAutor()->findOrFail($id);
+        $linhas = $editor['itens']::where($editor['chave'], $d->id)->orderBy('order')->get();
+        $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
+
+        return response()->json([
+            'documento' => [
+                'id' => $d->id,
+                'numero' => $d->{$def['numero']},
+                'estado' => $d->status,
+                'pode_editar' => $d->status === 'draft',
+                'parte_id' => $d->{$editor['parte_id']},
+                'data' => $data($d->{$def['data']}),
+                'valido_ate' => $data($d->valid_until ?? null),
+                'notas' => $d->notes,
+                'pdf' => url(ltrim($def['rota'], '/') . '/' . $d->id . '/pdf'),
+            ],
+            'linhas' => $linhas->map(fn ($l) => [
+                'product_id' => $l->product_id,
+                'description' => $l->description ?? '',
+                'quantity' => (float) $l->quantity,
+                'price' => (float) $l->unit_price,
+                'discount_percent' => (float) ($l->discount_percent ?? 0),
+            ])->values(),
+        ]);
+    }
+
     /** Grava a proposta. Recalcula tudo, ignorando os totais do pedido. */
     public function guardar(Request $request, string $tipo, CalculadoraDeDocumento $calculadora): JsonResponse
     {
-        $def = $this->definicao($request, $tipo, 'create');
-        $editor = TiposDeDocumento::editaveis()[$tipo];
+        $this->definicao($request, $tipo, 'create');
 
+        return $this->gravarPedido($request, $tipo, $calculadora, null);
+    }
+
+    /** Guarda de novo um rascunho: as linhas nascem de novo, o número fica. */
+    public function actualizar(Request $request, string $tipo, CalculadoraDeDocumento $calculadora, int $id): JsonResponse
+    {
+        $this->definicao($request, $tipo, 'edit');
+
+        $existente = $this->baseDoAutor()->findOrFail($id);
+
+        if ($existente->status !== 'draft') {
+            return response()->json(['message' => __('Só um rascunho se altera. Este documento já seguiu.')], 422);
+        }
+
+        return $this->gravarPedido($request, $tipo, $calculadora, $existente);
+    }
+
+    private function gravarPedido(Request $request, string $tipo, CalculadoraDeDocumento $calculadora, $existente): JsonResponse
+    {
+        $def = TiposDeDocumento::um($tipo);
+        $editor = TiposDeDocumento::editaveis()[$tipo];
         $dados = $request->validate([
             'parte_id' => ['required', 'integer'],
             'data' => ['required', 'date'],
@@ -131,14 +183,21 @@ class EmissorApiController extends Controller
 
         $modelo = $def['modelo'];
 
-        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo) {
-            $d = new $modelo();
-            $d->tenant_id = activeTenantId();
-            $d->created_by = auth()->id();
+        $documento = DB::transaction(function () use ($def, $editor, $dados, $conta, $modelo, $existente) {
+            if ($existente) {
+                $editor['itens']::where($editor['chave'], $existente->id)->delete();
+            }
+
+            $d = $existente ?? new $modelo();
+
+            if (! $existente) {
+                $d->tenant_id = activeTenantId();
+                $d->created_by = auth()->id();
+                $d->status = 'draft';
+            }
+
             $d->{$editor['parte_id']} = $dados['parte_id'];
-            $d->{$def['data']} = $dados['data'];
-            $d->status = 'draft';
-            $d->notes = $dados['notas'] ?? null;
+            $d->{$def['data']} = $dados['data'];            $d->notes = $dados['notas'] ?? null;
 
             if (in_array('valid_until', $d->getFillable(), true) || ! empty($dados['valido_ate'])) {
                 $d->valid_until = $dados['valido_ate'] ?? null;
@@ -181,8 +240,10 @@ class EmissorApiController extends Controller
             'numero' => $documento->{$def['numero']},
             'total' => round((float) $documento->total, 2),
             'abrir' => $def['rota'] . '/' . $documento->id . '/edit',
-            'message' => __('Documento :n gravado como rascunho.', ['n' => $documento->{$def['numero']}]),
-        ], 201);
+            'message' => $existente
+                ? __('Documento :n actualizado.', ['n' => $documento->{$def['numero']}])
+                : __('Documento :n gravado como rascunho.', ['n' => $documento->{$def['numero']}]),
+        ], $existente ? 200 : 201);
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
@@ -199,9 +260,11 @@ class EmissorApiController extends Controller
 
         $def = TiposDeDocumento::um($tipo);
 
-        $permissao = $verbo === 'create'
-            ? str_replace('.view', '.create', $def['permissao'])
-            : $def['permissao'];
+        $permissao = match ($verbo) {
+            'create' => str_replace('.view', '.create', $def['permissao']),
+            'edit' => str_replace('.view', '.edit', $def['permissao']),
+            default => $def['permissao'],
+        };
 
         abort_unless($request->user()?->can($permissao), 403, __('Sem permissão para esta operação.'));
 

@@ -2,7 +2,8 @@
 
 namespace App\Console\Commands\AGT;
 
-use App\Livewire\Invoicing\Sales\InvoiceCreate;
+use App\Services\Invoicing\EmissorDeFacturas;
+use App\Services\Invoicing\EmissorDeNotas;
 use App\Models\Client;
 use App\Models\Invoicing\InvoicingSettings;
 use App\Models\Invoicing\LineTax;
@@ -14,7 +15,6 @@ use App\Services\AGT\DocumentMapper;
 use App\Services\AGT\RegisterService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Livewire\Livewire;
 
 /**
  * Cenário de certificação AGT — Conformidade da Emissão do Documento.
@@ -247,27 +247,34 @@ class CertificacaoCommand extends Command
             [$nome, $cliente, $produto] = $cenario;
             $extra = $cenario[3] ?? [];
 
-            $c = Livewire::test(InvoiceCreate::class)
-                ->set('invoice_type', $tipo)
-                ->set('client_id', $cliente->id)
-                // Cabinda testa-se pela região do documento, não por outro cliente
-                ->set('tax_country_region', $extra['regiao'] ?? '')
-                ->set('warehouse_id', $armazem)
-                ->set('invoice_date', now()->toDateString())
-                ->set('due_date', now()->addDays(30)->toDateString())
-                ->set('payment_method', 'cash')
-                ->call('addProduct', $produto->id);
+            // Pelo MESMO emissor que os ecrãs usam — é o fluxo real da casa.
+            [$linhas, $iec, $is] = EmissorDeFacturas::linhasDoPedido([[
+                'product_id' => $produto->id,
+                'quantity' => 1,
+                'price' => $produto->price,
+                'iec' => $extra['iec'] ?? null,
+                'is' => $extra['is'] ?? null,
+            ]]);
 
-            if (!empty($extra['iec'])) { $c->call('setLineIec', $produto->id, $extra['iec']); }
-            if (!empty($extra['is']))  { $c->call('setLineIs',  $produto->id, $extra['is']); }
+            $dados = [
+                'invoice_type' => $tipo,
+                'client_id' => $cliente->id,
+                // Cabinda testa-se pela região do documento, não por outro cliente
+                'tax_country_region' => $extra['regiao'] ?? '',
+                'warehouse_id' => $armazem,
+                'invoice_date' => now()->toDateString(),
+                'due_date' => now()->addDays(30)->toDateString(),
+                'payment_method' => 'cash',
+                'status' => 'pending',
+            ];
+
             if (!empty($extra['ret'])) {
-                $c->set('withholding_type', $extra['ret'][0])
-                  ->set('withholding_percentage', $extra['ret'][1]);
+                $dados['withholding_type'] = $extra['ret'][0];
+                $dados['withholding_percentage'] = $extra['ret'][1];
+                $dados['withholding_amount'] = round((float) $produto->price * (float) $extra['ret'][1] / 100, 2);
             }
 
-            $c->call('save', 'sent');
-
-            $inv = SalesInvoice::where('tenant_id', $tenantId)->latest('id')->first();
+            $inv = app(EmissorDeFacturas::class)->emitir($dados, $linhas, $iec, $is)['factura']->fresh(['items']);
             $emitidas[] = $inv;
 
             $item    = $inv->items->first();
@@ -305,17 +312,14 @@ class CertificacaoCommand extends Command
         $notas = [];
 
         foreach ($facturas as $i => $factura) {
-            $c = Livewire::test(\App\Livewire\Invoicing\CreditNotes\CreditNoteCreate::class)
-                ->set('client_id', $factura->client_id)
-                ->set('invoice_id', $factura->id)
-                ->set('issue_date', now()->toDateString())
-                ->set('reason', 'return')
-                ->set('type', 'total')
-                ->call('loadInvoiceItems', $factura->id)
-                ->call('save');
-
-            $nc = \App\Models\Invoicing\CreditNote::where('tenant_id', $tenantId)
-                ->latest('id')->first();
+            $emissor = app(EmissorDeNotas::class);
+            $nc = $emissor->emitirCredito([
+                'client_id' => $factura->client_id,
+                'invoice_id' => $factura->id,
+                'issue_date' => now()->toDateString(),
+                'reason' => 'return',
+                'type' => 'total',
+            ], $emissor->linhasDaFactura($factura))['nota']->fresh(['items']);
             $notas[] = $nc;
 
             $item = $nc->items->first();
@@ -349,16 +353,13 @@ class CertificacaoCommand extends Command
         $notas = [];
 
         foreach ($facturas as $i => $factura) {
-            Livewire::test(\App\Livewire\Invoicing\DebitNotes\DebitNoteCreate::class)
-                ->set('client_id', $factura->client_id)
-                ->set('invoice_id', $factura->id)
-                ->set('issue_date', now()->toDateString())
-                ->set('reason', 'correction')
-                ->call('loadInvoiceItems', $factura->id)
-                ->call('save');
-
-            $nd = \App\Models\Invoicing\DebitNote::where('tenant_id', $tenantId)
-                ->latest('id')->first();
+            $emissor = app(EmissorDeNotas::class);
+            $nd = $emissor->emitirDebito([
+                'client_id' => $factura->client_id,
+                'invoice_id' => $factura->id,
+                'issue_date' => now()->toDateString(),
+                'reason' => 'correction',
+            ], $emissor->linhasDaFactura($factura))['nota']->fresh(['items']);
             $notas[] = $nd;
 
             $item = $nd->items->first();

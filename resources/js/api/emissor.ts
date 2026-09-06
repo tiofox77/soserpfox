@@ -47,15 +47,19 @@ export type OpcoesDoEmissor = {
     permissoes: { pode_criar: boolean };
 };
 
+/** Uma proposta aberta no editor — e se ainda se pode mexer (só rascunhos). */
+export type PropostaAberta = {
+    documento: { id: number; numero: string | null; estado: string; pode_editar: boolean; parte_id: number | null; data: string | null; valido_ate: string | null; notas: string | null; pdf: string };
+    linhas: LinhaDoEditor[];
+};
+
+type Gravada = { id: number; numero: string; total: number; abrir: string; message: string };
+
 export const emissor = {
     opcoes: (tipo: string) => api.ler<OpcoesDoEmissor>(`/emissor/${tipo}/opcoes`),
-
     calcular: (tipo: string, corpo: { linhas: LinhaDoEditor[]; desconto_comercial?: number; desconto_financeiro?: number }) =>
         api.criar<{ linhas: LinhaCalculada[]; totais: Totais }>(`/emissor/${tipo}/calcular`, corpo),
-
-    guardar: (tipo: string, corpo: Record<string, unknown>) =>
-        api.criar<{ id: number; numero: string; total: number; abrir: string; message: string }>(
-            `/emissor/${tipo}`,
-            corpo,
-        ),
+    guardar: (tipo: string, corpo: Record<string, unknown>) => api.criar<Gravada>(`/emissor/${tipo}`, corpo),
+    abrir: (tipo: string, id: number) => api.ler<PropostaAberta>(`/emissor/${tipo}/${id}`),
+    actualizar: (tipo: string, id: number, corpo: Record<string, unknown>) => api.guardar<Gravada>(`/emissor/${tipo}/${id}`, corpo),
 };

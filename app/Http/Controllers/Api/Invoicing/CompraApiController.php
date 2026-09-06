@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoicing\PurchaseInvoice;
 use App\Models\Invoicing\Warehouse;
+use App\Traits\DocumentosPorAutor;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Services\Invoicing\CalculadoraDeDocumento;
@@ -28,6 +30,48 @@ use Illuminate\Support\Collection;
  */
 class CompraApiController extends Controller
 {
+    use DocumentosPorAutor;
+
+    protected function modeloDoDocumento(): string
+    {
+        return PurchaseInvoice::class;
+    }
+
+    /** A compra como o editor a precisa. Só um rascunho se altera: a registada já deu entrada do stock. */
+    public function abrir(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.purchases.invoices.view');
+
+        $f = $this->baseDoAutor()->with('items')->findOrFail($id);
+        $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
+
+        return response()->json([
+            'documento' => [
+                'id' => $f->id,
+                'numero' => $f->invoice_number,
+                'estado' => $f->status,
+                'pode_editar' => $f->status === 'draft',
+                'supplier_id' => $f->supplier_id,
+                'warehouse_id' => $f->warehouse_id,
+                'invoice_date' => $data($f->invoice_date),
+                'due_date' => $data($f->due_date),
+                'tax_country_region' => $f->tax_country_region ?? $f->items->first()?->tax_country_region ?? 'AO',
+                'is_service' => (bool) ($f->is_service ?? false),
+                'discount_commercial' => (float) ($f->discount_commercial ?? 0),
+                'discount_financial' => (float) ($f->discount_financial ?? 0),
+                'notes' => $f->notes,
+            ],
+            'linhas' => $f->items->map(fn ($i) => [
+                'product_id' => $i->product_id,
+                'description' => $i->description ?? '',
+                'quantity' => (float) $i->quantity,
+                'price' => (float) $i->unit_price,
+                'discount_percent' => (float) ($i->discount_percent ?? 0),
+                'batch_number' => $i->batch_number ?? '',
+                'expiry_date' => $data($i->expiry_date) ?? '',
+            ])->values(),
+        ]);
+    }
     public function opcoes(Request $request): JsonResponse
     {
         $this->exigir($request, 'invoicing.purchases.invoices.create');
@@ -96,7 +140,25 @@ class CompraApiController extends Controller
     {
         $this->exigir($request, 'invoicing.purchases.invoices.create');
 
-        $dados = $request->validate([
+        return $this->registarPedido($request, $emissor, null);
+    }
+
+    /** Guarda de novo um rascunho. Uma compra registada já deu entrada do stock: não se mexe. */
+    public function actualizar(Request $request, EmissorDeCompras $emissor, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.purchases.invoices.create');
+
+        $existente = $this->baseDoAutor()->findOrFail($id);
+
+        if ($existente->status !== 'draft') {
+            return response()->json(['message' => __('Só um rascunho se altera — esta compra já foi registada e deu entrada do stock.')], 422);
+        }
+
+        return $this->registarPedido($request, $emissor, $existente);
+    }
+
+    private function registarPedido(Request $request, EmissorDeCompras $emissor, ?PurchaseInvoice $existente): JsonResponse
+    {        $dados = $request->validate([
             'supplier_id' => ['required', 'integer', 'exists:invoicing_suppliers,id'],
             // A compra dá entrada de stock: o armazém é sempre obrigatório.
             'warehouse_id' => ['required', 'integer', 'exists:invoicing_warehouses,id'],
@@ -130,7 +192,8 @@ class CompraApiController extends Controller
         try {
             $f = $emissor->emitir(
                 array_merge($dados, ['status' => $dados['status'] ?? 'pending']),
-                $this->linhasDoPedido($dados['linhas'])
+                $this->linhasDoPedido($dados['linhas']),
+                $existente
             );
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage(), 'errors' => ['linhas' => [$e->getMessage()]]], 422);
@@ -141,8 +204,10 @@ class CompraApiController extends Controller
             'numero' => $f->invoice_number,
             'total' => round((float) $f->total, 2),
             'abrir' => '/invoicing/purchases/invoices',
-            'message' => __('Factura de compra :n registada.', ['n' => $f->invoice_number]),
-        ], 201);
+            'message' => $existente
+                ? __('Factura de compra :n actualizada.', ['n' => $f->invoice_number])
+                : __('Factura de compra :n registada.', ['n' => $f->invoice_number]),
+        ], $existente ? 200 : 201);
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */

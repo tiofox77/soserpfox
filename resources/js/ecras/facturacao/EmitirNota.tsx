@@ -1,31 +1,83 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { notas, type LinhaDaFactura, type TipoDeNota } from '@/api/notas';
+import { notas, type LinhaDaFactura, type NotaAberta, type TipoDeNota } from '@/api/notas';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
+import { Etiqueta } from '@/ui/Etiqueta';
 import { CARTAO, FOCO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 
 /**
- * EMITIR UMA NOTA DE CRÉDITO OU DE DÉBITO.
+ * EMITIR UMA NOTA DE CRÉDITO OU DE DÉBITO — ou abrir uma emitida, só para ler.
  *
  * O QUE ESTE ECRÃ FAZ: escolhe a factura, mostra as linhas dela, deixa
  * acertar QUANTIDADES, e grava. O que ele NÃO faz é tudo o que a AGT compara:
  * a taxa, o código SAFT, a região, o motivo de isenção e os totais vêm da
- * linha original e são calculados no servidor pelo `EmissorDeNotas` — o mesmo
- * que o ecrã Livewire chama. Daqui só sai a quantidade.
+ * linha original e são calculados no servidor pelo `EmissorDeNotas`.
  *
- * O TRAVÃO DO E43 vive lá e responde 422 com a razão. Este ecrã mostra-a nas
- * linhas — a nota nunca chega a nascer, que é o objectivo: a AGT recusaria
- * dias depois, quando já não há como desfazer.
+ * O TRAVÃO DO E43 vive lá e responde 422 com a razão. Uma nota emitida não se
+ * edita: rectifica-se com outra.
  */
 type Linha = LinhaDaFactura & { quantidade: number | string };
 
-export default function EmitirNota({ tipo }: { tipo: TipoDeNota }) {
+export default function EmitirNota({ tipo, id }: { tipo: TipoDeNota; id?: number }) {
+    if (id !== undefined) {
+        return <NotaEmitida tipo={tipo} id={id} />;
+    }
+
+    return <Emitir tipo={tipo} />;
+}
+
+function NotaEmitida({ tipo, id }: { tipo: TipoDeNota; id: number }) {
+    const q = useQuery({ queryKey: ['notas', tipo, 'mostrar', id], queryFn: () => notas.mostrar(tipo, id) });
+    const eCredito = tipo === 'credito';
+
+    if (q.isPending) return <Carregando linhas={6} />;
+    if (q.isError) {
+        return (
+            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
+                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir a nota</h2>
+                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : 'Verifique a ligação.'}</p>
+            </div>
+        );
+    }
+
+    const n: NotaAberta = q.data.nota;
+
+    return (
+        <div className="space-y-4" data-documento-aberto>
+            <Cartao
+                titulo={<span className="flex items-center gap-2"><i className={cls('fas text-slate-400', eCredito ? 'fa-file-circle-minus' : 'fa-file-circle-plus')} aria-hidden="true" />{n.numero ?? (eCredito ? 'Nota de crédito' : 'Nota de débito')}<Etiqueta cor={n.estado === 'cancelled' ? 'perigo' : 'bom'}>{n.estado}</Etiqueta></span>}
+                accoes={<span className="flex gap-2"><a href={n.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />PDF</a><Botao icone="fa-list" onClick={() => (window.location.href = eCredito ? '/invoicing/credit-notes' : '/invoicing/debit-notes')}>Ver as notas</Botao></span>}
+            >
+                <p className="mb-4 text-sm text-slate-500">Documento fiscal emitido: abre-se para consultar. Corrige-se com outra nota.</p>
+                <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                    {[
+                        ['Cliente', n.cliente ?? '—'], ['Factura', n.factura ?? '—'], ['Data', fmtData(n.issue_date)],
+                        ['Motivo', n.reason ?? '—'], [eCredito ? 'Alcance' : 'Vencimento', eCredito ? (n.type === 'total' ? 'Anulação total' : 'Rectificação parcial') : fmtData(n.due_date)], ['Observações', n.notes ?? '—'],
+                    ].map(([rotulo, valor]) => (
+                        <div key={rotulo}><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{rotulo}</dt><dd className="font-medium text-slate-900">{valor}</dd></div>
+                    ))}
+                </dl>
+            </Cartao>
+            <Cartao titulo="Linhas" semPadding>
+                <table className="w-full text-sm">
+                    <thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wider text-slate-500"><th className="px-4 py-3 font-semibold">Artigo</th><th className="px-4 py-3 text-right font-semibold">Qtd.</th><th className="px-4 py-3 text-right font-semibold">Preço</th><th className="px-4 py-3 text-right font-semibold">IVA</th><th className="px-4 py-3 text-right font-semibold">Total</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {n.linhas.map((l, i) => <tr key={i}><td className="px-4 py-2">{l.nome}</td><td className="px-4 py-2 text-right tabular-nums">{l.quantity}</td><td className="px-4 py-2 text-right tabular-nums">{kz(l.price)}</td><td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.tax_rate}%</td><td className="px-4 py-2 text-right tabular-nums">{kz(l.total)}</td></tr>)}
+                    </tbody>
+                    <tfoot><tr className="border-t-2 border-slate-300 bg-slate-50 font-bold"><td className="px-4 py-2" colSpan={4}>Total</td><td className="px-4 py-2 text-right tabular-nums">{kz(n.total)} Kz</td></tr></tfoot>
+                </table>
+            </Cartao>
+        </div>
+    );
+}
+
+function Emitir({ tipo }: { tipo: TipoDeNota }) {
     const eCredito = tipo === 'credito';
 
     const [clienteId, porClienteId] = useState('');

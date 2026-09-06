@@ -188,6 +188,61 @@ class EmissorDeFacturas
         return ['factura' => $factura, 'fila' => $fila];
     }
 
+    /**
+     * As linhas de um pedido (API, comando) na forma que `emitir()` espera,
+     * com a TAXA resolvida aqui — nunca do pedido. O preço pode vir do
+     * pedido (é o preço de venda desta factura), a taxa não.
+     *
+     * @param  array<int, array{product_id?: int|null, description?: string|null, quantity: float|int|string, price: float|int|string, discount_percent?: float|int|string|null, iec?: string|null, is?: string|null}>  $pedidas
+     * @return array{0: Collection, 1: array, 2: array, 3: bool}  [linhas, IEC por id, IS por id, há físicos]
+     */
+    public static function linhasDoPedido(array $pedidas): array
+    {
+        $tenantId = activeTenantId();
+        $iec = [];
+        $is = [];
+        $temFisicos = false;
+
+        $linhas = collect($pedidas)->values()->map(function (array $p, int $i) use ($tenantId, &$iec, &$is, &$temFisicos) {
+            $artigo = ! empty($p['product_id'])
+                ? Product::where('tenant_id', $tenantId)->find($p['product_id'])
+                : null;
+
+            if ($artigo && ($artigo->type ?? 'produto') !== 'servico') {
+                $temFisicos = true;
+            }
+
+            $imposto = TaxResolver::forProduct($artigo, $tenantId);
+
+            // O emissor indexa o IEC/IS pelo `id` da linha; uma linha livre
+            // recebe um id próprio para não colidir com artigos.
+            $id = $artigo?->id ?? ('livre_' . $i);
+
+            if (! empty($p['iec'])) {
+                $iec[$id] = $p['iec'];
+            }
+            if (! empty($p['is'])) {
+                $is[$id] = $p['is'];
+            }
+
+            return (object) [
+                'id' => $id,
+                'name' => $artigo?->name ?? ($p['description'] ?? ''),
+                'price' => round((float) $p['price'], 2),
+                'quantity' => (float) $p['quantity'],
+                'attributes' => [
+                    'description' => $p['description'] ?? null,
+                    'unit' => $artigo?->unit ?? 'UN',
+                    'discount_percent' => (float) ($p['discount_percent'] ?? 0),
+                    'tax_rate' => (float) $imposto['rate'],
+                    'exemption_reason' => $imposto['exemption_code'],
+                ],
+            ];
+        });
+
+        return [$linhas, $iec, $is, $temFisicos];
+    }
+
     /* ─── Por dentro ──────────────────────────────────────────────────── */
 
     /**

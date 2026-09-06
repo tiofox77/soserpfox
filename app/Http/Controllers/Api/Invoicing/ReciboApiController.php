@@ -9,6 +9,7 @@ use App\Models\Invoicing\Receipt;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Supplier;
 use App\Services\AGT\AutoSubmissao;
+use App\Traits\DocumentosPorAutor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,39 @@ use Illuminate\Support\Facades\DB;
  */
 class ReciboApiController extends Controller
 {
+    use DocumentosPorAutor;
+
+    protected function modeloDoDocumento(): string
+    {
+        return Receipt::class;
+    }
+
+    /** Um recibo aberto para consulta. É documento fiscal: não se edita. */
+    public function mostrar(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.receipts.view');
+
+        $r = $this->baseDoAutor()->findOrFail($id);
+        $venda = $r->type === 'sale';
+        $factura = $venda
+            ? SalesInvoice::where('tenant_id', activeTenantId())->find($r->invoice_id)
+            : PurchaseInvoice::where('tenant_id', activeTenantId())->find($r->purchase_invoice_id ?? $r->invoice_id);
+
+        return response()->json(['recibo' => [
+            'id' => $r->id,
+            'numero' => $r->receipt_number,
+            'type' => $r->type,
+            'estado' => $r->status,
+            'parte' => $venda ? Client::where('tenant_id', activeTenantId())->find($r->client_id)?->name : Supplier::where('tenant_id', activeTenantId())->find($r->supplier_id)?->name,
+            'factura' => $factura?->invoice_number,
+            'payment_date' => $r->payment_date instanceof \DateTimeInterface ? $r->payment_date->format('Y-m-d') : (string) $r->payment_date,
+            'payment_method' => $r->payment_method,
+            'amount_paid' => (float) $r->amount_paid,
+            'reference' => $r->reference,
+            'notes' => $r->notes,
+            'pdf' => url('invoicing/receipts/' . $r->id . '/pdf'),
+        ]]);
+    }
     public function opcoes(Request $request): JsonResponse
     {
         $this->exigir($request, 'invoicing.receipts.view');

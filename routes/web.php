@@ -386,12 +386,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->where('tipo', '[a-z-]+')->name('emissor.calcular');
         Route::post('/emissor/{tipo}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'guardar'])
             ->where('tipo', '[a-z-]+')->name('emissor.guardar');
+        Route::get('/emissor/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'abrir'])->where('tipo', '[a-z-]+')->whereNumber('id')->name('emissor.abrir');
+        Route::put('/emissor/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\EmissorApiController::class, 'actualizar'])->where('tipo', '[a-z-]+')->whereNumber('id')->name('emissor.actualizar');
 
         // Recibos. O pagamento lança-se pelos ganchos do modelo — aqui não
         // se toca no paid_amount.
         Route::get('/recibos/opcoes', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'opcoes'])->name('recibos.opcoes');
         Route::get('/recibos/facturas', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'facturas'])->name('recibos.facturas');
         Route::post('/recibos', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'guardar'])->name('recibos.guardar');
+        Route::get('/recibos/{id}', [\App\Http\Controllers\Api\Invoicing\ReciboApiController::class, 'mostrar'])->whereNumber('id')->name('recibos.mostrar');
 
         // Notas de crédito e de débito. Zero lógica fiscal aqui: tudo no
         // EmissorDeNotas, o mesmo que o Livewire chama.
@@ -403,18 +406,23 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
             ->where('tipo', 'credito|debito')->whereNumber('factura')->name('notas.linhas');
         Route::post('/notas/{tipo}', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'guardar'])
             ->where('tipo', 'credito|debito')->name('notas.guardar');
+        Route::get('/notas/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\NotasApiController::class, 'mostrar'])->where('tipo', '[a-z-]+')->whereNumber('id')->name('notas.mostrar');
 
         // Factura de venda (FT/FR). Zero lógica fiscal aqui: tudo no
         // EmissorDeFacturas, o mesmo que o Livewire chama.
         Route::get('/factura/opcoes', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'opcoes'])->name('factura.opcoes');
         Route::post('/factura/calcular', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'calcular'])->name('factura.calcular');
         Route::post('/factura', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'guardar'])->name('factura.guardar');
+        Route::get('/factura/{id}', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'abrir'])->whereNumber('id')->name('factura.abrir');
+        Route::put('/factura/{id}', [\App\Http\Controllers\Api\Invoicing\FacturaApiController::class, 'actualizar'])->whereNumber('id')->name('factura.actualizar');
 
         // Factura de compra. Zero lógica de negócio aqui: tudo no
         // EmissorDeCompras, o mesmo que o Livewire chama.
         Route::get('/compra/opcoes', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'opcoes'])->name('compra.opcoes');
         Route::post('/compra/calcular', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'calcular'])->name('compra.calcular');
         Route::post('/compra', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'guardar'])->name('compra.guardar');
+        Route::get('/compra/{id}', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'abrir'])->whereNumber('id')->name('compra.abrir');
+        Route::put('/compra/{id}', [\App\Http\Controllers\Api\Invoicing\CompraApiController::class, 'actualizar'])->whereNumber('id')->name('compra.actualizar');
 
         // As definições da facturação e as séries. As regras vivem no
         // DefinicoesDaFacturacao e no GestorDeSeries, os mesmos do Livewire.

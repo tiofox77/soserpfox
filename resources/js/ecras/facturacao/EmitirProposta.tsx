@@ -4,27 +4,26 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { emissor, type LinhaDoEditor, type Totais } from '@/api/emissor';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
-import { Campo, Rotulo, entrada } from '@/ui/Campo';
+import { Campo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
+import { Etiqueta } from '@/ui/Etiqueta';
 import { CARTAO, FOCO, RAIO, cls, kz } from '@/ui/tokens';
 
 /**
- * EMITIR UMA PROPOSTA — proforma de venda, orçamento ou proforma de compra.
+ * EMITIR UMA PROPOSTA — proforma de venda, orçamento ou proforma de compra —
+ * ou abrir uma que já existe.
  *
  * ESTE ECRÃ NÃO FAZ CONTAS. Nenhuma. A cada alteração de linha pergunta ao
  * servidor (`/calcular`) e mostra o que ele responder; ao gravar, o servidor
- * volta a fazer tudo e ignora o que daqui for de totais.
- *
- * Parece um desperdício de um pedido — e é de propósito. Uma cópia da
+ * volta a fazer tudo e ignora o que daqui for de totais. Uma cópia da
  * matemática do imposto em TypeScript divergiria da do servidor ao primeiro
  * ajuste, e a divergência aparece como um cêntimo numa factura que a AGT
- * recusa com E70. Um pedido por alteração é barato; um documento recusado
- * dias depois não é.
+ * recusa com E70.
  *
- * SÓ PROPOSTAS. Facturas, recibos e notas de crédito têm cada uma o seu
- * travão e entram por si — ver `TiposDeDocumento::editaveis()`.
+ * Com `id`, abre a proposta: um rascunho edita-se; uma que já seguiu abre-se
+ * só para ler. O servidor é que diz qual é qual.
  */
 
 const LINHA_NOVA: LinhaDoEditor = {
@@ -35,20 +34,32 @@ const LINHA_NOVA: LinhaDoEditor = {
     discount_percent: 0,
 };
 
-export default function EmitirProposta({ tipo }: { tipo: string }) {
+export default function EmitirProposta({ tipo, id }: { tipo: string; id?: number }) {
     const [parteId, porParteId] = useState('');
     const [data, porData] = useState(() => new Date().toISOString().slice(0, 10));
     const [validoAte, porValidoAte] = useState('');
     const [notas, porNotas] = useState('');
     const [linhas, porLinhas] = useState<LinhaDoEditor[]>([{ ...LINHA_NOVA }]);
     const [erros, porErros] = useState<Record<string, string[]>>({});
-    const [gravado, porGravado] = useState<{ numero: string; abrir: string } | null>(null);
+    const [gravado, porGravado] = useState<{ numero: string; abrir: string; mensagem: string } | null>(null);
 
     const opcoes = useQuery({
         queryKey: ['emissor', tipo, 'opcoes'],
         queryFn: () => emissor.opcoes(tipo),
         staleTime: 5 * 60_000,
     });
+    const aberta = useQuery({ queryKey: ['emissor', tipo, 'abrir', id], queryFn: () => emissor.abrir(tipo, id ?? 0), enabled: id !== undefined });
+
+    /* A proposta aberta entra no formulário tal como está. */
+    useEffect(() => {
+        const d = aberta.data?.documento;
+        if (!d) return;
+        porParteId(d.parte_id ? String(d.parte_id) : '');
+        porData(d.data ?? new Date().toISOString().slice(0, 10));
+        porValidoAte(d.valido_ate ?? '');
+        porNotas(d.notas ?? '');
+        porLinhas(aberta.data && aberta.data.linhas.length > 0 ? aberta.data.linhas : [{ ...LINHA_NOVA }]);
+    }, [aberta.data]);
 
     const [totais, porTotais] = useState<Totais | null>(null);
     const [aContar, porAContar] = useState(false);
@@ -62,9 +73,7 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
      *
      * Sem a pausa, escrever «1500» no preço são quatro pedidos — um por tecla.
      * Com 400 ms, é um. E o `cancelado` impede que a resposta de um pedido
-     * antigo chegue depois da de um novo e escreva por cima dela: com rede
-     * lenta isso acontece, e os totais ficavam a mostrar uma versão anterior
-     * das linhas.
+     * antigo chegue depois da de um novo e escreva por cima dela.
      */
     useEffect(() => {
         let cancelado = false;
@@ -99,30 +108,34 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
     }, [linhas, tipo]);
 
     const guardar = useMutation({
-        mutationFn: () =>
-            emissor.guardar(tipo, {
+        mutationFn: () => {
+            const corpo = {
                 parte_id: Number(parteId),
                 data,
                 valido_ate: validoAte || null,
                 notas: notas || null,
                 linhas: linhas.filter(comConteudo),
-            }),
+            };
+            return id !== undefined ? emissor.actualizar(tipo, id, corpo) : emissor.guardar(tipo, corpo);
+        },
         onSuccess: (r) => {
-            porGravado({ numero: r.numero, abrir: r.abrir });
+            porGravado({ numero: r.numero, abrir: r.abrir, mensagem: r.message });
             porErros({});
         },
         onError: (e) => porErros(e instanceof ErroDaApi ? e.erros : {}),
     });
 
-    if (opcoes.isPending) {
+    if (opcoes.isPending || (id !== undefined && aberta.isPending)) {
         return <Carregando linhas={6} />;
     }
 
-    if (opcoes.isError) {
-        return <Falhou erro={opcoes.error} />;
+    if (opcoes.isError || aberta.isError) {
+        return <Falhou erro={opcoes.error ?? aberta.error} />;
     }
 
     const o = opcoes.data;
+    const doc = aberta.data?.documento ?? null;
+    const soLeitura = doc !== null && !doc.pode_editar;
 
     /* Gravado: o ecrã dá o número e sai da frente. */
     if (gravado) {
@@ -130,22 +143,24 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
             <div className={cls(CARTAO, 'p-8 text-center')}>
                 <i className="fas fa-circle-check mb-3 text-4xl text-emerald-500" aria-hidden="true" />
                 <h2 className="text-xl font-bold text-slate-900">{gravado.numero}</h2>
-                <p className="mt-1 text-sm text-slate-500">Gravado como rascunho.</p>
+                <p className="mt-1 text-sm text-slate-500">{gravado.mensagem}</p>
                 <div className="mt-6 flex justify-center gap-2">
-                    <Botao cor="primaria" tom="solida" icone="fa-arrow-right" onClick={() => (window.location.href = gravado.abrir)}>
-                        Abrir o documento
+                    <Botao cor="primaria" tom="solida" icone="fa-list" onClick={() => (window.location.href = o.rota)}>
+                        Ver a lista
                     </Botao>
-                    <Botao
-                        icone="fa-plus"
-                        onClick={() => {
-                            porGravado(null);
-                            porLinhas([{ ...LINHA_NOVA }]);
-                            porParteId('');
-                            porNotas('');
-                        }}
-                    >
-                        Emitir outro
-                    </Botao>
+                    {id === undefined && (
+                        <Botao
+                            icone="fa-plus"
+                            onClick={() => {
+                                porGravado(null);
+                                porLinhas([{ ...LINHA_NOVA }]);
+                                porParteId('');
+                                porNotas('');
+                            }}
+                        >
+                            Emitir outro
+                        </Botao>
+                    )}
                 </div>
             </div>
         );
@@ -173,9 +188,21 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
         );
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" data-emissor={tipo}>
             <AvisoDeErro erro={guardar.error} />
 
+            {doc && (
+                <div className={cls('flex flex-wrap items-center justify-between gap-3 border px-4 py-3 text-sm', RAIO, soLeitura ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-amber-200 bg-amber-50 text-amber-900')} data-documento-aberto>
+                    <span className="flex items-center gap-2">
+                        <strong>{doc.numero ?? 'Rascunho'}</strong>
+                        <Etiqueta cor={soLeitura ? 'neutra' : 'aviso'}>{doc.estado}</Etiqueta>
+                        {soLeitura ? 'Este documento já seguiu: só leitura.' : 'Rascunho: pode alterar.'}
+                    </span>
+                    <a href={doc.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />PDF</a>
+                </div>
+            )}
+
+            <fieldset disabled={soLeitura} className="min-w-0 space-y-4 border-0 p-0">
             <Cartao titulo="Dados do documento">
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Campo
@@ -212,9 +239,11 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
             <Cartao
                 titulo="Linhas"
                 accoes={
-                    <Botao icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>
-                        Nova linha
-                    </Botao>
+                    !soLeitura && (
+                        <Botao icone="fa-plus" onClick={() => porLinhas((ls) => [...ls, { ...LINHA_NOVA }])}>
+                            Nova linha
+                        </Botao>
+                    )
                 }
                 semPadding
             >
@@ -292,9 +321,8 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
                                     </td>
                                     <td className="px-4 py-2 text-right">
                                         {/* A última linha não se apaga: um documento
-                                            sem linhas não é um documento, e um ecrã
-                                            vazio sem forma de recomeçar é pior. */}
-                                        {linhas.length > 1 && (
+                                            sem linhas não é um documento. */}
+                                        {linhas.length > 1 && !soLeitura && (
                                             <button
                                                 type="button"
                                                 onClick={() => porLinhas((ls) => ls.filter((_, j) => j !== i))}
@@ -358,27 +386,29 @@ export default function EmitirProposta({ tipo }: { tipo: string }) {
                     )}
                 </Cartao>
             </div>
+            </fieldset>
 
             <div className="flex items-center justify-end gap-2">
-                <Botao onClick={() => (window.location.href = o.rota)}>Cancelar</Botao>
-                <Botao
-                    cor="primaria"
-                    tom="solida"
-                    altura="grande"
-                    icone="fa-check"
-                    aTrabalhar={guardar.isPending}
-                    disabled={!o.permissoes.pode_criar}
-                    onClick={() => guardar.mutate()}
-                >
-                    Gravar rascunho
-                </Botao>
+                <Botao onClick={() => (window.location.href = o.rota)}>{soLeitura ? 'Voltar à lista' : 'Cancelar'}</Botao>
+                {!soLeitura && (
+                    <Botao
+                        cor="primaria"
+                        tom="solida"
+                        altura="grande"
+                        icone="fa-check"
+                        aTrabalhar={guardar.isPending}
+                        disabled={!o.permissoes.pode_criar && id === undefined}
+                        onClick={() => guardar.mutate()}
+                    >
+                        {id !== undefined ? 'Guardar alterações' : 'Gravar rascunho'}
+                    </Botao>
+                )}
             </div>
         </div>
     );
 }
 
 /* ─── Peças ───────────────────────────────────────────────────────────── */
-
 
 function Total({ rotulo, valor }: { rotulo: string; valor: number }) {
     return (
@@ -388,7 +418,6 @@ function Total({ rotulo, valor }: { rotulo: string; valor: number }) {
         </div>
     );
 }
-
 
 function Falhou({ erro }: { erro: unknown }) {
     const daApi = erro instanceof ErroDaApi ? erro : null;

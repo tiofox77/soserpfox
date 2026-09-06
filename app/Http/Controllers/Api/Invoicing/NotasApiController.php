@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Invoicing\CreditNote;
+use App\Models\Invoicing\DebitNote;
 use App\Models\Invoicing\SalesInvoice;
 use App\Models\Product;
 use App\Services\Invoicing\EmissorDeNotas;
@@ -244,6 +246,38 @@ class NotasApiController extends Controller
     private function permissao(string $tipo, string $verbo): string
     {
         return ($tipo === 'credito' ? 'invoicing.credit-notes.' : 'invoicing.debit-notes.') . $verbo;
+    }
+
+    /** Uma nota aberta para consulta. Emitida, não se edita — rectifica-se com outra. */
+    public function mostrar(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $this->exigir($request, $tipo, 'view');
+
+        $modelo = $tipo === 'credito' ? CreditNote::class : DebitNote::class;
+        $n = $this->baseDoAutor($modelo)->with(['items', 'client', 'invoice'])->findOrFail($id);
+        $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
+
+        return response()->json(['nota' => [
+            'id' => $n->id,
+            'numero' => $tipo === 'credito' ? $n->credit_note_number : $n->debit_note_number,
+            'estado' => $n->status,
+            'cliente' => $n->client?->name,
+            'factura' => $n->invoice?->invoice_number,
+            'issue_date' => $data($n->issue_date),
+            'due_date' => $data($n->due_date ?? null),
+            'reason' => $n->reason,
+            'type' => $n->type ?? null,
+            'notes' => $n->notes,
+            'total' => (float) $n->total,
+            'pdf' => url('invoicing/' . ($tipo === 'credito' ? 'credit-notes' : 'debit-notes') . '/' . $n->id . '/pdf'),
+            'linhas' => $n->items->map(fn ($i) => [
+                'nome' => $i->description ?: ($i->product_name ?? ''),
+                'quantity' => (float) $i->quantity,
+                'price' => (float) $i->unit_price,
+                'tax_rate' => (float) ($i->tax_rate ?? 0),
+                'total' => (float) ($i->total ?? 0),
+            ])->values(),
+        ]]);
     }
 
     private function exigir(Request $request, string $tipo, string $verbo): void

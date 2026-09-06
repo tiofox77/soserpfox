@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { recibos, type FacturaPorReceber } from '@/api/recibos';
+import { recibos, type FacturaPorReceber, type ReciboAberto } from '@/api/recibos';
 import { ErroDaApi } from '@/api/cliente';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
-import { Campo, Rotulo, entrada } from '@/ui/Campo';
+import { Campo, entrada } from '@/ui/Campo';
 import { Botao } from '@/ui/Botao';
 import { Cartao } from '@/ui/Cartao';
 import { Carregando } from '@/ui/Carregando';
+import { Etiqueta } from '@/ui/Etiqueta';
 import { CARTAO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
 
 /**
- * REGISTAR UM RECIBO.
+ * REGISTAR UM RECIBO — ou abrir um que já existe, só para ler.
  *
  * O ecrã diz sempre QUANTO FALTA e propõe esse valor. É a diferença entre
  * receber e adivinhar: quem está ao balcão com o cliente à frente não tem de
@@ -19,10 +20,60 @@ import { CARTAO, RAIO, cls, data as fmtData, kz } from '@/ui/tokens';
  *
  * O que o servidor garante e este ecrã só reflecte: não se recebe mais do que
  * falta, o `paid_amount` sobe pelos ganchos do modelo (nunca por uma conta
- * feita aqui), e uma factura-recibo do balcão nem aparece na lista — é paga no
- * acto e oferecer-lhe recibo é convidar a receber duas vezes.
+ * feita aqui), e uma factura-recibo do balcão nem aparece na lista.
+ *
+ * Um recibo emitido é documento fiscal: abre-se para consultar, não para
+ * editar. Recebeu-se mal, anula-se e faz-se outro.
  */
-export default function RegistarRecibo() {
+export default function RegistarRecibo({ id }: { id?: number }) {
+    if (id !== undefined) {
+        return <ReciboEmitido id={id} />;
+    }
+
+    return <Registar />;
+}
+
+function ReciboEmitido({ id }: { id: number }) {
+    const q = useQuery({ queryKey: ['recibos', 'mostrar', id], queryFn: () => recibos.mostrar(id) });
+
+    if (q.isPending) return <Carregando linhas={5} />;
+    if (q.isError) {
+        return (
+            <div className={cls('border border-red-200 bg-red-50 p-6', RAIO)} role="alert">
+                <h2 className="mb-2 text-lg font-bold text-red-900">Não foi possível abrir o recibo</h2>
+                <p className="text-sm text-red-800">{q.error instanceof ErroDaApi ? q.error.message : 'Verifique a ligação.'}</p>
+            </div>
+        );
+    }
+
+    const r: ReciboAberto = q.data.recibo;
+
+    return (
+        <div className="space-y-4" data-documento-aberto>
+            <Cartao
+                titulo={<span className="flex items-center gap-2"><i className="fas fa-receipt text-slate-400" aria-hidden="true" />{r.numero ?? 'Recibo'}<Etiqueta cor={r.estado === 'cancelled' ? 'perigo' : 'bom'}>{r.estado}</Etiqueta></span>}
+                accoes={<span className="flex gap-2"><a href={r.pdf} target="_blank" rel="noreferrer" className={cls('inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50', RAIO)}><i className="fas fa-file-pdf" aria-hidden="true" />PDF</a><Botao icone="fa-list" onClick={() => (window.location.href = '/invoicing/receipts')}>Ver os recibos</Botao></span>}
+            >
+                <p className="mb-4 text-sm text-slate-500">Documento fiscal: abre-se para consultar, não para editar.</p>
+                <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                    {[
+                        [r.type === 'sale' ? 'Recebido de' : 'Pago a', r.parte ?? '—'],
+                        ['Factura', r.factura ?? 'Sem factura (adiantamento)'],
+                        ['Data', fmtData(r.payment_date)],
+                        ['Forma', r.payment_method],
+                        ['Referência', r.reference ?? '—'],
+                        ['Observações', r.notes ?? '—'],
+                    ].map(([rotulo, valor]) => (
+                        <div key={rotulo}><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{rotulo}</dt><dd className="font-medium text-slate-900">{valor}</dd></div>
+                    ))}
+                    <div className="sm:col-span-3 border-t border-slate-100 pt-3"><dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Valor</dt><dd className="text-2xl font-bold tabular-nums text-emerald-700">{kz(r.amount_paid)} <span className="text-sm font-normal text-slate-400">Kz</span></dd></div>
+                </dl>
+            </Cartao>
+        </div>
+    );
+}
+
+function Registar() {
     const [tipo, porTipo] = useState<'sale' | 'purchase'>('sale');
     const [parteId, porParteId] = useState('');
     const [facturaId, porFacturaId] = useState('');
@@ -292,5 +343,3 @@ function Saldo({ f }: { f: FacturaPorReceber }) {
         </dl>
     );
 }
-
-

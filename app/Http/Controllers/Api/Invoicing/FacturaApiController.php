@@ -4,6 +4,11 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Invoicing\LineTax;
+use App\Models\Invoicing\SalesInvoice;
+use App\Models\Invoicing\SalesInvoiceItem;
+use App\Traits\DocumentosPorAutor;
+use Illuminate\Support\Facades\DB;
 use App\Models\Invoicing\InvoicingSeries;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
@@ -29,6 +34,60 @@ use Illuminate\Support\Collection;
  */
 class FacturaApiController extends Controller
 {
+    use DocumentosPorAutor;
+
+    protected function modeloDoDocumento(): string
+    {
+        return SalesInvoice::class;
+    }
+
+    /**
+     * A factura como o editor a precisa: cabeçalho e linhas, e se ainda se
+     * pode mexer. Um rascunho edita-se; uma factura emitida abre-se só para
+     * ler — rectifica-se com nota de crédito (Decreto 71/25).
+     */
+    public function abrir(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.sales.invoices.view');
+
+        $f = $this->baseDoAutor()->with('items')->findOrFail($id);
+        $retencao = DB::table('invoicing_withholding_taxes')->where('document_type', SalesInvoice::class)->where('document_id', $f->id)->first();
+        $extras = LineTax::where('line_type', SalesInvoiceItem::class)->whereIn('line_id', $f->items->pluck('id'))->get()->groupBy('line_id');
+        $data = fn ($v) => $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : ($v ? substr((string) $v, 0, 10) : null);
+
+        return response()->json([
+            'documento' => [
+                'id' => $f->id,
+                'numero' => $f->invoice_number,
+                'estado' => $f->status,
+                'pode_editar' => $f->status === 'draft' || ($f->status === 'pending' && empty($f->saft_hash)),
+                'client_id' => $f->client_id,
+                'warehouse_id' => $f->warehouse_id,
+                'invoice_type' => $f->invoice_type ?: 'FT',
+                'series_id' => $f->series_id,
+                'invoice_date' => $data($f->invoice_date),
+                'due_date' => $data($f->due_date),
+                'delivery_date' => $data($f->delivery_date),
+                'tax_country_region' => $f->tax_country_region ?? $f->items->first()?->tax_country_region,
+                'payment_method' => $f->payment_method,
+                'discount_commercial' => (float) ($f->discount_commercial ?? 0),
+                'discount_financial' => (float) ($f->discount_financial ?? 0),
+                'withholding_type' => $retencao->withholding_tax_type ?? null,
+                'withholding_percentage' => (float) ($retencao->withholding_tax_percentage ?? 0),
+                'notes' => $f->notes,
+                'pdf' => url('invoicing/sales/invoices/' . $f->id . '/pdf'),
+            ],
+            'linhas' => $f->items->map(fn ($i) => [
+                'product_id' => $i->product_id,
+                'description' => $i->description ?? '',
+                'quantity' => (float) $i->quantity,
+                'price' => (float) $i->unit_price,
+                'discount_percent' => (float) ($i->discount_percent ?? 0),
+                'iec' => $extras->get($i->id)?->firstWhere('tax_type', 'IEC')?->pautal_code,
+                'is' => $extras->get($i->id)?->firstWhere('tax_type', 'IS')?->verba_no,
+            ])->values(),
+        ]);
+    }
     public function opcoes(Request $request): JsonResponse
     {
         $this->exigir($request, 'invoicing.sales.invoices.create');
@@ -97,7 +156,19 @@ class FacturaApiController extends Controller
     {
         $this->exigir($request, 'invoicing.sales.invoices.create');
 
-        $dados = $request->validate([
+        return $this->emitirPedido($request, $emissor, null);
+    }
+
+    /** Guarda de novo um rascunho. O emissor recusa o que já está finalizado. */
+    public function actualizar(Request $request, EmissorDeFacturas $emissor, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.sales.invoices.create');
+
+        return $this->emitirPedido($request, $emissor, $this->baseDoAutor()->findOrFail($id));
+    }
+
+    private function emitirPedido(Request $request, EmissorDeFacturas $emissor, ?SalesInvoice $existente): JsonResponse
+    {        $dados = $request->validate([
             'client_id' => ['required', 'integer'],
             'warehouse_id' => ['nullable', 'integer'],
             'invoice_type' => ['required', 'in:FT,FR'],
@@ -148,7 +219,8 @@ class FacturaApiController extends Controller
                 array_merge($dados, ['status' => $dados['status'] ?? 'pending']),
                 $linhas,
                 $iec,
-                $is
+                $is,
+                $existente
             );
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage(), 'errors' => ['linhas' => [$e->getMessage()]]], 422);
@@ -163,8 +235,10 @@ class FacturaApiController extends Controller
             'agt' => $r['fila']['enfileirado'] ? __('A comunicar à AGT.') : null,
             'abrir' => '/invoicing/sales/invoices/' . $f->id,
             'pdf' => '/invoicing/sales/invoices/' . $f->id . '/pdf',
-            'message' => __('Factura :n emitida.', ['n' => $f->invoice_number]),
-        ], 201);
+            'message' => $existente
+                ? __('Factura :n actualizada.', ['n' => $f->invoice_number])
+                : __('Factura :n emitida.', ['n' => $f->invoice_number]),
+        ], $existente ? 200 : 201);
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
@@ -176,49 +250,7 @@ class FacturaApiController extends Controller
      */
     private function linhasDoPedido(array $pedidas): array
     {
-        $tenantId = activeTenantId();
-        $iec = [];
-        $is = [];
-        $temFisicos = false;
-
-        $linhas = collect($pedidas)->values()->map(function (array $p, int $i) use ($tenantId, &$iec, &$is, &$temFisicos) {
-            $artigo = ! empty($p['product_id'])
-                ? Product::where('tenant_id', $tenantId)->find($p['product_id'])
-                : null;
-
-            if ($artigo && ($artigo->type ?? 'produto') !== 'servico') {
-                $temFisicos = true;
-            }
-
-            $imposto = TaxResolver::forProduct($artigo, $tenantId);
-
-            // O emissor indexa o IEC/IS pelo `id` da linha; uma linha livre
-            // recebe um id próprio para não colidir com artigos.
-            $id = $artigo?->id ?? ('livre_' . $i);
-
-            if (! empty($p['iec'])) {
-                $iec[$id] = $p['iec'];
-            }
-            if (! empty($p['is'])) {
-                $is[$id] = $p['is'];
-            }
-
-            return (object) [
-                'id' => $id,
-                'name' => $artigo?->name ?? ($p['description'] ?? ''),
-                'price' => round((float) $p['price'], 2),
-                'quantity' => (float) $p['quantity'],
-                'attributes' => [
-                    'description' => $p['description'] ?? null,
-                    'unit' => $artigo?->unit ?? 'UN',
-                    'discount_percent' => (float) ($p['discount_percent'] ?? 0),
-                    'tax_rate' => (float) $imposto['rate'],
-                    'exemption_reason' => $imposto['exemption_code'],
-                ],
-            ];
-        });
-
-        return [$linhas, $iec, $is, $temFisicos];
+        return EmissorDeFacturas::linhasDoPedido($pedidas);
     }
 
     private function exigir(Request $request, string $permissao): void

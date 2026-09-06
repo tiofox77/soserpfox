@@ -21,12 +21,23 @@ export type OpcoesDaCompra = {
     permissoes: { pode_criar: boolean };
 };
 
+/** Uma compra aberta no editor. Só um rascunho se altera: a registada já deu entrada do stock. */
+export type CompraAberta = {
+    documento: {
+        id: number; numero: string | null; estado: string; pode_editar: boolean;
+        supplier_id: number | null; warehouse_id: number | null; invoice_date: string | null; due_date: string | null;
+        tax_country_region: string; is_service: boolean; discount_commercial: number; discount_financial: number; notes: string | null;
+    };
+    linhas: LinhaDaCompra[];
+};
+
+type Gravada = { id: number; numero: string; total: number; abrir: string; message: string };
+
 export const compra = {
     opcoes: () => api.ler<OpcoesDaCompra>('/compra/opcoes'),
-
     calcular: (corpo: Record<string, unknown>) =>
         api.criar<{ linhas: LinhaCalculada[]; totais: Totais }>('/compra/calcular', corpo),
-
-    guardar: (corpo: Record<string, unknown>) =>
-        api.criar<{ id: number; numero: string; total: number; abrir: string; message: string }>('/compra', corpo),
+    guardar: (corpo: Record<string, unknown>) => api.criar<Gravada>('/compra', corpo),
+    abrir: (id: number) => api.ler<CompraAberta>(`/compra/${id}`),
+    actualizar: (id: number, corpo: Record<string, unknown>) => api.guardar<Gravada>(`/compra/${id}`, corpo),
 };
