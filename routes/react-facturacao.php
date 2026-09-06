@@ -94,6 +94,23 @@ Route::middleware('permission:invoicing.purchases.invoices.create')
     ->name('react.emitir.compra');
 
 /*
+ * OS ADIANTAMENTOS: registar um novo, ou editar um que ainda não foi usado.
+ */
+Route::middleware('permission:invoicing.advances.create')
+    ->get('advances/create/novo-ecra', $emReact('facturacao/emitir-adiantamento', __('Novo Adiantamento')))
+    ->name('react.emitir.adiantamento');
+
+Route::middleware('permission:invoicing.advances.edit')
+    ->get('advances/{id}/edit/novo-ecra', fn (int $id) => view('react.ecra', [
+        'ecra' => 'facturacao/emitir-adiantamento',
+        'titulo' => __('Editar Adiantamento'),
+        'subtitulo' => __('Ecrã novo, em ensaio'),
+        'props' => ['id' => $id],
+    ]))
+    ->whereNumber('id')
+    ->name('react.editar.adiantamento');
+
+/*
  * OS CATÁLOGOS. Seis ecrãs Livewire com a mesma forma saem todos do mesmo
  * Catalogo.tsx; o que muda vem do `Catalogos` e viaja no `tipo`.
  */

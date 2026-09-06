@@ -99,6 +99,24 @@ return [
                     'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
                 ],
                 [
+                    'nome'     => 'Lista de notas de crédito',
+                    'livewire' => 'app/Livewire/Invoicing/CreditNotes/CreditNotes.php',
+                    'blade'    => 'resources/views/livewire/invoicing/credit-notes/credit-notes.blade.php',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
+                ],
+                [
+                    'nome'     => 'Lista de notas de débito',
+                    'livewire' => 'app/Livewire/Invoicing/DebitNotes/DebitNotes.php',
+                    'blade'    => 'resources/views/livewire/invoicing/debit-notes/debit-notes.blade.php',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
+                ],
+                [
+                    'nome'     => 'Lista de adiantamentos',
+                    'livewire' => 'app/Livewire/Invoicing/Advances/Advances.php',
+                    'blade'    => 'resources/views/livewire/invoicing/advances/advances.blade.php',
+                    'react'    => 'ecras/facturacao/ListaDeDocumentos.tsx',
+                ],
+                [
                     'nome'     => 'Clientes',
                     'livewire' => 'app/Livewire/Invoicing/Clients.php',
                     'blade'    => 'resources/views/livewire/invoicing/clients.blade.php',
@@ -169,6 +187,12 @@ return [
                     'livewire' => 'app/Livewire/Invoicing/Settings.php',
                     'blade'    => 'resources/views/livewire/invoicing/settings.blade.php',
                     'react'    => 'ecras/facturacao/Definicoes.tsx',
+                ],
+                [
+                    'nome'     => 'Registar adiantamento',
+                    'livewire' => 'app/Livewire/Invoicing/Advances/AdvanceCreate.php',
+                    'blade'    => 'resources/views/livewire/invoicing/advances/advance-create.blade.php',
+                    'react'    => 'ecras/facturacao/EmitirAdiantamento.tsx',
                 ],
             ],
         ],

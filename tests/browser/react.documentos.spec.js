@@ -19,6 +19,9 @@ const LISTAS = [
     { morada: '/invoicing/purchases/invoices/novo-ecra', titulo: 'Facturas de Compra', parte: 'Fornecedor' },
     { morada: '/invoicing/purchases/proformas/novo-ecra', titulo: 'Proformas de Compra', parte: 'Fornecedor' },
     { morada: '/invoicing/receipts/novo-ecra', titulo: 'Recibos', parte: 'Cliente' },
+    { morada: '/invoicing/credit-notes/novo-ecra', titulo: 'Notas de Crédito', parte: 'Cliente' },
+    { morada: '/invoicing/debit-notes/novo-ecra', titulo: 'Notas de Débito', parte: 'Cliente' },
+    { morada: '/invoicing/advances/novo-ecra', titulo: 'Adiantamentos', parte: 'Cliente' },
 ];
 
 test.beforeEach(async ({ page }) => {

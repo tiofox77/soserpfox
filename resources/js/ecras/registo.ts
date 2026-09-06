@@ -66,4 +66,8 @@ export const ecras: Record<string, Ecra> = {
     // de pagamento, impostos): o `tipo` vem nas props, o esquema do servidor.
     'facturacao/catalogo': () =>
         import('./facturacao/Catalogo'),
+
+    // Registar (ou editar, com `id` nas props) um adiantamento.
+    'facturacao/emitir-adiantamento': () =>
+        import('./facturacao/EmitirAdiantamento'),
 };

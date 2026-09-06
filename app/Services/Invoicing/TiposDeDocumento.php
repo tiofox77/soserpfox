@@ -103,6 +103,48 @@ class TiposDeDocumento
                 'rota' => '/invoicing/receipts',
                 'tem_saldo' => false,
             ],
+
+            // As notas e os adiantamentos listam-se da mesma maneira; o que
+            // têm de próprio (o E43, as linhas, o saldo por usar) vive nos
+            // seus emissores, não na lista.
+            'notas-credito' => [
+                'modelo' => \App\Models\Invoicing\CreditNote::class,
+                'titulo' => __('Notas de Crédito'),
+                'numero' => 'credit_note_number',
+                'data' => 'issue_date',
+                'parte' => 'cliente',
+                'relacao' => 'client',
+                'permissao' => 'invoicing.credit-notes.view',
+                'valor' => 'total',
+                'rota' => '/invoicing/credit-notes',
+                'tem_saldo' => false,
+            ],
+
+            'notas-debito' => [
+                'modelo' => \App\Models\Invoicing\DebitNote::class,
+                'titulo' => __('Notas de Débito'),
+                'numero' => 'debit_note_number',
+                'data' => 'issue_date',
+                'parte' => 'cliente',
+                'relacao' => 'client',
+                'permissao' => 'invoicing.debit-notes.view',
+                'valor' => 'total',
+                'rota' => '/invoicing/debit-notes',
+                'tem_saldo' => false,
+            ],
+
+            'adiantamentos' => [
+                'modelo' => \App\Models\Invoicing\Advance::class,
+                'titulo' => __('Adiantamentos'),
+                'numero' => 'advance_number',
+                'data' => 'payment_date',
+                'parte' => 'cliente',
+                'relacao' => 'client',
+                'permissao' => 'invoicing.advances.view',
+                'valor' => 'amount',
+                'rota' => '/invoicing/advances',
+                'tem_saldo' => false,
+            ],
         ];
     }
 

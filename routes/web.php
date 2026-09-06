@@ -443,6 +443,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/catalogos/{tipo}/{id}/{accao}', [\App\Http\Controllers\Api\Invoicing\CatalogoApiController::class, 'accao'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->where('accao', 'activar|padrao')->name('catalogos.accao');
 
+        // Adiantamentos: as regras no EmissorDeAdiantamentos, o mesmo do Livewire.
+        Route::get('/adiantamentos/opcoes', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'opcoes'])->name('adiantamentos.opcoes');
+        Route::get('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'mostrar'])->whereNumber('id')->name('adiantamentos.mostrar');
+        Route::post('/adiantamentos', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'guardar'])->name('adiantamentos.guardar');
+        Route::put('/adiantamentos/{id}', [\App\Http\Controllers\Api\Invoicing\AdiantamentoApiController::class, 'actualizar'])->whereNumber('id')->name('adiantamentos.actualizar');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');

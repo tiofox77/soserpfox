@@ -7,7 +7,6 @@ use App\Models\Client;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Illuminate\Support\Facades\DB;
 
 #[Layout('layouts.app')]
 #[Title('Novo Adiantamento')]
@@ -73,56 +72,48 @@ class AdvanceCreate extends Component
     {
         $this->validate();
 
-        DB::beginTransaction();
+        /*
+         * O REGISTO VIVE NO `EmissorDeAdiantamentos`: um adiantamento já usado
+         * não se edita, e numa edição o restante volta a ser o valor. Este
+         * ecrã e o ecrã em React chamam o mesmo.
+         */
+        $emissor = app(\App\Services\Invoicing\EmissorDeAdiantamentos::class);
+
+        $dados = [
+            'client_id' => $this->client_id,
+            'payment_date' => $this->payment_date,
+            'amount' => $this->amount,
+            'payment_method' => $this->payment_method,
+            'purpose' => $this->purpose,
+            'notes' => $this->notes,
+        ];
+
         try {
             if ($this->isEdit) {
                 $advance = Advance::where('tenant_id', activeTenantId())->tap(fn ($q) => $this->escoparAoAutor($q))->findOrFail($this->advanceId);
-                
-                if ($advance->used_amount > 0) {
-                    throw new \Exception('Não é possível editar adiantamento já utilizado.');
-                }
-                
-                $advance->update([
-                    'client_id' => $this->client_id,
-                    'payment_date' => $this->payment_date,
-                    'amount' => $this->amount,
-                    'remaining_amount' => $this->amount,
-                    'payment_method' => $this->payment_method,
-                    'purpose' => $this->purpose,
-                    'notes' => $this->notes,
-                ]);
+                $emissor->actualizar($advance, $dados);
             } else {
-                $advance = Advance::create([
-                    'tenant_id' => activeTenantId(),
-                    'type' => 'sale',
-                    'client_id' => $this->client_id,
-                    'payment_date' => $this->payment_date,
-                    'amount' => $this->amount,
-                    'payment_method' => $this->payment_method,
-                    'purpose' => $this->purpose,
-                    'notes' => $this->notes,
-                    'status' => 'available',
-                    'created_by' => auth()->id(),
-                ]);
+                $emissor->criar($dados, activeTenantId(), auth()->id());
             }
+        } catch (\DomainException $e) {
+            $this->dispatch('notify', ['type' => 'error', 'message' => $e->getMessage()]);
 
-            DB::commit();
-
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => 'Adiantamento ' . ($this->isEdit ? 'atualizado' : 'criado') . ' com sucesso!'
-            ]);
-
-            return redirect()->route('invoicing.advances.index');
-
+            return;
         } catch (\Exception $e) {
-            DB::rollback();
-            
             $this->dispatch('notify', [
                 'type' => 'error',
                 'message' => 'Erro ao salvar adiantamento: ' . $e->getMessage()
             ]);
+
+            return;
         }
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'message' => 'Adiantamento ' . ($this->isEdit ? 'atualizado' : 'criado') . ' com sucesso!'
+        ]);
+
+        return redirect()->route('invoicing.advances.index');
     }
 
     public function render()
