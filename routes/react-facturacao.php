@@ -126,6 +126,36 @@ Route::middleware('permission:invoicing.imports.view')
     ->name('react.importacoes');
 
 /*
+ * A GESTÃO DE STOCK.
+ */
+Route::middleware('permission:invoicing.stock.view')
+    ->get('stock/novo-ecra', $emReact('facturacao/stock', __('Gestão de Stock')))
+    ->name('react.stock');
+
+/*
+ * AS QUEBRAS E OS LOTES. Ver é a permissão do stock; escrever tem as suas.
+ */
+Route::middleware('permission:invoicing.stock.view')
+    ->get('quebras/novo-ecra', $emReact('facturacao/quebras', __('Quebras de Stock')))
+    ->name('react.quebras');
+
+Route::middleware('permission:invoicing.stock.view')
+    ->get('product-batches/novo-ecra', $emReact('facturacao/lotes', __('Lotes e Validades')))
+    ->name('react.lotes');
+
+/*
+ * AS TRANSFERÊNCIAS. As moradas de sempre não têm guarda própria; as novas
+ * exigem o que o menu exige.
+ */
+Route::middleware('permission:invoicing.warehouse-transfer.view|invoicing.warehouse-transfer.create|invoicing.stock.edit')
+    ->get('warehouse-transfer/novo-ecra', $emReact('facturacao/transferencias-entre-armazens', __('Transferências e Ajustes de Stock')))
+    ->name('react.transferencias');
+
+Route::middleware('permission:invoicing.inter-company-transfer.view|invoicing.inter-company-transfer.create')
+    ->get('inter-company-transfer/novo-ecra', $emReact('facturacao/transferencias-entre-empresas', __('Transferências Inter-Empresas')))
+    ->name('react.transferencias.empresas');
+
+/*
  * OS CATÁLOGOS. Seis ecrãs Livewire com a mesma forma saem todos do mesmo
  * Catalogo.tsx; o que muda vem do `Catalogos` e viaja no `tipo`.
  */

@@ -99,52 +99,37 @@ class ProductBatches extends Component
             auth()->user()?->can('invoicing.product-batches.edit'),
             403, 'Sem permissão para guardar lote.'
         );
-        $this->validate();
-        
+        $gestor = app(\App\Services\Invoicing\GestorDeLotes::class);
+
+        $this->validate($gestor->regras());
+
+        // O REGISTO VIVE NO `GestorDeLotes`: o que já saiu do lote é um facto
+        // e o disponível é o total novo menos isso. Este ecrã e o ecrã em
+        // React chamam o mesmo.
+        $dados = [
+            'product_id' => $this->product_id,
+            'warehouse_id' => $this->warehouse_id,
+            'batch_number' => $this->batch_number,
+            'manufacturing_date' => $this->manufacturing_date,
+            'expiry_date' => $this->expiry_date,
+            'quantity' => $this->quantity,
+            'cost_price' => $this->cost_price,
+            'alert_days' => $this->alert_days,
+            'notes' => $this->notes,
+        ];
+
         try {
-            $data = [
-                'tenant_id' => activeTenantId(),
-                'product_id' => $this->product_id,
-                'warehouse_id' => $this->warehouse_id,
-                'batch_number' => $this->batch_number,
-                'manufacturing_date' => $this->manufacturing_date,
-                'expiry_date' => $this->expiry_date,
-                'quantity' => $this->quantity,
-                'quantity_available' => $this->quantity, // Inicialmente igual à quantidade
-                'cost_price' => $this->cost_price ?? 0,
-                'alert_days' => $this->alert_days,
-                'notes' => $this->notes,
-            ];
-            
             if ($this->editingId) {
-                $batch = $this->loteDaEmpresa($this->editingId);
-
-                // O que já saiu do lote é um facto: está em movimentos de
-                // stock e em faturas. Corrigir o total não o pode alterar.
-                //
-                // A regra anterior era proporcional — 100 no total, 40
-                // disponíveis (60 saíram), corrigir para 90 dava 90 × 0,4 = 36.
-                // Mas saíram 60: o certo é 30. A proporção inventava seis
-                // unidades que não existem, e ninguém dava por isso.
-                //
-                // Também dividia por $batch->quantity sem olhar: com um lote
-                // de quantidade zero — que a validação permite — era uma
-                // divisão por zero, e em PHP 8 isso é um Error e não uma
-                // Exception, portanto o catch aqui em baixo nem o apanhava.
-                $jaSaiu = max(0, (float) $batch->quantity - (float) $batch->quantity_available);
-
-                $data['quantity_available'] = max(0, (float) $this->quantity - $jaSaiu);
-
-                $batch->update($data);
+                $gestor->actualizar($this->loteDaEmpresa($this->editingId), $dados);
                 $message = 'Lote atualizado com sucesso!';
             } else {
-                ProductBatch::create($data);
+                $gestor->criar($dados, activeTenantId());
                 $message = 'Lote criado com sucesso!';
             }
-            
+
             $this->dispatch('success', message: $message);
             $this->closeModal();
-            
+
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Erro ao salvar: ' . $e->getMessage());
         }
@@ -154,14 +139,7 @@ class ProductBatches extends Component
     {
         abort_unless(auth()->user()?->can('invoicing.product-batches.delete'), 403, 'Sem permissão para excluir lotes.');
         try {
-            $batch = $this->loteDaEmpresa($id);
-
-            if ($batch->quantity_available < $batch->quantity) {
-                $this->dispatch('error', message: 'Não é possível excluir lote já utilizado!');
-                return;
-            }
-            
-            $batch->delete();
+            app(\App\Services\Invoicing\GestorDeLotes::class)->apagar($this->loteDaEmpresa($id));
             $this->dispatch('success', message: 'Lote excluído com sucesso!');
             
         } catch (\Exception $e) {

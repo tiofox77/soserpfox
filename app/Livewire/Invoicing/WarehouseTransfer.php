@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Invoicing;
 
-use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
@@ -443,309 +442,65 @@ class WarehouseTransfer extends Component
         }
     }
 
+    /*
+     * A TRANSFERÊNCIA E O AJUSTE VIVEM NO `TransferenciaDeStock`: os quatro
+     * saldos, as duas pernas, os lotes por FEFO, a referência MOV/AAAA/NNNNNN.
+     * Este ecrã e o ecrã em React chamam o mesmo.
+     */
     public function saveTransfer()
     {
         abort_unless(auth()->user()?->can('invoicing.warehouse-transfer.create'), 403, 'Sem permissão para criar transferências.');
-        if (empty($this->transferItems)) {
-            $this->dispatch('error', message: __('Adicione pelo menos um produto à transferência.'));
-            return;
-        }
-
-        if (!$this->transferFromWarehouse || !$this->transferToWarehouse) {
-            $this->dispatch('error', message: __('Selecione os armazéns de origem e destino.'));
-            return;
-        }
 
         try {
-            $resumo = [];
-
-            // Referência MOV/AAAA/NNNNNN, sequencial por empresa — a mesma que o
-            // ecrã de movimentação de stock usa. Substitui o `crc32(uniqid())`
-            // que aqui esteve: era um inteiro opaco, não se dizia ao telefone,
-            // não se escrevia num papel e não se procurava no histórico.
-            $referencia = null;
-
-            StockMovement::comLoteReservado(activeTenantId(), function (string $ref) use (&$referencia, &$resumo) {
-                $referencia = $ref;
-
-                DB::transaction(function () use ($ref, &$resumo) {
-                    $warehouseFrom = Warehouse::find($this->transferFromWarehouse);
-                    $warehouseTo   = Warehouse::find($this->transferToWarehouse);
-
-                    // Mantido para o histórico antigo continuar a agrupar; a
-                    // referência a sério é a $ref acima.
-                    $batchId = crc32($ref);
-
-                    foreach ($this->transferItems as $item) {
-                        // Reduzir stock origem
-                        $stockFrom = Stock::where('tenant_id', activeTenantId())
-                            ->where('warehouse_id', $this->transferFromWarehouse)
-                            ->where('product_id', $item['product_id'])
-                            ->first();
-
-                        if (!$stockFrom || $stockFrom->quantity < $item['quantity']) {
-                            throw new \Exception("Stock insuficiente para {$item['product_name']}");
-                        }
-
-                        $qtd = (float) $item['quantity'];
-
-                        // Os quatro saldos que dão sentido à transferência: quanto
-                        // havia e quanto ficou de cada lado. Lidos ANTES de mexer.
-                        $origemAntes  = (float) $stockFrom->quantity;
-                        $origemDepois = $origemAntes - $qtd;
-
-                        // save() Eloquent (NÃO increment/decrement): increment/decrement só dispara
-                        // updating/updated — nunca saved — logo o StockObserver não ressincronizava
-                        // o agregado e o hook saving não recalculava available_quantity.
-                        $stockFrom->quantity = $origemDepois;
-                        $stockFrom->save();
-
-                        // Aumentar stock destino
-                        $stockTo = Stock::firstOrCreate([
-                            'tenant_id' => activeTenantId(),
-                            'warehouse_id' => $this->transferToWarehouse,
-                            'product_id' => $item['product_id'],
-                        ], ['quantity' => 0]);
-
-                        $destinoAntes  = (float) $stockTo->quantity;
-                        $destinoDepois = $destinoAntes + $qtd;
-
-                        $stockTo->quantity = $destinoDepois;
-                        $stockTo->save();
-
-                        $product = Product::find($item['product_id']);
-
-                        // Transferir lotes (FEFO) se o produto rastreia lotes
-                        if ($product && $product->track_batches) {
-                            $this->transferBatches(
-                                $item['product_id'],
-                                $this->transferFromWarehouse,
-                                $this->transferToWarehouse,
-                                $qtd
-                            );
-                        }
-
-                        // Registrar movimentos sem disparar boot (stock já foi atualizado manualmente)
-                        StockMovement::semAplicarStock(function () use ($item, $batchId, $ref, $product, $warehouseTo, $warehouseFrom, $qtd, $origemAntes, $origemDepois, $destinoAntes, $destinoDepois) {
-                            // Comum às duas pernas. from/to_warehouse_id NÃO eram
-                            // preenchidos, e sem eles carimbarSaldos() não sabe
-                            // qual das pernas está a olhar: derivava o saldo
-                            // anterior do destino somando em vez de subtrair, e
-                            // escrevia um "antes" que nunca existiu.
-                            $comum = [
-                                'tenant_id'         => activeTenantId(),
-                                'product_id'        => $item['product_id'],
-                                'type'              => 'transfer',
-                                'unit_cost'         => $product->cost,
-                                'reference_type'    => 'transfer_batch',
-                                'reference_id'      => $batchId,
-                                'batch_reference'   => $ref,
-                                'from_warehouse_id' => $this->transferFromWarehouse,
-                                'to_warehouse_id'   => $this->transferToWarehouse,
-                                'user_id'           => auth()->id(),
-                            ];
-
-                            // Perna de saída (origem)
-                            StockMovement::create($comum + [
-                                'warehouse_id'   => $this->transferFromWarehouse,
-                                'quantity'       => -$qtd,
-                                'balance_before' => $origemAntes,
-                                'balance_after'  => $origemDepois,
-                                'notes'          => "Transfer para {$warehouseTo->name}. {$this->transferNotes}",
-                            ]);
-
-                            // Perna de entrada (destino)
-                            StockMovement::create($comum + [
-                                'warehouse_id'   => $this->transferToWarehouse,
-                                'quantity'       => $qtd,
-                                'balance_before' => $destinoAntes,
-                                'balance_after'  => $destinoDepois,
-                                'notes'          => "Transfer de {$warehouseFrom->name}. {$this->transferNotes}",
-                            ]);
-                        });
-
-                        $resumo[] = [
-                            'produto'        => $item['product_name'],
-                            'codigo'         => $item['product_code'] ?? null,
-                            'quantidade'     => $qtd,
-                            'origem'         => $warehouseFrom->name ?? '—',
-                            'origem_antes'   => $origemAntes,
-                            'origem_depois'  => $origemDepois,
-                            'destino'        => $warehouseTo->name ?? '—',
-                            'destino_antes'  => $destinoAntes,
-                            'destino_depois' => $destinoDepois,
-                        ];
-                    }
-                });
-            });
-
-            $this->batchReference = $referencia;
-            $this->batchResumo    = $resumo;
-
-            // O formulário fecha e dá lugar ao comprovativo. O modal não se
-            // fecha todo de uma vez como antes: quem transferiu tem de ficar
-            // com a referência à vista e com o documento a um clique.
-            $this->showTransferModal = false;
-
-            $this->dispatch('success', message: __('Transferência :ref:', ['ref' => $referencia]) . ' ' . trans_choice(':n produto transferido.|:n produtos transferidos.', count($resumo), ['n' => count($resumo)]));
-            $this->reset(['transferItems']);
-
+            $r = app(\App\Services\Invoicing\TransferenciaDeStock::class)->entreArmazens(
+                (int) $this->transferFromWarehouse,
+                (int) $this->transferToWarehouse,
+                $this->transferItems,
+                $this->transferNotes,
+                activeTenantId(),
+                auth()->id()
+            );
         } catch (\Throwable $e) {
             $this->dispatch('error', message: __('Erro: :detalhe', ['detalhe' => ' ' . $e->getMessage()]));
+
+            return;
         }
+
+        $this->batchReference = $r['referencia'];
+        $this->batchResumo    = $r['resumo'];
+
+        // O formulário fecha e dá lugar ao comprovativo.
+        $this->showTransferModal = false;
+
+        $this->dispatch('success', message: __('Transferência :ref:', ['ref' => $r['referencia']]) . ' ' . trans_choice(':n produto transferido.|:n produtos transferidos.', count($r['resumo']), ['n' => count($r['resumo'])]));
+        $this->reset(['transferItems']);
     }
 
     public function saveAdjust()
     {
         abort_unless(auth()->user()?->can('invoicing.stock.edit'), 403, 'Sem permissão para ajustar stock.');
-        if (empty($this->adjustItems)) {
-            $this->dispatch('error', message: __('Adicione pelo menos um produto ao ajuste.'));
-            return;
-        }
-
-        if (!$this->adjustWarehouse || !$this->adjustReason) {
-            $this->dispatch('error', message: __('Selecione o armazém e informe o motivo.'));
-            return;
-        }
 
         try {
-            $resumo     = [];
-            $referencia = null;
-
-            StockMovement::comLoteReservado(activeTenantId(), function (string $ref) use (&$referencia, &$resumo) {
-                $referencia = $ref;
-
-                DB::transaction(function () use ($ref, &$resumo) {
-                    $armazem = Warehouse::find($this->adjustWarehouse);
-                    $batchId = crc32($ref);
-
-                    foreach ($this->adjustItems as $item) {
-                        $product = Product::find($item['product_id']);
-
-                        // Atualizar stock
-                        $stock = Stock::firstOrCreate([
-                            'tenant_id' => activeTenantId(),
-                            'warehouse_id' => $this->adjustWarehouse,
-                            'product_id' => $item['product_id'],
-                        ], ['quantity' => 0]);
-
-                        $qtd   = (float) $item['quantity'];
-                        $antes = (float) $stock->quantity;
-
-                        // save() Eloquent (dispara StockObserver + recálculo de available_quantity);
-                        // no ajuste de saída, validar saldo — antes era possível negativar o armazém.
-                        if ($this->adjustType == 'in') {
-                            $depois = $antes + $qtd;
-                        } else {
-                            if ($antes < $qtd) {
-                                $name = $item['product_name'] ?? ('#' . $item['product_id']);
-                                throw new \Exception("Stock insuficiente para {$name} (disponível: {$antes})");
-                            }
-                            $depois = $antes - $qtd;
-                        }
-
-                        $stock->quantity = $depois;
-                        $stock->save();
-
-                        // Registrar movimento sem disparar boot (stock já foi atualizado manualmente)
-                        StockMovement::semAplicarStock(function () use ($item, $batchId, $ref, $product, $qtd, $antes, $depois) {
-                            StockMovement::create([
-                                'tenant_id'       => activeTenantId(),
-                                'warehouse_id'    => $this->adjustWarehouse,
-                                'product_id'      => $item['product_id'],
-                                'type'            => 'adjustment',
-                                'quantity'        => $this->adjustType == 'in' ? $qtd : -$qtd,
-                                // Num ajuste o saldo anterior não se deriva da
-                                // quantidade — tem de vir de quem o gravou. Sem
-                                // ele a linha do histórico é ilegível: não se
-                                // sabe se "18" subiu ou desceu, nem de quanto.
-                                'balance_before'  => $antes,
-                                'balance_after'   => $depois,
-                                'unit_cost'       => $product->cost,
-                                'reference_type'  => 'adjustment_batch',
-                                'reference_id'    => $batchId,
-                                'batch_reference' => $ref,
-                                'notes'           => "Ajuste manual ({$this->adjustType}): {$this->adjustReason}",
-                                'user_id'         => auth()->id(),
-                            ]);
-                        });
-
-                        $resumo[] = [
-                            'produto'    => $item['product_name'],
-                            'codigo'     => $item['product_code'] ?? null,
-                            'quantidade' => $qtd,
-                            'armazem'    => $armazem->name ?? '—',
-                            'antes'      => $antes,
-                            'depois'     => $depois,
-                        ];
-                    }
-                });
-            });
-
-            $this->batchReference = $referencia;
-            $this->batchResumo    = $resumo;
-            $this->showAdjustModal = false;
-
-            $this->dispatch('success', message: __('Ajuste :ref:', ['ref' => $referencia]) . ' ' . trans_choice(':n produto ajustado.|:n produtos ajustados.', count($resumo), ['n' => count($resumo)]));
-            $this->reset(['adjustItems']);
-
+            $r = app(\App\Services\Invoicing\TransferenciaDeStock::class)->ajustarEmLote(
+                (int) $this->adjustWarehouse,
+                (string) $this->adjustType,
+                (string) $this->adjustReason,
+                $this->adjustItems,
+                activeTenantId(),
+                auth()->id()
+            );
         } catch (\Throwable $e) {
             $this->dispatch('error', message: __('Erro: :detalhe', ['detalhe' => ' ' . $e->getMessage()]));
+
+            return;
         }
-    }
 
-    private function transferBatches($productId, $fromWarehouseId, $toWarehouseId, $quantity)
-    {
-        $remaining = $quantity;
+        $this->batchReference  = $r['referencia'];
+        $this->batchResumo     = $r['resumo'];
+        $this->showAdjustModal = false;
 
-        // FEFO: buscar lotes do armazém origem, ordenados por validade (mais próximo primeiro)
-        $sourceBatches = ProductBatch::where('tenant_id', activeTenantId())
-            ->where('product_id', $productId)
-            ->where('warehouse_id', $fromWarehouseId)
-            ->where('quantity_available', '>', 0)
-            ->orderBy('expiry_date', 'asc')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        foreach ($sourceBatches as $sourceBatch) {
-            if ($remaining <= 0) break;
-
-            $take = min($remaining, $sourceBatch->quantity_available);
-
-            // Diminuir quantidade no lote origem
-            $sourceBatch->quantity_available -= $take;
-            $sourceBatch->updateStatus();
-
-            // Encontrar ou criar lote no armazém destino
-            $destBatch = ProductBatch::where('tenant_id', activeTenantId())
-                ->where('product_id', $productId)
-                ->where('warehouse_id', $toWarehouseId)
-                ->where('batch_number', $sourceBatch->batch_number)
-                ->first();
-
-            if ($destBatch) {
-                $destBatch->quantity += $take;
-                $destBatch->quantity_available += $take;
-                $destBatch->updateStatus();
-            } else {
-                ProductBatch::create([
-                    'tenant_id' => activeTenantId(),
-                    'product_id' => $productId,
-                    'warehouse_id' => $toWarehouseId,
-                    'batch_number' => $sourceBatch->batch_number,
-                    'manufacturing_date' => $sourceBatch->manufacturing_date,
-                    'expiry_date' => $sourceBatch->expiry_date,
-                    'quantity' => $take,
-                    'quantity_available' => $take,
-                    'cost_price' => $sourceBatch->cost_price,
-                    'alert_days' => $sourceBatch->alert_days,
-                    'status' => 'active',
-                    'notes' => 'Transferido de armazém',
-                ]);
-            }
-
-            $remaining -= $take;
-        }
+        $this->dispatch('success', message: __('Ajuste :ref:', ['ref' => $r['referencia']]) . ' ' . trans_choice(':n produto ajustado.|:n produtos ajustados.', count($r['resumo']), ['n' => count($r['resumo'])]));
+        $this->reset(['adjustItems']);
     }
 
     /**

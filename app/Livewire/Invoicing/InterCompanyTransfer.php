@@ -2,12 +2,10 @@
 
 namespace App\Livewire\Invoicing;
 
-use App\Models\Invoicing\ProductBatch;
 use App\Models\Invoicing\Stock;
 use App\Models\Invoicing\StockMovement;
 use App\Models\Invoicing\Warehouse;
 use App\Models\Product;
-use App\Models\Tenant;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -342,324 +340,39 @@ class InterCompanyTransfer extends Component
             ->value('available_quantity');
     }
 
+    /*
+     * A TRANSFERÊNCIA VIVE NO `TransferenciaDeStock`: a empresa destino
+     * resolvida pelas empresas do utilizador, o artigo copiado quando não
+     * existe lá, duas referências (uma por empresa), os lotes por FEFO. Este
+     * ecrã e o ecrã em React chamam o mesmo.
+     */
     public function saveTransfer()
     {
-        if (!$this->warehouseFromId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione o armazém de origem.')]);
-            return;
-        }
-        if (!$this->tenantToId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione a empresa destino.')]);
-            return;
-        }
-        if (!$this->warehouseToId) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => __('Selecione o armazém destino.')]);
-            return;
-        }
-        if (empty($this->transferItems)) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => __('Adicione pelo menos um produto.')]);
-            return;
-        }
-        if (!$this->notes) {
-            $this->dispatch('notify', ['type' => 'error', 'message' => __('Informe o motivo da transferência.')]);
-            return;
-        }
-
         try {
-            // Resolver o destino a partir das empresas DO UTILIZADOR: um id
-            // arbitrário permitia escrever stock/produtos em qualquer empresa
-            // da plataforma.
-            $tenantTo = auth()->user()->tenants()
-                ->where('tenants.id', $this->tenantToId)
-                ->where('tenants.id', '!=', activeTenantId())
-                ->first();
-            if (!$tenantTo) {
-                throw new \Exception('Empresa destino inválida ou sem acesso.');
-            }
-
-            // DUAS referências, uma por empresa, e não uma partilhada.
-            //
-            // MOV/AAAA/NNNNNN é sequencial POR EMPRESA. Escrever a referência
-            // da origem nas linhas do destino corrompia a sequência do destino:
-            // se o destino já tivesse ido mais longe, passavam a existir lá
-            // dois documentos com o mesmo número — e o ecrã do documento
-            // juntava-os num só. Cada empresa recebe o seu número na sua
-            // sequência, e o `reference_id` comum é o que os liga.
-            $refOrigem  = null;
-            $refDestino = null;
-
-            StockMovement::comLoteReservado(activeTenantId(), function (string $rOrigem) use (&$refOrigem, &$refDestino) {
-                $refOrigem = $rOrigem;
-
-                StockMovement::comLoteReservado($this->tenantToId, function (string $rDestino) use (&$refDestino) {
-                    $refDestino = $rDestino;
-                });
-            });
-
-            $batchId = time() . rand(1000, 9999);
-            $originTenantName = activeTenant()->name;
-            $resumo = [];
-
-            // DB::transaction() e não beginTransaction/rollBack à mão.
-            //
-            // A validação da empresa destino passou para ANTES da transacção, e
-            // com isso o `DB::rollBack()` do catch ficou sem par: quando a
-            // validação recusava, revertia a transacção de QUEM CHAMOU. Nos
-            // testes isso apagava tudo o que o teste tinha criado; em produção
-            // reverteria o que estivesse aberto à volta. Com o closure é o
-            // Laravel que trata do nível e só desfaz o que abriu.
-            DB::transaction(function () use ($tenantTo, $batchId, $originTenantName, $refOrigem, $refDestino, &$resumo) {
-                foreach ($this->transferItems as $item) {
-                $sourceProduct = Product::find($item['product_id']);
-                if (!$sourceProduct) {
-                    throw new \Exception('Produto não encontrado: ' . $item['product_name']);
-                }
-
-                $unitCost = $item['unit_cost'] ?? 0;
-
-                // 1. Encontrar ou criar o produto no tenant destino
-                $destProduct = $this->findOrCreateProductInTenant($sourceProduct, $this->tenantToId);
-
-                // 2. Remover stock da empresa origem, guardando os saldos.
-                $origemAntes  = (float) Stock::where('tenant_id', activeTenantId())
-                    ->where('warehouse_id', $this->warehouseFromId)
-                    ->where('product_id', $sourceProduct->id)
-                    ->value('quantity');
-
-                Stock::removeStock($this->warehouseFromId, $sourceProduct->id, $item['quantity']);
-
-                $origemDepois = $origemAntes - (float) $item['quantity'];
-
-                // 3. Adicionar stock na empresa destino (usando o product_id do destino)
-                $destStock = Stock::withoutGlobalScope('tenant')
-                    ->where('tenant_id', $this->tenantToId)
-                    ->where('warehouse_id', $this->warehouseToId)
-                    ->where('product_id', $destProduct->id)
-                    ->first();
-
-                $destinoAntes = (float) ($destStock->quantity ?? 0);
-
-                if ($destStock) {
-                    if ($unitCost > 0) {
-                        $totalCost = ($destStock->quantity * $destStock->unit_cost) + ($item['quantity'] * $unitCost);
-                        $totalQty = $destStock->quantity + $item['quantity'];
-                        $destStock->unit_cost = $totalQty > 0 ? $totalCost / $totalQty : $unitCost;
-                    }
-                    $destStock->quantity += $item['quantity'];
-                    $destStock->save();
-                } else {
-                    $newStock = new Stock();
-                    $newStock->tenant_id = $this->tenantToId;
-                    $newStock->warehouse_id = $this->warehouseToId;
-                    $newStock->product_id = $destProduct->id;
-                    $newStock->quantity = $item['quantity'];
-                    $newStock->reserved_quantity = 0;
-                    $newStock->unit_cost = $unitCost;
-
-                    // save() e NÃO saveQuietly(). O saveQuietly que aqui estava
-                    // saltava o StockObserver, que é quem mantém
-                    // `invoicing_products.stock_quantity` igual à soma das
-                    // linhas. Resultado: um artigo que chegava pela primeira vez
-                    // à empresa destino ficava com linha de stock preenchida e
-                    // agregado a zero — invisível no POS e na gestão de stock,
-                    // que é exactamente a divergência que este sistema já pagou
-                    // caro. O observer resolve o `tenant_id` da própria linha,
-                    // por isso funciona entre empresas.
-                    $newStock->save();
-                }
-
-                $destinoDepois = $destinoAntes + (float) $item['quantity'];
-
-                // 4. Transferir lotes se o produto rastreia lotes
-                if ($sourceProduct->track_batches) {
-                    $this->transferBatchesInterCompany(
-                        $sourceProduct->id,
-                        $destProduct->id,
-                        $this->warehouseFromId,
-                        $this->warehouseToId,
-                        $this->tenantToId,
-                        $item['quantity']
-                    );
-                }
-
-                // 5. Registrar movimentos sem disparar boot
-                //
-                // Os saldos vão EXPLÍCITOS nas duas pernas. Deixá-los derivar
-                // não funciona aqui: o carimbo automático lê o stock com
-                // `Stock::where(...)`, que traz o global scope da empresa
-                // ACTIVA — a origem. Para a perna do destino a leitura não
-                // devolvia nada e o movimento ficava sem saldo nenhum.
-                StockMovement::semAplicarStock(function () use (
-                    $item, $tenantTo, $unitCost, $batchId, $sourceProduct, $destProduct, $originTenantName,
-                    $refOrigem, $refDestino, $origemAntes, $origemDepois, $destinoAntes, $destinoDepois
-                ) {
-                    // Movimento saída (origem) - usa product_id da origem
-                    StockMovement::create([
-                        'tenant_id' => activeTenantId(),
-                        'warehouse_id' => $this->warehouseFromId,
-                        'product_id' => $sourceProduct->id,
-                        'type' => 'transfer',
-                        'quantity' => -$item['quantity'],
-                        'balance_before' => $origemAntes,
-                        'balance_after' => $origemDepois,
-                        'batch_reference' => $refOrigem,
-                        'from_warehouse_id' => $this->warehouseFromId,
-                        'unit_cost' => $unitCost,
-                        'reference_type' => 'inter_company',
-                        'reference_id' => $batchId,
-                        'to_warehouse_id' => $this->warehouseToId,
-                        'user_id' => auth()->id(),
-                        'notes' => $this->notes . ' (Transferido para: ' . $tenantTo->name . ')',
-                    ]);
-
-                    // Movimento entrada (destino) - usa product_id do destino
-                    StockMovement::create([
-                        'tenant_id' => $this->tenantToId,
-                        'warehouse_id' => $this->warehouseToId,
-                        'product_id' => $destProduct->id,
-                        'type' => 'in',
-                        'quantity' => $item['quantity'],
-                        'balance_before' => $destinoAntes,
-                        'balance_after' => $destinoDepois,
-                        'batch_reference' => $refDestino,
-                        'to_warehouse_id' => $this->warehouseToId,
-                        'unit_cost' => $unitCost,
-                        'reference_type' => 'inter_company',
-                        'reference_id' => $batchId,
-                        'from_warehouse_id' => $this->warehouseFromId,
-                        'user_id' => auth()->id(),
-                        'notes' => $this->notes . ' (Recebido de: ' . $originTenantName . ')',
-                    ]);
-                });
-
-                    $resumo[] = [
-                        'produto'        => $item['product_name'],
-                        'codigo'         => $item['product_code'] ?? null,
-                        'quantidade'     => (float) $item['quantity'],
-                        'origem_antes'   => $origemAntes,
-                        'origem_depois'  => $origemDepois,
-                        'destino_antes'  => $destinoAntes,
-                        'destino_depois' => $destinoDepois,
-                    ];
-                }
-            });
-
-            $count = count($this->transferItems);
-            $this->dispatch('notify', ['type' => 'success', 'message' => $count . ' produto(s) transferido(s) para ' . $tenantTo->name . '!']);
-
-            // O formulário dá lugar ao comprovativo: quem transferiu tem de
-            // ficar com as referências à vista e com o documento a um clique.
-            // Guardado ANTES do resetForm, que limpa o carrinho.
-            $this->batchResumo           = $resumo;
-            $this->batchReference        = $refOrigem;
-            $this->batchReferenceDestino = $refDestino;
-            $this->batchDestinoNome      = $tenantTo->name;
-
-            $this->resetForm();
+            $r = app(\App\Services\Invoicing\TransferenciaDeStock::class)->entreEmpresas(
+                (int) $this->warehouseFromId,
+                (int) $this->tenantToId,
+                (int) $this->warehouseToId,
+                $this->transferItems,
+                $this->notes,
+                activeTenantId(),
+                auth()->user()
+            );
         } catch (\Throwable $e) {
-            // Sem rollBack à mão: o DB::transaction() acima já desfez o que
-            // abriu, e chamá-lo aqui reverteria a transacção de quem chamou.
             $this->dispatch('notify', ['type' => 'error', 'message' => __('Erro: :erro', ['erro' => $e->getMessage()])]);
-        }
-    }
 
-    private function findOrCreateProductInTenant(Product $sourceProduct, $tenantId): Product
-    {
-        // Procurar produto existente no tenant destino por nome exacto
-        $existing = Product::withoutGlobalScopes()
-            ->where('tenant_id', $tenantId)
-            ->where(function ($q) use ($sourceProduct) {
-                $q->where('name', $sourceProduct->name);
-                if ($sourceProduct->sku) {
-                    $q->orWhere('sku', $sourceProduct->sku);
-                }
-                if ($sourceProduct->barcode) {
-                    $q->orWhere('barcode', $sourceProduct->barcode);
-                }
-            })
-            ->first();
-
-        if ($existing) {
-            return $existing;
+            return;
         }
 
-        // Criar cópia do produto no tenant destino
-        $newProduct = new Product();
-        $newProduct->tenant_id = $tenantId;
-        $newProduct->name = $sourceProduct->name;
-        $newProduct->description = $sourceProduct->description;
-        $newProduct->type = $sourceProduct->type ?? 'produto';
-        $newProduct->sku = $sourceProduct->sku;
-        $newProduct->barcode = $sourceProduct->barcode;
-        $newProduct->price = $sourceProduct->price;
-        $newProduct->cost = $sourceProduct->cost;
-        $newProduct->tax_type = $sourceProduct->tax_type;
-        $newProduct->tax_rate_id = $sourceProduct->tax_rate_id;
-        $newProduct->exemption_reason = $sourceProduct->exemption_reason;
-        $newProduct->unit = $sourceProduct->unit;
-        $newProduct->manage_stock = $sourceProduct->manage_stock;
-        $newProduct->track_batches = $sourceProduct->track_batches;
-        $newProduct->track_expiry = $sourceProduct->track_expiry;
-        $newProduct->is_active = true;
-        $newProduct->featured_image = $sourceProduct->featured_image;
-        $newProduct->save();
+        $this->dispatch('notify', ['type' => 'success', 'message' => count($r['resumo']) . ' produto(s) transferido(s) para ' . $r['destino_nome'] . '!']);
 
-        return $newProduct;
-    }
+        // O formulário dá lugar ao comprovativo. Guardado ANTES do resetForm.
+        $this->batchResumo           = $r['resumo'];
+        $this->batchReference        = $r['referencia_origem'];
+        $this->batchReferenceDestino = $r['referencia_destino'];
+        $this->batchDestinoNome      = $r['destino_nome'];
 
-    private function transferBatchesInterCompany($sourceProductId, $destProductId, $fromWarehouseId, $toWarehouseId, $tenantToId, $quantity)
-    {
-        $remaining = $quantity;
-
-        // FEFO: buscar lotes do armazém origem, ordenados por validade
-        $sourceBatches = ProductBatch::where('tenant_id', activeTenantId())
-            ->where('product_id', $sourceProductId)
-            ->where('warehouse_id', $fromWarehouseId)
-            ->where('quantity_available', '>', 0)
-            ->orderBy('expiry_date', 'asc')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        foreach ($sourceBatches as $sourceBatch) {
-            if ($remaining <= 0) break;
-
-            $take = min($remaining, $sourceBatch->quantity_available);
-
-            // Diminuir quantidade no lote origem
-            $sourceBatch->quantity_available -= $take;
-            $sourceBatch->updateStatus();
-
-            // Criar lote no tenant destino (sem global scope)
-            $destBatch = ProductBatch::withoutGlobalScopes()
-                ->where('tenant_id', $tenantToId)
-                ->where('product_id', $destProductId)
-                ->where('warehouse_id', $toWarehouseId)
-                ->where('batch_number', $sourceBatch->batch_number)
-                ->first();
-
-            if ($destBatch) {
-                $destBatch->quantity += $take;
-                $destBatch->quantity_available += $take;
-                $destBatch->updateStatus();
-            } else {
-                $newBatch = new ProductBatch();
-                $newBatch->tenant_id = $tenantToId;
-                $newBatch->product_id = $destProductId;
-                $newBatch->warehouse_id = $toWarehouseId;
-                $newBatch->batch_number = $sourceBatch->batch_number;
-                $newBatch->manufacturing_date = $sourceBatch->manufacturing_date;
-                $newBatch->expiry_date = $sourceBatch->expiry_date;
-                $newBatch->quantity = $take;
-                $newBatch->quantity_available = $take;
-                $newBatch->cost_price = $sourceBatch->cost_price;
-                $newBatch->alert_days = $sourceBatch->alert_days;
-                $newBatch->status = 'active';
-                $newBatch->notes = 'Transferência inter-empresas';
-                $newBatch->save();
-            }
-
-            $remaining -= $take;
-        }
+        $this->resetForm();
     }
 
     private function resetForm()

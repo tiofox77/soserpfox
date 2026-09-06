@@ -471,6 +471,41 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::post('/pagamentos/{tipo}/{factura}', [\App\Http\Controllers\Api\Invoicing\PagamentoApiController::class, 'registar'])
             ->where('tipo', 'sale|purchase')->whereNumber('factura')->name('pagamentos.registar');
 
+        // Stock: a lista e os cartões da mesma consulta; ajustar, transferir e
+        // a movimentação em lote pelo MovimentacaoDeStock.
+        Route::get('/stock/opcoes', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'opcoes'])->name('stock.opcoes');
+        Route::get('/stock', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'index'])->name('stock.index');
+        Route::get('/stock/artigos', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'artigos'])->name('stock.artigos');
+        Route::get('/stock/movimentos/{produto}', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'movimentos'])->whereNumber('produto')->name('stock.movimentos');
+        Route::post('/stock/ajustar', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'ajustar'])->name('stock.ajustar');
+        Route::post('/stock/transferir', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'transferir'])->name('stock.transferir');
+        Route::post('/stock/entrada', [\App\Http\Controllers\Api\Invoicing\StockApiController::class, 'entrada'])->name('stock.entrada');
+
+        // Quebras de stock: registo e relatório; registar e anular no QuebraDeStock.
+        Route::get('/quebras/opcoes', [\App\Http\Controllers\Api\Invoicing\QuebrasApiController::class, 'opcoes'])->name('quebras.opcoes');
+        Route::get('/quebras/artigos', [\App\Http\Controllers\Api\Invoicing\QuebrasApiController::class, 'artigos'])->name('quebras.artigos');
+        Route::get('/quebras', [\App\Http\Controllers\Api\Invoicing\QuebrasApiController::class, 'index'])->name('quebras.index');
+        Route::post('/quebras', [\App\Http\Controllers\Api\Invoicing\QuebrasApiController::class, 'registar'])->name('quebras.registar');
+        Route::post('/quebras/{id}/anular', [\App\Http\Controllers\Api\Invoicing\QuebrasApiController::class, 'anular'])->whereNumber('id')->name('quebras.anular');
+
+        // Lotes e validades: criar, corrigir e apagar no GestorDeLotes.
+        Route::get('/lotes/opcoes', [\App\Http\Controllers\Api\Invoicing\LotesApiController::class, 'opcoes'])->name('lotes.opcoes');
+        Route::get('/lotes', [\App\Http\Controllers\Api\Invoicing\LotesApiController::class, 'index'])->name('lotes.index');
+        Route::post('/lotes', [\App\Http\Controllers\Api\Invoicing\LotesApiController::class, 'guardar'])->name('lotes.guardar');
+        Route::put('/lotes/{id}', [\App\Http\Controllers\Api\Invoicing\LotesApiController::class, 'actualizar'])->whereNumber('id')->name('lotes.actualizar');
+        Route::delete('/lotes/{id}', [\App\Http\Controllers\Api\Invoicing\LotesApiController::class, 'apagar'])->whereNumber('id')->name('lotes.apagar');
+
+        // Transferências (entre armazéns, ajuste em lote, entre empresas): TransferenciaDeStock.
+        Route::get('/transferencias/opcoes', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'opcoes'])->name('transferencias.opcoes');
+        Route::get('/transferencias/empresas/{empresa}/armazens', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'armazensDaEmpresa'])->whereNumber('empresa')->name('transferencias.armazens');
+        Route::get('/transferencias/artigos', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'artigos'])->name('transferencias.artigos');
+        Route::get('/transferencias/historico', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'historico'])->name('transferencias.historico');
+        Route::get('/transferencias/detalhes', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'detalhes'])->name('transferencias.detalhes');
+        Route::get('/transferencias/entre-empresas/historico', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'historicoEntreEmpresas'])->name('transferencias.entre-empresas.historico');
+        Route::post('/transferencias/entre-armazens', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'entreArmazens'])->name('transferencias.entre-armazens');
+        Route::post('/transferencias/ajuste', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'ajuste'])->name('transferencias.ajuste');
+        Route::post('/transferencias/entre-empresas', [\App\Http\Controllers\Api\Invoicing\TransferenciasApiController::class, 'entreEmpresas'])->name('transferencias.entre-empresas');
+
         // O painel: só números, só leitura.
         Route::get('/painel', \App\Http\Controllers\Api\Invoicing\PainelApiController::class)
             ->name('painel');

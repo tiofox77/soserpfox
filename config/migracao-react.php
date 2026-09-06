@@ -215,6 +215,42 @@ return [
             ],
         ],
 
+        'Facturação: stock' => [
+            'nota' => 'O stock por armazém, as quebras, os lotes e as transferências. As regras ficam nos ganchos do StockMovement — nunca se soma à mão.',
+            'ecras' => [
+                [
+                    'nome'     => 'Gestão de stock',
+                    'livewire' => 'app/Livewire/Invoicing/StockManagement.php',
+                    'blade'    => 'resources/views/livewire/invoicing/stock/stock-management.blade.php',
+                    'react'    => 'ecras/facturacao/Stock.tsx',
+                ],
+                [
+                    'nome'     => 'Quebras de stock',
+                    'livewire' => 'app/Livewire/Invoicing/Quebras.php',
+                    'blade'    => 'resources/views/livewire/invoicing/quebras.blade.php',
+                    'react'    => 'ecras/facturacao/Quebras.tsx',
+                ],
+                [
+                    'nome'     => 'Lotes e validades',
+                    'livewire' => 'app/Livewire/Invoicing/ProductBatches/ProductBatches.php',
+                    'blade'    => 'resources/views/livewire/invoicing/product-batches/product-batches.blade.php',
+                    'react'    => 'ecras/facturacao/Lotes.tsx',
+                ],
+                [
+                    'nome'     => 'Transferências entre armazéns',
+                    'livewire' => 'app/Livewire/Invoicing/WarehouseTransfer.php',
+                    'blade'    => 'resources/views/livewire/invoicing/warehouse-transfer.blade.php',
+                    'react'    => 'ecras/facturacao/TransferenciasEntreArmazens.tsx',
+                ],
+                [
+                    'nome'     => 'Transferências entre empresas',
+                    'livewire' => 'app/Livewire/Invoicing/InterCompanyTransfer.php',
+                    'blade'    => 'resources/views/livewire/invoicing/inter-company-transfer.blade.php',
+                    'react'    => 'ecras/facturacao/TransferenciasEntreEmpresas.tsx',
+                ],
+            ],
+        ],
+
         'Facturação: catálogos' => [
             'nota' => 'Seis ecrãs com a mesma forma saem todos do mesmo Catalogo.tsx — o esquema de cada um vem do Catalogos.',
             'ecras' => [

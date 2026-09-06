@@ -78,4 +78,22 @@ export const ecras: Record<string, Ecra> = {
     // As importações: o processo, do pedido ao armazém.
     'facturacao/importacoes': () =>
         import('./facturacao/Importacoes'),
+
+    // O stock por armazém: ajustar, transferir, movimentação em lote.
+    'facturacao/stock': () =>
+        import('./facturacao/Stock'),
+
+    // As quebras: registo e relatório no mesmo sítio.
+    'facturacao/quebras': () =>
+        import('./facturacao/Quebras'),
+
+    // Os lotes e as validades.
+    'facturacao/lotes': () =>
+        import('./facturacao/Lotes'),
+
+    // Transferências entre armazéns e ajustes em lote; e entre empresas.
+    'facturacao/transferencias-entre-armazens': () =>
+        import('./facturacao/TransferenciasEntreArmazens'),
+    'facturacao/transferencias-entre-empresas': () =>
+        import('./facturacao/TransferenciasEntreEmpresas'),
 };

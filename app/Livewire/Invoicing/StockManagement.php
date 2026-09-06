@@ -316,12 +316,9 @@ class StockManagement extends Component
             'adjustNotes' => 'nullable|string|max:500',
         ]);
 
-        StockMovement::createAdjustment(
-            $this->adjustWarehouseId,
-            $this->adjustProductId,
-            $this->adjustNewQty,
-            $this->adjustNotes
-        );
+        // O mesmo caminho do ecrã em React.
+        app(\App\Services\Invoicing\MovimentacaoDeStock::class)
+            ->ajustar((int) $this->adjustWarehouseId, (int) $this->adjustProductId, (float) $this->adjustNewQty, $this->adjustNotes);
 
         session()->flash('message', __('Stock ajustado com sucesso!'));
         $this->showAdjustModal = false;
@@ -369,11 +366,11 @@ class StockManagement extends Component
         ]);
 
         try {
-            StockMovement::createTransfer(
-                $this->transferFromWarehouse,
-                $this->transferToWarehouse,
-                $this->transferProductId,
-                $this->transferQuantity,
+            app(\App\Services\Invoicing\MovimentacaoDeStock::class)->transferir(
+                (int) $this->transferFromWarehouse,
+                (int) $this->transferToWarehouse,
+                (int) $this->transferProductId,
+                (float) $this->transferQuantity,
                 $this->transferNotes
             );
 
@@ -598,78 +595,11 @@ class StockManagement extends Component
             'entryItems.*.quantity.min'        => 'A quantidade deve ser maior que zero.',
         ]);
 
-        $ok = 0; $errors = []; $referencia = null;
-
-        // Uma transacção POR LINHA, e nenhuma a envolver o lote todo.
-        //
-        // A transacção exterior que aqui esteve custava caro por dois motivos.
-        // Em REPEATABLE READ, o instantâneo é tirado na primeira leitura e
-        // mantém-se: com 40 linhas, o saldo lido para a última já não era o
-        // real, e uma venda concorrente feita entretanto era esmagada pelo
-        // `quantity = lido ± n`. E as linhas ficavam bloqueadas do princípio ao
-        // fim, com um operador a segurar o stock da empresa enquanto conferia
-        // um contentor.
-        //
-        // Assim, cada linha abre e fecha a sua transacção: janela curta, e o que
-        // ela grava fica confirmado mesmo que a seguinte falhe.
-        //
-        // A unicidade da referência não depende disto — depende do bloqueio
-        // nomeado de `comLoteReservado`, que a segura até ao fim.
-        StockMovement::comLoteReservado(activeTenantId(), function (string $ref) use (&$ok, &$errors, &$referencia) {
-            $referencia = $ref;
-
-            foreach ($this->entryItems as $idx => $it) {
-                try {
-                    // Transacção da linha. Sem ela, uma saída sem stock deixava
-                    // o movimento GRAVADO e o stock intacto: o livro passava a
-                    // dizer que a mercadoria saiu quando não saiu. `createExit`
-                    // insere a linha primeiro e só depois o hook chama
-                    // removeStock(), que é quem lança.
-                    DB::transaction(function () use ($it, $referencia, &$ok) {
-                        $isSub = ($it['op'] ?? 'add') === 'sub';
-                        $qtd   = (float) $it['quantity'];
-
-                        // Saldo resultante calculado ANTES de criar o movimento.
-                        //
-                        // A alternativa — criar e depois reler o stock para
-                        // gravar o saldo — obrigava a um segundo save() por
-                        // linha, e como StockMovement é auditado isso duplicava
-                        // as linhas da trilha (um `created` e um `updated` por
-                        // produto). A trilha é append-only: o que lá entra fica.
-                        $saldoActual = (float) Stock::where('tenant_id', activeTenantId())
-                            ->where('warehouse_id', $this->entryWarehouseId)
-                            ->where('product_id', $it['product_id'])
-                            ->value('quantity');
-
-                        $dados = [
-                            'warehouse_id'    => $this->entryWarehouseId,
-                            'product_id'      => $it['product_id'],
-                            'quantity'        => $qtd,
-                            'balance_after'   => $isSub ? $saldoActual - $qtd : $saldoActual + $qtd,
-                            'unit_cost'       => !empty($it['unit_cost']) ? $it['unit_cost'] : null,
-                            'batch_reference' => $referencia,
-                            'notes'           => $this->entryNotes ?: ($isSub ? 'Saída manual em lote' : 'Entrada manual em lote'),
-                        ];
-
-                        // Se o stock não chegar, `createExit` lança dentro do
-                        // savepoint e nada disto fica — nem o movimento, nem o
-                        // saldo calculado acima.
-                        $isSub
-                            ? StockMovement::createExit($dados)
-                            : StockMovement::createEntry($dados);
-
-                        // NOTA: o agregado products.stock_quantity é mantido pelo StockObserver
-                        // (createEntry/createExit → Stock::addStock/removeStock → save Eloquent).
-                        // A sincronização manual que existia aqui aplicava o delta uma SEGUNDA
-                        // vez sobre o valor já sincronizado — dupla contagem em cada entrada
-                        // (comprovada em 88 entradas do tenant 17) e dupla subtração nas saídas.
-                        $ok++;
-                    });
-                } catch (\Throwable $e) {
-                    $errors[] = ($it['product_name'] ?? '#' . $idx) . ': ' . $e->getMessage();
-                }
-            }
-        });
+        // O LOTE REGISTA-SE NO `MovimentacaoDeStock`: uma transacção por
+        // linha e a referência reservada até ao fim. Este ecrã e o ecrã em
+        // React chamam o mesmo.
+        ['referencia' => $referencia, 'ok' => $ok, 'erros' => $errors] = app(\App\Services\Invoicing\MovimentacaoDeStock::class)
+            ->registarLote((int) $this->entryWarehouseId, $this->entryItems, $this->entryNotes, activeTenantId());
 
         if ($ok === 0) {
             session()->flash('error', __('Não foi possível registar nenhum produto. :erros', [
