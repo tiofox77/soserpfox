@@ -672,4 +672,37 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
         $this->comPermissoes('invoicing.sales.quotes.view');
         $this->assertSame([], $this->getJson($this->rota('orcamentos') . '/opcoes')->json('montantes'));
     }
+
+    /**
+     * NENHUM ESTADO APARECE EM INGLÊS.
+     *
+     * O mapa tinha onze estados e as tabelas têm mais: um adiantamento
+     * disponível saía «Available», porque o `default` é um `ucfirst` da coluna.
+     * Um ecrã em português que diz «Available» num sítio e «Disponível» noutro
+     * são dois documentos diferentes aos olhos de quem lê.
+     *
+     * @test
+     */
+    public function nenhum_estado_da_lista_sai_em_ingles(): void
+    {
+        $this->comPermissoes('invoicing.advances.view');
+
+        foreach (['available', 'partially_used', 'fully_used', 'refunded', 'cancelled'] as $estado) {
+            $this->adiantamento(['status' => $estado]);
+        }
+
+        $linhas = $this->getJson($this->rota('adiantamentos') . '?por_pagina=100')->assertOk()->json('data');
+
+        $rotulos = array_column($linhas, 'estado_rotulo');
+
+        $this->assertCount(5, $rotulos);
+        // A lista EXACTA: se um estado novo entrar na tabela sem entrar no
+        // mapa, sai um `ucfirst` da coluna e este ensaio cai.
+
+        sort($rotulos);
+        $this->assertSame(
+            ['Anulado', 'Disponível', 'Parcialmente Usado', 'Reembolsado', 'Totalmente Usado'],
+            $rotulos
+        );
+    }
 }

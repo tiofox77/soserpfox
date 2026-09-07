@@ -881,13 +881,24 @@ class DocumentosApiController extends Controller
             'draft' => __('Rascunho'),
             'sent', 'issued' => __('Emitido'),
             'pending' => __('Pendente'),
-            'partially_paid' => __('Parcialmente pago'),
+            'partially_paid', 'partial' => __('Parcialmente pago'),
             'paid' => __('Pago'),
             'overdue' => __('Vencido'),
             'accepted' => __('Aceite'),
             'rejected' => __('Recusado'),
             'converted' => __('Convertido'),
             'expired' => __('Expirado'),
+            'credited' => __('Creditado'),
+            /*
+             * OS ESTADOS DO ADIANTAMENTO — as palavras são as do próprio
+             * modelo (`Advance::status_label`), e não outras: um saldo que
+             * a lista chamasse «Available» e a ficha «Disponível» eram
+             * dois documentos diferentes aos olhos de quem lê.
+             */
+            'available' => __('Disponível'),
+            'partially_used' => __('Parcialmente Usado'),
+            'fully_used' => __('Totalmente Usado'),
+            'refunded' => __('Reembolsado'),
             'cancelled' => __('Anulado'),
             default => ucfirst((string) $estado),
         };
@@ -896,10 +907,10 @@ class DocumentosApiController extends Controller
     private function corDoEstado(?string $estado): string
     {
         return match ($estado) {
-            'paid', 'accepted', 'converted' => 'bom',
-            'draft', 'expired' => 'neutra',
+            'paid', 'accepted', 'converted', 'available' => 'bom',
+            'draft', 'expired', 'fully_used', 'credited' => 'neutra',
             'cancelled', 'rejected' => 'perigo',
-            'overdue' => 'aviso',
+            'overdue', 'partially_used' => 'aviso',
             default => 'primaria',
         };
     }
