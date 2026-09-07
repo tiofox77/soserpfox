@@ -121,6 +121,7 @@ export const ecras: Record<string, Ecra> = {
         import('./facturacao/Graficos'),
     // O BALCÃO. A venda entra pelo `PosSaleService`, a mesma porta do PWA.
     'facturacao/pos': () => import('./facturacao/pos/PontoDeVenda'),
+    'facturacao/pos-relatorio': () => import('./facturacao/pos/RelatorioDoPos'),
 
     // Os turnos do POS, o modo offline e os modelos de proposta.
     'facturacao/turnos': () =>

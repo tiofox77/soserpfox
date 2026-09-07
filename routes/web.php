@@ -991,7 +991,7 @@ Route::middleware(['auth', 'tenant.module:invoicing'])->prefix('invoicing')->nam
     Route::get('/pos', \App\Support\EcraReact::pagina('facturacao/pos', 'POS — Ponto de Venda'))->name('pos');
     Route::get('/pos/shifts', \App\Support\EcraReact::pagina('facturacao/turnos', 'POS - Ponto de Venda'))->name('pos.shifts');
     Route::get('/pos/shift-history', \App\Support\EcraReact::pagina('facturacao/historico-de-turnos', 'Histórico de Turnos'))->name('pos.shift-history');
-    Route::get('/pos/reports', \App\Livewire\POS\SalesReport::class)->name('pos.reports');
+    Route::get('/pos/reports', \App\Support\EcraReact::pagina('facturacao/pos-relatorio', 'Relatórios do POS'))->name('pos.reports');
 
     // POS Exports (PDF / Excel)
     Route::get('/pos/export/shift/{shift}/pdf', [\App\Http\Controllers\Pos\PosExportController::class, 'shiftPdf'])->name('pos.export.shift-pdf');

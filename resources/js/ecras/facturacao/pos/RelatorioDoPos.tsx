@@ -69,16 +69,30 @@ type Filtros = {
     page: number;
 };
 
+/**
+ * A DATA DE HOJE, no fuso de quem está a olhar.
+ *
+ * `toISOString()` converte para UTC, e a Angola está em UTC+1: o primeiro dia
+ * do mês saía 31 do mês anterior, e «hoje» saía ontem depois das 23h. Um
+ * relatório que começa no dia errado conta o dia errado.
+ */
+function dia(d: Date): string {
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const j = String(d.getDate()).padStart(2, '0');
+
+    return `${d.getFullYear()}-${m}-${j}`;
+}
+
 /** O mês corrente, que é o período que se olha quase sempre. */
 function inicioDoMes(): string {
     const h = new Date();
 
-    return new Date(h.getFullYear(), h.getMonth(), 1).toISOString().slice(0, 10);
+    return dia(new Date(h.getFullYear(), h.getMonth(), 1));
 }
 
 const VAZIOS: Filtros = {
     start_date: inicioDoMes(),
-    end_date: new Date().toISOString().slice(0, 10),
+    end_date: dia(new Date()),
     search: '',
     status: '',
     payment_method: '',
@@ -163,34 +177,34 @@ export default function RelatorioDoPos() {
                     <CartaoNumero
                         aspecto="claro"
                         icone="fa-receipt"
-                        cor="primaria"
-                        titulo={t('Facturado')}
+                        tom="indigo"
+                        rotulo={t('Facturado')}
                         valor={kz(totais.bruto)}
-                        rodape={t(':n documentos', { n: totais.facturas_n })}
+                        nota={t(':n documentos', { n: totais.facturas_n })}
                     />
                     <CartaoNumero
                         aspecto="claro"
                         icone="fa-rotate-left"
-                        cor="aviso"
-                        titulo={t('Devolvido')}
+                        tom="ambar"
+                        rotulo={t('Devolvido')}
                         valor={kz(totais.devolvido)}
-                        rodape={t(':n notas de crédito', { n: totais.notas_n })}
+                        nota={t(':n notas de crédito', { n: totais.notas_n })}
                     />
                     <CartaoNumero
                         aspecto="claro"
                         icone="fa-ban"
-                        cor="perigo"
-                        titulo={t('Anulado')}
+                        tom="vermelho"
+                        rotulo={t('Anulado')}
                         valor={kz(totais.anulado)}
-                        rodape={t(':n anuladas', { n: totais.anuladas_n })}
+                        nota={t(':n anuladas', { n: totais.anuladas_n })}
                     />
                     <CartaoNumero
                         aspecto="claro"
                         icone="fa-sack-dollar"
-                        cor="bom"
-                        titulo={t('Líquido')}
+                        tom="verde"
+                        rotulo={t('Líquido')}
                         valor={kz(totais.liquido)}
-                        rodape={t('IVA :valor', { valor: kz(totais.imposto) })}
+                        nota={t('IVA :valor', { valor: kz(totais.imposto) })}
                     />
                 </div>
             )}
