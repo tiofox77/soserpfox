@@ -618,6 +618,15 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::get('/turnos/historico', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'historico'])->name('turnos.historico');
         Route::get('/turnos/{id}', [\App\Http\Controllers\Api\Invoicing\TurnosApiController::class, 'mostrar'])->whereNumber('id')->name('turnos.mostrar');
 
+
+        /*
+         * O BALCÃO. A venda entra pelo `PosSaleService` — a MESMA porta do
+         * PWA offline. Ver o `PosApiController`.
+         */
+        Route::get('/pos/opcoes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'opcoes'])->name('pos.opcoes');
+        Route::get('/pos/artigos', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'artigos'])->name('pos.artigos');
+        Route::get('/pos/clientes', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'clientes'])->name('pos.clientes');
+        Route::post('/pos/vender', [\App\Http\Controllers\Api\Invoicing\PosApiController::class, 'vender'])->name('pos.vender');
         // O modo offline: recuperar uma cópia do PWA, e o PIN de turno.
         Route::post('/copia-offline/analisar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'analisar'])->name('copia-offline.analisar');
         Route::post('/copia-offline/importar', [\App\Http\Controllers\Api\Invoicing\OfflineApiController::class, 'importar'])->name('copia-offline.importar');
