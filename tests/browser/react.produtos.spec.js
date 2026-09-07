@@ -311,6 +311,117 @@ test('a imagem de destaque mostra-se antes de subir', async ({ page }) => {
     await expect(janela.getByRole('button', { name: 'Cancelar a escolha' })).toBeVisible();
 });
 
+/**
+ * A FICHA DO ARTIGO — o modal de VER que a migração não trouxe.
+ *
+ * Quem só quer consultar não tem de abrir o formulário de edição, que é onde
+ * se estraga uma ficha por engano. É informação, não um formulário: prova-se
+ * que abre, que mostra o que interessa, e que dali se salta para editar.
+ */
+test('a ficha do artigo abre para ler e salta para editar', async ({ page }) => {
+    await page.locator('tbody [aria-label^="Ver "]').first().click();
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible({ timeout: 20_000 });
+    await expect(janela.getByText('Detalhes do Produto')).toBeVisible();
+
+    // Os blocos da ficha, com os números lá dentro.
+    await expect(janela.getByText('Preço de Venda')).toBeVisible();
+    await expect(janela.getByText('Informação Fiscal')).toBeVisible();
+
+    // E dali salta-se para o formulário, sem passar pela lista.
+    await janela.getByRole('button', { name: /Editar Produto/ }).click();
+    await expect(page.getByLabel(/^Nome/)).toBeVisible({ timeout: 20_000 });
+});
+
+/**
+ * O RASTREIO: PARA ONDE FOI ESTE ARTIGO.
+ *
+ * As vendas ao lado dos movimentos de stock, e a diferença entre os dois — que
+ * é o que denuncia o artigo que aparece disponível mas cuja baixa falha. A
+ * funcionalidade inteira faltava: nem ecrã, nem API, nem contas.
+ */
+test('o rastreio junta as vendas aos movimentos de stock', async ({ page }) => {
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/rastreio') && r.request().method() === 'GET',
+        { timeout: 20_000 },
+    );
+
+    await page.locator('tbody [aria-label^="Rastrear "]').first().click();
+
+    expect((await pedido).ok()).toBe(true);
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible({ timeout: 20_000 });
+
+    // Os quatro cartões, incluindo o que justifica o ecrã.
+    await expect(janela.getByText('Vendido − saídas')).toBeVisible({ timeout: 20_000 });
+
+    // As duas listas, lado a lado.
+    await expect(janela.getByText(/^Vendas \(/)).toBeVisible();
+    await expect(janela.getByText(/^Movimentos de stock \(/)).toBeVisible();
+
+    // O PERÍODO MUDA O QUE SE PEDE ao servidor — não é um filtro do lado de cá.
+    const outroPeriodo = page.waitForResponse(
+        (r) => r.url().includes('/rastreio') && r.url().includes('dias=30'),
+        { timeout: 20_000 },
+    );
+
+    await janela.getByLabel('Período do rastreio').selectOption('30');
+    expect((await outroPeriodo).ok()).toBe(true);
+});
+
+/**
+ * O MOTIVO DA ISENÇÃO É UMA LISTA FECHADA — os códigos oficiais da AGT.
+ *
+ * Escrito à mão («isento», «art 12»), o motivo é recusado pela AGT no envio da
+ * factura, muito depois de a venda estar feita. O campo era de texto livre.
+ */
+test('o motivo da isencao vem da lista oficial da AGT', async ({ page }) => {
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible();
+
+    // O regime escolhe-se em dois cartões, e não numa caixa de escolha.
+    await janela.getByText('Isento de IVA').click();
+
+    const motivo = janela.getByLabel(/^Motivo de Isenção/);
+    await expect(motivo).toBeVisible();
+
+    // É um `select` com grupos por tipo de imposto, e não um campo de texto.
+    await expect(motivo.locator('optgroup')).not.toHaveCount(0);
+    await expect(motivo.locator('option[value="M01"]')).toHaveCount(1);
+});
+
+/**
+ * A LIXEIRA E O RESTAURO.
+ *
+ * O artigo apagado sempre foi recuperável — o modelo tem SoftDeletes — e
+ * durante anos não houve como o desfazer pela aplicação, só com SQL directo.
+ */
+test('a lixeira mostra os eliminados e deixa restaurar', async ({ page }) => {
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/react/products') && r.url().includes('eliminados=1'),
+        { timeout: 20_000 },
+    );
+
+    await page.getByRole('button', { name: /Ver eliminados/ }).click();
+    expect((await pedido).ok()).toBe(true);
+
+    // Ou há apagados e cada linha oferece o restauro, ou não há nenhum e a
+    // lista di-lo. As duas respostas são certas — a errada seria a lista
+    // normal, que é o que acontecia antes de o filtro existir.
+    const restaurar = page.getByRole('button', { name: /^Restaurar$/ });
+    const vazio = page.getByText('Nenhum artigo com estes filtros');
+
+    await expect(restaurar.first().or(vazio)).toBeVisible({ timeout: 20_000 });
+
+    // E volta-se ao catálogo pelo mesmo botão.
+    await page.getByRole('button', { name: /Voltar ao catálogo/ }).click();
+    await expect(page.getByRole('button', { name: /Ver eliminados/ })).toBeVisible();
+});
+
 test('nenhum erro na consola', async ({ page }) => {
     const erros = [];
 

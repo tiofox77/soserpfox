@@ -983,6 +983,34 @@ class ApiDosProdutosParaReactTest extends TenantTestCase
             ->assertJsonPath('data.code', 'FICA-ASSIM');
     }
 
+    /**
+     * A UNIDADE OFERECIDA TEM DE INCLUIR A QUE ESTÁ GRAVADA.
+     *
+     * Um `<select>` cujo valor não bate com nenhuma opção mostra a PRIMEIRA —
+     * e gravar troca a unidade do artigo sem ninguém dar por nada. Aconteceu de
+     * verdade: a lista do React nasceu em minúsculas («un») e nesta base estão
+     * 11 702 artigos com «UN». As unidades que o catálogo JÁ USA vão sempre na
+     * lista, venham de onde vierem.
+     *
+     * @test
+     */
+    public function as_unidades_incluem_as_que_o_catalogo_ja_usa(): void
+    {
+        $this->comPermissoes('invoicing.products.view', 'invoicing.products.create');
+
+        // Uma unidade que não está no catálogo de sugestões.
+        $this->postJson(self::RAIZ, $this->corpo(['name' => 'Artigo à peça', 'unit' => 'PEÇA']))
+            ->assertCreated();
+
+        $unidades = $this->getJson(self::RAIZ . '/opcoes')->assertOk()->json('unidades');
+
+        $this->assertContains('UN', $unidades, 'a unidade mais usada da base tem de estar na lista');
+        $this->assertContains('PEÇA', $unidades, 'a unidade que o catálogo já usa tem de estar na lista');
+
+        // E não se oferece a mesma duas vezes.
+        $this->assertSame(array_values(array_unique($unidades)), $unidades);
+    }
+
     /* ─── Os filtros que arrumam o catálogo ───────────────────────────── */
 
     /**

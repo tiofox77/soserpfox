@@ -55,6 +55,42 @@ test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
     await expect(page.getByRole('status')).toContainText('apagad', { timeout: 20_000 });
 });
 
+/**
+ * A FICHA DO FORNECEDOR — o modal de VER, com o extrato.
+ *
+ * É o que se olha antes de negociar um preço: quanto já lhe comprámos, quanto
+ * se lhe deve, o que mais lhe compramos. Só os fornecedores o têm — uma marca
+ * não tem extrato nenhum, e uma janela que abre vazia faz acreditar que não se
+ * comprou nada.
+ */
+test('so o fornecedor tem ficha de ver, e ela traz o extrato', async ({ page }) => {
+    await page.goto('/invoicing/brands');
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+    // Nas marcas o botão nem existe.
+    await expect(page.locator('tbody [aria-label^="Ver:"]')).toHaveCount(0);
+
+    await page.goto('/invoicing/suppliers');
+    await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
+
+    await page.locator('tbody [aria-label^="Ver:"]').first().click();
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible({ timeout: 20_000 });
+    await expect(janela.getByText('Identificação')).toBeVisible();
+
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/extrato') && r.request().method() === 'GET',
+        { timeout: 20_000 },
+    );
+
+    await janela.getByRole('tab', { name: /Extrato/ }).click();
+    expect((await pedido).ok()).toBe(true);
+
+    // Do lado do fornecedor a palavra é COMPRADO, e não facturado.
+    await expect(janela.getByText('Comprado')).toBeVisible({ timeout: 20_000 });
+});
+
 test('o erro de validacao aparece no campo', async ({ page }) => {
     await page.goto('/invoicing/warehouses');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });

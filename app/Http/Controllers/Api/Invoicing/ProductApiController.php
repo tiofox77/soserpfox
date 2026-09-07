@@ -508,7 +508,27 @@ class ProductApiController extends Controller
                 ->orderBy('rate')
                 ->get(['id', 'name', 'rate']),
 
-            'unidades' => ['un', 'kg', 'g', 'l', 'ml', 'm', 'cm', 'm2', 'm3', 'cx', 'pct', 'par', 'hora'],
+            /*
+             * AS UNIDADES EM MAIÚSCULAS, porque é assim que estão gravadas.
+             *
+             * A lista do React nasceu em minúsculas (`un`, `kg`) enquanto na
+             * base estão `UN`, `KG`, `PAR`, `L` — em 11 702 artigos. Um
+             * `<select>` cujo valor não bate com nenhuma opção mostra a
+             * PRIMEIRA: abrir a edição de qualquer artigo punha «un» no campo,
+             * e gravar trocava-lhe a unidade sem ninguém dar por nada.
+             *
+             * As que a base já usa vão à cabeça, e o resto do catálogo por
+             * baixo — assim quem tem `PAR` continua a vê-lo escolhido.
+             */
+            'unidades' => collect(['UN', 'KG', 'G', 'L', 'ML', 'M', 'CM', 'M2', 'M3', 'CX', 'PCT', 'PAR', 'HORA', 'DIA', 'MÊS', 'SRV'])
+                ->merge(
+                    Product::where('tenant_id', activeTenantId())
+                        ->whereNotNull('unit')->where('unit', '<>', '')
+                        ->distinct()->pluck('unit')
+                )
+                ->unique()
+                ->values()
+                ->all(),
 
             'generos' => collect(self::GENEROS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
             'conservacao' => collect(self::CONSERVACAO)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),

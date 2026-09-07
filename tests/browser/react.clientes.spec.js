@@ -167,6 +167,79 @@ test('escolher a província enche os municípios', async ({ page }) => {
     await expect(janela.getByLabel('Bairro')).toBeEditable();
 });
 
+/**
+ * A CONDIÇÃO DE PAGAMENTO E O CELULAR — os campos que a migração deixou cair.
+ *
+ * A condição é a que dá o VENCIMENTO às facturas deste cliente; o celular é o
+ * número que a maioria dos clientes angolanos atende. Ambos estavam na ficha
+ * de sempre e nenhum tinha por onde se escrever.
+ */
+test('o formulario tem condicao de pagamento, celular e logotipo', async ({ page }) => {
+    await page.getByRole('button', { name: /Novo Cliente/i }).click();
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible();
+
+    await expect(janela.getByLabel('Celular')).toBeVisible();
+    await expect(janela.getByLabel('Logótipo')).toBeVisible();
+
+    const condicao = janela.getByLabel('Condição de Pagamento');
+    await expect(condicao).toBeVisible();
+
+    /*
+     * UM CLIENTE NOVO ABRE COM A CONDIÇÃO PADRÃO DA EMPRESA.
+     *
+     * O modelo põe-na a quem vier sem nenhuma, mas mostrá-la aqui deixa
+     * TROCÁ-LA antes de gravar, em vez de descobrir o prazo depois, na primeira
+     * factura.
+     */
+    await expect(condicao).not.toHaveValue('');
+});
+
+/**
+ * A FICHA DO CLIENTE — o modal de VER, com o extrato.
+ *
+ * São as duas perguntas que se fazem antes de dar crédito: quanto já comprou, e
+ * de quanto em quanto tempo volta. Faltavam a janela e as contas.
+ */
+test('a ficha do cliente abre com o extrato e os quatro separadores', async ({ page }) => {
+    await page.locator('tbody [aria-label^="Ver "]').first().click();
+
+    const janela = page.getByRole('dialog');
+    await expect(janela).toBeVisible({ timeout: 20_000 });
+
+    // A ficha abre no primeiro separador, com os contactos.
+    await expect(janela.getByText('Identificação')).toBeVisible();
+    await expect(janela.getByText('Contactos')).toBeVisible();
+
+    // O EXTRATO só se pede quando se abre o separador — não à cabeça.
+    const pedido = page.waitForResponse(
+        (r) => r.url().includes('/extrato') && r.request().method() === 'GET',
+        { timeout: 20_000 },
+    );
+
+    await janela.getByRole('tab', { name: /Extrato/ }).click();
+    expect((await pedido).ok()).toBe(true);
+
+    await expect(janela.getByText('Ticket Médio')).toBeVisible({ timeout: 20_000 });
+
+    /*
+     * A MÉDIA DE DIAS NUNCA É NEGATIVA.
+     *
+     * O `diffInDays` do Carbon 3 devolve valor COM SINAL, e o cálculo herdado
+     * do Livewire comparava cada data com a anterior: a ficha de um cliente
+     * com 52 facturas mostrava «−0,1 dias».
+     */
+    await expect(janela.getByText(/^-/)).toHaveCount(0);
+
+    // Os outros dois separadores abrem sem ir buscar nada de novo.
+    await janela.getByRole('tab', { name: /Produtos/ }).click();
+    await expect(janela.getByRole('columnheader', { name: 'Produto' })).toBeVisible();
+
+    await janela.getByRole('tab', { name: /Frequência/ }).click();
+    await expect(janela.getByText(/Frequência de Compra/)).toBeVisible();
+});
+
 test('nenhum erro na consola', async ({ page }) => {
     const erros = [];
 

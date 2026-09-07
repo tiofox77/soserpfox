@@ -55,7 +55,7 @@ const VAZIO: ArtigoParaGravar = {
     barcode: '',
     price: '',
     cost: '',
-    unit: 'un',
+    unit: 'UN',
     category_id: '',
     brand_id: '',
     supplier_id: '',
@@ -1281,6 +1281,15 @@ function Formulario({
                                 {u}
                             </option>
                         ))}
+                        {/* A UNIDADE GRAVADA NUNCA SE PERDE.
+                            Um `<select>` cujo valor não bate com nenhuma opção
+                            mostra a PRIMEIRA — e gravar trocava a unidade do
+                            artigo sem ninguém dar por nada. Aconteceu de
+                            verdade: a lista nasceu em minúsculas («un») e na
+                            base estão 11 702 artigos com «UN». */}
+                        {dados.unit && !(opcoes?.unidades ?? []).includes(String(dados.unit)) && (
+                            <option value={dados.unit}>{dados.unit}</option>
+                        )}
                     </select>
                 </Campo>
 
@@ -1697,7 +1706,8 @@ function FichaDoArtigo({
             aoFechar={aoFechar}
             largura="xl"
             icone="fa-eye"
-            cor="primaria"
+            // A ficha leva a cor do ecrã, como a janela de editar.
+            cor="roxo"
             titulo={t('Detalhes do Produto')}
             subtitulo={a.name}
             rodape={
@@ -2155,7 +2165,8 @@ function Rastreio({ artigo, aoFechar }: { artigo: Artigo | null; aoFechar: () =>
             aoFechar={aoFechar}
             largura="xl"
             icone="fa-timeline"
-            cor="primaria"
+            // A cor do ecrã, como as outras janelas dos artigos.
+            cor="roxo"
             titulo={artigo.name}
             subtitulo={[artigo.code, t('rastreio de vendas e stock')].filter(Boolean).join(' · ')}
             rodape={<Botao onClick={aoFechar}>{t('Fechar')}</Botao>}

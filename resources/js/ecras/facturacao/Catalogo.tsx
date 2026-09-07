@@ -394,7 +394,8 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                     o={o}
                     valores={formulario}
                     erros={erros}
-                    titulo={aEditar ? t('Editar :nome', { nome: o.singular.toLowerCase() }) : t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}
+                    titulo={aEditar ? t('Editar :nome', { nome: o.singular.toLowerCase() }) : o.novo}
+                    subtitulo={aEditar ? String(aEditar.name ?? '') : undefined}
                     aGravar={gravar.isPending}
                     erroGeral={gravar.error}
                     aoMudar={porFormulario}
@@ -444,11 +445,12 @@ function Celula({ c, l }: { c: Coluna; l: Linha }) {
 
 /* ─── O formulário, campo a campo, pelo esquema ─────────────────────── */
 
-function Formulario({ o, valores, erros, titulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
+function Formulario({ o, valores, erros, titulo, subtitulo, aGravar, erroGeral, aoMudar, aoFechar, aoGravar }: {
     o: OpcoesDoCatalogo;
     valores: Valores;
     erros: Record<string, string[]>;
     titulo: string;
+    subtitulo?: string;
     aGravar: boolean;
     erroGeral: unknown;
     aoMudar: (v: Valores) => void;
@@ -482,6 +484,11 @@ function Formulario({ o, valores, erros, titulo, aGravar, erroGeral, aoMudar, ao
             aberto
             aoFechar={aoFechar}
             titulo={titulo}
+            subtitulo={subtitulo}
+            // A janela leva a COR e o ÍCONE do catálogo, como a faixa lá em
+            // cima: é o que a faz ler-se como parte da página.
+            cor={(o.cor as TomDaFaixa) ?? 'primaria'}
+            icone={o.icone}
             largura="lg"
             rodape={<><Botao onClick={aoFechar}>{t('Cancelar')}</Botao><Botao cor="primaria" tom="solida" icone="fa-floppy-disk" aTrabalhar={aGravar} onClick={aoGravar}>{t('Guardar')}</Botao></>}
         >
