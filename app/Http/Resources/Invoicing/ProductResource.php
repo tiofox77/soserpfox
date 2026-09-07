@@ -75,6 +75,11 @@ class ProductResource extends JsonResource
 
             'is_active' => (bool) $this->is_active,
 
+            // SE ESTÁ NA LIXEIRA. Um artigo apagado continua a existir (o
+            // modelo tem `SoftDeletes`) e pode voltar — o ecrã precisa de
+            // saber qual é para oferecer o restauro em vez da edição.
+            'eliminado' => $this->deleted_at !== null,
+
             /*
              * OS CAMPOS DE SECTOR VÃO SEMPRE, mesmo a null.
              *

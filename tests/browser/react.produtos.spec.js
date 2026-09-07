@@ -59,7 +59,7 @@ test('a lista abre com os artigos da empresa', async ({ page }) => {
  * a dizer onde se ajusta.
  */
 test('a quantidade so existe ao criar, nunca ao editar', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const novo = page.getByRole('dialog');
     await expect(novo.getByLabel('Quantidade inicial')).toBeVisible();
@@ -77,7 +77,7 @@ test('a quantidade so existe ao criar, nunca ao editar', async ({ page }) => {
 
 /** Um serviço não gere stock — os campos de stock desaparecem. */
 test('escolher servico faz desaparecer o stock', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -91,7 +91,7 @@ test('escolher servico faz desaparecer o stock', async ({ page }) => {
 
 /** O imposto: ou taxa do catálogo, ou isenção com motivo. Nunca à mão. */
 test('o imposto troca entre taxa do catalogo e motivo de isencao', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -107,7 +107,7 @@ test('o imposto troca entre taxa do catalogo e motivo de isencao', async ({ page
 test('cria um artigo e ele aparece na lista', async ({ page }) => {
     const nome = 'Artigo React ' + String(Date.now()).slice(-6);
 
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -137,7 +137,7 @@ test('com o perfil de farmacia ligado a seccao do sector aparece', async ({ page
         await definirPerfis(page, { Farmácia: true });
 
         await page.goto(ECRA);
-        await page.getByRole('button', { name: /Novo artigo/ }).click();
+        await page.getByRole('button', { name: /Novo Produto/i }).click();
 
         const janela = page.getByRole('dialog');
 
@@ -190,7 +190,7 @@ test('um valor gravado continua a ver-se com o perfil desligado', async ({ page 
     const nome = 'Xarope React ' + String(Date.now()).slice(-6);
 
     await page.goto(ECRA);
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -233,7 +233,7 @@ test('um valor gravado continua a ver-se com o perfil desligado', async ({ page 
  * artigo nunca lá entra.
  */
 test('a marca, o fornecedor e o controlo de lotes estao no formulario', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -258,7 +258,7 @@ test('a marca, o fornecedor e o controlo de lotes estao no formulario', async ({
 test('o controlo de lotes grava e a ficha volta a abrir marcada', async ({ page }) => {
     const nome = 'Lote React ' + String(Date.now()).slice(-6);
 
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -290,7 +290,7 @@ test('o controlo de lotes grava e a ficha volta a abrir marcada', async ({ page 
 
 /** As imagens: escolher uma mostra a pré-visualização antes de ela subir. */
 test('a imagem de destaque mostra-se antes de subir', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo artigo/ }).click();
+    await page.getByRole('button', { name: /Novo Produto/i }).click();
 
     const janela = page.getByRole('dialog');
 

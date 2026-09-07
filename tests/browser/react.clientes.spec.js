@@ -34,7 +34,7 @@ test('cria um cliente e ele aparece na lista', async ({ page }) => {
     const nif = nifDeEnsaio();
     const nome = 'Ensaio React ' + nif.slice(-5);
 
-    await page.getByRole('button', { name: /Novo cliente/ }).click();
+    await page.getByRole('button', { name: /Novo Cliente/i }).click();
 
     const janela = page.getByRole('dialog');
     await expect(janela).toBeVisible();
@@ -59,7 +59,7 @@ test('cria um cliente e ele aparece na lista', async ({ page }) => {
  * está mal.
  */
 test('mostra o erro de validação no campo certo', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo cliente/ }).click();
+    await page.getByRole('button', { name: /Novo Cliente/i }).click();
 
     const janela = page.getByRole('dialog');
 
@@ -104,7 +104,7 @@ test('não deixa apagar quem tem documentos', async ({ page }) => {
  * porque descobrir a regra num 422 é descobri-la tarde.
  */
 test('o acesso ao portal aparece e pede o email', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo cliente/ }).click();
+    await page.getByRole('button', { name: /Novo Cliente/i }).click();
 
     const janela = page.getByRole('dialog');
     await expect(janela).toBeVisible();
@@ -134,7 +134,7 @@ test('o acesso ao portal aparece e pede o email', async ({ page }) => {
  * grava e o SAFT leva, não tinham por onde ser escritos.
  */
 test('escolher a província enche os municípios', async ({ page }) => {
-    await page.getByRole('button', { name: /Novo cliente/ }).click();
+    await page.getByRole('button', { name: /Novo Cliente/i }).click();
 
     const janela = page.getByRole('dialog');
     // Ancorado no princípio: o nome acessível de um `select` leva-lhe a opção

@@ -107,6 +107,17 @@ class ProductApiController extends Controller
             'de' => ['nullable', 'date'],
             'ate' => ['nullable', 'date'],
 
+            /*
+             * VER OS ELIMINADOS.
+             *
+             * O artigo apagado sempre foi recuperável (o modelo tem
+             * `SoftDeletes`), mas durante anos não houve forma de o fazer pela
+             * aplicação — só com SQL directo. O ecrã de sempre ganhou este
+             * modo, e a migração para React voltou a deixar os apagados
+             * invisíveis.
+             */
+            'eliminados' => ['nullable', 'in:1'],
+
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
@@ -121,20 +132,71 @@ class ProductApiController extends Controller
          * é a mesma fonte que a lista de sempre usa, e a única que não mente
          * quando o agregado ficou para trás.
          */
-        $query = Product::where('tenant_id', activeTenantId())
+        $query = $this->filtrada($filtros)
             ->withSum('stocks as stock_das_linhas', 'quantity')
             ->with(['category', 'taxRate']);
 
-        if ($procura = ($filtros['procura'] ?? null)) {
-            $query->where(function ($q) use ($procura) {
-                $q->where('name', 'like', "%{$procura}%")
+        /*
+         * OS NÚMEROS DOS CARTÕES CONTAM O CATÁLOGO FILTRADO, não a página.
+         *
+         * O ecrã em Blade contava o catálogo inteiro (`$estatisticas`); ao
+         * migrar, os cartões passaram a contar as quinze linhas à vista e a
+         * dizê-lo em letra pequena. Um «preço médio» que muda ao virar a
+         * página não é um preço médio.
+         *
+         * A CONSULTA DO RESUMO NASCE DE NOVO dos mesmos filtros, e não de um
+         * clone da listagem: aquela leva o `withSum` do stock na lista de
+         * colunas, e uma coluna não agregada ao lado de um `SUM()` faz o MySQL
+         * recusar a consulta inteira (`only_full_group_by`).
+         */
+        $resumo = $this->filtrada($filtros)
+            ->toBase()
+            ->selectRaw("
+                COUNT(*) as total,
+                AVG(NULLIF(price, 0)) as preco_medio,
+                SUM(CASE WHEN type = 'servico' THEN 1 ELSE 0 END) as servicos,
+                SUM(CASE WHEN manage_stock = 1
+                          AND stock_min IS NOT NULL AND stock_min > 0
+                          AND stock_quantity <= stock_min THEN 1 ELSE 0 END) as em_falta
+            ")
+            ->first();
+
+        return ProductResource::collection(
+            $query->orderBy('name')->paginate($filtros['por_pagina'] ?? 15)->withQueryString()
+        )->additional([
+            'resumo' => [
+                'total' => (int) ($resumo->total ?? 0),
+                'preco_medio' => round((float) ($resumo->preco_medio ?? 0), 2),
+                'servicos' => (int) ($resumo->servicos ?? 0),
+                'em_falta' => (int) ($resumo->em_falta ?? 0),
+            ],
+        ]);
+    }
+
+    /**
+     * A consulta com os filtros postos — e SEM as colunas da listagem.
+     *
+     * Serve duas vezes: a lista (que lhe acrescenta o stock somado e as
+     * relações) e o resumo dos cartões (que lhe acrescenta só agregados).
+     * Escrita uma vez, os dois falam sempre do mesmo conjunto.
+     *
+     * NÃO SE FILTRA POR `module` — o ecrã de sempre também não filtrava — para
+     * as duas listas mostrarem exactamente os mesmos artigos. Uma API que
+     * esconda o que o ecrã mostra é tão errada como uma que mostre a mais.
+     */
+    private function filtrada(array $filtros): \Illuminate\Database\Eloquent\Builder
+    {
+        return Product::where('tenant_id', activeTenantId())
+            // SÓ os apagados, quando se pede a lixeira: é uma lista à parte,
+            // não uma lista com os apagados misturados — misturados, ninguém
+            // percebe porque é que um artigo não aparece no POS.
+            ->when(($filtros['eliminados'] ?? null) === '1', fn ($q) => $q->onlyTrashed())
+            ->when($filtros['procura'] ?? null, fn ($q, $procura) => $q->where(function ($w) use ($procura) {
+                $w->where('name', 'like', "%{$procura}%")
                     ->orWhere('code', 'like', "%{$procura}%")
                     ->orWhere('sku', 'like', "%{$procura}%")
                     ->orWhere('barcode', 'like', "%{$procura}%");
-            });
-        }
-
-        $query
+            }))
             ->when($filtros['tipo'] ?? null, fn ($q, $v) => $q->where('type', $v))
             ->when($filtros['categoria'] ?? null, fn ($q, $v) => $q->where('category_id', $v))
             ->when(
@@ -185,10 +247,32 @@ class ProductApiController extends Controller
 
             ->when($filtros['de'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
+    }
 
-        return ProductResource::collection(
-            $query->orderBy('name')->paginate($filtros['por_pagina'] ?? 15)->withQueryString()
-        );
+    /**
+     * RESTAURAR UM ARTIGO APAGADO.
+     *
+     * A eliminação sempre foi recuperável — o modelo usa `SoftDeletes` — mas
+     * durante anos não houve como o fazer pela aplicação, só com SQL directo.
+     * Volta com a ficha, o histórico e as imagens intactos.
+     *
+     * Pede a MESMA permissão de apagar: quem pode tirar da lista é quem pode
+     * repô-la.
+     */
+    public function restaurar(Request $request, int $id): JsonResponse
+    {
+        $this->exigir($request, 'invoicing.products.delete');
+
+        $artigo = Product::onlyTrashed()
+            ->where('tenant_id', activeTenantId())
+            ->findOrFail($id);
+
+        $artigo->restore();
+
+        return response()->json([
+            'data' => new ProductResource($artigo->fresh()->load(['category', 'taxRate'])),
+            'message' => __('Artigo restaurado: :nome', ['nome' => $artigo->name]),
+        ]);
     }
 
     public function store(Request $request): JsonResponse

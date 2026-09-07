@@ -31,6 +31,37 @@ const TONS = {
 
 export type TomDoCartao = keyof typeof TONS;
 
+/**
+ * O TEXTO COLORIDO da variante clara.
+ *
+ * Na versão de fundo branco o rótulo leva a cor do tom (era assim nos ecrãs de
+ * clientes e artigos: «Total Clientes» a verde por cima do número preto). Fica
+ * num mapa e não interpolado: sem build, o Tailwind do browser não gera uma
+ * classe que só existe montada em tempo de execução.
+ */
+const TEXTOS = {
+    azul: 'text-blue-600',
+    indigo: 'text-indigo-600',
+    verde: 'text-emerald-600',
+    ambar: 'text-amber-600',
+    vermelho: 'text-red-600',
+    cinza: 'text-slate-600',
+    roxo: 'text-purple-600',
+    laranja: 'text-orange-600',
+} as const;
+
+/** O anel suave da variante clara — a mesma família da cor do ícone. */
+const ANEIS = {
+    azul: 'border-blue-100',
+    indigo: 'border-indigo-100',
+    verde: 'border-emerald-100',
+    ambar: 'border-amber-100',
+    vermelho: 'border-red-100',
+    cinza: 'border-slate-200',
+    roxo: 'border-purple-100',
+    laranja: 'border-orange-100',
+} as const;
+
 export function CartaoNumero({
     rotulo,
     valor,
@@ -39,6 +70,7 @@ export function CartaoNumero({
     tom = 'indigo',
     nota,
     aoCarregar,
+    aspecto = 'cheio',
     className,
 }: {
     rotulo: string;
@@ -51,19 +83,68 @@ export function CartaoNumero({
     nota?: ReactNode;
     /** Quando o cartão é um filtro, carrega-se nele. */
     aoCarregar?: () => void;
+    /**
+     * `cheio` — o cartão todo com gradiente e texto branco (o do painel).
+     * `claro` — cartão branco com o ÍCONE em quadrado de gradiente, número
+     * grande a preto e rótulo colorido. Era este o das listas de clientes e
+     * artigos em Blade, e é este que dá o número grande e legível.
+     *
+     * Não são dois desenhos a competir: o cheio é para uma faixa de cartões
+     * que se lê como um bloco; o claro é para quando o NÚMERO é o assunto.
+     */
+    aspecto?: 'cheio' | 'claro';
     className?: string;
 }) {
     const Elemento = aoCarregar ? 'button' : 'div';
+
+    if (aspecto === 'claro') {
+        return (
+            <Elemento
+                type={aoCarregar ? 'button' : undefined}
+                onClick={aoCarregar}
+                className={cls(
+                    // `card-hover` vive no layout desde sempre: levanta o
+                    // cartão, aprofunda a sombra e passa-lhe um brilho por
+                    // cima. Era o que os ecrãs em Blade usavam e o React não
+                    // chamava — foi disto que se sentiu a falta.
+                    'card-hover rounded-2xl border bg-white p-5 text-left shadow-lg',
+                    ANEIS[tom],
+                    aoCarregar && 'cursor-pointer',
+                    className,
+                )}
+            >
+                {/* O `icon-float` levanta o ícone quando o cartão é apontado —
+                    é a regra `.card-hover:hover .icon-float` do layout. */}
+                <span
+                    className={cls(
+                        'icon-float mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br text-2xl text-white shadow-lg',
+                        TONS[tom],
+                    )}
+                >
+                    <i className={`fas ${icone}`} aria-hidden="true" />
+                </span>
+
+                <p className={cls('text-sm font-semibold', TEXTOS[tom])}>{rotulo}</p>
+                <p className="mt-1 text-3xl font-bold leading-tight tabular-nums text-slate-900 sm:text-4xl">
+                    {valor}
+                    {sufixo && <span className="ml-1 text-base font-normal text-slate-400">{sufixo}</span>}
+                </p>
+                {nota && <p className="mt-1 text-xs text-slate-500">{nota}</p>}
+            </Elemento>
+        );
+    }
 
     return (
         <Elemento
             type={aoCarregar ? 'button' : undefined}
             onClick={aoCarregar}
             className={cls(
-                'bg-gradient-to-br p-4 text-left text-white shadow-lg rounded-xl',
+                // `gradient-shift` faz o gradiente correr ao passar o rato: o
+                // cartão responde sem se mexer do sítio, que é o que se quer
+                // numa faixa de quatro alinhados.
+                'card-hover gradient-shift bg-gradient-to-br p-4 text-left text-white shadow-lg rounded-xl',
                 TONS[tom],
-                'transform transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl',
-                aoCarregar && 'hover:scale-[1.02] active:scale-100 cursor-pointer',
+                aoCarregar && 'cursor-pointer',
                 className,
             )}
         >
@@ -80,7 +161,7 @@ export function CartaoNumero({
                     {nota && <p className="mt-0.5 text-[11px] leading-tight text-white/70">{nota}</p>}
                 </div>
 
-                <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white/20 sm:h-12 sm:w-12 sm:text-lg">
+                <span className="icon-float grid h-10 w-10 flex-none place-items-center rounded-full bg-white/20 sm:h-12 sm:w-12 sm:text-lg">
                     <i className={`fas ${icone}`} aria-hidden="true" />
                 </span>
             </div>

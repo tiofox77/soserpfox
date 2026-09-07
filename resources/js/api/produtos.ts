@@ -73,6 +73,8 @@ export type Artigo = CamposDeSector & {
     require_batch_on_sale: boolean;
 
     is_active: boolean;
+    /** Se está na lixeira: apagado, mas recuperável. */
+    eliminado: boolean;
     /** A morada da imagem de destaque, já pronta a mostrar. */
     imagem: string | null;
     /** O que está gravado na coluna — é com isto que se pede para apagar. */
@@ -158,8 +160,18 @@ export type FiltrosDeArtigos = {
     /** O intervalo em que a ficha foi criada. */
     de?: string;
     ate?: string;
+    /** '1' mostra SÓ os apagados — a lixeira, para os restaurar. */
+    eliminados?: string;
     por_pagina?: number;
     page?: number;
+};
+
+/** Os números dos cartões, contados sobre o catálogo FILTRADO inteiro. */
+export type ResumoDosArtigos = {
+    total: number;
+    preco_medio: number;
+    servicos: number;
+    em_falta: number;
 };
 
 /** O rastreio de um artigo: as vendas e os movimentos, e o que não bate certo. */
@@ -221,7 +233,11 @@ export type OpcoesDosArtigos = {
 };
 
 export const produtos = {
-    lista: (filtros: FiltrosDeArtigos) => api.ler<Pagina<Artigo>>('/products', filtros),
+    lista: (filtros: FiltrosDeArtigos) =>
+        api.ler<Pagina<Artigo> & { resumo: ResumoDosArtigos }>('/products', filtros),
+
+    /** Tirar da lixeira: a ficha, o histórico e as imagens voltam intactos. */
+    restaurar: (id: number) => api.criar<{ data: Artigo; message: string }>(`/products/${id}/restaurar`, {}),
     opcoes: () => api.ler<OpcoesDosArtigos>('/products/opcoes'),
     criar: (dados: ArtigoParaGravar) => api.criar<{ data: Artigo }>('/products', dados),
     guardar: (id: number, dados: ArtigoParaGravar) =>

@@ -52,6 +52,12 @@ export type OpcoesDoCatalogo = {
     titulo: string;
     singular: string;
     icone: string;
+    /** A cor da faixa deste catálogo — cada lista tinha a sua em Blade. */
+    cor: string;
+    /** A linha por baixo do título: «Gerir fornecedores». */
+    descricao: string;
+    /** O rótulo do botão de criar: «Novo Fornecedor», «Nova Categoria». */
+    novo: string;
     pesquisa: string;
     colunas: Coluna[];
     campos: Campo[];

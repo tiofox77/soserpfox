@@ -7,6 +7,7 @@ import {
     type ArtigoParaGravar,
     type Escolha,
     type FiltrosDeArtigos,
+    type ResumoDosArtigos,
     type OpcoesDosArtigos,
 } from '@/api/produtos';
 import { ErroDaApi } from '@/api/cliente';
@@ -19,6 +20,7 @@ import { Etiqueta } from '@/ui/Etiqueta';
 import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
+import { ACCAO_DA_FAIXA, Faixa } from './faixa';
 import { CARTAO, FOCO, GRADIENTES, RAIO, cls, data, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -200,6 +202,27 @@ export default function Produtos() {
         },
     });
 
+    /**
+     * TIRAR DA LIXEIRA.
+     *
+     * A ficha, o histórico e as imagens voltam intactos: o modelo tem
+     * `SoftDeletes` e nunca se perdeu nada — o que não havia era caminho pela
+     * aplicação para o desfazer, só SQL directo.
+     */
+    const restaurar = useMutation({
+        mutationFn: (a: Artigo) => produtos.restaurar(a.id),
+        onSuccess: (r) => {
+            void cache.invalidateQueries({ queryKey: ['produtos'] });
+            porRecado({ texto: r.message, mau: false });
+        },
+        onError: (e) => {
+            porRecado({
+                texto: e instanceof ErroDaApi ? e.message : t('Não foi possível restaurar o artigo.'),
+                mau: true,
+            });
+        },
+    });
+
     const permissoes = opcoes.data?.permissoes;
 
     if (lista.isError) {
@@ -266,6 +289,27 @@ export default function Produtos() {
 
     return (
         <div className="space-y-4">
+            {/* O CABEÇALHO DE SEMPRE — a faixa roxa com o ícone da caixa e o
+                botão principal à direita, como em Blade. A migração deixou a
+                página a começar por uma fila de cartões, sem título nenhum. */}
+            <Faixa
+                titulo={t('Produtos/Serviços')}
+                subtitulo={t('Gerir catálogo de produtos')}
+                icone="fa-box"
+                cor="roxo"
+                accoes={
+                    permissoes?.pode_criar && (
+                        <button type="button" onClick={abrirNovo} className={cls(ACCAO_DA_FAIXA, 'group')}>
+                            <i
+                                className="fas fa-plus transition-transform duration-300 group-hover:rotate-90"
+                                aria-hidden="true"
+                            />
+                            {t('Novo Produto')}
+                        </button>
+                    )
+                }
+            />
+
             {recado && (
                 <div
                     role="status"
@@ -290,24 +334,15 @@ export default function Produtos() {
                 </div>
             )}
 
-            {/* OS CARTÕES DO TOPO, como o ecrã em Blade tinha.
-                A CONTAGEM é a do servidor e conta tudo o que passa nos filtros;
-                as outras três são das linhas à vista, e dizem-no no próprio
-                cartão. Os totais do catálogo inteiro exigiriam outra pergunta ao
-                servidor, e este lote não mexe na API. */}
-            <Cartoes total={contas?.total} linhas={linhas} aActualizar={lista.isFetching} />
+            {/* OS CARTÕES DO TOPO, como o ecrã em Blade tinha — brancos, com o
+                ícone em quadrado de gradiente, e a contarem o catálogo
+                FILTRADO inteiro (o de Blade contava `$estatisticas`, não a
+                página). */}
+            <Cartoes resumo={lista.data?.resumo} aActualizar={lista.isFetching} />
 
-            <Cartao
-                titulo={t('Artigos')}
-                icone="fa-box"
-                accoes={
-                    permissoes?.pode_criar && (
-                        <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
-                            {t('Novo artigo')}
-                        </Botao>
-                    )
-                }
-            >
+            {/* Sem botão de criar aqui: ele vive NA FAIXA, como no ecrã de
+                sempre — dois botões iguais na mesma página não ajudam. */}
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <label className="block lg:col-span-2">
                         <Rotulo>{t('Procurar')}</Rotulo>
@@ -386,6 +421,29 @@ export default function Produtos() {
                             valor={filtros.por_pagina}
                             aoMudar={(n) => porFiltros((f) => ({ ...f, por_pagina: n, page: 1 }))}
                         />
+                        {/* A LIXEIRA. O artigo apagado sempre foi recuperável —
+                            o modelo tem SoftDeletes — mas durante anos não
+                            houve como o ver pela aplicação, só com SQL. É uma
+                            lista À PARTE e não os apagados misturados: assim
+                            ninguém fica sem perceber porque é que um artigo da
+                            lista não aparece no POS. */}
+                        {permissoes?.pode_apagar && (
+                            <Botao
+                                altura="pequeno"
+                                cor={filtros.eliminados === '1' ? 'perigo' : 'neutra'}
+                                tom={filtros.eliminados === '1' ? 'solida' : 'suave'}
+                                icone={filtros.eliminados === '1' ? 'fa-rotate-left' : 'fa-trash'}
+                                onClick={() =>
+                                    porFiltros((f) => ({
+                                        ...f,
+                                        eliminados: f.eliminados === '1' ? '' : '1',
+                                        page: 1,
+                                    }))
+                                }
+                            >
+                                {filtros.eliminados === '1' ? t('Voltar ao catálogo') : t('Ver eliminados')}
+                            </Botao>
+                        )}
                         <Botao
                             altura="pequeno"
                             cor={filtros.so_em_falta === '1' ? 'aviso' : 'neutra'}
@@ -531,6 +589,24 @@ export default function Produtos() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
+                                                {/* NA LIXEIRA SÓ HÁ UMA COISA A FAZER: pôr o
+                                                    artigo de volta. Editar ou apagar de novo o
+                                                    que já está apagado não quer dizer nada. */}
+                                                {a.eliminado ? (
+                                                    permissoes?.pode_apagar && (
+                                                        <Botao
+                                                            altura="pequeno"
+                                                            cor="bom"
+                                                            tom="solida"
+                                                            icone="fa-rotate-left"
+                                                            aTrabalhar={restaurar.isPending}
+                                                            onClick={() => restaurar.mutate(a)}
+                                                        >
+                                                            {t('Restaurar')}
+                                                        </Botao>
+                                                    )
+                                                ) : (
+                                                    <>
                                                 {/* PARA ONDE FOI ESTE ARTIGO. O botão que o
                                                     ecrã de sempre tinha em cada linha: junta as
                                                     vendas aos movimentos de stock, e é a
@@ -568,6 +644,8 @@ export default function Produtos() {
                                                     >
                                                         <i className="fas fa-trash" aria-hidden="true" />
                                                     </button>
+                                                )}
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -764,50 +842,48 @@ function EstadoVazio({
  * sozinha não chega a quem não a distingue.
  */
 function Cartoes({
-    total,
-    linhas,
+    resumo,
     aActualizar,
 }: {
-    total?: number;
-    linhas: Artigo[];
+    resumo?: ResumoDosArtigos;
     aActualizar: boolean;
 }) {
-    const comPreco = linhas.filter((a) => Number(a.price) > 0);
-    const medio = comPreco.length > 0 ? comPreco.reduce((s, a) => s + Number(a.price), 0) / comPreco.length : 0;
-    const servicos = linhas.filter((a) => a.type === 'servico').length;
-    const emFalta = linhas.filter((a) => a.esgotado || a.em_falta).length;
-    const nesta = t(':quantos nesta página', { quantos: linhas.length });
+    const conta = (n?: number) => (n === undefined ? '—' : n.toLocaleString(etiquetaIntl()));
 
     return (
         <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
             <CartaoNumero
-                rotulo={t('Artigos')}
-                tom="indigo"
+                aspecto="claro"
+                rotulo={t('Total Produtos')}
+                tom="roxo"
                 icone="fa-box"
-                nota={t('com os filtros actuais')}
-                valor={total === undefined ? <span className="text-white/50">—</span> : total.toLocaleString(etiquetaIntl())}
+                nota={t('No catálogo')}
+                valor={conta(resumo?.total)}
             />
             <CartaoNumero
-                rotulo={t('Preço médio nesta página')}
+                aspecto="claro"
+                rotulo={t('Valor Médio')}
                 tom="verde"
                 icone="fa-money-bill-wave"
                 sufixo="Kz"
-                nota={nesta}
-                valor={kz(medio)}
+                nota={t('Preço médio')}
+                valor={resumo === undefined ? '—' : kz(resumo.preco_medio)}
             />
             <CartaoNumero
-                rotulo={t('Serviços nesta página')}
+                aspecto="claro"
+                rotulo={t('Serviços')}
                 tom="azul"
                 icone="fa-bell-concierge"
-                nota={nesta}
-                valor={servicos.toLocaleString(etiquetaIntl())}
+                nota={t('Tipo serviço')}
+                valor={conta(resumo?.servicos)}
             />
             <CartaoNumero
-                rotulo={t('Em falta nesta página')}
-                tom={emFalta > 0 ? 'ambar' : 'cinza'}
+                aspecto="claro"
+                rotulo={t('Em falta')}
+                tom={(resumo?.em_falta ?? 0) > 0 ? 'ambar' : 'cinza'}
                 icone="fa-triangle-exclamation"
-                nota={nesta}
-                valor={emFalta.toLocaleString(etiquetaIntl())}
+                nota={t('No mínimo ou abaixo')}
+                valor={conta(resumo?.em_falta)}
             />
         </div>
     );

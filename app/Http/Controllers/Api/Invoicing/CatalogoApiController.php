@@ -36,6 +36,16 @@ class CatalogoApiController extends Controller
             'titulo' => __($def['titulo']),
             'singular' => __($def['singular']),
             'icone' => $def['icone'],
+            // A COR E A FRASE DA FAIXA. Cada catálogo tinha a sua cor no ecrã
+            // em Blade — os fornecedores laranja, as categorias ciano, as
+            // marcas rosa — e não era enfeite: reconhece-se a página pela
+            // faixa antes de ler o título.
+            'cor' => $def['cor'] ?? 'primaria',
+            'descricao' => __($def['descricao'] ?? ''),
+            // «Novo Fornecedor», «Nova Categoria» — o rótulo do botão de criar,
+            // por catálogo. Um «Novo(a) fornecedor» montado à mão a partir do
+            // singular não é português, e noutras línguas é pior.
+            'novo' => __($def['novo'] ?? 'Novo registo'),
             'pesquisa' => __($def['pesquisa_ajuda']),
             'colunas' => array_map(fn ($c) => array_merge($c, ['rotulo' => __($c['rotulo'])]), $def['colunas']),
             'campos' => $def['campos'],

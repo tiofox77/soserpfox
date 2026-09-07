@@ -652,6 +652,12 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         Route::delete('/products/{id}', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'destroy'])
             ->whereNumber('id')->name('products.destroy');
 
+        // RESTAURAR UM ARTIGO APAGADO. A eliminação sempre foi recuperável (o
+        // modelo tem SoftDeletes) e durante anos não houve como o fazer pela
+        // aplicação — só com SQL directo.
+        Route::post('/products/{id}/restaurar', [\App\Http\Controllers\Api\Invoicing\ProductApiController::class, 'restaurar'])
+            ->whereNumber('id')->name('products.restaurar');
+
         // PARA ONDE FOI ESTE ARTIGO: vendas e movimentos de stock lado a lado.
         // É a discrepância entre os dois que denuncia a baixa de stock que
         // falhou — e é por isso que as duas listas vêm juntas.

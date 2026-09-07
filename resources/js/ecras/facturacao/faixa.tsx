@@ -33,6 +33,16 @@ const TONS = {
      * paleta, `600` em vez de `500`: fica igual ao que era e passa a ler-se.
      */
     laranja: 'bg-gradient-to-r from-orange-600 to-red-600',
+
+    /*
+     * AS TRÊS DOS CATÁLOGOS. Cada lista tinha a SUA cor no ecrã em Blade, e
+     * não era enfeite: quem trabalha nelas todo o dia reconhece a página pela
+     * faixa antes de ler o título. Os artigos eram roxo→rosa, as categorias
+     * ciano→azul, as marcas rosa→rosa-escuro.
+     */
+    roxo: 'bg-gradient-to-r from-purple-600 to-pink-600',
+    ciano: 'bg-gradient-to-r from-cyan-600 to-blue-600',
+    rosa: 'bg-gradient-to-r from-pink-600 to-rose-600',
 } as const;
 
 export type TomDaFaixa = keyof typeof TONS;

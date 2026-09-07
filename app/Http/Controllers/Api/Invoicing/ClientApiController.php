@@ -49,29 +49,41 @@ class ClientApiController extends Controller
             'por_pagina' => ['nullable', 'integer', 'min:5', 'max:100'],
         ]);
 
-        $query = Client::where('tenant_id', activeTenantId())
-            ->with('paymentTerm')
-            ->withCount('facturas');
+        $query = $this->filtrada($filtros)->with('paymentTerm')->withCount('facturas');
 
-        if ($procura = ($filtros['procura'] ?? null)) {
-            $query->where(function ($q) use ($procura) {
-                $q->where('name', 'like', "%{$procura}%")
-                    ->orWhere('nif', 'like', "%{$procura}%")
-                    ->orWhere('email', 'like', "%{$procura}%")
-                    ->orWhere('phone', 'like', "%{$procura}%");
-            });
-        }
-
-        $query
-            ->when($filtros['tipo'] ?? null, fn ($q, $v) => $q->where('type', $v))
-            ->when($filtros['provincia'] ?? null, fn ($q, $v) => $q->where('province', $v))
-            ->when($filtros['cidade'] ?? null, fn ($q, $v) => $q->where('city', 'like', "%{$v}%"))
-            ->when($filtros['de'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
-            ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
+        /*
+         * OS NÚMEROS DOS CARTÕES CONTAM O CONJUNTO INTEIRO, não a página.
+         *
+         * O ecrã em Blade contava a empresa toda («Pessoa Jurídica: 214»); ao
+         * migrar, os cartões passaram a contar só as quinze linhas à vista e
+         * diziam «nesta página» para se justificarem. Um cartão que muda de
+         * número ao virar a página não é um resumo — é ruído.
+         *
+         * A CONSULTA DO RESUMO NASCE DE NOVO dos mesmos filtros, e não de um
+         * clone da paginada: aquela leva o `withCount` das facturas na lista de
+         * colunas, e uma coluna não agregada ao lado de um `SUM()` faz o MySQL
+         * recusar a consulta inteira (`only_full_group_by`).
+         */
+        $resumo = $this->filtrada($filtros)
+            ->toBase()
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN type = 'pessoa_juridica' THEN 1 ELSE 0 END) as juridicas,
+                SUM(CASE WHEN type = 'pessoa_fisica' THEN 1 ELSE 0 END) as fisicas,
+                SUM(CASE WHEN portal_access = 1 THEN 1 ELSE 0 END) as com_portal
+            ")
+            ->first();
 
         return ClientResource::collection(
             $query->orderBy('name')->paginate($filtros['por_pagina'] ?? 15)->withQueryString()
-        );
+        )->additional([
+            'resumo' => [
+                'total' => (int) ($resumo->total ?? 0),
+                'juridicas' => (int) ($resumo->juridicas ?? 0),
+                'fisicas' => (int) ($resumo->fisicas ?? 0),
+                'com_portal' => (int) ($resumo->com_portal ?? 0),
+            ],
+        ]);
     }
 
     public function store(Request $request): JsonResponse
@@ -256,6 +268,30 @@ class ClientApiController extends Controller
     }
 
     /* ─── Por dentro ──────────────────────────────────────────────────── */
+
+    /**
+     * A consulta com os filtros postos — e SEM as colunas da listagem.
+     *
+     * Serve duas vezes: a lista (que lhe acrescenta a condição de pagamento e
+     * a contagem de facturas) e o resumo dos cartões (que lhe acrescenta só
+     * agregados). Escrita uma vez, os dois falam sempre do mesmo conjunto —
+     * com o filtro «Luanda» posto, os cartões falam de Luanda.
+     */
+    private function filtrada(array $filtros): \Illuminate\Database\Eloquent\Builder
+    {
+        return Client::where('tenant_id', activeTenantId())
+            ->when($filtros['procura'] ?? null, fn ($q, $procura) => $q->where(function ($w) use ($procura) {
+                $w->where('name', 'like', "%{$procura}%")
+                    ->orWhere('nif', 'like', "%{$procura}%")
+                    ->orWhere('email', 'like', "%{$procura}%")
+                    ->orWhere('phone', 'like', "%{$procura}%");
+            }))
+            ->when($filtros['tipo'] ?? null, fn ($q, $v) => $q->where('type', $v))
+            ->when($filtros['provincia'] ?? null, fn ($q, $v) => $q->where('province', $v))
+            ->when($filtros['cidade'] ?? null, fn ($q, $v) => $q->where('city', 'like', "%{$v}%"))
+            ->when($filtros['de'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filtros['ate'] ?? null, fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
+    }
 
     /** @return array<string,list<string>> província => os seus municípios */
     private function municipiosPorProvincia(): array

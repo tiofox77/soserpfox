@@ -7,11 +7,12 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Botao } from '@/ui/Botao';
 import { Campo as CampoDoFormulario, entrada } from '@/ui/Campo';
 import { Cartao } from '@/ui/Cartao';
-import { CartaoNumero } from '@/ui/CartaoNumero';
+import { CartaoNumero, type TomDoCartao } from '@/ui/CartaoNumero';
 import { Carregando } from '@/ui/Carregando';
 import { Etiqueta } from '@/ui/Etiqueta';
 import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
+import { ACCAO_DA_FAIXA, Faixa, type TomDaFaixa } from './faixa';
 import { FOCO, RAIO, cls, kz } from '@/ui/tokens';
 import { etiquetaIntl, t, tPartes } from '@/i18n';
 
@@ -29,6 +30,26 @@ import { etiquetaIntl, t, tPartes } from '@/i18n';
  */
 
 type Valores = Record<string, string | number | boolean | null>;
+
+/**
+ * A cor da faixa, traduzida para o tom do cartão de número.
+ *
+ * São duas paletas com nomes próprios: a faixa é um gradiente largo, o cartão é
+ * um quadrado de ícone. A correspondência fica aqui e não interpolada — sem
+ * build, o Tailwind do browser não gera uma classe montada em tempo de
+ * execução, e uma cor desconhecida cai no índigo em vez de sair sem cor.
+ */
+const TOM_DO_CARTAO: Record<string, TomDoCartao> = {
+    primaria: 'indigo',
+    neutra: 'cinza',
+    bom: 'verde',
+    aviso: 'ambar',
+    perigo: 'vermelho',
+    laranja: 'laranja',
+    roxo: 'roxo',
+    ciano: 'azul',
+    rosa: 'roxo',
+};
 
 export default function Catalogo({ tipo }: { tipo: string }) {
     const cache = useQueryClient();
@@ -87,6 +108,28 @@ export default function Catalogo({ tipo }: { tipo: string }) {
 
     return (
         <div className="space-y-4">
+            {/* O CABEÇALHO DE SEMPRE, com a COR DESTE catálogo: os fornecedores
+                laranja, as categorias ciano, as marcas rosa. Vinha do servidor
+                porque o esquema é que sabe de que lista se trata — o ecrã é o
+                mesmo para as seis. */}
+            <Faixa
+                titulo={o.titulo}
+                subtitulo={o.descricao || undefined}
+                icone={o.icone}
+                cor={(o.cor as TomDaFaixa) ?? 'primaria'}
+                accoes={
+                    o.permissoes.pode_escrever && (
+                        <button type="button" onClick={abrirNovo} className={cls(ACCAO_DA_FAIXA, 'group')}>
+                            <i
+                                className="fas fa-plus transition-transform duration-300 group-hover:rotate-90"
+                                aria-hidden="true"
+                            />
+                            {o.novo}
+                        </button>
+                    )
+                }
+            />
+
             {recado && (
                 <div role="status" className={cls('flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900', RAIO)}>
                     <span><i className="fas fa-circle-check mr-2" aria-hidden="true" />{recado}</span>
@@ -100,13 +143,15 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 postos; o que está contado nas linhas à vista di-lo no cartão. */}
             <div className={cls('grid gap-3 sm:grid-cols-2', o.accoes.activar ? 'lg:grid-cols-3' : 'lg:grid-cols-2', lista.isFetching && 'opacity-70')}>
                 <CartaoNumero
+                    aspecto="claro"
                     rotulo={o.titulo}
-                    tom="indigo"
+                    tom={TOM_DO_CARTAO[o.cor] ?? 'indigo'}
                     icone={o.icone}
                     nota={t('com os filtros actuais')}
-                    valor={contas === undefined ? <span className="text-white/50">—</span> : contas.total.toLocaleString(etiquetaIntl())}
+                    valor={contas === undefined ? '—' : contas.total.toLocaleString(etiquetaIntl())}
                 />
                 <CartaoNumero
+                    aspecto="claro"
                     rotulo={t('Nesta página')}
                     tom="cinza"
                     icone="fa-list"
@@ -117,6 +162,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                     é sequer oferecida, e um cartão a dizer sempre o mesmo é ruído. */}
                 {o.accoes.activar && (
                     <CartaoNumero
+                        aspecto="claro"
                         rotulo={t('Activos nesta página')}
                         tom="verde"
                         icone="fa-toggle-on"
@@ -126,11 +172,9 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                 )}
             </div>
 
-            <Cartao
-                titulo={o.titulo}
-                icone={o.icone}
-                accoes={o.permissoes.pode_escrever && <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>{t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}</Botao>}
-            >
+            {/* Sem botão de criar aqui: ele vive NA FAIXA, como no ecrã de
+                sempre — dois botões iguais na mesma página não ajudam. */}
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="flex flex-wrap items-end gap-3">
                     <label className="flex-1 min-w-[16rem] text-sm">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('Procurar')}</span>
@@ -230,7 +274,7 @@ export default function Catalogo({ tipo }: { tipo: string }) {
                                                 {o.permissoes.pode_escrever && (
                                                     <div className="mt-5 flex justify-center">
                                                         <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
-                                                            {t('Novo(a) :nome', { nome: o.singular.toLowerCase() })}
+                                                            {o.novo}
                                                         </Botao>
                                                     </div>
                                                 )}

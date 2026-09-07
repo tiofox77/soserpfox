@@ -7,6 +7,7 @@ import {
     type ClienteParaGravar,
     type FiltrosDeClientes,
     type OpcoesDosClientes,
+    type ResumoDosClientes,
 } from '@/api/clientes';
 import { ErroDaApi } from '@/api/cliente';
 import { etiquetaIntl, t } from '@/i18n';
@@ -20,6 +21,7 @@ import { AvisoDeErro } from '@/ui/AvisoDeErro';
 import { Modal } from '@/ui/Modal';
 import { IntervaloDeDatas, PorPagina } from '@/ui/FiltrosComuns';
 import { CARTAO, FOCO, GRADIENTES, RAIO, cls } from '@/ui/tokens';
+import { ACCAO_DA_FAIXA, Faixa } from './faixa';
 
 /**
  * OS CLIENTES — o primeiro ecrã que também ESCREVE.
@@ -215,6 +217,27 @@ export default function Clientes() {
 
     return (
         <div className="space-y-4">
+            {/* O CABEÇALHO DE SEMPRE — a faixa verde com o ícone no quadrado
+                translúcido e o botão principal à direita. Era assim em Blade, e
+                a migração deixou a página a começar por uma caixa branca. */}
+            <Faixa
+                titulo={t('Clientes')}
+                subtitulo={t('Gerir clientes')}
+                icone="fa-users"
+                cor="bom"
+                accoes={
+                    permissoes?.pode_criar && (
+                        <button type="button" onClick={abrirNovo} className={cls(ACCAO_DA_FAIXA, 'group')}>
+                            <i
+                                className="fas fa-plus transition-transform duration-300 group-hover:rotate-90"
+                                aria-hidden="true"
+                            />
+                            {t('Novo Cliente')}
+                        </button>
+                    )
+                }
+            />
+
             {recado && (
                 <div
                     role="status"
@@ -230,24 +253,17 @@ export default function Clientes() {
                 </div>
             )}
 
-            {/* OS CARTÕES DO TOPO, como o ecrã em Blade tinha.
-                A CONTAGEM é a do servidor e conta tudo o que passa na procura;
-                as repartições são das linhas à vista, e dizem-no no cartão. Os
-                totais por tipo exigiriam outra pergunta ao servidor, e este
-                lote não mexe na API. */}
-            <Cartoes total={contas?.total} linhas={linhas} tipos={opcoes.data?.tipos} aActualizar={lista.isFetching} />
+            {/* OS CARTÕES DO TOPO, como o ecrã em Blade tinha — e a contarem o
+                conjunto FILTRADO INTEIRO, que é o que o de Blade fazia. */}
+            <Cartoes
+                resumo={lista.data?.resumo}
+                tipos={opcoes.data?.tipos}
+                aActualizar={lista.isFetching}
+            />
 
-            <Cartao
-                titulo={t('Clientes')}
-                icone="fa-users"
-                accoes={
-                    permissoes?.pode_criar && (
-                        <Botao cor="primaria" tom="solida" icone="fa-plus" onClick={abrirNovo}>
-                            {t('Novo cliente')}
-                        </Botao>
-                    )
-                }
-            >
+            {/* Sem botão de criar aqui: ele vive NA FAIXA, como no ecrã de
+                sempre — dois botões iguais na mesma página não ajudam. */}
+            <Cartao titulo={t('Filtros')} icone="fa-filter">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <label className="block lg:col-span-2">
                         <Rotulo>{t('Procurar')}</Rotulo>
@@ -668,59 +684,66 @@ function EstadoVazio({
 }
 
 /**
- * OS CARTÕES DE NÚMERO DO TOPO.
+ * OS CARTÕES DE NÚMERO DO TOPO — os do ecrã em Blade, de volta.
  *
- * O ecrã em Blade tinha três (total, pessoas jurídicas, pessoas físicas) e a
- * migração deixou a página a começar por uma caixa branca. Voltam com o mesmo
- * gradiente, pelo `CartaoNumero`, e os rótulos dos tipos vêm traduzidos do
- * servidor — são os mesmos do filtro logo abaixo.
+ * Eram três (total, pessoas jurídicas, pessoas físicas), BRANCOS, com o ícone
+ * num quadrado de gradiente que levanta quando se aponta o cartão, o número
+ * grande a preto e o rótulo na cor do ícone. Não eram cartões de gradiente
+ * cheio: aqui o assunto é o NÚMERO, e um 214 a branco sobre roxo lê-se pior do
+ * que a preto sobre branco.
+ *
+ * E CONTAM O CONJUNTO INTEIRO, não a página. O primeiro corte desta migração
+ * pôs os cartões a contarem as quinze linhas à vista e a dizê-lo em letra
+ * pequena — um resumo que muda ao virar a página não resume nada. Os números
+ * vêm agora do servidor, sobre a mesma consulta filtrada.
  */
 function Cartoes({
-    total,
-    linhas,
+    resumo,
     tipos,
     aActualizar,
 }: {
-    total?: number;
-    linhas: Cliente[];
+    resumo?: ResumoDosClientes;
     tipos?: Array<{ valor: string; rotulo: string }>;
     aActualizar: boolean;
 }) {
     const rotulo = (valor: string, omissao: string) => tipos?.find((x) => x.valor === valor)?.rotulo ?? omissao;
-    const quantos = (valor: string) => linhas.filter((c) => c.type === valor).length;
-    const nesta = t(':quantos nesta página', { quantos: linhas.length });
+    const conta = (n?: number) => (n === undefined ? '—' : n.toLocaleString(etiquetaIntl()));
 
     return (
         <div className={cls('grid gap-3 sm:grid-cols-2 lg:grid-cols-4', aActualizar && 'opacity-70')}>
             <CartaoNumero
-                rotulo={t('Clientes')}
-                tom="indigo"
+                aspecto="claro"
+                rotulo={t('Total Clientes')}
+                tom="verde"
                 icone="fa-users"
                 nota={t('com os filtros actuais')}
-                valor={total === undefined ? <span className="text-white/50">—</span> : total.toLocaleString(etiquetaIntl())}
+                valor={conta(resumo?.total)}
             />
             <CartaoNumero
+                aspecto="claro"
                 rotulo={rotulo('pessoa_juridica', t('Pessoa Jurídica'))}
                 tom="azul"
                 icone="fa-building"
-                nota={nesta}
-                valor={quantos('pessoa_juridica').toLocaleString(etiquetaIntl())}
+                nota={t('Empresas')}
+                valor={conta(resumo?.juridicas)}
             />
             <CartaoNumero
+                aspecto="claro"
                 rotulo={rotulo('pessoa_fisica', t('Pessoa Física'))}
                 tom="roxo"
                 icone="fa-user"
-                nota={nesta}
-                valor={quantos('pessoa_fisica').toLocaleString(etiquetaIntl())}
+                nota={t('Particulares')}
+                valor={conta(resumo?.fisicas)}
             />
-            {/* Quem entra no portal do cliente: é o que a lista já assinala
-                linha a linha, contado à cabeça. */}
+            {/* Quem entra no portal do cliente — é o que a lista assinala linha
+                a linha, contado à cabeça. */}
             <CartaoNumero
-                rotulo={t('Portal activo nesta página')}
-                tom="verde"
+                aspecto="claro"
+                rotulo={t('Portal activo')}
+                tom="indigo"
                 icone="fa-user-lock"
-                nota={nesta}
-                valor={linhas.filter((c) => c.portal_access).length.toLocaleString(etiquetaIntl())}
+                nota={t('Com acesso ao portal')}
+                valor={conta(resumo?.com_portal)}
             />
         </div>
     );

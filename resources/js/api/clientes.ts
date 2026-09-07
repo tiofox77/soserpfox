@@ -119,8 +119,22 @@ function paraGravar(dados: ClienteParaGravar): ClienteParaGravar {
     return corpo;
 }
 
+/**
+ * OS NÚMEROS DOS CARTÕES, contados sobre a lista FILTRADA inteira.
+ *
+ * Não sobre a página: um cartão que muda de número ao virar a página não é um
+ * resumo. Com o filtro «Luanda» posto, estes números falam de Luanda.
+ */
+export type ResumoDosClientes = {
+    total: number;
+    juridicas: number;
+    fisicas: number;
+    com_portal: number;
+};
+
 export const clientes = {
-    lista: (filtros: FiltrosDeClientes) => api.ler<Pagina<Cliente>>('/clients', filtros),
+    lista: (filtros: FiltrosDeClientes) =>
+        api.ler<Pagina<Cliente> & { resumo: ResumoDosClientes }>('/clients', filtros),
     opcoes: () => api.ler<OpcoesDosClientes>('/clients/opcoes'),
     criar: (dados: ClienteParaGravar) => api.criar<{ data: Cliente }>('/clients', paraGravar(dados)),
     guardar: (id: number, dados: ClienteParaGravar) =>
