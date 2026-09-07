@@ -134,6 +134,8 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const linhas = lista.data?.data ?? [];
     const contas = lista.data?.meta;
     const temSaldo = opcoes.data?.tem_saldo ?? false;
+    // As colunas de valor a mais que ESTE documento declara.
+    const montantes = opcoes.data?.montantes ?? [];
     const rota = opcoes.data?.rota ?? '';
 
     /*
@@ -357,6 +359,12 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                     <Cabecalho icone="fa-circle-info">{t('Estado')}</Cabecalho>
                                     <Cabecalho icone="fa-landmark">{t('Portal AGT')}</Cabecalho>
                                     <Cabecalho icone="fa-money-bill" direita>{t('Valor')}</Cabecalho>
+                                    {/* AS COLUNAS DE VALOR A MAIS: o «Usado» e o
+                                        «Disponível» de um adiantamento. Um saldo que se
+                                        vai gastando não se lê por um número só. */}
+                                    {montantes.map((m) => (
+                                        <Cabecalho key={m.chave} icone={m.icone} direita>{m.rotulo}</Cabecalho>
+                                    ))}
                                     {temSaldo && (
                                         <Cabecalho icone="fa-clock" direita>{t('Falta pagar')}</Cabecalho>
                                     )}
@@ -375,6 +383,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                         prazo={prazo}
                                         origem={origem}
                                         motivos={motivos}
+                                        montantes={montantes}
                                         aTrabalhar={accao.isPending || apagar.isPending || converter.isPending}
                                         aoPagar={opcoes.data?.pode_pagar ? () => porAPagar(d) : undefined}
                                         aoAnular={() => anular(d)}
@@ -929,6 +938,7 @@ function Linha({
     prazo,
     origem,
     motivos,
+    montantes,
     aTrabalhar,
     aoPagar,
     aoAnular,
@@ -948,6 +958,7 @@ function Linha({
     prazo: string | null;
     origem: string | null;
     motivos: boolean;
+    montantes: Array<{ chave: string; rotulo: string; icone: string }>;
     aTrabalhar: boolean;
     aoPagar?: () => void;
     aoAnular: () => void;
@@ -1041,6 +1052,19 @@ function Linha({
                 </Etiqueta>
             </td>
             <td className="px-4 py-3 text-right font-bold tabular-nums text-slate-900">{kz(d.valor)}</td>
+            {/* O usado e o disponível: o disponível a verde quando ainda há
+                saldo, porque é a pergunta que se faz a um adiantamento. */}
+            {montantes.map((m) => (
+                <td key={m.chave} className="px-4 py-3 text-right tabular-nums">
+                    {(d.montantes?.[m.chave] ?? 0) > 0.01 ? (
+                        <span className={cls('font-semibold', m.chave === 'remaining_amount' ? 'text-emerald-600' : 'text-slate-600')}>
+                            {kz(d.montantes?.[m.chave] ?? 0)}
+                        </span>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+            ))}
             {temSaldo && (
                 <td className="px-4 py-3 text-right tabular-nums">
                     {(d.saldo ?? 0) > 0.01 ? (

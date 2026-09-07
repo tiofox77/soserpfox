@@ -35,8 +35,15 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class SomasDasFacturas
 {
-    /** O que já não se cobra — a mesma lista do `SalesInvoiceResource`. */
-    private const LIQUIDADAS = ['paid', 'cancelled', 'credited'];
+    /**
+     * O QUE NÃO SE COBRA — a mesma lista do `SalesInvoiceResource`.
+     *
+     * O RASCUNHO está aqui e não é engano: uma factura em rascunho ainda não
+     * foi emitida a ninguém. Não é dinheiro em falta, é um documento por
+     * acabar — e a API dos recibos recusa-o, por isso contá-lo como
+     * receita a haver era prometer uma cobrança impossível.
+     */
+    private const SEM_NADA_A_RECEBER = ['draft', 'paid', 'cancelled', 'credited'];
 
     /**
      * As somas de uma consulta de facturas de venda.
@@ -93,10 +100,10 @@ class SomasDasFacturas
      */
     public static function sqlPorReceber(string $tabela): string
     {
-        $liquidadas = "'" . implode("', '", self::LIQUIDADAS) . "'";
+        $semDivida = "'" . implode("', '", self::SEM_NADA_A_RECEBER) . "'";
 
         return "CASE WHEN COALESCE({$tabela}.invoice_type, 'FT') = 'FR'"
-            . " OR {$tabela}.status IN ({$liquidadas}) THEN 0"
+            . " OR {$tabela}.status IN ({$semDivida}) THEN 0"
             . " ELSE GREATEST(COALESCE({$tabela}.total, 0) - COALESCE({$tabela}.paid_amount, 0), 0) END";
     }
 }

@@ -77,8 +77,8 @@ class SalesInvoiceResource extends JsonResource
      * UMA FR É PAGA NO ACTO DA VENDA, POR DEFINIÇÃO. Não tem recibo nenhum
      * porque não precisa de um, e por isso o `paid_amount` fica em zero para
      * sempre — na bancada são 124 documentos assim. O mesmo vale para o que
-     * está `paid`, `cancelled` ou `credited`: não há nada a receber, seja o
-     * que for que a coluna diga.
+     * está `draft`, `paid`, `cancelled` ou `credited`: não há nada a
+     * receber, seja o que for que a coluna diga.
      *
      * É a mesma regra que a lista Livewire já aplica ao botão de pagamento
      * (`$__linhaFR`), trazida para o único sítio onde agora se decide.
@@ -89,7 +89,13 @@ class SalesInvoiceResource extends JsonResource
             return 0.0;
         }
 
-        if (in_array($this->status, ['paid', 'cancelled', 'credited'], true)) {
+        /*
+         * O RASCUNHO ENTROU NESTA LISTA, e não é engano: uma factura em
+         * rascunho ainda não foi emitida a ninguém. Não deve nada — e a
+         * API dos recibos recusa-a, por isso oferecer «Receber» num
+         * rascunho levava a um ecrã que não a conseguia sequer escolher.
+         */
+        if (in_array($this->status, ['draft', 'paid', 'cancelled', 'credited'], true)) {
             return 0.0;
         }
 

@@ -107,6 +107,9 @@ export default function GuiasDeTransporte() {
                                 <th className="px-4 py-3 font-bold">{t('Tipo')}</th>
                                 <th className="px-4 py-3 font-bold"><i className="fas fa-user mr-1.5 text-indigo-500" aria-hidden="true" />{t('Cliente')}</th>
                                 <th className="px-4 py-3 font-bold">{t('Data')}</th>
+                                {/* A VIATURA: sem ela não se sabe qual dos camiões
+                                    leva a mercadoria — a lista de sempre tinha-a. */}
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-truck-front mr-1.5 text-slate-400" aria-hidden="true" />{t('Viatura')}</th>
                                 <th className="px-4 py-3 font-bold">{t('Estado')}</th>
                                 <th className="px-4 py-3 font-bold">AGT</th>
                                 <th className="w-40 px-4 py-3 text-right font-bold">{t('Acções')}</th>
@@ -115,7 +118,7 @@ export default function GuiasDeTransporte() {
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-16">
+                                    <td colSpan={8} className="px-6 py-16">
                                         {lista.isPending ? (
                                             <p className="text-center text-slate-400">{t('A carregar…')}</p>
                                         ) : (
@@ -139,6 +142,9 @@ export default function GuiasDeTransporte() {
                                     <td className="px-4 py-2"><Etiqueta cor="neutra" icone="fa-truck">{g.tipo_rotulo}</Etiqueta></td>
                                     <td className="px-4 py-2 font-medium text-slate-800">{g.cliente}</td>
                                     <td className="px-4 py-2 tabular-nums">{data(g.data)}</td>
+                                    {/* Matrícula em fonte fixa: lê-se de relance e não se
+                                        confunde LD-00-00-AA com LD-OO-OO-AA. */}
+                                    <td className="px-4 py-2 font-mono text-xs text-slate-600">{g.viatura || '—'}</td>
                                     <td className="px-4 py-2"><Etiqueta cor={g.estado === 'cancelled' ? 'perigo' : 'bom'} icone={g.estado === 'cancelled' ? 'fa-ban' : 'fa-circle-check'} ponto>{g.estado === 'cancelled' ? t('Anulada') : t('Emitida')}</Etiqueta></td>
                                     <td className="px-4 py-2">
                                         {g.agt ? <Etiqueta cor="primaria" icone="fa-shield">{g.agt}</Etiqueta> : g.assinada ? <Etiqueta icone="fa-clock">{t('Por comunicar')}</Etiqueta> : <Etiqueta cor="aviso" icone="fa-triangle-exclamation">{t('Sem assinatura')}</Etiqueta>}

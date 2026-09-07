@@ -143,6 +143,9 @@ class GuiasApiController extends Controller
             'tipo' => $g->type,
             'tipo_rotulo' => $g->typeLabel(),
             'cliente' => $g->client?->name ?? __('Consumidor Final'),
+            // A VIATURA: a lista de sempre tinha-a em coluna própria, e é por
+            // ela que se sabe qual dos camiões leva a mercadoria.
+            'viatura' => $g->vehicle_plate,
             'data' => optional($g->issue_date)->toDateString() ?? (string) $g->issue_date,
             'estado' => $g->status,
             'assinada' => ! empty($g->jws_signature),

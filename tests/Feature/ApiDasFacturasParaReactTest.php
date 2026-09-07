@@ -469,4 +469,26 @@ class ApiDasFacturasParaReactTest extends TenantTestCase
         $this->pagar($doOutro->id)->assertNotFound();
         $this->assertSame('sent', $doOutro->fresh()->status);
     }
+
+    /**
+     * UM RASCUNHO NÃO DEVE NADA — ainda não foi emitido a ninguém.
+     *
+     * A lista oferecia-lhe «Receber», e o ecrã do recibo não conseguia sequer
+     * escolher a factura: a API dos recibos recusa rascunhos. Era um botão que
+     * levava a lado nenhum, e o rascunho contava como dinheiro a haver.
+     *
+     * @test
+     */
+    public function um_rascunho_nao_conta_como_dinheiro_a_receber(): void
+    {
+        $this->comPermissoes('invoicing.sales.invoices.view');
+
+        $this->factura(['status' => 'draft', 'total' => 5000, 'paid_amount' => 0]);
+
+        $r = $this->getJson(self::LISTA)->assertOk();
+
+        $this->assertEquals(0, $r->json('data.0.saldo'), 'um rascunho não deve nada');
+        $this->assertFalse($r->json('data.0.pode_receber'), 'e não se recebe contra um rascunho');
+        $this->assertEquals(0, $r->json('meta.somas.por_receber'), 'nem entra na soma do cartão');
+    }
 }

@@ -6,6 +6,8 @@ export type Guia = {
     tipo: 'GT' | 'GR';
     tipo_rotulo: string;
     cliente: string;
+    /** A matrícula da viatura, quando a guia a leva. */
+    viatura: string | null;
     data: string;
     estado: string;
     assinada: boolean;

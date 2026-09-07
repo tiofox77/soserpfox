@@ -187,6 +187,15 @@ class DocumentosApiController extends Controller
             'prazo' => ! empty($def['prazo']) ? __($def['prazo']['rotulo']) : null,
 
             /*
+             * OS MONTANTES A MAIS — o «Usado» e o «Disponível» dos
+             * adiantamentos. Um saldo que se vai gastando não se lê por um
+             * número só, e a lista de sempre tinha as duas colunas.
+             */
+            'montantes' => collect($def['montantes'] ?? [])
+                ->map(fn ($m) => ['chave' => $m['coluna'], 'rotulo' => __($m['rotulo']), 'icone' => $m['icone'] ?? 'fa-money-bill'])
+                ->values(),
+
+            /*
              * OS LADOS — só os recibos os têm: venda e compra.
              *
              * Vai também o rótulo da coluna, para o ecrã não ter de saber que
@@ -712,6 +721,15 @@ class DocumentosApiController extends Controller
             'estado_cor' => $this->corDoEstado($d->status),
             'valor' => $valor,
         ];
+
+        /*
+         * OS MONTANTES A MAIS, na linha: o usado e o disponível de um
+         * adiantamento. Vão num mapa e não em chaves fixas — quem os declara é
+         * o esquema, e o ecrã desenha as que lhe mandarem.
+         */
+        foreach ($def['montantes'] ?? [] as $m) {
+            $linha['montantes'][$m['coluna']] = round((float) ($d->{$m['coluna']} ?? 0), 2);
+        }
 
         /*
          * O LADO, em coluna própria — a etiqueta «Venda» ou «Compra» que a

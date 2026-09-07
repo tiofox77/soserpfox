@@ -238,6 +238,19 @@ class TiposDeDocumento
                 'agt' => 'nao-fiscal',
                 'descricao' => 'Sinais recebidos por conta de facturas futuras',
                 'novo' => 'Novo Adiantamento',
+
+                /*
+                 * O USADO E O DISPONÍVEL — as duas colunas que faltavam.
+                 *
+                 * Um adiantamento não é um documento de valor fixo: é um saldo
+                 * que se vai gastando à medida que as facturas o consomem. Ver
+                 * só o valor recebido não diz o que interessa saber — quanto
+                 * ainda lá está para usar.
+                 */
+                'montantes' => [
+                    ['coluna' => 'used_amount', 'rotulo' => 'Usado', 'icone' => 'fa-arrow-trend-down'],
+                    ['coluna' => 'remaining_amount', 'rotulo' => 'Disponível', 'icone' => 'fa-wallet'],
+                ],
             ],
         ];
     }

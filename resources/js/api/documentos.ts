@@ -24,6 +24,12 @@ export type LinhaDeDocumento = {
      * são indistinguíveis sem isto.
      */
     lado?: { valor: string; rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo'; icone: string } | null;
+
+    /**
+     * OS MONTANTES A MAIS — o usado e o disponível de um adiantamento,
+     * pela chave da coluna. Vazio nos documentos que não os declaram.
+     */
+    montantes?: Record<string, number>;
     data: string | null;
     estado: string;
     estado_rotulo: string;
@@ -119,6 +125,9 @@ export type OpcoesDosDocumentos = {
      * OS LADOS deste documento — venda e compra, nos recibos. Nulo onde o
      * documento tem um lado só, que é em todos os outros.
      */
+    /** As colunas de valor a mais — «Usado», «Disponível» nos adiantamentos. */
+    montantes: Array<{ chave: string; rotulo: string; icone: string }>;
+
     lados: {
         rotulo: string;
         opcoes: Array<{ valor: string; rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo'; icone: string }>;

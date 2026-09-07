@@ -615,4 +615,61 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
             ->assertOk()
             ->assertJsonPath('parte.nome', 'Fornecedor de Ensaio');
     }
+
+    /*
+     * ─── O USADO E O DISPONÍVEL DOS ADIANTAMENTOS ──────────────────────────
+     *
+     * Um adiantamento não é um documento de valor fixo: é um saldo que se vai
+     * gastando à medida que as facturas o consomem. A lista de sempre tinha as
+     * duas colunas, e sem elas não se sabe o que ainda lá está.
+     */
+
+    private function adiantamento(array $por = []): \App\Models\Invoicing\Advance
+    {
+        return \App\Models\Invoicing\Advance::create(array_merge([
+            'tenant_id' => $this->tenant->id,
+            'type' => 'sale',
+            'client_id' => $this->clienteEmpresa()->id,
+            'advance_number' => 'ADT/' . random_int(1000, 9999),
+            'payment_date' => now()->toDateString(),
+            'payment_method' => 'cash',
+            'amount' => 10000,
+            'used_amount' => 4000,
+            'remaining_amount' => 6000,
+            'status' => 'available',
+            'created_by' => $this->user->id,
+        ], $por));
+    }
+
+    /** @test */
+    public function o_adiantamento_traz_o_usado_e_o_disponivel(): void
+    {
+        $this->comPermissoes('invoicing.advances.view');
+
+        $this->adiantamento();
+
+        $linha = $this->getJson($this->rota('adiantamentos'))->assertOk()->json('data.0');
+
+        $this->assertEquals(10000, $linha['valor']);
+        $this->assertEquals(4000, $linha['montantes']['used_amount']);
+        $this->assertEquals(6000, $linha['montantes']['remaining_amount']);
+    }
+
+    /** @test */
+    public function as_opcoes_dizem_que_colunas_de_valor_este_documento_tem(): void
+    {
+        $this->comPermissoes('invoicing.advances.view');
+
+        $o = $this->getJson($this->rota('adiantamentos') . '/opcoes')->assertOk();
+
+        $this->assertSame(
+            ['used_amount', 'remaining_amount'],
+            array_column($o->json('montantes'), 'chave')
+        );
+        $this->assertSame(['Usado', 'Disponível'], array_column($o->json('montantes'), 'rotulo'));
+
+        // E os outros documentos não têm nenhuma — a coluna não aparece.
+        $this->comPermissoes('invoicing.sales.quotes.view');
+        $this->assertSame([], $this->getJson($this->rota('orcamentos') . '/opcoes')->json('montantes'));
+    }
 }

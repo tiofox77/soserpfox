@@ -199,7 +199,9 @@ test('a proposta converte, mostra o historico e elimina-se', async ({ page }) =>
     await expect(janela).toBeVisible({ timeout: 20_000 });
     await expect(janela.getByText(/Faturas Geradas/)).toBeVisible();
 
-    await janela.getByRole('button', { name: /^Fechar$/ }).click();
+    /* DUAS maneiras de fechar: o X do cabeçalho e o botão do rodapé — os
+       modais têm ambos. `.last()` é o do rodapé. */
+    await janela.getByRole('button', { name: /^Fechar$/ }).last().click();
 
     /*
      * CONVERTER PERGUNTA ANTES, e diz as duas coisas que quem converte tem de
