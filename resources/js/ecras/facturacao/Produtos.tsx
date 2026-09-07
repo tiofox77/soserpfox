@@ -127,6 +127,8 @@ export default function Produtos() {
     const [filtros, porFiltros] = useState<FiltrosDeArtigos>({ procura: '', page: 1 });
     /** O artigo cujo rastreio está aberto. Null é o modal fechado. */
     const [aRastrear, porARastrear] = useState<Artigo | null>(null);
+    /** O artigo cuja FICHA está aberta — só para ler, sem risco de lhe mexer. */
+    const [aVer, porAVer] = useState<Artigo | null>(null);
     const [aEditar, porAEditar] = useState<Artigo | null>(null);
     const [formulario, porFormulario] = useState<ArtigoParaGravar | null>(null);
     const [erros, porErros] = useState<Record<string, string[]>>({});
@@ -607,6 +609,19 @@ export default function Produtos() {
                                                     )
                                                 ) : (
                                                     <>
+                                                {/* VER A FICHA. Quem só quer consultar não tem
+                                                    de abrir o formulário de edição, que é onde
+                                                    se estraga uma ficha por engano. */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => porAVer(a)}
+                                                    title={t('Ver')}
+                                                    aria-label={t('Ver :nome', { nome: a.name })}
+                                                    className={cls('p-2 text-indigo-600 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-indigo-50', RAIO, FOCO)}
+                                                >
+                                                    <i className="fas fa-eye" aria-hidden="true" />
+                                                </button>
+
                                                 {/* PARA ONDE FOI ESTE ARTIGO. O botão que o
                                                     ecrã de sempre tinha em cada linha: junta as
                                                     vendas aos movimentos de stock, e é a
@@ -680,6 +695,14 @@ export default function Produtos() {
                     </Botao>
                 </nav>
             )}
+
+            <FichaDoArtigo
+                artigo={aVer}
+                opcoes={opcoes.data}
+                podeEditar={Boolean(permissoes?.pode_editar)}
+                aoFechar={() => porAVer(null)}
+                aoEditar={abrirEdicao}
+            />
 
             <Rastreio artigo={aRastrear} aoFechar={() => porARastrear(null)} />
 
@@ -1129,7 +1152,13 @@ function Formulario({
         <Modal
             aberto
             aoFechar={aoFechar}
-            titulo={aEditar ? t('Editar :nome', { nome: aEditar.name }) : t('Novo artigo')}
+            titulo={aEditar ? t('Editar Produto') : t('Novo Produto')}
+            subtitulo={aEditar?.name}
+            // A JANELA LEVA A COR DO ECRÃ — roxo→rosa, como a faixa lá em cima
+            // e como o modal em Blade: é o que a faz ler-se como parte da
+            // página, e não como uma caixa que veio de fora.
+            cor="roxo"
+            icone="fa-box"
             largura="lg"
             rodape={
                 <>
@@ -1248,15 +1277,33 @@ function Formulario({
                     ajuda={
                         aEditar
                             ? t('Único nesta empresa.')
-                            : t('Em branco, é gerado automaticamente.')
+                            : t('Código sugerido automaticamente, mas pode alterá-lo')
                     }
                 >
-                    <input
-                        value={dados.code ?? ''}
-                        onChange={(e) => campo('code', e.target.value)}
-                        placeholder={aEditar ? '' : t('Ex.: PROD000001')}
-                        className={cls(entrada, 'font-mono font-semibold')}
-                    />
+                    <div className="relative">
+                        <input
+                            value={dados.code ?? ''}
+                            onChange={(e) => campo('code', e.target.value)}
+                            placeholder={aEditar ? '' : t('Ex.: PROD000001')}
+                            className={cls(
+                                entrada,
+                                'font-mono font-semibold',
+                                // A CAIXA VERDE do ecrã de sempre, só a criar:
+                                // é o sinal de que aquele código foi gerado e
+                                // não escrito — e que se pode trocar.
+                                !aEditar && 'border-2 border-emerald-300 bg-emerald-50 pr-16',
+                            )}
+                        />
+                        {!aEditar && (
+                            <span
+                                aria-hidden="true"
+                                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white"
+                            >
+                                <i className="fas fa-bolt mr-1" />
+                                AUTO
+                            </span>
+                        )}
+                    </div>
                 </Campo>
 
                 <Campo etiqueta="SKU" erro={erros.sku}>
@@ -1295,16 +1342,45 @@ function Formulario({
 
                 {/* O imposto sai do catálogo da empresa, nunca escrito à mão:
                     o regime fiscal já afinou as taxas. */}
-                <Campo etiqueta={t('Imposto')} erro={erros.tax_type} obrigatorio>
-                    <select
-                        value={dados.tax_type}
-                        onChange={(e) => campo('tax_type', e.target.value as ArtigoParaGravar['tax_type'])}
-                        className={entrada}
-                    >
-                        <option value="iva">IVA</option>
-                        <option value="isento">{t('Isento')}</option>
-                    </select>
-                </Campo>
+                {/* O REGIME DE IVA EM DOIS CARTÕES, como o ecrã de sempre: é
+                    uma escolha de duas, e uma caixa de escolha esconde a
+                    segunda atrás de um clique. Cada um diz o que significa —
+                    quem preenche a ficha de um artigo não sabe de cor a
+                    diferença. */}
+                <fieldset className="sm:col-span-3">
+                    <legend className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        {t('Regime de IVA')}
+                        <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>
+                        <span className="sr-only"> {t('(obrigatório)')}</span>
+                    </legend>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <EscolhaDeRegime
+                            valor="iva"
+                            escolhido={dados.tax_type}
+                            icone="fa-percent"
+                            titulo={t('Sujeito a IVA')}
+                            nota={t('Produto com taxa de IVA')}
+                            cor="azul"
+                            aoEscolher={() => campo('tax_type', 'iva')}
+                        />
+                        <EscolhaDeRegime
+                            valor="isento"
+                            escolhido={dados.tax_type}
+                            icone="fa-ban"
+                            titulo={t('Isento de IVA')}
+                            nota={t('Produto isento')}
+                            cor="verde"
+                            aoEscolher={() => campo('tax_type', 'isento')}
+                        />
+                    </div>
+
+                    {erros.tax_type?.[0] && (
+                        <p role="alert" className="mt-1 text-xs font-medium text-red-600">
+                            {erros.tax_type[0]}
+                        </p>
+                    )}
+                </fieldset>
 
                 {dados.tax_type === 'iva' && semTaxas ? (
                     <div
@@ -1348,18 +1424,46 @@ function Formulario({
                         </select>
                     </Campo>
                 ) : (
+                    /* O MOTIVO DA ISENÇÃO É UMA LISTA FECHADA, e não texto
+                       livre. São os códigos oficiais da AGT (DS.120 §9.5), como
+                       o ecrã em Blade os oferecia, agrupados por tipo de
+                       imposto. Escrito à mão («isento», «art 12»), o motivo é
+                       recusado pela AGT no envio da factura — muito depois de a
+                       venda estar feita e o cliente ter ido embora. */
                     <Campo
-                        etiqueta={t('Motivo da isenção')}
+                        etiqueta={t('Motivo de Isenção')}
                         erro={erros.exemption_reason}
                         obrigatorio
                         className="sm:col-span-2"
+                        ajuda={t('Código oficial AGT (DS.120 §9.5) — agrupado por tipo de imposto.')}
                     >
-                        <input
+                        <select
                             value={dados.exemption_reason ?? ''}
                             onChange={(e) => campo('exemption_reason', e.target.value)}
-                            placeholder={t('Ex.: M99')}
                             className={entrada}
-                        />
+                        >
+                            <option value="">{t('Selecione o motivo…')}</option>
+                            {Object.entries(porGrupo(opcoes?.motivos_de_isencao ?? [])).map(([grupo, itens]) => (
+                                <optgroup key={grupo} label={grupo}>
+                                    {itens.map((m) => (
+                                        <option key={m.valor} value={m.valor}>
+                                            {m.rotulo}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                            {/* O QUE JÁ ESTÁ GRAVADO E NÃO ESTÁ NA LISTA continua
+                                escolhido. Um artigo antigo pode ter um motivo que
+                                a AGT entretanto retirou — mostrá-lo é melhor do
+                                que o campo aparecer vazio e a gravação lho
+                                apagar sem ninguém dar por nada. */}
+                            {dados.exemption_reason &&
+                                !(opcoes?.motivos_de_isencao ?? []).some((m) => m.valor === dados.exemption_reason) && (
+                                    <option value={dados.exemption_reason}>
+                                        {t(':codigo (fora do catálogo actual)', { codigo: dados.exemption_reason })}
+                                    </option>
+                                )}
+                        </select>
                     </Campo>
                 )}
 
@@ -1519,6 +1623,441 @@ function Formulario({
             </form>
         </Modal>
     );
+}
+
+/* ─── A ficha do artigo (só ler) ──────────────────────────────────────── */
+
+/**
+ * DETALHES DO PRODUTO — a ficha inteira, sem risco de lhe mexer.
+ *
+ * O ecrã em Blade tinha-a num modal de 455 linhas e a migração não a trouxe:
+ * quem só queria CONSULTAR um artigo tinha de abrir o formulário de edição,
+ * que é onde se estraga uma ficha por engano. É a mesma informação, arrumada
+ * para ler: a imagem e a galeria, os avisos que têm de saltar à vista, os
+ * códigos, os preços, e o que estiver preenchido dos campos de sector.
+ *
+ * O QUE ESTÁ VAZIO NÃO APARECE — só as secções de sector, que dizem «sem dados»
+ * para se perceber que a pergunta existe e não foi respondida.
+ */
+function FichaDoArtigo({
+    artigo,
+    opcoes,
+    podeEditar,
+    aoFechar,
+    aoEditar,
+}: {
+    artigo: Artigo | null;
+    opcoes: OpcoesDosArtigos | undefined;
+    podeEditar: boolean;
+    aoFechar: () => void;
+    aoEditar: (a: Artigo) => void;
+}) {
+    if (!artigo) {
+        return null;
+    }
+
+    const a = artigo;
+    const marca = opcoes?.marcas.find((m) => m.id === a.brand_id)?.name;
+    const fornecedor = opcoes?.fornecedores.find((f) => f.id === a.supplier_id)?.name;
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            largura="xl"
+            icone="fa-eye"
+            cor="primaria"
+            titulo={t('Detalhes do Produto')}
+            subtitulo={a.name}
+            rodape={
+                <>
+                    <Botao onClick={aoFechar}>{t('Fechar')}</Botao>
+                    {podeEditar && (
+                        <Botao
+                            cor="primaria"
+                            tom="solida"
+                            icone="fa-pen"
+                            onClick={() => {
+                                aoFechar();
+                                aoEditar(a);
+                            }}
+                        >
+                            {t('Editar Produto')}
+                        </Botao>
+                    )}
+                </>
+            }
+        >
+            <div className="grid gap-6 md:grid-cols-3">
+                <div className="md:col-span-1">
+                    {a.imagem ? (
+                        <img
+                            src={a.imagem}
+                            alt={a.name}
+                            loading="lazy"
+                            className="h-56 w-full rounded-xl border-2 border-indigo-100 object-cover shadow-lg"
+                        />
+                    ) : (
+                        <div className="grid h-56 w-full place-items-center rounded-xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 shadow-lg">
+                            <div className="text-center">
+                                <i className="fas fa-box mb-2 text-5xl text-indigo-200" aria-hidden="true" />
+                                <p className="text-sm font-semibold text-indigo-400">{t('Sem imagem')}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {a.galeria.length > 0 && (
+                        <div className="mt-3">
+                            <p className="mb-2 text-xs font-semibold text-slate-600">{t('Galeria')}</p>
+                            <div className="grid grid-cols-4 gap-2">
+                                {a.galeria.map((g) => (
+                                    <img
+                                        key={g.caminho}
+                                        src={g.url}
+                                        alt=""
+                                        loading="lazy"
+                                        className="h-14 w-full rounded-lg border border-slate-200 object-cover shadow-sm transition-transform duration-200 hover:scale-110"
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-4 md:col-span-2">
+                    <div>
+                        <h3 className="text-2xl font-bold text-slate-900">{a.name}</h3>
+                        {/* OS AVISOS AO PÉ DO NOME, e não enterrados lá em baixo:
+                            quem abre a ficha ao balcão tem de os ver sem
+                            percorrer o resto. Seguem o ARTIGO e não o perfil da
+                            empresa — desligar o perfil de farmácia não pode
+                            calar o aviso de um artigo controlado. */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {a.requires_prescription && (
+                                <Etiqueta cor="perigo" icone="fa-file-prescription">
+                                    {t('Exige receita médica')}
+                                </Etiqueta>
+                            )}
+                            {a.is_controlled && (
+                                <Etiqueta cor="primaria" icone="fa-triangle-exclamation">
+                                    {t('Psicotrópico / estupefaciente')}
+                                </Etiqueta>
+                            )}
+                            {/* O conteúdo líquido distingue «Champô 200ml» de
+                                «Champô 750ml» — é identidade, não pormenor. */}
+                            {a.net_content && (
+                                <Etiqueta cor="neutra" icone="fa-bottle-water">
+                                    {a.net_content}
+                                </Etiqueta>
+                            )}
+                            <Etiqueta cor={a.is_active ? 'bom' : 'neutra'} ponto>
+                                {a.is_active ? t('Ativo') : t('Inativo')}
+                            </Etiqueta>
+                            <Etiqueta cor="neutra" icone={a.type === 'servico' ? 'fa-bell-concierge' : 'fa-box'}>
+                                {a.tipo_rotulo}
+                            </Etiqueta>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        <Chave rotulo={t('Código')} valor={a.code} tom="azul" />
+                        <Chave rotulo="SKU" valor={a.sku} tom="roxo" />
+                        <Chave rotulo={t('Código de Barras')} valor={a.barcode} tom="verde" />
+                    </div>
+
+                    {a.description && (
+                        <div className={cls('bg-slate-50 p-4', RAIO)}>
+                            <p className="mb-1 text-sm font-semibold text-slate-700">
+                                <i className="fas fa-align-left mr-2 text-slate-400" aria-hidden="true" />
+                                {t('Descrição')}
+                            </p>
+                            <p className="text-sm text-slate-600">{a.description}</p>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className={cls('border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-green-50 p-4', RAIO)}>
+                            <p className="text-sm font-semibold text-emerald-700">{t('Preço de Venda')}</p>
+                            <p className="text-2xl font-bold tabular-nums text-emerald-900">{kz(a.price)} Kz</p>
+                        </div>
+                        <div className={cls('border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4', RAIO)}>
+                            <p className="text-sm font-semibold text-amber-700">{t('Custo')}</p>
+                            <p className="text-2xl font-bold tabular-nums text-amber-900">{kz(a.cost ?? 0)} Kz</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <Bloco titulo={t('Categorização')} icone="fa-sitemap" cor="cyan">
+                    <Linha rotulo={t('Categoria:')} valor={a.category?.name} />
+                    <Linha rotulo={t('Marca:')} valor={marca} />
+                    <Linha rotulo={t('Fornecedor:')} valor={fornecedor} />
+                    <Linha rotulo={t('Unidade:')} valor={a.unit} />
+                </Bloco>
+
+                <Bloco titulo={t('Informação Fiscal')} icone="fa-receipt" cor="indigo">
+                    <Linha
+                        rotulo={t('Regime:')}
+                        valor={a.tax_type === 'isento' ? t('Isento de IVA') : t('Sujeito a IVA')}
+                    />
+                    {a.tax_type === 'iva' && <Linha rotulo={t('Taxa:')} valor={a.taxa === null ? null : `${a.taxa}%`} />}
+                    {a.tax_type === 'isento' && <Linha rotulo={t('Motivo Isenção:')} valor={a.exemption_reason} />}
+                </Bloco>
+
+                {/* O STOCK SÓ DE UM PRODUTO. Um serviço não tem nenhum, e uma
+                    caixa a dizer «0» seria mentira. */}
+                {a.type === 'produto' && (
+                    <Bloco titulo={t('Gestão de Stock')} icone="fa-warehouse" cor="verde" className="md:col-span-2">
+                        {a.manage_stock ? (
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                                <Contador rotulo={t('Atual')} valor={a.stock} destaque />
+                                <Contador rotulo={t('Mínimo')} valor={a.stock_min} />
+                                <Contador rotulo={t('Máximo')} valor={a.stock_max} />
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500">
+                                <i className="fas fa-circle-info mr-2 text-slate-400" aria-hidden="true" />
+                                {t('Stock não gerenciado para este produto')}
+                            </p>
+                        )}
+                    </Bloco>
+                )}
+            </div>
+
+            <SectorNaFicha artigo={a} />
+        </Modal>
+    );
+}
+
+/** Um código em caixa colorida — como o ecrã de sempre os mostrava. */
+function Chave({ rotulo, valor, tom }: { rotulo: string; valor: string | null; tom: 'azul' | 'roxo' | 'verde' }) {
+    if (!valor) {
+        return null;
+    }
+
+    // Mapa e não interpolação: sem build, o Tailwind do browser não gera uma
+    // classe montada em tempo de execução.
+    const cores = {
+        azul: 'border-blue-200 bg-blue-50 text-blue-900',
+        roxo: 'border-purple-200 bg-purple-50 text-purple-900',
+        verde: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+    } as const;
+
+    return (
+        <div className={cls('border p-3', RAIO, cores[tom])}>
+            <p className="text-xs font-semibold opacity-70">{rotulo}</p>
+            <p className="font-mono text-sm font-bold">{valor}</p>
+        </div>
+    );
+}
+
+/** Uma secção da ficha: título com ícone e um fundo da sua cor. */
+function Bloco({
+    titulo,
+    icone,
+    cor,
+    className,
+    children,
+}: {
+    titulo: string;
+    icone: string;
+    cor: 'cyan' | 'indigo' | 'verde' | 'teal';
+    className?: string;
+    children: React.ReactNode;
+}) {
+    const cores = {
+        cyan: 'border-cyan-200 bg-cyan-50 text-cyan-600',
+        indigo: 'border-indigo-200 bg-indigo-50 text-indigo-600',
+        verde: 'border-emerald-200 bg-emerald-50 text-emerald-600',
+        teal: 'border-teal-200 bg-teal-50 text-teal-600',
+    } as const;
+
+    return (
+        <section className={cls('border p-4', RAIO, cores[cor], className)}>
+            <h4 className="mb-3 flex items-center gap-2 font-bold text-slate-900">
+                <i className={`fas ${icone}`} aria-hidden="true" />
+                {titulo}
+            </h4>
+            <div className="space-y-1.5">{children}</div>
+        </section>
+    );
+}
+
+/** Rótulo à esquerda, valor à direita. Sem valor, a linha não aparece. */
+function Linha({ rotulo, valor }: { rotulo: string; valor?: string | number | null }) {
+    if (valor === null || valor === undefined || valor === '') {
+        return null;
+    }
+
+    return (
+        <div className="flex items-start gap-2 text-sm">
+            <span className="w-28 flex-none text-slate-600">{rotulo}</span>
+            <span className="font-semibold text-slate-900">{valor}</span>
+        </div>
+    );
+}
+
+/** Um número do stock, com o rótulo por baixo. */
+function Contador({ rotulo, valor, destaque = false }: { rotulo: string; valor: number | null; destaque?: boolean }) {
+    return (
+        <div className={cls('bg-white p-3', RAIO)}>
+            <p className={cls('font-bold tabular-nums', destaque ? 'text-2xl text-emerald-700' : 'text-xl text-slate-700')}>
+                {valor === null ? '—' : numero(valor)}
+            </p>
+            <p className="text-xs text-slate-500">{rotulo}</p>
+        </div>
+    );
+}
+
+/**
+ * OS CAMPOS DE SECTOR NA FICHA.
+ *
+ * Só aparecem os blocos que têm alguma coisa preenchida: um artigo comum não
+ * tem nada disto, e quatro caixas a dizer «sem dados» num artigo de mercearia
+ * são ruído. Mas o bloco que TEM um campo mostra também os que ficaram por
+ * preencher — é assim que se vê o que falta na ficha.
+ */
+function SectorNaFicha({ artigo: a }: { artigo: Artigo }) {
+    const blocos = [
+        {
+            titulo: t('Medicamento'),
+            icone: 'fa-pills',
+            linhas: [
+                [t('Substância activa (DCI)'), a.active_ingredient],
+                [t('Dosagem'), a.dosage],
+                [t('Forma farmacêutica'), a.pharmaceutical_form],
+                [t('N.º de registo ARMED'), a.armed_registration],
+            ] as Array<[string, string | null]>,
+        },
+        {
+            titulo: t('Vestuário'),
+            icone: 'fa-shirt',
+            linhas: [
+                [t('Tamanho'), a.size],
+                [t('Cor'), a.color],
+                [t('Género'), a.gender],
+                [t('Composição'), a.material],
+            ] as Array<[string, string | null]>,
+        },
+        {
+            titulo: t('Cosmética'),
+            icone: 'fa-pump-soap',
+            linhas: [
+                [t('Meses após abertura (PAO)'), a.pao_months === null ? null : String(a.pao_months)],
+                [t('Lista INCI'), a.inci_ingredients],
+            ] as Array<[string, string | null]>,
+        },
+        {
+            titulo: t('Mercearia'),
+            icone: 'fa-basket-shopping',
+            linhas: [
+                [t('Conservação'), a.storage_conditions],
+                [t('País de origem'), a.origin_country],
+                [t('Alergénios'), a.allergens],
+            ] as Array<[string, string | null]>,
+        },
+    ].filter((b) => b.linhas.some(([, v]) => filled(v)));
+
+    if (blocos.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {blocos.map((b) => (
+                <Bloco key={b.titulo} titulo={b.titulo} icone={b.icone} cor="teal">
+                    {b.linhas.map(([rotulo, valor]) => (
+                        <Linha key={rotulo} rotulo={rotulo} valor={valor} />
+                    ))}
+                </Bloco>
+            ))}
+        </div>
+    );
+}
+
+const filled = (v: unknown) => v !== null && v !== undefined && v !== '';
+
+/**
+ * UM DOS DOIS CARTÕES DO REGIME DE IVA.
+ *
+ * É um `radio` a sério por baixo — o cartão é só o desenho. Assim as setas do
+ * teclado percorrem as opções e o leitor de ecrã anuncia «1 de 2», que é o que
+ * um par de `<div>` com `onClick` nunca faz.
+ */
+function EscolhaDeRegime({
+    valor,
+    escolhido,
+    icone,
+    titulo,
+    nota,
+    cor,
+    aoEscolher,
+}: {
+    valor: 'iva' | 'isento';
+    escolhido: string;
+    icone: string;
+    titulo: string;
+    nota: string;
+    cor: 'azul' | 'verde';
+    aoEscolher: () => void;
+}) {
+    const activo = escolhido === valor;
+
+    const cores = {
+        azul: { anel: 'border-blue-500 bg-blue-50', icone: 'text-blue-500' },
+        verde: { anel: 'border-emerald-500 bg-emerald-50', icone: 'text-emerald-500' },
+    } as const;
+
+    return (
+        <label
+            className={cls(
+                'relative flex cursor-pointer items-center gap-3 border-2 p-4 transition-all duration-200',
+                RAIO,
+                activo ? cores[cor].anel : 'border-slate-300 hover:border-slate-400 hover:shadow-md',
+            )}
+        >
+            <input
+                type="radio"
+                name="regime-de-iva"
+                value={valor}
+                checked={activo}
+                onChange={aoEscolher}
+                className="sr-only"
+            />
+            <div className="flex-1">
+                <span className="flex items-center gap-2 font-bold text-slate-900">
+                    <i className={`fas ${icone} ${cores[cor].icone}`} aria-hidden="true" />
+                    {titulo}
+                </span>
+                <span className="mt-0.5 block text-xs text-slate-500">{nota}</span>
+            </div>
+            {/* O visto é a confirmação de que o cartão está escolhido — a cor
+                sozinha não chega a quem não a distingue. */}
+            {activo && (
+                <i
+                    className={`fas fa-circle-check animate-scale-in text-xl ${cores[cor].icone}`}
+                    aria-hidden="true"
+                />
+            )}
+        </label>
+    );
+}
+
+/**
+ * Arruma os motivos de isenção pelos seus grupos, pela ordem em que chegam.
+ *
+ * O servidor já os manda ordenados (IVA, Selo, IEC): manter essa ordem é o que
+ * põe o IVA primeiro, que é o que 95% das empresas usa.
+ */
+function porGrupo<T extends { grupo: string }>(itens: T[]): Record<string, T[]> {
+    const mapa: Record<string, T[]> = {};
+
+    for (const i of itens) {
+        (mapa[i.grupo] ??= []).push(i);
+    }
+
+    return mapa;
 }
 
 /* ─── O rastreio: para onde foi este artigo ───────────────────────────── */

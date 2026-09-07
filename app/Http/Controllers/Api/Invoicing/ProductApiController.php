@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Invoicing;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Invoicing\ProductResource;
+use App\Models\AGT\AGTTaxExemptionCode;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Invoicing\InvoicingSettings;
@@ -504,6 +505,33 @@ class ProductApiController extends Controller
 
             'generos' => collect(self::GENEROS)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
             'conservacao' => collect(self::CONSERVACAO)->map(fn ($r, $v) => ['valor' => $v, 'rotulo' => __($r)])->values(),
+
+            /*
+             * OS MOTIVOS DE ISENÇÃO OFICIAIS DA AGT (DS.120 §9.5).
+             *
+             * NÃO É TEXTO LIVRE, e é essa a razão de virem daqui. O ecrã em
+             * Blade tinha-os numa lista agrupada por tipo de imposto; ao migrar
+             * ficou um campo de texto com «Ex.: M99» ao lado — e um motivo
+             * escrito à mão («isento», «art 12») é rejeitado pela AGT no envio
+             * da factura, muito depois de a venda estar feita.
+             *
+             * Vêm agrupados como no ecrã de sempre: IEC (I01–I16), Imposto de
+             * Selo (S01–S03) e IVA (M01–M93).
+             */
+            'motivos_de_isencao' => AGTTaxExemptionCode::where('is_active', true)
+                ->orderByRaw("FIELD(tax_type, 'IVA', 'IS', 'IEC', 'NS')")
+                ->orderBy('code')
+                ->get(['code', 'description', 'tax_type'])
+                ->map(fn ($m) => [
+                    'valor' => $m->code,
+                    'rotulo' => $m->code . ' — ' . $m->description,
+                    'grupo' => match ($m->tax_type) {
+                        'IVA' => __('IVA'),
+                        'IS' => __('Imposto de Selo'),
+                        'IEC' => __('IEC'),
+                        default => __('Não sujeição'),
+                    },
+                ])->all(),
 
             // O PERFIL DECIDE O QUE APARECE POR OMISSÃO — e mais nada.
             //

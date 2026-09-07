@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-import { RAIO, RAIO_GRANDE, cls } from '@/ui/tokens';
+import { CORES_DE_ECRA, RAIO, RAIO_GRANDE, cls } from '@/ui/tokens';
 
 /**
  * O CABEÇALHO DE ECRÃ, DE VOLTA.
@@ -15,35 +15,16 @@ import { RAIO, RAIO_GRANDE, cls } from '@/ui/tokens';
  * `saftgenerator`, `audit-trail-viewer`, `pos-shift-manager`, `reports-hub` e
  * companhia, escrita uma vez em vez de quinze.
  *
- * AS CORES SÃO AS DA CASA e mais nenhumas — as mesmas de `GRADIENTES`, sem a
- * parte do `hover:`. Um cabeçalho não é um botão: escurecer ao passar o rato
- * por cima seria prometer um clique que não existe.
+ * AS CORES SÃO AS DA CASA e mais nenhumas, e vivem em `ui/tokens`
+ * (`CORES_DE_ECRA`) — não aqui. O MODAL que cada ecrã abre repete a cor da sua
+ * faixa, e duas listas da mesma paleta em ficheiros diferentes divergem à
+ * primeira cor nova.
+ *
+ * São as mesmas famílias dos papéis (`GRADIENTES`), sem a parte do `hover:`:
+ * um cabeçalho não é um botão, e escurecer ao passar o rato por cima seria
+ * prometer um clique que não existe.
  */
-const TONS = {
-    primaria: 'bg-gradient-to-r from-indigo-600 to-violet-600',
-    neutra: 'bg-gradient-to-r from-slate-700 to-slate-800',
-    bom: 'bg-gradient-to-r from-emerald-600 to-teal-600',
-    aviso: 'bg-gradient-to-r from-amber-500 to-orange-500',
-    perigo: 'bg-gradient-to-r from-red-600 to-rose-600',
-    /*
-     * O laranja da AGT — o `laranja` do `CartaoNumero`, um degrau mais fundo.
-     *
-     * O ecrã em Blade abria com `from-orange-500 to-red-500` e o subtítulo
-     * branco por cima do laranja claro quase não se lia. Mesma família, mesma
-     * paleta, `600` em vez de `500`: fica igual ao que era e passa a ler-se.
-     */
-    laranja: 'bg-gradient-to-r from-orange-600 to-red-600',
-
-    /*
-     * AS TRÊS DOS CATÁLOGOS. Cada lista tinha a SUA cor no ecrã em Blade, e
-     * não era enfeite: quem trabalha nelas todo o dia reconhece a página pela
-     * faixa antes de ler o título. Os artigos eram roxo→rosa, as categorias
-     * ciano→azul, as marcas rosa→rosa-escuro.
-     */
-    roxo: 'bg-gradient-to-r from-purple-600 to-pink-600',
-    ciano: 'bg-gradient-to-r from-cyan-600 to-blue-600',
-    rosa: 'bg-gradient-to-r from-pink-600 to-rose-600',
-} as const;
+const TONS = CORES_DE_ECRA;
 
 export type TomDaFaixa = keyof typeof TONS;
 

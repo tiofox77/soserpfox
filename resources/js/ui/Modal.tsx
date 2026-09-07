@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
-import { FOCO, GRADIENTES, RAIO_GRANDE, TRANSICAO, cls, type Cor } from './tokens';
+import { CORES_DE_ECRA, FOCO, RAIO_GRANDE, TRANSICAO, cls, type CorDeEcra } from './tokens';
 
 /**
  * O MODAL DA CASA.
@@ -35,7 +35,13 @@ export function Modal({
     subtitulo?: string;
     /** Um ícone FontAwesome (`fa-user`, `fa-trash`, …). */
     icone?: string;
-    cor?: Cor;
+    /**
+     * A cor do cabeçalho. Além dos cinco papéis (primária, perigo, aviso…),
+     * aceita a COR DO ECRÃ que abriu a janela — o modal dos artigos era
+     * roxo→rosa como a faixa da página, e é assim que a janela se lê como
+     * parte do ecrã e não como uma caixa que veio de fora.
+     */
+    cor?: CorDeEcra;
     children: ReactNode;
     rodape?: ReactNode;
     largura?: 'sm' | 'md' | 'lg' | 'xl';
@@ -81,7 +87,7 @@ export function Modal({
                 larguras[largura],
             )}
         >
-            <header className={cls('sticky top-0 z-10 px-5 py-4 text-white', GRADIENTES[cor])}>
+            <header className={cls('sticky top-0 z-10 px-5 py-4 text-white', CORES_DE_ECRA[cor])}>
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex min-w-0 items-center gap-3">
                         {icone && (

@@ -220,6 +220,12 @@ export type OpcoesDosArtigos = {
     unidades: string[];
     generos: Escolha[];
     conservacao: Escolha[];
+    /**
+     * Os motivos de isenção OFICIAIS da AGT (DS.120 §9.5), agrupados por tipo
+     * de imposto. Não é texto livre: um motivo escrito à mão é rejeitado pela
+     * AGT no envio, muito depois de a venda estar feita.
+     */
+    motivos_de_isencao: Array<{ valor: string; rotulo: string; grupo: string }>;
     /** Os perfis LIGADOS nas Definições: dizem o que aparece por omissão. */
     perfis: string[];
     /** O que o catálogo TEM — para mostrar campos e filtros a quem desligou o perfil. */

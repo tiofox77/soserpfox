@@ -963,7 +963,11 @@ function Formulario({
         <Modal
             aberto
             aoFechar={aoFechar}
-            titulo={aEditar ? t('Editar :nome', { nome: aEditar.name }) : t('Novo cliente')}
+            titulo={aEditar ? t('Editar Cliente') : t('Novo Cliente')}
+            subtitulo={aEditar?.name}
+            // A janela leva a cor do ecrã — o verde da faixa lá em cima.
+            cor="bom"
+            icone="fa-users"
             rodape={
                 <>
                     <Botao onClick={aoFechar}>{t('Cancelar')}</Botao>

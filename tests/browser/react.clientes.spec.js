@@ -47,9 +47,19 @@ test('cria um cliente e ele aparece na lista', async ({ page }) => {
 
     // E está mesmo na lista, vindo do servidor.
     await page.getByPlaceholder('Nome, NIF, email ou telefone').fill(nif);
-    // `exact` porque a célula das acções tem o nome no aria-label dos botões
-    // («Editar <nome>») e sem isso o selector apanha duas.
-    await expect(page.getByRole('cell', { name: nome, exact: true })).toBeVisible({ timeout: 20_000 });
+
+    /*
+     * PROCURA-SE O NOME, E NÃO A CÉLULA INTEIRA.
+     *
+     * A célula do nome deixou de ser só o nome: leva a medalha e, por baixo, a
+     * condição de pagamento do cliente — como o ecrã de sempre. Um
+     * `cell, exact: true` compara o texto TODO da célula e passou a falhar
+     * assim que a condição lá apareceu. O que interessa provar é que o nome
+     * chegou à lista.
+     */
+    await expect(
+        page.locator('tbody').getByText(nome, { exact: true }),
+    ).toBeVisible({ timeout: 20_000 });
 });
 
 /**

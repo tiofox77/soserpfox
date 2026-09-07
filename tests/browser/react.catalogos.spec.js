@@ -29,7 +29,7 @@ for (const c of CATALOGOS) {
         await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
         await expect(page.getByRole('heading', { name: c.titulo }).first()).toBeVisible();
 
-        await page.getByRole('button', { name: /^Novo\(a\)/ }).click();
+        await page.getByRole('button', { name: /^Nov[oa] / }).click();
         await expect(page.getByLabel(c.campo)).toBeVisible();
         await page.getByRole('button', { name: /^Cancelar$/ }).click();
         await expect(page.getByLabel(c.campo)).toBeHidden();
@@ -42,7 +42,7 @@ test('cria uma marca, ve-a na lista e apaga-a', async ({ page }) => {
     await page.goto('/invoicing/brands');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole('button', { name: /^Novo\(a\)/ }).click();
+    await page.getByRole('button', { name: /^Nov[oa] / }).click();
     await page.getByLabel(/^Nome\b/).fill(nome);
     await page.getByRole('button', { name: /^Guardar$/ }).click();
 
@@ -59,7 +59,7 @@ test('o erro de validacao aparece no campo', async ({ page }) => {
     await page.goto('/invoicing/warehouses');
     await expect(page.getByRole('table')).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole('button', { name: /^Novo\(a\)/ }).click();
+    await page.getByRole('button', { name: /^Nov[oa] / }).click();
     await page.getByRole('button', { name: /^Guardar$/ }).click();
 
     await expect(page.getByRole('alert').first()).toBeVisible({ timeout: 20_000 });

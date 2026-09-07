@@ -60,6 +60,33 @@ export const GRADIENTES = {
 } as const;
 
 /**
+ * A COR DE CADA ECRÃ — a faixa do cabeçalho e o modal que ele abre.
+ *
+ * Os cinco papéis acima (`GRADIENTES`) são por SIGNIFICADO: primária é a acção
+ * principal, perigo destrói, aviso avisa. Isto é outra coisa: é a identidade
+ * da página. No Blade, cada lista tinha a sua — clientes verde, artigos
+ * roxo→rosa, fornecedores laranja, categorias ciano, marcas rosa — e o modal
+ * que ela abre repetia-a no cabeçalho. Não é enfeite: quem trabalha nestas
+ * listas todo o dia reconhece a página pela faixa antes de ler o título.
+ *
+ * SEM `hover:`, ao contrário dos papéis: um cabeçalho não é um botão, e
+ * escurecer ao passar o rato promete um clique que não existe.
+ */
+export const CORES_DE_ECRA = {
+    primaria: 'bg-gradient-to-r from-indigo-600 to-violet-600',
+    neutra: 'bg-gradient-to-r from-slate-700 to-slate-800',
+    bom: 'bg-gradient-to-r from-emerald-600 to-teal-600',
+    aviso: 'bg-gradient-to-r from-amber-500 to-orange-500',
+    perigo: 'bg-gradient-to-r from-red-600 to-rose-600',
+    laranja: 'bg-gradient-to-r from-orange-600 to-red-600',
+    roxo: 'bg-gradient-to-r from-purple-600 to-pink-600',
+    ciano: 'bg-gradient-to-r from-cyan-600 to-blue-600',
+    rosa: 'bg-gradient-to-r from-pink-600 to-rose-600',
+} as const;
+
+export type CorDeEcra = keyof typeof CORES_DE_ECRA;
+
+/**
  * As cores por PAPEL e não por gosto.
  *
  * `primaria` é a acção principal do ecrã, e há uma só por ecrã.
