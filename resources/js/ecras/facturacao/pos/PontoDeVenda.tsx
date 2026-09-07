@@ -757,6 +757,19 @@ function CartaoDeArtigo({
             type="button"
             onClick={onClick}
             disabled={semStock}
+            /*
+             * O CARTÃO TEM DE SE ANUNCIAR.
+             *
+             * Um botão feito de imagem, nome e preço não tem nome acessível
+             * nenhum: quem usa leitor de ecrã ouve «botão», e mais nada. E ao
+             * balcão há quem trabalhe com o ecrã por trás — o nome dito em voz
+             * alta é o que confirma o artigo antes de ele entrar na factura.
+             */
+            aria-label={
+                a.pergunta_preco
+                    ? t('Juntar :artigo — preço perguntado ao balcão', { artigo: a.nome })
+                    : t('Juntar :artigo, :preco', { artigo: a.nome, preco: kz(a.preco) })
+            }
             style={{ '--i': i } as React.CSSProperties}
             className={cls(
                 'entra group relative flex flex-col overflow-hidden border bg-white p-2 text-left',

@@ -455,9 +455,39 @@ class PosApiController extends Controller
 
         $pagina = $consulta->listagem()->paginate($filtros['por_pagina'] ?? 20)->withQueryString();
 
+        /*
+         * O ESTADO NA AGT, numa consulta só para a página inteira.
+         *
+         * Não vai para o `PosSalesReportQuery` de propósito: esse é partilhado
+         * com o PDF e o Excel, e mexer-lhe mudava ficheiros que ninguém pediu
+         * para mudar. Aqui junta-se ao que a página já trouxe.
+         *
+         * Lê-se a SUBMISSÃO e não só a coluna da factura: é a submissão que
+         * sabe se foi recusada e porquê, e uma venda recusada pela AGT que o
+         * mapa mostrasse como enviada era pior do que não mostrar nada.
+         */
+        $ids = collect($pagina->items())
+            ->filter(fn ($d) => $d->doc_tipo === PosSalesReportQuery::TIPO_FACTURA)
+            ->pluck('doc_id')
+            ->all();
+
+        $naAgt = $ids === [] ? collect() : \App\Models\AGT\AGTSubmission::where('tenant_id', $tenantId)
+            ->where('document_type', \App\Models\Invoicing\SalesInvoice::class)
+            ->whereIn('document_id', $ids)
+            ->get(['document_id', 'status', 'error_message'])
+            ->keyBy('document_id');
+
         return response()->json([
             'data' => collect($pagina->items())->map(fn ($d) => [
-                'tipo' => $d->doc_tipo,
+                /*
+                 * O TIPO EM PALAVRA, e não o código.
+                 *
+                 * A consulta devolve 'FR' e 'NC' em `doc_tipo` — que é o
+                 * código do documento, e não o que distingue uma venda de uma
+                 * devolução no mapa. O ecrã lê «factura» ou «nota»; o código
+                 * verdadeiro vai em `subtipo`, que é onde a etiqueta o mostra.
+                 */
+                'tipo' => $d->doc_tipo === PosSalesReportQuery::TIPO_FACTURA ? 'factura' : 'nota',
                 'subtipo' => $d->doc_subtipo,
                 'id' => (int) $d->doc_id,
                 'numero' => $d->numero,
@@ -473,8 +503,20 @@ class PosApiController extends Controller
                 'estado' => $d->status,
                 'motivo' => $d->motivo,
                 'factura_origem' => $d->factura_origem,
+
+                /*
+                 * O SELO DA AGT, em três estados e uma cor.
+                 *
+                 * `validated` é o único que quer dizer «está feito». O
+                 * `rejected` traz a razão, que é o que permite ir corrigir em
+                 * vez de adivinhar. Quando não há submissão nenhuma, ou a
+                 * empresa não comunica ou ainda não foi — e dizer «por
+                 * comunicar» é honesto nos dois casos.
+                 */
+                'agt' => $this->seloDaAgt($d, $naAgt->get($d->doc_id)),
+
                 // As duas moradas do papel, como no fecho da venda.
-                'papeis' => $d->doc_tipo === 'factura' ? [
+                'papeis' => $d->doc_tipo === PosSalesReportQuery::TIPO_FACTURA ? [
                     'talao' => "/invoicing/sales/invoices/{$d->doc_id}/talao",
                     'a4' => "/invoicing/sales/invoices/{$d->doc_id}/preview",
                 ] : null,
@@ -487,7 +529,45 @@ class PosApiController extends Controller
                 // Os totais contam sobre o PERÍODO, não sobre a página: uma
                 // soma que mudasse ao carregar em «Seguinte» não é uma soma.
                 'totais' => $consulta->totais(),
+                // O papel configurado: é nele que o botão de imprimir imprime.
+                'formato' => (InvoicingSettings::forTenant($tenantId)->pos_formato_impressao ?? 'talao') === 'a4' ? 'a4' : 'talao',
             ],
         ]);
+    }
+
+    /**
+     * O SELO DA AGT de um documento do mapa.
+     *
+     * Três estados e uma cor, porque é uma coluna estreita e o que se lê de
+     * relance é a cor. A razão da recusa vai no título — quem precisa dela
+     * pára em cima e lê; quem só quer saber se está feito vê o verde.
+     *
+     * @param  object  $d  A linha do mapa
+     * @param  \App\Models\AGT\AGTSubmission|null  $submissao
+     * @return array{estado: string, rotulo: string, cor: string, razao: string|null}
+     */
+    private function seloDaAgt($d, $submissao): array
+    {
+        // A nota de crédito também vai à AGT, mas este mapa só junta a
+        // submissão das facturas: para as outras não se afirma nada.
+        if ($d->doc_tipo !== PosSalesReportQuery::TIPO_FACTURA) {
+            return ['estado' => 'nao-aplica', 'rotulo' => '—', 'cor' => 'neutra', 'razao' => null];
+        }
+
+        $estado = $submissao->status ?? null;
+
+        return match ($estado) {
+            'validated' => ['estado' => 'validado', 'rotulo' => __('Validada'), 'cor' => 'bom', 'razao' => null],
+            'submitted' => ['estado' => 'enviado', 'rotulo' => __('Enviada'), 'cor' => 'primaria', 'razao' => null],
+            'rejected' => [
+                'estado' => 'recusado',
+                'rotulo' => __('Recusada'),
+                'cor' => 'perigo',
+                'razao' => $submissao->error_message,
+            ],
+            'pending' => ['estado' => 'em-fila', 'rotulo' => __('Em fila'), 'cor' => 'aviso', 'razao' => null],
+            // Sem submissão: ou a empresa não comunica, ou ainda não foi.
+            default => ['estado' => 'por-comunicar', 'rotulo' => __('Por comunicar'), 'cor' => 'neutra', 'razao' => null],
+        };
     }
 }

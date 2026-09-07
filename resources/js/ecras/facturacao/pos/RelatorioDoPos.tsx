@@ -43,6 +43,8 @@ type LinhaDoMapa = {
     estado: string;
     motivo: string | null;
     factura_origem: string | null;
+    /** O selo da AGT, ja decidido pelo servidor. */
+    agt: { estado: string; rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo'; razao: string | null };
     papeis: { talao: string; a4: string } | null;
 };
 
@@ -108,7 +110,7 @@ export default function RelatorioDoPos() {
     const mapa = useQuery({
         queryKey: ['pos', 'relatorio', filtros],
         queryFn: () =>
-            api.ler<{ data: LinhaDoMapa[]; meta: { total: number; pagina: number; paginas: number; totais: Totais } }>(
+            api.ler<{ data: LinhaDoMapa[]; meta: { total: number; pagina: number; paginas: number; totais: Totais; formato: 'talao' | 'a4' } }>(
                 '/pos/relatorio',
                 filtros as unknown as Record<string, string | number>,
             ),
@@ -132,6 +134,8 @@ export default function RelatorioDoPos() {
 
     const linhas = mapa.data?.data ?? [];
     const totais = mapa.data?.meta.totais;
+    // O papel configurado pela empresa: e nele que o botao imprime.
+    const formato = mapa.data?.meta.formato ?? 'talao';
 
     return (
         <div className="space-y-4">
@@ -272,6 +276,7 @@ export default function RelatorioDoPos() {
                                     <th className="px-4 py-3 font-bold">{t('Data')}</th>
                                     <th className="px-4 py-3 font-bold">{t('Forma')}</th>
                                     <th className="px-4 py-3 font-bold">{t('Estado')}</th>
+                                    <th className="px-3 py-3 text-center font-bold" title={t('Estado no Portal AGT')}>AGT</th>
                                     <th className="px-4 py-3 text-right font-bold">{t('Total')}</th>
                                     <th className="px-4 py-3 text-right font-bold">{t('Acções')}</th>
                                 </tr>
@@ -279,7 +284,7 @@ export default function RelatorioDoPos() {
                             <tbody className={cls('divide-y divide-slate-100', mapa.isFetching && 'opacity-60')}>
                                 {linhas.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-16 text-center">
+                                        <td colSpan={8} className="px-6 py-16 text-center">
                                             <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
                                                 <i className="fas fa-chart-simple text-3xl text-slate-400" aria-hidden="true" />
                                             </div>
@@ -317,6 +322,39 @@ export default function RelatorioDoPos() {
                                                 {d.estado}
                                             </Etiqueta>
                                         </td>
+                                        {/* O SELO DA AGT. Coluna estreita de
+                                            propósito: o que se lê de relance é
+                                            a cor, e a razão da recusa está no
+                                            título para quem parar em cima. */}
+                                        <td className="px-3 py-3 text-center" title={d.agt.razao ?? d.agt.rotulo}>
+                                            {d.agt.estado === 'nao-aplica' ? (
+                                                <span className="text-slate-300">—</span>
+                                            ) : (
+                                                <span
+                                                    className={cls(
+                                                        'inline-grid h-6 w-6 place-items-center rounded-full text-[11px]',
+                                                        d.agt.cor === 'bom' && 'bg-emerald-100 text-emerald-700',
+                                                        d.agt.cor === 'primaria' && 'bg-indigo-100 text-indigo-700',
+                                                        d.agt.cor === 'aviso' && 'bg-amber-100 text-amber-700',
+                                                        d.agt.cor === 'perigo' && 'bg-red-100 text-red-700',
+                                                        d.agt.cor === 'neutra' && 'bg-slate-100 text-slate-500',
+                                                    )}
+                                                    aria-label={d.agt.razao ? `${d.agt.rotulo}: ${d.agt.razao}` : d.agt.rotulo}
+                                                >
+                                                    <i
+                                                        className={cls(
+                                                            'fas',
+                                                            d.agt.estado === 'validado' && 'fa-check',
+                                                            d.agt.estado === 'enviado' && 'fa-paper-plane',
+                                                            d.agt.estado === 'recusado' && 'fa-xmark',
+                                                            d.agt.estado === 'em-fila' && 'fa-hourglass-half',
+                                                            d.agt.estado === 'por-comunicar' && 'fa-minus',
+                                                        )}
+                                                        aria-hidden="true"
+                                                    />
+                                                </span>
+                                            )}
+                                        </td>
                                         <td
                                             className={cls(
                                                 'px-4 py-3 text-right font-bold tabular-nums',
@@ -336,31 +374,47 @@ export default function RelatorioDoPos() {
                                                 >
                                                     <i className="fas fa-eye" aria-hidden="true" />
                                                 </button>
-
+                                                {/* IMPRIMIR. Abre o papel que a empresa
+                                                    configurou com a caixa de impressão já
+                                                    pronta — a página manda-se imprimir
+                                                    sozinha depois de as imagens carregarem.
+                                                    Reimprimir um talão passa a ser um clique. */}
                                                 {d.papeis && (
                                                     <a
-                                                        href={d.papeis.talao}
+                                                        href={`${d.papeis[formato]}?imprimir=1`}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        title={t('Talão')}
-                                                        aria-label={t('Talão de :numero', { numero: d.numero_interno })}
-                                                        className={cls('p-2 text-indigo-500 transition-all duration-200 hover:scale-110 hover:bg-indigo-50', RAIO, FOCO)}
+                                                        aria-label={t('Imprimir :numero', { numero: d.numero_interno })}
+                                                        className={cls(
+                                                            'inline-flex items-center gap-1.5 border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700',
+                                                            'transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm',
+                                                            RAIO,
+                                                            FOCO,
+                                                        )}
                                                     >
-                                                        <i className="fas fa-receipt" aria-hidden="true" />
+                                                        <i className="fas fa-print text-indigo-500" aria-hidden="true" />
+                                                        {t('Imprimir')}
                                                     </a>
                                                 )}
 
-                                                {/* A NOTA DE CRÉDITO LEVA AO EDITOR DELA, com a factura
-                                                    já escolhida. O ecrã de sempre criava-a aqui à mão,
-                                                    ao lado de um serviço que fazia o mesmo. */}
+                                                {/* CREDITAR leva ao editor de notas de crédito
+                                                    com a factura já escolhida. O ecrã de sempre
+                                                    criava a nota aqui à mão, ao lado de um
+                                                    `EmissorDeNotas` que fazia o mesmo — uma venda
+                                                    anula-se num sítio só. */}
                                                 {d.tipo === 'factura' && d.estado !== 'cancelled' && (
                                                     <a
                                                         href={`/invoicing/credit-notes/create?invoice=${d.id}`}
-                                                        title={t('Emitir nota de crédito')}
-                                                        aria-label={t('Emitir nota de crédito de :numero', { numero: d.numero_interno })}
-                                                        className={cls('p-2 text-amber-600 transition-all duration-200 hover:scale-110 hover:bg-amber-50', RAIO, FOCO)}
+                                                        aria-label={t('Creditar :numero', { numero: d.numero_interno })}
+                                                        className={cls(
+                                                            'inline-flex items-center gap-1.5 border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700',
+                                                            'transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-sm',
+                                                            RAIO,
+                                                            FOCO,
+                                                        )}
                                                     >
                                                         <i className="fas fa-rotate-left" aria-hidden="true" />
+                                                        {t('Creditar')}
                                                     </a>
                                                 )}
                                             </div>
