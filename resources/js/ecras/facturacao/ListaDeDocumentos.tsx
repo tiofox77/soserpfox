@@ -754,10 +754,10 @@ function HistoricoDeConversoes({
                                                         {f.numero}
                                                     </a>
                                                 </td>
-                                                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                                                <td className="px-3 py-2 text-slate-500">
                                                     {data(f.data)}
                                                 </td>
-                                                <td className="whitespace-nowrap px-3 py-2 text-slate-500">
+                                                <td className="px-3 py-2 text-slate-500">
                                                     {data(f.vencimento)}
                                                 </td>
                                                 <td className="px-3 py-2 text-right font-semibold tabular-nums">

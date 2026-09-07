@@ -91,18 +91,40 @@ class PurchaseInvoiceImutavelTest extends TenantTestCase
 
         $this->assertDatabaseHas('invoicing_purchase_invoices', ['id' => $f->id]);
 
-        // E nenhuma rota do grupo dos ecrãs novos apaga uma factura de compra,
-        // seja qual for o endereço por onde alguém a acrescente.
+        /*
+         * O EMISSOR DE COMPRAS NÃO TEM PORTA DE APAGAR NENHUMA.
+         *
+         * A lista genérica dos documentos ganhou um `DELETE` (as propostas e as
+         * notas eliminam-se por lá), e por isso a guarda deixou de poder ser
+         * «nenhuma rota DELETE existe». Continua a valer para o
+         * `CompraApiController`, que é o que trata das facturas de compra: se
+         * ali aparecer um `DELETE`, alguém abriu a porta errada.
+         */
         $apagadoras = collect(Route::getRoutes())->filter(function ($rota) {
             $accao = (string) ($rota->getAction('controller') ?? '');
 
             return in_array('DELETE', $rota->methods(), true)
                 && str_starts_with($rota->uri(), 'api/v1/invoicing/react')
-                && (str_contains($accao, 'CompraApiController') || str_contains($accao, 'DocumentosApiController'));
+                && str_contains($accao, 'CompraApiController');
         });
 
         $this->assertCount(0, $apagadoras,
             'apareceu uma rota que apaga facturas de compra: ' . $apagadoras->map(fn ($r) => $r->uri())->implode(', '));
+
+        /*
+         * E A LISTA GENÉRICA RECUSA-AS, com a permissão de apagar na mão.
+         *
+         * É a guarda que conta: a rota existe (serve nove documentos), e o que
+         * tem de ser verdade é que ESTE tipo não passa por ela. Uma factura de
+         * compra anula-se — para o stock que entrou ser revertido — e não se
+         * elimina.
+         */
+        $this->comPermissoes('invoicing.purchases.invoices.view', 'invoicing.purchases.invoices.delete');
+
+        $this->deleteJson("/api/v1/invoicing/react/documentos/facturas-compra/{$f->id}")
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('invoicing_purchase_invoices', ['id' => $f->id]);
     }
 
     /**
