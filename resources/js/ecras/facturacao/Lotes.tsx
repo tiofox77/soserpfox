@@ -140,6 +140,11 @@ export default function Lotes() {
                                 <th className="px-4 py-3 font-bold"><i className="fas fa-hashtag mr-1.5 text-teal-500" aria-hidden="true" />{t('Lote')}</th>
                                 <th className="px-4 py-3 font-bold"><i className="fas fa-box mr-1.5 text-indigo-500" aria-hidden="true" />{t('Artigo')}</th>
                                 <th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th>
+                                {/* A FABRICAÇÃO, que a lista em Blade tinha: num
+                                    lote de mercearia é ela que diz se a validade
+                                    faz sentido, e é por ela que se separam duas
+                                    remessas do mesmo artigo. */}
+                                <th className="px-4 py-3 font-bold"><i className="fas fa-industry mr-1.5 text-slate-400" aria-hidden="true" />{t('Fabricação')}</th>
                                 <th className="px-4 py-3 font-bold"><i className="fas fa-calendar-day mr-1.5 text-amber-500" aria-hidden="true" />{t('Validade')}</th>
                                 <th className="px-4 py-3 text-right font-bold">{t('Disponível')}</th>
                                 <th className="px-4 py-3 text-right font-bold">{t('Custo')}</th>
@@ -150,7 +155,7 @@ export default function Lotes() {
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-16">
+                                    <td colSpan={9} className="px-6 py-16">
                                         {lista.isPending ? (
                                             <p className="text-center text-slate-400">{t('A carregar…')}</p>
                                         ) : (
@@ -173,6 +178,7 @@ export default function Lotes() {
                                     <td className="px-4 py-2 font-mono font-semibold text-slate-900">{l.batch_number ?? <span className="text-slate-300">—</span>}</td>
                                     <td className="px-4 py-2 font-medium text-slate-800">{l.artigo}</td>
                                     <td className="px-4 py-2">{l.armazem ? <Etiqueta cor="primaria" icone="fa-warehouse">{l.armazem}</Etiqueta> : <span className="text-slate-300">—</span>}</td>
+                                    <td className="px-4 py-2 tabular-nums text-slate-600">{l.manufacturing_date ? data(l.manufacturing_date) : <span className="text-slate-300">—</span>}</td>
                                     <td className="px-4 py-2 tabular-nums">
                                         {l.expiry_date ? data(l.expiry_date) : <span className="text-slate-300">—</span>}
                                         {l.dias !== null && <span className={cls('ml-2 text-xs font-semibold', l.dias < 0 ? 'text-red-600' : l.dias <= l.alert_days ? 'text-amber-600' : 'text-slate-400')}>{l.dias < 0 ? t('há :dias dias', { dias: -l.dias }) : t(':dias dias', { dias: l.dias })}</span>}

@@ -13,6 +13,8 @@ export type LinhaDeStock = {
     armazem: string | null;
     quantidade: number;
     disponivel: number;
+    /** O que já está comprometido e ainda não saiu. */
+    reservado: number;
     minimo: number;
     baixo: boolean;
     custo: number;

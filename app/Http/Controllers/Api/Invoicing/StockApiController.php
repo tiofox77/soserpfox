@@ -265,6 +265,15 @@ class StockApiController extends Controller
             'armazem' => $s->warehouse?->name,
             'quantidade' => round((float) $s->quantity, 3),
             'disponivel' => round((float) $s->available_quantity, 3),
+            /*
+             * O RESERVADO, que a lista em Blade mostrava em coluna própria.
+             *
+             * É o que já está comprometido e ainda não saiu — quem olha para a
+             * quantidade sem ver isto acredita que tem mais do que tem, e
+             * promete a um cliente o que já é de outro. Vem contado de cá para
+             * o ecrã não fazer a subtracção por sua conta.
+             */
+            'reservado' => round(max(0, (float) $s->quantity - (float) $s->available_quantity), 3),
             'minimo' => round((float) ($s->product?->stock_min ?? 0), 3),
             'baixo' => (float) $s->quantity <= (float) ($s->product?->stock_min ?? 0),
             'custo' => round((float) $s->unit_cost, 2),

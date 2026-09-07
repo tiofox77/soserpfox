@@ -144,6 +144,12 @@ export default function Stock() {
                                 <th className="px-4 py-3 font-bold"><i className="fas fa-warehouse mr-1.5 text-blue-500" aria-hidden="true" />{t('Armazém')}</th>
                                 {o.mostra_conservacao && <th className="px-4 py-3 font-bold"><i className="fas fa-temperature-half mr-1.5 text-sky-500" aria-hidden="true" />{t('Conservação')}</th>}
                                 <th className="px-4 py-3 text-right font-bold"><i className="fas fa-cubes mr-1.5 text-slate-400" aria-hidden="true" />{t('Quantidade')}</th>
+                                {/* DISPONÍVEL e RESERVADO, que a lista em Blade tinha.
+                                    Quem olha só para a quantidade acredita que tem mais
+                                    do que tem, e promete a um cliente o que já é de
+                                    outro. */}
+                                <th className="px-4 py-3 text-right font-bold">{t('Disponível')}</th>
+                                <th className="px-4 py-3 text-right font-bold">{t('Reservado')}</th>
                                 <th className="px-4 py-3 text-right font-bold">{t('Mínimo')}</th>
                                 <th className="px-4 py-3 text-right font-bold">{t('Custo')}</th>
                                 <th className="px-4 py-3 text-right font-bold">{t('Valor')}</th>
@@ -153,7 +159,7 @@ export default function Stock() {
                         <tbody className={cls('divide-y divide-slate-100', lista.isFetching && 'opacity-60')}>
                             {linhas.length === 0 && (
                                 <tr>
-                                    <td colSpan={o.mostra_conservacao ? 8 : 7} className="px-6 py-16">
+                                    <td colSpan={o.mostra_conservacao ? 10 : 9} className="px-6 py-16">
                                         {lista.isPending ? (
                                             <p className="text-center text-slate-400">{t('A carregar…')}</p>
                                         ) : (
@@ -207,6 +213,8 @@ export default function Stock() {
                                         {l.unidade && <span className="ml-1 text-xs text-slate-400">{l.unidade}</span>}
                                         {l.baixo && <span className="ml-2"><Etiqueta cor="aviso" icone="fa-triangle-exclamation">{t('baixo')}</Etiqueta></span>}
                                     </td>
+                                    <td className="px-4 py-2 text-right tabular-nums font-semibold text-emerald-700">{l.disponivel.toLocaleString('pt-PT')}</td>
+                                    <td className="px-4 py-2 text-right tabular-nums">{l.reservado > 0 ? <span className="font-semibold text-amber-600">{l.reservado.toLocaleString('pt-PT')}</span> : <span className="text-slate-300">—</span>}</td>
                                     <td className="px-4 py-2 text-right tabular-nums text-slate-500">{l.minimo.toLocaleString('pt-PT')}</td>
                                     <td className="px-4 py-2 text-right tabular-nums">{kz(l.custo)}</td>
                                     <td className="px-4 py-2 text-right tabular-nums font-semibold">{kz(l.valor)}</td>
