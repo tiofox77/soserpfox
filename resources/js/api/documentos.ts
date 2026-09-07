@@ -130,6 +130,28 @@ export type FichaDeDocumento = {
     agt: { rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo' };
     regiao_fiscal: string | null;
     notas: string | null;
+    /**
+     * O bloco fiscal — hash, estado SAFT e submissão. Null no que a empresa
+     * NÃO comunica: proformas, orçamentos e facturas de compra (essa é do
+     * fornecedor que a emitiu).
+     */
+    fiscal: {
+        hash: string | null;
+        estado_saft: string | null;
+        agt_estado: string | null;
+        agt_referencia: string | null;
+        agt_submetido_em: string | null;
+    } | null;
+
+    /** O documento que esta nota rectifica. Null fora das notas. */
+    rectifica: {
+        rotulo: string;
+        numero: string | null;
+        id: number | null;
+        motivo: string | null;
+        expressao: string | null;
+    } | null;
+
     /** Recibos e adiantamentos não têm linhas: são dinheiro, não mercadoria. */
     tem_linhas: boolean;
     linhas: Array<{

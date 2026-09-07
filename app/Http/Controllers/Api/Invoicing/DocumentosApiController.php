@@ -256,6 +256,39 @@ class DocumentosApiController extends Controller
             'regiao_fiscal' => $d->tax_country_region ?? null,
             'notas' => $d->notes ?? null,
 
+            /*
+             * O BLOCO FISCAL, quando o documento tem um.
+             *
+             * O modal das notas mostrava-o e é o que responde à pergunta que se
+             * faz a seguir a emitir: «foi aceite?». Sai o hash do SAFT abreviado
+             * (os quatro primeiros caracteres, como sempre — o hash inteiro não
+             * cabe nem serve para nada aqui), o estado SAFT por extenso, e a
+             * referência que a AGT devolveu.
+             *
+             * NULL numa proforma: não é documento fiscal e não tem nada disto.
+             */
+            'fiscal' => $this->blocoFiscal($d, $def),
+
+            /*
+             * O DOCUMENTO RECTIFICADO, nas notas — e a expressão do Art. 12.º.
+             *
+             * Uma nota corrige uma factura, e a factura tem de estar escrita na
+             * ficha: é o que liga as duas na conferência.
+             */
+            'rectifica' => ! empty($def['origem']) ? (function () use ($d, $def) {
+                $o = $d->{$def['origem']['relacao']};
+
+                return [
+                    'rotulo' => __($def['origem']['rotulo']),
+                    'numero' => $o
+                        ? (method_exists($o, 'numeroInterno') ? $o->numeroInterno() : $o->invoice_number)
+                        : null,
+                    'id' => $o?->id,
+                    'motivo' => isset($def['motivo'][$d->reason]) ? __($def['motivo'][$d->reason]) : $d->reason,
+                    'expressao' => $d->reason_text ?: __('Rectificação'),
+                ];
+            })() : null,
+
             'tem_linhas' => $temLinhas,
             'linhas' => $linhas,
 
@@ -282,6 +315,53 @@ class DocumentosApiController extends Controller
              */
             'impostos_extra' => $this->impostosExtra($d, $temLinhas),
         ]);
+    }
+
+    /**
+     * O BLOCO FISCAL de um documento — hash, estado SAFT e submissão à AGT.
+     *
+     * SÓ NOS DOCUMENTOS FISCAIS. Uma proforma, um orçamento ou um adiantamento
+     * nunca são enviados: um bloco vazio a dizer «não submetido» num deles
+     * mandava alguém procurar um envio que nunca vai existir.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function blocoFiscal($d, array $def): ?array
+    {
+        /*
+         * SÓ NO QUE A EMPRESA COMUNICA.
+         *
+         * `nao-fiscal` (proforma, orçamento, adiantamento) nunca é enviado, e
+         * `fornecedor` (factura de compra) é comunicado por quem a emitiu — as
+         * colunas do envio nem sequer existem nessa tabela. Um bloco a dizer
+         * «não submetido» em qualquer dos casos mandava alguém procurar um
+         * envio que nunca vai existir.
+         */
+        if (($def['agt'] ?? 'nao-fiscal') !== 'propria') {
+            return null;
+        }
+
+        // O ESTADO SAFT por extenso. É uma letra na coluna (`invoice_status`),
+        // e sozinha não diz nada a quem a lê pela primeira vez.
+        $estadosSaft = ['N' => __('N — Normal'), 'F' => __('F — Facturado'), 'A' => __('A — Anulado')];
+        $letra = (string) ($d->invoice_status ?? '');
+
+        return [
+            // Os quatro primeiros caracteres, como sempre: o hash inteiro não
+            // cabe e não serve para conferir nada à vista.
+            'hash' => filled($d->saft_hash) ? substr((string) $d->saft_hash, 0, 4) . '…' : null,
+            'estado_saft' => $estadosSaft[$letra] ?? ($letra ?: null),
+            'agt_estado' => $d->agt_status ?: null,
+            'agt_referencia' => $d->agt_reference ?: null,
+            /*
+             * A DATA DE SUBMISSÃO passa por `optional()`.
+             *
+             * Nenhum modelo convertia esta coluna e vinha texto cru: o
+             * `->format()` rebentava e o modal dava 500. O cast já lá está, mas
+             * o ecrã não volta a depender disso.
+             */
+            'agt_submetido_em' => optional($d->agt_submitted_at)->toDateTimeString(),
+        ];
     }
 
     /**

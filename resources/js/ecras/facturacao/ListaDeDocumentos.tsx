@@ -560,6 +560,44 @@ function FichaDoDocumento({
                         </section>
                     </div>
 
+                    {/* O DOCUMENTO RECTIFICADO, nas notas. Uma nota corrige uma
+                        factura, e a factura tem de estar escrita na ficha: é o
+                        que liga as duas na conferência. */}
+                    {f.rectifica && (
+                        <section className={cls('border border-amber-200 bg-amber-50 p-4', RAIO)}>
+                            <h4 className="mb-2 text-sm font-bold text-amber-900">
+                                <i className="fas fa-file-pen mr-2" aria-hidden="true" />
+                                {t('Documento Rectificado')}
+                            </h4>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                                <div>
+                                    <p className="text-xs text-amber-700">{f.rectifica.rotulo}</p>
+                                    {f.rectifica.id ? (
+                                        <a
+                                            href={`/invoicing/sales/invoices/${f.rectifica.id}/preview`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="font-semibold text-indigo-700 hover:underline"
+                                        >
+                                            {f.rectifica.numero}
+                                        </a>
+                                    ) : (
+                                        <p className="text-sm text-slate-500">{t('Sem factura associada')}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-xs text-amber-700">{t('Motivo')}</p>
+                                    <p className="text-sm font-semibold text-slate-900">{f.rectifica.motivo ?? '—'}</p>
+                                </div>
+                                <div>
+                                    {/* A expressão que a lei manda escrever na nota. */}
+                                    <p className="text-xs text-amber-700">{t('Expressão (Art. 12.º)')}</p>
+                                    <p className="text-sm font-semibold text-slate-900">{f.rectifica.expressao}</p>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
                     {/* AS LINHAS. Um recibo ou um adiantamento não as tem — são
                         dinheiro, não mercadoria — e a tabela não aparece em vez
                         de aparecer vazia. */}
@@ -639,6 +677,41 @@ function FichaDoDocumento({
                                 {t('Notas')}
                             </h4>
                             <p className="whitespace-pre-line text-sm text-slate-600">{f.notas}</p>
+                        </section>
+                    )}
+
+                    {/* O BLOCO FISCAL — só no que a empresa comunica. É o que
+                        responde à pergunta que se faz a seguir a emitir: «foi
+                        aceite?». Numa proforma não aparece: nunca é enviada. */}
+                    {f.fiscal && (
+                        <section className={cls('border border-slate-200 bg-slate-50 p-4', RAIO)}>
+                            <h4 className="mb-2 text-sm font-bold text-slate-800">
+                                <i className="fas fa-landmark mr-2 text-slate-400" aria-hidden="true" />
+                                {t('Dados Fiscais AGT')}
+                            </h4>
+                            <div className="grid gap-3 text-sm sm:grid-cols-3">
+                                <div>
+                                    <p className="text-xs text-slate-500">{t('Hash SAFT')}</p>
+                                    <p className="font-mono font-bold text-slate-900">{f.fiscal.hash ?? '—'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">{t('Estado SAFT')}</p>
+                                    <p className="font-bold text-slate-900">{f.fiscal.estado_saft ?? '—'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">{t('Submissão AGT')}</p>
+                                    <Etiqueta cor={f.agt.cor} icone={SINAL_AGT[f.agt.cor]}>
+                                        {f.agt.rotulo}
+                                    </Etiqueta>
+                                </div>
+                            </div>
+                            {f.fiscal.agt_referencia && (
+                                <p className="mt-2 text-xs text-slate-500">
+                                    {t('Referência AGT:')}{' '}
+                                    <span className="font-mono text-slate-700">{f.fiscal.agt_referencia}</span>
+                                    {f.fiscal.agt_submetido_em && ` · ${f.fiscal.agt_submetido_em}`}
+                                </p>
+                            )}
                         </section>
                     )}
                 </div>
