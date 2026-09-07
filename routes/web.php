@@ -394,6 +394,9 @@ Route::middleware(['api.token', 'subscription'])->prefix('api/v1/invoicing')->na
         // mais larga declarada primeiro apanharia `/orcamentos/12/historico`.
         Route::get('/documentos/{tipo}/{id}/historico', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'historico'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('documentos.historico');
+        // A FICHA de um documento: o modal de ver, sem sair da lista.
+        Route::get('/documentos/{tipo}/{id}', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'mostrar'])
+            ->where('tipo', '[a-z-]+')->whereNumber('id')->name('documentos.mostrar');
         // Converter uma proposta em factura — nasce em rascunho.
         Route::post('/documentos/{tipo}/{id}/converter', [\App\Http\Controllers\Api\Invoicing\DocumentosApiController::class, 'converter'])
             ->where('tipo', '[a-z-]+')->whereNumber('id')->name('documentos.converter');

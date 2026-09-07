@@ -48,6 +48,8 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
     const [aApagar, porAApagar] = useState<LinhaDeDocumento | null>(null);
     const [aConverter, porAConverter] = useState<LinhaDeDocumento | null>(null);
     const [aVerHistorico, porAVerHistorico] = useState<LinhaDeDocumento | null>(null);
+    /** O documento cuja FICHA está aberta — só para ler, sem sair da lista. */
+    const [aVer, porAVer] = useState<LinhaDeDocumento | null>(null);
 
     /*
      * ANULAR e MARCAR COMO PAGA — só nas facturas de compra.
@@ -351,6 +353,7 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                                         aoVerHistorico={
                                             opcoes.data?.tem_historico ? () => porAVerHistorico(d) : undefined
                                         }
+                                        aoVer={() => porAVer(d)}
                                     />
                                 ))}
                             </tbody>
@@ -449,6 +452,207 @@ export default function ListaDeDocumentos({ tipo }: { tipo: string }) {
                 documento={aVerHistorico}
                 aoFechar={() => porAVerHistorico(null)}
             />
+
+            <FichaDoDocumento
+                tipo={tipo}
+                documento={aVer}
+                rota={rota}
+                aoFechar={() => porAVer(null)}
+            />
+        </div>
+    );
+}
+
+/**
+ * A FICHA DE UM DOCUMENTO — o modal de VER que a lista em Blade tinha.
+ *
+ * Quem só quer conferir um documento não tem de abrir o editor (onde se
+ * estraga um por engano) nem a pré-visualização (uma página inteira, feita
+ * para imprimir). Isto é o que se olha de relance: quem, quando, o que leva e
+ * quanto dá — e dali salta-se para a pré-visualização, que é de onde se
+ * imprime.
+ */
+function FichaDoDocumento({
+    tipo,
+    documento,
+    rota,
+    aoFechar,
+}: {
+    tipo: string;
+    documento: LinhaDeDocumento | null;
+    rota: string;
+    aoFechar: () => void;
+}) {
+    const q = useQuery({
+        queryKey: ['documentos', tipo, 'ficha', documento?.id],
+        queryFn: () => documentos.ficha(tipo, documento!.id),
+        enabled: documento !== null,
+    });
+
+    if (!documento) {
+        return null;
+    }
+
+    const f = q.data;
+
+    return (
+        <Modal
+            aberto
+            aoFechar={aoFechar}
+            titulo={documento.numero}
+            subtitulo={documento.numero_agt ?? t('Série ainda não registada na AGT')}
+            icone="fa-file-invoice"
+            cor="primaria"
+            largura="lg"
+            rodape={
+                <>
+                    <Botao onClick={aoFechar}>{t('Fechar')}</Botao>
+                    <a
+                        href={`${rota}/${documento.id}/preview`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={cls(
+                            'inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2',
+                            'text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl',
+                        )}
+                    >
+                        <i className="fas fa-print" aria-hidden="true" />
+                        {t('Pré-visualizar / Imprimir')}
+                    </a>
+                </>
+            }
+        >
+            {q.isPending || !f ? (
+                <Carregando />
+            ) : (
+                <div className="space-y-5">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <section className={cls('border border-slate-200 bg-slate-50 p-4', RAIO)}>
+                            <h4 className="mb-2 text-sm font-bold text-slate-800">
+                                <i className="fas fa-user mr-2 text-slate-400" aria-hidden="true" />
+                                {t('Informações do Cliente')}
+                            </h4>
+                            <p className="font-bold text-slate-900">{f.parte.nome}</p>
+                            {f.parte.nif && <p className="text-sm text-slate-600">NIF: {f.parte.nif}</p>}
+                            {f.parte.email && <p className="text-sm text-slate-600">{f.parte.email}</p>}
+                            {f.parte.telefone && <p className="text-sm text-slate-600">{f.parte.telefone}</p>}
+                        </section>
+
+                        <section className={cls('border border-slate-200 bg-slate-50 p-4', RAIO)}>
+                            <h4 className="mb-2 text-sm font-bold text-slate-800">
+                                <i className="fas fa-circle-info mr-2 text-slate-400" aria-hidden="true" />
+                                {t('Documento')}
+                            </h4>
+                            <div className="space-y-1.5">
+                                <Dado rotulo={t('Data')} valor={data(f.data)} />
+                                {f.prazo_rotulo && <Dado rotulo={f.prazo_rotulo} valor={data(f.prazo)} />}
+                                {f.regiao_fiscal && <Dado rotulo={t('Região fiscal')} valor={f.regiao_fiscal} />}
+                                <div className="flex items-start gap-2 pt-1 text-sm">
+                                    <span className="w-28 flex-none text-slate-500">{t('Estado')}</span>
+                                    <span className="flex flex-wrap gap-1.5">
+                                        <Etiqueta cor={f.estado_cor}>{f.estado_rotulo}</Etiqueta>
+                                        <Etiqueta cor={f.agt.cor} icone={SINAL_AGT[f.agt.cor]}>
+                                            {f.agt.rotulo}
+                                        </Etiqueta>
+                                    </span>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* AS LINHAS. Um recibo ou um adiantamento não as tem — são
+                        dinheiro, não mercadoria — e a tabela não aparece em vez
+                        de aparecer vazia. */}
+                    {f.tem_linhas && (
+                        <section>
+                            <h4 className="mb-2 text-sm font-bold text-slate-700">
+                                <i className="fas fa-box mr-1.5 text-slate-400" aria-hidden="true" />
+                                {t('Produtos (:quantos)', { quantos: f.linhas.length })}
+                            </h4>
+                            <div className={cls('overflow-x-auto border border-slate-200', RAIO)}>
+                                <table className="w-full min-w-[560px] text-sm">
+                                    <thead className="bg-slate-50 text-xs text-slate-600">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left font-semibold">{t('Produto')}</th>
+                                            <th className="px-3 py-2 text-center font-semibold">{t('Qtd')}</th>
+                                            <th className="px-3 py-2 text-right font-semibold">{t('Preço')}</th>
+                                            <th className="px-3 py-2 text-center font-semibold">{t('Desc%')}</th>
+                                            <th className="px-3 py-2 text-center font-semibold">IVA</th>
+                                            <th className="px-3 py-2 text-right font-semibold">{t('Total')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {f.linhas.map((l, i) => (
+                                            <tr key={i} className="transition-colors hover:bg-indigo-50/50">
+                                                <td className="px-3 py-2">
+                                                    <p className="font-semibold text-slate-900">{l.descricao}</p>
+                                                    {l.unidade && (
+                                                        <p className="text-xs text-slate-400">{l.unidade}</p>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-center tabular-nums">
+                                                    {l.quantidade.toLocaleString(etiquetaIntl(), {
+                                                        maximumFractionDigits: 3,
+                                                    })}
+                                                </td>
+                                                <td className="px-3 py-2 text-right tabular-nums">{kz(l.preco)}</td>
+                                                <td className="px-3 py-2 text-center tabular-nums">{l.desconto}%</td>
+                                                <td className="px-3 py-2 text-center tabular-nums">{l.taxa}%</td>
+                                                <td className="px-3 py-2 text-right font-bold tabular-nums">
+                                                    {kz(l.total)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    )}
+
+                    <section className={cls('border border-slate-200 bg-slate-50 p-4', RAIO)}>
+                        <Soma rotulo={t('Subtotal')} valor={f.totais.subtotal} />
+                        {f.totais.desconto_comercial > 0 && (
+                            <Soma rotulo={t('Desconto Comercial')} valor={f.totais.desconto_comercial} />
+                        )}
+                        {f.totais.desconto_financeiro > 0 && (
+                            <Soma rotulo={t('Desconto Financeiro')} valor={f.totais.desconto_financeiro} />
+                        )}
+                        <Soma rotulo="IVA" valor={f.totais.imposto} />
+                        {/* IEC E IMPOSTO DE SELO. Sem eles o total não
+                            reconcilia: quem soma o subtotal com o IVA fica a
+                            dever a diferença sem perceber de onde vem. */}
+                        {f.impostos_extra.map((x) => (
+                            <Soma key={x.tipo} rotulo={x.tipo} valor={x.valor} />
+                        ))}
+                        <div className="mt-2 flex items-baseline justify-between border-t border-slate-300 pt-2">
+                            <span className="font-bold text-slate-800">{t('TOTAL')}</span>
+                            <span className="text-xl font-bold tabular-nums text-slate-900">
+                                {kz(f.totais.total)} Kz
+                            </span>
+                        </div>
+                    </section>
+
+                    {f.notas && (
+                        <section className={cls('border border-slate-200 bg-white p-4', RAIO)}>
+                            <h4 className="mb-1 text-sm font-bold text-slate-700">
+                                <i className="fas fa-align-left mr-1.5 text-slate-400" aria-hidden="true" />
+                                {t('Notas')}
+                            </h4>
+                            <p className="whitespace-pre-line text-sm text-slate-600">{f.notas}</p>
+                        </section>
+                    )}
+                </div>
+            )}
+        </Modal>
+    );
+}
+
+/** Uma linha dos totais: rótulo à esquerda, valor à direita. */
+function Soma({ rotulo, valor }: { rotulo: string; valor: number }) {
+    return (
+        <div className="flex items-baseline justify-between py-0.5 text-sm">
+            <span className="text-slate-600">{rotulo}</span>
+            <span className="font-semibold tabular-nums text-slate-800">{kz(valor)} Kz</span>
         </div>
     );
 }
@@ -624,6 +828,7 @@ function Linha({
     aoApagar,
     aoConverter,
     aoVerHistorico,
+    aoVer,
 }: {
     /** A ordem na lista, só para a entrada em cascata. */
     i: number;
@@ -643,6 +848,8 @@ function Linha({
     aoApagar?: () => void;
     aoConverter?: () => void;
     aoVerHistorico?: () => void;
+    /** Abre a FICHA — o modal de ver, sem sair da lista. */
+    aoVer: () => void;
 }) {
     return (
         <tr className="entra transition-all duration-200 hover:bg-indigo-50/60" style={cascata(i)}>
@@ -741,12 +948,26 @@ function Linha({
                             <i className="fas fa-money-bill-wave" aria-hidden="true" />
                         </button>
                     )}
+                    {/* VER A FICHA — o modal que a lista em Blade tinha. Quem
+                        só quer conferir não abre o editor (onde se estraga um
+                        documento por engano) nem a pré-visualização, que é uma
+                        página inteira feita para imprimir. */}
+                    <button
+                        type="button"
+                        onClick={aoVer}
+                        title={t('Ver detalhes')}
+                        aria-label={t('Ver :numero', { numero: d.numero })}
+                        className={cls('p-2 text-indigo-600 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-indigo-50', RAIO, FOCO)}
+                    >
+                        <i className="fas fa-eye" aria-hidden="true" />
+                    </button>
+
                     {/* As acções continuam a apontar para as páginas de sempre.
                         Reescrever o gerador de PDF para migrar uma LISTA seria
                         trocar o risco de sítio sem ganhar nada. */}
                     <a
                         href={`${rota}/${d.id}/edit`}
-                        title={t('Abrir')}
+                        title={t('Abrir para editar')}
                         aria-label={t('Abrir :numero', { numero: d.numero })}
                         className={cls('p-2 text-slate-500 transition-all duration-200 hover:scale-110 active:scale-100 hover:bg-slate-100', RAIO, FOCO)}
                     >

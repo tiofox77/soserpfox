@@ -117,6 +117,41 @@ export type FiltrosDeDocumentos = {
     page?: number;
 };
 
+/** A ficha de um documento: o que se olha de relance, sem sair da lista. */
+export type FichaDeDocumento = {
+    numero: string;
+    numero_agt: string | null;
+    parte: { nome: string; nif: string | null; email: string | null; telefone: string | null };
+    data: string | null;
+    prazo: string | null;
+    prazo_rotulo: string | null;
+    estado_rotulo: string;
+    estado_cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo';
+    agt: { rotulo: string; cor: 'primaria' | 'neutra' | 'bom' | 'aviso' | 'perigo' };
+    regiao_fiscal: string | null;
+    notas: string | null;
+    /** Recibos e adiantamentos não têm linhas: são dinheiro, não mercadoria. */
+    tem_linhas: boolean;
+    linhas: Array<{
+        descricao: string;
+        unidade: string | null;
+        quantidade: number;
+        preco: number;
+        desconto: number;
+        taxa: number;
+        total: number;
+    }>;
+    totais: {
+        subtotal: number;
+        desconto_comercial: number;
+        desconto_financeiro: number;
+        imposto: number;
+        total: number;
+    };
+    /** IEC e Imposto de Selo, se os houver — sem eles o total não reconcilia. */
+    impostos_extra: Array<{ tipo: string; valor: number }>;
+};
+
 /** O histórico de conversões: que facturas já saíram desta proposta. */
 export type HistoricoDeConversoes = {
     documento: {
@@ -159,4 +194,7 @@ export const documentos = {
 
     historico: (tipo: string, id: number) =>
         api.ler<HistoricoDeConversoes>(`/documentos/${tipo}/${id}/historico`),
+
+    /** A ficha para o modal de VER: cabeçalho, linhas e totais. */
+    ficha: (tipo: string, id: number) => api.ler<FichaDeDocumento>(`/documentos/${tipo}/${id}`),
 };

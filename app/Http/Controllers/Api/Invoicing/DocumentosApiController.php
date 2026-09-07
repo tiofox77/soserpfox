@@ -198,6 +198,123 @@ class DocumentosApiController extends Controller
     }
 
     /**
+     * A FICHA DE UM DOCUMENTO — o modal de VER que a lista em Blade tinha.
+     *
+     * Quem só quer conferir um documento não tem de abrir o editor (onde se
+     * estraga um por engano) nem a pré-visualização (que é uma página inteira,
+     * feita para imprimir). Isto é o que se olha de relance: quem, quando, o
+     * que leva e quanto dá.
+     *
+     * O RECIBO E O ADIANTAMENTO NÃO TÊM LINHAS — não são documentos de
+     * mercadoria, são dinheiro. A ficha mostra-lhes o cabeçalho e os totais, e
+     * a tabela das linhas não aparece em vez de aparecer vazia.
+     */
+    public function mostrar(Request $request, string $tipo, int $id): JsonResponse
+    {
+        $def = $this->definicao($request, $tipo);
+
+        $d = $this->baseDoAutor()->findOrFail($id);
+
+        $parte = $d->{$def['relacao']};
+        $temLinhas = method_exists($d, 'items');
+
+        $linhas = $temLinhas
+            ? $d->items()->get()->map(fn ($l) => [
+                'descricao' => $l->description ?: $l->product_name,
+                'unidade' => $l->unit,
+                'quantidade' => round((float) $l->quantity, 3),
+                'preco' => round((float) $l->unit_price, 2),
+                'desconto' => round((float) ($l->discount_percent ?? 0), 2),
+                'taxa' => round((float) ($l->tax_rate ?? 0), 2),
+                'total' => round((float) $l->total, 2),
+            ])->values()
+            : collect();
+
+        return response()->json([
+            'numero' => $this->temNumeracaoDupla($def['modelo']) ? $d->numeroInterno() : $d->{$def['numero']},
+            'numero_agt' => $this->temNumeracaoDupla($def['modelo']) ? $d->numeroAgt() : null,
+
+            'parte' => [
+                'nome' => $parte?->name ?? __('Consumidor Final'),
+                'nif' => $parte?->nif,
+                'email' => $parte?->email,
+                'telefone' => $parte?->phone,
+            ],
+
+            'data' => optional($d->{$def['data']})->toDateString(),
+            'prazo' => ! empty($def['prazo'])
+                ? optional($d->{$def['prazo']['coluna']})->toDateString()
+                : null,
+            'prazo_rotulo' => ! empty($def['prazo']) ? __($def['prazo']['rotulo']) : null,
+
+            'estado_rotulo' => $this->rotuloDoEstado($d->status),
+            'estado_cor' => $this->corDoEstado($d->status),
+            'agt' => $this->selo($d, $def),
+
+            // A região fiscal sai no documento e viaja para a AGT: continental,
+            // Cabinda e as outras têm taxas próprias.
+            'regiao_fiscal' => $d->tax_country_region ?? null,
+            'notas' => $d->notes ?? null,
+
+            'tem_linhas' => $temLinhas,
+            'linhas' => $linhas,
+
+            'totais' => [
+                'subtotal' => round((float) ($d->subtotal ?? 0), 2),
+                // Os dois descontos que o documento tem: o comercial (na linha
+                // ou no total) e o financeiro (pronto pagamento).
+                'desconto_comercial' => round(
+                    (float) ($d->discount_commercial ?? 0) + (float) ($d->discount_amount ?? 0),
+                    2
+                ),
+                'desconto_financeiro' => round((float) ($d->discount_financial ?? 0), 2),
+                'imposto' => round((float) ($d->tax_amount ?? 0), 2),
+                'total' => round((float) $d->{$def['valor']}, 2),
+            ],
+
+            /*
+             * IEC E IMPOSTO DE SELO, se os houver.
+             *
+             * Foram declarados à AGT linha a linha (`LineTax`), e sem eles o
+             * total NÃO RECONCILIA: quem soma o subtotal com o IVA fica a
+             * dever a diferença sem perceber de onde vem. O modal em Blade
+             * mostrava-os por isso mesmo.
+             */
+            'impostos_extra' => $this->impostosExtra($d, $temLinhas),
+        ]);
+    }
+
+    /**
+     * Os impostos declarados à parte do IVA, somados por tipo.
+     *
+     * @return list<array{tipo: string, valor: float}>
+     */
+    private function impostosExtra($d, bool $temLinhas): array
+    {
+        if (! $temLinhas) {
+            return [];
+        }
+
+        $linhas = $d->items()->get();
+        $primeira = $linhas->first();
+
+        if (! $primeira) {
+            return [];
+        }
+
+        return \App\Models\Invoicing\LineTax::where('line_type', get_class($primeira))
+            ->whereIn('line_id', $linhas->pluck('id'))
+            ->get()
+            ->groupBy('tax_type')
+            ->map(fn ($grupo, $tipo) => [
+                'tipo' => (string) $tipo,
+                'valor' => round((float) $grupo->sum('tax_amount'), 2),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * APAGAR UM DOCUMENTO — só onde o esquema o permite, e só o que ainda dá.
      *
      * Uma proposta convertida em factura não se elimina: a factura aponta para

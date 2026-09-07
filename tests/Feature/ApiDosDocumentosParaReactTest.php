@@ -391,6 +391,99 @@ class ApiDosDocumentosParaReactTest extends TenantTestCase
         $this->assertNull(SalesQuote::find($o->id));
     }
 
+    /**
+     * A FICHA DO DOCUMENTO — o modal de ver que a lista em Blade tinha.
+     *
+     * Quem só quer conferir não abre o editor (onde se estraga um documento
+     * por engano) nem a pré-visualização, que é uma página inteira feita para
+     * imprimir.
+     *
+     * @test
+     */
+    public function a_ficha_do_documento_traz_o_cabecalho_as_linhas_e_os_totais(): void
+    {
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $o = $this->orcamento([
+            'valid_until' => now()->addWeek()->toDateString(),
+            'subtotal' => 1000,
+            'tax_amount' => 140,
+            'total' => 1140,
+            'notes' => 'Entrega em Viana.',
+        ]);
+
+        \App\Models\Invoicing\SalesQuoteItem::create([
+            'sales_quote_id' => $o->id,
+            'product_id' => $this->produtoComStock()->id,
+            'product_name' => 'Artigo da ficha',
+            'description' => 'Artigo da ficha',
+            'quantity' => 2,
+            'unit' => 'UN',
+            'unit_price' => 500,
+            'tax_rate' => 14,
+            'subtotal' => 1000,
+            'total' => 1140,
+        ]);
+
+        $f = $this->getJson($this->rota('orcamentos') . '/' . $o->id)->assertOk()->json();
+
+        $this->assertSame($o->client->name, $f['parte']['nome']);
+        $this->assertSame($o->client->nif, $f['parte']['nif']);
+        $this->assertSame('Validade', $f['prazo_rotulo']);
+        $this->assertSame('Entrega em Viana.', $f['notas']);
+
+        $this->assertTrue($f['tem_linhas']);
+        $this->assertCount(1, $f['linhas']);
+        $this->assertSame('Artigo da ficha', $f['linhas'][0]['descricao']);
+        $this->assertEqualsWithDelta(2, $f['linhas'][0]['quantidade'], 0.001);
+        $this->assertEqualsWithDelta(14, $f['linhas'][0]['taxa'], 0.01);
+
+        $this->assertEqualsWithDelta(1000, $f['totais']['subtotal'], 0.01);
+        $this->assertEqualsWithDelta(140, $f['totais']['imposto'], 0.01);
+        $this->assertEqualsWithDelta(1140, $f['totais']['total'], 0.01);
+    }
+
+    /**
+     * UM RECIBO NÃO TEM LINHAS — é dinheiro, não mercadoria.
+     *
+     * A ficha di-lo (`tem_linhas` a falso) para o ecrã não desenhar uma tabela
+     * vazia, que faria acreditar que as linhas se perderam.
+     *
+     * @test
+     */
+    public function a_ficha_de_um_recibo_diz_que_nao_tem_linhas(): void
+    {
+        $this->comPermissoes('invoicing.receipts.view');
+
+        $recibo = \App\Models\Invoicing\Receipt::create([
+            'tenant_id' => $this->tenant->id,
+            'client_id' => $this->clienteEmpresa()->id,
+            'receipt_number' => 'RC FICHA/0001',
+            'payment_date' => now()->toDateString(),
+            'status' => 'issued',
+            'amount_paid' => 2500,
+            'created_by' => $this->user->id,
+        ]);
+
+        $f = $this->getJson($this->rota('recibos') . '/' . $recibo->id)->assertOk()->json();
+
+        $this->assertFalse($f['tem_linhas']);
+        $this->assertSame([], $f['linhas']);
+        $this->assertEqualsWithDelta(2500, $f['totais']['total'], 0.01);
+    }
+
+    /** A ficha segue a permissão do tipo e o escopo da empresa. @test */
+    public function a_ficha_segue_a_permissao_e_a_empresa(): void
+    {
+        $o = $this->orcamento();
+
+        $this->getJson($this->rota('orcamentos') . '/' . $o->id)->assertForbidden();
+
+        $this->comPermissoes('invoicing.sales.quotes.view');
+
+        $this->getJson($this->rota('orcamentos') . '/999999')->assertNotFound();
+    }
+
     /** Uma factura de compra não se elimina por aqui: anula-se. @test */
     public function a_factura_de_compra_nao_se_elimina_por_aqui(): void
     {
